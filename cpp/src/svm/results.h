@@ -23,10 +23,11 @@
 #include <memory>
 
 #include <cub/device/device_select.cuh>
-#include "common/cumlHandle.hpp"
 #include <cuml/common/cuml_allocator.hpp>
+#include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
+#include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/init.h"
 #include "linalg/map_then_reduce.h"
@@ -58,7 +59,7 @@ class Results {
    * @param C penalty parameter
    */
   Results(const cumlHandle_impl &handle, const math_t *x, const math_t *y,
-          int n_rows, int n_cols, math_t C)
+          int n_rows, int n_cols, math_t C, SvmType svmType)
     : allocator(handle.getDeviceAllocator()),
       stream(handle.getStream()),
       handle(handle),
@@ -67,16 +68,17 @@ class Results {
       x(x),
       y(y),
       C(C),
+      svmType(svmType),
       cub_storage(handle.getDeviceAllocator(), stream),
       d_num_selected(handle.getDeviceAllocator(), stream, 1),
       d_val_reduced(handle.getDeviceAllocator(), stream, 1),
       f_idx(handle.getDeviceAllocator(), stream, n_rows),
       idx_selected(handle.getDeviceAllocator(), stream, n_rows),
       val_selected(handle.getDeviceAllocator(), stream, n_rows),
+      val_tmp(handle.getDeviceAllocator(), stream, n_rows),
       flag(handle.getDeviceAllocator(), stream, n_rows) {
     InitCubBuffers();
-    MLCommon::LinAlg::range<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
-      f_idx.data(), n_rows);
+    MLCommon::LinAlg::range(f_idx.data(), n_rows, stream);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -100,11 +102,16 @@ class Results {
    */
   void Get(const math_t *alpha, const math_t *f, math_t **dual_coefs,
            int *n_support, int **idx, math_t **x_support, math_t *b) {
-    GetSupportVectorIndices(alpha, n_support, idx);
+    CombineCoefs(alpha, val_tmp.data());
+    GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
     if (*n_support > 0) {
+      *idx = GetSupportVectorIndices(val_tmp.data(), *n_support);
       *x_support = CollectSupportVectors(*idx, *n_support);
-      *dual_coefs = GetDualCoefs(*n_support, alpha);
       *b = CalcB(alpha, f);
+    } else {
+      *dual_coefs = nullptr;
+      *idx = nullptr;
+      *x_support = nullptr;
     }
   }
 
@@ -126,24 +133,53 @@ class Results {
     return x_support;
   }
 
-  /* Calculate coefficients = alpha * y
+  /**
+   * @brief Combine alpha parameters and labels to get SVM coefficients.
+   *
+   * The output coefficients are the values that can be used directly
+   * to calculate the decision function:
+   * \f[ f(\bm(x)) = \sum_{i=1}^{n_rows coef_i K(\bm{x}_i,\bm{x}) + b. \f]
+   *
+   * Here coefs includes coefficients with zero value.
+   *
+   * For a classifier, \f$ coef_i = y_i * \alpha_i (i \in [0..n-1])\f$,
+   * For a regressor \f$ coef_i = y_i * \alpha_i  + y_{i+n/2} * alpha_{i+n/2},
+   * (i \in [0..n/2-1]) \f$
+   *
+   * @param [in] alpha device array of dual coefficients, size [n_rows]
+   * @param [out] coef device array ouf SVM coefficients size [n_rows] for SVC
+   *        or [n_rows/2] for SVR
+   */
+  void CombineCoefs(const math_t *alpha, math_t *coef) {
+    MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_rows);
+    // Calculate dual coefficients = alpha * y
+    MLCommon::LinAlg::binaryOp(
+      coef, alpha, y, n_rows,
+      [] __device__(math_t a, math_t y) { return a * y; }, stream);
+
+    if (svmType == EPSILON_SVR) {
+      int n = n_rows / 2;
+      // for regression the final coefficients are
+      // coef[0..n-rows-1] = alpha[0..nrows-1] - alpha[nrows..2*n_rows-1]
+      MLCommon::LinAlg::add(coef, coef, coef + n, n, stream);
+    }
+  }
+  /** Calculate coefficients = alpha * y
    * @param n_support number of support vertors
    * @param alpha
    * @return buffer with dual coefficients, size [n_support]
    */
-  math_t *GetDualCoefs(int n_support, const math_t *alpha) {
+  void GetDualCoefs(const math_t *val_tmp, math_t **dual_coefs,
+                    int *n_support) {
     auto allocator = handle.getDeviceAllocator();
-    math_t *dual_coefs =
-      (math_t *)allocator->allocate(n_support * sizeof(math_t), stream);
-    MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_rows);
-    // Calculate dual coefficients = alpha * y
-    MLCommon::LinAlg::binaryOp(
-      math_tmp.data(), alpha, y, n_rows,
-      [] __device__(math_t a, math_t y) { return a * y; }, stream);
+    int n = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
     // Return only the non-zero coefficients
-    auto select_op = [] __device__(math_t a) { return 0 < a; };
-    SelectByAlpha(alpha, n_rows, math_tmp.data(), select_op, dual_coefs);
-    return dual_coefs;
+    auto select_op = [] __device__(math_t a) { return 0 != a; };
+    *n_support =
+      SelectByCoef(val_tmp, n, val_tmp, select_op, val_selected.data());
+    *dual_coefs =
+      (math_t *)allocator->allocate(*n_support * sizeof(math_t), stream);
+    MLCommon::copy(*dual_coefs, val_selected.data(), *n_support, stream);
   }
 
   /**
@@ -151,17 +187,18 @@ class Results {
    * Support vectors are the vectors where alpha > 0.
    *
    * @param [in] alpha dual coefficients, size [n_rows]
-   * @param [out] n_support number of support vectors
+   * @param [in] n_support number of support vectors
    * @param [out] idx indices of the suport vectors, size [n_support]
    */
-  void GetSupportVectorIndices(const math_t *alpha, int *n_support, int **idx) {
-    *n_support = SelectByAlpha(
-      alpha, n_rows, f_idx.data(),
-      [] __device__(math_t a) -> bool { return 0 < a; }, idx_selected.data());
-    if (*n_support > 0) {
-      *idx = (int *)allocator->allocate((*n_support) * sizeof(int), stream);
-      MLCommon::copy(*idx, idx_selected.data(), *n_support, stream);
-    }
+  int *GetSupportVectorIndices(const math_t *coef, int n_support) {
+    int n = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
+    auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
+    //MLCommon::myPrintDevVector("coef", coef, n_support);
+    //MLCommon::myPrintDevVector("idx", f_idx.data(), n);
+    SelectByCoef(coef, n, f_idx.data(), select_op, idx_selected.data());
+    int *idx = (int *)allocator->allocate(n_support * sizeof(int), stream);
+    MLCommon::copy(idx, idx_selected.data(), n_support, stream);
+    return idx;
   }
 
   /**
@@ -184,12 +221,17 @@ class Results {
     // Select f for unbound support vectors (0 < alpha < C)
     math_t C = this->C;
     auto select = [C] __device__(math_t a) -> bool { return 0 < a && a < C; };
-    int n_free = SelectByAlpha(alpha, n_rows, f, select, val_selected.data());
+    MLCommon::myPrintDevVector("alpha", alpha, n_rows);
+    MLCommon::myPrintDevVector("f", f, n_rows);
+
+    int n_free = SelectByCoef(alpha, n_rows, f, select, val_selected.data());
     if (n_free > 0) {
+      MLCommon::myPrintDevVector("val_sel", val_selected.data(), n_free);
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_free, stream);
       math_t sum;
       MLCommon::updateHost(&sum, d_val_reduced.data(), 1, stream);
+      std::cout << "n_free " << n_free << ", sum " << sum << "\n";
       return -sum / n_free;
     } else {
       // All support vectors are bound. Let's define
@@ -213,7 +255,8 @@ class Results {
   int n_cols;       //!< number of features
   const math_t *x;  //!< training vectors
   const math_t *y;  //!< labels
-  math_t C;
+  math_t C;         //!< penalty parameter
+  SvmType svmType;
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
@@ -226,6 +269,7 @@ class Results {
   MLCommon::device_buffer<int> f_idx;
   MLCommon::device_buffer<int> idx_selected;
   MLCommon::device_buffer<math_t> val_selected;
+  MLCommon::device_buffer<math_t> val_tmp;
   MLCommon::device_buffer<bool> flag;
 
   /* Allocate cub temporary buffers for GetResults
@@ -260,9 +304,9 @@ class Results {
   * @return number of selected elements
   */
   template <typename select_op, typename valType>
-  int SelectByAlpha(const math_t *alpha, int n, const valType *val,
-                    select_op op, valType *out) {
-    set_flag<<<MLCommon::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), alpha,
+  int SelectByCoef(const math_t *coef, int n, const valType *val, select_op op,
+                   valType *out) {
+    set_flag<<<MLCommon::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef,
                                                             n, op);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),

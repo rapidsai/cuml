@@ -93,9 +93,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
       kernel_params, handle_impl.getCublasHandle());
-  SmoSolver<math_t> smo(handle_impl, param.C, param.tol, kernel,
-                        param.cache_size, param.nochange_steps);
-  smo.verbose = param.verbose;
+  SmoSolver<math_t> smo(handle_impl, param, kernel);
   smo.Solve(input, n_rows, n_cols, y.data(), &(model.dual_coefs),
             &(model.n_support), &(model.x_support), &(model.support_idx),
             &(model.b), param.max_iter);
