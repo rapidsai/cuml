@@ -45,6 +45,7 @@
 - PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1357: Run benchmarks multiple times for CI
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
