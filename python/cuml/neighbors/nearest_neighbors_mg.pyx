@@ -114,8 +114,10 @@ def _build_float_d(arr_interfaces):
     """
     Instantiate a container object for a float data pointer
     and size.
-    :param arr_interfaces:
-    :return:
+
+    Parameters
+    ----------
+    arr_interfaces:
     """
     cdef vector[floatData_t *] * dataF = new vector[floatData_t *]()
 
@@ -235,6 +237,9 @@ class NearestNeighborsMG(NearestNeighbors):
     used with an initialized cumlCommunicator instance inside an
     existing distributed system. Refer to the Dask NearestNeighbors
      implementation in `cuml.dask.neighbors.nearest_neighbors`.
+
+    The end-user API for multi-node multi-GPU NearestNeighbors is
+    `cuml.dask.neighbors.NearestNeighbors`
     """
     def __init__(self, batch_size=1<<21, **kwargs):
         super(NearestNeighborsMG, self).__init__(**kwargs)
@@ -245,18 +250,24 @@ class NearestNeighborsMG(NearestNeighbors):
                    rank, n_neighbors=None, convert_dtype=True):
         """
         Query the kneighbors of an index
-        :param indices: [__cuda_array_interface__] of local index partitions
-        :param index_m: number of total index rows
-        :param n: number of columns
-        :param index_partsToRanks: mappings of index partitions to ranks
-        :param queries: [__cuda_array_interface__] of local query partitions
-        :param query_m: number of total query rows
-        :param query_partsToRanks: mappings of query partitions to ranks
-        :param rank: int rank of current worker
-        :param n_neighbors: int number of nearest neighbors to query
-        :param convert_dtype: since only float32 inputs are supported, should
+
+        Parameters
+        ----------
+        indices: [__cuda_array_interface__] of local index partitions
+        index_m: number of total index rows
+        n: number of columns
+        index_partsToRanks: mappings of index partitions to ranks
+        queries: [__cuda_array_interface__] of local query partitions
+        query_m: number of total query rows
+        query_partsToRanks: mappings of query partitions to ranks
+        rank: int rank of current worker
+        n_neighbors: int number of nearest neighbors to query
+        convert_dtype: since only float32 inputs are supported, should
                the input be automatically converted?
-        :return: output indices, output distances
+
+        Returns
+        -------
+        output indices, output distances
         """
 
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors

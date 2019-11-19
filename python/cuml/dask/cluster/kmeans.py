@@ -14,7 +14,7 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
-    workers_to_parts
+    workers_to_parts, raise_mg_import_exception
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
@@ -109,9 +109,7 @@ class KMeans(object):
         try:
             from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         except ImportError:
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
+            raise_mg_import_exception()
 
         handle = worker_state(sessionId)["handle"]
 

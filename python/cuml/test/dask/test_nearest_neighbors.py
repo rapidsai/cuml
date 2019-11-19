@@ -111,10 +111,10 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(1000)])
-@pytest.mark.parametrize("ncols", [10])
-@pytest.mark.parametrize("n_parts", [unit_param(10)])
-@pytest.mark.parametrize("batch_size", [unit_param(100)])
+@pytest.mark.parametrize("nrows", [unit_param(1000), stress_param(1e5)])
+@pytest.mark.parametrize("ncols", [unit_param(10), stress_param(500)])
+@pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
+@pytest.mark.parametrize("batch_size", [unit_param(100), stress_param(1e3)])
 def test_batch_size(nrows, ncols, n_parts,
                     batch_size, cluster):
 

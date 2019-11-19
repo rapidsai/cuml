@@ -24,4 +24,5 @@ from cuml.dask.common.comms_utils import inject_comms_on_handle, \
 from cuml.dask.common.dask_df_utils import *
 from cuml.dask.common.part_utils import *
 
-from cuml.dask.common.utils import raise_exception_from_futures
+from cuml.dask.common.utils import raise_exception_from_futures, \
+    raise_mg_import_exception
