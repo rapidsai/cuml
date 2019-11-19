@@ -100,7 +100,7 @@ std::vector<Params> getInputs() {
       p.data.nclasses = nclass;
       p.kmeans.n_clusters = p.data.nclasses;
       for (auto bs_shift : std::vector<int>({16, 18})) {
-        p.kmeans.batch_size = 1 << bs_shift;
+        p.kmeans.batch_samples = 1 << bs_shift;
         out.push_back(p);
       }
     }

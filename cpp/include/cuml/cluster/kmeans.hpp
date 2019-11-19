@@ -58,7 +58,9 @@ struct KMeansParams {
   // Oversampling factor for use in the k-means|| algorithm.
   double oversampling_factor = 2.0;
 
-  int batch_size = 1 << 15;
+  int batch_samples = 1 << 15;
+
+  int batch_centroids = 1024;
 
   bool inertia_check = false;
 };
