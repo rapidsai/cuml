@@ -37,7 +37,7 @@
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/matrix_vector_op.h>
-#include <metrics/batched/informationCriterion.h>
+#include <metrics/batched/information_criterion.h>
 #include <stats/mean.h>
 #include <matrix/batched_matrix.hpp>
 

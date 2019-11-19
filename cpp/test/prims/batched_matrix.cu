@@ -24,7 +24,6 @@
 #include "add.h"
 #include "batched_matrix.h"
 #include "matrix/batched_matrix.hpp"
-#include "random/rng.h"
 #include "test_utils.h"
 
 namespace MLCommon {

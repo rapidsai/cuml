@@ -175,6 +175,7 @@ if(BUILD_PRIMS_TESTS)
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
       prims/batched_matrix.cu
+      prims/batched/information_criterion.cu
       prims/batched/make_symm.cu
       prims/batched/gemv.cu
       prims/binary_op.cu
