@@ -54,6 +54,7 @@
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 - PR #1278: Removed incorrect overloaded instance of eigJacobi
 - PR #1302: Updates for numba 0.46
+- PR #1313: Updated the RF tests to set the seed and n_streams
 - PR #1319: Using machineName arg passed in instead of default for ASV reporting
 - PR #1326: Fix illegal memory access in make_regression (bounds issue)
 - PR #1330: Fix C++ unit test utils for better handling of differences near zero
