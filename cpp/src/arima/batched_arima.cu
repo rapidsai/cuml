@@ -47,9 +47,9 @@ using std::vector;
 void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
               int d, int q, double* d_params, double* d_vs, bool trans) {
   ML::PUSH_RANGE(__func__);
-  std::vector<double> loglike;
-  batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_params, loglike,
-                  d_vs, trans);
+  std::vector<double> loglike = std::vector<double>(num_batches);
+  batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_params,
+                  loglike.data(), d_vs, trans);
   ML::POP_RANGE();
 }
 
@@ -198,10 +198,9 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
 
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* d_mu, double* d_ar,
-                     double* d_ma, std::vector<double>& loglike, double* d_vs,
-                     bool trans) {
+                     double* d_ma, double* loglike, double* d_vs, bool trans,
+                     bool host_loglike) {
   using std::get;
-  using std::vector;
 
   ML::PUSH_RANGE(__func__);
 
@@ -266,8 +265,8 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
 }
 
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
-                     int p, int d, int q, double* d_params,
-                     std::vector<double>& loglike, double* d_vs, bool trans) {
+                     int p, int d, int q, double* d_params, double* loglike,
+                     double* d_vs, bool trans, bool host_loglike) {
   ML::PUSH_RANGE(__func__);
 
   // unpack parameters
@@ -285,7 +284,7 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   CUDA_CHECK(cudaPeekAtLastError());
 
   batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma,
-                  loglike, d_vs, trans);
+                  loglike, d_vs, trans, host_loglike);
 
   allocator->deallocate(d_mu, sizeof(double) * num_batches, stream);
   allocator->deallocate(d_ar, sizeof(double) * p * num_batches, stream);
@@ -305,20 +304,27 @@ static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
   auto stream = handle.getStream();
   double* d_vs = (double*)allocator->allocate(
     sizeof(double) * (nobs - d) * num_batches, stream);
-  std::vector<double> loglike = std::vector<double>(num_batches);
+  double* d_ic =
+    (double*)allocator->allocate(sizeof(double) * num_batches, stream);
 
-  /* Compute log-likelihood */
+  /* Compute log-likelihood in d_ic */
   batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma,
-                  loglike, d_vs, true);
+                  d_ic, d_vs, true, false);
 
-  // TODO: worth doing that on gpu? (need to copy loglike and copy back BIC)
-#pragma omp parallel for
-  for (int i = 0; i < num_batches; i++) {
-    ic[i] = ic_base - 2.0 * loglike[i];
+  /* Compute information criterion from log-likelihood and base term */
+  {
+    auto counting = thrust::make_counting_iterator(0);
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + num_batches,
+      [=] __device__(int bid) { d_ic[bid] = ic_base - 2.0 * d_ic[bid]; });
   }
+
+  /* Transfer information criteria device -> host */
+  MLCommon::updateHost(ic, d_ic, num_batches, stream);
 
   allocator->deallocate(d_vs, sizeof(double) * (nobs - d) * num_batches,
                         stream);
+  allocator->deallocate(d_ic, sizeof(double) * num_batches, stream);
 }
 
 void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,

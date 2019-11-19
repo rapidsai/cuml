@@ -55,9 +55,10 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                          int d,
                          int q,
                          double* params,
-                         vector[double]& vec_loglike,
+                         double* loglike,
                          double* d_vs,
-                         bool trans)
+                         bool trans,
+                         bool host_loglike)
 
     void predict_in_sample(cumlHandle& handle,
                            double* d_y,
@@ -925,8 +926,9 @@ def _batched_loglike(num_batches, nobs, order, y, x,
                     nobs,
                     p, d, q,
                     <double*>d_x_ptr,
-                    vec_loglike,
+                    vec_loglike.data(),
                     <double*>d_vs_ptr,
-                    trans)
+                    trans,
+                    True)
 
     return vec_loglike
