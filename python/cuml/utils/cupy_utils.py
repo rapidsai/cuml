@@ -65,7 +65,6 @@ def checked_cupy_unique(x):
     if has_cupy():
         import cupy as cp  # noqa: E402
         unique = checked_cupy_fn(cp.unique, x)
-
     else:
         warnings.warn("Using NumPy for number of class detection,"
                       "install CuPy for faster processing.")
@@ -73,7 +72,5 @@ def checked_cupy_unique(x):
             unique = np.unique(x)
         else:
             unique = np.unique(x.copy_to_host())
-
-        unique = cp.asarray(unique)
 
     return unique
