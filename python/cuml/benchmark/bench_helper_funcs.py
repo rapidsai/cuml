@@ -16,7 +16,11 @@
 import os
 import tempfile
 import cuml
-import numpy as np 
+import numpy as np
+import pandas as pd
+import cudf
+from numba import cuda
+import datagen
 
 def fit_kneighbors(m, x):
     m.fit(x)
@@ -45,15 +49,29 @@ def _build_fil_classifier(m, data, arg={}):
 
     # use maximum 1e5 rows to train the model
     train_size = min(data[0].shape[0], 100000)
-    train_data = data[0][:train_size, :]
-    train_label = data[1][:train_size]
 
-    if isinstance(data[0], np.ndarray):
+    if isinstance(data[0], (pd.DataFrame, pd.Series)):
+        train_data = datagen._convert_to_numpy(data[0])[:train_size, :]
+        train_label = datagen._convert_to_numpy(data[1])[:train_size]
         dtrain = xgb.DMatrix(train_data, label=train_label)
-    else:
-        train_data_np = np.ascontiguousarray(train_data.copy_to_host())
-        train_label_np = np.ascontiguousarray(train_label.copy_to_host())
+    elif isinstance(data[0], np.ndarray):
+        train_data = data[0][:train_size, :]
+        train_label = data[1][:train_size]
+        dtrain = xgb.DMatrix(train_data, label=train_label)
+    elif isinstance(data[0], cudf.DataFrame):
+        train_data_np_ = data[0].as_gpu_matrix().copy_to_host()
+        train_label_np_ = data[1].to_gpu_array().copy_to_host()
+        train_data_np = train_data_np_[:train_size, :]
+        train_label_np = train_label_np_[:train_size]
         dtrain = xgb.DMatrix(train_data_np, label=train_label_np)
+    elif cuda.devicearray.is_cuda_ndarray(data[0]):
+        train_data = data[0][:train_size, :]
+        train_label = data[1][:train_size]
+        train_data_np = train_data.copy_to_host()
+        train_label_np = train_label.copy_to_host()
+        dtrain = xgb.DMatrix(train_data_np, label=train_label_np)
+    else:
+        raise TypeError("Received unsupported input type " % type(data[0]))
 
     params = {
         "silent": 1, "eval_metric": "error", "objective": "binary:logistic"

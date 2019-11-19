@@ -181,7 +181,8 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             else:
                 y_pred_cuml = cuml_model.transform(X_test)
             cuml_accuracy = algo_pair.accuracy_function(
-                y_test, np.asarray(y_pred_cpu)
+                # y_test, np.asarray(y_pred_cuml)
+                y_test, y_pred_cuml
             )
         else:
             cuml_accuracy = 0.0
@@ -206,7 +207,8 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 else:
                     y_pred_cpu = cpu_model.transform(X_test)
                 cpu_accuracy = algo_pair.accuracy_function(
-                    y_test, np.asarray(y_pred_cpu)
+                    # y_test, np.asarray(y_pred_cpu)
+                    y_test, y_pred_cpu
                 )
         else:
             cpu_elapsed = 0.0
