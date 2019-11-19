@@ -32,21 +32,17 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-
-from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
+from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
+from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.cupy_utils import checked_cupy_unique
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
-
-cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-    ctypedef void* ModelBuilderHandle
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
@@ -57,41 +53,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         CRITERION_END
 
 cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_rows_per_node
-        float min_impurity_decrease
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
-
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
-
-    cdef enum RF_type:
-        CLASSIFICATION,
-        REGRESSION
-
-    cdef struct RF_metrics:
-        RF_type rf_type
-        float accuracy
-        double mean_abs_error
-        double mean_squared_error
-        double median_abs_error
-
-    cdef struct RF_params:
-        int n_trees
-        bool bootstrap
-        float rows_sample
-        int seed
-        pass
-
-    cdef cppclass RandomForestMetaData[T, L]:
-        void* trees
-        RF_params rf_params
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, int]*,
@@ -143,18 +104,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[float, int]*,
-                                    int,
-                                    int,
-                                    vector[unsigned char] &)
-
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[double, int]*,
-                                    int,
-                                    int,
-                                    vector[unsigned char] &)
-
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
                           int*,
@@ -168,30 +117,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int,
                           int*,
                           bool) except +
-
-    cdef void print_rf_summary(RandomForestMetaData[float, int]*) except +
-    cdef void print_rf_summary(RandomForestMetaData[double, int]*) except +
-
-    cdef void print_rf_detailed(RandomForestMetaData[float, int]*) except +
-    cdef void print_rf_detailed(RandomForestMetaData[double, int]*) except +
-
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    float,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    int,
-                                    CRITERION,
-                                    bool,
-                                    int) except +
-
-    cdef vector[unsigned char] save_model(ModelHandle)
 
 
 class RandomForestClassifier(Base):
