@@ -204,15 +204,6 @@ class RandomForestClassifier(Base):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an initial release of the cuML
-    Random Forest code. It contains a few known limitations:
-
-       * Inference/prediction takes place on the CPU. A GPU-based inference
-         solution based on the forest inference library is planned for a
-         near-future release.
-
-       * Instances of RandomForestClassifier cannot be pickled currently.
-
 
     Examples
     ---------
