@@ -23,18 +23,26 @@ import sklearn.random_projection
 from sklearn import metrics
 import cuml.metrics
 import cuml.decomposition
-import umap
+from cuml.utils.import_utils import has_umap
 import numpy as np
 
-from cuml.benchmark.bench_helper_funcs \
-    import fit, fit_kneighbors, fit_transform, predict, \
-    _build_fil_classifier, _build_treelite_classifier, \
-    _treelite_fil_accuracy_score
-
+from cuml.benchmark.bench_helper_funcs import (
+    fit,
+    fit_kneighbors,
+    fit_transform,
+    predict,
+    _build_fil_classifier,
+    _build_treelite_classifier,
+    _treelite_fil_accuracy_score,
+)
 from cuml.utils.import_utils import has_treelite
+
 if has_treelite():
     import treelite
     import treelite.runtime
+
+if has_umap():
+    import umap
 
 
 class AlgorithmPair:
@@ -149,8 +157,11 @@ class AlgorithmPair:
         if self.setup_cpu_func is not None:
             all_args = {**self.shared_args, **self.cpu_args}
             all_args = {**all_args, **override_args}
-            return {"cpu_setup_result":
-                    self.setup_cpu_func(self.cpu_class, data, all_args)}
+            return {
+                "cpu_setup_result": self.setup_cpu_func(
+                    self.cpu_class, data, all_args
+                )
+            }
         else:
             return {}
 
@@ -158,8 +169,11 @@ class AlgorithmPair:
         if self.setup_cuml_func is not None:
             all_args = {**self.shared_args, **self.cuml_args}
             all_args = {**all_args, **override_args}
-            return {"cuml_setup_result":
-                    self.setup_cuml_func(self.cuml_class, data, all_args)}
+            return {
+                "cuml_setup_result": self.setup_cuml_func(
+                    self.cuml_class, data, all_args
+                )
+            }
         else:
             return {}
 
@@ -172,6 +186,7 @@ def _labels_to_int_hook(data):
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
     from cuml.utils.import_utils import has_treelite
+
     if has_treelite():
         import treelite
         import treelite.runtime
@@ -182,7 +197,7 @@ def _treelite_format_hook(data):
 
 def all_algorithms():
     """Returns all defined AlgorithmPair objects"""
-    return [
+    algorithms = [
         AlgorithmPair(
             sklearn.cluster.KMeans,
             cuml.cluster.KMeans,
@@ -221,7 +236,7 @@ def all_algorithms():
             cuml_args={},
             name="NearestNeighbors",
             accepts_labels=False,
-            bench_func=fit_kneighbors
+            bench_func=fit_kneighbors,
         ),
         AlgorithmPair(
             sklearn.cluster.DBSCAN,
@@ -266,7 +281,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
-            shared_args={},
+            shared_args=dict(solver="lbfgs"),
             name="LogisticRegression",
             accepts_labels=True,
             accuracy_function=metrics.accuracy_score,
@@ -297,14 +312,6 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            umap.UMAP,
-            cuml.manifold.UMAP,
-            shared_args=dict(n_neighbors=5, n_epochs=500),
-            name="UMAP",
-            accepts_labels=False,
-            accuracy_function=cuml.metrics.trustworthiness,
-        ),
-        AlgorithmPair(
             None,
             cuml.linear_model.MBSGDClassifier,
             shared_args={},
@@ -317,9 +324,12 @@ def all_algorithms():
             treelite if has_treelite() else None,
             cuml.ForestInference,
             shared_args=dict(num_rounds=10, max_depth=10),
-            cuml_args=dict(fil_algo="BATCH_TREE_REORG",
-                           output_class=True,
-                           threshold=0.5, storage_type="AUTO"),
+            cuml_args=dict(
+                fil_algo="BATCH_TREE_REORG",
+                output_class=True,
+                threshold=0.5,
+                storage_type="AUTO",
+            ),
             name="FIL",
             accepts_labels=False,
             setup_cpu_func=_build_treelite_classifier,
@@ -329,6 +339,20 @@ def all_algorithms():
             bench_func=predict,
         ),
     ]
+
+    if has_umap():
+        algorithms.append(
+            AlgorithmPair(
+                umap.UMAP,
+                cuml.manifold.UMAP,
+                shared_args=dict(n_neighbors=5, n_epochs=500),
+                name="UMAP",
+                accepts_labels=False,
+                accuracy_function=cuml.metrics.trustworthiness,
+            )
+        )
+
+    return algorithms
 
 
 def algorithm_by_name(name):
