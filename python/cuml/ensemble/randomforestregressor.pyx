@@ -107,11 +107,7 @@ class RandomForestRegressor(Base):
     **Known Limitations**: This is an initial release of the cuML
     Random Forest code. It contains a few known limitations:
 
-       * Inference/prediction takes place on the CPU. A GPU-based inference
-         solution based on the forest inference library is planned for a
-         near-future release.
-
-       * Instances of RandomForestRegressor cannot be pickled currently.
+       * Instances of RandomForestRegressor cannot be fully pickled currently.
 
     Examples
     ---------
@@ -198,9 +194,11 @@ class RandomForestRegressor(Base):
     quantile_per_tree : boolean (default = False)
                         Whether quantile is computed for individal trees in RF.
                         Only relevant for GLOBAL_QUANTILE split_algo.
+    seed : int (default = None)
+           Seed for the random number generator. Unseeded by default. Does not
+           currently fully guarantee the exact same results.
 
-   """
-
+    """
     variables = ['n_estimators', 'max_depth', 'handle',
                  'max_features', 'n_bins',
                  'split_algo', 'split_criterion', 'min_rows_per_node',
@@ -221,7 +219,7 @@ class RandomForestRegressor(Base):
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None, seed=-1):
+                 quantile_per_tree=False, criterion=None, seed=None):
 
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
@@ -275,6 +273,9 @@ class RandomForestRegressor(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
+        if ((seed is not None) and (n_streams != 1)):
+            warnings.warn("Setting the random seed does not fully guarantee"
+                          " the exact same results at this time.")
         self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
@@ -406,6 +407,11 @@ class RandomForestRegressor(Base):
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
+        if self.seed is None:
+            seed_val = <uintptr_t>NULL
+        else:
+            seed_val = <uintptr_t>self.seed
+
         rf_params = set_rf_class_obj(<int> self.max_depth,
                                      <int> self.max_leaves,
                                      <float> max_feature_val,
@@ -417,7 +423,7 @@ class RandomForestRegressor(Base):
                                      <bool> self.bootstrap,
                                      <int> self.n_estimators,
                                      <float> self.rows_sample,
-                                     <int> self.seed,
+                                     <int> seed_val,
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)

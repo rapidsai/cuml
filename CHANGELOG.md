@@ -54,6 +54,7 @@
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 - PR #1278: Removed incorrect overloaded instance of eigJacobi
 - PR #1302: Updates for numba 0.46
+- PR #1313: Updated the RF tests to set the seed and n_streams
 - PR #1319: Using machineName arg passed in instead of default for ASV reporting
 - PR #1326: Fix illegal memory access in make_regression (bounds issue)
 - PR #1330: Fix C++ unit test utils for better handling of differences near zero
@@ -61,6 +62,7 @@
 - PR #1337: Fix k-means init from preset cluster centers
 - PR #1354: Fix SVM gamma=scale implementation
 - PR #1344: Change other solver based methods to create solver object in init
+- PR #1373: Fixing a few small bugs in make_blobs and adding asserts to pytests
 - PR #1361: Improve SMO error handling
 - PR #1384: Lower expectations on batched matrix tests to prevent CI failures
 - PR #1380: Fix memory leaks in ARIMA
