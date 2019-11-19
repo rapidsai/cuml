@@ -15,7 +15,8 @@
 
 from cuml.preprocessing.label import LabelBinarizer as LB
 from dask.distributed import default_client
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
+from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
+    cp_to_sparse_df
 
 import numba.cuda
 
@@ -23,9 +24,12 @@ import cudf
 import cupy as cp
 
 
-def cp_to_df(cp_ndarr):
+def cp_to_df(cp_ndarr, sparse):
     numba_arr = numba.cuda.to_device(cp_ndarr)
-    return cudf.DataFrame.from_gpu_matrix(numba_arr)
+    if not sparse:
+        return cudf.DataFrame.from_gpu_matrix(numba_arr)
+    else:
+        return cp_to_sparse_df(cp_ndarr)
 
 
 def cp_to_series(cp_ndarr):
@@ -40,10 +44,10 @@ class LabelBinarizer(object):
         self.client_ = client if client is not None else default_client()
         self.kwargs = kwargs
 
-        if "sparse_output" in self.kwargs and \
-                self.kwargs.sparse_output is True:
-            raise ValueError("Sparse output not yet "
-                             "supported in distributed mode")
+        # if "sparse_output" in self.kwargs and \
+        #         self.kwargs["sparse_output"] is True:
+        #     raise ValueError("Sparse output not yet "
+        #                      "supported in distributed mode")
 
     @staticmethod
     def _func_create_model(**kwargs):
@@ -55,9 +59,10 @@ class LabelBinarizer(object):
 
     @staticmethod
     def _func_xform(model, y):
-        # @todo: Support sparse outputs
         xform_in = cp.asarray(y.to_gpu_array(), dtype=cp.int32)
-        return cp_to_df(model.transform(xform_in))
+
+        xformed = model.transform(xform_in)
+        return cp_to_df(xformed, model.sparse_output)
 
     @staticmethod
     def _func_inv_xform(model, y, threshold):
