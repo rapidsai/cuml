@@ -23,6 +23,7 @@
 #include "ml_utils.h"
 #include "selection/kselection.h"
 #include "smo_sets.h"
+#include "svm_parameter.h"
 namespace ML {
 namespace SVM {
 
@@ -32,6 +33,8 @@ namespace SVM {
  * Based on Platt's SMO [1], using improvements from Keerthy and Shevade [2].
  * A concise summary of the math can be found in Appendix A1 of [3].
  * We solve the QP subproblem for the vectors in the working set (WS).
+ *
+ * Let us first discuss classification:
  *
  * We would like to maximize the following quantity
  * \f[ W(\mathbf{\alpha}) = -\mathbf{\alpha}^T \mathbf{1}
@@ -98,6 +101,9 @@ namespace SVM {
  * values (WS and outside WS) f should be updated using the delta_alpha output
  * parameter.
  *
+ * For SVR, we do the same steps to solve the probelm. The difference is the
+ * optimization objective, which enters only as the initial value of f.
+ *
  * References:
  * - [1] J. C. Platt Sequential Minimal Optimization: A Fast Algorithm for
  *      Training Support Vector Machines, Technical Report MS-TR-98-14 (1998)
@@ -125,7 +131,7 @@ namespace SVM {
  *   of iterations
  * @param [in] max_iter maximum number of iterations
  */
-template <typename math_t, int WSIZE>
+template <typename math_t, int WSIZE, SvmType svmType = C_SVC>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   math_t *y_array, int n_rows, math_t *alpha, int n_ws, math_t *delta_alpha,
   math_t *f_array, math_t *kernel, int *ws_idx, math_t C, math_t eps,
@@ -154,6 +160,8 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
 
   int tid = threadIdx.x;
   int idx = ws_idx[tid];
+  int kidx =
+    (svmType == EPSILON_SVR && idx >= n_rows / 2) ? idx - n_rows / 2 : idx;
 
   // store values in registers
   math_t y = y_array[idx];
@@ -163,9 +171,9 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 
-  Kd[tid] = kernel[tid * n_rows + idx];
+  Kd[tid] = kernel[tid * n_rows + kidx];
   int n_iter = 0;
-
+  printf("tid - idx: %d - %d\n", tid, idx);
   for (; n_iter < max_iter; n_iter++) {
     // mask values outside of X_upper
     math_t f_tmp = in_upper(a, y, C) ? f : INFINITY;
@@ -178,7 +186,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     // select f_max to check stopping condition
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
     __syncthreads();  // needed because we are reusing the shared memory buffer
-    math_t Kui = kernel[u * n_rows + idx];
+    math_t Kui = kernel[u * n_rows + kidx];
     math_t f_max =
       BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
 
@@ -207,7 +215,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
       l = res.key;
     }
     __syncthreads();
-    math_t Kli = kernel[l * n_rows + idx];
+    math_t Kli = kernel[l * n_rows + kidx];
 
     // Update alpha
     // Let's set q = \frac{f_l - f_u}{\eta_{ul}
@@ -228,13 +236,24 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
       tmp_l = y > 0 ? a : C - a;
       // note: Kui == Kul for this thread
       math_t eta_ul = max(Kd[u] + Kd[l] - 2 * Kui, ETA_EPS);
+
       tmp_l = min(tmp_l, (f - f_u) / eta_ul);
+      printf("tid=%d, (u, l)=(%d,%d), eta=%f, Kd[u]=%f Kd[l]=%f, K[u,l]= %f\n",
+             tid, u, l, tmp_l, eta_ul, Kd[u], Kd[l], Kui);
     }
     __syncthreads();
     math_t q = min(tmp_u, tmp_l);
+    int in_u = in_upper(a, y, C);
+    int in_l = in_lower(a, y, C);
+    math_t eta_ui_dbg = max(Kd[tid] + Kd[u] - 2 * Kui, ETA_EPS);
+    printf("A: tid=%d, f=%f, a=%f, u:%d l:%d eta%f\n", tid, f, a, in_u, in_l,
+           eta_ui_dbg);
     if (threadIdx.x == u) a += q * y;
     if (threadIdx.x == l) a -= q * y;
     f += q * (Kui - Kli);
+
+    printf("B: tid=%d, f=%f, a=%f, (u, l)=(%d,%d) f_u=%f, q=%f\n", tid, f, a, u,
+           l, f_u, q);
   }
   // save results to global memory before exit
   alpha[idx] = a;

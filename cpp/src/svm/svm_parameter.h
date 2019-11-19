@@ -18,6 +18,8 @@
 namespace ML {
 namespace SVM {
 
+enum SvmType { C_SVC, NU_SVC, EPSILON_SVR, NU_SVR };
+
 /**
  * Numerical input parameters for an SVM.
  *
@@ -38,6 +40,8 @@ struct svmParameter {
   int nochange_steps;  //<! Number of steps to continue with non-changing diff
   double tol;          //!< Tolerance used to stop fitting.
   int verbose;         //!< Print information about traning
+  double epsilon;      //!< epsilon parameter for epsilon-SVR
+  SvmType svmType;
 };
 
 };  // namespace SVM

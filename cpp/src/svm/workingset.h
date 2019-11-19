@@ -25,8 +25,10 @@
 #include "common/device_buffer.hpp"
 #include "linalg/add.h"
 #include "linalg/init.h"
+#include "linalg/unary_op.h"
 #include "ml_utils.h"
 #include "smo_sets.h"
+#include "svm_parameter.h"
 #include "ws_util.h"
 
 namespace ML {
@@ -59,9 +61,10 @@ class WorkingSet {
    * @param n_ws number of elements in the working set (default 1024)
    */
   WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
-             int n_ws = 0)
+             int n_ws = 0, SvmType svmType = C_SVC)
     : handle(handle),
       stream(stream),
+      svmType(svmType),
       available(handle.getDeviceAllocator(), stream),
       available_sorted(handle.getDeviceAllocator(), stream),
       cub_storage(handle.getDeviceAllocator(), stream),
@@ -70,6 +73,7 @@ class WorkingSet {
       f_sorted(handle.getDeviceAllocator(), stream),
       idx_tmp(handle.getDeviceAllocator(), stream),
       idx(handle.getDeviceAllocator(), stream),
+      vec_idx(handle.getDeviceAllocator(), stream),
       ws_idx_sorted(handle.getDeviceAllocator(), stream),
       ws_idx_selected(handle.getDeviceAllocator(), stream),
       ws_idx_save(handle.getDeviceAllocator(), stream),
@@ -105,6 +109,18 @@ class WorkingSet {
   /** Return a pointer the the working set indices */
   int *GetIndices() { return idx.data(); }
 
+  int *GetVecIndices() {
+    if (svmType == EPSILON_SVR) {
+      int n = n_ws / 2;
+      MLCommon::LinAlg::unaryOp(
+        vec_idx.data(), idx.data(), n_ws,
+        [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
+      return vec_idx.data();
+    } else {
+      return idx.data();
+    }
+  }
+
   /**
    * Select new elements for a working set.
    *
@@ -128,7 +144,7 @@ class WorkingSet {
    * @param C penalty parameter
    * @param n_already_selected
    */
-
+  // check if we can improve speed for SVR
   void SimpleSelect(math_t *f, math_t *alpha, math_t *y, math_t C,
                     int n_already_selected = 0) {
     // We are not using the topK kernel, because of the additional lower/upper
@@ -266,6 +282,8 @@ class WorkingSet {
   int n_rows = 0;
   int n_ws = 0;
 
+  SvmType svmType;
+
   int TPB = 256;  //!< Threads per block for workspace selection kernels
 
   // Buffers for the domain size [n_rows]
@@ -279,7 +297,8 @@ class WorkingSet {
   MLCommon::device_buffer<bool> available_sorted;
 
   // working set buffers size [n_ws]
-  MLCommon::device_buffer<int> idx;  //!< Indices of the worknig set
+  MLCommon::device_buffer<int> idx;      //!< Indices of the worknig set
+  MLCommon::device_buffer<int> vec_idx;  //!< Training vector indices
   MLCommon::device_buffer<int> ws_idx_sorted;
   MLCommon::device_buffer<int> ws_idx_selected;
   MLCommon::device_buffer<int> ws_idx_save;
@@ -319,6 +338,9 @@ class WorkingSet {
                             d_num_selected, n_rows, dummy_select_op, stream);
       cub_bytes = max(cub_bytes, cub_bytes2);
       cub_storage.resize(cub_bytes, stream);
+      if (svmType == EPSILON_SVR) {
+        vec_idx.resize(n_ws, stream);
+      }
       Initialize();
     }
   }
@@ -387,12 +409,25 @@ class WorkingSet {
   }
 
   void Initialize() {
-    MLCommon::LinAlg::range<<<MLCommon::ceildiv(n_rows, TPB), TPB>>>(
-      f_idx.data(), n_rows);
-    CUDA_CHECK(cudaPeekAtLastError());
-    MLCommon::LinAlg::range<<<MLCommon::ceildiv(n_ws, TPB), TPB>>>(idx.data(),
-                                                                   n_ws);
-    CUDA_CHECK(cudaPeekAtLastError());
+    //switch (svmType) {
+    //case C_SVC:
+    MLCommon::LinAlg::range(f_idx.data(), n_rows, stream);
+    MLCommon::LinAlg::range(idx.data(), n_ws, stream);
+    /*    break;
+      case EPSILON_SVR:
+        MLCommon::LinAlg::range(f_idx.data(), n_rows / 2, stream);
+        MLCommon::LinAlg::range(f_idx.data() + n_rows / 2, n_rows / 2, stream);
+        if (n_ws > n_rows / 2) {
+          MLCommon::LinAlg::range(idx.data(), n_rows / 2, stream);
+          MLCommon::LinAlg::range(idx.data() + n_rows / 2, n_ws - n_rows,
+                                  stream);
+        } else {
+          MLCommon::LinAlg::range(idx.data(), n_ws, stream);
+        }
+        break;
+      default:
+        THROW("Working set initialization not implemented SvmType=%d", svmType);
+    */
   }
 
   /**
