@@ -270,12 +270,6 @@ class NearestNeighbors(Base):
                 deprecated in 0.10
         """
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit and kneighbors "
-                          " methods instead. ")
-            convert_dtype = True
-
         self.__del__()
 
         if len(X.shape) != 2:
@@ -430,13 +424,6 @@ class NearestNeighbors(Base):
 
         if k is None:
             k = self.n_neighbors
-
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit and kneighbors"
-                          " methods instead. ")
-
-            convert_dtype = True
 
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
