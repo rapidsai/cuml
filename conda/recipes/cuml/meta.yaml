@@ -41,7 +41,7 @@ requirements:
     - libcumlprims {{ minor_version }}
     - cupy>=6.5,<7.0
     - nccl 2.4.*
-    - ucx-py
+    - conda-forge/label/rc_ucx::ucx-py=0.2*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
