@@ -31,3 +31,13 @@ dask-worker-space/
 
 ## Pycharm
 .idea
+
+## ccls
+.ccls-cache
+.ccls
+
+## profiling
+*.qdrep
+*.qdrep.cache
+*.qdstrm
+*.nvprof
