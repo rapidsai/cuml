@@ -46,14 +46,17 @@ using std::vector;
 
 void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
               int d, int q, double* d_params, double* d_vs, bool trans) {
+  ML::PUSH_RANGE(__func__);
   std::vector<double> loglike;
   batched_loglike(handle, d_y, num_batches, nobs, p, d, q, d_params, loglike,
                   d_vs, trans);
+  ML::POP_RANGE();
 }
 
 void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
               int batch_size, int nobs, double* d_y, double* d_y_diff,
               double* d_vs, double* d_params, double* d_y_fc) {
+  ML::PUSH_RANGE(__func__);
   auto alloc = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
   double* d_y_ = (double*)alloc->allocate((p + num_steps) * batch_size, stream);
@@ -134,11 +137,13 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
 
   alloc->deallocate(d_y_, (p + num_steps) * batch_size, stream);
   alloc->deallocate(d_vs_, (q + num_steps) * batch_size, stream);
+  ML::POP_RANGE();
 }
 
 void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
                        int nobs, int p, int d, int q, double* d_params,
                        double* d_vs, double* d_y_p) {
+  ML::PUSH_RANGE(__func__);
   residual(handle, d_y, num_batches, nobs, p, d, q, d_params, d_vs, false);
   auto stream = handle.getStream();
   double* d_y_diff;
@@ -188,6 +193,7 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
     handle.getDeviceAllocator()->deallocate(
       d_y_fc, sizeof(double) * num_batches, handle.getStream());
   }
+  ML::POP_RANGE();
 }
 
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
@@ -197,7 +203,7 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   using std::get;
   using std::vector;
 
-  ML::PUSH_RANGE(__FUNCTION__);
+  ML::PUSH_RANGE(__func__);
 
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
@@ -262,7 +268,7 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* d_params,
                      std::vector<double>& loglike, double* d_vs, bool trans) {
-  ML::PUSH_RANGE(__FUNCTION__);
+  ML::PUSH_RANGE(__func__);
 
   // unpack parameters
   auto allocator = handle.getDeviceAllocator();
@@ -317,7 +323,7 @@ static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
 
 void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
          int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
-  ML::PUSH_RANGE(__FUNCTION__);
+  ML::PUSH_RANGE(__func__);
   double nf = static_cast<double>(p + d + q);
   ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
             2.0 * nf);
@@ -326,7 +332,7 @@ void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
 
 void aicc(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
           int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
-  ML::PUSH_RANGE(__FUNCTION__);
+  ML::PUSH_RANGE(__func__);
   double nf = static_cast<double>(p + d + q);
   ic_common(
     handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
@@ -336,7 +342,7 @@ void aicc(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
 
 void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
          int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
-  ML::PUSH_RANGE(__FUNCTION__);
+  ML::PUSH_RANGE(__func__);
   double nf = static_cast<double>(p + d + q);
   ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
             log(static_cast<double>(nobs)) * nf);
@@ -461,6 +467,7 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  const double* d_y, int num_batches, int nobs, int p, int d,
                  int q) {
+  ML::PUSH_RANGE(__func__);
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
@@ -486,6 +493,7 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
   // Do the computation of the initial parameters
   _start_params(handle, d_mu, d_ar, d_ma, bm_yd, num_batches, actual_nobs, p, d,
                 q);
+  ML::POP_RANGE();
 }
 
 }  // namespace ML
