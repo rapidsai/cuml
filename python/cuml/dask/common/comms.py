@@ -136,9 +136,12 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
         if verbose:
             print("Initializing UCX Endpoints")
 
-        start = time.time()
+        if verbose:
+            start = time.time()
         await _func_ucp_create_endpoints(sessionId, worker_info)
-        end = time.time() - start
+
+        if verbose:
+            end = time.time() - start
 
         if verbose:
             print("Done initializing UCX endpoints. Took: %f seconds." % end)

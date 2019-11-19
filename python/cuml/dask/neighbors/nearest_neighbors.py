@@ -15,19 +15,13 @@
 
 from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
     workers_to_parts, parts_to_ranks, raise_exception_from_futures, \
-    flatten_grouped_results
+    flatten_grouped_results, raise_mg_import_exception
 
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 
 from uuid import uuid1
-
-
-def _raise_import_exception():
-    raise Exception("cuML has not been built with multiGPU support "
-                    "enabled. Build with the --multigpu flag to"
-                    " enable multiGPU support.")
 
 
 def _func_get_d(f, idx):
@@ -70,7 +64,7 @@ class NearestNeighbors(object):
             from cuml.neighbors.nearest_neighbors_mg import \
                 NearestNeighborsMG as cumlNN
         except ImportError:
-            _raise_import_exception()
+            raise_mg_import_exception()
 
         handle = worker_state(sessionId)["handle"]
         return cumlNN(handle=handle, **kwargs)
@@ -115,7 +109,7 @@ class NearestNeighbors(object):
                     from cuml.neighbors.nearest_neighbors_mg import \
                         NearestNeighborsMG as cumlNN
                 except ImportError:
-                    _raise_import_exception()
+                    raise_mg_import_exception()
                 n_neighbors = cumlNN().n_neighbors
 
         return n_neighbors
