@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file informationCriterion.h
+* @file information_criterion.h
 * @brief These information criteria are used to evaluate the quality of models
 *        by balancing the quality of the fit and the number of parameters.
 *
@@ -28,6 +28,8 @@
 
 #include <cuda_runtime.h>
 #include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+
 
 namespace MLCommon {
 namespace Metrics {
@@ -61,11 +63,11 @@ void information_criterion(ScalarT* d_ic, const ScalarT* d_loglikelihood,
   ScalarT T = static_cast<ScalarT>(n_samples);
   switch (ic_type) {
     case AIC:
-      ic_base = (ScalarT)2 * N;
+      ic_base = (ScalarT)2.0 * N;
       break;
     case AICc:
       ic_base =
-        (ScalarT)2 * (N + (N * (N + (ScalarT)1)) / (T - N - (ScalarT)1));
+        (ScalarT)2.0 * (N + (N * (N + (ScalarT)1.0)) / (T - N - (ScalarT)1.0));
       break;
     case BIC:
       ic_base = std::log(T) * N;
@@ -76,7 +78,8 @@ void information_criterion(ScalarT* d_ic, const ScalarT* d_loglikelihood,
     auto counting = thrust::make_counting_iterator(0);
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
-                       d_ic[bid] = ic_base - 2.0 * d_loglikelihood[bid];
+                       d_ic[bid] =
+                         ic_base - (ScalarT)2.0 * d_loglikelihood[bid];
                      });
   }
 }
