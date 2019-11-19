@@ -191,7 +191,6 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
               str(sessionId))
     else:
 
-
         listener = ucp.create_listener(_connection_func)
         worker_state(sessionId)["ucp_listener"] = listener
 
