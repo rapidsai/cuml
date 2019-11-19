@@ -31,6 +31,7 @@ requirements:
     - libclang
   host:
     - nccl 2.4.*
+    - ucx-py 0.2*
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - libcumlprims {{ minor_version }}
