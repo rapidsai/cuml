@@ -51,6 +51,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     static_cast<MLCommon::Distance::DistanceType>(params.metric);
 
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
+  auto centroidsBatchSize =
+    kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
@@ -60,7 +62,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   // temporary buffer to store distance matrix, destructor releases the resource
   Tensor<DataT, 2, IndexT> pairwiseDistance(
-    {dataBatchSize, n_clusters}, handle.getDeviceAllocator(), stream);
+    {dataBatchSize, centroidsBatchSize}, handle.getDeviceAllocator(), stream);
 
   // temporary buffer to store intermediate centroids, destructor releases the
   // resource
@@ -318,11 +320,13 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     {initialCentroid.getSize(0), initialCentroid.getSize(1)}));
   // <<< End of Step-1 >>>
 
-  int dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
+  auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
+  auto centroidsBatchSize =
+    kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
   MLCommon::device_buffer<DataT> pairwiseDistanceRaw(
     handle.getDeviceAllocator(), stream);
-  pairwiseDistanceRaw.resize(dataBatchSize * n_clusters, stream);
+  pairwiseDistanceRaw.resize(dataBatchSize * centroidsBatchSize, stream);
 
   Tensor<DataT, 1, IndexT> minClusterDistance(
     {n_samples}, handle.getDeviceAllocator(), stream);
@@ -543,6 +547,8 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> centroids((DataT *)cptr, {n_clusters, n_features});
 
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
+  auto centroidsBatchSize =
+    kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
   // underlying expandable storage that holds labels
   MLCommon::device_buffer<IndexT> labelsRawData(handle.getDeviceAllocator(),
@@ -554,7 +560,7 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1> minClusterAndDistance(
     {n_samples}, handle.getDeviceAllocator(), stream);
   Tensor<DataT, 2, IndexT> pairwiseDistance(
-    {dataBatchSize, n_clusters}, handle.getDeviceAllocator(), stream);
+    {dataBatchSize, centroidsBatchSize}, handle.getDeviceAllocator(), stream);
 
   // computes minClusterAndDistance[0:n_samples) where  minClusterAndDistance[i]
   // is a <key, value> pair where
