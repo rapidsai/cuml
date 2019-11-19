@@ -60,7 +60,7 @@ conda install -c conda-forge -c conda-forge/label/rc_ucx -c rapidsai -c rapidsai
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "statsmodels" \
-      "ucx-py" \
+      "ucx-py=0.2*" \
       "xgboost=0.90.rapidsdev1"
 
 
