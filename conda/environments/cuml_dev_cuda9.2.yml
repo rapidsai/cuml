@@ -4,6 +4,7 @@ channels:
 - nvidia
 - rapidsai-nightly
 - conda-forge
+- conda-forge/label/rc_ucx
 dependencies:
 - cudatoolkit=9.2
 - libclang=8.0.0

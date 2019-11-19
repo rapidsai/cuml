@@ -178,7 +178,7 @@ def _func_init_nccl(sessionId, uniqueId):
         print("An error occurred initializing NCCL!")
 
 
-async def _func_ucp_create_listener(sessionId, r):
+async def _func_ucp_create_listener(sessionId, verbose, r):
     """
     Creates a UCP listener for incoming endpoint connections.
     This function runs in a loop asynchronously in the background
@@ -191,14 +191,19 @@ async def _func_ucp_create_listener(sessionId, r):
               str(sessionId))
     else:
 
+
         listener = ucp.create_listener(_connection_func)
         worker_state(sessionId)["ucp_listener"] = listener
 
-        while not listener.closed:
+        if(verbose):
+            print("Listener Initialized")
+        while not listener.closed():
             await asyncio.sleep(1)
 
         del worker_state(sessionId)["ucp_listener"]
         del listener
+
+        print("Lisener Done.")
 
 
 async def _func_ucp_stop_listener(sessionId):
@@ -304,7 +309,6 @@ async def _func_destroy_all(sessionId, comms_p2p):
         for ep in worker_state(sessionId)["ucp_eps"]:
             if ep is not None:
                 if not ep.closed():
-                    await ep.signal_shutdown()
                     ep.close()
                 del ep
         del worker_state(sessionId)["ucp_eps"]
@@ -394,6 +398,7 @@ class CommsContext:
         """
         self.client.run(_func_ucp_create_listener,
                         self.sessionId,
+                        self.verbose,
                         random.random(),
                         workers=self.worker_addresses,
                         wait=False)
