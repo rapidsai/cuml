@@ -1,7 +1,7 @@
 # Copyright (c) 2018, NVIDIA CORPORATION.
 
 # Usage:
-#   conda build . -c defaults -c conda-forge -c numba -c rapidsai -c pytorch
+#   conda build . -c defaults -c conda-forge/label/rc_ucx -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
@@ -41,6 +41,7 @@ requirements:
     - libcumlprims {{ minor_version }}
     - cupy>=6.5,<7.0
     - nccl 2.4.*
+    - ucx-py 0.2*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
