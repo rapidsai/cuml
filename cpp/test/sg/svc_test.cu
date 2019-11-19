@@ -793,7 +793,6 @@ TYPED_TEST(SmoSolverTest, SvcTest) {
                               CompareApprox<TypeParam>(1e-6f)));
     }
     if (exp.decision_function.size() > 0) {
-      std::cout << "Comparing decision function value\n";
       svc.decisionFunction(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
       EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(), y_pred.data(),
                                   p.n_rows, CompareApprox<TypeParam>(1e-3f)));
