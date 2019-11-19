@@ -37,6 +37,7 @@
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/matrix_vector_op.h>
+#include <metrics/batched/informationCriterion.h>
 #include <stats/mean.h>
 #include <matrix/batched_matrix.hpp>
 
@@ -292,14 +293,11 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   ML::POP_RANGE();
 }
 
-/**
- * Auxiliary function to avoid code redundancy: computes an Akaike or Bayesian
- * information criterion given the common term ic_base (and the same list of
- * arguments as aic and bic)
- */
-static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
-                      int nobs, int p, int d, int q, double* d_mu, double* d_ar,
-                      double* d_ma, double* ic, double ic_base) {
+void information_criterion(cumlHandle& handle, double* d_y,
+                                  int num_batches, int nobs, int p, int d,
+                                  int q, double* d_mu, double* d_ar,
+                                  double* d_ma, double* ic, int ic_type) {
+  ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_vs = (double*)allocator->allocate(
@@ -312,46 +310,16 @@ static void ic_common(cumlHandle& handle, double* d_y, int num_batches,
                   d_ic, d_vs, true, false);
 
   /* Compute information criterion from log-likelihood and base term */
-  {
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + num_batches,
-      [=] __device__(int bid) { d_ic[bid] = ic_base - 2.0 * d_ic[bid]; });
-  }
+  MLCommon::Metrics::Batched::information_criterion(
+    d_ic, d_ic, static_cast<MLCommon::Metrics::IC_Type>(ic_type), p + d + q,
+    num_batches, nobs, stream);
 
-  /* Transfer information criteria device -> host */
+  /* Transfer information criterion device -> host */
   MLCommon::updateHost(ic, d_ic, num_batches, stream);
 
   allocator->deallocate(d_vs, sizeof(double) * (nobs - d) * num_batches,
                         stream);
   allocator->deallocate(d_ic, sizeof(double) * num_batches, stream);
-}
-
-void aic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
-  ML::PUSH_RANGE(__func__);
-  double nf = static_cast<double>(p + d + q);
-  ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
-            2.0 * nf);
-  ML::POP_RANGE();
-}
-
-void aicc(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-          int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
-  ML::PUSH_RANGE(__func__);
-  double nf = static_cast<double>(p + d + q);
-  ic_common(
-    handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
-    2.0 * (nf + (nf * (nf + 1.0)) / (static_cast<double>(nobs) - nf - 1.0)));
-  ML::POP_RANGE();
-}
-
-void bic(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
-         int d, int q, double* d_mu, double* d_ar, double* d_ma, double* ic) {
-  ML::PUSH_RANGE(__func__);
-  double nf = static_cast<double>(p + d + q);
-  ic_common(handle, d_y, num_batches, nobs, p, d, q, d_mu, d_ar, d_ma, ic,
-            log(static_cast<double>(nobs)) * nf);
   ML::POP_RANGE();
 }
 
