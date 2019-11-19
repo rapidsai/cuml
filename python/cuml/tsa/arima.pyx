@@ -294,7 +294,7 @@ class ARIMAModel(Base):
         cdef int ic_type_id
         try:
             ic_type_id = ic_name_to_number[ic_type.lower()]
-        except:
+        except KeyError as e:
             raise NotImplementedError("IC type '{}' unknown". format(ic_type))
 
         information_criterion(handle_[0], <double*> d_y_ptr,
