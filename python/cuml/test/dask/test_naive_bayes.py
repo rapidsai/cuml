@@ -18,12 +18,16 @@ import cupy as cp
 
 from sklearn.metrics import accuracy_score
 
+from dask.distributed import Client
+
 import dask_cudf
 
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 
-from cuml.naive_bayes import MultinomialNB
+from cuml.dask.naive_bayes import MultinomialNB
+
+from cuml.dask.common import cp_to_sparse_df
 
 import time
 
@@ -61,7 +65,9 @@ def load_corpus():
     return scipy_to_cp(X), Y
 
 
-def test_basic_fit_predict():
+def test_basic_fit_predict(cluster):
+
+    client = Client(cluster)
 
     """
     Cupy Test
@@ -69,18 +75,20 @@ def test_basic_fit_predict():
 
     X, y = load_corpus()
 
-    X = X.tocoo()
+    print("before: " + str(X.shape))
+    print(str(y.shape))
 
-    X_cudf = cudf.DataFrame()
-    X_cudf["row"] = X.row
-    X_cudf["col"] = X.col
-    X_cudf["val"] = X.val
+    X_cudf = cp_to_sparse_df(X)
+    y_cudf = cudf.Series(numba.cuda.to_device(y))
+
+    print("after: " + str(X_cudf.shape))
+    print(str(y_cudf.shape))
 
     X_ddf = dask_cudf.from_cudf(X_cudf, npartitions=2)
-    y_ddf = dask_cudf.from_cudf(cudf.Series(numba.cuda.to_device(y)))
+    y_ddf = dask_cudf.from_cudf(y_cudf, npartitions=2)
 
-    model = MultinomialNB()
-    model.fit(X_ddf, y_ddf)
+    model = MultinomialNB(client=client)
+    model.fit(X_ddf, y_ddf, X.shape[1])
 
 
 

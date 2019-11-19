@@ -55,7 +55,7 @@ class MultinomialNB(object):
 
         return self
 
-    def partial_fit(self, X, y, classes=None, sample_weight=None):
+    def partial_fit(self, X, y, classes=None, _sparse_labels=False, sample_weight=None):
         """
         Incremental fit on a batch of samples
 
@@ -65,7 +65,7 @@ class MultinomialNB(object):
         :param sample_weight:
         :return:
         """
-        return self.fit(X, y, classes=classes)
+        return self.fit(X, y, classes=classes, _sparse_labels=_sparse_labels)
 
     def predict(self, X):
         jll = self._joint_log_likelihood(X)
