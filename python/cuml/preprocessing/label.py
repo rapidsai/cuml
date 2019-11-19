@@ -74,7 +74,7 @@ void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
 
 inverse_map_kernel = cp.RawKernel(r'''
 extern "C" __global__
-void inverse_map_kernel(int *labels, int n_labels, int1 *x, int x_n) {
+void inverse_map_kernel(int *labels, int n_labels, int *x, int x_n) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if(tid >= x_n) return;
@@ -195,10 +195,10 @@ class LabelBinarizer(object):
             cp.asarray(y, dtype=cp.int32), axis=1).astype(cp.int32)
 
         smem = 4 * self.classes_.shape[0]
-        inverse_map_kernel((y_mapped.shape[0] / 32,), (32,),
+
+        inverse_map_kernel((math.ceil(y_mapped.shape[0] / 32),), (32,),
                            (self.classes_, self.classes_.shape[0],
-                            y_mapped, y_mapped.shape[0]),
-                           shared_mem=smem)
+                            y_mapped, y_mapped.shape[0]), shared_mem=smem)
 
         return y_mapped
 
