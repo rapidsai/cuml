@@ -437,8 +437,9 @@ void init_batched_kalman_matrices(cumlHandle& handle,
 void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
                            const double* d_b_ar_params,
                            const double* d_b_ma_params, int p, int q,
-                           int num_batches, std::vector<double>& h_loglike_b,
-                           double* d_vs, bool initP_with_kalman_iterations) {
+                           int num_batches, double* loglike, double* d_vs,
+                           bool host_loglike,
+                           bool initP_with_kalman_iterations) {
   ML::PUSH_RANGE("batched_kalman_filter");
 
   const size_t ys_len = nobs;
@@ -465,22 +466,28 @@ void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
     (double*)allocator->allocate(ys_len * num_batches * sizeof(double), stream);
   double* d_sigma2 =
     (double*)allocator->allocate(num_batches * sizeof(double), stream);
-  double* d_loglike =
-    (double*)allocator->allocate(num_batches * sizeof(double), stream);
+
+  /* Create log-likelihood device array if host pointer is provided */
+  double* d_loglike;
+  if (host_loglike) {
+    d_loglike =
+      (double*)allocator->allocate(num_batches * sizeof(double), stream);
+  } else {
+    d_loglike = loglike;
+  }
 
   _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs,
                          d_loglike, d_sigma2, initP_with_kalman_iterations);
 
-  ////////////////////////////////////////////////////////////
-  // xfer loglikelihood from GPU
-  h_loglike_b.resize(num_batches);
-  updateHost(h_loglike_b.data(), d_loglike, num_batches, stream);
+  if (host_loglike) {
+    /* Tranfer log-likelihood device -> host */
+    updateHost(loglike, d_loglike, num_batches, stream);
+    allocator->deallocate(d_loglike, num_batches * sizeof(double), stream);
+  }
 
   allocator->deallocate(d_Fs, ys_len * num_batches * sizeof(double), stream);
 
   allocator->deallocate(d_sigma2, num_batches * sizeof(double), stream);
-
-  allocator->deallocate(d_loglike, num_batches * sizeof(double), stream);
 
   ML::POP_RANGE();
 }

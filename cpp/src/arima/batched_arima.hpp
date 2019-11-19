@@ -24,25 +24,26 @@ namespace ML {
  * Compute the loglikelihood of the given parameter on the given time series
  * in a batched context.
  *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Series to fit: shape = (nobs, num_batches) and
- *                         expects column major data layout. (device)
- * @param[in]  num_batches Number of time series
- * @param[in]  nobs        Number of observations in a time series
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference parameter
- * @param[in]  q           Number of MA parameters
- * @param[in]  d_params    Parameters to evaluate group by series:
- *                         [mu0, ar.., ma.., mu1, ..] (device)
- * @param[out] loglike     Log-Likelihood of the model per series (host)
- * @param[out] d_vs        The residual between model and original signal.
- *                         shape = (nobs, num_batches) (device)
- * @param[in]  trans       Run `jones_transform` on params.
+ * @param[in]  handle       cuML handle
+ * @param[in]  d_y          Series to fit: shape = (nobs, num_batches) and
+ *                          expects column major data layout. (device)
+ * @param[in]  num_batches  Number of time series
+ * @param[in]  nobs         Number of observations in a time series
+ * @param[in]  p            Number of AR parameters
+ * @param[in]  d            Difference parameter
+ * @param[in]  q            Number of MA parameters
+ * @param[in]  d_params     Parameters to evaluate group by series:
+ *                          [mu0, ar.., ma.., mu1, ..] (device)
+ * @param[out] loglike      Log-Likelihood of the model per series (host)
+ * @param[out] d_vs         The residual between model and original signal.
+ *                          shape = (nobs, num_batches) (device)
+ * @param[in]  trans        Run `jones_transform` on params.
+ * @param[in]  host_loglike Whether loglike is a host pointer
  */
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* d_params,
-                     std::vector<double>& loglike, double* d_vs,
-                     bool trans = true);
+                     double* loglike, double* d_vs,
+                     bool trans = true, bool host_loglike = true);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -51,26 +52,27 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
  * @note: this overload should be used when the parameters are already unpacked
  *        to avoid useless packing / unpacking
  *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Series to fit: shape = (nobs, num_batches) and
- *                         expects column major data layout. (device)
- * @param[in]  num_batches Number of time series
- * @param[in]  nobs        Number of observations in a time series
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference parameter
- * @param[in]  q           Number of MA parameters
- * @param[in]  d_mu        mu if d != 0. Shape: (d, num_batches) (device)
- * @param[in]  d_ar        AR parameters. Shape: (p, num_batches) (device)
- * @param[in]  d_ma        MA parameters. Shape: (q, num_batches) (device)
- * @param[out] loglike     Log-Likelihood of the model per series (host)
- * @param[out] d_vs        The residual between model and original signal.
- *                         shape = (nobs, num_batches) (device)
- * @param[in]  trans       Run `jones_transform` on params.
+ * @param[in]  handle       cuML handle
+ * @param[in]  d_y          Series to fit: shape = (nobs, num_batches) and
+ *                          expects column major data layout. (device)
+ * @param[in]  num_batches  Number of time series
+ * @param[in]  nobs         Number of observations in a time series
+ * @param[in]  p            Number of AR parameters
+ * @param[in]  d            Difference parameter
+ * @param[in]  q            Number of MA parameters
+ * @param[in]  d_mu         mu if d != 0. Shape: (d, num_batches) (device)
+ * @param[in]  d_ar         AR parameters. Shape: (p, num_batches) (device)
+ * @param[in]  d_ma         MA parameters. Shape: (q, num_batches) (device)
+ * @param[out] loglike      Log-Likelihood of the model per series (host)
+ * @param[out] d_vs         The residual between model and original signal.
+ *                          shape = (nobs, num_batches) (device)
+ * @param[in]  trans        Run `jones_transform` on params.
+ * @param[in]  host_loglike Whether loglike is a host pointer
  */
 void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
                      int p, int d, int q, double* d_mu, double* d_ar,
-                     double* d_ma, std::vector<double>& loglike, double* d_vs,
-                     bool trans = true);
+                     double* d_ma, double* loglike, double* d_vs,
+                     bool trans = true, bool host_loglike = true);
 
 /**
  * Batched in-sample prediction of a time-series given trend, AR, and MA
