@@ -204,7 +204,7 @@ def test_gradient():
         ys_df = np.reshape(np.tile(np.reshape(ys,
                                               (num_samples, 1)),
                                    num_batches),
-                           (num_samples, num_batches), order="F")
+                           (num_batches, num_samples), order="C").T
         order = (1, 1, 1)
         mu = 0.0
         arparams = np.array([-0.01])
