@@ -24,12 +24,10 @@
 *  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
 */
 
+#include <cuda_runtime.h>
 #include <cmath>
 
-#include <cuda_runtime.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-
+#include "linalg/unary_op.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -74,14 +72,12 @@ void information_criterion(ScalarT* d_ic, const ScalarT* d_loglikelihood,
       break;
   }
   /* Compute information criterion from log-likelihood and base term */
-  {
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       d_ic[bid] =
-                         ic_base - (ScalarT)2.0 * d_loglikelihood[bid];
-                     });
-  }
+  LinAlg::unaryOp(
+    d_ic, d_loglikelihood, batch_size,
+    [=] __device__(ScalarT loglike) {
+      return ic_base - (ScalarT)2.0 * loglike;
+    },
+    stream);
 }
 
 }  // namespace Batched

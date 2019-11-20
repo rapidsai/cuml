@@ -293,10 +293,10 @@ void batched_loglike(cumlHandle& handle, double* d_y, int num_batches, int nobs,
   ML::POP_RANGE();
 }
 
-void information_criterion(cumlHandle& handle, double* d_y,
-                                  int num_batches, int nobs, int p, int d,
-                                  int q, double* d_mu, double* d_ar,
-                                  double* d_ma, double* ic, int ic_type) {
+void information_criterion(cumlHandle& handle, double* d_y, int num_batches,
+                           int nobs, int p, int d, int q, double* d_mu,
+                           double* d_ar, double* d_ma, double* ic,
+                           int ic_type) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
@@ -339,8 +339,10 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
   auto allocator = handle_impl.getDeviceAllocator();
 
   // Initialize params
-  cudaMemsetAsync(d_ar, 0, sizeof(double) * p * num_batches, stream);
-  cudaMemsetAsync(d_ma, 0, sizeof(double) * q * num_batches, stream);
+  CUDA_CHECK(
+    cudaMemsetAsync(d_ar, 0, sizeof(double) * p * num_batches, stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(d_ma, 0, sizeof(double) * q * num_batches, stream));
 
   if (d > 0) {
     // Compute means and write them in mu
