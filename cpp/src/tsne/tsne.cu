@@ -211,7 +211,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
   }
 
   size_t workspace_size = 0;
-  const Index_t NNZ = (2 * n * n_neighbors);
+  const int NNZ = (2 * n * n_neighbors);
 
   device_buffer<float> P_(d_alloc, stream, NNZ);
   workspace_size += n*n_neighbors*sizeof(float);
