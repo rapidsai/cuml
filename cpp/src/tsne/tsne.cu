@@ -25,6 +25,8 @@
 #include <cuml/decomposition/pca.hpp>
 #include <linalg/transpose.h>
 
+#define device_buffer MLCommon::device_buffer
+
 namespace ML {
 
 /**
@@ -282,3 +284,4 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
 
 
 }  // namespace ML
+#undef device_buffer

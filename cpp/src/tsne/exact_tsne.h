@@ -19,6 +19,8 @@
 #include "exact_kernels.h"
 #include "utils.h"
 
+#define device_buffer MLCommon::device_buffer
+
 namespace ML {
 namespace TSNE {
 
@@ -159,3 +161,4 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
 }  // namespace TSNE
 }  // namespace ML
+#undef device_buffer

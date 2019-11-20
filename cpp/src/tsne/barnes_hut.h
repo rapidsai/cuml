@@ -20,6 +20,7 @@
 #include "utils.h"
 
 #define restrict __restrict
+#define device_buffer MLCommon::device_buffer
 
 namespace ML {
 namespace TSNE {
@@ -368,3 +369,4 @@ void Barnes_Hut(float *restrict VAL,
 }  // namespace TSNE
 }  // namespace ML
 #undef restrict
+#undef device_buffer
