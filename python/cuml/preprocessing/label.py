@@ -109,8 +109,6 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
 
     col_ind = cp.asarray(y, dtype=cp.int32).copy()
 
-    print("UNIQUE: " + str(cp.unique(col_ind)))
-
     if not _validate_labels(col_ind, classes):
         raise ValueError("Unseen classes encountered in input")
 
@@ -129,6 +127,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
                               dtype=cp.float32)
 
     if sparse_output:
+        sp = sp.tocsr()
         return sp
     else:
 

@@ -16,6 +16,8 @@
 
 import cupy as cp
 
+from cupy import prof
+
 from sklearn.metrics import accuracy_score
 
 from sklearn.datasets import fetch_20newsgroups
@@ -53,6 +55,7 @@ class PyTorchBayes(object):
 
         self.n_features_ = None
 
+    @cp.prof.TimeRangeDecorator(message="pytorch_fit()", color_id=1)
     def fit(self, X, y, _partial=False, _classes=None):
 
         self.n_features_ = X.shape[1]
@@ -78,7 +81,11 @@ class PyTorchBayes(object):
         self.feature_count_ = torch.zeros(n_effective_classes, n_features).cuda()
 
     def _count(self, X, Y):
-        self.feature_count_ += torch.sparse.mm(X.t(), Y).t()
+
+        with cp.prof.time_range(message="pytorch_matrix_multiply", color_id=7):
+            feature_count_ = torch.sparse.mm(X.t(), Y).t()
+
+        self.feature_count_ += feature_count_
         self.class_count_ += Y.sum(axis=0)
 
     def _update_class_log_prior(self, class_prior=None):
@@ -118,23 +125,25 @@ def scipy_to_cp(sp):
 
 def load_corpus():
 
-    categories = ['alt.atheism', 'soc.religion.christian',
-                  'comp.graphics', 'sci.med']
-    twenty_train = fetch_20newsgroups(subset='train', categories=categories,
+    # categories = ['alt.atheism', 'soc.religion.christian',
+    #               'comp.graphics', 'sci.med']
+    twenty_train = fetch_20newsgroups(subset='train',
                                       shuffle=True, random_state=42)
 
     count_vect = CountVectorizer()
     X = count_vect.fit_transform(twenty_train.data)
     Y = cp.array(twenty_train.target)
 
-    return scipy_to_cp(X), Y
+    X = scipy_to_cp(X).tocsc()
+
+    return X, Y
 
 
 def load_corpus_cpu():
 
-    categories = ['alt.atheism', 'soc.religion.christian',
-                  'comp.graphics', 'sci.med']
-    twenty_train = fetch_20newsgroups(subset='train', categories=categories,
+    # categories = ['alt.atheism', 'soc.religion.christian',
+    #               'comp.graphics', 'sci.med']
+    twenty_train = fetch_20newsgroups(subset='train',
                                       shuffle=True, random_state=42)
 
     count_vect = CountVectorizer()
@@ -147,51 +156,19 @@ def load_corpus_cpu():
 def test_basic_fit_predict():
 
     """
-    Cupy Test
-    """
-
-    X, y = load_corpus()
-
-    from cuml.preprocessing import LabelBinarizer as LB
-
-    l = LB()
-    y_sparse = l.fit_transform(y)
-
-    print("CLASSES: "+ str(l.classes_))
-
-    # Priming it seems to lower the end-to-end runtime
-    model = MultinomialNB()
-    model.fit(X, y_sparse, classes=l.classes_, _sparse_labels=True)
-
-    print(str(X.shape))
-
-    start = time.time()
-    model = MultinomialNB()
-    model.fit(X, y_sparse, classes=l.classes_, _sparse_labels=True)
-    end = time.time() - start
-    print(str(end))
-
-    y_hat = cp.asnumpy(model.predict(X))
-    y = cp.asnumpy(y)
-
-    print(str(y_hat))
-
-    print(str(accuracy_score(y, y_hat)))
-
-    """
     Sklearn Test
     """
 
     from sklearn.naive_bayes import MultinomialNB as MNB
 
     X, y = load_corpus_cpu()
+
     start = time.time()
     model = MNB()
     model.fit(X, y)
-    end = time.time() - start
-    print(str(end))
-
     y_hat = model.predict(X)
+    end = time.time() - start
+    print("SKLEARN: "+ str(end))
 
     print(str(accuracy_score(y, y_hat)))
 
@@ -206,12 +183,46 @@ def test_basic_fit_predict():
 
     a = scipy_to_torch(X)
 
+    m = PyTorchBayes(l)
+    m.fit(a, Y)
+
     start = time.time()
     m = PyTorchBayes(l)
     m.fit(a, Y)
     end = time.time() - start
-    print(str(end))
+    print("PYTORCH: " + str(end))
 
     y_hat_gpu = m.predict(a)
     print(str(accuracy_score(y, y_hat_gpu.cpu().numpy())))
+
+
+    """
+    Cupy Test
+    """
+
+    X, y = load_corpus()
+
+    from cuml.preprocessing import LabelBinarizer as LB
+
+    l = LB(sparse_output=True)
+    y_sparse = l.fit_transform(y)
+
+    # Priming it seems to lower the end-to-end runtime
+    model = MultinomialNB()
+    model.fit(X, y_sparse, classes=l.classes_, _sparse_labels=True)
+
+    cp.cuda.Stream.null.synchronize()
+
+    with cp.prof.time_range(message="start", color_id=10):
+        start = time.time()
+        model = MultinomialNB()
+        model.fit(X, y_sparse, classes=l.classes_, _sparse_labels=True)
+        y_hat = model.predict(X)
+        end = time.time() - start
+        print("CUPY: "+ str(end))
+
+    y_hat = cp.asnumpy(y_hat)
+    y = cp.asnumpy(y)
+
+    print(str(accuracy_score(y, y_hat)))
 
