@@ -21,8 +21,6 @@
 
 #define restrict __restrict
 
-using namespace MLCommon;
-
 namespace ML {
 namespace TSNE {
 
@@ -79,7 +77,7 @@ void Barnes_Hut(float *restrict VAL,
 
   // Get device properites
   //---------------------------------------------------
-  const int blocks = getMultiProcessorCount();
+  const int blocks = MLCommon::getMultiProcessorCount();
 
   int nnodes = n * 2;
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
@@ -200,8 +198,8 @@ void Barnes_Hut(float *restrict VAL,
   // Intialize embeddings
   if (init == PCA_Intialization) {
     // Copy Y into YY
-    copyAsync(YY, Y, n, stream);
-    copyAsync(YY + NNODES + 1, Y + n, n, stream);
+    MLCommon::copyAsync(YY, Y, n, stream);
+    MLCommon::copyAsync(YY + NNODES + 1, Y + n, n, stream);
   }
   else {
     random_vector(YY, -0.001f, 0.001f, (NNODES + 1) * 2, stream, random_state);
@@ -235,7 +233,7 @@ void Barnes_Hut(float *restrict VAL,
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
       // Divide perplexities
-      LinAlg::scalarMultiply(VAL, VAL, 1.0f / early_exaggeration, NNZ, stream);
+      MLCommon::LinAlg::scalarMultiply(VAL, VAL, 1.0f / early_exaggeration, NNZ, stream);
     }
 
 
@@ -296,7 +294,7 @@ void Barnes_Hut(float *restrict VAL,
     START_TIMER;
 
     // Find radius^2
-    LinAlg::unaryOp(radiusd_squared, radiusd, 1, 
+    MLCommon::LinAlg::unaryOp(radiusd_squared, radiusd, 1, 
       [] __device__(float x) { return x * x; }, stream);
 
     CUDA_CHECK(cudaMemsetAsync(rep_forces, 0, sizeof(float) * (NNODES + 1) * 2, stream));
@@ -313,13 +311,13 @@ void Barnes_Hut(float *restrict VAL,
     if (verbose and iter % 50 == 0) printf("Norm >");
     START_TIMER;
     // Find normalization
-    LinAlg::unaryOp(Z_norm, Z_norm, 1, 
-      [N_float] __device__(float x) {return 1.0f / (x - N_float); }, stream);
+    MLCommon::LinAlg::unaryOp(Z_norm, Z_norm, 1, 
+      [N_float] __device__(float x) { return 1.0f / (x - N_float); }, stream);
     END_TIMER(Reduction_time);
 
 
     START_TIMER;
-    TSNE::get_norm<<<ceildiv(n, 1024), 1024, 0, stream>>>(YY, YY + NNODES + 1, norm, norm_add1, n);
+    TSNE::get_norm<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(YY, YY + NNODES + 1, norm, norm_add1, n);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // TODO: Calculate Kullback-Leibler divergence
@@ -327,7 +325,7 @@ void Barnes_Hut(float *restrict VAL,
     if (verbose and iter % 50 == 0) printf("Attraction >");
     CUDA_CHECK(cudaMemsetAsync(attr_forces, 0, sizeof(float) * n * 2, stream));
     
-    TSNE::attractive_kernel_bh<<<ceildiv(NNZ, 1024), 1024, 0, stream>>>(
+    TSNE::attractive_kernel_bh<<<MLCommon::ceildiv(NNZ, 1024), 1024, 0, stream>>>(
         VAL, COL, ROW, YY, YY + NNODES + 1, norm, norm_add1, attr_forces,
         attr_forces + n, NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -347,9 +345,9 @@ void Barnes_Hut(float *restrict VAL,
 
 
     // Mean centre components
-    LinAlg::unaryOp(
+    MLCommon::LinAlg::unaryOp(
       sums, sums, 2, [div_N] __device__(float x) { return x * div_N; }, stream);
-    TSNE::mean_centre<<<ceildiv(n, 1024), 1024, 0, stream>>>(
+    TSNE::mean_centre<<<MLCommon::ceildiv(n, 1024), 1024, 0, stream>>>(
       YY, YY + NNODES + 1, sums, n);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -363,8 +361,8 @@ void Barnes_Hut(float *restrict VAL,
   PRINT_TIMES;
 
   // Copy final YY into true output Y
-  copyAsync(Y, YY, n, stream);
-  copyAsync(Y + n, YY + NNODES + 1, n, stream);
+  MLCommon::copyAsync(Y, YY, n, stream);
+  MLCommon::copyAsync(Y + n, YY + NNODES + 1, n, stream);
 }
 
 }  // namespace TSNE

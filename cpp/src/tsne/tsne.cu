@@ -29,20 +29,42 @@ namespace ML {
 
 /**
  * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN) or brute force O(N^2).
- See TSNE_fit for full parameter descriptions. This is just a wrapper calling either int32 or
- int64 depending on the input size.
+ * @input param handle: The GPU handle.
+ * @input param X: The dataset you want to apply TSNE on.
+ * @output param embedding: The final embedding. Will overwrite this internally.
+ * @input param n: Number of rows in data X.
+ * @input param p: Number of columns in data X.
+ * @input param dim: Number of output dimensions for embeddings.
+ * @input param n_neighbors: Number of nearest neighbors used.
+ * @input param theta: Float between 0 and 1. Tradeoff for speed (0) vs accuracy (1) for Barnes Hut only.
+ * @input param epssq: A tiny jitter to promote numerical stability.
+ * @input param perplexity: How many nearest neighbors are used during the construction of Pij.
+ * @input param perplexity_max_iter: Number of iterations used to construct Pij.
+ * @input param perplexity_tol: The small tolerance used for Pij to ensure numerical stability.
+ * @input param early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @input param exaggeration_iter: How many iterations you want the early pressure to run for.
+ * @input param min_gain: Rounds up small gradient updates.
+ * @input param pre_learning_rate: The learning rate during the exaggeration phase.
+ * @input param post_learning_rate: The learning rate after the exaggeration phase.
+ * @input param max_iter: The maximum number of iterations TSNE should run for.
+ * @input param min_grad_norm: The smallest gradient norm TSNE should terminate on.
+ * @input param pre_momentum: The momentum used during the exaggeration phase.
+ * @input param post_momentum: The momentum used after the exaggeration phase.
+ * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
+ * @input param verbose: Whether to print error messages or not.
+ * @input param init: Intialization type using IntializationType enum
+ * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-template <typename Index_t = int>
-static void _TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
-                      const Index_t n, const Index_t p, const Index_t dim, Index_t n_neighbors,
-                      const float theta, const float epssq, float perplexity,
-                      const int perplexity_max_iter, const float perplexity_tol,
-                      const float early_exaggeration, const int exaggeration_iter,
-                      const float min_gain, const float pre_learning_rate,
-                      const float post_learning_rate, const int max_iter,
-                      const float min_grad_norm, const float pre_momentum,
-                      const float post_momentum, const long long random_state,
-                      const bool verbose, const IntializationType init, bool barnes_hut)
+void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
+              const int n, const int p, const int dim, int n_neighbors,
+              const float theta, const float epssq, float perplexity,
+              const int perplexity_max_iter, const float perplexity_tol,
+              const float early_exaggeration, const int exaggeration_iter,
+              const float min_gain, const float pre_learning_rate,
+              const float post_learning_rate, const int max_iter,
+              const float min_grad_norm, const float pre_momentum,
+              const float post_momentum, const long long random_state,
+              const bool verbose, const IntializationType init, bool barnes_hut)
 {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
          embedding != NULL, "Wrong input args");
@@ -256,72 +278,6 @@ static void _TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
   }
 
   if (verbose) printf("[Info] TSNE has completed!\n");
-}
-
-
-/**
- * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN) or brute force O(N^2).
- * @input param handle: The GPU handle.
- * @input param X: The dataset you want to apply TSNE on.
- * @output param embedding: The final embedding. Will overwrite this internally.
- * @input param n: Number of rows in data X.
- * @input param p: Number of columns in data X.
- * @input param dim: Number of output dimensions for embeddings.
- * @input param n_neighbors: Number of nearest neighbors used.
- * @input param theta: Float between 0 and 1. Tradeoff for speed (0) vs accuracy (1) for Barnes Hut only.
- * @input param epssq: A tiny jitter to promote numerical stability.
- * @input param perplexity: How many nearest neighbors are used during the construction of Pij.
- * @input param perplexity_max_iter: Number of iterations used to construct Pij.
- * @input param perplexity_tol: The small tolerance used for Pij to ensure numerical stability.
- * @input param early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @input param exaggeration_iter: How many iterations you want the early pressure to run for.
- * @input param min_gain: Rounds up small gradient updates.
- * @input param pre_learning_rate: The learning rate during the exaggeration phase.
- * @input param post_learning_rate: The learning rate after the exaggeration phase.
- * @input param max_iter: The maximum number of iterations TSNE should run for.
- * @input param min_grad_norm: The smallest gradient norm TSNE should terminate on.
- * @input param pre_momentum: The momentum used during the exaggeration phase.
- * @input param post_momentum: The momentum used after the exaggeration phase.
- * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @input param verbose: Whether to print error messages or not.
- * @input param init: Intialization type using IntializationType enum
- * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
- */
-void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
-              const size_t n, const size_t p, const size_t dim, size_t n_neighbors,
-              const float theta, const float epssq, float perplexity,
-              const int perplexity_max_iter, const float perplexity_tol,
-              const float early_exaggeration, const int exaggeration_iter,
-              const float min_gain, const float pre_learning_rate,
-              const float post_learning_rate, const int max_iter,
-              const float min_grad_norm, const float pre_momentum,
-              const float post_momentum, const long long random_state,
-              const bool verbose, const IntializationType init, bool barnes_hut)
-{
-  if (2*n*dim <= INT_MAX) {
-    _TSNE_fit(handle, X, embedding,
-             (int)n, (int)p, (int)dim, (int)n_neighbors,
-             theta, epssq, perplexity,
-             perplexity_max_iter, perplexity_tol,
-             early_exaggeration, exaggeration_iter,
-             min_gain, pre_learning_rate,
-             post_learning_rate, max_iter,
-             min_grad_norm, pre_momentum,
-             post_momentum, random_state,
-             verbose, init, barnes_hut);
-  }
-  else {
-    _TSNE_fit(handle, X, embedding,
-             (int)n, (int)p, (int)dim, (int)n_neighbors,
-             theta, epssq, perplexity,
-             perplexity_max_iter, perplexity_tol,
-             early_exaggeration, exaggeration_iter,
-             min_gain, pre_learning_rate,
-             post_learning_rate, max_iter,
-             min_grad_norm, pre_momentum,
-             post_momentum, random_state,
-             verbose, init, barnes_hut);
-  }
 }
 
 

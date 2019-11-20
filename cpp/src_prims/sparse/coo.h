@@ -875,7 +875,6 @@ __global__ static void reduce_find_size(const int n, const int k,
  *
  * @param edges: Input row sum array(n) after reduction
  * @param data: Input knn distances(n, k)
- * @param indices: Input knn indices(n, k)
  * @param VAL: Output values for data + data.T
  * @param COL: Output column indices for data + data.T
  * @param ROW: Output row indices for data + data.T
@@ -885,7 +884,6 @@ __global__ static void reduce_find_size(const int n, const int k,
 template <typename math_t>
 __global__ static void symmetric_sum(int *restrict edges,
                                      const math_t *restrict data,
-                                     // const long *restrict indices,
                                      math_t *restrict VAL,
                                      int *restrict COL,
                                      int *restrict ROW,
@@ -983,9 +981,6 @@ void from_knn_symmetrize_matrix(const long *restrict knn_indices,
 
   const int nk = n*k;
   LinAlg::unaryOp(edges, edges, n, [nk] __device__(int x) { return x + nk; }, stream);
-
-  // Set last to NNZ only if CSR needed
-  // CUDA_CHECK(cudaMemcpy(edges + n, &NNZ, sizeof(int), cudaMemcpyHostToDevice));
 
   // (4) Perform final data + data.T operation
   symmetric_sum<<<numBlocks, threadsPerBlock, 0, stream>>>(
