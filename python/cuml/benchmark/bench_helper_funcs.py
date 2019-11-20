@@ -81,11 +81,14 @@ def _build_fil_classifier(m, data, arg={}):
     num_rounds = arg["num_rounds"]
     n_feature = data[0].shape[1]
 
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = "./tmp/"
+    if not os.path.exists(tmpdir):
+        os.makedirs(tmpdir)
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
+
     return m.load(model_path, algo=arg["fil_algo"],
                   output_class=arg["output_class"],
                   threshold=arg["threshold"],
@@ -105,22 +108,21 @@ def _build_treelite_classifier(m, data, arg={}):
     else:
         raise ImportError("No XGBoost package found")
 
-    # use maximum 1e5 rows to train the model
+    # # use maximum 1e5 rows to train the model
     train_size = min(data[0].shape[0], 100000)
-    dtrain = xgb.DMatrix(data[0][:train_size, :], label=data[1][:train_size])
-    params = {
-        "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
-    }
-    params.update(arg)
+
     max_depth = arg["max_depth"]
     num_rounds = arg["num_rounds"]
     n_feature = data[0].shape[1]
 
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = "./tmp/"
+    if not os.path.exists(tmpdir):
+        os.makedirs(tmpdir)
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
 
-    bst = xgb.train(params, dtrain, num_rounds)
+    bst = xgb.Booster()
+    bst.load_model(model_path)
     tl_model = treelite.Model.from_xgboost(bst)
     tl_model.export_lib(
         toolchain="gcc", libpath=model_path+"treelite.so",
