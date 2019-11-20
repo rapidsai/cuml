@@ -68,6 +68,7 @@
 - PR #1384: Lower expectations on batched matrix tests to prevent CI failures
 - PR #1380: Fix memory leaks in ARIMA
 - PR #1391: Lower expectations on batched matrix tests even more
+- PR #1394: Warning added in svd for cuda version 10.1
 
 # cuML 0.10.0 (16 Oct 2019)
 
