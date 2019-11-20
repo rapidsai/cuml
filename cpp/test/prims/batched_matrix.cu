@@ -234,11 +234,11 @@ const std::vector<BatchedMatrixInputs<double>> inputsd = {
 
 // Test parameters (op, n_batches, m, n, p, q, tolerance)
 const std::vector<BatchedMatrixInputs<float>> inputsf = {
-  {AB_op, 7, 15, 37, 37, 11, 1e-6},   {AZT_op, 5, 33, 65, 1, 1, 1e-6},
-  {ZA_op, 8, 12, 41, 1, 1, 1e-6},     {ApB_op, 4, 16, 48, 16, 48, 1e-6},
-  {AmB_op, 17, 9, 3, 9, 3, 1e-6},     {AkB_op, 5, 3, 13, 31, 8, 1e-6},
-  {AkB_op, 3, 7, 12, 31, 15, 1e-6},   {AkB_op, 2, 11, 2, 8, 46, 1e-6},
-  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-3}};
+  {AB_op, 7, 15, 37, 37, 11, 1e-2},   {AZT_op, 5, 33, 65, 1, 1, 1e-2},
+  {ZA_op, 8, 12, 41, 1, 1, 1e-2},     {ApB_op, 4, 16, 48, 16, 48, 1e-2},
+  {AmB_op, 17, 9, 3, 9, 3, 1e-2},     {AkB_op, 5, 3, 13, 31, 8, 1e-2},
+  {AkB_op, 3, 7, 12, 31, 15, 1e-2},   {AkB_op, 2, 11, 2, 8, 46, 1e-2},
+  {AsolveZ_op, 6, 17, 17, 1, 1, 1e-2}};
 
 using BatchedMatrixTestD = BatchedMatrixTest<double>;
 using BatchedMatrixTestF = BatchedMatrixTest<float>;

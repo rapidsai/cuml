@@ -52,7 +52,7 @@ def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
 
 def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
                 cmp_sv=False, dcoef_tol=None, accuracy_tol=None,
-                report_summary=False):
+                report_summary=False, cmp_decision_func=False):
     """ Compares two svm classifiers
     Parameters:
     -----------
@@ -146,6 +146,19 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
         dcoef2 = ((svm2.dual_coef_).copy_to_host())[0, sidx2]
         assert np.all(np.abs(dcoef1-dcoef2) <= dcoef_tol)
 
+    if cmp_decision_func:
+        if accuracy2 > 90:
+            df1 = svm1.decision_function(X).to_array()
+            df2 = svm2.decision_function(X)
+            # For classification, the class is determined by
+            # sign(decision function). We should not expect tight match for
+            # the actual value of the function, therfore we set large tolerance
+            assert(array_equal(df1, df2, tol=1e-1, relative_diff=True,
+                   report_summary=True))
+        else:
+            print("Skipping decision function test due to low  accuracy",
+                  accuracy2)
+
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2):
     np.random.seed(137)
@@ -207,7 +220,7 @@ def test_svm_skl_cmp_kernels(params):
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X_train, y_train)
 
-    compare_svm(cuSVC, sklSVC, X_train, y_train)
+    compare_svm(cuSVC, sklSVC, X_train, y_train, cmp_decision_func=True)
 
 
 @pytest.mark.parametrize('params', [
