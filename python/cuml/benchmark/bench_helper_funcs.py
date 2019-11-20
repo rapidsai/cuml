@@ -40,7 +40,7 @@ def predict(m, x):
     m.predict(x)
 
 
-def _build_fil_classifier(m, data, arg={}):
+def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     """Setup function for FIL classification benchmarking"""
     from cuml.utils.import_utils import has_xgboost
     if has_xgboost():
@@ -82,9 +82,6 @@ def _build_fil_classifier(m, data, arg={}):
     num_rounds = arg["num_rounds"]
     n_feature = data[0].shape[1]
 
-    tmpdir = "./tmp/"
-    if not os.path.exists(tmpdir):
-        os.makedirs(tmpdir)
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
     bst = xgb.train(params, dtrain, num_rounds)
@@ -96,7 +93,7 @@ def _build_fil_classifier(m, data, arg={}):
                   storage_type=arg["storage_type"])
 
 
-def _build_treelite_classifier(m, data, arg={}):
+def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
     """Setup function for treelite classification benchmarking"""
     from cuml.utils.import_utils import has_treelite, has_xgboost
     if has_treelite():
@@ -116,9 +113,6 @@ def _build_treelite_classifier(m, data, arg={}):
     num_rounds = arg["num_rounds"]
     n_feature = data[0].shape[1]
 
-    tmpdir = "./tmp/"
-    if not os.path.exists(tmpdir):
-        os.makedirs(tmpdir)
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
 
