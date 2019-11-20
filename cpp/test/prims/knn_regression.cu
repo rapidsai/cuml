@@ -23,6 +23,8 @@
 #include "random/rng.h"
 #include "selection/knn.h"
 
+#include "linalg/cusolver_wrappers.h"
+
 #include "linalg/reduce.h"
 
 //#include <thrust/count.h>
@@ -73,13 +75,13 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     std::shared_ptr<MLCommon::deviceAllocator> alloc(
       new defaultDeviceAllocator);
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     cublasHandle_t cublas_handle;
-    cublasCreate(&cublas_handle);
+    CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
     cusolverDnHandle_t cusolverDn_handle;
-    cusolverDnCreate(&cusolverDn_handle);
+    CUSOLVER_CHECK(cusolverDnCreate(&cusolverDn_handle));
 
     params = ::testing::TestWithParam<KNNRegressionInputs>::GetParam();
 
@@ -94,12 +96,12 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     generate_data(train_samples, train_labels, params.rows, params.cols,
                   stream);
 
-    float **ptrs = new float *[1];
-    int *sizes = new int[1];
+    std::vector<float *> ptrs(1);
+    std::vector<int> sizes(1);
     ptrs[0] = train_samples;
     sizes[0] = params.rows;
 
-    brute_force_knn(ptrs, sizes, 1, params.cols, train_samples, params.rows,
+    brute_force_knn(ptrs, sizes, params.cols, train_samples, params.rows,
                     knn_indices, knn_dists, params.k, alloc, stream);
 
     std::vector<float *> y;
@@ -107,20 +109,20 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
 
     knn_regress(pred_labels, knn_indices, y, params.rows, params.k, stream);
 
-    cudaStreamSynchronize(stream);
-    cudaStreamDestroy(stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    cudaFree(train_samples);
-    cudaFree(train_labels);
+    CUDA_CHECK(cudaFree(train_samples));
+    CUDA_CHECK(cudaFree(train_labels));
 
-    cudaFree(pred_labels);
+    CUDA_CHECK(cudaFree(pred_labels));
 
-    cudaFree(knn_indices);
-    cudaFree(knn_dists);
+    CUDA_CHECK(cudaFree(knn_indices));
+    CUDA_CHECK(cudaFree(knn_dists));
   }
 
  protected:

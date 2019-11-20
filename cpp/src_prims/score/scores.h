@@ -85,13 +85,12 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
   math_t *d_pred_D =
     (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
 
-  float **ptrs = new float *[1];
+  std::vector<float *> ptrs(1);
+  std::vector<int> sizes(1);
   ptrs[0] = input;
-
-  int *sizes = new int[1];
   sizes[0] = n;
 
-  MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, d, input, n, d_pred_I,
+  MLCommon::Selection::brute_force_knn(ptrs, sizes, d, input, n, d_pred_I,
                                        d_pred_D, n_neighbors, d_alloc, stream);
 
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
