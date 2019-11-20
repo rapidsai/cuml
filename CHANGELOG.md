@@ -10,10 +10,12 @@
 - PR #1286: Importing treelite models as FIL sparse forests
 - PR #1285: Fea minimum impurity decrease RF param
 - PR #1301: Add make_regression to generate regression datasets
+- PR #1322: RF pickling using treelite, protobuf and FIL
 - PR #1332: Add option to cuml.dask make_blobs to produce dask array
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
+- PR #1386: Expose SVC decision function value
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
@@ -29,18 +31,22 @@
 - PR #1300: Lowercase parameter versions for FIL algorithms
 - PR #1312: Update CuPy to version 6.5 and use conda-forge channel
 - PR #1336: Import SciKit-Learn models into FIL
-- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option to select algos
 - PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
   to select algos
 - PR #1335: Options to print available algorithms and datasets
   in the Python benchmark
 - PR #1338: Remove BUILD_ABI references in CI scripts
 - PR #1340: Updated unit tests to uses larger dataset
+- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
+  model importing
+- PR #1360: Improved tests for importing SciKit-Learn models into FIL
 - PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1366: Modify train_test_split to use CuPy and accept device arrays
 - PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1357: Run benchmarks multiple times for CI
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
@@ -49,6 +55,7 @@
 - PR #1267: Update build.sh for recent change of building comms in main CMakeLists
 - PR #1278: Removed incorrect overloaded instance of eigJacobi
 - PR #1302: Updates for numba 0.46
+- PR #1313: Updated the RF tests to set the seed and n_streams
 - PR #1319: Using machineName arg passed in instead of default for ASV reporting
 - PR #1326: Fix illegal memory access in make_regression (bounds issue)
 - PR #1330: Fix C++ unit test utils for better handling of differences near zero
@@ -56,7 +63,10 @@
 - PR #1337: Fix k-means init from preset cluster centers
 - PR #1354: Fix SVM gamma=scale implementation
 - PR #1344: Change other solver based methods to create solver object in init
+- PR #1373: Fixing a few small bugs in make_blobs and adding asserts to pytests
 - PR #1361: Improve SMO error handling
+- PR #1384: Lower expectations on batched matrix tests to prevent CI failures
+- PR #1380: Fix memory leaks in ARIMA
 
 # cuML 0.10.0 (16 Oct 2019)
 
