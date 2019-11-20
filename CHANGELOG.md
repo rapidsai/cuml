@@ -14,8 +14,6 @@
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
-- PR #1386: Expose SVC decision function value
-- PR #1383: TSNE PCA Intialization + 50% Memory reductions
 
 ## Improvements
 - PR #1170: Use git to clone subprojects instead of git submodules
