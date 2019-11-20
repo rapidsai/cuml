@@ -448,6 +448,24 @@ struct smoOutput {
   std::vector<int> idx;
 };
 
+// If we want to compare decision function values too
+template <typename math_t>
+struct smoOutput2 {  //: smoOutput<math_t> {
+  int n_support;
+  std::vector<math_t> dual_coefs;
+  math_t b;
+  std::vector<math_t> w;
+  std::vector<math_t> x_support;
+  std::vector<int> idx;
+  std::vector<math_t> decision_function;
+};
+
+template <typename math_t>
+smoOutput<math_t> toSmoOutput(smoOutput2<math_t> x) {
+  smoOutput<math_t> y{x.n_support, x.dual_coefs, x.b, x.w, x.x_support, x.idx};
+  return y;
+}
+
 template <typename math_t>
 struct svmTol {
   math_t b;
@@ -717,41 +735,48 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest) {
 }
 
 TYPED_TEST(SmoSolverTest, SvcTest) {
-  std::vector<std::pair<svcInput<TypeParam>, smoOutput<TypeParam>>> data{
+  std::vector<std::pair<svcInput<TypeParam>, smoOutput2<TypeParam>>> data{
     {svcInput<TypeParam>{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, this->n_rows,
                          this->n_cols, this->x_dev, this->y_dev, true},
-     smoOutput<TypeParam>{4,
-                          {-0.6, 1, -1, 0.6},
-                          -1.8f,
-                          {-0.4, 1.2},
-                          {1, 1, 2, 2, 1, 2, 2, 3},
-                          {0, 2, 3, 5}}},
+     smoOutput2<TypeParam>{4,
+                           {-0.6, 1, -1, 0.6},
+                           -1.8f,
+                           {-0.4, 1.2},
+                           {1, 1, 2, 2, 1, 2, 2, 3},
+                           {0, 2, 3, 5},
+                           {-1.0, -1.4, 0.2, -0.2, 1.4, 1.0}}},
     {svcInput<TypeParam>{1, 1e-6, KernelParams{POLYNOMIAL, 3, 1, 0},
                          this->n_rows, this->n_cols, this->x_dev, this->y_dev,
                          true},
-     smoOutput<TypeParam>{3,
-                          {-0.03900895, 0.05904058, -0.02003163},
-                          -0.99999959,
-                          {},
-                          {1, 1, 2, 1, 2, 2},
-                          {0, 2, 3}}},
+     smoOutput2<TypeParam>{3,
+                           {-0.03900895, 0.05904058, -0.02003163},
+                           -0.99999959,
+                           {},
+                           {1, 1, 2, 1, 2, 2},
+                           {0, 2, 3},
+                           {-0.9996812, -2.60106647, 0.9998406, -1.0001594,
+                            6.49681105, 4.31951232}}},
     {svcInput<TypeParam>{10, 1e-6, KernelParams{TANH, 3, 0.3, 1.0},
                          this->n_rows, this->n_cols, this->x_dev, this->y_dev,
                          false},
-     smoOutput<TypeParam>{6,
-                          {-10., -10., 10., -10., 10., 10.},
-                          -0.3927505,
-                          {},
-                          {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
-                          {0, 1, 2, 3, 4, 5}}},
+     smoOutput2<TypeParam>{6,
+                           {-10., -10., 10., -10., 10., 10.},
+                           -0.3927505,
+                           {},
+                           {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
+                           {0, 1, 2, 3, 4, 5},
+                           {0.25670694, -0.16451539, 0.16451427, -0.1568888,
+                            -0.04496891, -0.2387212}}},
     {svcInput<TypeParam>{1, 1.0e-6, KernelParams{RBF, 0, 0.15, 0}, this->n_rows,
                          this->n_cols, this->x_dev, this->y_dev, true},
-     smoOutput<TypeParam>{6,
-                          {-1., -1, 1., -1., 1, 1.},
-                          0,
-                          {},
-                          {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
-                          {0, 1, 2, 3, 4, 5}}}};
+     smoOutput2<TypeParam>{6,
+                           {-1., -1, 1., -1., 1, 1.},
+                           0,
+                           {},
+                           {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
+                           {0, 1, 2, 3, 4, 5},
+                           {-0.71964003, -0.95941954, 0.13929202, -0.13929202,
+                            0.95941954, 0.71964003}}}};
 
   for (auto d : data) {
     auto p = d.first;
@@ -759,13 +784,18 @@ TYPED_TEST(SmoSolverTest, SvcTest) {
     SCOPED_TRACE(kernelName(p.kernel_params));
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
     svc.fit(p.x_dev, p.n_rows, p.n_cols, p.y_dev);
-    this->checkResults(svc.model, exp);
+    this->checkResults(svc.model, toSmoOutput(exp));
     device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
                                     this->stream, p.n_rows);
     if (p.predict) {
       svc.predict(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
       EXPECT_TRUE(devArrMatch(this->y_dev, y_pred.data(), p.n_rows,
                               CompareApprox<TypeParam>(1e-6f)));
+    }
+    if (exp.decision_function.size() > 0) {
+      svc.decisionFunction(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
+      EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(), y_pred.data(),
+                                  p.n_rows, CompareApprox<TypeParam>(1e-3f)));
     }
   }
 }
