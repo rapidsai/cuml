@@ -18,14 +18,6 @@
 
 #include <common/cumlHandle.hpp>
 
-#include <faiss/Heap.h>
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
-
-#include <iostream>
-
 namespace ML {
 
 /**
@@ -34,15 +26,16 @@ namespace ML {
    * output array for indexes and distances.
    *
    * @param handle the cuml handle to use
-   * @param input an array of pointers to the input arrays
-   * @param sizes an array of sizes of input arrays
-   * @param n_params array size of input and sizes
+   * @param input vector of pointers to the input arrays
+   * @param sizes vector of sizes of input arrays
    * @param D the dimensionality of the arrays
    * @param search_items array of items to search of dimensionality D
    * @param n number of rows in search_items
    * @param res_I the resulting index array of size n * k
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
+   * @param rowMajorIndex are the index arrays in row-major order?
+   * @param rowMajorQuery are the query arrays in row-major order?
    */
 void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
@@ -85,6 +78,13 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  * @brief Flat C++ API function to compute knn class probabilities
  * using a vector of device arrays containing discrete class labels.
  * Note that the output is a vector, which is
+ *
+ * @param handle the cuml handle to use
+ * @param out vector of output arrays on device. vector size = n_outputs.
+ * Each array should have size(n_samples, n_classes)
+ * @param y array of labels on device (size n_samples)
+ * @param n_samples number of samples in knn_indices and out
+ * @param k number of nearest neighbors in knn_indices
  */
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,

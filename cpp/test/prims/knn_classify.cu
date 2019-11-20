@@ -40,7 +40,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     std::shared_ptr<MLCommon::deviceAllocator> alloc(
       new defaultDeviceAllocator);
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
 
@@ -61,12 +61,12 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     MLCommon::Label::getUniqueLabels(train_labels, params.rows, &unique_labels,
                                      &n_classes, stream, alloc);
 
-    float **ptrs = new float *[1];
-    int *sizes = new int[1];
+    std::vector<float *> ptrs(1);
+    std::vector<int> sizes(1);
     ptrs[0] = train_samples;
     sizes[0] = params.rows;
 
-    brute_force_knn(ptrs, sizes, 1, params.cols, train_samples, params.rows,
+    brute_force_knn(ptrs, sizes, params.cols, train_samples, params.rows,
                     knn_indices, knn_dists, params.k, alloc, stream);
 
     std::vector<int *> y;
@@ -81,22 +81,22 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     knn_classify(pred_labels, knn_indices, y, params.rows, params.k,
                  uniq_labels, n_unique, alloc, stream);
 
-    cudaStreamSynchronize(stream);
-    cudaStreamDestroy(stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    cudaFree(train_samples);
-    cudaFree(train_labels);
+    CUDA_CHECK(cudaFree(train_samples));
+    CUDA_CHECK(cudaFree(train_labels));
 
-    cudaFree(pred_labels);
+    CUDA_CHECK(cudaFree(pred_labels));
 
-    cudaFree(knn_indices);
-    cudaFree(knn_dists);
+    CUDA_CHECK(cudaFree(knn_indices));
+    CUDA_CHECK(cudaFree(knn_dists));
 
-    cudaFree(unique_labels);
+    CUDA_CHECK(cudaFree(unique_labels));
   }
 
  protected:

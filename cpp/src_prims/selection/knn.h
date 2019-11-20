@@ -39,6 +39,20 @@
 namespace MLCommon {
 namespace Selection {
 
+/**
+ * @brief Simple utility function to determine whether user_stream or one of the
+ * internal streams should be used.
+ * @param user_stream main user stream
+ * @param int_streams array of internal streams
+ * @param n_int_streams number of internal streams
+ * @param idx the index for which to query the stream
+ */
+inline cudaStream_t select_stream(cudaStream_t user_stream,
+                                  cudaStream_t *int_streams, int n_int_streams,
+                                  int idx) {
+  return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
+}
+
 template <int warp_q, int thread_q, int tpb>
 __global__ void knn_merge_parts_kernel(float *inK, int64_t *inV, float *outK,
                                        int64_t *outV, size_t n_samples,
@@ -161,23 +175,24 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
 
 /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
-   * @param input device memory to search as an array of device pointers
-   * @param sizes array of memory sizes
-   * @param n_params size of input and sizes arrays
+   * @param input vector of device device memory array pointers to search
+   * @param sizes vector of memory sizes for each device array pointer in input
    * @param D number of cols in input and search_items
    * @param search_items set of vectors to query for neighbors
    * @param n        number of items in search_items
-   * @param res_I      pointer to device memory for returning k nearest indices
-   * @param res_D      pointer to device memory for returning k nearest distances
+   * @param res_I    pointer to device memory for returning k nearest indices
+   * @param res_D    pointer to device memory for returning k nearest distances
    * @param k        number of neighbors to query
    * @param allocator the device memory allocator to use for temporary scratch memory
-   * @param s the cuda stream to use
+   * @param userStream the main cuda stream to use
    * @param internalStreams optional when n_params > 0, the index partitions can be
    *        queried in parallel using these streams. Note that n_int_streams also
    *        has to be > 0 for these to be used and their cardinality does not need
    *        to correspond to n_parts.
    * @param n_int_streams size of internalStreams. When this is <= 0, only the
    *        user stream will be used.
+   * @param rowMajorIndex are the index arrays in row-major layout?
+   * @param rowMajorQuery are the query array in row-major layout?
    * @param translations translation ids for indices when index rows represent
    *        non-contiguous partitions
    */
@@ -200,8 +215,6 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors should be the same size");
 
-  int n_params = input.size();
-
   std::vector<int64_t> *id_ranges;
   if (translations == nullptr) {
     // If we don't have explicit translations
@@ -209,10 +222,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     // from the local partitions
     id_ranges = new std::vector<int64_t>();
     int64_t total_n = 0;
-    for (int i = 0; i < n_params; i++) {
-      if (i < input.size()) {
-        id_ranges->push_back(total_n);
-      }
+    for (int i = 0; i < input.size(); i++) {
+      id_ranges->push_back(total_n);
       total_n += sizes[i];
     }
   } else {
@@ -229,34 +240,30 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   device_buffer<float> all_D(allocator, userStream, input.size() * k * n);
   device_buffer<int64_t> all_I(allocator, userStream, input.size() * k * n);
 
+  // Sync user stream only if using other streams to parallelize query
   if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   for (int i = 0; i < input.size(); i++) {
-    const float *ptr = input[i];
-    IntType size = sizes[i];
+    faiss::gpu::StandardGpuResources gpu_res;
 
-    try {
-      faiss::gpu::StandardGpuResources gpu_res;
+    cudaStream_t stream =
+      select_stream(userStream, internalStreams, n_int_streams, i);
 
-      cudaStream_t stream =
-        n_int_streams > 0 ? internalStreams[i % n_int_streams] : userStream;
+    gpu_res.noTempMemory();
+    gpu_res.setCudaMallocWarning(false);
+    gpu_res.setDefaultStream(device, stream);
 
-      gpu_res.noTempMemory();
-      gpu_res.setCudaMallocWarning(false);
-      gpu_res.setDefaultStream(device, stream);
+    faiss::gpu::bruteForceKnn(
+      &gpu_res, faiss::METRIC_L2, input[i], rowMajorIndex, sizes[i],
+      search_items, rowMajorQuery, n, D, k, all_D.data() + (i * k * n),
+      all_I.data() + (i * k * n));
 
-      faiss::gpu::bruteForceKnn(&gpu_res, faiss::METRIC_L2, ptr, rowMajorIndex,
-                                size, search_items, rowMajorQuery, n, D, k,
-                                all_D.data() + (i * k * n),
-                                all_I.data() + (i * k * n));
-
-      CUDA_CHECK(cudaPeekAtLastError());
-
-    } catch (const std::exception &e) {
-      std::cout << "Exception occurred: " << e.what() << std::endl;
-    }
+    CUDA_CHECK(cudaPeekAtLastError());
   }
 
+  // Sync internal streams if used. We don't need to
+  // sync the user stream because we'll already have
+  // fully serial execution.
   for (int i = 0; i < n_int_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
   }
@@ -432,21 +439,6 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   out[row * n_outputs + output_offset] = pred / (LabelType)n_neighbors;
 }
 
-
-/**
- * @brief Simple utility function to determine whether user_stream or one of the
- * internal streams should be used.
- * @param user_stream main user stream
- * @param int_streams array of internal streams
- * @param n_int_streams number of internal streams
- * @param idx the index for which to query the stream
- */
-inline cudaStream_t select_stream(cudaStream_t user_stream,
-                                  cudaStream_t *int_streams, int n_int_streams,
-                                  int idx) {
-  return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
-}
-
 /**
  * A naive knn classifier to predict probabilities
  * @tparam TPB_X number of threads per block to use. each thread
@@ -494,6 +486,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     int smem = sizeof(int) * n_labels;
     class_probs_kernel<<<grid, blk, smem, stream>>>(
       out[i], knn_indices, y[i], uniq_labels[i], n_labels, n_rows, k);
+    CUDA_CHECK(cudaPeekAtLastError());
 
     LinAlg::unaryOp(
       out[i], out[i], cur_size,
@@ -574,6 +567,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     int smem = sizeof(int) * n_labels;
     class_vote_kernel<<<grid, blk, smem, stream>>>(
       out, probs[i], uniq_labels[i], n_labels, n_rows, y.size(), i);
+    CUDA_CHECK(cudaPeekAtLastError());
 
     delete tmp_probs[i];
   }
@@ -613,6 +607,7 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
       select_stream(user_stream, int_streams, n_int_streams, i);
     regress_avg_kernel<<<grid, blk, 0, stream>>>(out, knn_indices, y[i], n_rows,
                                                  k, y.size(), i);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
 }
 

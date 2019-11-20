@@ -239,6 +239,15 @@ cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
 
 int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
 
+std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
+  std::vector<cudaStream_t> int_streams_vec(_num_streams);
+  for (auto s : _streams) {
+    int_streams_vec.push_back(s);
+  }
+
+  return int_streams_vec;
+}
+
 void cumlHandle_impl::waitOnUserStream() const {
   CUDA_CHECK(cudaEventRecord(_event, _userStream));
   for (auto s : _streams) {

@@ -67,12 +67,12 @@ class KNNTest : public ::testing::Test {
     sizes[0] = n;
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     brute_force_knn(ptrs, sizes, 1, d, d_train_inputs, n, d_pred_I, d_pred_D, n,
                     alloc, stream);
 
-    cudaStreamDestroy(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
