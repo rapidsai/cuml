@@ -25,6 +25,7 @@ import cuml.metrics
 import cuml.decomposition
 import umap
 import numpy as np
+import tempfile 
 
 from cuml.benchmark.bench_helper_funcs \
     import fit, fit_kneighbors, fit_transform, predict, \
@@ -102,6 +103,7 @@ class AlgorithmPair:
         self.cpu_data_prep_hook = cpu_data_prep_hook
         self.cuml_data_prep_hook = cuml_data_prep_hook
         self.accuracy_function = accuracy_function
+        self.tmpdir = tempfile.mkdtemp()
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
@@ -150,7 +152,7 @@ class AlgorithmPair:
             all_args = {**self.shared_args, **self.cpu_args}
             all_args = {**all_args, **override_args}
             return {"cpu_setup_result":
-                    self.setup_cpu_func(self.cpu_class, data, all_args)}
+                    self.setup_cpu_func(self.cpu_class, data, all_args, self.tmpdir)}
         else:
             return {}
 
@@ -159,7 +161,7 @@ class AlgorithmPair:
             all_args = {**self.shared_args, **self.cuml_args}
             all_args = {**all_args, **override_args}
             return {"cuml_setup_result":
-                    self.setup_cuml_func(self.cuml_class, data, all_args)}
+                    self.setup_cuml_func(self.cuml_class, data, all_args, self.tmpdir)}
         else:
             return {}
 
