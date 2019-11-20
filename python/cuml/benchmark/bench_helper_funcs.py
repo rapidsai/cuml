@@ -16,6 +16,7 @@
 import os
 import tempfile
 import cuml
+from cuml.utils import input_utils
 import numpy as np
 import pandas as pd
 import cudf
@@ -132,8 +133,11 @@ def _build_treelite_classifier(m, data, arg={}):
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
-    if isinstance(y_pred, np.ndarray):
-        y_pred_binary = y_pred > 0.5
+    y_pred_binary = input_utils.convert_dtype(y_pred > 0.5, np.int32)
+    if isinstance(y_true, np.ndarray):
         return cuml.metrics.accuracy_score(y_true, y_pred_binary)
+    elif cuda.devicearray.is_cuda_ndarray(y_true):
+        y_true_np = y_true.copy_to_host()
+        return cuml.metrics.accuracy_score(y_true_np, y_pred_binary)
     else:
         return cuml.metrics.accuracy_score(y_true, y_pred)
