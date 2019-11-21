@@ -43,9 +43,9 @@ void SparseSVD_fit(const cumlHandle &handle,
   ASSERT(n_components > 0 and n_oversamples > 0 and max_iter >= 0, "Bad input");
 
   const auto d_alloc = handle.getDeviceAllocator();
-  const cudaStream_t stream = handle.getStream();
-  const cusparseHandle_t solver_h = handle.getImpl().getcusparseHandle();
-  const cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
+  cudaStream_t stream = handle.getStream();
+  cusparseHandle_t solver_h = handle.getImpl().getcusparseHandle();
+  cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
 
   const int K = MIN(n_components + n_oversamples, p);
 

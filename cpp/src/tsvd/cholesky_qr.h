@@ -36,7 +36,7 @@ int prepare_cholesky_qr(const math_t *__restrict X,
                          math_t *__restrict R,
                          const int n,
                          const int p,
-                         const cusolverDnHandle_t solver_h)
+                         cusolverDnHandle_t solver_h)
 {
   // X.T @ X workspace
   int lwork = 0;
@@ -56,8 +56,8 @@ void cholesky_qr(const math_t *__restrict X,
                  math_t *__restrict work = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
-  const cudaStream_t stream = handle.getStream();
-  const cusparseHandle_t solver_h = handle.getImpl().getcusparseHandle();
+  cudaStream_t stream = handle.getStream();
+  cusparseHandle_t solver_h = handle.getImpl().getcusparseHandle();
 
   if (lwork == 0)
   {
