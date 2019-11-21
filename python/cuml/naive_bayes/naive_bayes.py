@@ -81,8 +81,6 @@ class GaussianNB(object):
         else:
             self.class_prior_ = cp.zeros(n_classes, dtype=cp.float32)
 
-        classes = 
-
     def _count(self, X, Y):
 
         """
