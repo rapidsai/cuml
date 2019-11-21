@@ -104,7 +104,7 @@ DI void entropyGain(const int* shist, const DataT* sbins, DataT parentGain,
 }
 
 /**
- * @defgroup Metrics Metric computation
+ * @defgroup ClassificationMetrics Metric computation
  * @{
  * @brief Computes the initial metric on CPU
  * @tparam DataT data type
