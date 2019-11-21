@@ -17,107 +17,25 @@ import math
 import cudf
 import cupy as cp
 
+from cuml.prims.label import make_monotonic, check_labels, \
+    invert_labels
+
 import numba.cuda
-
-map_kernel = cp.RawKernel(r'''
-extern "C" __global__
-void map_label(int *x, int x_n, int *labels, int n_labels) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if(tid >= x_n) return;
-
-  extern __shared__ int label_cache[];
-  if(threadIdx.x == 0) {
-    for(int i = 0; i < n_labels; i++) label_cache[i] = labels[i];
-  }
-
-  __syncthreads();
-
-  int unmapped_label = x[tid];
-  for(int i = 0; i < n_labels; i++) {
-    if(label_cache[i] == unmapped_label) {
-      x[tid] = i;
-      break;
-    }
-  }
-}
-''', 'map_label')
-
-validate_kernel = cp.RawKernel(r'''
-extern "C" __global__
-void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if(tid >= x_n) return;
-
-  extern __shared__ int label_cache[];
-  if(threadIdx.x == 0) {
-    for(int i = 0; i < n_labels; i++) {
-        label_cache[i] = labels[i];
-    }
-  }
-
-  __syncthreads();
-
-  int unmapped_label = x[tid];
-  bool found = false;
-  for(int i = 0; i < n_labels; i++) {
-    if(label_cache[i] == unmapped_label) {
-      found = true;
-      break;
-    }
-  }
-
-  if(!found) out[0] = 0;
-}
-''', 'validate_kernel')
-
-inverse_map_kernel = cp.RawKernel(r'''
-extern "C" __global__
-void inverse_map_kernel(int *labels, int n_labels, int *x, int x_n) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if(tid >= x_n) return;
-
-  extern __shared__ int label_cache[];
-  if(threadIdx.x == 0) {
-    for(int i = 0; i < n_labels; i++) label_cache[i] = labels[i];
-  }
-
-  __syncthreads();
-
-  x[tid] = label_cache[x[tid]];
-}
-''', 'inverse_map_kernel')
-
-
-def _validate_labels(y, classes):
-
-    valid = cp.array([1], dtype=cp.int32)
-
-    smem = 4 * int(classes.shape[0])
-    validate_kernel((math.ceil(y.shape[0] / 32),), (32, ),
-                    (y, y.shape[0], classes, classes.shape[0], valid),
-                    shared_mem=smem)
-
-    return valid[0] == 1
 
 
 def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
 
     classes = cp.asarray(classes, dtype=cp.int32)
+    labels = cp.asarray(y, dtype=cp.int32)
 
-    col_ind = cp.asarray(y, dtype=cp.int32).copy()
+    print(str(classes))
+    print(str(cp.unique(labels)))
 
-    if not _validate_labels(col_ind, classes):
+    if not check_labels(labels, classes):
         raise ValueError("Unseen classes encountered in input")
 
-    row_ind = cp.arange(0, col_ind.shape[0], 1, dtype=cp.int32)
-
-    smem = 4 * classes.shape[0]
-    map_kernel((math.ceil(col_ind.shape[0] / 32),), (32, ),
-               (col_ind, col_ind.shape[0], classes, classes.shape[0]),
-               shared_mem=smem)
+    row_ind = cp.arange(0, labels.shape[0], 1, dtype=cp.int32)
+    col_ind,_ = make_monotonic(labels, classes, copy=True)
 
     val = cp.full(row_ind.shape[0], pos_label, dtype=cp.int32)
 
@@ -193,13 +111,7 @@ class LabelBinarizer(object):
         y_mapped = cp.argmax(
             cp.asarray(y, dtype=cp.int32), axis=1).astype(cp.int32)
 
-        smem = 4 * self.classes_.shape[0]
-
-        inverse_map_kernel((math.ceil(y_mapped.shape[0] / 32),), (32,),
-                           (self.classes_, self.classes_.shape[0],
-                            y_mapped, y_mapped.shape[0]), shared_mem=smem)
-
-        return y_mapped
+        return invert_labels(y_mapped, self.classes_)
 
     def __getstate__(self):
         state = self.__dict__.copy()
