@@ -295,8 +295,8 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   Split<DataT, IdxT> sp;
   sp.init();
   if (SplitType == CRITERION::GINI) {
-    giniInfoGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
-                              nbins, nclasses);
+    giniGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len, nbins,
+                          nclasses);
   } else {
     entropyGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
                              nbins, nclasses);

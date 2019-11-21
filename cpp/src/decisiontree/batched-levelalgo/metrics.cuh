@@ -37,9 +37,9 @@ namespace DecisionTree {
  * @param nclasses number of classes
  */
 template <typename DataT, typename IdxT>
-DI void giniInfoGain(const int* shist, const DataT* sbins, DataT parentGain,
-                     Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins,
-                     IdxT nclasses) {
+DI void giniGain(const int* shist, const DataT* sbins, DataT parentGain,
+                 Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins,
+                 IdxT nclasses) {
   constexpr DataT One = DataT(1.0);
   DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
