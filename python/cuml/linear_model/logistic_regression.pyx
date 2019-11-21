@@ -165,8 +165,6 @@ class LogisticRegression(Base):
             raise ValueError("Only quasi-newton `qn` (lbfgs and owl) solvers "
                              " supported.")
 
-
-
         self.C = C
         self.penalty = penalty
         self.tol = tol
