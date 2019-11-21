@@ -21,6 +21,7 @@
 #include <cublas_v2.h>
 #include <cusolverDn.h>
 #include <common/device_buffer.hpp>
+#include "common/cumlHandle.hpp"
 
 #define device_buffer    MLCommon::device_buffer
 
