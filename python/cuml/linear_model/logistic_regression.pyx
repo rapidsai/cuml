@@ -19,6 +19,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import pprint
+
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
@@ -147,10 +149,11 @@ class LogisticRegression(Base):
     """
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
-                 class_weight=None, max_iter=1000, line_max_iter=500,
+                 class_weight=None, max_iter=1000, linesearch_max_iter=500,
                  verbose=0, l1_ratio=None, solver='qn', handle=None):
 
-        super(LogisticRegression, self).__init__(handle=handle, verbose=verbose)
+        super(LogisticRegression, self).__init__(handle=handle,
+                                                 verbose=verbose)
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
@@ -162,12 +165,14 @@ class LogisticRegression(Base):
             raise ValueError("Only quasi-newton `qn` (lbfgs and owl) solvers "
                              " supported.")
 
+
+
         self.C = C
         self.penalty = penalty
         self.tol = tol
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
-        self.line_max_iter = line_max_iter
+        self.linesearch_max_iter = linesearch_max_iter
         if self.penalty == 'elasticnet':
             if l1_ratio is None:
                 raise ValueError("l1_ratio has to be specified for"
@@ -198,8 +203,14 @@ class LogisticRegression(Base):
 
         self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
                      l1_strength=l1_strength, l2_strength=l2_strength,
-                     max_iter=self.max_iter, line_max_iter=self.line_max_iter,
+                     max_iter=self.max_iter,
+                     linesearch_max_iter=self.linesearch_max_iter,
                      tol=self.tol, verbose=self.verbose, handle=self.handle)
+
+        if self.verbose > 1:
+            self.verb_prefix = "CY::"
+            print(self.verb_prefix + "Estimator parameters:")
+            pprint(self.__dict__)
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -237,16 +248,32 @@ class LogisticRegression(Base):
         else:
             loss = 'sigmoid'
 
+        if self.verbose > 0:
+            print(self.verb_prefix + "Setting loss to " + str(loss))
+
         self.qn.loss = loss
+
+        if self.verbose > 0:
+            print(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
+        if self.verbose > 0:
+            print(self.verb_prefix + "Setting coefficients " + str(loss))
+
         if self.fit_intercept:
             self.coef_ = self.qn.coef_[0:-1]
             self.intercept_ = self.qn.coef_[-1]
         else:
             self.coef_ = self.qn.coef_
+
+        if self.verbose > 2:
+            print(self.verb_prefix + "Coefficients: " +
+                  self.coef_.copy_to_host())
+            if self.fit_intercept:
+                print(self.verb_prefix + "Intercept: " +
+                      self.intercept_.copy_to_host())
 
         return self
 
