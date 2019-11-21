@@ -363,10 +363,11 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
-  extern __shared__ int label_cache[];
+  float n_neigh_inv = 1.0f / float(n_neighbors);
 
-  if (threadIdx.x == 0) {
-    for (int j = 0; j < n_uniq_labels; j++) label_cache[j] = unique_labels[j];
+  extern __shared__ int label_cache[];
+  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
+    label_cache[j] = unique_labels[j];
   }
 
   __syncthreads();
@@ -385,7 +386,7 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
       label_binary_search(label_cache, n_uniq_labels, out_label);
 
     int out_idx = row * n_uniq_labels + out_label_idx;
-    out[out_idx] += 1.0f;
+    out[out_idx] += n_neigh_inv;
   }
 }
 
@@ -398,10 +399,8 @@ __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
   int i = row * n_uniq_labels;
 
   extern __shared__ int label_cache[];
-  if (threadIdx.x == 0) {
-    for (int j = 0; j < n_uniq_labels; j++) {
-      label_cache[j] = unique_labels[j];
-    }
+  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
+    label_cache[j] = unique_labels[j];
   }
 
   __syncthreads();
@@ -487,14 +486,6 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     class_probs_kernel<<<grid, blk, smem, stream>>>(
       out[i], knn_indices, y[i], uniq_labels[i], n_labels, n_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
-
-    LinAlg::unaryOp(
-      out[i], out[i], cur_size,
-      [=] __device__(float input) {
-        float n_neighbors = k;
-        return input / n_neighbors;
-      },
-      stream);
   }
 }
 
