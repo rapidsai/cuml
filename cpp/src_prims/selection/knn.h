@@ -315,7 +315,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
  * @param target_val the label value to search for in unique_labels
  */
 template <typename IdxType = int>
-__device__ int label_binary_search(IdxType *unique_labels, IdxType n_labels,
+__device__ IdxType label_binary_search(IdxType *unique_labels, IdxType n_labels,
                                    IdxType target_val) {
   int out_label_idx = -1;
 
