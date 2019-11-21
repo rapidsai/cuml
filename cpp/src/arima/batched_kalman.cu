@@ -87,8 +87,6 @@ __device__ void MM_l(double* A, double* B, double* out) {
   }
 }
 
-// TODO: N is super confusing, shouldn't we rename the template param to r?
-
 //! Kalman loop. Each thread computes kalman filter for a single series and
 //! stores relevant matrices in registers.
 template <int r>

@@ -99,7 +99,13 @@ void naiveAdd(DataT *out, const DataT *u, const DataT *v, int len,
 }
 
 /**
- * TODO: docs
+ * @brief CPU lagged matrix
+ * 
+ * @tparam      DataT  Type of the data
+ * @param[out]  out    Pointer to the result
+ * @param[in]   in     Pointer to the input vector
+ * @param[in]   len    Length or the vector
+ * @param[in]   lags   Number of lags
  */
 template <typename DataT>
 void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
@@ -115,7 +121,16 @@ void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
 }
 
 /**
- * TODO: docs
+ * @brief CPU matrix 2D copy
+ * 
+ * @tparam      DataT        Type of the data
+ * @param[out]  out          Pointer to the result
+ * @param[in]   in           Pointer to the input matrix
+ * @param[in]   starting_row Starting row
+ * @param[in]   starting_col Starting column
+ * @param[in]   in_rows      Number of rows in the input matrix
+ * @param[in]   out_rows     Number of rows in the output matrix
+ * @param[in]   out_cols     Number of columns in the input matrix
  */
 template <typename DataT>
 void naive2DCopy(DataT *out, const DataT *in, int starting_row,
@@ -130,7 +145,12 @@ void naive2DCopy(DataT *out, const DataT *in, int starting_row,
 }
 
 /**
- * TODO: docs
+ * @brief CPU first difference of a vector
+ * 
+ * @tparam      DataT        Type of the data
+ * @param[out]  out          Pointer to the result
+ * @param[in]   in           Pointer to the input vector
+ * @param[in]   len          Length of the input vector
  */
 template <typename DataT>
 void naiveDiff(DataT *out, const DataT *in, int len) {
