@@ -362,7 +362,6 @@ struct Builder {
   }
 };  // end Builder
 
-///@todo: support regression
 ///@todo: support building from an arbitrary depth
 ///@todo: support col subsampling per node
 /**
