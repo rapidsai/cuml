@@ -20,6 +20,7 @@
 #include <linalg/cusparse_wrappers.h>
 #include <cublas_v2.h>
 #include <cusolverDn.h>
+#include <common/device_buffer.hpp>
 
 #define device_buffer    MLCommon::device_buffer
 
