@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
-#include <linalg/cusolver_wrappers.h>
-
 #include "sparse_svd.h"
 #include "cholesky_qr.h"
 #include <linalg/gemm.h>
@@ -68,7 +65,7 @@ void SparseSVD_fit(const cumlHandle &handle,
 
 
   // Y = X @ Z
-  // MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+  MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
 
 
 }

@@ -18,6 +18,8 @@
 
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
+#include <common/device_buffer.hpp>
+#include "common/cumlHandle.hpp"
 
 #define device_buffer    MLCommon::device_buffer
 
