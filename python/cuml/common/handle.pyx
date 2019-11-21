@@ -62,8 +62,9 @@ cdef class Handle:
     # 'size_t'!
     cdef size_t h
 
-    def __cinit__(self, n_streams=0):
-        self.h = <size_t>(new cumlHandle(n_streams))
+    def __cinit__(self, user_stream=cuml.cuda.Stream(), n_streams=0):
+        cdef size_t s = <size_t>user_stream.getStream()
+        self.h = <size_t>(new cumlHandle(<_Stream>s, n_streams))
 
     def __dealloc_(self):
         h_ = <cumlHandle*>self.h
@@ -109,23 +110,52 @@ cdef class Handle:
         return h_.getNumInternalStreams()
 
     def getInternalStreamsAsHandles():
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.waitOnUserStream()
+        """
+        Returns the internal streams as new single-stream handles
+        that can be used to parallelize a set of tasks.
+        
+        Examples
+        --------
+        .. code-block:: python
+    
+            import cuml
+            handle = cuml.Handle()
+            
+            handles = handle.getInternalStreamsAsHandles()
 
-        cdef vector[_Stream] int_streams = h_.getInternalStreams
-        cdef vector[cumlHandle*] handles = new vector[cumlHandle]()
+            n_int_handles = len(handles)
+
+            # Wait until user stream completes
+            handle.waitOnUserStream()
+
+            outputs = []
+            for i in range(n_tasks):
+                # call cuml API with sub_handles
+                outputs.append(
+                    model.predict(X, handle=handles[i%n_int_handles]
+                )
+
+            # Wait until all parallel streams complete
+            handle.waitOnInternalStreams()
+
+        :return:
+        """
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+
+        cdef vector[_Stream] int_streams = h_.getInternalStreams()
+        handles = []
 
         cdef cumlHandle *new_handle
-        for stream in range(int_streams.size()):
-            handles.push_back(new_handle)
+        for i in range(int_streams.size()):
+            stream = cuml.cuda.Stream(int_streams.at(i))
+            handles.append(cuml.Handle(stream, 0))
+        return handles
 
+    def waitOnUserStream():
+        cdef cumlHandle * h_ = < cumlHandle * > self.h
+        h_.waitOnUserStream()
 
-
-
-
-
-
-
-
-
+    def waitOnInternalStreams():
+        cdef cumlHandle * h_ = < cumlHandle * > self.h
+        h_.waitOnInternalStreams()
 

@@ -59,7 +59,7 @@ class cumlHandle_impl {
 
   cudaStream_t getInternalStream(int sid) const;
   int getNumInternalStreams() const;
-
+  std::vector<cudaStream_t> getInternalStreams() const;
   void waitOnUserStream() const;
   void waitOnInternalStreams() const;
 

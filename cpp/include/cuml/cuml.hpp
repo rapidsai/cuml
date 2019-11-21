@@ -95,6 +95,9 @@ class cumlHandle {
   * @returns num of streams in the handle.
   */
   int getNumInternalStreams();
+
+  std::vector<cudaStream_t> cumlHandle::getInternalStreams() const;
+
   /**
      * @brief for internal use only.
      */

@@ -172,6 +172,10 @@ std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
 int cumlHandle::getNumInternalStreams() {
   return _impl->getNumInternalStreams();
 }
+
+std::vector<cudaStream_t> cumlHandle::getInternalStreams() const {
+  return _impl->getInternalStreams();
+}
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
 cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
@@ -238,7 +242,17 @@ cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
   return _streams[sid];
 }
 
+std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
+  std::vector<cudaStream_t> int_streams_vec(_num_streams);
+  for (auto s : _streams) {
+    int_streams_vec.push_back(s);
+  }
+
+  return int_streams_vec;
+}
+
 int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
+
 
 void cumlHandle_impl::waitOnUserStream() const {
   CUDA_CHECK(cudaEventRecord(_event, _userStream));

@@ -38,3 +38,4 @@ cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
         int getNumInternalStreams() except +
         vector[cuml.common.cuda._Stream] getInternalStreams()
         void waitOnUserStream()
+        void waitOnInternalStreams()

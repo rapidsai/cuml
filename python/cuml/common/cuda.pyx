@@ -73,14 +73,19 @@ cdef class Stream:
     # be just fine (although, that certainly is ugly and hacky!).
     cdef size_t s
 
-    def __cinit__(self):
+    def __cinit__(self, _stream=NULL):
         if self.s != 0:
             return
+
         cdef _Stream stream
-        cdef _Error e = cudaStreamCreate(&stream)
-        if e != 0:
-            raise CudaRuntimeError("Stream create")
-        self.s = <size_t>stream
+        cdef _Error
+        if _stream == NULL:
+            e = cudaStreamCreate(&stream)
+            if e != 0:
+                raise CudaRuntimeError("Stream create")
+            self.s = <size_t>stream
+        else:
+            self.s = <size_t><_Stream>_stream
 
     def __dealloc__(self):
         self.sync()
