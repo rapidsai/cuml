@@ -59,19 +59,17 @@ void cholesky_qr(const math_t *__restrict X,
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
   const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
 
-  if (lwork == 0)
-  {
-    const int lwork = prepare_cholesky_qr(R, n, p, solver_h);
-    device_buffer<math_t> work(d_alloc, stream, lwork);
-
-    // Do X.T @ X
-    const math_t alpha = 1;
-    const math_t beta = 0;
-    CUBLAS_CHECK(cublassyrk(blas_h, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, p, n,
-                            &alpha, &X[0], n, &beta, &R[0], p, stream));
-
-    work.release(stream);
+  device_buffer<math_t> work_(d_alloc, stream);
+  if (lwork == 0) {
+    work_.resize(prepare_cholesky_qr(R, n, p, solver_h), stream);
+    work = work_.data();
   }
+
+  // Do X.T @ X
+  const math_t alpha = 1;
+  const math_t beta = 0;
+  CUBLAS_CHECK(cublassyrk(blas_h, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, p, n,
+                          &alpha, &X[0], n, &beta, &R[0], p, stream));
 }
 
 

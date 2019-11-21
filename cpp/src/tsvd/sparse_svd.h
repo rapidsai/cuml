@@ -62,7 +62,7 @@ void SparseSVD_fit(const cumlHandle &handle,
   // Fill Z with random normal(0, 1)
   if (random_state == -1) {
      struct timeval tp; gettimeofday(&tp, NULL);
-     random_state = tp.tv_sec * 1000 + tp.tv_usec
+     random_state = tp.tv_sec * 1000 + tp.tv_usec;
   }
   MLCommon::Random::Rng random(random_state);
   random.normal<math_t>(Z, p*K, 0, 1, stream);
