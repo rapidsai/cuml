@@ -112,7 +112,7 @@ class SparseSVDTest : public ::testing::Test {
   const int n = 1797;
   const int p = 64;
   const int k = 5;
-  static const float compare_S[] = {425,  504,  542,  566, 2193};
+  const float compare_S[] = {425,  504,  542,  566, 2193};
 };
 
 
