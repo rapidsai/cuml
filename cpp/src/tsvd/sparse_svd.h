@@ -49,8 +49,8 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   const auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
-  cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
-  cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
+  // cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
+  // cublasHandle_t cublas_h = handle.getImpl().getCublasHandle();
 
   const int K = MIN(n_components + n_oversamples, p);
 
@@ -70,7 +70,7 @@ void SparseSVD_fit(const cumlHandle &handle,
 
 
   // Y = X @ Z
-  MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, cublas_h, stream);
+  // MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, cublas_h, stream);
 
 
 }
