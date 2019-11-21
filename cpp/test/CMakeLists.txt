@@ -96,6 +96,7 @@ if(BUILD_CUML_TESTS)
       sg/rf_treelite_test.cu
       sg/ridge.cu
       sg/rproj_test.cu
+      sg/sparse_svd_test.cu
       sg/sgd.cu
       sg/spectral_test.cu
       sg/svc_test.cu
