@@ -33,6 +33,8 @@ using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 using namespace ML;
 
+#define printf(...) fprintf(stderr, __VA_ARGS__)
+
 class SparseSVDTest : public ::testing::Test {
  protected:
   void basicTest()
@@ -87,7 +89,8 @@ class SparseSVDTest : public ::testing::Test {
 
     // Confirm singular values
     // Should be around {425,  504,  542,  566, 2193}
-    
+    for (int i = 0; i < k; i++)
+      printf("Singular value %d = %.3f", i, S(i));
 
 
     free(U);
@@ -117,3 +120,5 @@ typedef SparseSVDTest SparseSVDTestF;
 TEST_F(SparseSVDTestF, Result) {
   printf("Hi!\n");
 }
+
+#undef printf
