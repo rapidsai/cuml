@@ -57,7 +57,6 @@ void correction(math_t *__restrict XTX,
 
   if (XTX[i + i*p] == 0) XTX[i + i*p] = p*2 + i;
   XTX[i + i*p] += 1e-6;
-  printf("[%.3f]\n", XTX[i + i*p]);
 }
 
 
@@ -108,13 +107,16 @@ int cholesky_qr(const math_t *__restrict X,
                  CUBLAS_FILL_MODE_UPPER, p, &R[0], p,
                  &work[0], lwork, &info[0], stream));
 
-  int info_out;
+  int info_out = 0;
   MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  printf("INFO = %d\n", info_out);
+  // TODO if Cholesky fails, use normal QR
 
-  correction<<<MLCommon::ceildiv(p, 1024), 1024, 0, stream>>>(&R[0], p);
-  CUDA_CHECK(cudaPeekAtLastError());
+
+  // Now do triangular solve to get Q!
+  CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
+               CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+               CUBLAS_DIAG_NON_UNIT, n, p, &alpha, &R[0], p, &X[0], n, stream));
 
   return info_out;
 }
