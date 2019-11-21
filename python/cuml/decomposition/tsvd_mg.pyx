@@ -141,7 +141,7 @@ class TSVDMG(TruncatedSVD):
                                                   dtype=self.dtype))
 
     def _build_dataFloat(self, arr_interfaces):
-        cdef floatData_t ** dataF = < floatData_t ** > \
+        cdef floatData_t **dataF = <floatData_t **> \
             malloc(sizeof(floatData_t *)
                    * len(arr_interfaces))
 
@@ -149,13 +149,13 @@ class TSVDMG(TruncatedSVD):
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
             input_ptr = x["data"]
-            dataF[x_i] = < floatData_t * > malloc(sizeof(floatData_t))
-            dataF[x_i].ptr = < float * > input_ptr
-            dataF[x_i].totalSize = < size_t > x["shape"][0]
+            dataF[x_i] = <floatData_t *> malloc(sizeof(floatData_t))
+            dataF[x_i].ptr = <float *> input_ptr
+            dataF[x_i].totalSize = <size_t> x["shape"][0]
         return <size_t>dataF
 
     def _build_dataDouble(self, arr_interfaces):
-        cdef doubleData_t ** dataD = < doubleData_t ** > \
+        cdef doubleData_t **dataD = <doubleData_t **> \
             malloc(sizeof(doubleData_t *)
                    * len(arr_interfaces))
 
@@ -163,9 +163,9 @@ class TSVDMG(TruncatedSVD):
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
             input_ptr = x["data"]
-            dataD[x_i] = < doubleData_t * > malloc(sizeof(doubleData_t))
-            dataD[x_i].ptr = < double * > input_ptr
-            dataD[x_i].totalSize = < size_t > x["shape"][0]
+            dataD[x_i] = <doubleData_t *> malloc(sizeof(doubleData_t))
+            dataD[x_i].ptr = <double *> input_ptr
+            dataD[x_i].totalSize = <size_t> x["shape"][0]
         return <size_t>dataD
 
     def _freeDoubleD(self, data, arr_interfaces):
