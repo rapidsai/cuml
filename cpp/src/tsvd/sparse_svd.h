@@ -20,6 +20,7 @@
 #include <linalg/cusparse_wrappers.h>
 #include <cublas_v2.h>
 #include <cusolverDn.h>
+#include <common/device_buffer.hpp>
 
 #include "sparse_svd.h"
 #include "cholesky_qr.h"
@@ -49,8 +50,8 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   const auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
-  cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
-  cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
+  cusolverDnHandle_t solver_h;
+  cublasHandle_t blas_h;
 
   const int K = MIN(n_components + n_oversamples, p);
 
