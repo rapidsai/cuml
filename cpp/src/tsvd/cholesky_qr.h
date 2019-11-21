@@ -108,7 +108,7 @@ int cholesky_qr(const math_t *__restrict X,
                  &work[0], lwork, &info[0], stream));
 
   int info_out;
-  MLCommon::updateHost(&info_host, &info[0], 1, stream);
+  MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   printf("INFO = %d\n", info_out);
 
