@@ -20,11 +20,14 @@ from dask.distributed import Client, wait
 
 import numpy as np
 from cuml.test.utils import array_equal, \
-    unit_param, quality_param, stress_param
+    unit_param, stress_param
+
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(6e5), stress_param(5e6)])
-@pytest.mark.parametrize("ncols", [unit_param(20), stress_param(1000)])
+@pytest.mark.parametrize("nrows", [unit_param(6e5), 
+                         stress_param(5e6)])
+@pytest.mark.parametrize("ncols", [unit_param(20), 
+                         stress_param(1000)])
 @pytest.mark.parametrize("n_parts", [unit_param(67)])
 def test_pca_fit(nrows, ncols, n_parts, client=None):
 
@@ -73,8 +76,12 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(4e3), unit_param(7e5), stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(100), unit_param(1000), stress_param(5000)])
+@pytest.mark.parametrize("nrows", [unit_param(4e3), 
+                         unit_param(7e5), 
+                         stress_param(9e6)])
+@pytest.mark.parametrize("ncols", [unit_param(100), 
+                         unit_param(1000), 
+                         stress_param(5000)])
 @pytest.mark.parametrize("n_parts", [46])
 def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
 
@@ -102,8 +109,10 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(7e5), stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(200), stress_param(5000)])
+@pytest.mark.parametrize("nrows", [unit_param(7e5), 
+                         stress_param(9e6)])
+@pytest.mark.parametrize("ncols", [unit_param(200), 
+                         stress_param(5000)])
 @pytest.mark.parametrize("n_parts", [unit_param(33)])
 def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
 
