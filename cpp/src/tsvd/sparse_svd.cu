@@ -30,9 +30,10 @@ void SparseSVD(const cumlHandle &handle,
                float *__restrict VT,     // (n_components, p)
                const int n_components,
                const int n_oversamples,
-               const int max_iter)
+               const int max_iter,
+               int random_state)
 {
-  return SparseSVD_fit(handle, X, n, p, U, S, VT, n_components, n_oversamples, max_iter);
+  return SparseSVD_fit(handle, X, n, p, U, S, VT, n_components, n_oversamples, max_iter, random_state);
 }
 
 void SparseSVD(const cumlHandle &handle,
@@ -44,9 +45,10 @@ void SparseSVD(const cumlHandle &handle,
                double *__restrict VT,     // (n_components, p)
                const int n_components,
                const int n_oversamples,
-               const int max_iter)
+               const int max_iter,
+               int random_state)
 {
-  return SparseSVD_fit(handle, X, n, p, U, S, VT, n_components, n_oversamples, max_iter);
+  return SparseSVD_fit(handle, X, n, p, U, S, VT, n_components, n_oversamples, max_iter, random_state);
 }
 
 

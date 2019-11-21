@@ -33,9 +33,7 @@ namespace ML {
   So Q = X @ R^-1
 */
 template <typename math_t>
-int prepare_cholesky_qr(const math_t *__restrict X,
-                         math_t *__restrict Q,
-                         math_t *__restrict R,
+int prepare_cholesky_qr(math_t *__restrict R,
                          const int n,
                          const int p,
                          cusolverDnHandle_t solver_h)
@@ -49,7 +47,6 @@ int prepare_cholesky_qr(const math_t *__restrict X,
 
 template <typename math_t>
 void cholesky_qr(const math_t *__restrict X,
-                 math_t *__restrict Q,
                  math_t *__restrict R,
                  const int n,
                  const int p,
@@ -58,13 +55,13 @@ void cholesky_qr(const math_t *__restrict X,
                  math_t *__restrict work = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
-  cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
-  cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
+  const cudaStream_t stream = handle.getStream();
+  const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
+  const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
 
   if (lwork == 0)
   {
-    const int lwork = prepare_cholesky_qr(X, Q, R, n, p, solver_h);
+    const int lwork = prepare_cholesky_qr(R, n, p, solver_h);
     device_buffer<math_t> work(d_alloc, stream, lwork);
 
     // Do X.T @ X

@@ -37,15 +37,16 @@ void SparseSVD_fit(const cumlHandle &handle,
                    math_t *__restrict VT,     // (n_components, p)
                    const int n_components = 2,
                    const int n_oversamples = 10,
-                   const int max_iter = 3)
+                   const int max_iter = 3,
+                   int random_state = -1)
 {
   ASSERT(n > 0 and p > 0 and U != NULL and S != NULL and VT != NULL, "Bad input");
   ASSERT(n_components > 0 and n_oversamples > 0 and max_iter >= 0, "Bad input");
 
   const auto d_alloc = handle.getDeviceAllocator();
-  cudaStream_t stream = handle.getStream();
-  cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
-  cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
+  const cudaStream_t stream = handle.getStream();
+  const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
+  const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
 
   const int K = MIN(n_components + n_oversamples, p);
 
@@ -57,16 +58,21 @@ void SparseSVD_fit(const cumlHandle &handle,
   device_buffer<math_t> T_(d_alloc, stream, K*K); // T(K, K)
   math_t *__restrict T = T_.data();
 
+
   // Fill Z with random normal(0, 1)
-  struct timeval tp; gettimeofday(&tp, NULL);
-  MLCommon::Random::Rng random(tp.tv_sec * 1000 + tp.tv_usec);
+  if (random_state == -1) {
+     struct timeval tp; gettimeofday(&tp, NULL);
+     random_state = tp.tv_sec * 1000 + tp.tv_usec
+  }
+  MLCommon::Random::Rng random(random_state);
   random.normal<math_t>(Z, p*K, 0, 1, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
 
 
   // Y = X @ Z
   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
 
+  // Y, _ = qr(Y)
+  cholesky_qr(&Y[0], &T[0], n, K, handle);
 
 }
 
