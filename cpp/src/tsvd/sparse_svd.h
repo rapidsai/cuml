@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <linalg/cublas_wrappers.h>
+#include <linalg/cusparse_wrappers.h>
+
 #include "sparse_svd.h"
 #include "cholesky_qr.h"
 #include <linalg/gemm.h>
