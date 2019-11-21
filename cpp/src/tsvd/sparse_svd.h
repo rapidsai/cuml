@@ -25,14 +25,14 @@
 
 namespace ML {
 
-template <typename T = float>
+template <typename math_t = float>
 void SparseSVD_fit(const cumlHandle &handle,
-                   const T *__restrict X,// (n, p)
+                   const math_t *__restrict X,// (n, p)
                    const int n,
                    const int p,
-                   T *__restrict U,      // (n, n_components)
-                   T *__restrict S,      // (n_components)
-                   T *__restrict VT,     // (n_components, p)
+                   math_t *__restrict U,      // (n, n_components)
+                   math_t *__restrict S,      // (n_components)
+                   math_t *__restrict VT,     // (n_components, p)
                    const int n_components = 2,
                    const int n_oversamples = 10,
                    const int max_iter = 3)
@@ -45,17 +45,18 @@ void SparseSVD_fit(const cumlHandle &handle,
   const int K = MIN(n_components + n_oversamples, p);
 
   // Prepare device buffers
-  device_buffer<T> Y(d_alloc, stream, n*K); // Y(n, K)
-  device_buffer<T> Z(d_alloc, stream, p*K); // Z(p, K)
+  device_buffer<math_t> Y_(d_alloc, stream, n*K); // Y(n, K)
+  math_t *__restrict Y = Y_.data();
+  device_buffer<math_t> Z_(d_alloc, stream, p*K); // Z(p, K)
+  math_t *__restrict Z = Z_.data();
+  device_buffer<math_t> T_(d_alloc, stream, K*K); // T(K, K)
+  math_t *__restrict T = T_.data();
 
   // Fill Z with random normal(0, 1)
   struct timeval tp; gettimeofday(&tp, NULL);
   MLCommon::Random::Rng random(tp.tv_sec * 1000 + tp.tv_usec);
-  random.normal<T>(Z, p*K, 0, 1, stream);
+  random.normal<math_t>(Z, p*K, 0, 1, stream);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  device_buffer<T> T(d_alloc, stream, K*K); // T(K, K)
-
 
 }
 
