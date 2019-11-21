@@ -47,7 +47,8 @@ int prepare_cholesky_qr(math_t *__restrict R,
 
 
 
-static __global__ template <typename math_t>
+template <typename math_t>
+static __global__
 void correction(math_t *__restrict XTX,
                 const int p)
 {
