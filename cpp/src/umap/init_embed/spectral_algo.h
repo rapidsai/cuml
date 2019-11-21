@@ -53,8 +53,9 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
   MLCommon::device_buffer<T> tmp_storage(handle.getDeviceAllocator(), stream,
                                          n * params->n_components);
 
-  Spectral::fit_embedding(handle, coo->rows, coo->cols, coo->vals, coo->nnz, n,
-                          params->n_components, tmp_storage.data());
+  Spectral::fit_embedding(handle, coo->rows(), coo->cols(), coo->vals(),
+                          coo->nnz, n, params->n_components,
+                          tmp_storage.data());
 
   MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
                               params->n_components,
