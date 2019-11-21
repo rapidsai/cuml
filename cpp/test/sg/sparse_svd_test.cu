@@ -41,42 +41,42 @@ class SparseSVDTest : public ::testing::Test {
     auto d_alloc = handle.getDeviceAllocator();
     cudaStream_t stream = handle.getStream();
     const float *__restrict X = digits.data();
+    device_buffer<float> X_(d_alloc, stream, n*p);
 
-    // Allocate memory
-    device_buffer<float> X_d(d_alloc, stream, n*p);
 
     // SparseSVD only accepts F-Contiguous data, but digits is C-Contiguous
     // Technically, no matter if the data is F or C contiguous, SparseSVD
     // should work regardless. The only difference is U, VT are swapped.
-    float *__restrict X_T = (float*) malloc(sizeof(float) * n * p);
-    ASSERT(X_T != NULL, "No more memory!");
+    float *__restrict XT = (float*) malloc(sizeof(float) * n * p);
+    ASSERT(XT != NULL, "No more memory!");
 
-    #define X_T(i,j)  X_T[(i) + (j)*n]
+    #define XT(i,j)   XT[(i) + (j)*n]
     #define X(i,j)    X[(i)*p + (j)]
 
     for (int i = 0; i < n; i++) {
       #pragma omp simd
       for (int j = 0; j < p; j++)
-        X_T(i, j) = X(i, j);
+        XT(i, j) = X(i, j);
     }
-    MLCommon::updateDevice(X_d.data(), X_T, n*p, stream);
+    MLCommon::updateDevice(X_.data(), XT, n*p, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
+
 
     // Allocate U, S, VT
     device_buffer<float> U_(d_alloc, stream, n*k);
     device_buffer<float> S_(d_alloc, stream, k);
     device_buffer<float> VT_(d_alloc, stream, k*p);
 
-    SparseSVD(handle, X_d.data(), n, p, U_.data(), S_.data(), VT_.data(), k);
+    SparseSVD(handle, X_.data(), n, p, U_.data(), S_.data(), VT_.data(), k);
 
 
     // Move U, S, VT to malloced space
     #define U(i,j)    U[(i) + (j)*n]
     #define S(i)      S[(i)]
     #define VT(i,j)   VT[(i) + (j)*p]
-    float *__restrict U = malloc(sizeof(float) * n * k);
-    float *__restrict S = malloc(sizeof(float) * k);
-    float *__restrict VT = malloc(sizeof(float) * k * p);
+    float *__restrict U = (float*) malloc(sizeof(float) * n * k);
+    float *__restrict S = (float*) malloc(sizeof(float) * k);
+    float *__restrict VT = (float*) malloc(sizeof(float) * k * p);
     ASSERT(U != NULL and S != NULL and VT != NULL, "Out of memory!");
 
 
@@ -84,8 +84,8 @@ class SparseSVDTest : public ::testing::Test {
     free(U);
     free(S);
     free(VT);
-    free(X_T);
-    #undef X_T
+    free(XT);
+    #undef XT
     #undef X
     #undef U
     #undef S
