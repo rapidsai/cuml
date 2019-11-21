@@ -51,7 +51,7 @@ void cholesky_qr(const math_t *__restrict X,
                  const int n,
                  const int p,
                  const cumlHandle &handle,
-                 const int lwork = 0,
+                 int lwork = 0,
                  math_t *__restrict work = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
@@ -59,9 +59,11 @@ void cholesky_qr(const math_t *__restrict X,
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
   const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
 
+  // Only allocate workspace if lwork or work is NULL
   device_buffer<math_t> work_(d_alloc, stream);
-  if (lwork == 0) {
-    work_.resize(prepare_cholesky_qr(R, n, p, solver_h), stream);
+  if (work == NULL) {
+    lwork = prepare_cholesky_qr(R, n, p, solver_h);
+    work_.resize(lwork, stream);
     work = work_.data();
   }
 
