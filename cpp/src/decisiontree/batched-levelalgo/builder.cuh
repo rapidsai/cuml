@@ -51,6 +51,8 @@ struct Builder {
   IdxT maxNodes;
   /** total number of histogram bins (classification only) */
   IdxT nHistBins;
+  /** total number of prediction counts (regression only) */
+  IdxT nPredCounts;
   /** total number of prediction summations (regression only) */
   IdxT nPreds;
   /** gain/metric before splitting root node */
@@ -64,6 +66,8 @@ struct Builder {
   DataT* pred;
   /** sum of squared of predictions (regression only) */
   DataT* pred2;
+  /** node count tracker for averaging (regression only) */
+  IdxT* pred_count;
   /** threadblock arrival count */
   int* done_count;
   /** mutex array used for atomically updating best split */
@@ -135,7 +139,9 @@ struct Builder {
     auto max_batch = params.max_batch_size;
     auto n_col_blks = params.n_blks_for_cols;
     nHistBins = 2 * max_batch * params.n_bins * n_col_blks * nclasses;
-    nPreds = 2 * max_batch * params.n_bins * n_col_blks;
+    // x2 for mean and mean-of-square
+    nPredCounts = max_batch * params.n_bins * n_col_blks;
+    nPreds = 2 * nPredCounts;
     // x3 just to be safe since we can't strictly adhere to max_leaves
     maxNodes = params.max_leaves * 3;
     d_wsize = 0;
@@ -143,8 +149,10 @@ struct Builder {
     if (!isRegression()) {
       d_wsize += sizeof(int) * nHistBins;  // hist
     } else {
+      // x2 for left and right children
       d_wsize += 2 * nPreds * sizeof(DataT);  // pred
       d_wsize += 2 * nPreds * sizeof(DataT);  // pred2
+      d_wsize += nPredCounts * sizeof(IdxT);  // pred_count
     }
     d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
     d_wsize += sizeof(int) * max_batch;               // mutex
@@ -178,9 +186,11 @@ struct Builder {
       d_wspace += sizeof(int) * nHistBins;
     } else {
       pred = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += 2 * nPreds * sizeof(DataT);  // x2 for left and right
+      d_wspace += 2 * nPreds * sizeof(DataT);
       pred2 = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += 2 * nPreds * sizeof(DataT);  // x2 for left and right
+      d_wspace += 2 * nPreds * sizeof(DataT);
+      pred_count = reinterpret_cast<IdxT*>(d_wspace);
+      d_wspace += nPredCounts * sizeof(IdxT);
     }
     done_count = reinterpret_cast<int*>(d_wspace);
     d_wspace += sizeof(int) * max_batch * n_col_blks;
