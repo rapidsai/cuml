@@ -26,9 +26,9 @@ void SparseSVD(const cumlHandle &handle,
                float *__restrict U,      // (n, n_components)
                float *__restrict S,      // (n_components)
                float *__restrict VT,     // (n_components, p)
-               const int n_components = 2,
-               const int n_oversamples = 10,
-               const int max_iter = 3)
+               const int n_components,
+               const int n_oversamples,
+               const int max_iter)
 {
   printf("Hi!\n");
 }
