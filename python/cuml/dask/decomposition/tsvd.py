@@ -179,7 +179,7 @@ class TruncatedSVD(object):
         X : dask cuDF input
 
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         self.rnks = dict()
         rnk_counter = 0
@@ -262,7 +262,7 @@ class TruncatedSVD(object):
             return to_dask_cudf(out_futures)
 
     def _transform(self, X):
-        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         worker_to_parts = OrderedDict()
         for w, p in gpu_futures:
@@ -311,7 +311,7 @@ class TruncatedSVD(object):
         return to_dask_cudf(out_futures)
 
     def _inverse_transform(self, X):
-        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         worker_to_parts = OrderedDict()
         for w, p in gpu_futures:
