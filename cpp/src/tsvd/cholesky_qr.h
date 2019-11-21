@@ -61,14 +61,14 @@ void correction(math_t *__restrict XTX,
 
 
 template <typename math_t>
-int cholesky_qr(const math_t *__restrict X,
-                 math_t *__restrict R,
-                 const int n,
-                 const int p,
-                 const cumlHandle &handle,
-                 int lwork = 0,
-                 math_t *__restrict work = NULL,
-                 int *__restrict info = NULL)
+int cholesky_qr(math_t *__restrict X,
+                math_t *__restrict R,
+                const int n,
+                const int p,
+                const cumlHandle &handle,
+                int lwork = 0,
+                math_t *__restrict work = NULL,
+                int *__restrict info = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
