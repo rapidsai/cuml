@@ -46,6 +46,20 @@ int prepare_cholesky_qr(math_t *__restrict R,
 }
 
 
+
+static __global__ template <typename math_t>
+void correction(math_t *__restrict XTX,
+                const int p)
+{
+  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (i >= p) return;
+
+  if (XTX[i + i*p] == 0) XTX[i + i*p] = p * 2;
+  XTX[i + i*p] += 1e-6;
+  printf("%.3f\n", XTX[i + i*p]);
+}
+
+
 template <typename math_t>
 void cholesky_qr(const math_t *__restrict X,
                  math_t *__restrict R,
@@ -74,6 +88,14 @@ void cholesky_qr(const math_t *__restrict X,
   CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
                CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, p, n,
                &alpha, &X[0], n, &beta, &R[0], p, stream));
+
+  // Check X.T @ X for ill conditioning.
+  // (1) Change all 0s on the diagonal to p * 2
+  // (2) Add 1e-6 to diagonal.
+  correction<<<MLCommon::ceildiv(p, 1024), 1024, 0, stream>>>(&R[0], p);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+
 }
 
 
