@@ -338,8 +338,14 @@ struct Builder {
       CUDA_CHECK(cudaGetLastError());
       MLCommon::updateHost(h_mse, pred, 2, s);
       CUDA_CHECK(cudaStreamSynchronize(s));
-      ///@todo: add support for other regression metrics (currently MSE only)
-      out = h_mse[1] - h_mse[0] * h_mse[0];
+      if (params.split_criterion == CRITERION::MSE) {
+        out = h_mse[1] - h_mse[0] * h_mse[0];
+      } else if (params.split_criterion == CRITERION::MAE) {
+        ///@todo: enable this and remove the below assert
+        ASSERT(false, "DT: Regression currently only supports MSE metric!");
+      } else {
+        ASSERT(false, "DT: Regression only supports MSE/MAE!");
+      }
     } else {
       // reusing `hist` for initial bin computation only
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * input.nclasses, s));
@@ -353,9 +359,11 @@ struct Builder {
       if (params.split_criterion == CRITERION::GINI) {
         out =
           giniMetric<DataT, IdxT>(h_hist, input.nclasses, input.nSampledRows);
-      } else {
+      } else if (params.split_criterion == CRITERION::ENTROPY) {
         out = entropyMetric<DataT, IdxT>(h_hist, input.nclasses,
                                          input.nSampledRows);
+      } else {
+        ASSERT(false, "DT: Classification only supports GINI/ENTROPY!");
       }
     }
     return out;
