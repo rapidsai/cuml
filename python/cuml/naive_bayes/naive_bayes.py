@@ -20,6 +20,7 @@ import math
 from cupy import prof
 
 import cupy as cp
+from cuml.prims.label import make_monotonic
 
 from cuml.preprocessing import LabelBinarizer
 
@@ -28,6 +29,32 @@ A simple reduction kernel that takes in a sparse (COO) array
 of features and computes the sum and sum squared for each class
 label 
 """
+count_features = cp.RawKernel(r'''
+extern "C" __global__
+void count_features(float *out,
+                    int *rows, int *cols,
+                    float *vals, int nnz,
+                    int n_rows, int n_cols,
+                    int *labels, int n_labels,
+                    int n_classes,
+                    bool square = false) {
+
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(i >= nnz) return;
+  
+  int row = rows[i];
+  int col = cols[i];
+  float val = vals[i];
+  
+  if(square) val *= val;
+  
+  int label = labels[row];
+  
+  atomicAdd(out + ((col * n_classes) + label), val);
+}
+''', 'count_features')
+
 
 class GaussianNB(object):
 
@@ -52,7 +79,50 @@ class GaussianNB(object):
         if self.priors is not None:
             self.class_prior_ = self.priors
         else:
-            self.class_prior_ = cp.zeros(n_classes)
+            self.class_prior_ = cp.zeros(n_classes, dtype=cp.float32)
+
+        classes = 
+
+    def _count(self, X, Y):
+
+        """
+        :param X: cupy.sparse matrix of size (n_rows, n_features)
+        :param Y: cupy.array of monotonic class labels
+        """
+        x_coo = X.tocoo()
+
+        counts = cp.zeros((self.n_classes_, self.n_features_),
+                          order="F", dtype=cp.float32)
+
+        sq_counts = cp.zeros((self.n_classes_, self.n_features_),
+                             order="F", dtype=cp.float32)
+
+        count_features((math.ceil(x_coo.nnz / 32),), (32,),
+                       (counts,
+                        x_coo.row,
+                        x_coo.col,
+                        x_coo.data,
+                        x_coo.nnz,
+                        x_coo.shape[0],
+                        x_coo.shape[1],
+                        Y, Y.shape[0],
+                        self.n_classes_))
+
+        count_features((math.ceil(x_coo.nnz / 32),), (32,),
+                       (counts,
+                        x_coo.row,
+                        x_coo.col,
+                        x_coo.data,
+                        x_coo.nnz,
+                        x_coo.shape[0],
+                        x_coo.shape[1],
+                        Y, Y.shape[0],
+                        self.n_classes_,
+                        True))
+
+        self.theta_ += counts
+        self.sigma_ += sq_counts
+        self.class_count_ += counts.sum(axis=1).reshape(self.n_classes_)
 
 
 class MultinomialNB(object):
@@ -69,23 +139,14 @@ class MultinomialNB(object):
         self.n_features_ = None
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    def fit(self, X, y, classes=None, _sparse_labels=False):
+    def fit(self, X, y, classes=None):
 
-        if not _sparse_labels:
+        Y, self.classes_ = make_monotonic(y, copy=True)
 
-            with cp.prof.time_range(message="binarize_labels", color_id=2):
-                label_binarizer = LabelBinarizer(sparse_output=True)
-                Y = label_binarizer.fit_transform(y).T
-
-            self.classes_ = label_binarizer.classes_
-            self.n_classes_ = label_binarizer.classes_.shape[0]
-        else:
-            Y = y.T
-            self.classes_ = classes
-            self.n_classes_ = classes.shape[0]
+        self.n_classes_ = self.classes_.shape[0]
 
         self.n_features_ = X.shape[1]
-        self._init_counters(Y.shape[0], self.n_features_)
+        self._init_counters(self.n_classes_, self.n_features_)
         self._count(X, Y)
 
         self._update_feature_log_prob(self.alpha)
@@ -112,17 +173,36 @@ class MultinomialNB(object):
         return indices
 
     def _init_counters(self, n_effective_classes, n_features):
-        self.class_count_ = cp.zeros(n_effective_classes, dtype=cp.float32)
+        self.class_count_ = cp.zeros(n_effective_classes, order="F", dtype=cp.float32)
         self.feature_count_ = cp.zeros((n_effective_classes, n_features),
-                                       dtype=cp.float32)
+                                       order="F", dtype=cp.float32)
 
     def _count(self, X, Y):
 
-        with cp.prof.time_range(message="matrix multiply", color_id=4):
-            features_ = Y.dot(X)
+        """
 
-        self.feature_count_ += features_.todense()
-        self.class_count_ += Y.sum(axis=1).reshape(self.n_classes_)
+        :param X: cupy.sparse matrix of size (n_rows, n_features)
+        :param Y: cupy.array of monotonic class labels
+        """
+
+        x_coo = X.tocoo()
+
+        counts = cp.zeros((self.n_classes_, self.n_features_),
+                          order="F", dtype=cp.float32)
+
+        count_features((math.ceil(x_coo.nnz / 32),), (32,),
+                       (counts,
+                        x_coo.row,
+                        x_coo.col,
+                        x_coo.data,
+                        x_coo.nnz,
+                        x_coo.shape[0],
+                        x_coo.shape[1],
+                        Y, Y.shape[0],
+                        self.n_classes_))
+
+        self.feature_count_ += counts
+        self.class_count_ += counts.sum(axis=1).reshape(self.n_classes_)
 
     def _update_class_log_prior(self, class_prior=None):
 
