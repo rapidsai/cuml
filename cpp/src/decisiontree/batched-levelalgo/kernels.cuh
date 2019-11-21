@@ -61,7 +61,7 @@ __global__ void initialMeanPredKernel(DataT* meanPred, DataT* meanPred2,
     auto row = rowids[i];
     auto label = labels[row];
     atomicAdd(spred, label);
-    atomicAdd(spred2, label);
+    atomicAdd(spred + 1, label);
   }
   __syncthreads();
   if (threadIdx.x == 0) {
