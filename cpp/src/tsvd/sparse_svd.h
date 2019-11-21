@@ -70,7 +70,7 @@ void SparseSVD_fit(const cumlHandle &handle,
 
 
   // Y = X @ Z
-  MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, cublas_h, stream);
+  MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
 
 
 }
