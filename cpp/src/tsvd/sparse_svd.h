@@ -73,7 +73,7 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   // Y, _ = qr(Y)
   cholesky_qr(&Y[0], &T[0], n, K, handle);
-
+  
 }
 
 }  // namespace ML
