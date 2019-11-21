@@ -22,12 +22,12 @@ namespace ML {
 
 template <typename math_t = float>
 void SparseSVD_fit(const cumlHandle &handle,
-                   const float *__restrict X,// (n, p)
+                   const math_t *__restrict X,// (n, p)
                    const int n,
                    const int p,
-                   float *__restrict U,      // (n, n_components)
-                   float *__restrict S,      // (n_components)
-                   float *__restrict VT,     // (n_components, p)
+                   math_t *__restrict U,      // (n, n_components)
+                   math_t *__restrict S,      // (n_components)
+                   math_t *__restrict VT,     // (n_components, p)
                    const int n_components = 2,
                    const int n_oversamples = 10,
                    const int max_iter = 3)
