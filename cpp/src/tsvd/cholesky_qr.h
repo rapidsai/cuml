@@ -17,11 +17,7 @@
 #pragma once
 
 #include <linalg/cublas_wrappers.h>
-#include <linalg/cusparse_wrappers.h>
-#include <cublas_v2.h>
-#include <cusolverDn.h>
-#include <common/device_buffer.hpp>
-#include "common/cumlHandle.hpp"
+#include <linalg/cusolver_wrappers.h>
 
 #define device_buffer    MLCommon::device_buffer
 
