@@ -113,14 +113,14 @@ cdef class Handle:
         """
         Returns the internal streams as new single-stream handles
         that can be used to parallelize a set of tasks.
-        
+
         Examples
         --------
         .. code-block:: python
-    
+
             import cuml
             handle = cuml.Handle()
-            
+
             handles = handle.getInternalStreamsAsHandles()
 
             n_int_handles = len(handles)
@@ -158,4 +158,3 @@ cdef class Handle:
     def waitOnInternalStreams():
         cdef cumlHandle * h_ = < cumlHandle * > self.h
         h_.waitOnInternalStreams()
-
