@@ -49,15 +49,21 @@ struct Builder {
 
   /** max nodes that we can create */
   IdxT maxNodes;
-  /** total number of histogram bins */
+  /** total number of histogram bins (classification only) */
   IdxT nHistBins;
+  /** total number of prediction summations (regression only) */
+  IdxT nPreds;
   /** gain/metric before splitting root node */
   DataT rootGain;
 
   /** number of nodes created in the current batch */
   IdxT* n_nodes;
-  /** class histograms */
+  /** class histograms (classification only) */
   int* hist;
+  /** sum of predictions (regression only) */
+  DataT* pred;
+  /** sum of squared of predictions (regression only) */
+  DataT* pred2;
   /** threadblock arrival count */
   int* done_count;
   /** mutex array used for atomically updating best split */
@@ -73,8 +79,10 @@ struct Builder {
 
   /** host copy of the number of new nodes in current branch */
   IdxT* h_n_nodes;
-  /** host copy for initial histograms */
+  /** host copy for initial histograms (classification only) */
   int* h_hist;
+  /** host copy for MSE computation (regression only) */
+  DataT* h_mse;
   /** total number of nodes created so far */
   IdxT h_total_nodes;
   /** range of the currently worked upon nodes */
@@ -127,11 +135,17 @@ struct Builder {
     auto max_batch = params.max_batch_size;
     auto n_col_blks = params.n_blks_for_cols;
     nHistBins = 2 * max_batch * params.n_bins * n_col_blks * nclasses;
+    nPreds = 2 * max_batch * params.n_bins * n_col_blks;
     // x3 just to be safe since we can't strictly adhere to max_leaves
     maxNodes = params.max_leaves * 3;
     d_wsize = 0;
-    d_wsize += sizeof(IdxT);                          // n_nodes
-    d_wsize += sizeof(int) * nHistBins;               // hist
+    d_wsize += sizeof(IdxT);  // n_nodes
+    if (!isRegression()) {
+      d_wsize += sizeof(int) * nHistBins;  // hist
+    } else {
+      d_wsize += 2 * nPreds * sizeof(DataT);  // pred
+      d_wsize += 2 * nPreds * sizeof(DataT);  // pred2
+    }
     d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
     d_wsize += sizeof(int) * max_batch;               // mutex
     d_wsize += sizeof(IdxT);                          // n_leaves
@@ -139,8 +153,12 @@ struct Builder {
     d_wsize += sizeof(NodeT) * max_batch;             // curr_nodes
     d_wsize += sizeof(NodeT) * 2 * max_batch;         // next_nodes
     // all nodes in the tree
-    h_wsize = sizeof(IdxT);             // h_n_nodes
-    h_wsize += sizeof(int) * nclasses;  // h_hist
+    h_wsize = sizeof(IdxT);  // h_n_nodes
+    if (!isRegression()) {
+      h_wsize += sizeof(int) * nclasses;  // h_hist
+    } else {
+      h_wsize += sizeof(DataT) * 2;  // h_mse
+    }
   }
 
   /**
@@ -155,8 +173,15 @@ struct Builder {
     // device
     n_nodes = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += sizeof(IdxT);
-    hist = reinterpret_cast<int*>(d_wspace);
-    d_wspace += sizeof(int) * nHistBins;
+    if (!isRegression()) {
+      hist = reinterpret_cast<int*>(d_wspace);
+      d_wspace += sizeof(int) * nHistBins;
+    } else {
+      pred = reinterpret_cast<DataT*>(d_wspace);
+      d_wspace += 2 * nPreds * sizeof(DataT);  // x2 for left and right
+      pred2 = reinterpret_cast<DataT*>(d_wspace);
+      d_wspace += 2 * nPreds * sizeof(DataT);  // x2 for left and right
+    }
     done_count = reinterpret_cast<int*>(d_wspace);
     d_wspace += sizeof(int) * max_batch * n_col_blks;
     mutex = reinterpret_cast<int*>(d_wspace);
@@ -171,7 +196,11 @@ struct Builder {
     // host
     h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
     h_wspace += sizeof(IdxT);
-    h_hist = reinterpret_cast<int*>(h_wspace);
+    if (!isRegression()) {
+      h_hist = reinterpret_cast<int*>(h_wspace);
+    } else {
+      h_mse = reinterpret_cast<DataT*>(h_wspace);
+    }
   }
 
   /**
