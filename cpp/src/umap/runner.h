@@ -53,6 +53,7 @@ template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
                                const T *embeddings, int embeddings_n,
                                int n_components, T *result, int n_neighbors) {
+
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   int i =
@@ -84,8 +85,8 @@ void _fit(const cumlHandle &handle,
           int n,  // rows
           int d,  // cols
           UMAPParams *params, T *embeddings) {
-  std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.getDeviceAllocator();
 
   int k = params->n_neighbors;
 
@@ -96,10 +97,10 @@ void _fit(const cumlHandle &handle,
   /**
    * Allocate workspace for kNN graph
    */
-  MLCommon::device_buffer<long> knn_indices(d_alloc, stream, n * k);
+  MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
+  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params, d_alloc,
                 stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -153,10 +154,10 @@ void _fit(const cumlHandle &handle,
   /**
    * Allocate workspace for kNN graph
    */
-  MLCommon::device_buffer<long> knn_indices(d_alloc, stream, n * k);
+  MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
+  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params, d_alloc,
                 stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -241,14 +242,13 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   /**
    * Perform kNN of X
    */
-  MLCommon::device_buffer<long> knn_indices(d_alloc, stream,
+  MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream,
                                             n * params->n_neighbors);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream,
                                        n * params->n_neighbors);
 
   kNNGraph::run(orig_X, orig_n, X, n, d, knn_indices.data(), knn_dists.data(),
-                params->n_neighbors, params, stream);
-
+                params->n_neighbors, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   float adjusted_local_connectivity =

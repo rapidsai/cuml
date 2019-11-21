@@ -37,26 +37,13 @@ extern "C" {
    * @param res_I the resulting index array of size n * k
    * @param res_D the resulting distance array of size n * k
    * @param k the number of nearest neighbors to return
+   * @param rowMajorIndex is the index array in row major layout?
+   * @param rowMajorQuery is the query array in row major layout?
    */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
                        int n_params, int D, const float *search_items, int n,
-                       long *res_I, float *res_D, int k);
-
-/**
- * @brief A flat C++ API function that chunks a host array up into
- * some number of different devices
- *
- * @param ptr an array on host to chunk
- * @param n number of rows in host array
- * @param D number of cols in host array
- * @param devices array of devices to use
- * @param output an array of output pointers to allocate and use
- * @param sizes output array sizes
- * @param n_chunks number of chunks to spread across device arrays
- */
-cumlError_t chunk_host_array(const cumlHandle_t handle, const float *ptr, int n,
-                             int D, int *devices, float **output, int *sizes,
-                             int n_chunks, );
+                       int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
+                       bool rowMajorQuery);
 
 #ifdef __cplusplus
 }
