@@ -89,8 +89,10 @@ class SparseSVDTest : public ::testing::Test {
 
     // Confirm singular values
     // Should be around {425,  504,  542,  566, 2193}
-    for (int i = 0; i < k; i++)
-      printf("Singular value %d = %.3f", i, S(i));
+    for (int i = 0; i < k; i++) {
+      printf("Singular value %d = %.3f\n", i, S(i));
+
+    }
 
 
     free(U);
