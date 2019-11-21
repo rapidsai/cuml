@@ -57,7 +57,7 @@ void cholesky_qr(const math_t *__restrict X,
 {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
-  cusparseHandle_t solver_h = handle.getImpl().getcusparseHandle();
+  cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
 
   if (lwork == 0)
   {
