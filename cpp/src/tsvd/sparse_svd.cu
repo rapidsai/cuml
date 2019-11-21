@@ -17,6 +17,8 @@
 #include <cuml/decomposition/sparse_svd.h>
 #include "../../src_prims/utils.h"
 
+#include "sparse_svd.h"
+
 namespace ML {
 
 void SparseSVD(const cumlHandle &handle,
@@ -30,9 +32,22 @@ void SparseSVD(const cumlHandle &handle,
                const int n_oversamples,
                const int max_iter)
 {
-  printf("Hi!\n");
+  return SparseSVD_fit(handle, X, n, p, U, S, VT, n_components, n_oversamples, max_iter);
 }
 
+void SparseSVD(const cumlHandle &handle,
+               const double *__restrict X,// (n, p)
+               const int n,
+               const int p,
+               double *__restrict U,      // (n, n_components)
+               double *__restrict S,      // (n_components)
+               double *__restrict VT,     // (n_components, p)
+               const int n_components,
+               const int n_oversamples,
+               const int max_iter)
+{
+  return SparseSVD_fit(handle, X, n, p, U, S, VT, n_components, n_oversamples, max_iter);
+}
 
 
 }  // namespace ML
