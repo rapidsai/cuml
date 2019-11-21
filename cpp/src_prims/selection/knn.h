@@ -315,7 +315,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
  * @param target_val the label value to search for in unique_labels
  */
 template <typename IdxType = int>
-__device__ IdxType label_binary_search(IdxType *unique_labels, IdxType n_labels,
+__device__ int label_binary_search(IdxType *unique_labels, IdxType n_labels,
                                    IdxType target_val) {
   int out_label_idx = -1;
 
@@ -363,7 +363,7 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
-  float n_neigh_inv = 1.0f / float(n_neighbors);
+  float n_neigh_inv = 1.0f / n_neighbors;
 
   extern __shared__ int label_cache[];
   for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
@@ -409,7 +409,7 @@ __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
   int cur_max = -1;
   int cur_label = -1;
   for (int j = 0; j < n_uniq_labels; j++) {
-    int cur_count = class_proba[i + j];
+    float cur_count = class_proba[i + j];
     if (cur_count > cur_max) {
       cur_max = cur_count;
       cur_label = j;
@@ -473,7 +473,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     int n_labels = n_unique[i];
     int cur_size = n_rows * n_labels;
 
-    CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(int), stream));
+    CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
 
     dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
