@@ -40,7 +40,8 @@ int prepare_cholesky_qr(math_t *__restrict R,
 {
   // X.T @ X workspace
   int lwork = 0;
-  CUSOLVER_CHECK(cusolverDnpotrf_bufferSize(solver_h, CUBLAS_FILL_MODE_UPPER, p, R, p, &lwork));
+  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnpotrf_bufferSize(solver_h,
+                 CUBLAS_FILL_MODE_UPPER, p, R, p, &lwork));
   return lwork;
 }
 
@@ -70,8 +71,9 @@ void cholesky_qr(const math_t *__restrict X,
   // Do X.T @ X
   const math_t alpha = 1;
   const math_t beta = 0;
-  CUBLAS_CHECK(cublassyrk(blas_h, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, p, n,
-                          &alpha, &X[0], n, &beta, &R[0], p, stream));
+  CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
+               CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, p, n,
+               &alpha, &X[0], n, &beta, &R[0], p, stream));
 }
 
 
