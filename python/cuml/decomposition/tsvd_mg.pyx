@@ -284,7 +284,6 @@ class TSVDMG(TruncatedSVD):
                           <float*> singular_vals_ptr,
                           params,
                           False)
-            
         else:
             data = self._build_dataDouble(arr_interfaces)
             arr_interfaces_trans = self._build_transData(partsToRanks,
@@ -331,7 +330,6 @@ class TSVDMG(TruncatedSVD):
                 self._freeDoubleD(data, arr_interfaces)
 
             return trans_cudf
-
 
     def transform(self, X, M, N, partsToRanks, rnk):
         """
