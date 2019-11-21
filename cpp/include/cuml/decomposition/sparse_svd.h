@@ -21,23 +21,23 @@
 namespace ML {
 
 void SparseSVD(const cumlHandle &handle,
-               const float *__restrict X,
+               const float *__restrict X, // (n, p)
                const int n,
                const int p,
-               float *__restrict U,
-               float *__restrict S,
-               float *__restrict VT,
+               float *__restrict U,       // (n, n_components)  
+               float *__restrict S,       // (n_components)
+               float *__restrict VT,      // (n_components, p)
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3);
 
 void SparseSVD(const cumlHandle &handle,
-               const double *__restrict X,
+               const double *__restrict X,// (n, p)
                const int n,
                const int p,
-               double *__restrict U,
-               double *__restrict S,
-               double *__restrict VT,
+               double *__restrict U,      // (n, n_components)  
+               double *__restrict S,      // (n_components)
+               double *__restrict VT,     // (n_components, p)
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3);

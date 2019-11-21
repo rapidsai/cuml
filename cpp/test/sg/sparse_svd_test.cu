@@ -35,10 +35,12 @@ using namespace ML;
 
 class SparseSVDTest : public ::testing::Test {
  protected:
-  void basicTest() {
+  void basicTest()
+  {
     cumlHandle handle;
     auto d_alloc = handle.getDeviceAllocator();
     cudaStream_t stream = handle.getStream();
+    const float *__restrict X = digits.data();
 
     // Allocate memory
     device_buffer<float> X_d(d_alloc, stream, n*p);
@@ -61,16 +63,33 @@ class SparseSVDTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Allocate U, S, VT
-    device_buffer<float> U(d_alloc, stream, n*k);
-    device_buffer<float> S(d_alloc, stream, k);
-    device_buffer<float> VT(d_alloc, stream, p*k);
+    device_buffer<float> U_(d_alloc, stream, n*k);
+    device_buffer<float> S_(d_alloc, stream, k);
+    device_buffer<float> VT_(d_alloc, stream, k*p);
 
-    SparseSVD(handle, X_d.data(), n, p, U.data(), S.data(), VT.data(), k);
+    SparseSVD(handle, X_d.data(), n, p, U_.data(), S_.data(), VT_.data(), k);
 
+
+    // Move U, S, VT to malloced space
+    #define U(i,j)    U[(i) + (j)*n]
+    #define S(i)      S[(i)]
+    #define VT(i,j)   VT[(i) + (j)*p]
+    float *__restrict U = malloc(sizeof(float) * n * k);
+    float *__restrict S = malloc(sizeof(float) * k);
+    float *__restrict VT = malloc(sizeof(float) * k * p);
+    ASSERT(U != NULL and S != NULL and VT != NULL, "Out of memory!");
+
+
+
+    free(U);
+    free(S);
+    free(VT);
+    free(X_T);
     #undef X_T
     #undef X
-
-    free(X_T);
+    #undef U
+    #undef S
+    #undef VT
   }
 
   void SetUp() override { basicTest(); }

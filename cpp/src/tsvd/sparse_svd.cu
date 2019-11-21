@@ -21,12 +21,12 @@ namespace ML {
 
 template <typename math_t>
 void SparseSVD(const cumlHandle &handle,
-               const math_t *__restrict X,
+               const math_t *__restrict X,// (n, p)
                const int n,
                const int p,
-               math_t *__restrict U,
-               math_t *__restrict S,
-               math_t *__restrict VT,
+               math_t *__restrict U,      // (n, n_components)
+               math_t *__restrict S,      // (n_components)
+               math_t *__restrict VT,     // (n_components, p)
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3)
