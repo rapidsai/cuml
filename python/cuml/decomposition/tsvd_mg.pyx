@@ -217,7 +217,6 @@ class TSVDMG(TruncatedSVD):
                                    "data": input_ptr,
                                    "shape": (n_rows, self.n_cols)})
 
-
         self.n_cols = N
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -226,7 +225,6 @@ class TSVDMG(TruncatedSVD):
         params.n_iterations = self.n_iter
         params.tol = self.tol
         params.algorithm = self.c_algorithm
-        
 
         n_total_parts = 0
         for idx, rankSize in enumerate(partsToRanks):
@@ -234,7 +232,6 @@ class TSVDMG(TruncatedSVD):
             if rnk == rank:
                 n_total_parts = n_total_parts + 1
 
-        
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
             malloc(sizeof(RankSizePair**)
                    * n_total_parts)
@@ -313,7 +310,6 @@ class TSVDMG(TruncatedSVD):
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
-        
 
         self.components_ = cudf.DataFrame()
         for i in range(0, params.n_cols):
@@ -335,7 +331,7 @@ class TSVDMG(TruncatedSVD):
                 self._freeDoubleD(data, arr_interfaces)
 
             return trans_cudf
-                
+
 
     def transform(self, X, M, N, partsToRanks, rnk):
         """
@@ -452,7 +448,7 @@ class TSVDMG(TruncatedSVD):
             self._freeDoubleD(data, arr_interfaces)
 
         return trans_cudf
-        
+
     def inverse_transform(self, X, M, N, partsToRanks, rnk):
         """
         Transform function for PCA MG. This not meant to be used as
