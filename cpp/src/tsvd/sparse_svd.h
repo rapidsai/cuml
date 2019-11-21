@@ -17,6 +17,8 @@
 #pragma once
 
 #include "sparse_svd.h"
+#include "cholesky_qr.h"
+#include <linalg/gemm.h>
 #include <random/rng.h>
 #include <sys/time.h>
 
@@ -42,6 +44,8 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   const auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
+  cublasHandle_t cublas_h; CUBLAS_CHECK(cublasCreate(&cublas_h));
+
   const int K = MIN(n_components + n_oversamples, p);
 
   // Prepare device buffers
@@ -58,6 +62,12 @@ void SparseSVD_fit(const cumlHandle &handle,
   random.normal<math_t>(Z, p*K, 0, 1, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
+
+  // Y = X @ Z
+  MLCommon::LinAlg::gemm(X, n, p, Z, Y, n, k, CUBLAS_OP_N, CUBLAS_OP_N, 1., 0., cublas_h, stream);
+
+
+  CUBLAS_CHECK(cublasDestroy(cublas_h));
 }
 
 }  // namespace ML
