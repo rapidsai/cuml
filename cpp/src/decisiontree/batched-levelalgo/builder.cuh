@@ -322,6 +322,15 @@ struct Builder {
     auto out = DataT(0.0);
     ///@todo: support for regression
     if (isRegression()) {
+      // reusing `pred` for initial mse computation only
+      CUDA_CHECK(cudaMemsetAsync(pred, 0, sizeof(DataT) * 2, s));
+      initialMeanPredKernel<DataT, LabelT, IdxT><<<nblks, TPB_DEFAULT, 0, s>>>(
+        pred, pred + 1, input.rowids, input.labels, input.nSampledRows);
+      CUDA_CHECK(cudaGetLastError());
+      MLCommon::updateHost(h_mse, pred, 2, s);
+      CUDA_CHECK(cudaStreamSynchronize(s));
+      ///@todo: add support for other regression metrics (currently MSE only)
+      out = h_mse[1] - h_mse[0] * h_mse[0];
     } else {
       // reusing `hist` for initial bin computation only
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * input.nclasses, s));
