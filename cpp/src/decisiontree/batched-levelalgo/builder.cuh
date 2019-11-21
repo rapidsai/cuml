@@ -320,7 +320,6 @@ struct Builder {
       MLCommon::ceildiv<int>(input.nSampledRows, TPB_DEFAULT * NITEMS);
     size_t smemSize = sizeof(int) * input.nclasses;
     auto out = DataT(0.0);
-    ///@todo: support for regression
     if (isRegression()) {
       // reusing `pred` for initial mse computation only
       CUDA_CHECK(cudaMemsetAsync(pred, 0, sizeof(DataT) * 2, s));
