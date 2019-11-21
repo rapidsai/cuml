@@ -115,8 +115,8 @@ class LogisticRegression(Base):
         Custom class weighs are currently not supported.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
-    verbose: bool (optional, default False)
-        Controls verbosity of logging.
+    verbose: int (optional, default 0)
+        Controls verbosity level of logging.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver: 'qn', 'lbfgs', 'owl' (default=qn).
@@ -147,10 +147,10 @@ class LogisticRegression(Base):
     """
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
-                 class_weight=None, max_iter=1000, verbose=0, l1_ratio=None,
-                 solver='qn', handle=None):
+                 class_weight=None, max_iter=1000, line_max_iter=500,
+                 verbose=0, l1_ratio=None, solver='qn', handle=None):
 
-        super(LogisticRegression, self).__init__(handle=handle, verbose=False)
+        super(LogisticRegression, self).__init__(handle=handle, verbose=verbose)
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
@@ -166,8 +166,8 @@ class LogisticRegression(Base):
         self.penalty = penalty
         self.tol = tol
         self.fit_intercept = fit_intercept
-        self.verbose = verbose
         self.max_iter = max_iter
+        self.line_max_iter = line_max_iter
         if self.penalty == 'elasticnet':
             if l1_ratio is None:
                 raise ValueError("l1_ratio has to be specified for"
@@ -198,8 +198,8 @@ class LogisticRegression(Base):
 
         self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
                      l1_strength=l1_strength, l2_strength=l2_strength,
-                     max_iter=self.max_iter, tol=self.tol,
-                     verbose=self.verbose, handle=self.handle)
+                     max_iter=self.max_iter, line_max_iter=self.line_max_iter,
+                     tol=self.tol, verbose=self.verbose, handle=self.handle)
 
     def fit(self, X, y, convert_dtype=False):
         """
