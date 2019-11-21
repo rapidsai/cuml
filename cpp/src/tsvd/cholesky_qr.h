@@ -51,14 +51,13 @@ void cholesky_qr(const math_t *__restrict X,
                  math_t *__restrict R,
                  const int n,
                  const int p,
-                 const cusolverDnHandle_t solver_h,
-                 const cublasHandle_t blas_h,
                  const cumlHandle &handle,
                  const int lwork = 0,
                  math_t *__restrict work = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
+  const cusparseHandle_t solver_h = handle.getImpl().getcusparseHandle();
 
   if (lwork == 0)
   {
