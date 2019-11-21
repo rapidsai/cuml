@@ -55,7 +55,7 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
     from cuml.test.utils import array_equal
 
     all_attr = ['singular_values_', 'components_',
-            'explained_variance_', 'explained_variance_ratio_']
+                'explained_variance_', 'explained_variance_ratio_']
 
     if owns_cluster:
         client.close()

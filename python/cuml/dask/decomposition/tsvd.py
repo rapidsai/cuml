@@ -99,7 +99,7 @@ class TruncatedSVD(object):
         then the other solvers including randomized SVD.
     verbose : bool
         Whether to print debug spews
-    
+
     Attributes
     ----------
     components_ : array
