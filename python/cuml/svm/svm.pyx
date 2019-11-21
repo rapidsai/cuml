@@ -90,7 +90,7 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
     cdef void svcPredict[math_t](
         const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const svmModel[math_t] &model,
-        math_t *preds, math_t buffer_size) except +
+        math_t *preds, math_t buffer_size, bool predict_class) except +
 
     cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
                                      svmModel[math_t] &m) except +
@@ -232,6 +232,10 @@ class SVC(Base):
                 del model_d
             else:
                 raise TypeError("Unknown type for SVC class")
+            try:
+                del self.fit_status_
+            except AttributeError:
+                pass
 
         self._model = None
 
@@ -360,6 +364,9 @@ class SVC(Base):
 
         if self.dtype == np.float32:
             model_f = <svmModel[float]*><uintptr_t> self._model
+            if model_f.n_support == 0:
+                self.fit_status_ = 1  # incorrect fit
+                return
             self.intercept_ = model_f.b
             self.n_support_ = model_f.n_support
             self.dual_coef_ = device_array_from_ptr(
@@ -376,6 +383,9 @@ class SVC(Base):
                 self.dtype)
         else:
             model_d = <svmModel[double]*><uintptr_t> self._model
+            if model_d.n_support == 0:
+                self.fit_status_ = 1  # incorrect fit
+                return
             self.intercept_ = model_d.b
             self.n_support_ = model_d.n_support
             self.dual_coef_ = device_array_from_ptr(
@@ -442,7 +452,7 @@ class SVC(Base):
             raise TypeError('Input data type should be float32 or float64')
 
         self._unpack_model()
-        self.fit_states_ = 0
+        self.fit_status_ = 0
         self.handle.sync()
 
         del X_m
@@ -450,9 +460,10 @@ class SVC(Base):
 
         return self
 
-    def predict(self, X):
+    def _predict(self, X, predict_class):
         """
-        Predicts the y for X.
+        Predicts the y for X, where y is either the decision function value
+        (if predict_class == False), or the label associated with X.
 
         Parameters
         ----------
@@ -460,6 +471,10 @@ class SVC(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        predict_class : boolean
+            Switch whether to retun class label (true), or decision function
+            value (false).
 
         Returns
         -------
@@ -484,18 +499,59 @@ class SVC(Base):
             model_f = <svmModel[float]*><size_t> self._model
             svcPredict(handle_[0], <float*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_f[0],
-                       <float*>preds_ptr, <float>self.cache_size)
+                       <float*>preds_ptr, <float>self.cache_size,
+                       <bool> predict_class)
         else:
             model_d = <svmModel[double]*><size_t> self._model
             svcPredict(handle_[0], <double*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_d[0],
-                       <double*>preds_ptr, <double>self.cache_size)
+                       <double*>preds_ptr, <double>self.cache_size,
+                       <bool> predict_class)
 
         self.handle.sync()
 
         del(X_m)
 
         return preds
+
+    def predict(self, X):
+        """
+        Predicts the class labels for X. The returned y values are the class
+        labels associated to sign(decision_function(X)).
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        y : cuDF Series
+           Dense vector (floats or doubles) of shape (n_samples, 1)
+        """
+
+        return self._predict(X, True)
+
+    def decision_function(self, X):
+        """
+        Calculates the decision function values for X.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        y : cuDF Series
+           Dense vector (floats or doubles) of shape (n_samples, 1)
+        """
+
+        return self._predict(X, False)
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
