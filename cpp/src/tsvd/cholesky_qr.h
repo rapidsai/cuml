@@ -57,6 +57,7 @@ void correction(math_t *__restrict XTX,
 
   if (XTX[i + i*p] == 0) XTX[i + i*p] = p*2 + i;
   XTX[i + i*p] += 1e-6;
+  printf("[%.3f]\n", XTX[i + i*p]);
 }
 
 
@@ -111,6 +112,9 @@ int cholesky_qr(const math_t *__restrict X,
   MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   printf("INFO = %d\n", info_out);
+
+  correction<<<MLCommon::ceildiv(p, 1024), 1024, 0, stream>>>(&R[0], p);
+  CUDA_CHECK(cudaPeekAtLastError());
 
   return info_out;
 }
