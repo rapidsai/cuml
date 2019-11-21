@@ -42,7 +42,8 @@ using MLCommon::hostAllocator;
  */
 class cumlHandle_impl {
  public:
-  cumlHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
+  cumlHandle_impl(cudaStream_t stream = NULL,
+      int n_streams = cumlHandle::getDefaultNumInternalStreams());
   ~cumlHandle_impl();
   int getDevice() const;
   void setStream(cudaStream_t stream);

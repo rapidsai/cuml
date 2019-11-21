@@ -140,7 +140,8 @@ int cumlHandle::getDefaultNumInternalStreams() {
   return _default_num_internal_streams;
 }
 
-cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
+cumlHandle::cumlHandle(cudaStream_t stream, int n_streams):
+    _impl(new cumlHandle_impl(stream, n_streams)) {}
 cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
 cumlHandle::~cumlHandle() {}
 
@@ -178,7 +179,7 @@ cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
 
-cumlHandle_impl::cumlHandle_impl(int n_streams)
+cumlHandle_impl::cumlHandle_impl(cudaStream_t userStream, int n_streams)
   : _dev_id([]() -> int {
       int cur_dev = -1;
       CUDA_CHECK(cudaGetDevice(&cur_dev));
@@ -187,7 +188,7 @@ cumlHandle_impl::cumlHandle_impl(int n_streams)
     _num_streams(n_streams),
     _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
     _hostAllocator(std::make_shared<defaultHostAllocator>()),
-    _userStream(NULL) {
+    _userStream(userStream) {
   createResources();
 }
 

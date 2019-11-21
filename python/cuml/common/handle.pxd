@@ -21,6 +21,7 @@
 
 
 from libcpp.memory cimport shared_ptr
+from libcpp.vector cimport vector
 cimport cuml.common.cuda
 
 
@@ -30,8 +31,10 @@ cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
 
     cdef cppclass cumlHandle:
         cumlHandle() except +
-        cumlHandle(int ns) except +
+        cumlHandle(cuml.common.cuda._Stream s, int ns) except +
         void setStream(cuml.common.cuda._Stream s) except +
         void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
         cuml.common.cuda._Stream getStream() except +
         int getNumInternalStreams() except +
+        vector[cuml.common.cuda._Stream] getInternalStreams()
+        void waitOnUserStream()

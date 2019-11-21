@@ -45,7 +45,7 @@ class cumlHandle {
      *   - HostAllocator: cudaMallocHost
      * @{
      */
-  cumlHandle(int n_streams);
+  cumlHandle(cudaStream_t userStream, int n_streams);
   cumlHandle();
   /** @} */
   /**

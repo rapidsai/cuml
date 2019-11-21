@@ -22,6 +22,8 @@
 
 import cuml
 from libcpp.memory cimport shared_ptr
+from libcpp.vector cimport vector
+
 from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
 
@@ -105,3 +107,25 @@ cdef class Handle:
     def getNumInternalStreams(self):
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         return h_.getNumInternalStreams()
+
+    def getInternalStreamsAsHandles():
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        h_.waitOnUserStream()
+
+        cdef vector[_Stream] int_streams = h_.getInternalStreams
+        cdef vector[cumlHandle*] handles = new vector[cumlHandle]()
+
+        cdef cumlHandle *new_handle
+        for stream in range(int_streams.size()):
+            handles.push_back(new_handle)
+
+
+
+
+
+
+
+
+
+
+
