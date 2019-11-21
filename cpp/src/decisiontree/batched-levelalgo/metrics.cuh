@@ -63,7 +63,8 @@ DI void giniGain(const int* shist, const DataT* sbins, DataT parentGain,
 
 /**
  * @brief Compute gain based on entropy
- * @param shist left/right class histograms for all bins (nbins x 2 x nclasses)
+ * @param shist left/right class histograms for all bins
+ *             (len = nbins x 2 x nclasses)
  * @param sbins quantiles for the current column (len = nbins)
  * @param parentGain parent node's best gain
  * @param sp will contain the per-thread best split so far
@@ -98,6 +99,37 @@ DI void entropyGain(const int* shist, const DataT* sbins, DataT parentGain,
         sum += MLCommon::myLog(rval * invRight) * rval * invlen;
       }
     }
+    auto gain = parentGain + sum;
+    sp.update({sbins[i], col, gain, nLeft});
+  }
+}
+
+/**
+ * @brief Compute gain based on MSE
+ * @param spred left/right child mean prediction for all bins (len = 2 x bins)
+ * @param spred2 left/right child mean of prediction squared for all bins
+ *               (len = 2 x bins)
+ * @param scount left child count for all bins (len = nbins)
+ * @param sbins quantiles for the current column (len = nbins)
+ * @param parentGain parent node's best gain
+ * @param sp will contain the per-thread best split so far
+ * @param col current column
+ * @param len total number of samples for the current node to be split
+ * @param nbins number of bins
+ */
+template <typename DataT, typename IdxT>
+DI void mseGain(const DataT* spred, const DataT* spred2, const IdxT* scount,
+                const DataT* sbins, DataT parentGain, Split<DataT, IdxT>& sp,
+                IdxT col, IdxT len, IdxT nbins) {
+  constexpr DataT One = DataT(1.0);
+  DataT invlen = One / len;
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    IdxT nLeft = scount[i];
+    auto invLeft = One / nLeft;
+    auto invRight = One / (len - nLeft);
+    DataT sum = spred2[i] + spred2[nbins + i];
+    sum -= spred[i] * spred[i] * len * invLeft;
+    sum -= spred[nbins + i] * spred[nbins + i] * len * invRight;
     auto gain = parentGain + sum;
     sp.update({sbins[i], col, gain, nLeft});
   }
