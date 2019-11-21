@@ -210,7 +210,7 @@ class LogisticRegression(Base):
         if self.verbose > 1:
             self.verb_prefix = "CY::"
             print(self.verb_prefix + "Estimator parameters:")
-            pprint(self.__dict__)
+            pprint.pprint(self.__dict__)
 
     def fit(self, X, y, convert_dtype=False):
         """
