@@ -79,6 +79,15 @@ class SparseSVDTest : public ::testing::Test {
     float *__restrict VT = (float*) malloc(sizeof(float) * k * p);
     ASSERT(U != NULL and S != NULL and VT != NULL, "Out of memory!");
 
+    MLCommon::updateHost(U, U_, n*k, stream);
+    MLCommon::updateHost(S, S_, k, stream);
+    MLCommon::updateHost(VT, VT_, k*p, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+
+    // Confirm singular values
+    // Should be around {425,  504,  542,  566, 2193}
+    
 
 
     free(U);
@@ -100,6 +109,7 @@ class SparseSVDTest : public ::testing::Test {
   const int n = 1797;
   const int p = 64;
   const int k = 5;
+  static const float compare_S[5] = {425,  504,  542,  566, 2193};
 };
 
 
