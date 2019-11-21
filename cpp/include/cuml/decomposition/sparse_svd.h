@@ -22,6 +22,8 @@ namespace ML {
 
 void SparseSVD(const cumlHandle &handle,
                const float *__restrict X,
+               const int n,
+               const int p,
                float *__restrict U,
                float *__restrict S,
                float *__restrict VT,
@@ -31,6 +33,8 @@ void SparseSVD(const cumlHandle &handle,
 
 void SparseSVD(const cumlHandle &handle,
                const double *__restrict X,
+               const int n,
+               const int p,
                double *__restrict U,
                double *__restrict S,
                double *__restrict VT,

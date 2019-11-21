@@ -37,13 +37,40 @@ class SparseSVDTest : public ::testing::Test {
  protected:
   void basicTest() {
     cumlHandle handle;
+    auto d_alloc = handle.getDeviceAllocator();
+    cudaStream_t stream = handle.getStream();
 
     // Allocate memory
-    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
-                             n * p);
-    MLCommon::updateDevice(X_d.data(), digits.data(), n * p,
-                           handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+    device_buffer<float> X_d(d_alloc, stream, n*p);
+
+    // SparseSVD only accepts F-Contiguous data, but digits is C-Contiguous
+    // Technically, no matter if the data is F or C contiguous, SparseSVD
+    // should work regardless. The only difference is U, VT are swapped.
+    float *__restrict X_T = (float*) malloc(sizeof(float) * n * p);
+    ASSERT(X_T != NULL, "No more memory!");
+
+    #define X_T(i,j)  X_T[(i) + (j)*n]
+    #define X(i,j)    X[(i)*p + (j)]
+
+    for (int i = 0; i < n; i++) {
+      #pragma omp simd
+      for (int j = 0; j < p; j++)
+        X_T(i, j) = X(i, j);
+    }
+    MLCommon::updateDevice(X_d.data(), X_T, n*p, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    // Allocate U, S, VT
+    device_buffer<float> U(d_alloc, stream, n*k);
+    device_buffer<float> S(d_alloc, stream, k);
+    device_buffer<float> VT(d_alloc, stream, p*k);
+
+    SparseSVD(handle, X_d.data(), n, p, U.data(), S.data(), VT.data(), k);
+
+    #undef X_T
+    #undef X
+
+    free(X_T);
   }
 
   void SetUp() override { basicTest(); }
@@ -51,9 +78,11 @@ class SparseSVDTest : public ::testing::Test {
   void TearDown() override {}
 
  protected:
-  int n = 1797;
-  int p = 64;
+  const int n = 1797;
+  const int p = 64;
+  const int k = 5;
 };
+
 
 typedef SparseSVDTest SparseSVDTestF;
 TEST_F(SparseSVDTestF, Result) {
