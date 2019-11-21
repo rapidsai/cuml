@@ -45,10 +45,10 @@ __global__ void initialClassHistKernel(int* gclasshist, const IdxT* rowids,
     atomicAdd(gclasshist + i, shist[i]);
 }
 
-template <typename DataT, typename IdxT>
+template <typename DataT, typename LabelT, typename IdxT>
 __global__ void initialMeanPredKernel(DataT* meanPred, DataT* meanPred2,
-                                      const IdxT* rowids, const DataT* labels,
-                                      IdxT nrows, IdxT nSampledRows) {
+                                      const IdxT* rowids, const LabelT* labels,
+                                      IdxT nrows) {
   __shared__ DataT spred[2];
   if (threadIdx.x == 0) {
     spred[0] = DataT(0.0);
@@ -65,7 +65,7 @@ __global__ void initialMeanPredKernel(DataT* meanPred, DataT* meanPred2,
   }
   __syncthreads();
   if (threadIdx.x == 0) {
-    auto inv = DataT(1.0) / nSampledRows;
+    auto inv = DataT(1.0) / nrows;
     atomicAdd(meanPred, spred[0] * inv);
     atomicAdd(meanPred2, spred[1] * inv);
   }
