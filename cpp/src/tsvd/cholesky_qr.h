@@ -60,6 +60,7 @@ void cholesky_qr(const math_t *__restrict X,
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
   cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
+  cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
 
   if (lwork == 0)
   {
@@ -67,6 +68,8 @@ void cholesky_qr(const math_t *__restrict X,
     device_buffer<math_t> work(d_alloc, stream, lwork);
 
     // Do X.T @ X
+    const math_t alpha = 1;
+    const math_t beta = 0;
     CUBLAS_CHECK(cublassyrk(blas_h, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, p, n,
                             &alpha, &X[0], n, &beta, &R[0], p, stream));
 
