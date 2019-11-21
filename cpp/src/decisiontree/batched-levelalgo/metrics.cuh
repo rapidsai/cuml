@@ -64,7 +64,7 @@ DI void giniGain(const int* shist, const DataT* sbins, DataT parentGain,
 /**
  * @brief Compute gain based on entropy
  * @param shist left/right class histograms for all bins
- *             (len = nbins x 2 x nclasses)
+ *              (len = nbins x 2 x nclasses)
  * @param sbins quantiles for the current column (len = nbins)
  * @param parentGain parent node's best gain
  * @param sp will contain the per-thread best split so far
