@@ -21,7 +21,7 @@
 
 from cuml.solvers import QN
 from cuml.common.base import Base
-
+from cuml.metrics.accuracy import accuracy_score
 from cuml.utils import input_to_dev_array
 from cuml.utils.cupy_utils import checked_cupy_unique
 
@@ -273,3 +273,21 @@ class LogisticRegression(Base):
 
         """
         return self.qn.predict(X, convert_dtype=convert_dtype)
+
+    def score(self, X, y, convert_dtype=False):
+        """
+        Calculates the accuracy metric score of the model for X.
+
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Observations for which labels score will be calculated.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Ground truth labels to compare predictions to for the score.
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        """
+        return accuracy_score(y, self.predict(X), handle=self.handle)
