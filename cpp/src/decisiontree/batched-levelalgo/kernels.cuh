@@ -45,6 +45,32 @@ __global__ void initialClassHistKernel(int* gclasshist, const IdxT* rowids,
     atomicAdd(gclasshist + i, shist[i]);
 }
 
+template <typename DataT, typename IdxT>
+__global__ void initialMeanPredKernel(DataT* meanPred, DataT* meanPred2,
+                                      const IdxT* rowids, const DataT* labels,
+                                      IdxT nrows, IdxT nSampledRows) {
+  __shared__ DataT spred[2];
+  if (threadIdx.x == 0) {
+    spred[0] = DataT(0.0);
+    spred[1] = DataT(0.0);
+  }
+  __syncthreads();
+  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
+  IdxT stride = blockDim.x * gridDim.x;
+  for (auto i = tid; i < nrows; i += stride) {
+    auto row = rowids[i];
+    auto label = labels[row];
+    atomicAdd(spred, label);
+    atomicAdd(spred2, label);
+  }
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    auto inv = DataT(1.0) / nSampledRows;
+    atomicAdd(meanPred, spred[0] * inv);
+    atomicAdd(meanPred2, spred[1] * inv);
+  }
+}
+
 /**
  * @brief Decide whether the current node is to be declared as a leaf entirely
  *        based on the input hyper-params set by the user
