@@ -21,6 +21,7 @@
 #include "sparse_svd/qr.h"
 #include "sparse_svd/eigh.h"
 #include <linalg/gemm.h>
+#include <matrix/math.h>
 #include <random/rng.h>
 #include <sys/time.h>
 
@@ -133,14 +134,23 @@ void SparseSVD_fit(const cumlHandle &handle,
                &alpha, &Z[0], p, &beta, &T[0], K, stream));
 
   // W, V = eigh(T)
-  device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
+  device_buffer<math_t> W_(d_alloc, stream, K); // W(K)
   math_t *__restrict W = W_.data();
   math_t *__restrict V = T;
 
   eigh(&W[0], &V[0], K, n_components, handle, true);
-  // Copy W into S
+  // S = sqrt(W)
   MLCommon::copyAsync(&S[0], &W[0], n_components, stream);
 
+  // VT = V.T @ Z.T
+  MLCommon::LinAlg::gemm(&V[0], K, n_components, &Z[0], &VT[0], n_components, p,
+                         CUBLAS_OP_T, CUBLAS_OP_T, blas_h, stream);
+
+  // VT /= S.reshape(-1,1) row-wise
+  MLCommon::LinAlg::unaryOp(W, W, n_components,
+      [] __device__(math_t x) { return ((x > 0) ? (1.0f / x) : 0); }, stream);
+
+  MLCommon::Matrix::matrixVectorBinaryMult(&VT[0], &W[0], n_components, p, false, true, stream);
 }
 
 }  // namespace ML
