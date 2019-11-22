@@ -51,8 +51,8 @@ void SparseSVD_fit(const cumlHandle &handle,
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
   const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
 
-  const math_t alpha = 1;
-  const math_t beta = 0;
+  static const math_t alpha = 1;
+  static const math_t beta = 0;
 
   const int K = MIN(n_components + n_oversamples, p);
 
