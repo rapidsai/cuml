@@ -155,52 +155,52 @@ def load_corpus_cpu():
     return X, Y
 
 
-def test_basic_fit_predict():
-
-    """
-    Sklearn Test
-    """
-
-    from sklearn.naive_bayes import MultinomialNB as MNB
-
-    X, y = load_corpus_cpu()
-
-    start = time.time()
-    model = MNB()
-    model.fit(X, y)
-    end = time.time() - start
-    print("SKLEARN: "+ str(end))
-
-    y_hat = model.predict(X)
-    print(str(accuracy_score(y, y_hat)))
-
-
-    """
-    PyTorch Test
-    """
-
-    from sklearn.preprocessing import LabelBinarizer
-    l = LabelBinarizer()
-    Y = torch.cuda.FloatTensor(l.fit_transform(y)).cuda()
-
-    a = scipy_to_torch(X)
-
-    m = PyTorchBayes(l)
-    m.fit(a, Y)
-
-    start = time.time()
-    m = PyTorchBayes(l)
-    m.fit(a, Y)
-    end = time.time() - start
-    print("PYTORCH: " + str(end))
-
-    y_hat_gpu = m.predict(a)
-
-    print(str(y_hat_gpu))
-    print(str(y))
-
-    print(str(accuracy_score(y, y_hat_gpu.cpu().numpy())))
-
+def test_basic_fit_predict_sparse():
+    #
+    # """
+    # Sklearn Test
+    # """
+    #
+    # from sklearn.naive_bayes import MultinomialNB as MNB
+    #
+    # X, y = load_corpus_cpu()
+    #
+    # start = time.time()
+    # model = MNB()
+    # model.fit(X, y)
+    # end = time.time() - start
+    # print("SKLEARN: "+ str(end))
+    #
+    # y_hat = model.predict(X)
+    # print(str(accuracy_score(y, y_hat)))
+    #
+    #
+    # """
+    # PyTorch Test
+    # """
+    #
+    # from sklearn.preprocessing import LabelBinarizer
+    # l = LabelBinarizer()
+    # Y = torch.cuda.FloatTensor(l.fit_transform(y)).cuda()
+    #
+    # a = scipy_to_torch(X)
+    #
+    # m = PyTorchBayes(l)
+    # m.fit(a, Y)
+    #
+    # start = time.time()
+    # m = PyTorchBayes(l)
+    # m.fit(a, Y)
+    # end = time.time() - start
+    # print("PYTORCH: " + str(end))
+    #
+    # y_hat_gpu = m.predict(a)
+    #
+    # print(str(y_hat_gpu))
+    # print(str(y))
+    #
+    # print(str(accuracy_score(y, y_hat_gpu.cpu().numpy())))
+    #
 
     """
     Cupy Test
@@ -236,4 +236,42 @@ def test_basic_fit_predict():
     y = cp.asnumpy(y)
 
     print(str(accuracy_score(y, y_hat)))
+
+
+def test_basic_fit_predict_dense():
+
+
+    """
+    Cupy Test
+    """
+
+    X, y = load_corpus()
+
+    X = X.tocsr()[0:5000].todense()
+    y = y[:5000]
+
+    # Priming it seems to lower the end-to-end runtime
+    model = MultinomialNB()
+    model.fit(X, y)
+
+    cp.cuda.Stream.null.synchronize()
+
+    with cp.prof.time_range(message="start", color_id=10):
+        start = time.time()
+        model = MultinomialNB()
+        model.fit(X, y)
+        end = time.time() - start
+
+    print("CUPY: "+ str(end))
+
+    y_hat = model.predict(X)
+
+    print(str(y_hat))
+    print(str(y))
+
+    y_hat = cp.asnumpy(y_hat)
+    y = cp.asnumpy(y)
+
+    print(str(accuracy_score(y, y_hat)))
+
 
