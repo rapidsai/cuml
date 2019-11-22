@@ -156,13 +156,13 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
                             const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
                             SimpleVec<T> &drt, std::vector<T> &yhist,
                             std::vector<T> &alpha, T *dev_scalar,
-                            cudaStream_t stream) {
+                            cudaStream_t stream, int verbosity) {
   SimpleVec<T> sj, yj;  // mask vectors
   int end = end_prev;
   // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
   T ys = dot(svec, yvec, dev_scalar, stream);
   T yy = dot(yvec, yvec, dev_scalar, stream);
-  if (ys == 0 || yy == 0) {
+  if (ys == 0 || yy == 0 && verbosity > 0) {
     printf("WARNING: zero detected\n");
   }
   yhist[end] = ys;
