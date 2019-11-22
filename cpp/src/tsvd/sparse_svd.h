@@ -40,7 +40,8 @@ void SparseSVD_fit(const cumlHandle &handle,
                    const int n_components = 2,
                    const int n_oversamples = 10,
                    const int max_iter = 3,
-                   int random_state = -1)
+                   int random_state = -1,
+                   const bool verbose = true)
 {
   ASSERT(n > 0 and p > 0 and U != NULL and S != NULL and VT != NULL, "Bad input");
   ASSERT(n_components > 0 and n_oversamples > 0 and max_iter >= 0, "Bad input");
@@ -90,7 +91,7 @@ void SparseSVD_fit(const cumlHandle &handle,
   // Y = X @ Z
   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
   // Y, _ = qr(Y)
-  fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, true, lwork, &work[0], &tau[0], &info[0]);
+  fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
 
   // for (int iter = 0; iter < max_iter; iter++)
   // {
