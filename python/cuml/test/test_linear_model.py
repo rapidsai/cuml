@@ -203,24 +203,23 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
     if penalty in ['elasticnet', 'l1']:
         if sk_check:
             sklog = skLog(penalty=penalty, l1_ratio=l1_ratio, solver='saga',
-                          C=C, fit_intercept=fit_intercept)
+                          C=C, fit_intercept=fit_intercept, multi_class='auto')
         else:
             sklog = skLog(penalty=penalty, solver='saga',
-                          C=C, fit_intercept=fit_intercept)
+                          C=C, fit_intercept=fit_intercept, multi_class='auto')
     else:
         sklog = skLog(penalty=penalty, solver='lbfgs', C=C,
-                      fit_intercept=fit_intercept)
+                      fit_intercept=fit_intercept, multi_class='auto')
 
     sklog.fit(X_train, y_train)
 
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
 
-    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.042
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
-@pytest.mark.xfail(raises=AssertionError)
 def test_logistic_regression_model_default(dtype):
 
     X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
@@ -228,7 +227,7 @@ def test_logistic_regression_model_default(dtype):
     y_test = y_test.astype(dtype)
     culog = cuLog()
     culog.fit(X_train, y_train)
-    sklog = skLog()
+    sklog = skLog(multi_class='auto')
 
     sklog.fit(X_train, y_train)
 
