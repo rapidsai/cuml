@@ -113,7 +113,7 @@ int cholesky_qr_onlyQ(math_t *__restrict X,
   MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  // If it fails, use QR decomposition
+  // If this fails, use QR decomposition
   if (info_out != 0) {
     return info_out;
   }
