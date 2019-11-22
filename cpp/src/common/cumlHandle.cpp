@@ -152,6 +152,10 @@ const cudaDeviceProp& cumlHandle::getDeviceProperties() const {
   return _impl->getDeviceProperties();
 }
 
+std::vector<cudaStream_t> cumlHandle::getInternalStreams() const {
+  return _impl->getInternalStreams();
+}
+
 void cumlHandle::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
   _impl->setDeviceAllocator(allocator);
@@ -238,6 +242,15 @@ cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
 }
 
 int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
+
+std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
+  std::vector<cudaStream_t> int_streams_vec(_num_streams);
+  for (auto s : _streams) {
+    int_streams_vec.push_back(s);
+  }
+
+  return int_streams_vec;
+}
 
 void cumlHandle_impl::waitOnUserStream() const {
   CUDA_CHECK(cudaEventRecord(_event, _userStream));

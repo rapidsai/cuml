@@ -4,6 +4,7 @@ channels:
 - nvidia
 - rapidsai-nightly
 - conda-forge
+- conda-forge/label/rc_ucx
 dependencies:
 - cudatoolkit=10.0
 - libclang=8.0.0
@@ -25,4 +26,5 @@ dependencies:
 - nccl>=2.4
 - libcumlprims=0.11*
 - statsmodels
+- ucx-py=0.2*
 - protobuf >=3.4.1,<4.0.0
