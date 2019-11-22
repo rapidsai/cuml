@@ -19,6 +19,7 @@
 #include "sparse_svd.h"
 #include "sparse_svd/cholesky_qr.h"
 #include "sparse_svd/qr.h"
+#include "sparse_svd/eigh.h"
 #include <linalg/gemm.h>
 #include <random/rng.h>
 #include <sys/time.h>
