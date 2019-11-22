@@ -529,12 +529,12 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def _predict_model_on_gpu(self, X,
-                              algo, convert_dtype, task_category=1):
+    def _predict_model_on_gpu(self, X, algo,
+                              convert_dtype, task_category=1):
 
         cdef ModelHandle cuml_model_ptr
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, check_dtype=self.dtype,
+        X_m, _, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
@@ -555,7 +555,8 @@ class RandomForestRegressor(Base):
             fil_model.load_from_randomforest(treelite_handle,
                                              output_class=False,
                                              algo=algo)
-        preds = tl_to_fil_model.predict(X)
+        preds = tl_to_fil_model.predict(X_m)
+        del(X_m)
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
@@ -611,7 +612,7 @@ class RandomForestRegressor(Base):
         return preds
 
     def predict(self, X, predict_model="GPU",
-                algo='BATCH_TREE_REORG', convert_dtype=False):
+                algo='BATCH_TREE_REORG', convert_dtype=True):
         """
         Predicts the labels for X.
         Parameters
@@ -632,6 +633,10 @@ class RandomForestRegressor(Base):
             coalescing-friendly
             'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
             multiple rows per thread block
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: NumPy
@@ -641,14 +646,12 @@ class RandomForestRegressor(Base):
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and convert_dtype is False:
-            warnings.watn("Using CPU based predict. \
-                          GPU predict model only accepts float32 and \
-                          model was trained with float64. TO use GPU based \
-                          predict, convert `X` to float32 or set the \
-                          parameter convert_dtype to True to have the \
-                          estimator do it for you.")
-
-            preds = self._predict_model_on_cpu(X, convert_dtype)
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            In order use the GPU predict the model should \
+                            also be trained using a np.float32 dataset. \
+                            If you would like to use np.float64 dtype \
+                            then please use the CPU based predict by \
+                            setting predict_model = 'CPU'")
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
