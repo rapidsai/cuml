@@ -162,7 +162,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
   // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
   T ys = dot(svec, yvec, dev_scalar, stream);
   T yy = dot(yvec, yvec, dev_scalar, stream);
-  if (ys == 0 || yy == 0 && verbosity > 0) {
+  if (verbosity > 0 && (ys == 0 || yy == 0)) {
     printf("WARNING: zero detected\n");
   }
   yhist[end] = ys;
