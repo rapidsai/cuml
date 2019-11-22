@@ -153,8 +153,8 @@ class SparseSVDTest : public ::testing::Test {
 typedef SparseSVDTest SparseSVDTestF;
 TEST_F(SparseSVDTestF, Result)
 {
-  fprintf(stdout, "Percentage of good singular values = %.2f", (float)correct/(float)k);
-  ASSERT(correct == k, "Singular values are off!");
+  fprintf(stdout, "Percentage of good singular values = %.2f", (float)n_correct/(float)k);
+  ASSERT(n_correct == k, "Singular values are off!");
 }
 
 #undef printf
