@@ -85,7 +85,6 @@ int eigh(math_t *__restrict W,
                    CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, p, &V[0],
                    p, &W[0], &work[0], lwork, &info[0], stream));
   #endif
-  CUDA_CHECK(cudaGetLastError());
   
 
   int info_out = 0;

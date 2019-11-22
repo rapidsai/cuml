@@ -58,11 +58,11 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   // Prepare device buffers
   device_buffer<math_t> Y_(d_alloc, stream, n*K); // Y(n, K)
-  math_t *Y = Y_.data();
+  math_t *__restrict Y = Y_.data();
   device_buffer<math_t> Z_(d_alloc, stream, p*K); // Z(p, K)
-  math_t *Z = Z_.data();
+  math_t *__restrict Z = Z_.data();
   device_buffer<math_t> T_(d_alloc, stream, K*K); // T(K, K)
-  math_t *T = T_.data();
+  math_t *__restrict T = T_.data();
 
 
   // Fill Z with random normal(0, 1)
@@ -77,23 +77,22 @@ void SparseSVD_fit(const cumlHandle &handle,
   // Tau for QR(Y)
   const int min_dim = MIN(n, K);
   device_buffer<math_t> tau_(d_alloc, stream, min_dim);
-  math_t *tau = tau_.data();
+  math_t *__restrict tau = tau_.data();
 
   // Prepare workspaces for QR decomposition
   const int lwork1 = prepare_fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, tau);
   const int lwork2 = prepare_fast_qr_onlyQ(&Z[0], &T[0], p, K, handle, tau);
   const int lwork = MAX(lwork1, lwork2);
   device_buffer<math_t> work_(d_alloc, stream, lwork);
-  math_t *work = work_.data();
+  math_t *__restrict work = work_.data();
 
   // Info
   device_buffer<int> info_(d_alloc, stream, 1);
-  int *info = info_.data();
+  int *__restrict info = info_.data();
 
 
   // Y = X @ Z
   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
-  CUDA_CHECK(cudaGetLastError());
   // Y, _ = qr(Y)
   fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
 
@@ -106,43 +105,39 @@ void SparseSVD_fit(const cumlHandle &handle,
 
     // Y = X @ Z
     MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
-    CUDA_CHECK(cudaGetLastError());
     // Y, _ = qr(Y)
     fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
   }
 
   // Z = X.T @ Y
   MLCommon::LinAlg::gemm(&X[0], n, p, &Y[0], &Z[0], p, K, CUBLAS_OP_T, CUBLAS_OP_N, blas_h, stream);
-  CUDA_CHECK(cudaGetLastError());
-
+  
   // R = cholesky(Y.T @ Y)
-  math_t *R = T;
+  math_t *__restrict R = T;
   cholesky(&Y[0], &R[0], n, K, handle, lwork, &work[0], &info[0]);
 
   // R2 = copy(R)
   device_buffer<math_t> R2_(d_alloc, stream, K*K);
-  math_t *R2 = R2_.data();
-  MLCommon::copy(&R2[0], &R[0], K*K, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  math_t *__restrict R2 = R2_.data();
+  // MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
+  // CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  // solve a = R, b = Z
-  CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
-               CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-               CUBLAS_DIAG_NON_UNIT, p, K, &alpha, &R[0], K, &Z[0], p, stream));
-  CUDA_CHECK(cudaGetLastError());
+  // // solve a = R, b = Z
+  // CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
+  //              CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+  //              CUBLAS_DIAG_NON_UNIT, p, K, &alpha, &R[0], K, &Z[0], p, stream));
 
-  // T = Z.T @ Z
-  CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
-               CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, p,
-               &alpha, &Z[0], p, &beta, &T[0], K, stream));
-  CUDA_CHECK(cudaGetLastError());
+  // // T = Z.T @ Z
+  // CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
+  //              CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, p,
+  //              &alpha, &Z[0], p, &beta, &T[0], K, stream));
 
-  // W, V = eigh(T)
-  device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
-  math_t *W = W_.data();
-  math_t *V = T;
+  // // W, V = eigh(T)
+  // device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
+  // math_t *__restrict W = W_.data();
+  // math_t *__restrict V = T;
 
-  eigh(&W[0], &V[0], K, n_components, handle);
+  // eigh(&W[0], &V[0], K, n_components, handle);
 
   // Square root W and revert array
 
