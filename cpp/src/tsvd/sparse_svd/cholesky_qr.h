@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "qr.h"
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
 #include <common/device_buffer.hpp>
@@ -38,7 +39,7 @@ int prepare_cholesky_qr(math_t *__restrict R,
                          const cumlHandle &handle)
 {
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
-  
+
   // X.T @ X workspace
   int lwork = 0;
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnpotrf_bufferSize(solver_h,
@@ -111,7 +112,11 @@ int cholesky_qr(math_t *__restrict X,
   int info_out = 0;
   MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  // TODO if Cholesky fails, use normal QR
+  
+  // If it fails, use QR decomposition
+  if (info_out != 0) {
+    qr(&X[0], n, p, handle);
+  }
 
 
   // Now do triangular solve to get Q!

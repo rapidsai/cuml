@@ -35,8 +35,9 @@ int prepare_qr(math_t *__restrict X,
                math_t *__restrict tau = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
+  const cudaStream_t stream = handle.getStream();
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
-  
+
   // Workspace for QR Decomposition
   int lwork1 = 0;
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf_bufferSize(solver_h,
