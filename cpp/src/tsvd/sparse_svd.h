@@ -116,7 +116,15 @@ void SparseSVD_fit(const cumlHandle &handle,
   math_t *__restrict R = T;
   cholesky(&Y[0], &R[0], n, K, handle, lwork, &work[0], &info[0]);
 
+  // R2 = copy(R)
+  device_buffer<math_t> R2_(d_alloc, stream, K*K);
+  math_t *__restrict R2 = R2_.data();
+  MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
 
+  // solve a = R, b = Z
+  CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
+               CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+               CUBLAS_DIAG_NON_UNIT, p, K, &alpha, &R[0], K, &Z[0], p, stream));
 }
 
 }  // namespace ML

@@ -135,7 +135,6 @@ int cholesky_qr_onlyQ(math_t *__restrict X,
 
   // Now do triangular solve to get Q!
   static const math_t alpha = 1;
-  static const math_t beta = 0;
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
                CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
                CUBLAS_DIAG_NON_UNIT, n, p, &alpha, &R[0], p, &X[0], n, stream));
