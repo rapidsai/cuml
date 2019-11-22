@@ -103,7 +103,6 @@ void qr_onlyQ(math_t *__restrict X,
                  n, p, &X[0], n, &tau[0], &work[0], lwork, &info[0], stream));
   CUDA_CHECK(cudaPeekAtLastError());
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
   // Get QR
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr(solver_h,
                  n, p, K, &X[0], n, &tau[0], &work[0], lwork, &info[0], stream));

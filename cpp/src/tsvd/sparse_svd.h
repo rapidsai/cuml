@@ -93,6 +93,7 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   // Y = X @ Z
   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+  CUDA_CHECK(cudaGetLastError());
   // Y, _ = qr(Y)
   fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
 
@@ -105,13 +106,15 @@ void SparseSVD_fit(const cumlHandle &handle,
 
     // Y = X @ Z
     MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+    CUDA_CHECK(cudaGetLastError());
     // Y, _ = qr(Y)
     fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
   }
 
   // Z = X.T @ Y
   MLCommon::LinAlg::gemm(&X[0], n, p, &Y[0], &Z[0], p, K, CUBLAS_OP_T, CUBLAS_OP_N, blas_h, stream);
-  
+  CUDA_CHECK(cudaGetLastError());
+
   // R = cholesky(Y.T @ Y)
   math_t *R = T;
   cholesky(&Y[0], &R[0], n, K, handle, lwork, &work[0], &info[0]);
@@ -119,18 +122,20 @@ void SparseSVD_fit(const cumlHandle &handle,
   // R2 = copy(R)
   device_buffer<math_t> R2_(d_alloc, stream, K*K);
   math_t *R2 = R2_.data();
-  MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
+  MLCommon::copy(&R2[0], &R[0], K*K, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // solve a = R, b = Z
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
                CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
                CUBLAS_DIAG_NON_UNIT, p, K, &alpha, &R[0], K, &Z[0], p, stream));
+  CUDA_CHECK(cudaGetLastError());
 
   // T = Z.T @ Z
   CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
                CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, p,
                &alpha, &Z[0], p, &beta, &T[0], K, stream));
+  CUDA_CHECK(cudaGetLastError());
 
   // W, V = eigh(T)
   device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
