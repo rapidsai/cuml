@@ -37,7 +37,7 @@ void count_features(float *out,
                     int n_rows, int n_cols,
                     int *labels, int n_labels,
                     int n_classes,
-                    bool square = false) {
+                    bool square) {
 
   int i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -104,7 +104,8 @@ class GaussianNB(object):
                         x_coo.shape[0],
                         x_coo.shape[1],
                         Y, Y.shape[0],
-                        self.n_classes_))
+                        self.n_classes_,
+                        False))
 
         count_features((math.ceil(x_coo.nnz / 32),), (32,),
                        (counts,
@@ -197,7 +198,8 @@ class MultinomialNB(object):
                         x_coo.shape[0],
                         x_coo.shape[1],
                         Y, Y.shape[0],
-                        self.n_classes_))
+                        self.n_classes_, False),
+                       )
 
         self.feature_count_ += counts
         self.class_count_ += counts.sum(axis=1).reshape(self.n_classes_)
