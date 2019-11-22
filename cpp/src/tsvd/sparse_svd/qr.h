@@ -25,8 +25,6 @@
 #define MIN(x, y)        (((x) > (y)) ? (y) : (x))
 
 namespace ML {
-namespace SparseSVD {
-
 
 template <typename math_t>
 int prepare_qr(math_t *__restrict X,
@@ -107,7 +105,6 @@ int qr(math_t *__restrict X,
 }
 
 
-} // namespace SparseSVD
 } // namespace ML
 
 #undef device_buffer
