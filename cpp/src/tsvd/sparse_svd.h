@@ -41,7 +41,7 @@ void SparseSVD_fit(const cumlHandle &handle,
                    const int n_oversamples = 10,
                    const int max_iter = 3,
                    int random_state = -1,
-                   const bool verbose = true)
+                   const bool verbose = false)
 {
   ASSERT(n > 0 and p > 0 and U != NULL and S != NULL and VT != NULL, "Bad input");
   ASSERT(n_components > 0 and n_oversamples > 0 and max_iter >= 0, "Bad input");
@@ -105,7 +105,7 @@ void SparseSVD_fit(const cumlHandle &handle,
     // Y, _ = qr(Y)
     fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
   }
-  
+
 }
 
 }  // namespace ML

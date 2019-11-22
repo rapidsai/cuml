@@ -69,7 +69,8 @@ class SparseSVDTest : public ::testing::Test {
     device_buffer<float> S_(d_alloc, stream, k);
     device_buffer<float> VT_(d_alloc, stream, k*p);
 
-    SparseSVD(handle, X_.data(), n, p, U_.data(), S_.data(), VT_.data(), k);
+    SparseSVD(handle, X_.data(), n, p, U_.data(), S_.data(), VT_.data(), k,
+              10, 3, -1, true);
 
 
     // Move U, S, VT to malloced space
