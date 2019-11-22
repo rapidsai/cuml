@@ -22,21 +22,16 @@
 #include "barnes_hut.h"
 #include "exact_tsne.h"
 
-#include <cuml/decomposition/pca.hpp>
-#include <linalg/transpose.h>
-
-#define device_buffer MLCommon::device_buffer
-
 namespace ML {
 
 /**
  * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN) or brute force O(N^2).
  * @input param handle: The GPU handle.
  * @input param X: The dataset you want to apply TSNE on.
- * @output param embedding: The final embedding. Will overwrite this internally.
+ * @output param Y: The final embedding. Will overwrite this internally.
  * @input param n: Number of rows in data X.
  * @input param p: Number of columns in data X.
- * @input param dim: Number of output dimensions for embeddings.
+ * @input param dim: Number of output dimensions for embeddings Y.
  * @input param n_neighbors: Number of nearest neighbors used.
  * @input param theta: Float between 0 and 1. Tradeoff for speed (0) vs accuracy (1) for Barnes Hut only.
  * @input param epssq: A tiny jitter to promote numerical stability.
@@ -54,23 +49,22 @@ namespace ML {
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  * @input param verbose: Whether to print error messages or not.
- * @input param init: Intialization type using IntializationType enum
+ * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
  * @input param barnes_hut: Whether to use the fast Barnes Hut or use the slower exact version.
  */
-void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
-              const int n, const int p, const int dim, int n_neighbors,
-              const float theta, const float epssq, float perplexity,
+void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
+              const int p, const int dim, int n_neighbors, const float theta,
+              const float epssq, float perplexity,
               const int perplexity_max_iter, const float perplexity_tol,
               const float early_exaggeration, const int exaggeration_iter,
               const float min_gain, const float pre_learning_rate,
               const float post_learning_rate, const int max_iter,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
-              const bool verbose, const IntializationType init, bool barnes_hut)
-{
-  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL &&
-         embedding != NULL, "Wrong input args");
-
+              const bool verbose, const bool intialize_embeddings,
+              bool barnes_hut) {
+  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
+         "Wrong input args");
   if (dim > 2 and barnes_hut) {
     barnes_hut = false;
     printf(
@@ -102,103 +96,24 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  //---------------------------------------------------
-  // PCA Intialization via Divide n Conquer Eigendecomposition
-  float *A;
-  device_buffer<float> X_C_contiguous(d_alloc, stream);
-
-  reset_timers();
-  START_TIMER;
-  if (init == PCA_Intialization) {
-    if (verbose) printf("[Info] Now performing PCA Intialization!\n");
-
-    paramsPCA params;
-    params.n_components = dim;
-    params.n_rows = n;
-    params.n_cols = p;
-    params.whiten = false;
-    params.n_iterations = 15;
-    params.tol = 1e-7;
-    params.algorithm = COV_EIG_DQ;
-
-    device_buffer<float> components(d_alloc, stream, p * dim);
-    device_buffer<float> explained_var(d_alloc, stream, dim);
-    device_buffer<float> explained_var_ratio(d_alloc, stream, dim);
-    device_buffer<float> singular_vals(d_alloc, stream, dim);
-    device_buffer<float> mu(d_alloc, stream, p);
-    device_buffer<float> noise_vars(d_alloc, stream, 1);
-
-    ML::pcaFitTransform((cumlHandle &)handle, X, embedding, components.data(),
-                        explained_var.data(), explained_var_ratio.data(),
-                        singular_vals.data(), mu.data(), noise_vars.data(),
-                        params);
-
-    // Scale components
-    thrust::device_ptr<float> Y_ = thrust::device_pointer_cast(embedding);
-    const float max = fabs(
-      *thrust::max_element(thrust::cuda::par.on(stream), Y_, Y_ + n * dim));
-    const float min = fabs(
-      *thrust::min_element(thrust::cuda::par.on(stream), Y_, Y_ + n * dim));
-
-    float total_maximum = (max > min) ? max : min;
-    if (verbose)
-    {
-      printf("[Info] PCA largest value in intialization = %.3f\n",
-             total_maximum);
-    }
-    if (total_maximum == 0) {
-      // Intialize with random numbers since total_maximum == 0
-      random_vector(embedding, -0.001f, 0.001f, n * dim, stream, random_state);
-    }
-    else {
-      MLCommon::LinAlg::scalarMultiply(embedding, embedding,
-                                       1.0f / total_maximum, n * dim, stream);
-    }
-
-    // Now transpose the data to make it C-Contiguous
-    X_C_contiguous.resize(n * p, stream);
-    MLCommon::LinAlg::transpose(X, X_C_contiguous.data(), n, p,
-                                handle.getImpl().getCublasHandle(), stream);
-
-    A = X_C_contiguous.data();
-
-    // Immediately free the buffers
-    components.release(stream);
-    explained_var.release(stream);
-    explained_var_ratio.release(stream);
-    singular_vals.release(stream);
-    mu.release(stream);
-    noise_vars.release(stream);
-  }
-  else {
-    A = X;
-  }
-  END_TIMER(PCATime);
-
   START_TIMER;
   //---------------------------------------------------
   // Get distances
   if (verbose) printf("[Info] Getting distances.\n");
-
-  device_buffer<float> distances_(d_alloc, stream, n*n_neighbors);
-  float *distances = distances_.data();
-  device_buffer<long> indices_(d_alloc, stream, n*n_neighbors);
-  long *temp_indices = indices_.data();
-  TSNE::get_distances(A, n, p, temp_indices, distances, n_neighbors, stream);
-
-  if (init == PCA_Intialization) {
-    X_C_contiguous.release(stream);  // remove C contiguous layout
-  }
-
+  float *distances =
+    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  long *indices =
+    (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
+  TSNE::get_distances(X, n, p, indices, distances, n_neighbors, d_alloc,
+                      stream);
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
   START_TIMER;
   //---------------------------------------------------
   // Normalize distances
-  if (verbose) {
+  if (verbose)
     printf("[Info] Now normalizing distances so exp(D) doesn't explode.\n");
-  }
   TSNE::normalize_distances(n, distances, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
@@ -206,82 +121,44 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
   START_TIMER;
   //---------------------------------------------------
   // Optimal perplexity
-  if (verbose) {
+  if (verbose)
     printf("[Info] Searching for optimal perplexity via bisection search.\n");
-  }
-
-  size_t workspace_size = 0;
-  const int NNZ = (2 * n * n_neighbors);
-
-  device_buffer<float> P_(d_alloc, stream, NNZ);
-  workspace_size += n*n_neighbors*sizeof(float);
-
-  float *P = P_.data();
-  TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
-                          perplexity_tol, n, n_neighbors, handle);
-
-  distances_.release(stream);
+  float *P =
+    (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
+  const float P_sum =
+    TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
+                            perplexity_tol, n, n_neighbors, handle);
+  d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
+  if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
-
   START_TIMER;
-  //---------------------------------------------------  
-
-  float *VAL = P;
-  device_buffer<int> COL_(d_alloc, stream, NNZ);
-  int *COL = COL_.data();
-
-  /*
-  Reuse temp_indices[long](n*n_neighbors) as ROW indices for the COO P+P.T matrix.
-  Normally sizeof(long) = 2*sizeof(int), so we can reuse it!
-  */
-  int *ROW = (int*)temp_indices;
-  device_buffer<int> ROW_(d_alloc, stream);
-
-  if (sizeof(long) < 2*sizeof(int)) {
-    ROW_.resize(NNZ, stream);
-    ROW = ROW_.data();
-  }
-  else {
-    workspace_size += NNZ * sizeof(int);
-  }
-
-  int *row_sizes = NULL;
-  if ((sizeof(float)*n*dim >= sizeof(int)*n*2) and (init == Random_Intialization)) {
-    row_sizes = (int*) embedding;
-    workspace_size += 2*n*sizeof(int);
-  }
-
-  TSNE::symmetrize_perplexity(P, temp_indices, n, n_neighbors,
-                              early_exaggeration, VAL, COL, ROW,
-                              row_sizes, stream, handle);
-
-  if (sizeof(long) < 2*sizeof(int)) {
-    ROW_.release(stream);
-  }
-
+  //---------------------------------------------------
+  // Convert data to COO layout
+  MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
+  TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
+                              early_exaggeration, &COO_Matrix, stream, handle);
+  const int NNZ = COO_Matrix.nnz;
+  float *VAL = COO_Matrix.vals();
+  const int *COL = COO_Matrix.cols();
+  const int *ROW = COO_Matrix.rows();
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
   if (barnes_hut) {
-    TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, embedding, n, theta, epssq,
+    TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
                      min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, init, workspace_size);
+                     verbose);
+  } else {
+    TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
+                     exaggeration_iter, min_gain, pre_learning_rate,
+                     post_learning_rate, max_iter, min_grad_norm, pre_momentum,
+                     post_momentum, random_state, verbose,
+                     intialize_embeddings);
   }
-  else {
-    TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, embedding, n, dim,
-                     early_exaggeration, exaggeration_iter, min_gain,
-                     pre_learning_rate, post_learning_rate, max_iter,
-                     min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose, init, workspace_size);
-  }
-
-  if (verbose) printf("[Info] TSNE has completed!\n");
 }
 
-
 }  // namespace ML
-#undef device_buffer
