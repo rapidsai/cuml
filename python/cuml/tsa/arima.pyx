@@ -195,16 +195,14 @@ class ARIMAModel(Base):
     ----------
     order : Tuple[int, int, int]
             The ARIMA order (p, d, q) of the model
-    mu    : array-like (host)
+    mu    : List (host) or array-like
             (if d>0) Array of trend parameters, one for each series
-    ar_params : List[array-like] (host) or numpy.ndarray
+    ar_params : List[array-like] (host) or array-like
                 List of AR parameters, grouped (`p`) per series.
-                If passed as a numpy array, the shape must be (p, num_batches)
-                and the order column-major ('F').
-    ma_params : List[array-like] (host) or numpy.ndarray
+                If passed as a single array, the shape must be (p, num_batches)
+    ma_params : List[array-like] (host) or array-like
                 List of MA parameters, grouped (`q`) per series.
-                If passed as a numpy array, the shape must be (q, num_batches)
-                and the order column-major ('F').
+                If passed as a single array, the shape must be (q, num_batches)
     y : array-like (device or host)
         The time series series data. If given as `ndarray`, assumed to have
         each time series in columns.
@@ -235,19 +233,16 @@ class ARIMAModel(Base):
         super().__init__(handle)
         self.order = order
 
-        # Convert the parameters to numpy arrays if needed
+        # Convert the lists to numpy arrays if needed
         if type(mu) is list:
-            self.mu = np.array(mu)
-        else:
-            self.mu = mu
+            mu = np.array(mu)
         if type(ar_params) is list:
-            self.ar_params = np.transpose(ar_params)
-        else:
-            self.ar_params = ar_params
+            ar_params = np.transpose(ar_params)
         if type(ma_params) is list:
-            self.ma_params = np.transpose(ma_params)
-        else:
-            self.ma_params = ma_params
+            ma_params = np.transpose(ma_params)
+        self.mu, _, _, _, _ = input_to_host_array(mu)
+        self.ar_params, _, _, _, _ = input_to_host_array(ar_params)
+        self.ma_params, _, _, _, _ = input_to_host_array(ma_params)
 
         # get host and device pointers. Float64 only for now.
         h_y, h_y_ptr, n_samples, n_series, dtype = \
@@ -614,11 +609,9 @@ def fit(y,
     mu0 : array-like
           Array of trend-parameter estimates. Only used if `d>0`.
     ar_params0 : np.ndarray
-                 AR parameters, shape (p, num_batches), column-major
-                 (as returned by estimate_x0)
+                 AR parameters, shape (p, num_batches)
     ma_params0 : np.ndarray
-                 MA parameters, shape (q, num_batches), column-major
-                 (as returned by estimate_x0)
+                 MA parameters, shape (q, num_batches)
     opt_disp : int
                Fit diagnostic level (for L-BFGS solver):
                * `-1` for no output,
@@ -670,6 +663,9 @@ def fit(y,
                         trans=True, handle=handle)
         return n_gllf/(num_samples-1)
 
+    mu0, _, _, _, _ = input_to_host_array(mu0)
+    ar_params0, _, _, _, _ = input_to_host_array(ar_params0)
+    ma_params0, _, _, _, _ = input_to_host_array(ma_params0)
     x0 = pack(p, d, q, num_batches, mu0, ar_params0, ma_params0)
     x0 = _batch_invtrans(p, d, q, num_batches, x0, handle)
 
