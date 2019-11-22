@@ -225,8 +225,6 @@ class MultinomialNB(object):
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
 
-        print(str(X.shape))
-
         counts = cp.zeros((self.n_classes_, self.n_features_),
                           order="F", dtype=X.dtype)
 
@@ -257,8 +255,6 @@ class MultinomialNB(object):
                             self.n_classes_,
                             False,
                             X.flags["C_CONTIGUOUS"]))
-
-        print(str(counts))
 
         self.feature_count_ += counts
         self.class_count_ += counts.sum(axis=1).reshape(self.n_classes_)

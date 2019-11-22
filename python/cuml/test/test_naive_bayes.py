@@ -225,17 +225,12 @@ def test_basic_fit_predict_sparse():
         model.fit(X, y)
         end = time.time() - start
 
-    print("CUPY: "+ str(end))
-
     y_hat = model.predict(X)
-
-    print(str(y_hat))
-    print(str(y))
 
     y_hat = cp.asnumpy(y_hat)
     y = cp.asnumpy(y)
 
-    print(str(accuracy_score(y, y_hat)))
+    assert accuracy_score(y, y_hat) >= 0.924
 
 
 def test_basic_fit_predict_dense():
@@ -250,28 +245,53 @@ def test_basic_fit_predict_dense():
     X = X.tocsr()[0:5000].todense()
     y = y[:5000]
 
-    # Priming it seems to lower the end-to-end runtime
     model = MultinomialNB()
     model.fit(X, y)
 
-    cp.cuda.Stream.null.synchronize()
-
-    with cp.prof.time_range(message="start", color_id=10):
-        start = time.time()
-        model = MultinomialNB()
-        model.fit(X, y)
-        end = time.time() - start
-
-    print("CUPY: "+ str(end))
-
     y_hat = model.predict(X)
-
-    print(str(y_hat))
-    print(str(y))
 
     y_hat = cp.asnumpy(y_hat)
     y = cp.asnumpy(y)
 
-    print(str(accuracy_score(y, y_hat)))
+    accuracy_score(y, y_hat) >= 0.911
 
+
+def test_partial_fit():
+    chunk_size = 500
+
+    X, y = load_corpus()
+    X = X.tocsr()
+
+    model = MultinomialNB()
+
+    classes = np.unique(y)
+
+    total_fit = 0
+
+    for i in range(math.ceil(X.shape[0] / chunk_size)):
+
+        upper = i*chunk_size+chunk_size
+        if upper > X.shape[0]:
+            upper = -1
+
+        if upper > 0:
+            x = X[i*chunk_size:upper]
+            y_c = y[i*chunk_size:upper]
+        else:
+            x = X[i*chunk_size:]
+            y_c = y[i*chunk_size:]
+
+        model.partial_fit(x, y_c, classes=classes)
+
+        total_fit += (upper - (i*chunk_size))
+
+        if upper == -1:
+            break
+
+    y_hat = model.predict(X)
+
+    y_hat = cp.asnumpy(y_hat)
+    y = cp.asnumpy(y)
+
+    assert accuracy_score(y, y_hat) >= 0.924
 
