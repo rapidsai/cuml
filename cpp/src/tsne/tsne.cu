@@ -184,7 +184,7 @@ void TSNE_fit(const cumlHandle &handle, float *X, float *embedding,
   float *distances = distances_.data();
   device_buffer<long> indices_(d_alloc, stream, n*n_neighbors);
   long *temp_indices = indices_.data();
-  TSNE::get_distances(A, n, p, temp_indices, distances, n_neighbors, stream);
+  TSNE::get_distances(A, n, p, temp_indices, distances, n_neighbors, d_alloc, stream);
 
   if (init == PCA_Intialization) {
     X_C_contiguous.release(stream);  // remove C contiguous layout
