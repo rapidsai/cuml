@@ -78,6 +78,8 @@ struct Split {
    * @param smem shared mem for scratchpad purposes
    * @param split current split to be updated
    * @param mutex location which provides exclusive access to node update
+   *              For the special case when you know that only one threadblock
+   *              is updating the best split, then pass a nullptr.
    * @note all threads in the block must enter this function together. At the
    *       end thread0 will contain the best split.
    */
@@ -91,12 +93,18 @@ struct Split {
     __syncthreads();
     if (lane < nWarps) *this = sbest[lane];
     warpReduce();
+    // only the first thread will go ahead and update the best split info
+    // for current node
     if (threadIdx.x == 0) {
-      while (atomicCAS(mutex, 0, 1))
-        ;
-      split->update(*this);
-      __threadfence();
-      atomicCAS(mutex, 1, 0);
+      if (mutex != nullptr) {
+        while (atomicCAS(mutex, 0, 1))
+          ;
+        split->update(*this);
+        __threadfence();
+        atomicCAS(mutex, 1, 0);
+      } else {
+        split->update(*this);
+      }
     }
     __syncthreads();
   }
