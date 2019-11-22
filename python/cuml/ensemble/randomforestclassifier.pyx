@@ -558,10 +558,9 @@ class RandomForestClassifier(Base):
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
                               num_classes, convert_dtype):
-
         cdef ModelHandle cuml_model_ptr = NULL
-        _, _, n_rows, n_cols, X_type = \
-            input_to_dev_array(X, check_dtype=self.dtype,
+        X_m, _, n_rows, n_cols, X_type = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
@@ -582,7 +581,7 @@ class RandomForestClassifier(Base):
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
-        preds = tl_to_fil_model.predict(X)
+        preds = tl_to_fil_model.predict(X_m)
         return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
@@ -637,7 +636,7 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
-                num_classes=2, convert_dtype=False):
+                num_classes=2, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -671,7 +670,7 @@ class RandomForestClassifier(Base):
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
                       number of different classes present in the dataset
-        convert_dtype : bool, optional (default = False)
+        convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
@@ -686,14 +685,12 @@ class RandomForestClassifier(Base):
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and convert_dtype is False:
-            warnings.watn("Using CPU based predict. \
-                          GPU predict model only accepts float32 and \
-                          model was trained with float64. TO use GPU based \
-                          predict, convert `X` to float32 or set the \
-                          parameter convert_dtype to True to have the \
-                          estimator do it for you.")
-
-            preds = self._predict_model_on_cpu(X, convert_dtype)
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            In order use the GPU predict the model should \
+                            also be trained using a np.float32 dataset. \
+                            If you would like to use np.float64 dtype \
+                            then please use the CPU based predict by \
+                            setting predict_model = 'CPU'")
 
         else:
             preds = self._predict_model_on_gpu(X, output_class,
