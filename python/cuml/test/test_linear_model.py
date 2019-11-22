@@ -176,8 +176,9 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 @pytest.mark.parametrize('nrows', [unit_param(1000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10])])
 @pytest.mark.parametrize('C', [2.0, 1.0, 0.5])
+@pytest.mark.parametrize('tol', [1e-3, 1e-8])
 def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
-                             fit_intercept, nrows, column_info, C):
+                             fit_intercept, nrows, column_info, C, tol):
     if penalty in ['l1', 'elasticnet']:
         pytest.xfail("OWL numerical stability is being improved")
 
@@ -195,7 +196,7 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
     culog = cuLog(penalty=penalty, l1_ratio=l1_ratio, C=C,
-                  fit_intercept=fit_intercept, tol=1e-3, verbose=0)
+                  fit_intercept=fit_intercept, tol=tol, verbose=0)
     culog.fit(X_train, y_train)
 
     # Only solver=saga supports elasticnet in scikit
