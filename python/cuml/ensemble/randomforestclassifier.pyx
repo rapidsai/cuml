@@ -479,8 +479,8 @@ class RandomForestClassifier(Base):
         if self.dtype == np.float64:
             warnings.warn("Model is being trained with float64 data, which \
                           means only CPU based predict can be used. \
-                          To use GPU based predict train use float32 training"
-                          "data to fit the estimator.")
+                          To use GPU based predict train use float32 training \
+                          data to fit the estimator.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -686,9 +686,9 @@ class RandomForestClassifier(Base):
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and convert_dtype is False:
-            warnings.watn("Using CPU based predict. \
+            warnings.warn("Using CPU based predict. \
                           GPU predict model only accepts float32 and \
-                          model was trained with float64. TO use GPU based \
+                          model was trained with float64. To use GPU based \
                           predict, convert `X` to float32 or set the \
                           parameter convert_dtype to True to have the \
                           estimator do it for you.")
