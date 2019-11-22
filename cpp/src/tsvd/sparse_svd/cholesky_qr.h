@@ -34,9 +34,9 @@ namespace ML {
   So Q = X @ R^-1
 */
 template <typename math_t>
-int prepare_cholesky_qr(math_t *__restrict R,
-                         const int p,
-                         const cumlHandle &handle)
+int prepare_cholesky_qr_onlyQ(math_t *__restrict R,
+                              const int p,
+                              const cumlHandle &handle)
 {
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
 
@@ -63,14 +63,14 @@ void correction(math_t *__restrict XTX,
 
 
 template <typename math_t>
-int cholesky_qr(math_t *__restrict X,
-                math_t *__restrict R,
-                const int n,
-                const int p,
-                const cumlHandle &handle,
-                int lwork = 0,
-                math_t *__restrict work = NULL,
-                int *__restrict info = NULL)
+int cholesky_qr_onlyQ(math_t *__restrict X,
+                      math_t *__restrict R,
+                      const int n,
+                      const int p,
+                      const cumlHandle &handle,
+                      int lwork = 0,
+                      math_t *__restrict work = NULL,
+                      int *__restrict info = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
@@ -80,7 +80,7 @@ int cholesky_qr(math_t *__restrict X,
   // Only allocate workspace if lwork or work is NULL
   device_buffer<math_t> work_(d_alloc, stream);
   if (work == NULL) {
-    lwork = prepare_cholesky_qr(R, p, handle);
+    lwork = prepare_cholesky_qr_onlyQ(R, p, handle);
     work_.resize(lwork, stream);
     work = work_.data();
   }
@@ -112,12 +112,11 @@ int cholesky_qr(math_t *__restrict X,
   int info_out = 0;
   MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  
+
   // If it fails, use QR decomposition
   if (info_out != 0) {
-    qr(&X[0], n, p, handle);
+    return info_out;
   }
-
 
   // Now do triangular solve to get Q!
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
@@ -125,6 +124,50 @@ int cholesky_qr(math_t *__restrict X,
                CUBLAS_DIAG_NON_UNIT, n, p, &alpha, &R[0], p, &X[0], n, stream));
 
   return info_out;
+}
+
+
+
+template <typename math_t>
+int prepare_fast_qr_onlyQ(math_t *__restrict X,
+                          math_t *__restrict R,
+                          const int n,
+                          const int p,
+                          const cumlHandle &handle,
+                          math_t *__restrict tau = NULL)
+{
+  /*
+    Use Cholesky-QR only on very tall skinny matrices.
+    Otherwise, this can be slower! Since ssyrk is 1/2np^2 FLOPS
+    QR is approx 2np^2 FLOPS, so approx only use cholesky is n > 4*p
+  */
+  int lwork = 0;
+  if (n > 4*p)
+    lwork = prepare_cholesky_qr_onlyQ(R, p, handle);
+  else
+    lwork = prepare_qr_onlyQ(R, p, handle, tau);
+  return lwork;
+}
+
+
+template <typename math_t>
+void fast_qr_onlyQ(math_t *__restrict X,
+                   math_t *__restrict R,
+                   const int n,
+                   const int p,
+                   const cumlHandle &handle,
+                   int lwork = 0,
+                   math_t *__restrict work = NULL,
+                   math_t *__restrict tau = NULL,
+                   int *__restrict info = NULL)
+{
+  if (n > 4*p) {
+    if (cholesky_qr_onlyQ(X, R, n, p, handle, lwork, work, info) != 0)
+      // Cholesky QR failed
+      qr_onlyQ(X, n, p, handle, lwork, work, tau, info);
+  }
+  else
+    qr_onlyQ(X, n, p, handle, lwork, work, tau, info);
 }
 
 

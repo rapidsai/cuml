@@ -28,11 +28,11 @@
 namespace ML {
 
 template <typename math_t>
-int prepare_qr(math_t *__restrict X,
-               const int n,
-               const int p,
-               const cumlHandle &handle,
-               math_t *__restrict tau = NULL)
+int prepare_qr_onlyQ(math_t *__restrict X,
+                     const int n,
+                     const int p,
+                     const cumlHandle &handle,
+                     math_t *__restrict tau = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
@@ -62,14 +62,14 @@ int prepare_qr(math_t *__restrict X,
 
 
 template <typename math_t>
-void qr(math_t *__restrict X,
-        const int n,
-        const int p,
-        const cumlHandle &handle,
-        int lwork = 0,
-        math_t *__restrict work = NULL,
-        math_t *__restrict tau = NULL,
-        int *__restrict info = NULL)
+void qr_onlyQ(math_t *__restrict X,
+              const int n,
+              const int p,
+              const cumlHandle &handle,
+              int lwork = 0,
+              math_t *__restrict work = NULL,
+              math_t *__restrict tau = NULL,
+              int *__restrict info = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
@@ -79,7 +79,7 @@ void qr(math_t *__restrict X,
   // Only allocate workspace if lwork or work is NULL
   device_buffer<math_t> work_(d_alloc, stream);
   if (work == NULL) {
-    lwork = prepare_qr(X, n, p, handle);
+    lwork = prepare_qr_onlyQ(X, n, p, handle);
     work_.resize(lwork, stream);
     work = work_.data();
   }
