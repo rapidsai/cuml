@@ -159,15 +159,29 @@ void fast_qr_onlyQ(math_t *__restrict X,
                    int lwork = 0,
                    math_t *__restrict work = NULL,
                    math_t *__restrict tau = NULL,
-                   int *__restrict info = NULL)
+                   int *__restrict info = NULL,
+                   const bool verbose = false)
 {
-  if (n > 4*p) {
+  if (n > 4*p)
+  {
+    if (verbose)
+      fprintf(stdout, "Using Fast Cholesky QR!\n");
+
     if (cholesky_qr_onlyQ(X, R, n, p, handle, lwork, work, info) != 0)
-      // Cholesky QR failed
+    {
+      if (verbose)
+        fprintf(stdout, "Cholesky failed. Using Normal QR\n");
+
       qr_onlyQ(X, n, p, handle, lwork, work, tau, info);
+    }
   }
   else
+  {
+    if (verbose)
+      fprintf(stdout, "Using Normal QR\n");
+
     qr_onlyQ(X, n, p, handle, lwork, work, tau, info);
+  }
 }
 
 
