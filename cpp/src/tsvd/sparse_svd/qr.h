@@ -99,10 +99,10 @@ void qr(math_t *__restrict X,
   }
 
   // QR Decomposition
-  // CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf(solver_h,
-  //                n, p, &X[0], n, &tau[0], &work[0], &lwork, &info[0], stream));
+  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf(solver_h,
+                 n, p, &X[0], n, &tau[0], &work[0], &lwork, &info[0], stream));
 
-  // // Get Q
+  // Get Q
   // CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr(solver_h,
   //                n, p, K, &X[0], n, &tau[0], &work[0], &lwork, &info[0], stream));
 }
