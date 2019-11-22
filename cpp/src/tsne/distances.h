@@ -21,6 +21,8 @@
 #include "sparse/coo.h"
 #include "utils.h"
 
+#define restrict __restrict
+
 namespace ML {
 namespace TSNE {
 
@@ -34,10 +36,14 @@ namespace TSNE {
  * @input param n_neighbors: The number of nearest neighbors you want.
  * @input param stream: The GPU stream.
  */
-void get_distances(const float *X, const int n, const int p, long *indices,
-                   float *distances, const int n_neighbors,
-                   std::shared_ptr<deviceAllocator> d_alloc,
-                   cudaStream_t stream) {
+void get_distances(const float *restrict X,
+                   const int n,
+                   const int p,
+                   long *restrict indices,
+                   float *restrict distances,
+                   const int n_neighbors,
+                   cudaStream_t stream)
+{
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
   float **knn_input = new float *[1];
@@ -47,8 +53,9 @@ void get_distances(const float *X, const int n, const int p, long *indices,
 
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, p,
                                        const_cast<float *>(X), n, indices,
-                                       distances, n_neighbors, d_alloc, stream);
-  delete knn_input, sizes;
+                                       distances, n_neighbors, stream);
+  delete[] knn_input;
+  delete[] sizes;
 }
 
 /**
@@ -59,18 +66,20 @@ void get_distances(const float *X, const int n, const int p, long *indices,
  * @input param n_neighbors: The number of nearest neighbors you want.
  * @input param stream: The GPU stream.
  */
-void normalize_distances(const int n, float *distances, const int n_neighbors,
-                         cudaStream_t stream) {
+void normalize_distances(const int n,
+                         float *restrict D,
+                         const int n_neighbors,
+                         cudaStream_t stream)
+{
   // Now D / max(abs(D)) to allow exp(D) to not explode
-  thrust::device_ptr<float> begin = thrust::device_pointer_cast(distances);
+  thrust::device_ptr<float> begin = thrust::device_pointer_cast(D);
   float maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,
                                        begin + n * n_neighbors);
   if (maxNorm == 0.0f) maxNorm = 1.0f;
 
   // Divide distances inplace by max
   const float div = 1.0f / maxNorm;  // Mult faster than div
-  MLCommon::LinAlg::scalarMultiply(distances, distances, div, n * n_neighbors,
-                                   stream);
+  MLCommon::LinAlg::scalarMultiply(D, D, div, n * n_neighbors, stream);
 }
 
 /**
@@ -79,29 +88,37 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
  * @input param indices: The input sorted indices from KNN.
  * @input param n: The number of rows in the data X.
  * @input param k: The number of nearest neighbors you want.
- * @input param P_sum: The sum of P.
  * @input param exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @output param COO_Matrix: The final P + P.T output COO matrix.
+ * @output param VAL: Values of COO Matrix
+ * @output param COL: Column indices of COO Matrix
+ * @output param ROW: Row indices of COO Matrix
+ * @input param row_sizes: Size (2*n) array for CSR style Row pointers. Used in symmetrization
  * @input param stream: The GPU stream.
  * @input param handle: The GPU handle.
  */
 template <int TPB_X = 32>
-void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
-                           const float P_sum, const float exaggeration,
-                           MLCommon::Sparse::COO<float> *COO_Matrix,
-                           cudaStream_t stream, const cumlHandle &handle) {
+void symmetrize_perplexity(float *restrict P,
+                           long *restrict indices,
+                           const int n, const int k,
+                           const float exaggeration,
+                           float *restrict VAL,
+                           int *restrict COL,
+                           int *restrict ROW,
+                           int *row_sizes,
+                           cudaStream_t stream,
+                           const cumlHandle &handle)
+{
   // Perform (P + P.T) / P_sum * early_exaggeration
-  const float div = exaggeration / (2.0f * P_sum);
+  const float div = exaggeration / (2.0f * n);
   MLCommon::LinAlg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
   MLCommon::Sparse::from_knn_symmetrize_matrix(
-    indices, P, n, k, COO_Matrix, stream, handle.getDeviceAllocator());
-
-  handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
-  handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k,
-                                          stream);
+    indices, P, n, k, VAL, COL, ROW, row_sizes,
+    stream, handle.getDeviceAllocator());
 }
 
 }  // namespace TSNE
 }  // namespace ML
+
+#undef restrict
