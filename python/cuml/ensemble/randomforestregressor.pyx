@@ -641,9 +641,9 @@ class RandomForestRegressor(Base):
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and convert_dtype is False:
-            warnings.watn("Using CPU based predict. \
+            warnings.warn("Using CPU based predict. \
                           GPU predict model only accepts float32 and \
-                          model was trained with float64. TO use GPU based \
+                          model was trained with float64. To use GPU based \
                           predict, convert `X` to float32 or set the \
                           parameter convert_dtype to True to have the \
                           estimator do it for you.")
