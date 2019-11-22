@@ -30,7 +30,8 @@ void SparseSVD(const cumlHandle &handle,
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3,
-               int random_state = -1);
+               int random_state = -1,
+               const bool verbose = false);
 
 void SparseSVD(const cumlHandle &handle,
                const double *__restrict X,// (n, p)
@@ -42,6 +43,7 @@ void SparseSVD(const cumlHandle &handle,
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3,
-               int random_state = -1);
+               int random_state = -1,
+               const bool verbose = false);
 
 }  // namespace ML
