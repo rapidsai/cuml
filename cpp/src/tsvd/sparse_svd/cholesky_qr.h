@@ -156,11 +156,11 @@ void fast_qr_onlyQ(math_t *__restrict X,
                    const int n,
                    const int p,
                    const cumlHandle &handle,
+                   const bool verbose = false,
                    int lwork = 0,
                    math_t *__restrict work = NULL,
                    math_t *__restrict tau = NULL,
-                   int *__restrict info = NULL,
-                   const bool verbose = false)
+                   int *__restrict info = NULL)
 {
   if (n > 4*p)
   {
