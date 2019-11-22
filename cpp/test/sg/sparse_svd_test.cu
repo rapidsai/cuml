@@ -28,7 +28,6 @@
 #include "common/device_buffer.hpp"
 
 using namespace MLCommon;
-using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 using namespace ML;
 
@@ -104,7 +103,7 @@ class SparseSVDTest : public ::testing::Test {
     MLCommon::Matrix::matrixVectorBinaryMult(&U[0], &S[0], n, k, false, false, stream);
 
     // (U * S) @ VT
-    
+
 
 
     free(U);
