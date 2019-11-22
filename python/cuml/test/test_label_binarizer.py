@@ -28,6 +28,8 @@ import cupy as cp
 )
 def test_basic_functions(labels):
 
+    # @todo: Test sparse output, test different inputs
+
     fit_labels, xform_labels = labels
 
     binarizer = LabelBinarizer()
@@ -41,8 +43,6 @@ def test_basic_functions(labels):
     assert xformed.shape[1] == binarizer.classes_.shape[0]
 
     original = binarizer.inverse_transform(xformed)
-
-    print(str(original))
 
     assert array_equal(cp.asnumpy(original),
                        xform_labels)
