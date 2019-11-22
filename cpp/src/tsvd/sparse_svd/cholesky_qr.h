@@ -25,6 +25,8 @@
 
 namespace ML {
 
+namespace SparseSVD {
+
 /*
   [TODO] Change epsilon jitter cholesky to approximate cholesky
   Computes a QR factorization of X using cholesky decomposition.
@@ -34,7 +36,6 @@ namespace ML {
 */
 template <typename math_t>
 int prepare_cholesky_qr(math_t *__restrict R,
-                         const int n,
                          const int p,
                          cusolverDnHandle_t solver_h)
 {
@@ -78,7 +79,7 @@ int cholesky_qr(math_t *__restrict X,
   // Only allocate workspace if lwork or work is NULL
   device_buffer<math_t> work_(d_alloc, stream);
   if (work == NULL) {
-    lwork = prepare_cholesky_qr(R, n, p, solver_h);
+    lwork = prepare_cholesky_qr(R, p, solver_h);
     work_.resize(lwork, stream);
     work = work_.data();
   }
@@ -122,8 +123,7 @@ int cholesky_qr(math_t *__restrict X,
 }
 
 
-
-}  // namespace ML
+} // namespace SparseSVD
+} // namespace ML
 
 #undef device_buffer
-#undef MIN
