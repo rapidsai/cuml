@@ -112,7 +112,7 @@ class SparseSVDTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < 10; i++)
-      printf(".2f, ", U(i, 0));
+      printf("%.2f, ", U(i, 0));
     printf("\n");
 
     // Now check error
