@@ -265,7 +265,6 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
 }
 
 ///@todo: support regression
-///@todo: special-case this for gridDim.x == 1
 template <typename DataT, typename LabelT, typename IdxT, int TPB,
           CRITERION SplitType>
 __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
@@ -318,8 +317,11 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   }
   __syncthreads();
   // last threadblock will go ahead and compute the best split
-  auto last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                   gridDim.x, blockIdx.x == 0, smem);
+  bool last = true;
+  if (gridDim.x > 1) {
+    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
+                                gridDim.x, blockIdx.x == 0, smem);
+  }
   if (!last) return;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     shist[i] = hist[histOffset + i];
