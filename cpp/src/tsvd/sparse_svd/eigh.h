@@ -88,7 +88,7 @@ void eigh(math_t *__restrict W,
   if (singular_values) {
     // Square root
     MLCommon::LinAlg::unaryOp(W, W, k,
-      [] __device__(math_t x) { return ((x > 0) : MLCommon::mySqrt(x) : 0); }, stream);
+      [] __device__(math_t x) { return ((x > 0) ? MLCommon::mySqrt(x) : 0); }, stream);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
