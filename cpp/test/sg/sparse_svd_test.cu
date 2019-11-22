@@ -39,7 +39,9 @@ class SparseSVDTest : public ::testing::Test {
   {
     cumlHandle handle;
     auto d_alloc = handle.getDeviceAllocator();
-    cudaStream_t stream = handle.getStream();
+    const cudaStream_t stream = handle.getStream();
+    const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
+
     const float *__restrict X = digits.data();
     device_buffer<float> X_(d_alloc, stream, n*p);
 
@@ -100,11 +102,11 @@ class SparseSVDTest : public ::testing::Test {
     device_buffer<float> X_hat(d_alloc, stream, n*p);
 
     // U * S
-    MLCommon::Matrix::matrixVectorBinaryMult(&U[0], &S[0], n, k, false, false, stream);
+    MLCommon::Matrix::matrixVectorBinaryMult(U_.data(), S_.data(), n, k, false, false, stream);
 
     // (U * S) @ VT
-
-
+    MLCommon::LinAlg::gemm(U_.data(), n, k, VT_.data(), X_hat.data(), n, p,
+                           CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
 
     free(U);
     free(S);
