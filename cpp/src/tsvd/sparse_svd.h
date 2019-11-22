@@ -90,9 +90,19 @@ void SparseSVD_fit(const cumlHandle &handle,
   // Y = X @ Z
   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
   // Y, _ = qr(Y)
-  fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, true);
+  fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, true, lwork, &work[0], &tau[0], &info[0]);
 
-  
+  // for (int iter = 0; iter < max_iter; iter++)
+  // {
+  //   // Z = X.T @ Y
+  //   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+  //     for i in range(3):
+  //       matmul(A.T, Y, out = Z)
+  //       qr(Z, *work_Z)
+    
+  //       matmul(A, Z, out = Y)
+  //       qr(Y, *work_Y)
+  // }
 }
 
 }  // namespace ML
