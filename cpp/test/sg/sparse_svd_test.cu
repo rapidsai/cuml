@@ -111,9 +111,11 @@ class SparseSVDTest : public ::testing::Test {
     MLCommon::updateHost(U, U_.data(), n*k, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    for (int i = 0; i < 10; i++)
-      printf("%.2f, ", U(i, 0));
-    printf("\n");
+    for (int j = 0; j < k; j++) {
+      for (int i = 0; i < 10; i++)
+        printf("%.2f, ", U(i, 0));
+      printf("\n");
+    }
 
     // Now check error
     // sum(square(X - X_hat))
