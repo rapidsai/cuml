@@ -498,33 +498,33 @@ void fusedL2NNImpl(OutT* min, double* minDist, double* x, double* y, double* xn,
  * @tparam IdxT indexing arithmetic type
  * @tparam Sqrt Whether the output `minDist` should contain L2-sqrt or not
  * @param[out] min will contain the indicies for 1-NN computation. Length = `m`.
- *                 It should be on device.
+ *                 (on device).
  * @param[out] minDist will contain the minimum distance value from the 1-NN
- *                     computation. Length = `m`. It should be on device.
- * @param[in] x first matrix. Row major. Dim = `m x k`. Should be on device.
- * @param[in] y second matrix. Row major. Dim = `n x k`. Should be on device.
- * @param[in] xn L2 squared norm of `x`. Length = `m`. It should be on device.
- * @param[in] yn L2 squared norm of `y`. Length = `n`. It should be on device.
+ *                     computation. Length = `m`. (on device).
+ * @param[in] x first matrix. Row major. Dim = `m x k`. (on device).
+ * @param[in] y second matrix. Row major. Dim = `n x k`. (on device).
+ * @param[in] xn L2 squared norm of `x`. Length = `m`. (on device).
+ * @param[in] yn L2 squared norm of `y`. Length = `n`. (on device).
  * @param[in] m gemm m
  * @param[in] n gemm n
  * @param[in] k gemm k
- * @param[in] workspace temporary workspace. Length = `m`. Should be on device.
+ * @param[in] workspace temporary workspace. Size = sizeof(int)*m. (on device)
  * @param[in] stream cuda stream
  */
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt>
 void fusedL2NN(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
-               DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
+               DataT* yn, IdxT m, IdxT n, IdxT k, void* workspace,
                cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     fusedL2NNImpl<OutT, IdxT, Sqrt, 16 / sizeof(DataT)>(
-      min, minDist, x, y, xn, yn, m, n, k, workspace, stream);
+      min, minDist, x, y, xn, yn, m, n, k, (int*)workspace, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
     fusedL2NNImpl<OutT, IdxT, Sqrt, 8 / sizeof(DataT)>(
-      min, minDist, x, y, xn, yn, m, n, k, workspace, stream);
+      min, minDist, x, y, xn, yn, m, n, k, (int*)workspace, stream);
   } else {
     fusedL2NNImpl<OutT, IdxT, Sqrt, 1>(min, minDist, x, y, xn, yn, m, n, k,
-                                       workspace, stream);
+                                       (int*)workspace, stream);
   }
 }
 
