@@ -88,6 +88,15 @@ class SparseSVDTest : public ::testing::Test {
     MLCommon::updateHost(VT, VT_.data(), k*p, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
+    MLCommon::updateHost(U, U_.data(), n*k, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    for (int j = 0; j < k; j++) {
+      for (int i = 0; i < 10; i++)
+        printf("%.2f, ", U(i, j));
+      printf("\n");
+    }
+
 
     // Confirm singular values
     // Should be around {2193, 566, 542, 504, 425}
@@ -108,14 +117,6 @@ class SparseSVDTest : public ::testing::Test {
     // (U * S) @ VT
     MLCommon::LinAlg::gemm(U_.data(), n, k, VT_.data(), X_hat_.data(), n, p,
                            CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
-    MLCommon::updateHost(U, U_.data(), n*k, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    for (int j = 0; j < k; j++) {
-      for (int i = 0; i < 10; i++)
-        printf("%.2f, ", U(i, j));
-      printf("\n");
-    }
 
     // Now check error
     // sum(square(X - X_hat))
