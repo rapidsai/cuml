@@ -94,7 +94,11 @@ class SparseSVDTest : public ::testing::Test {
     for (int i = 0; i < k; i++) {
       if ((S(i) <= (compare_S[i] + 10)) and (S(i) >= (compare_S[i] - 10)))
         correct += 1;
+      
+      fprintf(stdout, "Singular Value[%d Correct = %.2f] = %.3f\n", i, compare_S[i], S(i));
     }
+
+    // Compute X_hat = 
 
 
     free(U);
