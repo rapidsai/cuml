@@ -21,12 +21,12 @@
 namespace ML {
 
 void SparseSVD(const cumlHandle &handle,
-               const float *__restrict X, // (n, p)
+               const float *__restrict X,        // (n, p)
                const int n,
                const int p,
-               float *__restrict U,       // (n, n_components)  
-               float *__restrict S,       // (n_components)
-               float *__restrict VT,      // (n_components, p)
+               float *__restrict U = NULL,       // (n, n_components)  
+               float *__restrict S = NULL,       // (n_components)
+               float *__restrict VT = NULL,      // (n_components, p)
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3,
@@ -34,12 +34,12 @@ void SparseSVD(const cumlHandle &handle,
                const bool verbose = false);
 
 void SparseSVD(const cumlHandle &handle,
-               const double *__restrict X,// (n, p)
+               const double *__restrict X,       // (n, p)
                const int n,
                const int p,
-               double *__restrict U,      // (n, n_components)  
-               double *__restrict S,      // (n_components)
-               double *__restrict VT,     // (n_components, p)
+               double *__restrict U = NULL,      // (n, n_components)  
+               double *__restrict S = NULL,      // (n_components)
+               double *__restrict V = NULLT,     // (n_components, p)
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3,

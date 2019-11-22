@@ -33,12 +33,12 @@ namespace ML {
 
 template <typename math_t = float>
 void SparseSVD_fit(const cumlHandle &handle,
-                   const math_t *__restrict X,// (n, p)
+                   const math_t *__restrict X,  // (n, p)
                    const int n,
                    const int p,
-                   math_t *__restrict U,      // (n, n_components)
-                   math_t *__restrict S,      // (n_components)
-                   math_t *__restrict VT,     // (n_components, p)
+                   math_t *__restrict U = NULL, // (n, n_components)
+                   math_t *__restrict S = NULL, // (n_components)
+                   math_t *__restrict VT = NULL,// (n_components, p)
                    const int n_components = 2,
                    const int n_oversamples = 10,
                    const int max_iter = 3,
@@ -118,10 +118,14 @@ void SparseSVD_fit(const cumlHandle &handle,
   cholesky(&Y[0], &R[0], n, K, handle, lwork, &work[0], &info[0]);
 
   // R2 = copy(R)
-  device_buffer<math_t> R2_(d_alloc, stream, K*K);
-  math_t *__restrict R2 = R2_.data();
-  MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  device_buffer<math_t> R2_(d_alloc, stream);
+  math_t *__restrict R2 = NULL;
+  if (U != NULL) {
+    R2_.resize(K*K, stream);
+    R2 = R2_.data();
+    MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
 
   // solve a = R, b = Z
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
@@ -137,29 +141,36 @@ void SparseSVD_fit(const cumlHandle &handle,
   device_buffer<math_t> W_(d_alloc, stream, K); // W(K)
   math_t *__restrict W = W_.data();
   math_t *__restrict V = T;
-
   eigh(&W[0], &V[0], K, n_components, handle, true);
+
+  // Now get U, S, VT!
   // S = sqrt(W)
-  MLCommon::copyAsync(&S[0], &W[0], n_components, stream);
+  if (S != NULL) {
+    MLCommon::copyAsync(&S[0], &W[0], n_components, stream);
+  }
 
-  // VT = V.T @ Z.T
-  MLCommon::LinAlg::gemm(&V[0], K, n_components, &Z[0], &VT[0], n_components, p,
-                         CUBLAS_OP_T, CUBLAS_OP_T, blas_h, stream);
+  if (VT != NULL) {
+    // VT = V.T @ Z.T
+    MLCommon::LinAlg::gemm(&V[0], K, n_components, &Z[0], &VT[0], n_components, p,
+                           CUBLAS_OP_T, CUBLAS_OP_T, blas_h, stream);
 
-  // VT /= S.reshape(-1,1) row-wise
-  MLCommon::LinAlg::unaryOp(W, W, n_components,
-      [] __device__(math_t x) { return ((x > 0) ? (1.0f / x) : 0); }, stream);
+    // VT /= S.reshape(-1,1) row-wise
+    MLCommon::LinAlg::unaryOp(W, W, n_components,
+        [] __device__(math_t x) { return ((x > 0) ? (1.0f / x) : 0); }, stream);
 
-  MLCommon::Matrix::matrixVectorBinaryMult(&VT[0], &W[0], n_components, p, false, true, stream);
+    MLCommon::Matrix::matrixVectorBinaryMult(&VT[0], &W[0], n_components, p, false, true, stream);
+  }
 
-  // Solve on the Left for a = R2, b = V
-  CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
-               CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-               CUBLAS_DIAG_NON_UNIT, K, K, &alpha, &R2[0], K, &Z[0], K, stream));
+  if (U != NULL) {
+    // Solve on the Left for a = R2, b = V
+    CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
+                 CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+                 CUBLAS_DIAG_NON_UNIT, K, K, &alpha, &R2[0], K, &Z[0], K, stream));
 
-  // U = Y @ V
-  MLCommon::LinAlg::gemm(&Y[0], n, K, &V[0], &U[0], n, n_components,
-                         CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+    // U = Y @ V
+    MLCommon::LinAlg::gemm(&Y[0], n, K, &V[0], &U[0], n, n_components,
+                           CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+  }
 }
 
 }  // namespace ML
