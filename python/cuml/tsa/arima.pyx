@@ -13,6 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import numpy as np
 import cupy as cp
 
@@ -27,8 +33,9 @@ from cuml.utils.input_utils import get_dev_array_ptr
 
 from typing import List, Tuple
 import cudf
+from cuml.utils import get_dev_array_ptr, zeros
 
-from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
+from cuml.common.cuda import nvtx_range_wrap
 
 from cuml.common.base import Base
 
@@ -48,9 +55,10 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                          int d,
                          int q,
                          double* params,
-                         vector[double]& vec_loglike,
+                         double* loglike,
                          double* d_vs,
-                         bool trans)
+                         bool trans,
+                         bool host_loglike)
 
     void predict_in_sample(cumlHandle& handle,
                            double* d_y,
@@ -85,6 +93,32 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
                   double* d_vs,
                   double* d_params,
                   double* d_y_fc)
+
+    void information_criterion(
+        cumlHandle& handle,
+        double* d_y,
+        int num_batches,
+        int nobs,
+        int p,
+        int d,
+        int q,
+        double* d_mu,
+        double* d_ar,
+        double* d_ma,
+        double* ic,
+        int ic_type)
+
+    void cpp_estimate_x0 "estimate_x0" (
+        cumlHandle& handle,
+        double* d_mu,
+        double* d_ar,
+        double* d_ma,
+        const double* d_y,
+        int num_batches,
+        int nobs,
+        int p,
+        int d,
+        int q)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
@@ -143,7 +177,7 @@ class ARIMAModel(Base):
         plt.plot(xs, ys1, xs, ys2)
 
         # get parameter estimates
-        mu0, ar0, ma0 = arima.estimate_x0((1,1,1), 2, ys)
+        mu0, ar0, ma0 = arima.estimate_x0((1,1,1), ys)
 
         # fine-tune parameter estimates
         model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
@@ -161,12 +195,14 @@ class ARIMAModel(Base):
     ----------
     order : Tuple[int, int, int]
             The ARIMA order (p, d, q) of the model
-    mu    : array-like (host)
+    mu    : List (host) or array-like
             (if d>0) Array of trend parameters, one for each series
-    ar_params : List[array-like] (host)
-                List of AR parameters, grouped (`p`) per series
-    ma_params : List[array-like] (host)
-                List of MA parameters, grouped (`q`) per series
+    ar_params : List[array-like] (host) or array-like
+                List of AR parameters, grouped (`p`) per series.
+                If passed as a single array, the shape must be (p, num_batches)
+    ma_params : List[array-like] (host) or array-like
+                List of MA parameters, grouped (`q`) per series.
+                If passed as a single array, the shape must be (q, num_batches)
     y : array-like (device or host)
         The time series series data. If given as `ndarray`, assumed to have
         each time series in columns.
@@ -196,9 +232,17 @@ class ARIMAModel(Base):
                  handle=None):
         super().__init__(handle)
         self.order = order
-        self.mu = mu
-        self.ar_params = ar_params
-        self.ma_params = ma_params
+
+        # Convert the lists to numpy arrays if needed
+        if type(mu) is list:
+            mu = np.array(mu)
+        if type(ar_params) is list:
+            ar_params = np.transpose(ar_params)
+        if type(ma_params) is list:
+            ma_params = np.transpose(ma_params)
+        self.mu, _, _, _, _ = input_to_host_array(mu)
+        self.ar_params, _, _, _, _ = input_to_host_array(ar_params)
+        self.ma_params, _, _, _, _ = input_to_host_array(ma_params)
 
         # get host and device pointers. Float64 only for now.
         h_y, h_y_ptr, n_samples, n_series, dtype = \
@@ -217,29 +261,56 @@ class ARIMAModel(Base):
             self.order, self.mu,
             self.ar_params, self.ma_params)
 
-    @property
-    def bic(self):
+    def _ic(self, ic_type):
+        """Wrapper around C++ information_criterion
+        """
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         (p, d, q) = self.order
-        x = pack(p, d, q, self.num_batches,
-                 self.mu, self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order, self.d_y, x)
-        return [-2 * lli + np.log(len(self.d_y))
-                * (_model_complexity(self.order))
-                for (i, lli) in enumerate(llb)]
+        # Convert host parameters to device parameters (will be removed later)
+        cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+        if d:
+            d_mu, d_mu_ptr, _, _, _ = \
+                input_to_dev_array(self.mu, check_dtype=np.float64)
+        if p:
+            d_ar, d_ar_ptr, _, _, _ = \
+                input_to_dev_array(self.ar_params, check_dtype=np.float64)
+        if q:
+            d_ma, d_ma_ptr, _, _, _ = \
+                input_to_dev_array(self.ma_params, check_dtype=np.float64)
+
+        cdef vector[double] ic
+        ic.resize(self.num_batches)
+        cdef uintptr_t d_y_ptr
+        d_y_ptr = get_dev_array_ptr(self.d_y)
+
+        ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
+        cdef int ic_type_id
+        try:
+            ic_type_id = ic_name_to_number[ic_type.lower()]
+        except KeyError as e:
+            raise NotImplementedError("IC type '{}' unknown". format(ic_type))
+
+        information_criterion(handle_[0], <double*> d_y_ptr,
+                              <int> self.num_batches, <int> self.num_samples,
+                              <int> p, <int> d, <int> q, <double*> d_mu_ptr,
+                              <double*> d_ar_ptr, <double*> d_ma_ptr,
+                              <double*> ic.data(), ic_type_id)
+
+        return ic
 
     @property
     def aic(self):
-        (p, d, q) = self.order
-        x = pack(p, d, q, self.num_batches, self.mu,
-                 self.ar_params, self.ma_params)
-        llb = ll_f(self.num_batches, self.num_samples, self.order, self.d_y, x)
-        return [-2 * lli + 2 * (_model_complexity(self.order))
-                for (i, lli) in enumerate(llb)]
+        return self._ic("aic")
 
-    def _assert_same_d(self, b_order):
-        """Checks that all values of d in batched order are same"""
-        b_d = [d for _, d, _ in b_order]
-        assert (np.array(b_d) == b_d[0]).all()
+    @property
+    def aicc(self):
+        return self._ic("aicc")
+
+    @property
+    def bic(self):
+        return self._ic("bic")
 
     def predict_in_sample(self):
         """Return in-sample prediction on batched series given batched model
@@ -371,33 +442,45 @@ class ARIMAModel(Base):
         return d_y_fc
 
 
-def estimate_x0(order: Tuple[int, int, int],
-                nb: int,
-                yb) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
-    """Provide initial estimates to ARIMA parameters `mu`, `ar`, and `ma` for
-    the batched input `yb`"""
-    nvtx_range_push("estimate x0")
-    (p, d, q) = order
-    N = p + d + q
-    x0 = np.zeros(N * nb)
+@nvtx_range_wrap("estimate x0")
+def estimate_x0(order, y, handle=None):
+    p, d, q = order
 
-    for ib in range(nb):
-        y = yb[:, ib]
+    cdef uintptr_t d_y_ptr
+    d_y, d_y_ptr, num_samples, num_batches, dtype = \
+        input_to_dev_array(y, check_dtype=np.float64)
 
-        if d == 1:
-            yd = np.diff(y)
-        else:
-            yd = np.copy(y)
+    if handle is None:
+        handle = cuml.common.handle.Handle()
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-        x0ib = _start_params((p, q, d), yd)
+    # Create mu, ar and ma arrays
+    cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
+    cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
+    cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+    if p > 0:
+        d_ar = zeros((p, num_batches), dtype=dtype, order='F')
+        d_ar_ptr = get_dev_array_ptr(d_ar)
+    if q > 0:
+        d_ma = zeros((q, num_batches), dtype=dtype, order='F')
+        d_ma_ptr = get_dev_array_ptr(d_ma)
+    if d > 0:
+        d_mu = zeros(num_batches, dtype=dtype)
+        d_mu_ptr = get_dev_array_ptr(d_mu)
 
-        x0[ib*N:(ib+1)*N] = x0ib
+    # Call C++ function
+    cpp_estimate_x0(handle_[0],
+                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
+                    <double*> d_y_ptr,
+                    <int> num_batches, <int> num_samples,
+                    <int> p, <int> d, <int> q)
 
-    mu, ar, ma = unpack(p, d, q, nb, x0)
+    h_mu = d_mu.copy_to_host() if d > 0 else np.array([])
+    h_ar = d_ar.copy_to_host() if p > 0 else np.zeros(shape=(0, num_batches))
+    h_ma = d_ma.copy_to_host() if q > 0 else np.zeros(shape=(0, num_batches))
 
-    nvtx_range_pop()
-
-    return mu, ar, ma
+    # TODO: later, will return device pointers
+    return h_mu, h_ar, h_ma
 
 
 def ll_f(num_batches, nobs, order, y, x,
@@ -438,6 +521,7 @@ def ll_f(num_batches, nobs, order, y, x,
     return loglike
 
 
+@nvtx_range_wrap("ll_gf")
 def ll_gf(num_batches, nobs, num_parameters, order,
           y, x, h=1e-8, trans=True, handle=None):
     """Computes gradient (via finite differencing) of the batched
@@ -467,8 +551,6 @@ def ll_gf(num_batches, nobs, num_parameters, order,
              The cumlHandle to be used.
 
     """
-    nvtx_range_push("ll_gf")
-
     fd = np.zeros(num_parameters)
 
     grad = np.zeros(len(x))
@@ -504,15 +586,14 @@ def ll_gf(num_batches, nobs, num_parameters, order,
     # Reset numpy error levels
     np.seterr(**err_lvl)
 
-    nvtx_range_pop()
     return grad
 
 
 def fit(y,
         order: Tuple[int, int, int],
         mu0: np.ndarray,
-        ar_params0: List[np.ndarray],
-        ma_params0: List[np.ndarray],
+        ar_params0: np.ndarray,
+        ma_params0: np.ndarray,
         opt_disp=-1,
         h=1e-9,
         handle=None):
@@ -527,12 +608,10 @@ def fit(y,
             The ARIMA order (p, d, q)
     mu0 : array-like
           Array of trend-parameter estimates. Only used if `d>0`.
-    ar_params0 : List of arrays
-                 List of AR parameter-arrays, one array per series,
-                 each series has `p` parameters.
-    ma_params0 : List of arrays
-                 List of MA parameter-arrays, one array per series,
-                 each series has `q` parameters.
+    ar_params0 : np.ndarray
+                 AR parameters, shape (p, num_batches)
+    ma_params0 : np.ndarray
+                 MA parameters, shape (q, num_batches)
     opt_disp : int
                Fit diagnostic level (for L-BFGS solver):
                * `-1` for no output,
@@ -584,6 +663,9 @@ def fit(y,
                         trans=True, handle=handle)
         return n_gllf/(num_samples-1)
 
+    mu0, _, _, _, _ = input_to_host_array(mu0)
+    ar_params0, _, _, _, _ = input_to_host_array(ar_params0)
+    ma_params0, _, _, _, _ = input_to_host_array(ma_params0)
     x0 = pack(p, d, q, num_batches, mu0, ar_params0, ma_params0)
     x0 = _batch_invtrans(p, d, q, num_batches, x0, handle)
 
@@ -652,22 +734,15 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
     for p in range(0, max_p):
         for q in range(0, max_q):
-
             # skip 0,0 case
             if p == 0 and q == 0:
                 continue
 
-            mu0, ar0, ma0 = estimate_x0((p, d, q), 2, y_b)
+            mu0, ar0, ma0 = estimate_x0((p, d, q), y_b)
 
             b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
 
-            if method == "aic":
-                ic = b_model.aic
-            elif method == "bic":
-                ic = b_model.bic
-            else:
-                raise NotImplementedError("Method '{}' not supported".
-                                          format(method))
+            ic = b_model._ic(method)
 
             for (i, ic_i) in enumerate(ic):
                 if ic_i < best_ic[i]:
@@ -675,11 +750,11 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
                     best_mu[i] = b_model.mu[i]
 
                     if p > 0:
-                        best_ar_params[i] = b_model.ar_params[i]
+                        best_ar_params[i] = b_model.ar_params[:, i]
                     else:
                         best_ar_params[i] = []
                     if q > 0:
-                        best_ma_params[i] = b_model.ma_params[i]
+                        best_ma_params[i] = b_model.ma_params[:, i]
                     else:
                         best_ma_params[i] = []
 
@@ -688,53 +763,40 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     return (best_order, best_mu, best_ar_params, best_ma_params, best_ic)
 
 
+@nvtx_range_wrap("unpack(x) -> (mu,ar,ma)")
 def unpack(p, d, q, nb, x):
     """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
-    nvtx_range_push("unpack(x) -> (mu,ar,ma)")
-    num_parameters = d + p + q
-    mu = np.zeros(nb)
-    ar = []
-    ma = []
-    for i in range(nb):
-        xi = x[i*num_parameters:(i+1)*num_parameters]
-        if d > 0:
-            mu[i] = xi[0]
-        if p > 0:
-            ar.append(xi[d:(d+p)])
-        ma.append(xi[d+p:])
+    if type(x) is list or x.shape != (p + d + q, nb):
+        x_mat = np.reshape(x, (p + d + q, nb), order='F')
+    else:
+        x_mat = x
+    if d > 0:
+        mu = x_mat[0]
+    else:
+        mu = np.zeros(nb)
+    ar = x_mat[d:d+p]
+    ma = x_mat[d+p:]
 
-    nvtx_range_pop()
     return (mu, ar, ma)
 
 
+@nvtx_range_wrap("pack(mu,ar,ma) -> x")
 def pack(p, d, q, nb, mu, ar, ma):
     """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
-    nvtx_range_push("pack(mu,ar,ma) -> x")
-    num_parameters = d + p + q
-    x = np.zeros(num_parameters*nb)
-    for i in range(nb):
-        xi = np.zeros(num_parameters)
-        if d > 0:
-            xi[0] = mu[i]
-
-        for j in range(p):
-            xi[j+d] = ar[i][j]
-        for j in range(q):
-            xi[j+p+d] = ma[i][j]
-
-        x[i*num_parameters:(i+1)*num_parameters] = xi
-
-    nvtx_range_pop()
-    return x
+    x = np.zeros((p + d + q, nb), order='F')  # 2D array for convenience
+    if d > 0:
+        x[0:d] = mu
+    x[d:d+p] = ar
+    x[d+p:] = ma
+    return x.reshape((p + d + q) * nb, order='F')  # return 1D shape
 
 
+@nvtx_range_wrap("batched_transform")
 def _batched_transform(p, d, q, nb, x, isInv, handle=None):
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
     cdef vector[double] vec_Tma
-
-    nvtx_range_push("batched_transform")
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -746,77 +808,7 @@ def _batched_transform(p, d, q, nb, x, isInv, handle=None):
     batched_jones_transform(handle_[0], p, d, q, nb, isInv,
                             <double*>x_ptr, <double*>Tx_ptr)
 
-    nvtx_range_pop()
     return (Tx)
-
-
-def _start_params(order, y_diff):
-    """A quick approach to determine reasonable starting mu (trend),
-    AR, and MA parameters"""
-
-    # y is mutated so we need a copy
-    y = np.copy(y_diff)
-    nobs = len(y)
-
-    p, q, d = order
-    params_init = np.zeros(p+q+d)
-    if d > 0:
-        # center y (in `statsmodels`, this is result when exog = [1, 1, 1...])
-        mean_y = np.mean(y)
-        params_init[0] = mean_y
-        y -= mean_y
-
-    if p == 0 and q == 0:
-        return params_init
-
-    if p != 0:
-
-        # `statsmodels` uses BIC to pick the "best" `p` for this initial
-        # fit. The "best" model frequently has p=1,
-        # so this is a reasonable assumption.
-        p_best = 1
-        x = np.zeros((len(y) - p_best, p_best))
-        # create lagged series set
-        for lag in range(1, p_best+1):
-            # create lag and trim appropriately from front
-            # so they are all the same size
-            x[:, lag-1] = y[p_best-lag:-lag].T
-
-        # LS fit a*X - Y
-        y_ar = y[p_best:]
-
-        (ar_fit, _, _, _) = np.linalg.lstsq(x, y_ar.T, rcond=None)
-
-        if q == 0:
-            params_init[d:] = ar_fit
-        else:
-            residual = y[p_best:] - np.dot(x, ar_fit)
-
-            assert p >= p_best
-            p_diff = p - p_best
-
-            x_resid = np.zeros((len(residual) - q - p_diff, q))
-            x_ar2 = np.zeros((len(residual) - q - p_diff, p))
-
-            # create lagged residual and ar term
-            for lag in range(1, q+1):
-                x_resid[:, lag-1] = (residual[q-lag:-lag].T)[p_diff:]
-            for lag in range(1, p+1):
-                x_ar2[:, lag-1] = (y[p-lag:-lag].T)[q:]
-
-            X = np.column_stack((x_ar2, x_resid))
-            (arma_fit, _, _, _) = np.linalg.lstsq(X, y_ar[(q+p_diff):].T,
-                                                  rcond=None)
-
-            params_init[d:] = arma_fit
-
-    else:
-        # case when p == 0 and q>0
-
-        # when p==0, MA params are often -1
-        params_init[d:] = -1*np.ones(q)
-
-    return params_init
 
 
 def _model_complexity(order):
@@ -825,42 +817,39 @@ def _model_complexity(order):
     return d + p + q
 
 
+@nvtx_range_wrap("jones trans")
 def _batch_trans(p, d, q, nb, x, handle=None):
     """Apply the stationarity/invertibility guaranteeing transform
     to batched-parameter vector x."""
-    nvtx_range_push("jones trans")
-
     if handle is None:
         handle = cuml.common.handle.Handle()
 
     Tx = _batched_transform(p, d, q, nb, x, False, handle)
 
-    nvtx_range_pop()
     return Tx
 
 
+@nvtx_range_wrap("jones inv-trans")
 def _batch_invtrans(p, d, q, nb, x, handle=None):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
-    nvtx_range_push("jones inv-trans")
 
     if handle is None:
         handle = cuml.common.handle.Handle()
 
     Tx = _batched_transform(p, d, q, nb, x, True, handle)
 
-    nvtx_range_pop()
     return Tx
 
 
+@nvtx_range_wrap("batched loglikelihood")
 def _batched_loglike(num_batches, nobs, order, y, x,
                      trans=False, handle=None):
     cdef vector[double] vec_loglike
     cdef vector[double] vec_y_cm
     cdef vector[double] vec_x
 
-    nvtx_range_push("batched loglikelihood")
     p, d, q = order
 
     num_params = (p+d+q)
@@ -896,9 +885,9 @@ def _batched_loglike(num_batches, nobs, order, y, x,
                     nobs,
                     p, d, q,
                     <double*>d_x_ptr,
-                    vec_loglike,
+                    vec_loglike.data(),
                     <double*>d_vs_ptr,
-                    trans)
+                    trans,
+                    True)
 
-    nvtx_range_pop()
     return vec_loglike
