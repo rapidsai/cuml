@@ -117,6 +117,9 @@ class LogisticRegression(Base):
         Custom class weighs are currently not supported.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
+    linesearch_max_iter: int (default = 50)
+        Max number of linesearch iterations per outer iteration used in the
+        lbfgs and owl QN solvers.
     verbose: int (optional, default 0)
         Controls verbosity level of logging.
     l1_ratio: float or None, optional (default=None)
@@ -149,7 +152,7 @@ class LogisticRegression(Base):
     """
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
-                 class_weight=None, max_iter=1000, linesearch_max_iter=500,
+                 class_weight=None, max_iter=1000, linesearch_max_iter=50,
                  verbose=0, l1_ratio=None, solver='qn', handle=None):
 
         super(LogisticRegression, self).__init__(handle=handle,
@@ -209,6 +212,8 @@ class LogisticRegression(Base):
             self.verb_prefix = "CY::"
             print(self.verb_prefix + "Estimator parameters:")
             pprint.pprint(self.__dict__)
+        else:
+            self.verb_prefix = ""
 
     def fit(self, X, y, convert_dtype=False):
         """
