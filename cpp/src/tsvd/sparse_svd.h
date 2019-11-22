@@ -111,11 +111,12 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   // Z = X.T @ Y
   MLCommon::LinAlg::gemm(&X[0], n, p, &Y[0], &Z[0], p, K, CUBLAS_OP_T, CUBLAS_OP_N, blas_h, stream);
-  // R = Y.T @ Y
+  
+  // R = cholesky(Y.T @ Y)
   math_t *__restrict R = T;
-  CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
-               CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, n,
-               &alpha, &Y[0], n, &beta, &R[0], K, stream));
+  cholesky(&Y[0], &R[0], n, K, handle, lwork, &work[0], &info[0]);
+
+
 }
 
 }  // namespace ML

@@ -63,14 +63,14 @@ void correction(math_t *__restrict XTX,
 
 
 template <typename math_t>
-int cholesky_qr_onlyQ(math_t *__restrict X,
-                      math_t *__restrict R,
-                      const int n,
-                      const int p,
-                      const cumlHandle &handle,
-                      int lwork = 0,
-                      math_t *__restrict work = NULL,
-                      int *__restrict info = NULL)
+int cholesky(math_t *__restrict X,
+             math_t *__restrict R,
+             const int n,
+             const int p,
+             const cumlHandle &handle,
+             int lwork = 0,
+             math_t *__restrict work = NULL,
+             int *__restrict info = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
@@ -112,11 +112,26 @@ int cholesky_qr_onlyQ(math_t *__restrict X,
   int info_out = 0;
   MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  return info_out;
+}
 
-  // If this fails, use QR decomposition
-  if (info_out != 0) {
+
+template <typename math_t>
+int cholesky_qr_onlyQ(math_t *__restrict X,
+                      math_t *__restrict R,
+                      const int n,
+                      const int p,
+                      const cumlHandle &handle,
+                      int lwork = 0,
+                      math_t *__restrict work = NULL,
+                      int *__restrict info = NULL)
+{
+  const cudaStream_t stream = handle.getStream();
+  const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
+
+  int info_out = cholesky(X, R, n, p, handle, lwork, work, info);
+  if (info_out != 0)
     return info_out;
-  }
 
   // Now do triangular solve to get Q!
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
