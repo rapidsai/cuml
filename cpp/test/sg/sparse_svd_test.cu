@@ -88,12 +88,12 @@ class SparseSVDTest : public ::testing::Test {
     MLCommon::updateHost(VT, VT_.data(), k*p, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    MLCommon::updateHost(U, U_.data(), n*k, stream);
+    MLCommon::updateHost(VT, VT_.data(), k*p, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for (int j = 0; j < k; j++) {
-      for (int i = 0; i < 10; i++)
-        printf("%.2f, ", U(i, j));
+      for (int i = 0; i < 5; i++)
+        printf("%.2f, ", VT(i, j));
       printf("\n");
     }
 
