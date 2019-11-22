@@ -15,7 +15,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <score/scores.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -89,16 +88,23 @@ class SparseSVDTest : public ::testing::Test {
 
 
     // Confirm singular values
-    // Should be around {425,  504,  542,  566, 2193}
+    // Should be around {2193, 566, 542, 504, 425}
     correct = 0;
     for (int i = 0; i < k; i++) {
       if ((S(i) <= (compare_S[i] + 10)) and (S(i) >= (compare_S[i] - 10)))
         correct += 1;
-      
+
       fprintf(stdout, "Singular Value[%d Correct = %.2f] = %.3f\n", i, compare_S[i], S(i));
     }
 
-    // Compute X_hat = 
+    // Compute X_hat = U * S @ VT
+    device_buffer<float> X_hat(d_alloc, stream, n*p);
+
+    // U * S
+    MLCommon::Matrix::matrixVectorBinaryMult(&U[0], &S[0], n, k, false, false, stream);
+
+    // (U * S) @ VT
+    
 
 
     free(U);
@@ -120,7 +126,7 @@ class SparseSVDTest : public ::testing::Test {
   const int n = 1797;
   const int p = 64;
   const int k = 5;
-  const float compare_S[5] = {425., 504., 542., 566., 2193.};
+  const float compare_S[5] = {2193., 566., 542., 504., 425.};
   int correct;
 };
 
