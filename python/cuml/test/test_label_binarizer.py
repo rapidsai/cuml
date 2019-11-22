@@ -42,5 +42,7 @@ def test_basic_functions(labels):
 
     original = binarizer.inverse_transform(xformed)
 
+    print(str(original))
+
     assert array_equal(cp.asnumpy(original),
                        xform_labels)

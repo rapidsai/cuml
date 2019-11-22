@@ -98,7 +98,7 @@ def make_monotonic(labels, classes=None, copy=False):
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
 
-    if not classes:
+    if classes is None:
         classes = cp.unique(labels)
 
     smem = 4 * labels.shape[0]
@@ -143,4 +143,6 @@ def invert_labels(labels, classes, copy=False):
     inverse_map_kernel((math.ceil(labels.shape[0] / 32),), (32,),
                        (classes, classes.shape[0],
                         labels, labels.shape[0]), shared_mem=smem)
+
+    return labels
 
