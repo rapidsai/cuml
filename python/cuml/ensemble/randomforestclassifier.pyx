@@ -563,7 +563,7 @@ class RandomForestClassifier(Base):
         _, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None)
+                                                 else None),
                                check_cols=self.n_cols)
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
