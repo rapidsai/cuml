@@ -113,7 +113,7 @@ class SparseSVDTest : public ::testing::Test {
 
     for (int j = 0; j < k; j++) {
       for (int i = 0; i < 10; i++)
-        printf("%.2f, ", U(i, 0));
+        printf("%.2f, ", U(i, j));
       printf("\n");
     }
 
