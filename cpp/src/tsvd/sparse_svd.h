@@ -25,6 +25,7 @@
 
 #define device_buffer    MLCommon::device_buffer
 #define MIN(x, y)        (((x) > (y)) ? (y) : (x))
+#define MAX(x, y)        (((x) < (y)) ? (y) : (x))
 
 namespace ML {
 
@@ -69,6 +70,23 @@ void SparseSVD_fit(const cumlHandle &handle,
   random.normal<math_t>(Z, p*K, 0, 1, stream);
 
 
+  // Prepare workspaces for QR decomposition
+  const int lwork1 = prepare_fast_qr_onlyQ(&Y[0], &T[0], n, K, handle);
+  const int lwork2 = prepare_fast_qr_onlyQ(&Z[0], &T[0], p, K, handle);
+  const int lwork = MAX(lwork1, lwork2);
+  device_buffer<math_t> work_(d_alloc, stream, lwork);
+  math_t *__restrict work = work_.data();
+
+  // Tau for QR(Y)
+  const int min_dim = MIN(n, K);
+  device_buffer<math_t> tau_(d_alloc, stream, min_dim);
+  math_t *__restrict tau = tau_.data();
+
+  // Info
+  device_buffer<int> info_(d_alloc, stream, 1);
+  int *__restrict info = info_.data();
+  
+
   // Y = X @ Z
   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
   // Y, _ = qr(Y)
@@ -81,3 +99,4 @@ void SparseSVD_fit(const cumlHandle &handle,
 
 #undef device_buffer
 #undef MIN
+#undef MAX
