@@ -60,7 +60,7 @@ int eigh(math_t *__restrict W,
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
 
 
-  #if CUDART_VERSION >= 10010
+  #if (1 == 0)
     // Use selective eigendecomp
     MLCommon::LinAlg::eigSelDC(&V[0], p, p, k, &V[0], &W[0],
                                MLCommon::LinAlg::OVERWRITE_INPUT,

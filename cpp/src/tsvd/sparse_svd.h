@@ -133,11 +133,11 @@ void SparseSVD_fit(const cumlHandle &handle,
                &alpha, &Z[0], p, &beta, &T[0], K, stream));
 
   // W, V = eigh(T)
-  // device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
-  // math_t *__restrict W = W_.data();
-  // math_t *__restrict V = T;
+  device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
+  math_t *__restrict W = W_.data();
+  math_t *__restrict V = T;
 
-  // eigh(&W[0], &V[0], K, n_components, handle);
+  eigh(&W[0], &V[0], K, n_components, handle);
 
   // Square root W and revert array
 
