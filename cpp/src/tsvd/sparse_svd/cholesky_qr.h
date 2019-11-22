@@ -35,8 +35,10 @@ namespace ML {
 template <typename math_t>
 int prepare_cholesky_qr(math_t *__restrict R,
                          const int p,
-                         cusolverDnHandle_t solver_h)
+                         const cumlHandle &handle)
 {
+  const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
+  
   // X.T @ X workspace
   int lwork = 0;
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnpotrf_bufferSize(solver_h,
@@ -77,7 +79,7 @@ int cholesky_qr(math_t *__restrict X,
   // Only allocate workspace if lwork or work is NULL
   device_buffer<math_t> work_(d_alloc, stream);
   if (work == NULL) {
-    lwork = prepare_cholesky_qr(R, p, solver_h);
+    lwork = prepare_cholesky_qr(R, p, handle);
     work_.resize(lwork, stream);
     work = work_.data();
   }

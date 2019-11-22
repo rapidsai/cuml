@@ -23,6 +23,7 @@
 
 #define device_buffer    MLCommon::device_buffer
 #define MIN(x, y)        (((x) > (y)) ? (y) : (x))
+#define MAX(x, y)        (((x) < (y)) ? (y) : (x))
 
 namespace ML {
 
@@ -30,9 +31,12 @@ template <typename math_t>
 int prepare_qr(math_t *__restrict X,
                const int n,
                const int p,
-               cusolverDnHandle_t solver_h,
+               const cumlHandle &handle,
                math_t *__restrict tau = NULL)
 {
+  auto d_alloc = handle.getDeviceAllocator();
+  const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
+  
   // Workspace for QR Decomposition
   int lwork1 = 0;
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDngeqrf_bufferSize(solver_h,
@@ -57,14 +61,14 @@ int prepare_qr(math_t *__restrict X,
 
 
 template <typename math_t>
-int qr(math_t *__restrict X,
-       const int n,
-       const int p,
-       const cumlHandle &handle,
-       int lwork = 0,
-       math_t *__restrict work = NULL,
-       math_t *__restrict tau = NULL,
-       int *__restrict info = NULL)
+void qr(math_t *__restrict X,
+        const int n,
+        const int p,
+        const cumlHandle &handle,
+        int lwork = 0,
+        math_t *__restrict work = NULL,
+        math_t *__restrict tau = NULL,
+        int *__restrict info = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
@@ -74,7 +78,7 @@ int qr(math_t *__restrict X,
   // Only allocate workspace if lwork or work is NULL
   device_buffer<math_t> work_(d_alloc, stream);
   if (work == NULL) {
-    lwork = prepare_qr(X, n, p, solver_h);
+    lwork = prepare_qr(X, n, p, handle);
     work_.resize(lwork, stream);
     work = work_.data();
   }
@@ -100,8 +104,6 @@ int qr(math_t *__restrict X,
   // Get Q
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnorgqr(solver_h,
                  n, p, K, &X[0], n, &tau[0], &work[0], &lwork, &info[0], stream));
-
-  return info_out;
 }
 
 
@@ -109,3 +111,4 @@ int qr(math_t *__restrict X,
 
 #undef device_buffer
 #undef MIN
+#undef MAX
