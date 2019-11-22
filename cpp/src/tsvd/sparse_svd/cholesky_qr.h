@@ -142,7 +142,7 @@ int prepare_fast_qr_onlyQ(math_t *__restrict X,
     QR is approx 2np^2 FLOPS, so approx only use cholesky is n > 4*p
   */
   int lwork = 0;
-  if (n > 4*p)
+  if (n > 6*p)
     lwork = prepare_cholesky_qr_onlyQ(R, p, handle);
   else
     lwork = prepare_qr_onlyQ(X, n, p, handle, tau);
@@ -162,7 +162,7 @@ void fast_qr_onlyQ(math_t *__restrict X,
                    math_t *__restrict tau = NULL,
                    int *__restrict info = NULL)
 {
-  if (n > 4*p)
+  if (n > 6*p)
   {
     if (verbose)
       fprintf(stdout, "Using Fast Cholesky QR!\n");
