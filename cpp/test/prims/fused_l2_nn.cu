@@ -88,16 +88,17 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     allocate(yn, n);
     allocate(minDist_ref, m * n);
     allocate(minDist, m * n);
-    allocate(workspace, m);
+    allocate(workspace, sizeof(int) * m);
     allocate(min, m);
     allocate(min_ref, m);
     r.uniform(x, m * k, DataT(-1.0), DataT(1.0), stream);
     r.uniform(y, n * k, DataT(-1.0), DataT(1.0), stream);
-    naive<DataT, Sqrt>(min_ref, minDist_ref, x, y, m, n, k, workspace, stream);
+    naive<DataT, Sqrt>(min_ref, minDist_ref, x, y, m, n, k, (int *)workspace,
+                       stream);
     LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
     LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
     fusedL2NN<DataT, int, int, Sqrt>(min, minDist, x, y, xn, yn, m, n, k,
-                                     workspace, stream);
+                                     (void *)workspace, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -118,7 +119,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  protected:
   Inputs<DataT> params;
   DataT *x, *y, *xn, *yn, *minDist_ref, *minDist;
-  int *workspace, *min, *min_ref;
+  char *workspace;
+  int *min, *min_ref;
   cudaStream_t stream;
 };
 
