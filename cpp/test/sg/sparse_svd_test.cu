@@ -20,6 +20,7 @@
 #include <iostream>
 #include <vector>
 #include "datasets/digits.h"
+#include "linalg/mean_squared_error.h"
 #include "tsvd/sparse_svd.cu"
 
 #include "cuda_utils.h"
