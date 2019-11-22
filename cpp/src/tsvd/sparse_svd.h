@@ -93,17 +93,19 @@ void SparseSVD_fit(const cumlHandle &handle,
   // Y, _ = qr(Y)
   fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
 
-  // for (int iter = 0; iter < max_iter; iter++)
-  // {
-  //   // Z = X.T @ Y
-  //   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
-  //     for i in range(3):
-  //       matmul(A.T, Y, out = Z)
-  //       qr(Z, *work_Z)
-    
-  //       matmul(A, Z, out = Y)
-  //       qr(Y, *work_Y)
-  // }
+  for (int iter = 0; iter < max_iter; iter++)
+  {
+    // Z = X.T @ Y
+    MLCommon::LinAlg::gemm(&X[0], n, p, &Y[0], &Z[0], p, K, CUBLAS_OP_T, CUBLAS_OP_N, blas_h, stream);
+    // Z, _ = qr(Z)
+    fast_qr_onlyQ(&Z[0], &T[0], p, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
+
+    // Y = X @ Z
+    MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+    // Y, _ = qr(Y)
+    fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
+  }
+  
 }
 
 }  // namespace ML
