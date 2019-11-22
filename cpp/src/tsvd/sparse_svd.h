@@ -137,10 +137,10 @@ void SparseSVD_fit(const cumlHandle &handle,
   math_t *__restrict W = W_.data();
   math_t *__restrict V = T;
 
-  eigh(&W[0], &V[0], K, n_components, handle);
+  eigh(&W[0], &V[0], K, n_components, handle, true);
   // Copy W into S
   MLCommon::copyAsync(&S[0], &W[0], n_components, stream);
-  
+
 }
 
 }  // namespace ML
