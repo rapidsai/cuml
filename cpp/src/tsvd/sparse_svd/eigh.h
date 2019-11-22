@@ -62,7 +62,8 @@ int eigh(math_t *__restrict W,
 
   #if CUDART_VERSION >= 10010
     // Use selective eigendecomp
-    MLCommon::LinAlg::eigSelDC(&V[0], p, p, k, &V[0], &W[0], OVERWRITE_INPUT,
+    MLCommon::LinAlg::eigSelDC(&V[0], p, p, k, &V[0], &W[0],
+                               MLCommon::LinAlg::OVERWRITE_INPUT,
                                solver_h, stream, d_alloc);
   #else
     // Only allocate workspace if lwork or work is NULL
