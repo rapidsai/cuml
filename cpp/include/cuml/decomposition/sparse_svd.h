@@ -39,7 +39,7 @@ void SparseSVD(const cumlHandle &handle,
                const int p,
                double *__restrict U = NULL,      // (n, n_components)  
                double *__restrict S = NULL,      // (n_components)
-               double *__restrict V = NULLT,     // (n_components, p)
+               double *__restrict V = NULL,     // (n_components, p)
                const int n_components = 2,
                const int n_oversamples = 10,
                const int max_iter = 3,

@@ -90,9 +90,10 @@ class SparseSVDTest : public ::testing::Test {
 
     // Confirm singular values
     // Should be around {425,  504,  542,  566, 2193}
+    correct = 0;
     for (int i = 0; i < k; i++) {
-      printf("Singular value %d = %.3f\n", i, S(i));
-
+      if ((S(i) <= (compare_S[i] + 10)) and (S(i) >= (compare_S[i] - 10)))
+        correct += 1;
     }
 
 
@@ -116,12 +117,15 @@ class SparseSVDTest : public ::testing::Test {
   const int p = 64;
   const int k = 5;
   const float compare_S[5] = {425., 504., 542., 566., 2193.};
+  int correct;
 };
 
 
 typedef SparseSVDTest SparseSVDTestF;
-TEST_F(SparseSVDTestF, Result) {
-  printf("Hi!\n");
+TEST_F(SparseSVDTestF, Result)
+{
+  fprintf(stdout, "Percentage of good singular values = %.2f", (float)correct/(float)k);
+  ASSERT(correct == k, "Singular values are off!");
 }
 
 #undef printf
