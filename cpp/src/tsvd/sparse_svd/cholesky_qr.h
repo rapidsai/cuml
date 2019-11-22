@@ -145,7 +145,7 @@ int prepare_fast_qr_onlyQ(math_t *__restrict X,
   if (n > 4*p)
     lwork = prepare_cholesky_qr_onlyQ(R, p, handle);
   else
-    lwork = prepare_qr_onlyQ(X, R, n, p, handle, tau);
+    lwork = prepare_qr_onlyQ(X, n, p, handle, tau);
   return lwork;
 }
 
