@@ -120,6 +120,7 @@ void SparseSVD_fit(const cumlHandle &handle,
   device_buffer<math_t> R2_(d_alloc, stream, K*K);
   math_t *__restrict R2 = R2_.data();
   MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // solve a = R, b = Z
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
@@ -137,6 +138,8 @@ void SparseSVD_fit(const cumlHandle &handle,
   math_t *__restrict V = T;
 
   eigh(&W[0], &V[0], K, n_components, handle);
+
+  // Square root W and revert array
 
 }
 
