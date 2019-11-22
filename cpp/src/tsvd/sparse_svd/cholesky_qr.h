@@ -109,6 +109,8 @@ int cholesky(math_t *__restrict X,
                  CUBLAS_FILL_MODE_UPPER, p, &R[0], p,
                  &work[0], lwork, &info[0], stream));
 
+  CUDA_CHECK(cudaGetLastError());
+
   int info_out = 0;
   MLCommon::updateHost(&info_out, &info[0], 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -138,7 +140,7 @@ int cholesky_qr_onlyQ(math_t *__restrict X,
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
                CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
                CUBLAS_DIAG_NON_UNIT, n, p, &alpha, &R[0], p, &X[0], n, stream));
-
+  CUDA_CHECK(cudaGetLastError());
   return info_out;
 }
 

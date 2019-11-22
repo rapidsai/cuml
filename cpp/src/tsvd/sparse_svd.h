@@ -53,7 +53,6 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   static const math_t alpha = 1;
   static const math_t beta = 0;
-
   const int K = MIN(n_components + n_oversamples, p);
 
   // Prepare device buffers
@@ -125,6 +124,19 @@ void SparseSVD_fit(const cumlHandle &handle,
   CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
                CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
                CUBLAS_DIAG_NON_UNIT, p, K, &alpha, &R[0], K, &Z[0], p, stream));
+
+  // T = Z.T @ Z
+  CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
+               CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, p,
+               &alpha, &Z[0], p, &beta, &T[0], K, stream));
+
+  // W, V = eigh(T)
+  device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
+  math_t *__restrict W = W_.data();
+  math_t *__restrict V = T;
+
+  eigh(&W[0], &V[0], K, n_components, handle);
+
 }
 
 }  // namespace ML
