@@ -108,16 +108,16 @@ struct Int2Max {
 };  // namespace internal
 
 /**
- * @brief Compute the prediction value for the current leaf node
+ * @brief Compute the prediction value for the current leaf node for the case of
+ *        classification
  * @note to be called by only one block from all participating blocks
  *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
  */
-///@todo: support for regression
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-DI void computePrediction(IdxT range_start, IdxT range_len,
-                          const Input<DataT, LabelT, IdxT>& input,
-                          volatile Node<DataT, LabelT, IdxT>* nodes,
-                          IdxT* n_leaves, void* smem) {
+DI void computePredClassification(IdxT range_start, IdxT range_len,
+                                  const Input<DataT, LabelT, IdxT>& input,
+                                  volatile Node<DataT, LabelT, IdxT>* nodes,
+                                  IdxT* n_leaves, void* smem) {
   typedef cub::BlockReduce<int2, TPB> BlockReduceT;
   __shared__ typename BlockReduceT::TempStorage temp;
   auto* shist = reinterpret_cast<int*>(smem);
@@ -140,6 +140,34 @@ DI void computePrediction(IdxT range_start, IdxT range_len,
   __syncthreads();
   if (tid == 0) {
     nodes[0].makeLeaf(n_leaves, LabelT(v.x));
+  }
+}
+
+/**
+ * @brief Compute the prediction value for the current leaf node for the case of
+ *        regression
+ * @note to be called by only one block from all participating blocks
+ *       'smem' is not used, but kept for the sake of interface parity with the
+ *       corresponding method for classification
+ */
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+DI void computePredRegression(IdxT range_start, IdxT range_len,
+                              const Input<DataT, LabelT, IdxT>& input,
+                              volatile Node<DataT, LabelT, IdxT>* nodes,
+                              IdxT* n_leaves, void* smem) {
+  typedef cub::BlockReduce<LabelT, TPB> BlockReduceT;
+  __shared__ typename BlockReduceT::TempStorage temp;
+  LabelT sum = LabelT(0.0);
+  auto tid = threadIdx.x;
+  auto len = range_start + range_len;
+  for (auto i = range_start + tid; i < len; i += blockDim.x) {
+    auto label = input.labels[input.rowids[i]];
+    sum += label;
+  }
+  sum = BlockReduceT(temp).Sum(sum);
+  __syncthreads();
+  if (tid == 0) {
+    nodes[0].makeLeaf(n_leaves, sum / range_len);
   }
 }
 
@@ -223,8 +251,13 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
-    computePrediction<DataT, LabelT, IdxT, TPB>(range_start, range_len, input,
-                                                node, n_leaves, smem);
+    if (std::is_same<DataT, LabelT>::value) {
+      computePredRegression<DataT, LabelT, IdxT, TPB>(
+        range_start, range_len, input, node, n_leaves, smem);
+    } else {
+      computePredClassification<DataT, LabelT, IdxT, TPB>(
+        range_start, range_len, input, node, n_leaves, smem);
+    }
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(
