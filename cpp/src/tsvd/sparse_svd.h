@@ -151,6 +151,15 @@ void SparseSVD_fit(const cumlHandle &handle,
       [] __device__(math_t x) { return ((x > 0) ? (1.0f / x) : 0); }, stream);
 
   MLCommon::Matrix::matrixVectorBinaryMult(&VT[0], &W[0], n_components, p, false, true, stream);
+
+  // Solve on the Left for a = R2, b = V
+  CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
+               CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+               CUBLAS_DIAG_NON_UNIT, K, K, &alpha, &R2[0], K, &Z[0], K, stream));
+
+  // U = Y @ V
+  MLCommon::LinAlg::gemm(&Y[0], n, K, &V[0], &U[0], n, n_components,
+                         CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
 }
 
 }  // namespace ML
