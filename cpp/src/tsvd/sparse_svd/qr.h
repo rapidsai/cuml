@@ -25,7 +25,6 @@
 #define MIN(x, y)        (((x) > (y)) ? (y) : (x))
 
 namespace ML {
-
 namespace SparseSVD {
 
 

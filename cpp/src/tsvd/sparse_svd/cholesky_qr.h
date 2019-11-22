@@ -25,8 +25,6 @@
 
 namespace ML {
 
-namespace SparseSVD {
-
 /*
   [TODO] Change epsilon jitter cholesky to approximate cholesky
   Computes a QR factorization of X using cholesky decomposition.
@@ -123,7 +121,6 @@ int cholesky_qr(math_t *__restrict X,
 }
 
 
-} // namespace SparseSVD
 } // namespace ML
 
 #undef device_buffer

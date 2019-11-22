@@ -72,7 +72,7 @@ void SparseSVD_fit(const cumlHandle &handle,
   // Y = X @ Z
   MLCommon::LinAlg::gemm(&X[0], n, p, &Z[0], &Y[0], n, K, CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
   // Y, _ = qr(Y)
-  SparseSVD::cholesky_qr(&Y[0], &T[0], n, K, handle);
+  cholesky_qr(&Y[0], &T[0], n, K, handle);
 
   
 }
