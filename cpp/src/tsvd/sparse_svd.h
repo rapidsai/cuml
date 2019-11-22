@@ -119,20 +119,20 @@ void SparseSVD_fit(const cumlHandle &handle,
   // R2 = copy(R)
   device_buffer<math_t> R2_(d_alloc, stream, K*K);
   math_t *__restrict R2 = R2_.data();
-  // MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
-  // CUDA_CHECK(cudaStreamSynchronize(stream));
+  MLCommon::copyAsync(&R2[0], &R[0], K*K, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  // // solve a = R, b = Z
-  // CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
-  //              CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-  //              CUBLAS_DIAG_NON_UNIT, p, K, &alpha, &R[0], K, &Z[0], p, stream));
+  // solve a = R, b = Z
+  CUBLAS_CHECK(MLCommon::LinAlg::cublastrsm(blas_h,
+               CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+               CUBLAS_DIAG_NON_UNIT, p, K, &alpha, &R[0], K, &Z[0], p, stream));
 
-  // // T = Z.T @ Z
-  // CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
-  //              CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, p,
-  //              &alpha, &Z[0], p, &beta, &T[0], K, stream));
+  // T = Z.T @ Z
+  CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
+               CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, p,
+               &alpha, &Z[0], p, &beta, &T[0], K, stream));
 
-  // // W, V = eigh(T)
+  // W, V = eigh(T)
   // device_buffer<math_t> W_(d_alloc, stream, p*K); // W(K)
   // math_t *__restrict W = W_.data();
   // math_t *__restrict V = T;
