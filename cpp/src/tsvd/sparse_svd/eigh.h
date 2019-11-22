@@ -32,7 +32,6 @@ template <typename math_t>
 int prepare_syevd(math_t *__restrict W,
                   math_t *__restrict V,
                   const int p,
-                  const int k,
                   const cumlHandle &handle)
 {
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
@@ -69,7 +68,7 @@ int eigh(math_t *__restrict W,
     // Only allocate workspace if lwork or work is NULL
     device_buffer<math_t> work_(d_alloc, stream);
     if (work == NULL) {
-      lwork = prepare_syevd(R, p, handle);
+      lwork = prepare_syevd(W, V, p, handle);
       work_.resize(lwork, stream);
       work = work_.data();
     }
