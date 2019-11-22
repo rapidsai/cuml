@@ -97,6 +97,7 @@ int cholesky(math_t *__restrict X,
   CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
                CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, p, n,
                &alpha, &X[0], n, &beta, &R[0], p, stream));
+  CUDA_CHECK(cudaPeekAtLastError());
 
   // Check X.T @ X for ill conditioning.
   // (1) Change all 0s on the diagonal to p * 2 + i
@@ -108,7 +109,6 @@ int cholesky(math_t *__restrict X,
   CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnpotrf(solver_h,
                  CUBLAS_FILL_MODE_UPPER, p, &R[0], p,
                  &work[0], lwork, &info[0], stream));
-
   CUDA_CHECK(cudaGetLastError());
 
   int info_out = 0;
