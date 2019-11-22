@@ -91,10 +91,10 @@ class SparseSVDTest : public ::testing::Test {
 
     // Confirm singular values
     // Should be around {2193, 566, 542, 504, 425}
-    correct = 0;
+    n_correct = 0;
     for (int i = 0; i < k; i++) {
       if ((S(i) <= (compare_S[i] + 10)) and (S(i) >= (compare_S[i] - 10)))
-        correct += 1;
+        n_correct += 1;
 
       fprintf(stdout, "Singular Value[%d Correct = %.2f] = %.3f\n", i, compare_S[i], S(i));
     }
@@ -108,16 +108,22 @@ class SparseSVDTest : public ::testing::Test {
     // (U * S) @ VT
     MLCommon::LinAlg::gemm(U_.data(), n, k, VT_.data(), X_hat_.data(), n, p,
                            CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+    MLCommon::updateHost(U, U_.data(), n*k, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    for (int i = 0; i < 10; i++)
+      printf(".2f, ", U(i, 0));
+    printf("\n");
 
     // Now check error
     // sum(square(X - X_hat))
-    device_buffer<float> mse_(d_alloc, stream, 1);
-    MLCommon::LinAlg::meanSquaredError(mse_.data(), X_.data(), X_hat_.data(), n*p, 1.0f, stream);
-    float mse;
-    MLCommon::updateHost(&mse, mse_.data(), 1, stream);
+    device_buffer<float> sse_(d_alloc, stream, 1);
+    MLCommon::LinAlg::meanSquaredError(sse_.data(), X_.data(), X_hat_.data(), n*p, 1.0f, stream);
+    float sse;
+    MLCommon::updateHost(&sse, sse_.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    fprintf(stdout, "Sum of squared errors = %.3f\n", mse);
+    fprintf(stdout, "Sum of squared errors = %.3f\n", sse);
 
     free(U);
     free(S);
@@ -139,7 +145,8 @@ class SparseSVDTest : public ::testing::Test {
   const int p = 64;
   const int k = 5;
   const float compare_S[5] = {2193., 566., 542., 504., 425.};
-  int correct;
+  int n_correct;
+  float sse;
 };
 
 
