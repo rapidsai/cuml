@@ -51,6 +51,9 @@ void SparseSVD_fit(const cumlHandle &handle,
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
   const cublasHandle_t blas_h = handle.getImpl().getCublasHandle();
 
+  const math_t alpha = 1;
+  const math_t beta = 0;
+
   const int K = MIN(n_components + n_oversamples, p);
 
   // Prepare device buffers
@@ -106,6 +109,13 @@ void SparseSVD_fit(const cumlHandle &handle,
     fast_qr_onlyQ(&Y[0], &T[0], n, K, handle, verbose, lwork, &work[0], &tau[0], &info[0]);
   }
 
+  // Z = X.T @ Y
+  MLCommon::LinAlg::gemm(&X[0], n, p, &Y[0], &Z[0], p, K, CUBLAS_OP_T, CUBLAS_OP_N, blas_h, stream);
+  // R = Y.T @ Y
+  math_t *__restrict R = T;
+  CUBLAS_CHECK(MLCommon::LinAlg::cublassyrk(blas_h,
+               CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, K, n,
+               &alpha, &Y[0], n, &beta, &R[0], K, stream));
 }
 
 }  // namespace ML
