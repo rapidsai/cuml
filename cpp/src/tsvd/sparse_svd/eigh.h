@@ -20,8 +20,10 @@
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
 #include <linalg/eig.h>
+#include <linalg/unary_op.h>
 #include <common/device_buffer.hpp>
 #include "common/cumlHandle.hpp"
+#include <matrix/matrix.h>
 
 #define device_buffer    MLCommon::device_buffer
 
@@ -29,10 +31,10 @@ namespace ML {
 
 
 template <typename math_t>
-int prepare_syevd(math_t *__restrict W,
-                  math_t *__restrict V,
-                  const int p,
-                  const cumlHandle &handle)
+int prepare_eigh(math_t *__restrict W,
+                 math_t *__restrict V,
+                 const int p,
+                 const cumlHandle &handle)
 {
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
   int lwork = 0;
@@ -44,55 +46,52 @@ int prepare_syevd(math_t *__restrict W,
 }
 
 
+
 template <typename math_t>
-int eigh(math_t *__restrict W,
-         math_t *__restrict V,
-         const int p,
-         const int k,
-         const cumlHandle &handle,
-         int lwork = 0,
-         math_t *__restrict work = NULL,
-         int *__restrict info = NULL)
+void eigh(math_t *__restrict W,
+          math_t *__restrict V,
+          const int p,
+          const int k,
+          const cumlHandle &handle,
+          const bool singular_values = false,
+          int lwork = 0,
+          math_t *__restrict work = NULL,
+          int *__restrict info = NULL)
 {
   auto d_alloc = handle.getDeviceAllocator();
   const cudaStream_t stream = handle.getStream();
   const cusolverDnHandle_t solver_h = handle.getImpl().getcusolverDnHandle();
 
+  // Only allocate workspace if lwork or work is NULL
+  device_buffer<math_t> work_(d_alloc, stream);
+  if (work == NULL) {
+    lwork = prepare_eigh(W, V, p, handle);
+    work_.resize(lwork, stream);
+    work = work_.data();
+  }
 
-  #if (1 == 0)
-    // Use selective eigendecomp
-    MLCommon::LinAlg::eigSelDC(&V[0], p, p, k, &V[0], &W[0],
-                               MLCommon::LinAlg::OVERWRITE_INPUT,
-                               solver_h, stream, d_alloc);
-  #else
-    // Only allocate workspace if lwork or work is NULL
-    device_buffer<math_t> work_(d_alloc, stream);
-    if (work == NULL) {
-      lwork = prepare_syevd(W, V, p, handle);
-      work_.resize(lwork, stream);
-      work = work_.data();
-    }
+  device_buffer<int> info_(d_alloc, stream);
+  if (info == NULL) {
+    info_.resize(1, stream);
+    info = info_.data(); 
+  }
 
-    device_buffer<int> info_(d_alloc, stream);
-    if (info == NULL) {
-      info_.resize(1, stream);
-      info = info_.data();
-    }
+  // Divide n Conquer Eigendecomposition
+  CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnsyevd(solver_h,
+                 CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, p, &V[0],
+                 p, &W[0], &work[0], lwork, &info[0], stream));
 
-    // Divide n Conquer Eigendecomposition
-    CUSOLVER_CHECK(MLCommon::LinAlg::cusolverDnsyevd(solver_h,
-                   CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, p, &V[0],
-                   p, &W[0], &work[0], lwork, &info[0], stream));
-  #endif
-  
+  // Reverse W, V since syevd provides smallest eigenvalues first
+  MLCommon::Matrix::colReverse(&W[0], 1, p, stream);
+  MLCommon::Matrix::colReverse(&V[0], p, p, stream);
 
-  int info_out = 0;
-  MLCommon::updateHost(&info_out, &info[0], 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  return info_out;
+  if (singular_values) {
+    // Square root
+    MLCommon::LinAlg::unaryOp(W, W, k,
+      [] __device__(math_t x) { return (x > 0) : MLCommon::mySqrt(x) : 0 }, stream);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 }
-
-
 
 } // namespace ML
 

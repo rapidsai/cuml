@@ -138,9 +138,9 @@ void SparseSVD_fit(const cumlHandle &handle,
   math_t *__restrict V = T;
 
   eigh(&W[0], &V[0], K, n_components, handle);
-
-  // Square root W and revert array
-
+  // Copy W into S
+  MLCommon::copyAsync(&S[0], &W[0], n_components, stream);
+  
 }
 
 }  // namespace ML
