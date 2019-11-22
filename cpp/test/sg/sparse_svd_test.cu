@@ -99,14 +99,24 @@ class SparseSVDTest : public ::testing::Test {
     }
 
     // Compute X_hat = U * S @ VT
-    device_buffer<float> X_hat(d_alloc, stream, n*p);
+    device_buffer<float> X_hat_(d_alloc, stream, n*p);
 
     // U * S
     MLCommon::Matrix::matrixVectorBinaryMult(U_.data(), S_.data(), n, k, false, false, stream);
 
     // (U * S) @ VT
-    MLCommon::LinAlg::gemm(U_.data(), n, k, VT_.data(), X_hat.data(), n, p,
+    MLCommon::LinAlg::gemm(U_.data(), n, k, VT_.data(), X_hat_.data(), n, p,
                            CUBLAS_OP_N, CUBLAS_OP_N, blas_h, stream);
+
+    // Now check error
+    // sum(square(X - X_hat))
+    device_buffer<float> mse_(d_alloc, stream, 1);
+    MLCommon::LinAlg::meanSquaredError(mse_.data(), X_.data(), X_hat_.data(), n*p, 1.0f, stream);
+    float mse;
+    MLCommon::updateHost(&mse, mse_.data(), 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    fprintf(stdout, "Sum of squared errors = %.3f\n", mse);
 
     free(U);
     free(S);
