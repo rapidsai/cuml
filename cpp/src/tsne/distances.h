@@ -36,6 +36,7 @@ namespace TSNE {
  */
 void get_distances(const float *X, const int n, const int p, long *indices,
                    float *distances, const int n_neighbors,
+                   std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
@@ -46,7 +47,7 @@ void get_distances(const float *X, const int n, const int p, long *indices,
 
   MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, p,
                                        const_cast<float *>(X), n, indices,
-                                       distances, n_neighbors, stream);
+                                       distances, n_neighbors, d_alloc, stream);
   delete knn_input, sizes;
 }
 

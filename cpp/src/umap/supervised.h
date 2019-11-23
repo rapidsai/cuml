@@ -240,12 +240,13 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
    * Calculate kNN for Y
    */
   int knn_dims = rgraph_coo->n_rows * params->target_n_neighbors;
-  MLCommon::device_buffer<long> y_knn_indices(d_alloc, stream, knn_dims);
+  MLCommon::device_buffer<int64_t> y_knn_indices(d_alloc, stream, knn_dims);
   MLCommon::device_buffer<T> y_knn_dists(d_alloc, stream, knn_dims);
+
 
   kNNGraph::run(y, rgraph_coo->n_rows, y, rgraph_coo->n_rows, 1,
                 y_knn_indices.data(), y_knn_dists.data(),
-                params->target_n_neighbors, params, stream);
+                params->target_n_neighbors, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {

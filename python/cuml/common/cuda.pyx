@@ -39,6 +39,17 @@ def nvtx_range_pop():
     POP_RANGE()
 
 
+def nvtx_range_wrap(msg):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            nvtx_range_push(msg)
+            result = func(*args, **kwargs)
+            nvtx_range_pop()
+            return result
+        return wrapper
+    return decorator
+
+
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
         cdef _Error e = cudaGetLastError()

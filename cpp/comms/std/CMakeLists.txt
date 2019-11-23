@@ -19,7 +19,7 @@ project(cuML-comms LANGUAGES CXX CUDA)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
-option(WITH_UCX "Uses UCX for P2P comms" OFF)
+option(WITH_UCX "Uses UCX for P2P comms" ON)
 
 if(NOT NCCL_PATH)
     find_package(NCCL REQUIRED)

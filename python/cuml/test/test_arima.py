@@ -120,26 +120,6 @@ def get_data():
     return (t, d)
 
 
-def test_arima_start_params():
-    """
-    Tests start_params function for multiple (p,d,q) options
-    """
-    _, ys = get_data()
-    arma = arima._start_params((1, 1, 1), ys[:, 0])
-    # print("arma=", arma)
-    arma_ref = np.array([1.306700000000000e+04,
-                         8.578545193799022e-01,
-                         -6.241669663164802e-01])
-    np.testing.assert_array_almost_equal(arma, arma_ref)
-    arma = arima._start_params((2, 1, 1), ys[:, 0])
-    # print("arma=", arma)
-    arma_ref = [1.3067000000000000e+04,
-                1.4359734767607857e-01,
-                1.9335180865645191e-01,
-                9.0764356294912391e-02]
-    np.testing.assert_array_almost_equal(arma, arma_ref)
-
-
 def test_transform():
     """Test the parameter transformation code."""
     x0 = np.array([-36.24493319, -0.76159416, -0.76159516, -167.65533746,
@@ -224,7 +204,7 @@ def test_gradient():
         ys_df = np.reshape(np.tile(np.reshape(ys,
                                               (num_samples, 1)),
                                    num_batches),
-                           (num_samples, num_batches), order="F")
+                           (num_batches, num_samples), order="C").T
         order = (1, 1, 1)
         mu = 0.0
         arparams = np.array([-0.01])
@@ -279,7 +259,7 @@ def test_bic():
     for p in range(1, 3):
         order = (p, 1, 1)
 
-        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
+        mu0, ar0, ma0 = arima.estimate_x0(order, y)
 
         batched_model = arima.fit(y, order,
                                   mu0,
@@ -295,23 +275,22 @@ def test_fit():
     """Test the `fit()` function against reference parameters."""
     _, y = get_data()
 
-    mu_ref = [[-217.7230173548441, -206.81064091237104],
-              [-217.72325384510506, -206.77224439903458]]
-    ar_ref = [[np.array([0.0309380078339684]),
-               np.array([-0.0371740508810001])],
-              [np.array([0.0309027562133337, -0.0191533926207157]),
-               np.array([-0.0386322768036704, -0.0330133336831984])]]
-    ma_ref = [[np.array([-0.9995474311219695]),
-               np.array([-0.9995645146854383])],
-              [np.array([-0.999629811305126]),
-               np.array([-0.9997747315789454])]]
+    mu_ref = [np.array([-217.7230173548441, -206.81064091237104]),
+              np.array([-217.72325384510506, -206.77224439903458])]
+    ar_ref = [
+        np.array([[0.0309380078339684, -0.0371740508810001]], order='F'),
+        np.array([[0.0309027562133337, -0.0386322768036704],
+                  [-0.0191533926207157, -0.0330133336831984]], order='F')]
+    ma_ref = [
+        np.array([[-0.9995474311219695, -0.9995645146854383]], order='F'),
+        np.array([[-0.999629811305126, -0.9997747315789454]], order='F')]
 
     ll_ref = [[-414.7628631782474, -410.049081775547],
               [-414.7559799310751, -410.0285309839064]]
 
     for p in range(1, 3):
         order = (p, 1, 1)
-        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y)
+        mu0, ar0, ma0 = arima.estimate_x0(order, y)
 
         batched_model = arima.fit(y, order,
                                   mu0,
@@ -434,7 +413,7 @@ def test_fit_predict_forecast(plot=False):
             y_train[:, i] = y[:ns_train, i]
 
         p, _, _ = order
-        mu0, ar0, ma0 = arima.estimate_x0(order, 2, y_train)
+        mu0, ar0, ma0 = arima.estimate_x0(order, y_train)
 
         batched_model = arima.fit(y_train, order,
                                   mu0,
@@ -521,7 +500,7 @@ def demo():
 
     plt.plot(xs, ys1, xs, ys2)
 
-    mu0, ar0, ma0 = arima.estimate_x0((1, 1, 1), 2, ys)
+    mu0, ar0, ma0 = arima.estimate_x0((1, 1, 1), ys)
 
     model = arima.fit(ys, (1, 1, 1), mu0, ar0, ma0)
 
@@ -550,7 +529,7 @@ def bench_arima(num_batches=240, plot=False):
 
     start = timer()
 
-    mu0, ar0, ma0 = arima.estimate_x0(order, num_batches, y_b)
+    mu0, ar0, ma0 = arima.estimate_x0(order, y_b)
 
     batched_model = arima.fit(y_b, order,
                               mu0,
