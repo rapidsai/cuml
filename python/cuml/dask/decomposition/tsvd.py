@@ -13,10 +13,12 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, workers_to_parts
+from cuml.dask.common import extract_ddf_partitions
 from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
+
+from collections import OrderedDict
 
 from dask.distributed import default_client
 from dask.distributed import wait
@@ -26,18 +28,8 @@ from functools import reduce
 from uuid import uuid1
 
 
-class PCA(object):
+class TruncatedSVD(object):
     """
-    PCA (Principal Component Analysis) is a fundamental dimensionality
-    reduction technique used to combine features in X in linear combinations
-    such that each new component captures the most information or variance of
-    the data. N_components is usually small, say at 3, where it can be used for
-    data visualization, data compression and exploratory analysis.
-
-    cuML's multi-node multi-gpu (MNMG) PCA expects a dask cuDF input, and
-    provides a "Full" algorithm. It uses a full eigendecomposition
-    then selects the top K eigenvectors.
-
     Examples
     ---------
 
@@ -46,7 +38,7 @@ class PCA(object):
         from dask_cuda import LocalCUDACluster
         from dask.distributed import Client, wait
         import numpy as np
-        from cuml.dask.decomposition import PCA
+        from cuml.dask.decomposition import TruncatedSVD
         from cuml.dask.datasets import make_blobs
 
         cluster = LocalCUDACluster(threads_per_worker=1)
@@ -57,7 +49,7 @@ class PCA(object):
         n_parts = 2
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                        cluster_std=0.01, verbose=False,
+                        cluster_std=1.8, verbose=False,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -65,7 +57,7 @@ class PCA(object):
         print("Input Matrix")
         print(X_cudf.compute())
 
-        cumlModel = PCA(n_components = 1, whiten=False)
+        cumlModel = TruncatedSVD(n_components = 1)
         XT = cumlModel.fit_transform(X_cudf)
 
         print("Transformed Input Matrix")
@@ -76,23 +68,22 @@ class PCA(object):
     .. code-block:: python
 
           Input Matrix:
-                    0         1         2
-                    0 -6.520953  0.015584 -8.828546
-                    1 -6.507554  0.016524 -8.836799
-                    2 -6.518214  0.010457 -8.821301
-                    0 -6.520953  0.015584 -8.828546
-                    1 -6.507554  0.016524 -8.836799
-                    2 -6.518214  0.010457 -8.821301
+                              0         1          2
+                    0 -8.519647 -8.519222  -8.865648
+                    1 -6.107700 -8.350124 -10.351215
+                    2 -8.026635 -9.442240  -7.561770
+                    0 -8.519647 -8.519222  -8.865648
+                    1 -6.107700 -8.350124 -10.351215
+                    2 -8.026635 -9.442240  -7.561770
 
           Transformed Input Matrix:
-                              0
-                    0 -0.003271
-                    1  0.011454
-                    2 -0.008182
-                    0 -0.003271
-                    1  0.011454
-                    2 -0.008182
-
+                               0
+                    0  14.928891
+                    1  14.487295
+                    2  14.431235
+                    0  14.928891
+                    1  14.487295
+                    2  14.431235
     Note: Everytime this code is run, the output will be different because
           "make_blobs" function generates random matrices.
 
@@ -108,13 +99,6 @@ class PCA(object):
         then the other solvers including randomized SVD.
     verbose : bool
         Whether to print debug spews
-    whiten : boolean (default = False)
-        If True, de-correlates the components. This is done by dividing them by
-        the corresponding singular values then multiplying by sqrt(n_samples).
-        Whitening allows each component to have unit variance and removes
-        multi-collinearity. It might be beneficial for downstream
-        tasks like LinearRegression where correlated features cause problems.
-
 
     Attributes
     ----------
@@ -126,37 +110,11 @@ class PCA(object):
         How much in % the variance is explained given by S**2/sum(S**2)
     singular_values_ : array
         The top K singular values. Remember all singular values >= 0
-    mean_ : array
-        The column wise mean of X. Used to mean - center the data first.
-    noise_variance_ : float
-        From Bishop 1999's Textbook. Used in later tasks like calculating the
-        estimated covariance of X.
-
-    Notes
-    ------
-    PCA considers linear combinations of features, specifically those that
-    maximise global variance structure. This means PCA is fantastic for global
-    structure analyses, but weak for local relationships. Consider UMAP or
-    T-SNE for a locally important embedding.
-
-    **Applications of PCA**
-
-        PCA is used extensively in practice for data visualization and data
-        compression. It has been used to visualize extremely large word
-        embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
-        datasets of everyday objects and images, and used to distinguish
-        between cancerous cells from healthy cells.
-
-
-    For an additional example see `the PCA notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
-    For additional docs, see `scikitlearn's PCA
-    <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
     def __init__(self, client=None, **kwargs):
         """
-        Constructor for distributed PCA model
+        Constructor for distributed TruncatedSVD model
         """
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
@@ -168,19 +126,18 @@ class PCA(object):
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
         self.singular_values_ = None
-        self.noise_variance = None
 
     @staticmethod
     def _func_create_model(sessionId, dfs, **kwargs):
         try:
-            from cuml.decomposition.pca_mg import PCAMG as cumlPCA
+            from cuml.decomposition.tsvd_mg import TSVDMG as cumlTSVD
         except ImportError:
             raise Exception("cuML has not been built with multiGPU support "
                             "enabled. Build with the --multigpu flag to"
                             " enable multiGPU support.")
 
         handle = worker_state(sessionId)["handle"]
-        return cumlPCA(handle=handle, **kwargs), dfs
+        return cumlTSVD(handle=handle, **kwargs), dfs
 
     @staticmethod
     def _func_fit(f, M, N, partsToRanks, rank, transform):
@@ -224,7 +181,16 @@ class PCA(object):
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        worker_to_parts = workers_to_parts(gpu_futures)
+        self.rnks = dict()
+        rnk_counter = 0
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            if w not in self.rnks.keys():
+                self.rnks[w] = rnk_counter
+                rnk_counter = rnk_counter + 1
+            worker_to_parts[w].append(p)
 
         workers = list(map(lambda x: x[0], gpu_futures))
 
@@ -233,11 +199,9 @@ class PCA(object):
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
-        self.rnks = {w: worker_info[w]["r"] for w in workers}
-
         key = uuid1()
         partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
-            PCA._func_get_size,
+            TruncatedSVD._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
@@ -247,8 +211,8 @@ class PCA(object):
         M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
-        self.pca_models = [(wf[0], self.client.submit(
-            PCA._func_create_model,
+        self.tsvd_models = [(wf[0], self.client.submit(
+            TruncatedSVD._func_create_model,
             comms.sessionId,
             wf[1],
             **self.kwargs,
@@ -257,8 +221,8 @@ class PCA(object):
             for idx, wf in enumerate(worker_to_parts.items())]
 
         key = uuid1()
-        pca_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
-            PCA._func_fit,
+        tsvd_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
+            TruncatedSVD._func_fit,
             wf[1],
             M, N,
             partsToRanks,
@@ -266,22 +230,21 @@ class PCA(object):
             _transform,
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(self.pca_models)])
+            for idx, wf in enumerate(self.tsvd_models)])
 
-        wait(list(pca_fit.values()))
-        raise_exception_from_futures(list(pca_fit.values()))
+        wait(list(tsvd_fit.values()))
+        raise_exception_from_futures(list(tsvd_fit.values()))
 
         comms.destroy()
 
-        self.local_model = self.client.submit(PCA._func_get_first,
-                                              self.pca_models[0][1]).result()
+        self.local_model = self.client.submit(TruncatedSVD._func_get_first,
+                                              self.tsvd_models[0][1]).result()
 
         self.components_ = self.local_model.components_
         self.explained_variance_ = self.local_model.explained_variance_
         self.explained_variance_ratio_ = \
             self.local_model.explained_variance_ratio_
         self.singular_values_ = self.local_model.singular_values_
-        self.noise_variance = self.local_model.noise_variance_
 
         out_futures = []
         if _transform:
@@ -290,9 +253,9 @@ class PCA(object):
                 if rank not in completed_part_map:
                     completed_part_map[rank] = 0
 
-                f = pca_fit[rank]
+                f = tsvd_fit[rank]
                 out_futures.append(self.client.submit(
-                    PCA._func_get_idx, f, completed_part_map[rank]))
+                    TruncatedSVD._func_get_idx, f, completed_part_map[rank]))
 
                 completed_part_map[rank] += 1
 
@@ -301,11 +264,15 @@ class PCA(object):
     def _transform(self, X):
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        worker_to_parts = workers_to_parts(gpu_futures)
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            worker_to_parts[w].append(p)
 
         key = uuid1()
         partsToRanks = [(self.rnks[wf[0]], self.client.submit(
-            PCA._func_get_size,
+            TruncatedSVD._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
@@ -315,8 +282,8 @@ class PCA(object):
         M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
-        pca_transform = dict([(self.rnks[wf[0]], self.client.submit(
-            PCA._func_transform,
+        tsvd_transform = dict([(self.rnks[wf[0]], self.client.submit(
+            TruncatedSVD._func_transform,
             wf[1],
             worker_to_parts[wf[0]],
             M, N,
@@ -324,10 +291,10 @@ class PCA(object):
             self.rnks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(self.pca_models)])
+            for idx, wf in enumerate(self.tsvd_models)])
 
-        wait(list(pca_transform.values()))
-        raise_exception_from_futures(list(pca_transform.values()))
+        wait(list(tsvd_transform.values()))
+        raise_exception_from_futures(list(tsvd_transform.values()))
 
         out_futures = []
         completed_part_map = {}
@@ -335,9 +302,9 @@ class PCA(object):
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
 
-            f = pca_transform[rank]
+            f = tsvd_transform[rank]
             out_futures.append(self.client.submit(
-                PCA._func_get_idx, f, completed_part_map[rank]))
+                TruncatedSVD._func_get_idx, f, completed_part_map[rank]))
 
             completed_part_map[rank] += 1
 
@@ -346,11 +313,15 @@ class PCA(object):
     def _inverse_transform(self, X):
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        worker_to_parts = workers_to_parts(gpu_futures)
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            worker_to_parts[w].append(p)
 
         key = uuid1()
         partsToRanks = [(self.rnks[wf[0]], self.client.submit(
-            PCA._func_get_size,
+            TruncatedSVD._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
@@ -360,8 +331,8 @@ class PCA(object):
         M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
 
         key = uuid1()
-        pca_inverse_transform = dict([(self.rnks[wf[0]], self.client.submit(
-            PCA._func_inverse_transform,
+        tsvd_inverse_transform = dict([(self.rnks[wf[0]], self.client.submit(
+            TruncatedSVD._func_inverse_transform,
             wf[1],
             worker_to_parts[wf[0]],
             M, N,
@@ -369,10 +340,10 @@ class PCA(object):
             self.rnks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(self.pca_models)])
+            for idx, wf in enumerate(self.tsvd_models)])
 
-        wait(list(pca_inverse_transform.values()))
-        raise_exception_from_futures(list(pca_inverse_transform.values()))
+        wait(list(tsvd_inverse_transform.values()))
+        raise_exception_from_futures(list(tsvd_inverse_transform.values()))
 
         out_futures = []
         completed_part_map = {}
@@ -380,9 +351,9 @@ class PCA(object):
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
 
-            f = pca_inverse_transform[rank]
+            f = tsvd_inverse_transform[rank]
             out_futures.append(self.client.submit(
-                PCA._func_get_idx, f, completed_part_map[rank]))
+                TruncatedSVD._func_get_idx, f, completed_part_map[rank]))
 
             completed_part_map[rank] += 1
 

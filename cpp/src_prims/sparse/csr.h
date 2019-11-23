@@ -96,11 +96,12 @@ class CSR {
       n_cols(n_cols) {}
 
   void init_arrays(cudaStream_t stream) {
-    CUDA_CHECK(cudaMemsetAsync(this->row_ind_arr.data(), 0, this->n_rows+1 * sizeof(Index_Type),
-                    stream));
+    CUDA_CHECK(cudaMemsetAsync(this->row_ind_arr.data(), 0,
+                               this->n_rows + 1 * sizeof(Index_Type), stream));
     CUDA_CHECK(cudaMemsetAsync(this->row_ind_ptr_arr.data(), 0,
-                    this->nnz * sizeof(Index_Type), stream));
-    CUDA_CHECK(cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
+                               this->nnz * sizeof(Index_Type), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(this->vals_arr.data(), 0, this->nnz * sizeof(T), stream));
   }
 
   /**
@@ -171,7 +172,7 @@ class CSR {
       cudaStream_t stream;
       CUDA_CHECK(cudaStreamCreate(&stream));
 
-      out << arr2Str(c.row_ind_arr.data(), c.n_rows+1, "row_ind", stream)
+      out << arr2Str(c.row_ind_arr.data(), c.n_rows + 1, "row_ind", stream)
           << std::endl;
       out << arr2Str(c.row_ind_ptr_arr.data(), c.nnz, "row_ind_ptr_arr", stream)
           << std::endl;
@@ -242,7 +243,7 @@ class CSR {
     this->n_cols = n_cols;
     this->nnz = nnz;
 
-    this->row_ind_arr.resize(this->n_rows+1, stream);
+    this->row_ind_arr.resize(this->n_rows + 1, stream);
     this->row_ind_ptr_arr.resize(this->nnz, stream);
     this->vals_arr.resize(this->nnz, stream);
 

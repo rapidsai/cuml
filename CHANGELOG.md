@@ -5,6 +5,7 @@
 - PR #1295: Cython side of MNMG PCA
 - PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
+- PR #1282: OPG KNN MNMG
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1194: Initial ARIMA time-series modeling support.
 - PR #1286: Importing treelite models as FIL sparse forests
@@ -15,6 +16,7 @@
 - PR #1307: Add RF regression benchmark
 - PR #1327: Update the code to build treelite with protobuf
 - PR #1289: Add Python benchmarking support for FIL
+- PR #1371: Cython side of MNMG tSVD
 - PR #1386: Expose SVC decision function value
 
 ## Improvements
@@ -48,6 +50,7 @@
 - PR #1362: device_buffer in UMAP + Sparse prims
 - PR #1374: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
+- PR #1382: ARIMA optimization: move functions to C++ side
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
@@ -70,6 +73,7 @@
 - PR #1380: Fix memory leaks in ARIMA
 - PR #1391: Lower expectations on batched matrix tests even more
 - PR #1394: Warning added in svd for cuda version 10.1
+- PR #1401: Patch for lbfgs solver for logistic regression with no l1 penalty
 
 # cuML 0.10.0 (16 Oct 2019)
 
