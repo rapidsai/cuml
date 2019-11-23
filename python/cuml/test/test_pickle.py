@@ -335,6 +335,12 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
                          stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     result = {}
+    """
+    Note: This test digs down a bit far into the
+    internals of the implementation, but it's
+    important that regressions do not occur
+    from changes to the class.
+    """
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
