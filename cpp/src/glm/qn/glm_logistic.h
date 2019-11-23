@@ -32,8 +32,7 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
     : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T log_sigmoid(T x) const {
-    T m = MLCommon::myMax<T>(T(0), x);
-    return -MLCommon::myLog(MLCommon::myExp(-m) + MLCommon::myExp(-x - m)) - m;
+    return -MLCommon::myLog(1 + MLCommon::myExp(-x));
   }
 
   inline __device__ T lz(const T y, const T z) const {
