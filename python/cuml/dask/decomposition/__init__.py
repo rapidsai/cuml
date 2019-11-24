@@ -14,3 +14,4 @@
 #
 
 from cuml.dask.decomposition.pca import PCA
+from cuml.dask.decomposition.tsvd import TruncatedSVD
