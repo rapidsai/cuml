@@ -319,11 +319,12 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
         model = neighbor_models[keys]()
         model.fit(X_train)
         result["neighbors_D"], result["neighbors_I"] = \
-            model.kneighbors(X_test, k=k)
+            model.kneighbors(X_test, n_neighbors=k)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
-        D_after, I_after = pickled_model.kneighbors(X_test, k=data_info[3])
+        D_after, I_after = pickled_model.kneighbors(X_test,
+                                                    n_neighbors=data_info[3])
         assert array_equal(result["neighbors_D"], D_after)
         assert array_equal(result["neighbors_I"], I_after)
 
@@ -353,8 +354,6 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
         state = loaded_model.__dict__
         assert state["n_indices"] == 0
         assert "X_m" not in state
-        assert state["sizes"] is None
-        assert state["input"] is None
 
         loaded_model.fit(X[0])
 
@@ -362,8 +361,6 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 
         assert state["n_indices"] == 1
         assert "X_m" in state
-        assert state["sizes"] is not None
-        assert state["input"] is not None
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
