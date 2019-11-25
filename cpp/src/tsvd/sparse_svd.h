@@ -158,7 +158,7 @@ void SparseSVD_fit(const cumlHandle &handle,
     MLCommon::LinAlg::unaryOp(W, W, n_components,
         [] __device__(math_t x) { return ((x > 0) ? (1.0f / x) : 0); }, stream);
 
-    MLCommon::Matrix::matrixVectorBinaryMult(&VT[0], &W[0], n_components, p, false, true, stream);
+    MLCommon::Matrix::matrixVectorBinaryMult(&VT[0], &W[0], n_components, p, false, false, stream);
   }
 
   if (U != NULL) {
