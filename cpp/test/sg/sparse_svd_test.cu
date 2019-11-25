@@ -88,21 +88,28 @@ class SparseSVDTest : public ::testing::Test {
     MLCommon::updateHost(VT, VT_.data(), k*p, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    printf("U = np.array([[");
+    printf("U_hat = np.array([[");
     for (int j = 0; j < k; j++) {
       for (int i = 0; i < n; i++)
-        printf("%.2f,", U(i, j));
-      printf("],\n[");
+        printf("%.4f,", U(i, j));
+      if (j != k-1)
+        printf("],\n[");
     }
+    printf("]).T\n");
+
+    printf("S_hat = np.array([");
+    for (int j = 0; j < k; j++)
+      printf("%.4f,", S(j));
     printf("])\n");
 
-    printf("VT = np.array([[");
+    printf("VT_hat = np.array([[");
     for (int j = 0; j < k; j++) {
       for (int i = 0; i < n; i++)
-        printf("%.2f,", VT(i, j));
-      printf("],\n[");
+        printf("%.4f,", VT(i, j));
+      if (j != k-1)
+        printf("],\n[");
     }
-    printf("])\n");
+    printf("]).T\n");
 
     // Confirm singular values
     // Should be around {2193, 566, 542, 504, 425}
@@ -162,7 +169,7 @@ class SparseSVDTest : public ::testing::Test {
 typedef SparseSVDTest SparseSVDTestF;
 TEST_F(SparseSVDTestF, Result)
 {
-  fprintf(stdout, "Percentage of good singular values = %.2f", (float)n_correct/(float)k);
+  fprintf(stdout, "Percentage of good singular values = %.2f\n", (float)n_correct/(float)k);
   ASSERT(n_correct == k, "Singular values are off!");
 }
 
