@@ -316,19 +316,19 @@ struct FusedL2NN {
       val[i].value = maxVal;
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        auto tmpk = acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
-        if (tmpk < n && acc[i][j] < val[i].value) {
-          val[i].key = tmpk;
+        auto tmpkey = acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
+        if (tmpkey < n && acc[i][j] < val[i].value) {
+          val[i].key = tmpkey;
           val[i].value = acc[i][j];
         }
       }
 #pragma unroll
       for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
-        auto tmpk = shfl(val[i].key, lid + j);
-        auto tmpv = shfl(val[i].value, lid + j);
-        if (tmpv < val[i].value) {
-          val[i].key = tmpk;
-          val[i].value = tmpv;
+        auto tmpkey = shfl(val[i].key, lid + j);
+        auto tmpvalue = shfl(val[i].value, lid + j);
+        if (tmpvalue < val[i].value) {
+          val[i].key = tmpkey;
+          val[i].value = tmpvalue;
         }
       }
     }
@@ -340,8 +340,8 @@ struct FusedL2NN {
         if (rid < m) {
           while (atomicCAS(mutex + rid, 0, 1) == 1)
             ;
-          auto tmpv = minDist[rid];
-          if (val[i].value < tmpv) {
+          auto tmpvalue = minDist[rid];
+          if (val[i].value < tmpvalue) {
             min[rid] = val[i].key;
             minDist[rid] = val[i].value;
           }
