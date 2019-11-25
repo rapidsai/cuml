@@ -48,13 +48,13 @@ template void svcPredict<float>(const cumlHandle &handle, float *input,
                                 int n_rows, int n_cols,
                                 MLCommon::Matrix::KernelParams &kernel_params,
                                 const svmModel<float> &model, float *preds,
-                                float buffer_size);
+                                float buffer_size, bool predict_class);
 
 template void svcPredict<double>(const cumlHandle &handle, double *input,
                                  int n_rows, int n_cols,
                                  MLCommon::Matrix::KernelParams &kernel_params,
                                  const svmModel<double> &model, double *preds,
-                                 double buffer_size);
+                                 double buffer_size, bool predict_class);
 
 template void svmFreeBuffers(const cumlHandle &handle, svmModel<float> &m);
 
@@ -91,7 +91,15 @@ void SVC<math_t>::predict(math_t *input, int n_rows, int n_cols,
                           math_t *preds) {
   math_t buffer_size = param.cache_size;
   svcPredict(handle, input, n_rows, n_cols, kernel_params, model, preds,
-             buffer_size);
+             buffer_size, true);
+}
+
+template <typename math_t>
+void SVC<math_t>::decisionFunction(math_t *input, int n_rows, int n_cols,
+                                   math_t *preds) {
+  math_t buffer_size = param.cache_size;
+  svcPredict(handle, input, n_rows, n_cols, kernel_params, model, preds,
+             buffer_size, false);
 }
 
 // Instantiate templates for the shared library
