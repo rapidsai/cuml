@@ -21,8 +21,8 @@ import pytest
 from cuml.test.utils import array_equal, unit_param, stress_param
 from cuml.test.test_svm import compare_svm
 
-from sklearn.datasets import load_iris
-from sklearn.datasets import make_classification, make_regression
+from sklearn.datasets import load_iris, make_classification,\
+    make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
 
@@ -39,7 +39,6 @@ solver_models = {
     "SGD": lambda: cuml.SGD(eta0=0.005)
 }
 
-
 cluster_models = {
     "KMeans": lambda: cuml.KMeans()
 }
@@ -48,7 +47,6 @@ decomposition_models = {
     "PCA": lambda: cuml.PCA(),
     "TruncatedSVD": lambda: cuml.TruncatedSVD(),
 }
-
 
 decomposition_models_xfail = {
     "GaussianRandomProjection": lambda: cuml.GaussianRandomProjection(),
