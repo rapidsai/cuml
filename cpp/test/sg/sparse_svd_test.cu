@@ -88,29 +88,6 @@ class SparseSVDTest : public ::testing::Test {
     MLCommon::updateHost(VT, VT_.data(), k*p, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    printf("U_hat = np.array([[");
-    for (int j = 0; j < k; j++) {
-      for (int i = 0; i < n; i++)
-        printf("%.4f,", U(i, j));
-      if (j != k-1)
-        printf("],\n[");
-    }
-    printf("]).T\n");
-
-    printf("S_hat = np.array([");
-    for (int j = 0; j < k; j++)
-      printf("%.4f,", S(j));
-    printf("])\n");
-
-    printf("VT_hat = np.array([[");
-    for (int j = 0; j < k; j++) {
-      for (int i = 0; i < n; i++)
-        printf("%.4f,", VT(i, j));
-      if (j != k-1)
-        printf("],\n[");
-    }
-    printf("]).T\n");
-
     // Confirm singular values
     // Should be around {2193, 566, 542, 504, 425}
     n_correct = 0;
@@ -133,13 +110,12 @@ class SparseSVDTest : public ::testing::Test {
 
     // Now check error
     // sum(square(X - X_hat))
+    // Should be less than 100!
     device_buffer<float> sse_(d_alloc, stream, 1);
     MLCommon::LinAlg::meanSquaredError(sse_.data(), X_.data(), X_hat_.data(), n*p, 1.0f, stream);
     float sse;
     MLCommon::updateHost(&sse, sse_.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    fprintf(stdout, "Sum of squared errors = %.3f\n", sse);
 
     free(U);
     free(S);
@@ -171,6 +147,9 @@ TEST_F(SparseSVDTestF, Result)
 {
   fprintf(stdout, "Percentage of good singular values = %.2f\n", (float)n_correct/(float)k);
   ASSERT(n_correct == k, "Singular values are off!");
+
+  fprintf(stdout, "Sum of squared errors = %.3f [Should be <= 100]\n", sse);
+  ASSERT(sse <= 100, "Sum of Squared Errors are way too high!\n");
 }
 
 #undef printf
