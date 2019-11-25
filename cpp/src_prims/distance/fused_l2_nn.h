@@ -18,6 +18,7 @@
 
 #include <cuda_utils.h>
 #include <stdint.h>
+#include <cub/cub.cuh>
 #include <limits>
 
 namespace MLCommon {
@@ -97,10 +98,7 @@ DI void ldg(double (&x)[2], double* addr) {
 }
 
 template <typename K, typename V>
-struct KVP {
-  K k;
-  V v;
-};
+struct KVP : public cub::KeyValuePair<K, V> {};
 
 /**
  * @brief This is the central enum that should be used to configure the perf
@@ -174,6 +172,19 @@ struct KernelPolicy {
     SmemSize = 2 * SmemPage * sizeof(DataT),
   };  // enum
 };    // struct KernelPolicy
+
+template <typename DataT, int _veclen>
+struct Policy4x4 {};
+
+template <int _veclen>
+struct Policy4x4<float, _veclen> {
+  typedef KernelPolicy<float, _veclen, 32, 4, 4, 16, 16> Policy;
+};
+
+template <int _veclen>
+struct Policy4x4<double, _veclen> {
+  typedef KernelPolicy<double, _veclen, 16, 4, 4, 16, 16> Policy;
+};
 
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
           typename Policy>
@@ -301,23 +312,23 @@ struct FusedL2NN {
     auto lid = threadIdx.x % WarpSize;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      val[i].k = -1;
-      val[i].v = maxVal;
+      val[i].key = -1;
+      val[i].value = maxVal;
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto tmpk = acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
-        if (tmpk < n && acc[i][j] < val[i].v) {
-          val[i].k = tmpk;
-          val[i].v = acc[i][j];
+        if (tmpk < n && acc[i][j] < val[i].value) {
+          val[i].key = tmpk;
+          val[i].value = acc[i][j];
         }
       }
 #pragma unroll
       for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
-        auto tmpk = shfl(val[i].k, lid + j);
-        auto tmpv = shfl(val[i].v, lid + j);
-        if (tmpv < val[i].v) {
-          val[i].k = tmpk;
-          val[i].v = tmpv;
+        auto tmpk = shfl(val[i].key, lid + j);
+        auto tmpv = shfl(val[i].value, lid + j);
+        if (tmpv < val[i].value) {
+          val[i].key = tmpk;
+          val[i].value = tmpv;
         }
       }
     }
@@ -330,9 +341,9 @@ struct FusedL2NN {
           while (atomicCAS(mutex + rid, 0, 1) == 1)
             ;
           auto tmpv = minDist[rid];
-          if (val[i].v < tmpv) {
-            min[rid] = val[i].k;
-            minDist[rid] = val[i].v;
+          if (val[i].value < tmpv) {
+            min[rid] = val[i].key;
+            minDist[rid] = val[i].value;
           }
           __threadfence();
           atomicCAS(mutex + rid, 1, 0);
@@ -449,39 +460,20 @@ __global__ void initKernel(OutT* min, DataT* minDist, IdxT m, DataT maxVal) {
   }
 }
 
-template <typename OutT, typename IdxT, bool Sqrt, int VecLen>
-void fusedL2NNImpl(OutT* min, float* minDist, float* x, float* y, float* xn,
-                   float* yn, IdxT m, IdxT n, IdxT k, int* workspace,
+template <typename DataT, typename OutT, typename IdxT, bool Sqrt, int VecLen>
+void fusedL2NNImpl(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
+                   DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
                    cudaStream_t stream) {
-  typedef KernelPolicy<float, VecLen, 32, 4, 4, 16, 16> Policy;
+  typedef typename Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   auto nblks = ceildiv<int>(m, Policy::Nthreads);
-  auto maxVal = std::numeric_limits<float>::max();
+  auto maxVal = std::numeric_limits<DataT>::max();
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  initKernel<float, IdxT>
+  initKernel<DataT, IdxT>
     <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
   CUDA_CHECK(cudaGetLastError());
-  fusedL2NNkernel<float, OutT, IdxT, Sqrt, Policy>
-    <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
-                                              k, maxVal, workspace);
-  CUDA_CHECK(cudaGetLastError());
-}
-
-template <typename OutT, typename IdxT, bool Sqrt, int VecLen>
-void fusedL2NNImpl(OutT* min, double* minDist, double* x, double* y, double* xn,
-                   double* yn, IdxT m, IdxT n, IdxT k, int* workspace,
-                   cudaStream_t stream) {
-  typedef KernelPolicy<double, VecLen, 16, 4, 4, 16, 16> Policy;
-  dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
-  dim3 blk(Policy::Nthreads);
-  auto nblks = ceildiv<int>(m, Policy::Nthreads);
-  auto maxVal = std::numeric_limits<double>::max();
-  CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  initKernel<double, IdxT>
-    <<<nblks, Policy::Nthreads, 0, stream>>>(min, minDist, m, maxVal);
-  CUDA_CHECK(cudaGetLastError());
-  fusedL2NNkernel<double, OutT, IdxT, Sqrt, Policy>
+  fusedL2NNkernel<DataT, OutT, IdxT, Sqrt, Policy>
     <<<grid, blk, Policy::SmemSize, stream>>>(min, minDist, x, y, xn, yn, m, n,
                                               k, maxVal, workspace);
   CUDA_CHECK(cudaGetLastError());
@@ -517,14 +509,14 @@ void fusedL2NN(OutT* min, DataT* minDist, DataT* x, DataT* y, DataT* xn,
                cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    fusedL2NNImpl<OutT, IdxT, Sqrt, 16 / sizeof(DataT)>(
+    fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 16 / sizeof(DataT)>(
       min, minDist, x, y, xn, yn, m, n, k, (int*)workspace, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    fusedL2NNImpl<OutT, IdxT, Sqrt, 8 / sizeof(DataT)>(
+    fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 8 / sizeof(DataT)>(
       min, minDist, x, y, xn, yn, m, n, k, (int*)workspace, stream);
   } else {
-    fusedL2NNImpl<OutT, IdxT, Sqrt, 1>(min, minDist, x, y, xn, yn, m, n, k,
-                                       (int*)workspace, stream);
+    fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 1>(min, minDist, x, y, xn, yn, m, n,
+                                              k, (int*)workspace, stream);
   }
 }
 
