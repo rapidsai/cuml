@@ -88,20 +88,21 @@ class SparseSVDTest : public ::testing::Test {
     MLCommon::updateHost(VT, VT_.data(), k*p, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    printf("VT = \n");
+    printf("U = np.array([[");
     for (int j = 0; j < k; j++) {
-      for (int i = 0; i < 5; i++)
-        printf("%.2f, ", VT(i, j));
-      printf("\n");
+      for (int i = 0; i < n; i++)
+        printf("%.2f,", U(i, j));
+      printf("],\n[\n");
     }
+    printf("])\n")
 
-    printf("U = \n");
+    printf("VT = np.array([[");
     for (int j = 0; j < k; j++) {
-      for (int i = 0; i < 5; i++)
-        printf("%.2f, ", U(i, j));
-      printf("\n");
+      for (int i = 0; i < n; i++)
+        printf("%.2f,", VT(i, j));
+      printf("],\n[\n");
     }
-
+    printf("])\n")
 
     // Confirm singular values
     // Should be around {2193, 566, 542, 504, 425}
