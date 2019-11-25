@@ -347,7 +347,7 @@ def test_rf_regression_float64(datatype, column_info, nrows):
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
         sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype[0])
-        assert cu_r2 >= (sk_r2 - 0.08)
+        assert cu_r2 >= (sk_r2 - 0.09)
 
     # predict using cuML's GPU based prediction
     if datatype[0] == np.float32:
