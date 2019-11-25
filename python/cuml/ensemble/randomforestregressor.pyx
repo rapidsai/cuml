@@ -471,10 +471,8 @@ class RandomForestRegressor(Base):
             input_to_dev_array(X, order='F')
 
         if self.dtype == np.float64:
-            warnings.warn("Model is being trained with float64 data, which \
-                          means only CPU based predict can be used. \
-                          To use GPU based predict train use float32 training \
-                          data to fit the estimator.")
+            warnings.warn("To use GPU-based prediction, first train using \
+                          float 32 data to fit the estimator.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -645,7 +643,7 @@ class RandomForestRegressor(Base):
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif self.dtype == np.float64 and convert_dtype is False:
+        elif self.dtype == np.float64 and not convert_dtype:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             In order use the GPU predict the model should \
                             also be trained using a np.float32 dataset. \
