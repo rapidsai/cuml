@@ -151,7 +151,7 @@ void SparseSVD_fit(const cumlHandle &handle,
 
   if (VT != NULL) {
     // VT = V.T @ Z.T
-    MLCommon::LinAlg::gemm(&V[0], K, n_components, &Z[0], &VT[0], n_components, p,
+    MLCommon::LinAlg::gemm(&V[0], K, K, &Z[0], &VT[0], n_components, p,
                            CUBLAS_OP_T, CUBLAS_OP_T, blas_h, stream);
 
     // VT /= S.reshape(-1,1) row-wise
