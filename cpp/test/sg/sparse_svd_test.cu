@@ -94,7 +94,7 @@ class SparseSVDTest : public ::testing::Test {
         printf("%.2f,", U(i, j));
       printf("],\n[\n");
     }
-    printf("])\n")
+    printf("])\n");
 
     printf("VT = np.array([[");
     for (int j = 0; j < k; j++) {
@@ -102,7 +102,7 @@ class SparseSVDTest : public ::testing::Test {
         printf("%.2f,", VT(i, j));
       printf("],\n[\n");
     }
-    printf("])\n")
+    printf("])\n");
 
     // Confirm singular values
     // Should be around {2193, 566, 542, 504, 425}
