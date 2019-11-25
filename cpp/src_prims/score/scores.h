@@ -81,18 +81,17 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
                       std::shared_ptr<deviceAllocator> d_alloc,
                       cudaStream_t stream) {
   long *d_pred_I =
-    (long *)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
+    (int64_t *)d_alloc->allocate(n * n_neighbors * sizeof(int64_t), stream);
   math_t *d_pred_D =
     (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
 
-  float **ptrs = new float *[1];
+  std::vector<float *> ptrs(1);
+  std::vector<int> sizes(1);
   ptrs[0] = input;
-
-  int *sizes = new int[1];
   sizes[0] = n;
 
-  MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, d, input, n, d_pred_I,
-                                       d_pred_D, n_neighbors, stream);
+  MLCommon::Selection::brute_force_knn(ptrs, sizes, d, input, n, d_pred_I,
+                                       d_pred_D, n_neighbors, d_alloc, stream);
 
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
   return d_pred_I;
@@ -127,7 +126,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
 
-  long *ind_X_embedded =
+  int64_t *ind_X_embedded =
     get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
 
   double t_tmp = 0.0;
@@ -172,7 +171,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     1.0 -
     ((2.0 / ((n * n_neighbors) * ((2.0 * n) - (3.0 * n_neighbors) - 1.0))) * t);
 
-  d_alloc->deallocate(ind_X_embedded, n * (n_neighbors + 1) * sizeof(long),
+  d_alloc->deallocate(ind_X_embedded, n * (n_neighbors + 1) * sizeof(int64_t),
                       stream);
   d_alloc->deallocate(d_pdist_tmp, TMP_SIZE * sizeof(math_t), stream);
   d_alloc->deallocate(d_ind_X_tmp, TMP_SIZE * sizeof(int), stream);

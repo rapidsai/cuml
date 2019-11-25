@@ -37,6 +37,7 @@ template <typename DataT>
 void naiveKronecker(DataT *K, const DataT *A, const DataT *B, int m, int n,
                     int p, int q) {
   int k_m = m * p;
+#pragma omp parallel for collapse(2)
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       DataT a_ij = A[i + m * j];
@@ -66,6 +67,7 @@ void naiveKronecker(DataT *K, const DataT *A, const DataT *B, int m, int n,
 template <typename DataT>
 void naiveMatMul(DataT *out, const DataT *A, const DataT *B, int m, int k,
                  int n) {
+#pragma omp parallel for collapse(2)
   for (int j = 0; j < n; j++) {
     for (int i = 0; i < m; i++) {
       DataT s = 0.0;
@@ -90,8 +92,71 @@ void naiveMatMul(DataT *out, const DataT *A, const DataT *B, int m, int k,
 template <typename DataT>
 void naiveAdd(DataT *out, const DataT *u, const DataT *v, int len,
               DataT alpha = 1.0) {
+#pragma omp parallel for
   for (int i = 0; i < len; i++) {
     out[i] = u[i] + alpha * v[i];
+  }
+}
+
+/**
+ * @brief CPU lagged matrix
+ * 
+ * @tparam      DataT  Type of the data
+ * @param[out]  out    Pointer to the result
+ * @param[in]   in     Pointer to the input vector
+ * @param[in]   len    Length or the vector
+ * @param[in]   lags   Number of lags
+ */
+template <typename DataT>
+void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
+  int lagged_len = len - lags;
+#pragma omp parallel for
+  for (int lag = 1; lag <= lags; lag++) {
+    DataT *out_ = out + (lag - 1) * lagged_len;
+    const DataT *in_ = in + lags - lag;
+    for (int i = 0; i < lagged_len; i++) {
+      out_[i] = in_[i];
+    }
+  }
+}
+
+/**
+ * @brief CPU matrix 2D copy
+ * 
+ * @tparam      DataT        Type of the data
+ * @param[out]  out          Pointer to the result
+ * @param[in]   in           Pointer to the input matrix
+ * @param[in]   starting_row Starting row
+ * @param[in]   starting_col Starting column
+ * @param[in]   in_rows      Number of rows in the input matrix
+ * @param[in]   out_rows     Number of rows in the output matrix
+ * @param[in]   out_cols     Number of columns in the input matrix
+ */
+template <typename DataT>
+void naive2DCopy(DataT *out, const DataT *in, int starting_row,
+                 int starting_col, int in_rows, int out_rows, int out_cols) {
+#pragma omp parallel for collapse(2)
+  for (int i = 0; i < out_rows; i++) {
+    for (int j = 0; j < out_cols; j++) {
+      out[i + j * out_rows] =
+        in[starting_row + i + (starting_col + j) * in_rows];
+    }
+  }
+}
+
+/**
+ * @brief CPU first difference of a vector
+ * 
+ * @tparam      DataT        Type of the data
+ * @param[out]  out          Pointer to the result
+ * @param[in]   in           Pointer to the input vector
+ * @param[in]   len          Length of the input vector
+ */
+template <typename DataT>
+void naiveDiff(DataT *out, const DataT *in, int len) {
+#pragma omp parallel for
+  for (int i = 0; i < len - 1; i++) {
+    out[i] = in[i + 1] - in[i];
   }
 }
 
