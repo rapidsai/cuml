@@ -26,35 +26,40 @@ namespace ML {
  * An ARIMA specialized batched kalman filter to evaluate ARMA parameters and
  * provide the resulting prediction as well as loglikelihood fit.
  *
- * @param[in]  handle                       cuml handle
- * @param[in]  d_ys_b                       The (batched) time series with shape (nobs, num_batches)
-                                            in column major layout. Memory on device.
- * @param[in]  nobs                         The number of samples per time series
- * @param[in]  d_b_ar_params                The AR parameters, in groups of size `p`
- *                                          with total length `p * num_batches` (device)
- * @param[in]  d_b_ma_params                The mA parameters, in groups of size `q`
- *                                          with total length `q * num_batches` (device)
- * @param[in]  p                            The number of AR parameters
- * @param[in]  q                            The number of MA parameters
- * @param[in]  num_batches                  The number of series making up the batch
- * @param[out] loglike_b                    The resulting loglikelihood (for each series)
- * @param[out] d_vs                         The residual between the prediction and the original series.
- *                                          shape=(nobs, num_batches), Memory on device.
- * @param[in]  initP_with_kalman_iterations Initialize the Kalman filter covariance `P`
- *                                          with 1 or more kalman iterations instead of
- *                                          an analytical heuristic.
+ * @param[in]  handle               cuml handle
+ * @param[in]  d_ys_b               The (batched) time series with shape
+ *                                  (nobs, num_batches)  in column major layout.
+ *                                  Memory on device.
+ * @param[in]  nobs                 The number of samples per time series
+ * @param[in]  d_b_ar_params        The AR parameters, in groups of size `p`
+ *                                  with total length `p * num_batches` (device)
+ * @param[in]  d_b_ma_params        The mA parameters, in groups of size `q`
+ *                                  with total length `q * num_batches` (device)
+ * @param[in]  p                    The number of AR parameters
+ * @param[in]  q                    The number of MA parameters
+ * @param[in]  num_batches          The number of series making up the batch
+ * @param[out] loglike_b            The resulting loglikelihood (for each series)
+ * @param[out] d_vs                 The residual between the prediction and the
+ *                                  original series.
+ *                                  shape=(nobs, num_batches), memory on device.
+ * @param[in]  host_loglike         Whether loglike is a host pointer
+ * @param[in]  initP_with_kalman_it Initialize the Kalman filter covariance `P`
+ *                                  with 1 or more kalman iterations instead of
+ *                                  an analytical heuristic.
  */
 void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
                            const double* d_b_ar_params,
                            const double* d_b_ma_params, int p, int q,
-                           int num_batches, std::vector<double>& loglike_b,
-                           double* d_vs,
+                           int num_batches, double* loglike, double* d_vs,
+                           bool host_loglike = true,
                            bool initP_with_kalman_iterations = false);
 
 /**
- * Turns linear array of parameters into arrays of mu, ar, and ma parameters. (using device arrays)
+ * Turns linear array of parameters into arrays of mu, ar, and ma parameters.
+ * (using device arrays)
  * 
- * @param[in]  d_params  Linear array of all parameters grouped by batch [mu, ar, ma] (device)
+ * @param[in]  d_params  Linear array of all parameters grouped by batch
+ *                       [mu, ar, ma] (device)
  * @param[out] d_mu      Trend parameter (device)
  * @param[out] d_ar      AR parameters (device)
  * @param[out] d_ma      MA parameters (device)
@@ -87,7 +92,8 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int batchSize,
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure
- * certain properties of the AR and MA parameters. (takes host array and returns host array)
+ * certain properties of the AR and MA parameters. (takes host array and
+ * returns host array)
  *
  * @param[in]  handle    cuml handle
  * @param[in]  p         Number of AR parameters

@@ -52,14 +52,17 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
             svmModel<math_t> &model);
 
 /**
- * @brief Predict classes for samples in input.
+ * @brief Predict classes or decision function value for samples in input.
  *
- * The predictions are calculated according to the following formula:
- * pred(x_i) = sign(f(x_i)) where
+ * We evaluate the decision function f(x_i). Depending on the parameter
+ * predict_class, we either return f(x_i) or the label corresponding to
+ * sign(f(x_i)).
+ *
+ * The predictions are calculated according to the following formulas:
  * f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
  *
- * We evaluate f(x_i), and then instead of taking the sign to return +/-1 labels,
- * we map it to the original labels, and return those.
+ * pred(x_i) = label[sign(f(x_i))], if predict_class==true, or
+ * pred(x_i) = f(x_i),       if predict_class==falsee.
  *
  * @tparam math_t floating point type
  * @param handle the cuML handle
@@ -72,12 +75,14 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [out] preds device pointer to store the predicted class labels.
  *    Size [n_rows]. Should be allocated on entry.
  * @param [in] buffer_size size of temporary buffer in MiB
+ * @param [in] predict_class whether to predict class label (true), or just
+ *     return the decision function value (false)
  */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::Matrix::KernelParams &kernel_params,
                 const svmModel<math_t> &model, math_t *preds,
-                math_t buffer_size);
+                math_t buffer_size, bool predict_class = true);
 
 /**
  * Deallocate device buffers in the svmModel struct.
@@ -156,6 +161,17 @@ class SVC {
    *    Size [n_rows]. Should be allocated on entry.
    */
   void predict(math_t *input, int n_rows, int n_cols, math_t *preds);
+
+  /**
+   * @brief Calculate decision function value for samples in input.
+   * @param [in] input device pointer for the input data in column major format,
+   *   size [n_rows x n_cols].
+   * @param [in] n_rows, number of vectors
+   * @param [in] n_cols number of featurs
+   * @param [out] preds device pointer to store the decision function value
+   *    Size [n_rows]. Should be allocated on entry.
+   */
+  void decisionFunction(math_t *input, int n_rows, int n_cols, math_t *preds);
 
  private:
   const cumlHandle &handle;
