@@ -122,7 +122,6 @@ DI void mseGain(const DataT* spred, const DataT* spred2, const IdxT* scount,
                 const DataT* sbins, DataT parentGain, Split<DataT, IdxT>& sp,
                 IdxT col, IdxT len, IdxT nbins) {
   constexpr DataT One = DataT(1.0);
-  DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     IdxT nLeft = scount[i];
     auto invLeft = One / nLeft;

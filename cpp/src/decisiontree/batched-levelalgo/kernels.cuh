@@ -408,9 +408,10 @@ __global__ void computeSplitRegressionKernel(
                                 gridDim.x, blockIdx.x == 0, smem);
   }
   if (!last) return;
+  auto invlen = DataT(1.0) / range_len;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    spred[i] = pred[gOffset + i];
-    spred2[i] = pred2[gOffset + i];
+    spred[i] = pred[gOffset + i] * invlen;
+    spred2[i] = pred2[gOffset + i] * invlen;
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     scount[i] = count[gcOffset + i];

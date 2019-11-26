@@ -298,18 +298,24 @@ struct Builder {
     // compute the best split at the end
     auto n_col_blks = params.n_blks_for_cols;
     dim3 grid(params.n_blks_for_rows, n_col_blks, batchSize);
-    if (isRegression()) {
-    } else {
-      for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-        CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
+    for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
+      CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
+      if (isRegression()) {
+        computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT,
+                                     SplitType>
+          <<<grid, TPB_DEFAULT, smemSize, s>>>(
+            pred, pred2, pred_count, params.n_bins, params.max_depth,
+            params.min_rows_per_node, params.max_leaves, input, curr_nodes, c,
+            done_count, mutex, n_leaves, splits);
+      } else {
         computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT,
                                          SplitType>
           <<<grid, TPB_DEFAULT, smemSize, s>>>(
             hist, params.n_bins, params.max_depth, params.min_rows_per_node,
             params.max_leaves, input, curr_nodes, c, done_count, mutex,
             n_leaves, splits);
-        CUDA_CHECK(cudaGetLastError());
       }
+      CUDA_CHECK(cudaGetLastError());
     }
     // create child nodes (or make the current ones leaf)
     smemSize = std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * nclasses);
