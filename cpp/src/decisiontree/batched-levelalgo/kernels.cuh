@@ -237,13 +237,12 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
-                                IdxT max_leaves, DataT min_impurity_decrease,
-                                Input<DataT, LabelT, IdxT> input,
-                                volatile Node<DataT, LabelT, IdxT>* curr_nodes,
-                                volatile Node<DataT, LabelT, IdxT>* next_nodes,
-                                IdxT* n_nodes, const Split<DataT, IdxT>* splits,
-                                IdxT* n_leaves, IdxT total_nodes) {
+__global__ void nodeSplitClassificationKernel(
+  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
+  DataT min_impurity_decrease, Input<DataT, LabelT, IdxT> input,
+  volatile Node<DataT, LabelT, IdxT>* curr_nodes,
+  volatile Node<DataT, LabelT, IdxT>* next_nodes, IdxT* n_nodes,
+  const Split<DataT, IdxT>* splits, IdxT* n_leaves, IdxT total_nodes) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
@@ -251,29 +250,43 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
-    if (std::is_same<DataT, LabelT>::value) {
-      computePredRegression<DataT, LabelT, IdxT, TPB>(
-        range_start, range_len, input, node, n_leaves, smem);
-    } else {
-      computePredClassification<DataT, LabelT, IdxT, TPB>(
-        range_start, range_len, input, node, n_leaves, smem);
-    }
+    computePredClassification<DataT, LabelT, IdxT, TPB>(
+      range_start, range_len, input, node, n_leaves, smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(
     input, splits, curr_nodes, next_nodes, n_nodes, total_nodes, (char*)smem);
 }
 
-///@todo: support regression
-template <typename DataT, typename LabelT, typename IdxT, int TPB,
-          CRITERION SplitType>
-__global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
-                                   IdxT min_rows_per_node, IdxT max_leaves,
-                                   Input<DataT, LabelT, IdxT> input,
-                                   const Node<DataT, LabelT, IdxT>* nodes,
-                                   IdxT colStart, int* done_count, int* mutex,
-                                   const IdxT* n_leaves,
-                                   Split<DataT, IdxT>* splits) {
+template <typename DataT, typename IdxT, int TPB>
+__global__ void nodeSplitRegressionKernel(
+  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
+  DataT min_impurity_decrease, Input<DataT, DataT, IdxT> input,
+  volatile Node<DataT, DataT, IdxT>* curr_nodes,
+  volatile Node<DataT, DataT, IdxT>* next_nodes, IdxT* n_nodes,
+  const Split<DataT, IdxT>* splits, IdxT* n_leaves, IdxT total_nodes) {
+  extern __shared__ char smem[];
+  IdxT nid = blockIdx.x;
+  volatile auto* node = curr_nodes + nid;
+  auto range_start = node->start, range_len = node->end;
+  auto isLeaf = leafBasedOnParams<DataT, IdxT>(
+    node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
+  if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
+    computePredRegression<DataT, DataT, IdxT, TPB>(range_start, range_len,
+                                                   input, node, n_leaves, smem);
+    return;
+  }
+  partitionSamples<DataT, DataT, IdxT, TPB>(
+    input, splits, curr_nodes, next_nodes, n_nodes, total_nodes, (char*)smem);
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+__global__ void computeSplitClassificationKernel(
+  int* hist, IdxT nbins, IdxT max_depth, IdxT min_rows_per_node,
+  IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
+  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
+  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
+  CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -329,12 +342,104 @@ __global__ void computeSplitKernel(int* hist, IdxT nbins, IdxT max_depth,
   __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
-  if (SplitType == CRITERION::GINI) {
+  if (splitType == CRITERION::GINI) {
     giniGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len, nbins,
                           nclasses);
   } else {
     entropyGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
                              nbins, nclasses);
+  }
+  sp.evalBestSplit(smem, splits + nid, mutex + nid);
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+__global__ void computeSplitRegressionKernel(
+  DataT* pred, DataT* pred2, IdxT* count, IdxT nbins, IdxT max_depth,
+  IdxT min_rows_per_node, IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
+  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
+  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
+  CRITERION splitType) {
+  extern __shared__ char smem[];
+  IdxT nid = blockIdx.z;
+  auto node = nodes[nid];
+  auto range_start = node.start;
+  auto range_len = node.end;
+  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_rows_per_node,
+                                     max_leaves, n_leaves, range_len)) {
+    return;
+  }
+  auto parentGain = node.parentGain;
+  auto end = range_start + range_len;
+  auto len = nbins * 2;
+  auto* spred = reinterpret_cast<DataT*>(smem);
+  auto* spred2 = spred + len;
+  auto* scount = reinterpret_cast<int*>(spred2 + len);
+  auto* sbins = reinterpret_cast<DataT*>(scount + nbins);
+  IdxT stride = blockDim.x * gridDim.x;
+  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
+  auto col = input.colids[colStart + blockIdx.y];
+  if (col >= input.nSampledCols) return;
+  for (IdxT i = 0; i < len; i += blockDim.x) {
+    spred[i] = spred2[i] = DataT(0.0);
+  }
+  for (IdxT i = 0; i < nbins; i += blockDim.x) {
+    scount[i] = 0;
+  }
+  for (IdxT b = 0; b < nbins; b += blockDim.x) {
+    sbins[b] = input.quantiles[col * nbins + b];
+  }
+  __syncthreads();
+  auto coloffset = col * input.M;
+  // compute prediction averages for all bins in shared mem
+  for (auto i = range_start + tid; i < end; i += stride) {
+    auto row = input.rowids[i];
+    auto d = input.data[row + coloffset];
+    auto label = input.labels[row];
+    for (IdxT b = 0; b < nbins; ++b) {
+      auto isRight = d > sbins[b];  // no divergence
+      auto offset = isRight * nbins + b;
+      atomicAdd(spred + offset, label);
+      atomicAdd(spred2 + offset, label * label);
+      if (!isRight) {
+        atomicAdd(scount + b, 1);
+      }
+    }
+  }
+  __syncthreads();
+  // update the corresponding global location
+  auto gOffset = ((nid * gridDim.y) + blockIdx.y) * len;
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+    atomicAdd(pred + gOffset + i, spred[i]);
+    atomicAdd(pred2 + gOffset + i, spred2[i]);
+  }
+  auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    atomicAdd(count + gcOffset + i, scount[i]);
+  }
+  __syncthreads();
+  // last threadblock will go ahead and compute the best split
+  bool last = true;
+  if (gridDim.x > 1) {
+    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
+                                gridDim.x, blockIdx.x == 0, smem);
+  }
+  if (!last) return;
+  auto invlen = DataT(1.0) / range_len;
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+    spred[i] = pred[gOffset + i] * invlen;
+    spred2[i] = pred2[gOffset + i] * invlen;
+  }
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    scount[i] = count[gcOffset + i];
+  }
+  __syncthreads();
+  Split<DataT, IdxT> sp;
+  sp.init();
+  if (splitType == CRITERION::MSE) {
+    mseGain(spred, spred2, scount, sbins, parentGain, sp, col, range_len,
+            nbins);
+  } else {
+    ///@todo: support
   }
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }

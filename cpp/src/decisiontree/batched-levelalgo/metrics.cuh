@@ -121,16 +121,14 @@ template <typename DataT, typename IdxT>
 DI void mseGain(const DataT* spred, const DataT* spred2, const IdxT* scount,
                 const DataT* sbins, DataT parentGain, Split<DataT, IdxT>& sp,
                 IdxT col, IdxT len, IdxT nbins) {
-  constexpr DataT One = DataT(1.0);
-  DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     IdxT nLeft = scount[i];
-    auto invLeft = One / nLeft;
-    auto invRight = One / (len - nLeft);
+    auto invLeft = (DataT)len / nLeft;
+    auto invRight = (DataT)len / (len - nLeft);
     DataT sum = spred2[i] + spred2[nbins + i];
-    sum -= spred[i] * spred[i] * len * invLeft;
-    sum -= spred[nbins + i] * spred[nbins + i] * len * invRight;
-    auto gain = parentGain + sum;
+    sum -= spred[i] * spred[i] * invLeft;
+    sum -= spred[nbins + i] * spred[nbins + i] * invRight;
+    auto gain = parentGain - sum;
     sp.update({sbins[i], col, gain, nLeft});
   }
 }
