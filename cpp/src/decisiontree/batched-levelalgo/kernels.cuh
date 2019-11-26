@@ -280,13 +280,13 @@ __global__ void nodeSplitRegressionKernel(
     input, splits, curr_nodes, next_nodes, n_nodes, total_nodes, (char*)smem);
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB,
-          CRITERION SplitType>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_rows_per_node,
   IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
   const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits) {
+  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
+  CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -342,7 +342,7 @@ __global__ void computeSplitClassificationKernel(
   __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
-  if (SplitType == CRITERION::GINI) {
+  if (splitType == CRITERION::GINI) {
     giniGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len, nbins,
                           nclasses);
   } else {
@@ -352,13 +352,13 @@ __global__ void computeSplitClassificationKernel(
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB,
-          CRITERION SplitType>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
   DataT* pred, DataT* pred2, IdxT* count, IdxT nbins, IdxT max_depth,
   IdxT min_rows_per_node, IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
   const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits) {
+  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
+  CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -435,7 +435,7 @@ __global__ void computeSplitRegressionKernel(
   __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
-  if (SplitType == CRITERION::MSE) {
+  if (splitType == CRITERION::MSE) {
     mseGain(spred, spred2, scount, sbins, parentGain, sp, col, range_len,
             nbins);
   } else {

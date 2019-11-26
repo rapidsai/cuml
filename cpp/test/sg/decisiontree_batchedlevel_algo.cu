@@ -33,6 +33,7 @@ namespace DecisionTree {
 struct DtTestParams {
   int M, N, nclasses, max_depth, nbins;
   float min_gain;
+  CRITERION splitType;
   unsigned long long seed;
 };
 
@@ -50,8 +51,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     handle->setStream(stream);
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
                     inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
-                    inparams.min_gain, false, CRITERION::GINI, false, false, 32,
-                    10, 4, 0);
+                    inparams.min_gain, false, inparams.splitType, false, false,
+                    32, 10, 4, 0);
     auto allocator = handle->getImpl().getDeviceAllocator();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
@@ -102,11 +103,10 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   void prepareDataset(T* tmp) {}
 };  // class DtBaseTest
 
-const std::vector<DtTestParams> all = {
-  {1024, 4, 2, 8, 16, 0.00001f, 12345ULL},
-  {1024, 4, 2, 8, 16, 0.00001f, 12345ULL},
+const std::vector<DtTestParams> allC = {
+  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
+  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
 };
-
 template <typename T>
 class DtClassifierTest : public DtBaseTest<T, int> {
  protected:
@@ -128,8 +128,13 @@ TEST_P(DtClsTestF, Test) {
                              rowids, colids, inparams.M, inparams.nclasses,
                              params, stream, sparsetree);
 }
-INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF, ::testing::ValuesIn(all));
+INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
+                        ::testing::ValuesIn(allC));
 
+const std::vector<DtTestParams> allR = {
+  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
+  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
+};
 template <typename T>
 class DtRegressorTest : public DtBaseTest<T, T> {
  protected:
@@ -152,7 +157,8 @@ TEST_P(DtRegTestF, Test) {
                         data, inparams.N, inparams.M, labels, quantiles, rowids,
                         colids, inparams.M, 0, params, stream, sparsetree);
 }
-INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF, ::testing::ValuesIn(all));
+INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF,
+                        ::testing::ValuesIn(allR));
 
 }  // namespace DecisionTree
 }  // end namespace ML

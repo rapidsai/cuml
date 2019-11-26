@@ -291,7 +291,7 @@ struct Builder {
     auto n_col_blks = params.n_blks_for_cols;
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
-      Traits::computeSplit<SplitType>(*this, c, batchSize, s);
+      Traits::computeSplit(*this, c, batchSize, SplitType, s);
       CUDA_CHECK(cudaGetLastError());
     }
     // create child nodes (or make the current ones leaf)
@@ -320,9 +320,9 @@ struct ClsTraits {
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 512;
 
-  template <CRITERION SplitType>
   static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
-                           IdxT batchSize, cudaStream_t s) {
+                           IdxT batchSize, CRITERION splitType,
+                           cudaStream_t s) {
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
     auto binSize = nbins * 2 * nclasses;
@@ -330,12 +330,11 @@ struct ClsTraits {
     auto n_col_blks = b.params.n_blks_for_cols;
     dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
     size_t smemSize = sizeof(int) * len + sizeof(DataT) * nbins;
-    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT,
-                                     SplitType>
+    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_rows_per_node,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits);
+        b.n_leaves, b.splits, splitType);
   }
 
   static void nodeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
@@ -394,24 +393,24 @@ struct RegTraits {
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 512;
 
-  template <CRITERION SplitType>
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
-                           IdxT batchSize, cudaStream_t s) {
+                           IdxT batchSize, CRITERION splitType,
+                           cudaStream_t s) {
     auto n_col_blks = b.params.n_blks_for_cols;
     dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
     size_t smemSize = 5 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
-    computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT, SplitType>
+    computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred_count, b.params.n_bins, b.params.max_depth,
         b.params.min_rows_per_node, b.params.max_leaves, b.input, b.curr_nodes,
-        col, b.done_count, b.mutex, b.n_leaves, b.splits);
+        col, b.done_count, b.mutex, b.n_leaves, b.splits, splitType);
   }
 
   static void nodeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT batchSize,
                         cudaStream_t s) {
     auto smemSize = 2 * sizeof(IdxT) * TPB_SPLIT;
-    nodeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_SPLIT>
+    nodeSplitRegressionKernel<DataT, IdxT, TPB_SPLIT>
       <<<batchSize, TPB_SPLIT, smemSize, s>>>(
         b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
