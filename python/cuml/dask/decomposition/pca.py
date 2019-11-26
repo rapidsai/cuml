@@ -13,12 +13,10 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions
+from cuml.dask.common import extract_ddf_partitions, workers_to_parts
 from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
-
-from collections import OrderedDict
 
 from dask.distributed import default_client
 from dask.distributed import wait
@@ -224,18 +222,9 @@ class PCA(object):
         X : dask cuDF input
 
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        self.rnks = dict()
-        rnk_counter = 0
-        worker_to_parts = OrderedDict()
-        for w, p in gpu_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            if w not in self.rnks.keys():
-                self.rnks[w] = rnk_counter
-                rnk_counter = rnk_counter + 1
-            worker_to_parts[w].append(p)
+        worker_to_parts = workers_to_parts(gpu_futures)
 
         workers = list(map(lambda x: x[0], gpu_futures))
 
@@ -243,6 +232,8 @@ class PCA(object):
         comms.init(workers=workers)
 
         worker_info = comms.worker_info(comms.worker_addresses)
+
+        self.rnks = {w: worker_info[w]["r"] for w in workers}
 
         key = uuid1()
         partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
@@ -308,13 +299,9 @@ class PCA(object):
             return to_dask_cudf(out_futures)
 
     def _transform(self, X):
-        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        worker_to_parts = OrderedDict()
-        for w, p in gpu_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            worker_to_parts[w].append(p)
+        worker_to_parts = workers_to_parts(gpu_futures)
 
         key = uuid1()
         partsToRanks = [(self.rnks[wf[0]], self.client.submit(
@@ -357,13 +344,9 @@ class PCA(object):
         return to_dask_cudf(out_futures)
 
     def _inverse_transform(self, X):
-        gpu_futures = self.client.sync(extract_ddf_partitions, X, agg=False)
+        gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        worker_to_parts = OrderedDict()
-        for w, p in gpu_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            worker_to_parts[w].append(p)
+        worker_to_parts = workers_to_parts(gpu_futures)
 
         key = uuid1()
         partsToRanks = [(self.rnks[wf[0]], self.client.submit(

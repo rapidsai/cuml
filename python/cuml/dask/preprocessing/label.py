@@ -44,10 +44,10 @@ class LabelBinarizer(object):
         self.client_ = client if client is not None else default_client()
         self.kwargs = kwargs
 
-        # if "sparse_output" in self.kwargs and \
-        #         self.kwargs["sparse_output"] is True:
-        #     raise ValueError("Sparse output not yet "
-        #                      "supported in distributed mode")
+        if "sparse_output" in self.kwargs and \
+                self.kwargs["sparse_output"] is True:
+            raise ValueError("Sparse output not yet "
+                             "supported in distributed mode")
 
     @staticmethod
     def _func_create_model(**kwargs):
@@ -84,7 +84,7 @@ class LabelBinarizer(object):
         """
 
         # Take the unique classes and broadcast them all around the cluster.
-        futures = self.client_.sync(extract_ddf_partitions, y, agg=False)
+        futures = self.client_.sync(extract_ddf_partitions, y)
 
         unique = [self.client_.submit(LabelBinarizer._func_unique_classes, f)
                   for w, f in futures]
@@ -103,7 +103,7 @@ class LabelBinarizer(object):
 
     def transform(self, y):
 
-        parts = self.client_.sync(extract_ddf_partitions, y, agg=False)
+        parts = self.client_.sync(extract_ddf_partitions, y)
         f = [self.client_.submit(LabelBinarizer._func_xform,
                                  self.model,
                                  part) for w, part in parts]
@@ -113,7 +113,7 @@ class LabelBinarizer(object):
 
     def inverse_transform(self, y, threshold=None):
 
-        parts = self.client_.sync(extract_ddf_partitions, y, agg=False)
+        parts = self.client_.sync(extract_ddf_partitions, y)
         f = [self.client_.submit(LabelBinarizer._func_inv_xform,
                                  self.model, part, threshold)
              for w, part in parts]

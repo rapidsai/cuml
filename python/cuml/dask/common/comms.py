@@ -114,7 +114,8 @@ def _func_ucp_listener_port(sessionId, r):
     return worker_state(sessionId)["ucp_listener"].port
 
 
-async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
+async def _func_init_all(sessionId, uniqueId, comms_p2p,
+                         worker_info, verbose, streams_per_handle):
 
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
@@ -134,21 +135,27 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p, worker_info, verbose):
     if comms_p2p:
         if verbose:
             print("Initializing UCX Endpoints")
+
+        if verbose:
+            start = time.time()
         await _func_ucp_create_endpoints(sessionId, worker_info)
 
         if verbose:
-            print("Done initializing UCX endpoints")
+            end = time.time() - start
+
+        if verbose:
+            print("Done initializing UCX endpoints. Took: %f seconds." % end)
 
         if verbose:
             print("Building handle")
 
-        _func_build_handle_p2p(sessionId)
+        _func_build_handle_p2p(sessionId, streams_per_handle)
 
         if verbose:
             print("Done building handle.")
 
     else:
-        _func_build_handle(sessionId)
+        _func_build_handle(sessionId, streams_per_handle)
 
 
 def _func_init_nccl(sessionId, uniqueId):
@@ -160,7 +167,6 @@ def _func_init_nccl(sessionId, uniqueId):
                      client.
     """
 
-    print("NCCL UID: " + str(uniqueId))
     wid = worker_state(sessionId)["wid"]
     nWorkers = worker_state(sessionId)["nworkers"]
 
@@ -172,7 +178,7 @@ def _func_init_nccl(sessionId, uniqueId):
         print("An error occurred initializing NCCL!")
 
 
-async def _func_ucp_create_listener(sessionId, r):
+async def _func_ucp_create_listener(sessionId, verbose, r):
     """
     Creates a UCP listener for incoming endpoint connections.
     This function runs in a loop asynchronously in the background
@@ -188,11 +194,15 @@ async def _func_ucp_create_listener(sessionId, r):
         listener = ucp.create_listener(_connection_func)
         worker_state(sessionId)["ucp_listener"] = listener
 
-        while not listener.closed:
+        if(verbose):
+            print("Listener Initialized")
+        while not listener.closed():
             await asyncio.sleep(1)
 
         del worker_state(sessionId)["ucp_listener"]
         del listener
+
+        print("Lisener Done.")
 
 
 async def _func_ucp_stop_listener(sessionId):
@@ -209,7 +219,7 @@ async def _func_ucp_stop_listener(sessionId):
         print("Listener not found with sessionId=" + str(sessionId))
 
 
-def _func_build_handle_p2p(sessionId):
+def _func_build_handle_p2p(sessionId, streams_per_handle):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -221,7 +231,7 @@ def _func_build_handle_p2p(sessionId):
     ucp_worker = ucp.get_ucp_worker()
     session_state = worker_state(sessionId)
 
-    handle = Handle()
+    handle = Handle(streams_per_handle)
     nccl_comm = session_state["nccl"]
     eps = session_state["ucp_eps"]
     nWorkers = session_state["nworkers"]
@@ -233,7 +243,7 @@ def _func_build_handle_p2p(sessionId):
     worker_state(sessionId)["handle"] = handle
 
 
-def _func_build_handle(sessionId):
+def _func_build_handle(sessionId, streams_per_handle):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -241,7 +251,7 @@ def _func_build_handle(sessionId):
     :param workerId: int Rank of current worker
     :return:
     """
-    handle = Handle()
+    handle = Handle(streams_per_handle)
 
     session_state = worker_state(sessionId)
 
@@ -290,7 +300,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     worker_state(sessionId)["ucp_eps"] = eps
 
 
-async def _func_destroy_all(sessionId, comms_p2p):
+async def _func_destroy_all(sessionId, comms_p2p, verbose):
     worker_state(sessionId)["nccl"].destroy()
     del worker_state(sessionId)["nccl"]
 
@@ -298,8 +308,9 @@ async def _func_destroy_all(sessionId, comms_p2p):
         for ep in worker_state(sessionId)["ucp_eps"]:
             if ep is not None:
                 if not ep.closed():
-                    await ep.signal_shutdown()
-                    ep.close()
+                    await ep.close()
+                    if verbose:
+                        print("UCX Endpoint closed.")
                 del ep
         del worker_state(sessionId)["ucp_eps"]
         del worker_state(sessionId)["handle"]
@@ -331,13 +342,16 @@ class CommsContext:
     This class is not meant to be thread-safe.
     """
 
-    def __init__(self, comms_p2p=False, client=None, verbose=False):
+    def __init__(self, comms_p2p=False, client=None, verbose=False,
+                 streams_per_handle=0):
         """
         Construct a new CommsContext instance
         :param comms_p2p: bool Should p2p comms be initialized?
         """
         self.client = client if client is not None else default_client()
         self.comms_p2p = comms_p2p
+
+        self.streams_per_handle = streams_per_handle
 
         self.sessionId = uuid.uuid4().bytes
 
@@ -385,6 +399,7 @@ class CommsContext:
         """
         self.client.run(_func_ucp_create_listener,
                         self.sessionId,
+                        self.verbose,
                         random.random(),
                         workers=self.worker_addresses,
                         wait=False)
@@ -442,6 +457,7 @@ class CommsContext:
                         self.comms_p2p,
                         worker_info,
                         self.verbose,
+                        self.streams_per_handle,
                         workers=self.worker_addresses,
                         wait=False)
 
@@ -459,6 +475,9 @@ class CommsContext:
 
         self.block_for_init("handle")
 
+        if self.verbose:
+            print("Initialization complete.")
+
     def destroy(self):
         """
         Shuts down initialized comms and cleans up resources.
@@ -466,8 +485,12 @@ class CommsContext:
         self.client.run(_func_destroy_all,
                         self.sessionId,
                         self.comms_p2p,
+                        self.verbose,
                         wait=True,
                         workers=self.worker_addresses)
+
+        if self.verbose:
+            print("Destroying comms.")
 
         if self.comms_p2p:
             self.stop_ucp_listeners()
