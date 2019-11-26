@@ -299,6 +299,12 @@ struct Builder {
   }
 };  // end Builder
 
+/**
+ * @brief Traits used to customize the Builder for classification task
+ * @tparam _data data type
+ * @tparam _label label type
+ * @tparam _idx index type
+ */
 template <typename _data, typename _label, typename _idx>
 struct ClsTraits {
   typedef _data DataT;
@@ -313,6 +319,14 @@ struct ClsTraits {
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 512;
 
+  /**
+   * @brief Compute best split for the currently given set of columns
+   * @param b builder object
+   * @param col start column id
+   * @param batchSize number of nodes to be processed in this call
+   * @param splitType split criterion
+   * @param s cuda stream
+   */
   static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
                            cudaStream_t s) {
@@ -330,6 +344,12 @@ struct ClsTraits {
         b.n_leaves, b.splits, splitType);
   }
 
+  /**
+   * @brief Split the node into left/right children
+   * @param b builder object
+   * @param batchSize number of nodes to be processed in this call
+   * @param s cuda stream
+   */
   static void nodeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
                         IdxT batchSize, cudaStream_t s) {
     auto smemSize =
@@ -341,7 +361,11 @@ struct ClsTraits {
         b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes);
   }
 
-  /** computes the initial metric needed for root node split decision */
+  /**
+   * @brief computes the initial metric needed for root node split decision
+   * @param b builder object
+   * @param s cuda stream
+   */
   static DataT initialMetric(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
                              cudaStream_t s) {
     static constexpr int NITEMS = 8;
@@ -372,6 +396,12 @@ struct ClsTraits {
   }
 };  // end ClsTraits
 
+/**
+ * @brief Traits used to customize the Builder for regression task
+ * @tparam _data data type
+ * @tparam _idx index type
+ * @note label type is assumed to be the same as input data type
+ */
 template <typename _data, typename _idx>
 struct RegTraits {
   typedef _data DataT;
@@ -386,6 +416,14 @@ struct RegTraits {
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 512;
 
+  /**
+   * @brief Compute best split for the currently given set of columns
+   * @param b builder object
+   * @param col start column id
+   * @param batchSize number of nodes to be processed in this call
+   * @param splitType split criterion
+   * @param s cuda stream
+   */
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
                            cudaStream_t s) {
@@ -400,6 +438,12 @@ struct RegTraits {
         col, b.done_count, b.mutex, b.n_leaves, b.splits, splitType);
   }
 
+  /**
+   * @brief Split the node into left/right children
+   * @param b builder object
+   * @param batchSize number of nodes to be processed in this call
+   * @param s cuda stream
+   */
   static void nodeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT batchSize,
                         cudaStream_t s) {
     auto smemSize = 2 * sizeof(IdxT) * TPB_SPLIT;
@@ -410,7 +454,11 @@ struct RegTraits {
         b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes);
   }
 
-  /** computes the initial metric needed for root node split decision */
+  /**
+   * @brief computes the initial metric needed for root node split decision
+   * @param b builder object
+   * @param s cuda stream
+   */
   static DataT initialMetric(Builder<RegTraits<DataT, IdxT>>& b,
                              cudaStream_t s) {
     static constexpr int NITEMS = 8;
