@@ -51,7 +51,19 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
                     inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
                     inparams.min_gain, false, CRITERION::GINI, false, false, 32,
                     10, 4, 0);
+    auto allocator = handle->getImpl().getDeviceAllocator();
+    data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
+    labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
     prepareDataset();
+    rowids = (I*)allocator->allocate(sizeof(I) * inparams.M, stream);
+    MLCommon::iota(rowids, 0, 1, inparams.M, stream);
+    colids = (I*)allocator->allocate(sizeof(I) * inparams.N, stream);
+    MLCommon::iota(colids, 0, 1, inparams.N, stream);
+    quantiles =
+      (T*)allocator->allocate(sizeof(T) * inparams.nbins * inparams.N, stream);
+    preprocess_quantile<T>((const T*)data, (const unsigned*)rowids, inparams.M,
+                           inparams.N, inparams.M, inparams.nbins, (T*)nullptr,
+                           quantiles, (T*)nullptr, allocator, stream);
   }
 
   void TearDown() {
@@ -82,8 +94,6 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   void prepareDataset() {
     auto allocator = handle->getImpl().getDeviceAllocator();
     auto cublas = handle->getImpl().getCublasHandle();
-    data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
-    labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
     auto* tmp =
       (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     MLCommon::Random::make_blobs<T>(
@@ -95,15 +105,6 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
       inparams.N, &beta, tmp, inparams.M, data, inparams.M, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
     allocator->deallocate(tmp, sizeof(T) * inparams.M * inparams.N, stream);
-    rowids = (I*)allocator->allocate(sizeof(I) * inparams.M, stream);
-    MLCommon::iota(rowids, 0, 1, inparams.M, stream);
-    colids = (I*)allocator->allocate(sizeof(I) * inparams.N, stream);
-    MLCommon::iota(colids, 0, 1, inparams.N, stream);
-    quantiles =
-      (T*)allocator->allocate(sizeof(T) * inparams.nbins * inparams.N, stream);
-    preprocess_quantile<T>((const T*)data, (const unsigned*)rowids, inparams.M,
-                           inparams.N, inparams.M, inparams.nbins, (T*)nullptr,
-                           quantiles, (T*)nullptr, allocator, stream);
   }
 };  // class DtBaseTest
 
