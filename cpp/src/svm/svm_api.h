@@ -103,6 +103,8 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
  *    size [n_classes]
  * @param [out] preds device pointer for the predictions. Size [n_rows].
  * @param [in] buffer_size size of temporary buffer in MiB
+ * @param [in] predict_class whether to predict class label (true), or just
+ *     return the decision function value (false)
  * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
  * @{
  */
@@ -111,14 +113,16 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
                              float gamma, float coef0, int *n_support, float *b,
                              float **dual_coefs, float **x_support,
                              int *n_classes, float **unique_labels,
-                             float *preds, float buffer_size);
+                             float *preds, float buffer_size,
+                             int predict_class);
 
 cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
                              int n_cols, cumlSvmKernelType kernel, int degree,
                              double gamma, double coef0, int *n_support,
                              double *b, double **dual_coefs, double **x_support,
                              int *n_classes, double **unique_labels,
-                             double *preds, double buffer_size);
+                             double *preds, double buffer_size,
+                             int predict_class);
 /** @} */
 #ifdef __cplusplus
 }

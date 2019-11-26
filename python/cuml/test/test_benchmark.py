@@ -67,6 +67,29 @@ def test_run_variations():
     assert (res.n_features == 20).sum() == 2
 
 
+def test_multi_reps():
+    class CountingAlgo:
+        tot_reps = 0
+
+        def fit(self, X, y):
+            CountingAlgo.tot_reps += 1
+
+    pair = algorithms.AlgorithmPair(
+        CountingAlgo,
+        CountingAlgo,
+        shared_args={},
+        name="Counting",
+    )
+
+    runner = AccuracyComparisonRunner(
+        [20], [5], dataset_name='zeros', test_fraction=0.20, n_reps=4
+    )
+    runner.run(pair)
+
+    # Double the n_reps since it is used in cpu and cuml versions
+    assert CountingAlgo.tot_reps == 8
+
+
 def test_accuracy_runner():
     # Set up data that should deliver accuracy of 0.20 if all goes right
     class MockAlgo:

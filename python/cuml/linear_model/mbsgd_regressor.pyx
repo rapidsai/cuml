@@ -129,6 +129,7 @@ class MBSGDRegressor:
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
         self.handle = handle
+        self.cu_mbsgd_classifier = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -151,7 +152,6 @@ class MBSGDRegressor:
             will increase memory used for the method.
         """
 
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
         self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_

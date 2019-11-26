@@ -42,7 +42,7 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+conda install -c conda-forge -c conda-forge/label/rc_ucx -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
       "cupy>=6.5,<7.0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
@@ -52,6 +52,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "lapack" \
       "cmake==3.14.3" \
       "umap-learn" \
+      "protobuf >=3.4.1,<4.0.0" \
       "nccl>=2.4" \
       "dask=2.5.0" \
       "distributed=2.5.1" \
@@ -59,6 +60,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "statsmodels" \
+      "ucx-py=0.2*" \
       "xgboost=0.90.rapidsdev1"
 
 
@@ -81,13 +83,28 @@ logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
-logger "Build libcuml..."
+logger "Build libcuml, cuml, prims and bench targets..."
 $WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
 logger "Resetting LD_LIBRARY_PATH..."
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 export LD_LIBRARY_PATH_CACHED=""
+
+logger "Build treelite for GPU testing..."
+# Buildint treelite Python for testing is temporary while there is a pip/conda
+# treelite package
+
+cd $WORKSPACE/cpp/build/treelite/src/treelite
+mkdir build
+cd build
+cmake ..
+make -j${PARALLEL_LEVEL}
+cd ../python
+python setup.py install
+
+cd $WORKSPACE
+
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML

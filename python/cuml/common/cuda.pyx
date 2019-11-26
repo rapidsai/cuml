@@ -19,6 +19,36 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from libcpp.string cimport string
+
+cdef extern from "common/nvtx.hpp" namespace "ML":
+
+    void PUSH_RANGE(string msg)
+
+    void POP_RANGE()
+
+
+def nvtx_range_push(msg: str):
+    """Create a NVTX range with name `msg`"""
+    cdef string s = msg.encode("UTF-8")
+    PUSH_RANGE(s.c_str())
+
+
+def nvtx_range_pop():
+    """End a NVTX range"""
+    POP_RANGE()
+
+
+def nvtx_range_wrap(msg):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            nvtx_range_push(msg)
+            result = func(*args, **kwargs)
+            nvtx_range_pop()
+            return result
+        return wrapper
+    return decorator
+
 
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
