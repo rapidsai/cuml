@@ -230,8 +230,11 @@ def test_umap_pickle(tmpdir, datatype, model):
 
     cu_before_embed = model.embedding_
 
+    n_neighbors = model.n_neighbors
+
     cu_trust_before = trustworthiness(X_train,
-                                      cu_before_pickle_transform, 15)
+                                      cu_before_pickle_transform,
+                                      n_neighbors)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
@@ -242,7 +245,8 @@ def test_umap_pickle(tmpdir, datatype, model):
     assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
-    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 15)
+    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform,
+                                     n_neighbors)
 
     assert cu_trust_after >= cu_trust_before - 0.2
     assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
