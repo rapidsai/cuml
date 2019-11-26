@@ -231,7 +231,7 @@ def test_umap_pickle(tmpdir, datatype, model):
     cu_before_embed = model.embedding_
 
     cu_trust_before = trustworthiness(X_train,
-                                      cu_before_pickle_transform, 10)
+                                      cu_before_pickle_transform, 15)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
@@ -242,7 +242,7 @@ def test_umap_pickle(tmpdir, datatype, model):
     assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
-    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 10)
+    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 15)
 
     assert cu_trust_after >= cu_trust_before - 0.2
     assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
@@ -302,8 +302,6 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     unpickled = pickle_save_load(tmpdir, model)
 
     state = unpickled.__dict__
-
-    print(str(state))
 
     assert state["n_indices"] == 0
     assert "X_m" not in state
