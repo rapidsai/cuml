@@ -223,13 +223,7 @@ struct Builder {
   void train(NodeT* h_nodes, cudaStream_t s) {
     init(h_nodes, s);
     do {
-      IdxT new_nodes;
-      if (params.split_criterion == CRITERION::GINI) {
-        new_nodes = doSplit<CRITERION::GINI>(h_nodes, s);
-      } else {
-        new_nodes = doSplit<CRITERION::ENTROPY>(h_nodes, s);
-      }
-      ///@todo: regression metrics
+      IdxT new_nodes = doSplit(h_nodes, s);
       h_total_nodes += new_nodes;
       updateNodeRange();
     } while (!isOver());
@@ -278,7 +272,6 @@ struct Builder {
    * @param s cuda stream
    * @return the number of newly created nodes
    */
-  template <CRITERION SplitType>
   IdxT doSplit(NodeT* h_nodes, cudaStream_t s) {
     auto batchSize = node_end - node_start;
     // start fresh on the number of *new* nodes created in this batch
@@ -291,7 +284,7 @@ struct Builder {
     auto n_col_blks = params.n_blks_for_cols;
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
-      Traits::computeSplit(*this, c, batchSize, SplitType, s);
+      Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
       CUDA_CHECK(cudaGetLastError());
     }
     // create child nodes (or make the current ones leaf)
