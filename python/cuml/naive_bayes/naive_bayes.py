@@ -18,6 +18,7 @@
 import math
 
 import cupy as cp
+import cupy.prof
 from cuml.prims.label import make_monotonic, check_labels
 
 """

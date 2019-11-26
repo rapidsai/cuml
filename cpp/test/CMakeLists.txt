@@ -137,7 +137,6 @@ if(BUILD_CUML_MG_TESTS)
 
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
-      mg/knn_test_mg.cu
       mg/test_ml_mg_utils.cu
       )
 
@@ -174,6 +173,8 @@ if(BUILD_PRIMS_TESTS)
       prims/add.cu
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
+      prims/batched_matrix.cu
+      prims/batched/information_criterion.cu
       prims/batched/make_symm.cu
       prims/batched/gemv.cu
       prims/binary_op.cu
@@ -211,6 +212,8 @@ if(BUILD_PRIMS_TESTS)
       prims/host_buffer.cu
       prims/jones_transform.cu
       prims/klDivergence.cu
+      prims/knn_classify.cu
+      prims/knn_regression.cu
       prims/knn.cu
       prims/kselection.cu
       prims/label.cu
@@ -248,11 +251,13 @@ if(BUILD_PRIMS_TESTS)
       prims/sigmoid.cu
       prims/silhouetteScore.cu
       prims/sqrt.cu
+      prims/stationarity.cu
       prims/stddev.cu
       prims/strided_reduction.cu
       prims/subtract.cu
       prims/sum.cu
       prims/svd.cu
+      prims/ternary_op.cu
       prims/transpose.cu
       prims/trustworthiness.cu
       prims/unary_op.cu
