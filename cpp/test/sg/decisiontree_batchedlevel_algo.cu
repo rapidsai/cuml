@@ -106,6 +106,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
 const std::vector<DtTestParams> allC = {
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
+  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::ENTROPY, 12345ULL},
+  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::ENTROPY, 12345ULL},
 };
 template <typename T>
 class DtClassifierTest : public DtBaseTest<T, int> {
