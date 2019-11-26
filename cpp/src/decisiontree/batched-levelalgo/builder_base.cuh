@@ -36,11 +36,14 @@ namespace DecisionTree {
  * @note This struct does NOT own any of the underlying device/host pointers.
  *       They all must explicitly be allocated by the caller and passed to it.
  */
-template <typename DataT, typename LabelT, typename IdxT>
+template <typename Traits>
 struct Builder {
-  typedef Node<DataT, LabelT, IdxT> NodeT;
-  typedef Split<DataT, IdxT> SplitT;
-  typedef Input<DataT, LabelT, IdxT> InputT;
+  typedef typename Traits::DataT DataT;
+  typedef typename Traits::LabelT LabelT;
+  typedef typename Traits::IdxT IdxT;
+  typedef typename Traits::NodeT NodeT;
+  typedef typename Traits::SplitT SplitT;
+  typedef typename Traits::InputT InputT;
 
   /** DT params */
   DecisionTreeParams params;
@@ -121,7 +124,6 @@ struct Builder {
                      const LabelT* labels, IdxT totalRows, IdxT totalCols,
                      IdxT sampledRows, IdxT sampledCols, IdxT* rowids,
                      IdxT* colids, IdxT nclasses, const DataT* quantiles) {
-    ASSERT(!isRegression(), "Currently only classification is supported!");
     ASSERT(quantiles != nullptr,
            "Currently quantiles need to be computed before this call!");
     params = p;
@@ -227,6 +229,7 @@ struct Builder {
       } else {
         new_nodes = doSplit<CRITERION::ENTROPY>(h_nodes, s);
       }
+      ///@todo: regression metrics
       h_total_nodes += new_nodes;
       updateNodeRange();
     } while (!isOver());
@@ -246,7 +249,7 @@ struct Builder {
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, s));
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
-    rootGain = initialMetric(s);
+    rootGain = Traits::initialMetric(*this, s);
     node_start = 0;
     node_end = h_total_nodes = 1;  // start with root node
     h_nodes[0].parentGain = rootGain;
@@ -268,11 +271,6 @@ struct Builder {
     node_end = std::min(nodes_remaining, params.max_batch_size) + node_end;
   }
 
-  /** default threads per block for most kernels in here */
-  static constexpr int TPB_DEFAULT = 256;
-  /** threads per block for the nodeSplitKernel */
-  static constexpr int TPB_SPLIT = 512;
-
   /**
    * Computes best split across all nodes in the current batch and splits the
    * nodes accordingly
@@ -282,48 +280,22 @@ struct Builder {
    */
   template <CRITERION SplitType>
   IdxT doSplit(NodeT* h_nodes, cudaStream_t s) {
-    auto nbins = params.n_bins;
-    auto nclasses = input.nclasses;
-    auto binSize = nbins * 2 * nclasses;
-    auto len = binSize + 2 * nbins;
-    size_t smemSize = sizeof(int) * len + sizeof(DataT) * nbins;
     auto batchSize = node_end - node_start;
-    auto nblks = MLCommon::ceildiv<int>(batchSize, TPB_DEFAULT);
     // start fresh on the number of *new* nodes created in this batch
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
-    initSplit<DataT, IdxT, TPB_DEFAULT>(splits, batchSize, s);
+    initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, s);
     // get the current set of nodes to be worked upon
     MLCommon::updateDevice(curr_nodes, h_nodes + node_start, batchSize, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     auto n_col_blks = params.n_blks_for_cols;
-    dim3 grid(params.n_blks_for_rows, n_col_blks, batchSize);
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
       CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
-      if (isRegression()) {
-        computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT,
-                                     SplitType>
-          <<<grid, TPB_DEFAULT, smemSize, s>>>(
-            pred, pred2, pred_count, params.n_bins, params.max_depth,
-            params.min_rows_per_node, params.max_leaves, input, curr_nodes, c,
-            done_count, mutex, n_leaves, splits);
-      } else {
-        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT,
-                                         SplitType>
-          <<<grid, TPB_DEFAULT, smemSize, s>>>(
-            hist, params.n_bins, params.max_depth, params.min_rows_per_node,
-            params.max_leaves, input, curr_nodes, c, done_count, mutex,
-            n_leaves, splits);
-      }
+      Traits::computeSplit<SplitType>(*this, c, batchSize, s);
       CUDA_CHECK(cudaGetLastError());
     }
     // create child nodes (or make the current ones leaf)
-    smemSize = std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * nclasses);
-    nodeSplitKernel<DataT, LabelT, IdxT, TPB_SPLIT>
-      <<<batchSize, TPB_SPLIT, smemSize, s>>>(
-        params.max_depth, params.min_rows_per_node, params.max_leaves,
-        params.min_impurity_decrease, input, curr_nodes, next_nodes, n_nodes,
-        splits, n_leaves, h_total_nodes);
+    Traits::nodeSplit(*this, batchSize, s);
     CUDA_CHECK(cudaGetLastError());
     // copy the updated (due to leaf creation) and newly created child nodes
     MLCommon::updateHost(h_nodes + node_start, curr_nodes, batchSize, s);
@@ -332,99 +304,145 @@ struct Builder {
     MLCommon::updateHost(h_nodes + h_total_nodes, next_nodes, *h_n_nodes, s);
     return *h_n_nodes;
   }
+};  // end Builder
+
+template <typename _data, typename _label, typename _idx>
+struct ClsTraits {
+  typedef _data DataT;
+  typedef _label LabelT;
+  typedef _idx IdxT;
+  typedef Node<DataT, LabelT, IdxT> NodeT;
+  typedef Split<DataT, IdxT> SplitT;
+  typedef Input<DataT, LabelT, IdxT> InputT;
+
+  /** default threads per block for most kernels in here */
+  static constexpr int TPB_DEFAULT = 256;
+  /** threads per block for the nodeSplitKernel */
+  static constexpr int TPB_SPLIT = 512;
+
+  template <CRITERION SplitType>
+  static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
+                           IdxT batchSize, cudaStream_t s) {
+    auto nbins = b.params.n_bins;
+    auto nclasses = b.input.nclasses;
+    auto binSize = nbins * 2 * nclasses;
+    auto len = binSize + 2 * nbins;
+    auto n_col_blks = b.params.n_blks_for_cols;
+    dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
+    size_t smemSize = sizeof(int) * len + sizeof(DataT) * nbins;
+    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT,
+                                     SplitType>
+      <<<grid, TPB_DEFAULT, smemSize, s>>>(
+        b.hist, b.params.n_bins, b.params.max_depth, b.params.min_rows_per_node,
+        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
+        b.n_leaves, b.splits);
+  }
+
+  static void nodeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
+                        IdxT batchSize, cudaStream_t s) {
+    auto smemSize =
+      std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * b.input.nclasses);
+    nodeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_SPLIT>
+      <<<batchSize, TPB_SPLIT, smemSize, s>>>(
+        b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
+        b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
+        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes);
+  }
 
   /** computes the initial metric needed for root node split decision */
-  DataT initialMetric(cudaStream_t s) {
+  static DataT initialMetric(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
+                             cudaStream_t s) {
     static constexpr int NITEMS = 8;
     auto nblks =
-      MLCommon::ceildiv<int>(input.nSampledRows, TPB_DEFAULT * NITEMS);
-    size_t smemSize = sizeof(int) * input.nclasses;
+      MLCommon::ceildiv<int>(b.input.nSampledRows, TPB_DEFAULT * NITEMS);
+    size_t smemSize = sizeof(int) * b.input.nclasses;
     auto out = DataT(0.0);
-    if (isRegression()) {
-      // reusing `pred` for initial mse computation only
-      CUDA_CHECK(cudaMemsetAsync(pred, 0, sizeof(DataT) * 2, s));
-      initialMeanPredKernel<DataT, LabelT, IdxT><<<nblks, TPB_DEFAULT, 0, s>>>(
-        pred, pred + 1, input.rowids, input.labels, input.nSampledRows);
-      CUDA_CHECK(cudaGetLastError());
-      MLCommon::updateHost(h_mse, pred, 2, s);
-      CUDA_CHECK(cudaStreamSynchronize(s));
-      if (params.split_criterion == CRITERION::MSE) {
-        out = h_mse[1] - h_mse[0] * h_mse[0];
-      } else if (params.split_criterion == CRITERION::MAE) {
-        ///@todo: enable this and remove the below assert
-        ASSERT(false, "DT: Regression currently only supports MSE metric!");
-      } else {
-        ASSERT(false, "DT: Regression only supports MSE/MAE!");
-      }
+    // reusing `hist` for initial bin computation only
+    CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.input.nclasses, s));
+    initialClassHistKernel<DataT, LabelT, IdxT>
+      <<<nblks, TPB_DEFAULT, smemSize, s>>>(b.hist, b.input.rowids,
+                                            b.input.labels, b.input.nclasses,
+                                            b.input.nSampledRows);
+    CUDA_CHECK(cudaGetLastError());
+    MLCommon::updateHost(b.h_hist, b.hist, b.input.nclasses, s);
+    CUDA_CHECK(cudaStreamSynchronize(s));
+    // better to compute the initial metric (after class histograms) on CPU
+    if (b.params.split_criterion == CRITERION::GINI) {
+      out = giniMetric<DataT, IdxT>(b.h_hist, b.input.nclasses,
+                                    b.input.nSampledRows);
+    } else if (b.params.split_criterion == CRITERION::ENTROPY) {
+      out = entropyMetric<DataT, IdxT>(b.h_hist, b.input.nclasses,
+                                       b.input.nSampledRows);
     } else {
-      // reusing `hist` for initial bin computation only
-      CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * input.nclasses, s));
-      initialClassHistKernel<DataT, LabelT, IdxT>
-        <<<nblks, TPB_DEFAULT, smemSize, s>>>(
-          hist, input.rowids, input.labels, input.nclasses, input.nSampledRows);
-      CUDA_CHECK(cudaGetLastError());
-      MLCommon::updateHost(h_hist, hist, input.nclasses, s);
-      CUDA_CHECK(cudaStreamSynchronize(s));
-      // better to compute the initial metric (after class histograms) on CPU
-      if (params.split_criterion == CRITERION::GINI) {
-        out =
-          giniMetric<DataT, IdxT>(h_hist, input.nclasses, input.nSampledRows);
-      } else if (params.split_criterion == CRITERION::ENTROPY) {
-        out = entropyMetric<DataT, IdxT>(h_hist, input.nclasses,
-                                         input.nSampledRows);
-      } else {
-        ASSERT(false, "DT: Classification only supports GINI/ENTROPY!");
-      }
+      ASSERT(false, "DT: Classification only supports GINI/ENTROPY!");
     }
     return out;
   }
-};  // end Builder
+};  // end ClsTraits
 
-///@todo: support building from an arbitrary depth
-///@todo: support col subsampling per node
-/**
- * @brief Main entry point function for batched-level algo to build trees
- * @param d_allocator device allocator
- * @param h_allocator host allocator
- * @param data input dataset (on device) (col-major) (dim = nrows x ncols)
- * @param ncols number of features in the dataset
- * @param nrows number of rows in the dataset
- * @param labels labels for the input dataset (on device) (len = nrows)
- * @param quantiles histograms/quantiles of the input dataset (on device)
- *                  (col-major) (dim = params.n_bins x ncols)
- * @param rowids sampled rows (on device) (len = n_sampled_rows)
- * @param colids sampled cols (on device) (len = params.max_features * ncols)
- * @param n_sampled_rows number of sub-sampled rows
- * @param unique_labels number of classes (meaningful only for classification)
- * @param params decisiontree learning params
- * @param stream cuda stream
- * @param sparsetree output learned tree
- */
-template <typename DataT, typename LabelT, typename IdxT>
-void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
-               std::shared_ptr<MLCommon::hostAllocator> h_allocator,
-               const DataT* data, IdxT ncols, IdxT nrows, const LabelT* labels,
-               const DataT* quantiles, IdxT* rowids, IdxT* colids,
-               int n_sampled_rows, int unique_labels,
-               const DecisionTreeParams& params, cudaStream_t stream,
-               std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
-  Builder<DataT, LabelT, IdxT> builder;
-  size_t d_wsize, h_wsize;
-  builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
-                        n_sampled_rows, IdxT(params.max_features * ncols),
-                        rowids, colids, unique_labels, quantiles);
-  MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
-  MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
-  MLCommon::host_buffer<Node<DataT, LabelT, IdxT>> h_nodes(h_allocator, stream,
-                                                           builder.maxNodes);
-  builder.assignWorkspace(d_buff.data(), h_buff.data());
-  builder.train(h_nodes.data(), stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  d_buff.release(stream);
-  h_buff.release(stream);
-  ///@todo: copy from Node to sparsetree
-  h_nodes.release(stream);
-}
+template <typename _data, typename _idx>
+struct RegTraits {
+  typedef _data DataT;
+  typedef _data LabelT;
+  typedef _idx IdxT;
+  typedef Node<DataT, LabelT, IdxT> NodeT;
+  typedef Split<DataT, IdxT> SplitT;
+  typedef Input<DataT, LabelT, IdxT> InputT;
+
+  /** default threads per block for most kernels in here */
+  static constexpr int TPB_DEFAULT = 256;
+  /** threads per block for the nodeSplitKernel */
+  static constexpr int TPB_SPLIT = 512;
+
+  template <CRITERION SplitType>
+  static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
+                           IdxT batchSize, cudaStream_t s) {
+    auto n_col_blks = b.params.n_blks_for_cols;
+    dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
+    auto nbins = b.params.n_bins;
+    size_t smemSize = 5 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
+    computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT, SplitType>
+      <<<grid, TPB_DEFAULT, smemSize, s>>>(
+        b.pred, b.pred2, b.pred_count, b.params.n_bins, b.params.max_depth,
+        b.params.min_rows_per_node, b.params.max_leaves, b.input, b.curr_nodes,
+        col, b.done_count, b.mutex, b.n_leaves, b.splits);
+  }
+
+  static void nodeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT batchSize,
+                        cudaStream_t s) {
+    auto smemSize = 2 * sizeof(IdxT) * TPB_SPLIT;
+    nodeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_SPLIT>
+      <<<batchSize, TPB_SPLIT, smemSize, s>>>(
+        b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
+        b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
+        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes);
+  }
+
+  /** computes the initial metric needed for root node split decision */
+  static DataT initialMetric(Builder<RegTraits<DataT, IdxT>>& b,
+                             cudaStream_t s) {
+    static constexpr int NITEMS = 8;
+    auto nblks =
+      MLCommon::ceildiv<int>(b.input.nSampledRows, TPB_DEFAULT * NITEMS);
+    auto out = DataT(0.0);
+    // reusing `pred` for initial mse computation only
+    CUDA_CHECK(cudaMemsetAsync(b.pred, 0, sizeof(DataT) * 2, s));
+    initialMeanPredKernel<DataT, DataT, IdxT><<<nblks, TPB_DEFAULT, 0, s>>>(
+      b.pred, b.pred + 1, b.input.rowids, b.input.labels, b.input.nSampledRows);
+    CUDA_CHECK(cudaGetLastError());
+    MLCommon::updateHost(b.h_mse, b.pred, 2, s);
+    CUDA_CHECK(cudaStreamSynchronize(s));
+    if (b.params.split_criterion == CRITERION::MSE) {
+      out = b.h_mse[1] - b.h_mse[0] * b.h_mse[0];
+    } else if (b.params.split_criterion == CRITERION::MAE) {
+      ///@todo: enable this and remove the below assert
+      ASSERT(false, "DT: Regression currently only supports MSE metric!");
+    } else {
+      ASSERT(false, "DT: Regression only supports MSE/MAE!");
+    }
+    return out;
+  }
+};  // end RegTraits
 
 }  // namespace DecisionTree
 }  // namespace ML

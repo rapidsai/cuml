@@ -17,3 +17,87 @@
 #pragma once
 
 #include "builder_base.cuh"
+
+namespace ML {
+namespace DecisionTree {
+
+///@todo: support building from an arbitrary depth
+///@todo: support col subsampling per node
+/**
+ * @defgroup GrowTree Main entry point function for batched-level algo to build
+ *                    a decision tree
+ * @tparam DataT data type
+ * @tparam LabelT label type
+ * @tparam IdxT index type
+ * @param d_allocator device allocator
+ * @param h_allocator host allocator
+ * @param data input dataset (on device) (col-major) (dim = nrows x ncols)
+ * @param ncols number of features in the dataset
+ * @param nrows number of rows in the dataset
+ * @param labels labels for the input dataset (on device) (len = nrows)
+ * @param quantiles histograms/quantiles of the input dataset (on device)
+ *                  (col-major) (dim = params.n_bins x ncols)
+ * @param rowids sampled rows (on device) (len = n_sampled_rows)
+ * @param colids sampled cols (on device) (len = params.max_features * ncols)
+ * @param n_sampled_rows number of sub-sampled rows
+ * @param unique_labels number of classes (meaningful only for classification)
+ * @param params decisiontree learning params
+ * @param stream cuda stream
+ * @param sparsetree output learned tree
+ * @{
+ */
+template <typename DataT, typename LabelT, typename IdxT>
+void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
+               std::shared_ptr<MLCommon::hostAllocator> h_allocator,
+               const DataT* data, IdxT ncols, IdxT nrows, const LabelT* labels,
+               const DataT* quantiles, IdxT* rowids, IdxT* colids,
+               int n_sampled_rows, int unique_labels,
+               const DecisionTreeParams& params, cudaStream_t stream,
+               std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
+  Builder<ClsTraits<DataT, LabelT, IdxT>> builder;
+  size_t d_wsize, h_wsize;
+  builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
+                        n_sampled_rows, IdxT(params.max_features * ncols),
+                        rowids, colids, unique_labels, quantiles);
+  MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
+  MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
+  MLCommon::host_buffer<Node<DataT, LabelT, IdxT>> h_nodes(h_allocator, stream,
+                                                           builder.maxNodes);
+  builder.assignWorkspace(d_buff.data(), h_buff.data());
+  builder.train(h_nodes.data(), stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  d_buff.release(stream);
+  h_buff.release(stream);
+  ///@todo: copy from Node to sparsetree
+  h_nodes.release(stream);
+}
+
+template <typename DataT, typename IdxT>
+void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
+               std::shared_ptr<MLCommon::hostAllocator> h_allocator,
+               const DataT* data, IdxT ncols, IdxT nrows, const DataT* labels,
+               const DataT* quantiles, IdxT* rowids, IdxT* colids,
+               int n_sampled_rows, int unique_labels,
+               const DecisionTreeParams& params, cudaStream_t stream,
+               std::vector<SparseTreeNode<DataT, DataT>>& sparsetree) {
+  Builder<RegTraits<DataT, IdxT>> builder;
+  size_t d_wsize, h_wsize;
+  builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
+                        n_sampled_rows, IdxT(params.max_features * ncols),
+                        rowids, colids, unique_labels, quantiles);
+  MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
+  MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
+  MLCommon::host_buffer<Node<DataT, DataT, IdxT>> h_nodes(h_allocator, stream,
+                                                          builder.maxNodes);
+  builder.assignWorkspace(d_buff.data(), h_buff.data());
+  builder.train(h_nodes.data(), stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  d_buff.release(stream);
+  h_buff.release(stream);
+  ///@todo: copy from Node to sparsetree
+  h_nodes.release(stream);
+}
+/** @} */
+
+}  // namespace DecisionTree
+}  // namespace ML

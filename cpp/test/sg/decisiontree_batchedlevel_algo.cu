@@ -148,10 +148,9 @@ typedef DtRegressorTest<float> DtRegTestF;
 ///@todo: add checks
 TEST_P(DtRegTestF, Test) {
   auto& impl = handle->getImpl();
-  grow_tree<float, float, int>(impl.getDeviceAllocator(),
-                               impl.getHostAllocator(), data, inparams.N,
-                               inparams.M, labels, quantiles, rowids, colids,
-                               inparams.M, 0, params, stream, sparsetree);
+  grow_tree<float, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
+                        data, inparams.N, inparams.M, labels, quantiles, rowids,
+                        colids, inparams.M, 0, params, stream, sparsetree);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF, ::testing::ValuesIn(all));
 

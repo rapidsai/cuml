@@ -237,13 +237,12 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
-                                IdxT max_leaves, DataT min_impurity_decrease,
-                                Input<DataT, LabelT, IdxT> input,
-                                volatile Node<DataT, LabelT, IdxT>* curr_nodes,
-                                volatile Node<DataT, LabelT, IdxT>* next_nodes,
-                                IdxT* n_nodes, const Split<DataT, IdxT>* splits,
-                                IdxT* n_leaves, IdxT total_nodes) {
+__global__ void nodeSplitClassificationKernel(
+  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
+  DataT min_impurity_decrease, Input<DataT, LabelT, IdxT> input,
+  volatile Node<DataT, LabelT, IdxT>* curr_nodes,
+  volatile Node<DataT, LabelT, IdxT>* next_nodes, IdxT* n_nodes,
+  const Split<DataT, IdxT>* splits, IdxT* n_leaves, IdxT total_nodes) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
@@ -251,16 +250,33 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_rows_per_node,
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
-    if (std::is_same<DataT, LabelT>::value) {
-      computePredRegression<DataT, LabelT, IdxT, TPB>(
-        range_start, range_len, input, node, n_leaves, smem);
-    } else {
-      computePredClassification<DataT, LabelT, IdxT, TPB>(
-        range_start, range_len, input, node, n_leaves, smem);
-    }
+    computePredClassification<DataT, LabelT, IdxT, TPB>(
+      range_start, range_len, input, node, n_leaves, smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(
+    input, splits, curr_nodes, next_nodes, n_nodes, total_nodes, (char*)smem);
+}
+
+template <typename DataT, typename IdxT, int TPB>
+__global__ void nodeSplitRegressionKernel(
+  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
+  DataT min_impurity_decrease, Input<DataT, DataT, IdxT> input,
+  volatile Node<DataT, DataT, IdxT>* curr_nodes,
+  volatile Node<DataT, DataT, IdxT>* next_nodes, IdxT* n_nodes,
+  const Split<DataT, IdxT>* splits, IdxT* n_leaves, IdxT total_nodes) {
+  extern __shared__ char smem[];
+  IdxT nid = blockIdx.x;
+  volatile auto* node = curr_nodes + nid;
+  auto range_start = node->start, range_len = node->end;
+  auto isLeaf = leafBasedOnParams<DataT, IdxT>(
+    node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
+  if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
+    computePredRegression<DataT, DataT, IdxT, TPB>(range_start, range_len,
+                                                   input, node, n_leaves, smem);
+    return;
+  }
+  partitionSamples<DataT, DataT, IdxT, TPB>(
     input, splits, curr_nodes, next_nodes, n_nodes, total_nodes, (char*)smem);
 }
 
