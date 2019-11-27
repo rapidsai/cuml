@@ -50,6 +50,7 @@
 - PR #1362: device_buffer in UMAP + Sparse prims
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
+- PR #1392: Updated RF code to reduce duplication of the code
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
