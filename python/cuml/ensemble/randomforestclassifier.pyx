@@ -52,8 +52,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
-cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
-
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, int]*,
                   float*,
