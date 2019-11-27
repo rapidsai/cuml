@@ -400,6 +400,7 @@ void init_batched_kalman_matrices(cumlHandle& handle,
                      /*
                        |1.0   |
                    R = |ma_1  |
+                       | ...  |
                        |ma_r-1|
                      */
                      d_R_b[bid * r] = 1.0;

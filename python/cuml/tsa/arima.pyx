@@ -31,7 +31,7 @@ import cuml
 from cuml.utils.input_utils import input_to_dev_array, input_to_host_array
 from cuml.utils.input_utils import get_dev_array_ptr
 
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Mapping, Optional, Union
 import cudf
 from cuml.utils import get_dev_array_ptr, zeros
 
@@ -133,7 +133,7 @@ cdef extern from "arima/batched_kalman.hpp" namespace "ML":
                                  double* h_Tparams)
 
 
-class ARIMAModel(Base):
+class ARIMA(Base):
     r"""Implements an ARIMA model for in- and out-of-sample
     time-series prediction.
 
@@ -176,11 +176,9 @@ class ARIMAModel(Base):
 
         plt.plot(xs, ys1, xs, ys2)
 
-        # get parameter estimates
-        mu0, ar0, ma0 = arima.estimate_x0((1,1,1), ys)
-
-        # fine-tune parameter estimates
-        model = arima.fit(ys, (1,1,1), mu0, ar0, ma0)
+        # fit a model
+        model = arima.ARIMA(ys, (1,1,1), fit_intercept=True)
+        model.fit()
 
         # predict and forecast using fitted model
         d_yp = model.predict_in_sample()
@@ -193,22 +191,18 @@ class ARIMAModel(Base):
 
     Parameters
     ----------
-    order : Tuple[int, int, int]
-            The ARIMA order (p, d, q) of the model
-    mu    : List (host) or array-like
-            (if d>0) Array of trend parameters, one for each series
-    ar_params : List[array-like] (host) or array-like
-                List of AR parameters, grouped (`p`) per series.
-                If passed as a single array, the shape must be (p, num_batches)
-    ma_params : List[array-like] (host) or array-like
-                List of MA parameters, grouped (`q`) per series.
-                If passed as a single array, the shape must be (q, num_batches)
     y : array-like (device or host)
         The time series series data. If given as `ndarray`, assumed to have
         each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF
         Series, NumPy ndarray, Numba device ndarray, cuda array interface
         compliant array like CuPy.
+    order : Tuple[int, int, int]
+            The ARIMA order (p, d, q) of the model
+    fit_intercept : bool or int
+                Whether to include a constant trend mu in the model
+                Leave to None for automatic selection based on d and D
+    TODO: update docs with seasonal parameters
 
     References
     ----------
@@ -224,44 +218,39 @@ class ARIMAModel(Base):
     """
 
     def __init__(self,
-                 order: Tuple[int, int, int],
-                 mu,
-                 ar_params,
-                 ma_params,
                  y,
+                 order: Tuple[int, int, int],
+                 seasonal_order: Tuple[int, int, int, int]
+                 = (0, 0, 0, 0),
+                 fit_intercept=None,
                  handle=None):
         super().__init__(handle)
+
+        # TODO: check orders!!
+
         self.order = order
+        self.seasonal_order = order
+        if fit_intercept is None:
+            # by default, use an intercept only with non differenced models
+            fit_intercept = (order[1] + seasonal_order[1] == 0)
+        self.intercept = int(fit_intercept)
 
-        # Convert the lists to numpy arrays if needed
-        if type(mu) is list:
-            mu = np.array(mu)
-        if type(ar_params) is list:
-            ar_params = np.transpose(ar_params)
-        if type(ma_params) is list:
-            ma_params = np.transpose(ma_params)
-        self.mu, _, _, _, _ = input_to_host_array(mu)
-        self.ar_params, _, _, _, _ = input_to_host_array(ar_params)
-        self.ma_params, _, _, _, _ = input_to_host_array(ma_params)
+        # Get device array. Float64 only for now.
+        self.d_y, _, self.num_samples, self.num_batches, self.dtype \
+            = input_to_dev_array(y, check_dtype=np.float64)
 
-        # get host and device pointers. Float64 only for now.
-        h_y, h_y_ptr, n_samples, n_series, dtype = \
-            input_to_host_array(y, check_dtype=np.float64)
-        d_y, d_y_ptr, _, _, _ = input_to_dev_array(y, check_dtype=np.float64)
-
-        self.h_y = h_y
-        self.d_y = d_y
-        self.num_samples = n_samples
-        self.num_batches = n_series
         self.yp = None
         self.niter = None  # number of iterations used during fit
 
     def __str__(self):
-        return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(
-            self.order, self.mu,
-            self.ar_params, self.ma_params)
+        if self.seasonal_order[3]:
+            return "Batched ARIMA{}".format(self.order)
+        else:
+            return "Batched ARIMA{}{}_{}".format(self.order,
+                                                 self.seasonal_order[:3],
+                                                 self.seasonal_order[3])
 
-    def _ic(self, ic_type):
+    def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -275,15 +264,14 @@ class ARIMAModel(Base):
                 input_to_dev_array(self.mu, check_dtype=np.float64)
         if p:
             d_ar, d_ar_ptr, _, _, _ = \
-                input_to_dev_array(self.ar_params, check_dtype=np.float64)
+                input_to_dev_array(self.ar, check_dtype=np.float64)
         if q:
             d_ma, d_ma_ptr, _, _, _ = \
-                input_to_dev_array(self.ma_params, check_dtype=np.float64)
+                input_to_dev_array(self.ma, check_dtype=np.float64)
 
         cdef vector[double] ic
         ic.resize(self.num_batches)
-        cdef uintptr_t d_y_ptr
-        d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
         ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
         cdef int ic_type_id
@@ -312,6 +300,26 @@ class ARIMAModel(Base):
     def bic(self):
         return self._ic("bic")
 
+    def get_params(self) -> Dict[str, np.ndarray]:
+        """TODO: docs
+        """
+        params = dict()
+        names = ["mu", "ar", "ma", "sar", "sma"]
+        criteria = [self.intercept, self.order[0], self.order[2],
+                    self.seasonal_order[0], self.seasonal_order[2]]
+        for i in range(len(names)):
+            if criteria[i] > 0:
+                params[names[i]] = self.__dict__[names[i]]
+        return params
+
+    def set_params(self, params: Mapping[str, object]):
+        """TODO: docs
+        """
+        for param_name in ["mu", "ar", "ma", "sar", "sma"]:
+            if param_name in params:
+                array, _, _, _, _ = input_to_host_array(params[param_name])
+                self.__dict__[param_name] = array
+
     def predict_in_sample(self):
         """Return in-sample prediction on batched series given batched model
 
@@ -332,8 +340,8 @@ class ARIMAModel(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        x = pack(p, d, q, self.num_batches, self.mu, self.ar_params,
-                 self.ma_params)
+        x = pack(p, d, q, self.num_batches, self.mu, self.ar,
+                 self.ma)
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = \
             input_to_dev_array(x, check_dtype=np.float64)
@@ -397,8 +405,7 @@ class ARIMAModel(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        x = pack(p, d, q, self.num_batches, self.mu,
-                 self.ar_params, self.ma_params)
+        x = pack(p, d, q, self.num_batches, self.mu, self.ar, self.ma)
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = \
             input_to_dev_array(x, check_dtype=np.float64)
@@ -421,6 +428,7 @@ class ARIMAModel(Base):
 
         # note: `cp.diff()` returns row-major (regardless of input layout),
         # and thus needs conversion with `cp.asfortranarray()`
+        # TODO: this will be done directly in CUDA
         y_diff = cp.asfortranarray(cp.diff(self.d_y, axis=0))
         cdef uintptr_t d_y_diff_ptr = y_diff.data
 
@@ -441,48 +449,127 @@ class ARIMAModel(Base):
 
         return d_y_fc
 
+    @nvtx_range_wrap("estimate x0")
+    def estimate_x0(self):
+        """TODO: docs"""
+        p, d, q = self.order
 
-@nvtx_range_wrap("estimate x0")
-def estimate_x0(order, y, handle=None):
-    p, d, q = order
+        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-    cdef uintptr_t d_y_ptr
-    d_y, d_y_ptr, num_samples, num_batches, dtype = \
-        input_to_dev_array(y, check_dtype=np.float64)
+        # Create mu, ar and ma arrays
+        cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+        if p > 0:
+            d_ar = zeros((p, self.num_batches), dtype=self.dtype, order='F')
+            d_ar_ptr = get_dev_array_ptr(d_ar)
+        if q > 0:
+            d_ma = zeros((q, self.num_batches), dtype=self.dtype, order='F')
+            d_ma_ptr = get_dev_array_ptr(d_ma)
+        if d > 0:
+            d_mu = zeros(self.num_batches, dtype=self.dtype)
+            d_mu_ptr = get_dev_array_ptr(d_mu)
 
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        # Call C++ function
+        cpp_estimate_x0(handle_[0],
+                        <double*> d_mu_ptr, <double*> d_ar_ptr,
+                        <double*> d_ma_ptr, <double*> d_y_ptr,
+                        <int> self.num_batches, <int> self.num_samples,
+                        <int> p, <int> d, <int> q)
 
-    # Create mu, ar and ma arrays
-    cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
-    cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
-    cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
-    if p > 0:
-        d_ar = zeros((p, num_batches), dtype=dtype, order='F')
-        d_ar_ptr = get_dev_array_ptr(d_ar)
-    if q > 0:
-        d_ma = zeros((q, num_batches), dtype=dtype, order='F')
-        d_ma_ptr = get_dev_array_ptr(d_ma)
-    if d > 0:
-        d_mu = zeros(num_batches, dtype=dtype)
-        d_mu_ptr = get_dev_array_ptr(d_mu)
+        params = dict()
+        # TODO: when pack/unpack support dicts, we can avoid empty params
+        if d > 0:
+            params["mu"] = d_mu.copy_to_host()
+        else:
+            params["mu"] = np.zeros(0)
+        if p > 0:
+            params["ar"] = d_ar.copy_to_host()
+        else:
+            params["ar"] = np.zeros((0, self.num_batches))
+        if q > 0:
+            params["ma"] = d_ma.copy_to_host()
+        else:
+            params["ma"] = np.zeros((0, self.num_batches))
 
-    # Call C++ function
-    cpp_estimate_x0(handle_[0],
-                    <double*> d_mu_ptr, <double*> d_ar_ptr, <double*> d_ma_ptr,
-                    <double*> d_y_ptr,
-                    <int> num_batches, <int> num_samples,
-                    <int> p, <int> d, <int> q)
+        self.set_params(params)
 
-    h_mu = d_mu.copy_to_host() if d > 0 else np.array([])
-    h_ar = d_ar.copy_to_host() if p > 0 else np.zeros(shape=(0, num_batches))
-    h_ma = d_ma.copy_to_host() if q > 0 else np.zeros(shape=(0, num_batches))
+    # TODO: missing range wraps?
+    def fit(self,
+            start_params: Optional[Mapping[str, object]]=None,
+            opt_disp: int=-1,
+            h: float=1e-9):
+        """Fits the ARIMA model to each time-series for the given initial
+        parameter estimates.
 
-    # TODO: later, will return device pointers
-    return h_mu, h_ar, h_ma
+        Parameters
+        ----------
+        start_params : TODO: docs
+        opt_disp : int
+                Fit diagnostic level (for L-BFGS solver):
+                * `-1` for no output,
+                * `0<n<100` for output every `n` steps
+                * `n>100` for more detailed output
+        h : float
+            Finite-differencing step size. The gradient is computed
+            using second-order differencing:
+                    f(x+h) - f(x - h)
+                g = ----------------- + O(h^2)
+                            2 * h
+        """
+        p, d, q = self.order
+        num_parameters = d + p + q
+
+        if start_params is None:
+            self.estimate_x0()
+        else:
+            self.set_params(start_params)
+
+        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+
+        def f(x: np.ndarray) -> np.ndarray:
+            """The (batched) energy functional returning the negative
+            loglikelihood (foreach series)."""
+
+            # Recall: Maximimize LL means minimize negative
+            n_llf = -(ll_f(self.num_batches, self.num_samples, self.order,
+                           self.d_y, x, trans=True, handle=self.handle))
+            return n_llf/(self.num_samples-1)
+
+        # optimized finite differencing gradient for batches
+        def gf(x):
+            """The gradient of the (batched) energy functional."""
+            # Recall: We maximize LL by minimizing -LL
+            n_gllf = -ll_gf(self.num_batches, self.num_samples,
+                            num_parameters, self.order, self.d_y, x, h,
+                            trans=True, handle=self.handle)
+            return n_gllf/(self.num_samples-1)
+
+        x0 = pack(p, d, q, self.num_batches, self.mu, self.ar, self.ma)
+        x0 = _batch_invtrans(p, d, q, self.num_batches, x0, self.handle)
+
+        # check initial parameter sanity
+        if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
+            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
+
+        # Optimize parameters by minimizing log likelihood.
+        x, niter, flags = batched_fmin_lbfgs_b(f, x0, self.num_batches, gf,
+                                               iprint=opt_disp, factr=1000)
+
+        # Handle non-zero flags with Warning
+        if (flags != 0).any():
+            print("WARNING(`fit()`): Some batch members had optimizer problems.")
+
+        Tx = _batch_trans(p, d, q, self.num_batches, x, self.handle)
+        mu, ar, ma = unpack(p, d, q, self.num_batches, Tx)
+
+        self.set_params({"mu": mu, "ar": ar, "ma": ma})
+        self.niter = niter
 
 
+# TODO: method of the arima model?
+@nvtx_range_wrap("ll_f")
 def ll_f(num_batches, nobs, order, y, x,
          trans=True, handle=None):
     """Computes batched loglikelihood for given parameters and series.
@@ -521,6 +608,7 @@ def ll_f(num_batches, nobs, order, y, x,
     return loglike
 
 
+# TODO: method of the arima model?
 @nvtx_range_wrap("ll_gf")
 def ll_gf(num_batches, nobs, num_parameters, order,
           y, x, h=1e-8, trans=True, handle=None):
@@ -589,107 +677,7 @@ def ll_gf(num_batches, nobs, num_parameters, order,
     return grad
 
 
-def fit(y,
-        order: Tuple[int, int, int],
-        mu0: np.ndarray,
-        ar_params0: np.ndarray,
-        ma_params0: np.ndarray,
-        opt_disp=-1,
-        h=1e-9,
-        handle=None):
-    """Fits an ARIMA model to each time-series for the given order and initial
-    parameter estimates.
-
-    Parameters
-    ----------
-    y : array-like (device or host) shape = (n_samples, n_series)
-        Time series data.
-    order : Tuple[int, int, int]
-            The ARIMA order (p, d, q)
-    mu0 : array-like
-          Array of trend-parameter estimates. Only used if `d>0`.
-    ar_params0 : np.ndarray
-                 AR parameters, shape (p, num_batches)
-    ma_params0 : np.ndarray
-                 MA parameters, shape (q, num_batches)
-    opt_disp : int
-               Fit diagnostic level (for L-BFGS solver):
-               * `-1` for no output,
-               * `0<n<100` for output every `n` steps
-               * `n>100` for more detailed output
-    h        : float
-               Finite-differencing step size. The gradient is computed
-               using second-order differencing:
-                   f(x+h) - f(x - h)
-               g = ----------------- + O(h^2)
-                         2 * h
-    handle   : cumlHandle
-               The cumlHandle needed for memory allocation
-               and stream management.
-
-    Returns:
-    --------
-    model : ARIMAModel
-            The ARIMA model with the best fit parameters.
-
-    """
-    p, d, q = order
-    num_parameters = d + p + q
-
-    d_y, d_y_ptr, num_samples, num_batches, dtype = \
-        input_to_dev_array(y, check_dtype=np.float64)
-
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-
-    def f(x: np.ndarray) -> np.ndarray:
-        """The (batched) energy functional returning the negative
-        loglikelihood (foreach series)."""
-
-        # Recall: Maximimize LL means minimize negative
-        n_llf = -(ll_f(num_batches, num_samples,
-                       order,
-                       d_y, x,
-                       trans=True, handle=handle))
-        return n_llf/(num_samples-1)
-
-    # optimized finite differencing gradient for batches
-    def gf(x):
-        """The gradient of the (batched) energy functional."""
-        # Recall: We maximize LL by minimizing -LL
-        n_gllf = -ll_gf(num_batches, num_samples,
-                        num_parameters, order,
-                        d_y, x, h,
-                        trans=True, handle=handle)
-        return n_gllf/(num_samples-1)
-
-    mu0, _, _, _, _ = input_to_host_array(mu0)
-    ar_params0, _, _, _, _ = input_to_host_array(ar_params0)
-    ma_params0, _, _, _, _ = input_to_host_array(ma_params0)
-    x0 = pack(p, d, q, num_batches, mu0, ar_params0, ma_params0)
-    x0 = _batch_invtrans(p, d, q, num_batches, x0, handle)
-
-    # check initial parameter sanity
-    if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
-        raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
-
-    # Optimize parameters by minimizing log likelihood.
-    x, niter, flags = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
-                                           iprint=opt_disp, factr=1000)
-
-    # Handle non-zero flags with Warning
-    if (flags != 0).any():
-        print("WARNING(`fit()`): Some batch members had optimizer problems.")
-
-    Tx = _batch_trans(p, d, q, num_batches, x, handle)
-    mu, ar, ma = unpack(p, d, q, num_batches, Tx)
-
-    fit_model = ARIMAModel(order, mu, ar, ma, y)
-    fit_model.niter = niter
-    fit_model.d_y = d_y
-    return fit_model
-
-
+# TODO: later replace with auto-arima?
 def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     """Grid search to find optimal model order (p, q), weighing
     model complexity against likelihood.
@@ -718,8 +706,8 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
     (best_order: List[Tuple[int, int, int]],
      best_mu: array,
-     best_ar_params: List[array],
-     best_ma_params: List[array],
+     best_ar: List[array],
+     best_ma: List[array],
      best_ic: array)
 
     """
@@ -729,8 +717,8 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
     best_order = num_batches*[None]
     best_mu = np.zeros(num_batches)
-    best_ar_params = num_batches*[None]
-    best_ma_params = num_batches*[None]
+    best_ar = num_batches*[None]
+    best_ma = num_batches*[None]
 
     for p in range(0, max_p):
         for q in range(0, max_q):
@@ -738,9 +726,8 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
             if p == 0 and q == 0:
                 continue
 
-            mu0, ar0, ma0 = estimate_x0((p, d, q), y_b)
-
-            b_model = fit(y_b, (p, d, q), mu0, ar0, ma0)
+            b_model = ARIMA(y_b, (p, d, q), fit_intercept=True)
+            b_model.fit()
 
             ic = b_model._ic(method)
 
@@ -750,22 +737,23 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
                     best_mu[i] = b_model.mu[i]
 
                     if p > 0:
-                        best_ar_params[i] = b_model.ar_params[:, i]
+                        best_ar[i] = b_model.ar[:, i]
                     else:
-                        best_ar_params[i] = []
+                        best_ar[i] = []
                     if q > 0:
-                        best_ma_params[i] = b_model.ma_params[:, i]
+                        best_ma[i] = b_model.ma[:, i]
                     else:
-                        best_ma_params[i] = []
+                        best_ma[i] = []
 
                     best_ic[i] = ic_i
 
-    return (best_order, best_mu, best_ar_params, best_ma_params, best_ic)
+    return (best_order, best_mu, best_ar, best_ma, best_ic)
 
 
-@nvtx_range_wrap("unpack(x) -> (mu,ar,ma)")
-def unpack(p, d, q, nb, x):
-    """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
+# TODO: return dictionary?
+@nvtx_range_wrap("unpack")
+def unpack(p, d, q, nb, x: Union[list, np.ndarray]):
+    """Unpack linearized parameter vector `x` into separarate arrays"""
     if type(x) is list or x.shape != (p + d + q, nb):
         x_mat = np.reshape(x, (p + d + q, nb), order='F')
     else:
@@ -780,9 +768,10 @@ def unpack(p, d, q, nb, x):
     return (mu, ar, ma)
 
 
-@nvtx_range_wrap("pack(mu,ar,ma) -> x")
-def pack(p, d, q, nb, mu, ar, ma):
-    """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
+# TODO: construct from dictionary?
+@nvtx_range_wrap("pack")
+def pack(p, d, q, nb, mu, ar, ma) -> np.ndarray:
+    """Pack parameters into a linearized vector `x`"""
     x = np.zeros((p + d + q, nb), order='F')  # 2D array for convenience
     if d > 0:
         x[0:d] = mu
