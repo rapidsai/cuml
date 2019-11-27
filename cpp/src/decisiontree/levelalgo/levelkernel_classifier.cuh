@@ -355,8 +355,8 @@ __global__ void best_split_gather_classification_kernel(
   const unsigned int* __restrict__ g_nodestart,
   const unsigned int* __restrict__ samplelist, const int n_nodes,
   const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
-  const int ncols_sampled, float* d_infogain,
-  SparseTreeNode<T, int>* d_sparsenodes) {
+  const int ncols_sampled, const size_t treesz, float* d_infogain,
+  SparseTreeNode<T, int>* d_sparsenodes, int* d_nodelist) {
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
   __shared__ float parent_metric;
@@ -434,6 +434,7 @@ __global__ void best_split_gather_classification_kernel(
       QuestionType question(question_ptr, colid, shmem_col, n_nodes, blockIdx.x,
                             nbins);
       localnode.quesval = question(shmem_pair.idx);
+      localnode.left_child_id = treesz + 2 * blockIdx.x;
     } else {
       colid = shmem_col;
       localnode.prediction =
@@ -441,6 +442,6 @@ __global__ void best_split_gather_classification_kernel(
     }
     localnode.colid = colid;
     localnode.best_metric_val = parent_metric;
-    d_sparsenodes[blockIdx.x] = localnode;
+    d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
