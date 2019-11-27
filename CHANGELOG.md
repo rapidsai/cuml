@@ -72,8 +72,10 @@
 - PR #1380: Fix memory leaks in ARIMA
 - PR #1391: Lower expectations on batched matrix tests even more
 - PR #1394: Warning added in svd for cuda version 10.1
+- PR #1407: Resolved RF predict issues and updated RF docstring
 - PR #1401: Patch for lbfgs solver for logistic regression with no l1 penalty
 - PR #1416: train_test_split numba and rmm device_array output bugfix
+- PR #1419: UMAP pickle tests are using wrong n_neighbors value for trustworthiness
 
 # cuML 0.10.0 (16 Oct 2019)
 
