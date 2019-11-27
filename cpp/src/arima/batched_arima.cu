@@ -45,6 +45,12 @@ namespace ML {
 
 using std::vector;
 
+/**
+ * TODO: implementation + docs
+ */
+static void prepare_data(double* out, const double* in, int d, int D, int s) {
+}
+
 void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
               int d, int q, double* d_params, double* d_vs, bool trans) {
   ML::PUSH_RANGE(__func__);
@@ -64,6 +70,9 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
   double* d_vs_ =
     (double*)alloc->allocate((q + num_steps) * batch_size, stream);
   const auto counting = thrust::make_counting_iterator(0);
+
+  /// TODO: fix for d=0
+
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
                      if (p > 0) {

@@ -115,6 +115,8 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int num_batches,
 void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
               int d, int q, double* d_params, double* d_vs, bool trans);
 
+///TODO: allow nullptr for the diff to be calculated inside this function if
+///      needed (d > 0 or D > 0)
 /**
  * Batched forecast of a time-series given trend, AR, and MA parameters.
  *
@@ -129,7 +131,7 @@ void residual(cumlHandle& handle, double* d_y, int num_batches, int nobs, int p,
  * @param[in]  d_y        Batched Time series to predict.
  *                        Shape: (num_samples, batch size) (device)
  * @param[in]  d_y_diff   Diffed (e.g., np.diff) of the batched Time series to
- *                        predict. Shape: (num_samples, batch size) (device)
+ *                        predict. Shape: (num_samples - 1, batch size) (device)
  * @param[in]  d_vs       Residual input (device)
  * @param[in]  d_params   Zipped trend, AR, and MA parameters
  *                        [mu, ar, ma] x batches (device)

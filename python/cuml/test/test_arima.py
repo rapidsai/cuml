@@ -69,12 +69,12 @@ data_smooth = np.array([16236.380267964598, 14198.707110817017,
 def create_yp_ref():
     """ creates reference prediction """
     (_, y) = get_data()
-    model = arima.ARIMAModel((1, 1, 1), np.array([-217.7230173548441,
-                                                  -206.81064091237104]),
-                             [np.array([0.0309380078339684]),
-                              np.array([-0.0371740508810001])],
-                             [np.array([-0.9995474311219695]),
-                              np.array([-0.9995645146854383])], y)
+    model = arima.ARIMA(y, (1, 1, 1), fit_intercept=True)
+    model.set_params({
+        "mu": np.array([-217.7230173548441, -206.81064091237104]),
+        "ar": np.array([[0.0309380078339684, -0.0371740508810001]], order='F'),
+        "ma": np.array([[-0.9995474311219695, -0.9995645146854383]], order='F')
+    })
     y_p_ref = model.predict_in_sample()
     print("yp_ref=", y_p_ref)
 
@@ -259,13 +259,8 @@ def test_bic():
     for p in range(1, 3):
         order = (p, 1, 1)
 
-        mu0, ar0, ma0 = arima.estimate_x0(order, y)
-
-        batched_model = arima.fit(y, order,
-                                  mu0,
-                                  ar0,
-                                  ma0,
-                                  opt_disp=-1, h=1e-9)
+        batched_model = arima.ARIMA(y, order, fit_intercept=True)
+        batched_model.fit()
 
         np.testing.assert_allclose(batched_model.bic,
                                    bic_reference[p-1], rtol=1e-4)
@@ -290,18 +285,14 @@ def test_fit():
 
     for p in range(1, 3):
         order = (p, 1, 1)
-        mu0, ar0, ma0 = arima.estimate_x0(order, y)
 
-        batched_model = arima.fit(y, order,
-                                  mu0,
-                                  ar0,
-                                  ma0,
-                                  opt_disp=-1, h=1e-9)
+        batched_model = arima.ARIMA(y, order, fit_intercept=True)
+        batched_model.fit()
 
         print("num iterations: ", batched_model.niter)
 
         x = arima.pack(p, 1, 1, 2, batched_model.mu,
-                       batched_model.ar_params, batched_model.ma_params)
+                       batched_model.ar, batched_model.ma)
 
         llx = arima.ll_f(2, len(t), (p, 1, 1), y, x, trans=False)
 
@@ -309,9 +300,9 @@ def test_fit():
         # parameter differences are more difficult to test precisely due to the
         # nonlinear-optimization.
         np.testing.assert_allclose(batched_model.mu, mu_ref[p-1], rtol=rtol)
-        np.testing.assert_allclose(batched_model.ar_params, ar_ref[p-1],
+        np.testing.assert_allclose(batched_model.ar, ar_ref[p-1],
                                    rtol=rtol)
-        np.testing.assert_allclose(batched_model.ma_params, ma_ref[p-1],
+        np.testing.assert_allclose(batched_model.ma, ma_ref[p-1],
                                    rtol=rtol)
 
         # more important is that the loglikelihood is close to a relatively
@@ -325,11 +316,11 @@ def test_predict(plot=False):
 
     mu = [np.array([-217.7230173548441, -206.81064091237104]),
           np.array([-217.72325384510506, -206.77224439903458])]
-    ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])],
-          [np.array([0.0309027562133337, -0.0191533926207157]),
-           np.array([-0.0386322768036704, -0.0330133336831984])]]
-    ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])],
-          [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
+    ar = [np.array([[0.0309380078339684, -0.0371740508810001]], order='F'),
+          np.array([[0.0309027562133337, -0.0386322768036704],
+                    [-0.0191533926207157, -0.0330133336831984]], order='F')]
+    ma = [np.array([[-0.9995474311219695, -0.9995645146854383]], order='F'),
+          np.array([[-0.999629811305126, -0.9997747315789454]], order='F')]
 
     l2err_ref = [[7.611525998416604e+08, 7.008862739645946e+08],
                  [7.663156224285843e+08, 6.993847054122686e+08]]
@@ -337,7 +328,8 @@ def test_predict(plot=False):
     for p in range(1, 3):
         order = (p, 1, 1)
 
-        model = arima.ARIMAModel(order, mu[p-1], ar[p-1], ma[p-1], y)
+        model = arima.ARIMA(y, order, fit_intercept=True)
+        model.set_params({"mu": mu[p-1], "ar": ar[p-1], "ma": ma[p-1]})
 
         d_y_b_p = model.predict_in_sample()
         y_b_p = input_to_host_array(d_y_b_p).array
@@ -366,11 +358,11 @@ def test_forecast():
 
     mu = [np.array([-217.7230173548441, -206.81064091237104]),
           np.array([-217.72325384510506, -206.77224439903458])]
-    ar = [[np.array([0.0309380078339684]), np.array([-0.0371740508810001])],
-          [np.array([0.0309027562133337, -0.0191533926207157]),
-           np.array([-0.0386322768036704, -0.0330133336831984])]]
-    ma = [[np.array([-0.9995474311219695]), np.array([-0.9995645146854383])],
-          [np.array([-0.999629811305126]), np.array([-0.9997747315789454])]]
+    ar = [np.array([[0.0309380078339684, -0.0371740508810001]], order='F'),
+          np.array([[0.0309027562133337, -0.0386322768036704],
+                    [-0.0191533926207157, -0.0330133336831984]], order='F')]
+    ma = [np.array([[-0.9995474311219695, -0.9995645146854383]], order='F'),
+          np.array([[-0.999629811305126, -0.9997747315789454]], order='F')]
 
     y_fc_ref = [np.array([[8291.97380664, 7993.55508519, 7773.33550351],
                           [7648.10631132, 7574.38185979, 7362.6238661]]),
@@ -380,7 +372,8 @@ def test_forecast():
     for p in range(1, 3):
         order = (p, 1, 1)
 
-        model = arima.ARIMAModel(order, mu[p-1], ar[p-1], ma[p-1], y)
+        model = arima.ARIMA(y, order, fit_intercept=True)
+        model.set_params({"mu": mu[p-1], "ar": ar[p-1], "ma": ma[p-1]})
 
         d_y_b_fc = model.forecast(3)
         y_b_fc = input_to_host_array(d_y_b_fc).array
@@ -413,13 +406,9 @@ def test_fit_predict_forecast(plot=False):
             y_train[:, i] = y[:ns_train, i]
 
         p, _, _ = order
-        mu0, ar0, ma0 = arima.estimate_x0(order, y_train)
 
-        batched_model = arima.fit(y_train, order,
-                                  mu0,
-                                  ar0,
-                                  ma0,
-                                  opt_disp=-1, h=1e-9)
+        batched_model = arima.ARIMA(y_train, order, fit_intercept=True)
+        batched_model.fit()
 
         d_y_b = batched_model.predict_in_sample()
         y_b = input_to_host_array(d_y_b).array
@@ -500,9 +489,8 @@ def demo():
 
     plt.plot(xs, ys1, xs, ys2)
 
-    mu0, ar0, ma0 = arima.estimate_x0((1, 1, 1), ys)
-
-    model = arima.fit(ys, (1, 1, 1), mu0, ar0, ma0)
+    model = arima.ARIMA(ys, (1, 1, 1), fit_intercept=True)
+    model.fit()
 
     d_yp = model.predict_in_sample()
     yp = input_to_host_array(d_yp).array
@@ -529,13 +517,8 @@ def bench_arima(num_batches=240, plot=False):
 
     start = timer()
 
-    mu0, ar0, ma0 = arima.estimate_x0(order, y_b)
-
-    batched_model = arima.fit(y_b, order,
-                              mu0,
-                              ar0,
-                              ma0,
-                              opt_disp=-1, h=1e-9)
+    batched_model = arima.ARIMA(y_b, order, fit_intercept=True)
+    batched_model.fit()
 
     end = timer()
 
