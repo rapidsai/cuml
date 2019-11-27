@@ -45,12 +45,6 @@ cimport cuml.common.handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
-    cdef enum CRITERION:
-        GINI,
-        ENTROPY,
-        MSE,
-        MAE,
-        CRITERION_END
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, int]*,
