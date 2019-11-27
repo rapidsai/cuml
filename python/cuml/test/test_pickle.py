@@ -224,17 +224,17 @@ def test_decomposition_pickle(tmpdir, datatype, model, data_size):
 @pytest.mark.parametrize('model', umap_model.values())
 def test_umap_pickle(tmpdir, datatype, model):
 
-    iris = load_iris()
-    iris_selection = np.random.RandomState(42).choice(
-        [True, False], 150, replace=True, p=[0.75, 0.25])
-    X_train = iris.data[iris_selection]
+    X_train = load_iris().data
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
     cu_before_embed = model.embedding_
 
+    n_neighbors = model.n_neighbors
+
     cu_trust_before = trustworthiness(X_train,
-                                      cu_before_pickle_transform, 10)
+                                      cu_before_pickle_transform,
+                                      n_neighbors)
 
     cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
@@ -242,16 +242,11 @@ def test_umap_pickle(tmpdir, datatype, model):
 
     cu_after_embed = cu_after_pickle_model.embedding_
 
-    print(str(cu_before_embed[0][0]))
-    print(str(cu_after_embed[0][0]))
-
     assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
-
-    print(str(cu_after_embed[0][0]))
-
-    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform, 10)
+    cu_trust_after = trustworthiness(X_train, cu_after_pickle_transform,
+                                     n_neighbors)
 
     assert cu_trust_after >= cu_trust_before - 0.2
     assert array_equal(cu_before_embed[0][0], cu_after_embed[0][0])
@@ -311,8 +306,6 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     unpickled = pickle_save_load(tmpdir, model)
 
     state = unpickled.__dict__
-
-    print(str(state))
 
     assert state["n_indices"] == 0
     assert "X_m" not in state
