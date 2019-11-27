@@ -346,4 +346,5 @@ void best_split_gather_classification(
         ncols_sampled, outgain, d_sparsenodes);
     CUDA_CHECK(cudaGetLastError());
   }
+  CUDA_CHECK(cudaDeviceSynchronize());
 }

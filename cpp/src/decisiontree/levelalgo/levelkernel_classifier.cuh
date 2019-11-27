@@ -169,9 +169,10 @@ struct GiniDevFunctor {
     __syncthreads();
     if (tid < n_unique_labels) {
       float prob = ((float)hist[tid]) / nrows;
-      prob = -1.0 * prob * prob;
+      prob = -1 * prob * prob;
       atomicAdd(metric, prob);
     }
+    __syncthreads();
   }
 };
 
@@ -190,6 +191,7 @@ struct EntropyDevFunctor {
                             const int nrows, const int n_unique_labels) {
     auto& tid = threadIdx.x;
     if (tid == 0) metric[0] = 0.0;
+    __syncthreads();
     if (tid < n_unique_labels) {
       if (hist[tid] != 0) {
         float prob = ((float)hist[tid]) / nrows;
@@ -197,6 +199,7 @@ struct EntropyDevFunctor {
         atomicAdd(metric, prob);
       }
     }
+    __syncthreads();
   }
 };
 //This is device equialent of best split finding reduction.
@@ -355,7 +358,7 @@ __global__ void best_split_gather_classification_kernel(
   const int ncols_sampled, float* d_infogain,
   SparseTreeNode<T, int>* d_sparsenodes) {
   __shared__ GainIdxPair shmem_pair;
-  __shared__ unsigned int shmem_col;
+  __shared__ int shmem_col;
   __shared__ float parent_metric;
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
@@ -365,7 +368,7 @@ __global__ void best_split_gather_classification_kernel(
   unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
 
   int colstart_local = -1;
-  unsigned int colid;
+  int colid;
   unsigned int nodestart = g_nodestart[blockIdx.x];
   unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
   if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
@@ -374,9 +377,10 @@ __global__ void best_split_gather_classification_kernel(
   for (int i = threadIdx.x; i < n_unique_labels; i += blockDim.x) {
     shmemhist_parent[i] = 0;
   }
-  if (threadIdx.x == blockDim.x - 1) {
+  if (threadIdx.x == 0) {
     shmem_pair.gain = 0.0f;
     shmem_pair.idx = -1;
+    shmem_col = -1;
   }
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
@@ -384,7 +388,6 @@ __global__ void best_split_gather_classification_kernel(
     int local_label = labels[dataid];
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
-  __syncthreads();
   FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
 
   //Loop over cols
@@ -424,15 +427,19 @@ __global__ void best_split_gather_classification_kernel(
   __syncthreads();
   if (threadIdx.x == 0) {
     d_infogain[blockIdx.x] = shmem_pair.gain;
-
-    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
-                          shmem_col, blockIdx.x);
-    QuestionType question(question_ptr, colid, shmem_col, n_nodes, blockIdx.x,
-                          nbins);
-
     SparseTreeNode<T, int> localnode;
+    if (shmem_col != -1) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            shmem_col, blockIdx.x);
+      QuestionType question(question_ptr, colid, shmem_col, n_nodes, blockIdx.x,
+                            nbins);
+      localnode.quesval = question(shmem_pair.idx);
+    } else {
+      colid = shmem_col;
+      localnode.prediction =
+        get_class_hist_shared(shmemhist_parent, n_unique_labels);
+    }
     localnode.colid = colid;
-    localnode.quesval = question(shmem_pair.idx);
     localnode.best_metric_val = parent_metric;
     d_sparsenodes[blockIdx.x] = localnode;
   }

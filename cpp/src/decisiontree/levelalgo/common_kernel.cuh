@@ -19,10 +19,29 @@
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.h"
 
+struct PredictionPair {
+  unsigned int maxval;
+  int classval;
+};
+
+DI int get_class_hist_shared(unsigned int* node_hist,
+                             const int n_unique_labels) {
+  unsigned int maxval = node_hist[0];
+  int classval = 0;
+  for (int i = 1; i < n_unique_labels; i++) {
+    if (node_hist[i] > maxval) {
+      maxval = node_hist[i];
+      classval = i;
+    }
+  }
+  return classval;
+}
+
 DI unsigned int get_column_id(const unsigned int* __restrict__ colids,
-                              const int colstart_local, const int Ncols,
-                              const int ncols_sampled, const int colcnt,
-                              const unsigned int local_flag) {
+                              const int& colstart_local, const int& Ncols,
+                              const int& ncols_sampled,
+                              const unsigned int& colcnt,
+                              const unsigned int& local_flag) {
   unsigned int col;
   if (colstart_local != -1) {
     col = colids[(colstart_local + colcnt) % Ncols];

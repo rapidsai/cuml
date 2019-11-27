@@ -103,7 +103,7 @@ void grow_deep_tree_classification(
     MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
-
+  int printcnt = 0;
   for (int depth = 0; (depth < 4) && (n_nodes_nextitr != 0); depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
@@ -139,7 +139,7 @@ void grow_deep_tree_classification(
     }
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-
+    printcnt += n_nodes;
     leaf_eval_classification(infogain, depth, min_impurity_decrease, maxdepth,
                              n_unique_labels, maxleaves, h_new_node_flags,
                              sparsetree, sparsesize, h_parent_hist,
@@ -154,12 +154,14 @@ void grow_deep_tree_classification(
     memcpy(h_parent_hist, h_child_hist,
            2 * n_nodes * n_unique_labels * sizeof(unsigned int));
   }
+  printf("looping over %d leaf nodes at end of scatter...\n",
+         (int)(sparsetree.size() - sparsesize_nextitr));
   for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
     sparsetree[i].prediction =
       get_class_hist(&h_child_hist[(i - sparsesize_nextitr) * n_unique_labels],
                      n_unique_labels);
   }
-
+  print_nodes(&sparsetree[0], (float*)nullptr, (int)(sparsetree.size()));
   // Start of gather algorithm
   //Convertor
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -183,6 +185,10 @@ void grow_deep_tree_classification(
   CUDA_CHECK(cudaDeviceSynchronize());
   print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes);
   float* d_outgain = tempmem->d_outgain->data();
+  update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
+                          ncols_sampled, n_nodes, mtg, dist, feature_selector,
+                          tempmem, d_rng);
+
   if (split_cr == ML::CRITERION::GINI) {
     best_split_gather_classification<T, GiniDevFunctor>(
       data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
@@ -194,8 +200,12 @@ void grow_deep_tree_classification(
       Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
       tempmem, d_outgain, d_sparsenodes);
   }
+  CUDA_CHECK(cudaDeviceSynchronize());
   float* h_outgain = tempmem->h_outgain->data();
   MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
+  for (int i = 0; i < sparse_nodelist.size(); i++) {
+    //sparsetree[sparsesize_nextitr + sparse_nodelist[i]] = d_sparsenodes[i];
+  }
   print_nodes(d_sparsenodes, h_outgain, n_nodes);
 }
