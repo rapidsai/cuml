@@ -253,28 +253,30 @@ def test_umap_pickle(tmpdir, datatype, keys):
     result = {}
 
     def create_mod():
-        iris = load_iris()
-        iris_selection = np.random.RandomState(42).choice(
-            [True, False], 150, replace=True, p=[0.75, 0.25])
-        X_train = iris.data[iris_selection]
+        X_train = load_iris().data
 
         model = umap_model[keys]()
         cu_before_pickle_transform = model.fit_transform(X_train)
 
         result["umap_embedding"] = model.embedding_
 
+        n_neighbors = model.n_neighbors
+
         result["umap"] = trustworthiness(X_train,
-                                         cu_before_pickle_transform, 10)
+                                         cu_before_pickle_transform,
+                                         n_neighbors)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
         cu_after_embed = pickled_model.embedding_
+
+        n_neighbors = pickled_model.n_neighbors
         assert array_equal(result["umap_embedding"][0][0],
                            cu_after_embed[0][0])
 
         cu_trust_after = trustworthiness(X_train,
                                          pickled_model.transform(X_train),
-                                         10)
+                                         n_neighbors)
         assert cu_trust_after >= result["umap"] - 0.2
 
     pickle_save_load(tmpdir, create_mod, assert_model)
