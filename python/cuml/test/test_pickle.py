@@ -259,7 +259,6 @@ def test_umap_pickle(tmpdir, datatype, keys):
         cu_before_pickle_transform = model.fit_transform(X_train)
 
         result["umap_embedding"] = model.embedding_
-
         n_neighbors = model.n_neighbors
 
         result["umap"] = trustworthiness(X_train,
@@ -354,7 +353,6 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
         state = loaded_model.__dict__
         assert state["n_indices"] == 0
         assert "X_m" not in state
-
         loaded_model.fit(X[0])
 
         state = loaded_model.__dict__
