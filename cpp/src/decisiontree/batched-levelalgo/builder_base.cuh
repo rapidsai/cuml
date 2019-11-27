@@ -283,7 +283,6 @@ struct Builder {
     // compute the best split at the end
     auto n_col_blks = params.n_blks_for_cols;
     for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-      CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
       Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
       CUDA_CHECK(cudaGetLastError());
     }
@@ -337,6 +336,7 @@ struct ClsTraits {
     auto n_col_blks = b.params.n_blks_for_cols;
     dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
     size_t smemSize = sizeof(int) * len + sizeof(DataT) * nbins;
+    CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_rows_per_node,
@@ -431,6 +431,10 @@ struct RegTraits {
     dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
     size_t smemSize = 5 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
+    CUDA_CHECK(cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPreds * 2, s));
+    CUDA_CHECK(cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPreds * 2, s));
+    CUDA_CHECK(
+      cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred_count, b.params.n_bins, b.params.max_depth,
