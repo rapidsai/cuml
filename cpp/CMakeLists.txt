@@ -346,7 +346,7 @@ include_directories(
   src
   src_prims
   test/prims
-  ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+  ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
@@ -391,9 +391,12 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/ws_util.cu
+    src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu
+    src/arima/batched_kalman.cu
+    src/arima/batched_arima.cu
     )
 
   set(CUML_LINK_LIBRARIES
