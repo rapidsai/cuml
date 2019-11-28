@@ -104,6 +104,13 @@ if __name__ == '__main__':
         default=2,
         help='Number of different sizes to test',
     )
+    parser.add_argument(
+        '--num-rows',
+        type=int,
+        default=None,
+        metavar='N',
+        help='Shortcut for --min-rows N --max-rows N --num-sizes 1'
+    )
     parser.add_argument('--num-features', type=int, default=-1)
     parser.add_argument(
         '--quiet', '-q', action='store_false', dest='verbose', default=True
@@ -164,6 +171,10 @@ if __name__ == '__main__':
         nargs='*',
         help='List of algorithms to run, or omit to run all',
     )
+    parser.add_argument(
+        '--n-reps',
+        type=int,
+        default=1)
     args = parser.parse_args()
 
     if args.print_algorithms:
@@ -186,7 +197,11 @@ if __name__ == '__main__':
         num=args.num_sizes,
         dtype=np.int32,
     )
+
     bench_dims = args.input_dimensions
+
+    if args.num_rows is not None:
+        bench_rows = [args.num_rows]
 
     if args.num_features > 0:
         bench_dims = [args.num_features]
@@ -218,7 +233,8 @@ if __name__ == '__main__':
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
         run_cpu=(not args.skip_cpu),
-        raise_on_error=args.raise_on_error
+        raise_on_error=args.raise_on_error,
+        n_reps=args.n_reps
     )
 
     if args.csv:
