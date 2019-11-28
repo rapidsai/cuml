@@ -194,10 +194,13 @@ void convert_scatter_to_gather(const unsigned int *flagsptr,
   CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
   cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
                                 nodestart, n_nodes + 1);
+  CUDA_CHECK(cudaGetLastError());
+
   CUDA_CHECK(cudaFree(d_temp_storage));
-  cudaMemset(nodecount, 0, n_nodes * sizeof(unsigned int));
+  CUDA_CHECK(cudaMemset(nodecount, 0, n_nodes * sizeof(unsigned int)));
   build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, n_rows, nodecount,
                                     samplelist);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 void print_convertor(unsigned int *nodecount, unsigned int *nodestart,
@@ -237,4 +240,44 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
     if (gain != nullptr) printf("  gain --> %f", gain[i]);
     printf("\n");
   }
+}
+template <typename T, typename L>
+void make_split_gather(const T *data, const float *gain,
+                       unsigned int *nodestart, unsigned int *samplelist,
+                       const float min_impurity_gain, const int n_nodes,
+                       const int nrows, const int *nodelist, int *new_nodelist,
+                       unsigned int *nodecount, int *counter,
+                       unsigned int *flagsptr,
+                       const SparseTreeNode<T, L> *d_sparsenodes) {
+  CUDA_CHECK(
+    cudaMemset(nodecount, 0, (2 * n_nodes + 1) * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMemset(counter, 0, sizeof(unsigned int)));
+  CUDA_CHECK(cudaMemset(flagsptr, LEAF, nrows * sizeof(unsigned int)));
+  int nthreads = 128;
+  int nblocks = (int)(nrows / nthreads);
+  if (nrows % nthreads != 0) nblocks++;
+  //fill_all_leaf<<<nblocks, nthreads>>>(flagsptr, nrows);
+  split_nodes_compute_counts_kernel<<<n_nodes, 64,
+                                      sizeof(SparseTreeNode<T, L>)>>>(
+    data, d_sparsenodes, nodestart, samplelist, nrows, nodelist, new_nodelist,
+    nodecount, counter, flagsptr);
+  CUDA_CHECK(cudaGetLastError());
+  void *d_temp_storage = NULL;
+  size_t temp_storage_bytes = 0;
+  CUDA_CHECK(cudaDeviceSynchronize());
+  int h_counter = counter[0];
+  printf("\nfrom inside count -->");
+  for (int i = 0; i < h_counter; i++) {
+    printf(" %d ", nodecount[i]);
+  }
+  printf("\n");
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
+                                nodestart, h_counter + 1);
+  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
+                                nodestart, h_counter + 1);
+  CUDA_CHECK(cudaGetLastError());
+  CUDA_CHECK(cudaMemset(nodecount, 0, h_counter * sizeof(unsigned int)));
+  build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, nrows, nodecount,
+                                    samplelist);
 }

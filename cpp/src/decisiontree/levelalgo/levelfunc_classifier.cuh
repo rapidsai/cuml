@@ -170,7 +170,7 @@ void grow_deep_tree_classification(
   CUDA_CHECK(cudaDeviceSynchronize());
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, int>* d_sparsenodes;
-  int* d_nodelist;
+  int *d_nodelist, *d_new_nodelist;
   int max_nodes = tempmem->max_nodes_per_level;
   printf("nodes %d nodes next %d\n", n_nodes, n_nodes_nextitr);
   n_nodes = n_nodes_nextitr;
@@ -185,6 +185,8 @@ void grow_deep_tree_classification(
   CUDA_CHECK(cudaMallocManaged((void**)&d_sparsenodes,
                                max_nodes * sizeof(SparseTreeNode<T, int>)));
   CUDA_CHECK(cudaMallocManaged((void**)&d_nodelist, max_nodes * sizeof(int)));
+  CUDA_CHECK(
+    cudaMallocManaged((void**)&d_new_nodelist, max_nodes * sizeof(int)));
   memcpy(d_sparsenodes, &sparsetree[sparsesize_nextitr],
          lastsize * sizeof(SparseTreeNode<T, int>));
   memcpy(d_nodelist, sparse_nodelist.data(),
@@ -214,9 +216,18 @@ void grow_deep_tree_classification(
   MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
   //Update nodelist and split nodes
-
   for (int i = 0; i < sparse_nodelist.size(); i++) {
     //sparsetree[sparsesize_nextitr + sparse_nodelist[i]] = d_sparsenodes[i];
   }
   print_nodes(d_sparsenodes, h_outgain, d_nodelist, n_nodes);
+
+  int* d_counter;
+  CUDA_CHECK(cudaMallocManaged((void**)&d_counter, sizeof(int)));
+  make_split_gather(data, d_outgain, d_nodestart, d_samplelist,
+                    min_impurity_decrease, n_nodes, nrows, d_nodelist,
+                    d_new_nodelist, d_nodecount, d_counter, flagsptr,
+                    d_sparsenodes);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  printf("Next level nodes %d\n", d_counter[0]);
+  print_convertor(d_nodecount, d_nodestart, d_samplelist, d_counter[0]);
 }

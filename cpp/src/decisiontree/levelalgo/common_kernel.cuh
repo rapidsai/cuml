@@ -36,7 +36,12 @@ DI int get_class_hist_shared(unsigned int* node_hist,
   }
   return classval;
 }
-
+__global__ void fill_all_leaf(unsigned int* flags, const int nrows) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < nrows) {
+    flags[tid] = LEAF;
+  }
+}
 DI unsigned int get_column_id(const unsigned int* __restrict__ colids,
                               const int& colstart_local, const int& Ncols,
                               const int& ncols_sampled,
@@ -293,4 +298,50 @@ __global__ void build_list(const unsigned int* __restrict__ flagsptr,
     }
   }
 }
+template <typename T, typename L>
+__global__ void split_nodes_compute_counts_kernel(
+  const T* __restrict__ data,
+  const SparseTreeNode<T, L>* __restrict__ d_sparsenodes,
+  const unsigned int* __restrict__ nodestart,
+  const unsigned int* __restrict__ samplelist, const int nrows,
+  const int* __restrict__ nodelist, int* new_nodelist,
+  unsigned int* samplecount, int* nodecounter, unsigned int* flagsptr) {
+  __shared__ int currcnt;
+  typedef cub::BlockReduce<int, 64> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+  extern __shared__ char shmem[];
+  SparseTreeNode<T, L>* localnode = (SparseTreeNode<T, L>*)shmem;
+  if (threadIdx.x == 0) {
+    localnode[0] = d_sparsenodes[nodelist[blockIdx.x]];
+  }
+  __syncthreads();
+  int colid = localnode->colid;
+  if (colid != -1) {
+    unsigned int nstart = nodestart[blockIdx.x];
+    unsigned int ncount = nodestart[blockIdx.x + 1] - nstart;
+    if (threadIdx.x == 0) {
+      currcnt = atomicAdd(nodecounter, 2);
+    }
+    __syncthreads();
+    if (threadIdx.x < 2) {
+      new_nodelist[currcnt + threadIdx.x] = 2 * blockIdx.x + threadIdx.x;
+    }
+    int tid_count = 0;
+    T quesval = localnode->quesval;
+    for (int tid = threadIdx.x; tid < ncount; tid += blockDim.x) {
+      unsigned int dataid = samplelist[nstart + tid];
+      if (data[colid * nrows + dataid] < quesval) {
+        tid_count++;
+        flagsptr[dataid] = (unsigned int)(currcnt);
+      } else {
+        flagsptr[dataid] = (unsigned int)(currcnt + 1);
+      }
+    }
+    int cnt_left = BlockReduce(temp_storage).Sum(tid_count);
 
+    if (threadIdx.x == 0) {
+      samplecount[currcnt] = cnt_left;
+      samplecount[currcnt + 1] = ncount - cnt_left;
+    }
+  }
+}
