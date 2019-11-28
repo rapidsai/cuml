@@ -135,7 +135,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   temp += exScanSize;
 
   // Running VertexDeg
-  MLCommon::Sparse::WeakCCState<Index_> state(xa, fa, m);
+  MLCommon::Sparse::WeakCCState state(xa, fa, m);
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
