@@ -134,9 +134,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     cdef void* ep_st
     for i in range(len(eps)):
         if eps[i] is not None:
-            print("Convering endpoint %s" % (i))
-            print("Is Endpoint Closed? %s" % eps[i].closed())
-            ep_st = PyLong_AsVoidPtr(eps[i]._ucp_endpoint)
+            ep_st = PyLong_AsVoidPtr(eps[i].get_ucp_endpoint())
             pv = <size_t>&ep_st
             ucp_eps[i] = pv
         else:
