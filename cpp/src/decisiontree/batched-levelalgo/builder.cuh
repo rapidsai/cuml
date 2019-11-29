@@ -21,6 +21,22 @@
 namespace ML {
 namespace DecisionTree {
 
+template <typename Traits, typename DataT = typename Traits::DataT,
+          typename LabelT = typename Traits::LabelT,
+          typename IdxT = typename Traits::IdxT>
+void convertToSparse(const Builder<Traits>& b,
+                     const Node<DataT, LabelT, IdxT>* h_nodes,
+                     std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
+  // to make sure that we can update from an arbitrary depth in future
+  auto len = sparsetree.size();
+  sparsetree.resize(len + b.h_total_nodes);
+  for (IdxT i = 0; i < b.h_total_nodes; ++i) {
+    const auto& hnode = h_nodes[i].info;
+    sparsetree[i + len] = hnode;
+    if (hnode.left_child_id != -1) sparsetree[i + len].left_child_id += len;
+  }
+}
+
 ///@todo: support building from an arbitrary depth
 ///@todo: support col subsampling per node
 /**
@@ -54,7 +70,8 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
-  Builder<ClsTraits<DataT, LabelT, IdxT>> builder;
+  typedef ClsTraits<DataT, LabelT, IdxT> Traits;
+  Builder<Traits> builder;
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
                         n_sampled_rows, IdxT(params.max_features * ncols),
@@ -68,7 +85,7 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   d_buff.release(stream);
   h_buff.release(stream);
-  ///@todo: copy from Node to sparsetree
+  convertToSparse<Traits>(builder, h_nodes.data(), sparsetree);
   h_nodes.release(stream);
 }
 
@@ -80,7 +97,8 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, DataT>>& sparsetree) {
-  Builder<RegTraits<DataT, IdxT>> builder;
+  typedef RegTraits<DataT, IdxT> Traits;
+  Builder<Traits> builder;
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
                         n_sampled_rows, IdxT(params.max_features * ncols),
@@ -94,7 +112,7 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   d_buff.release(stream);
   h_buff.release(stream);
-  ///@todo: copy from Node to sparsetree
+  convertToSparse<Traits>(builder, h_nodes.data(), sparsetree);
   h_nodes.release(stream);
 }
 /** @} */
