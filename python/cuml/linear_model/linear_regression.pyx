@@ -398,3 +398,26 @@ class LinearRegression(Base):
         if 'algorithm' in params.keys():
             self.algo = self._get_algorithm_int(self.algorithm)
         return self
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        if "coef_" in state:
+            state['coef_'] = cudf.Series(state['coef_'])
+
+        if self.intercept_ is not None:
+            state['intercept_'] = self.intercept_
+
+        return state
+
+    def __setstate__(self, state):
+        super(LinearRegression, self).__init__(handle=None)
+
+        if "coef_" in state:
+            state['coef_'] = state['coef_'].to_gpu_array()
+
+        if "intercept_" in state:
+            state['intercept_'] = state['intercept_']
+
+        self.__dict__.update(state)
