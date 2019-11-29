@@ -44,7 +44,7 @@ namespace Matrix {
  *       `BatchedMatrixMemory` struct.
  * 
  * @param[in]  shape        Shape of each matrix (rows, columns)
- * @param[in]  num_batches  Number of matrices in the batch
+ * @param[in]  batch_size   Number of matrices in the batch
  * @param[in]  setZero      Whether to initialize the allocated matrix with all zeros
  * @param[in]  allocator    Device memory allocator
  * @param[in]  stream       CUDA stream
@@ -53,7 +53,7 @@ namespace Matrix {
  *         to the array of pointers to each matrix in the batch
  */
 template <typename T>
-std::pair<T*, T**> BMM_Allocate(std::pair<int, int> shape, int num_batches,
+std::pair<T*, T**> BMM_Allocate(std::pair<int, int> shape, int batch_size,
                                 bool setZero,
                                 std::shared_ptr<ML::deviceAllocator> allocator,
                                 cudaStream_t stream) {
@@ -61,17 +61,17 @@ std::pair<T*, T**> BMM_Allocate(std::pair<int, int> shape, int num_batches,
   int n = shape.second;
 
   // Allocate dense batched matrix and possibly set to zero
-  T* A_dense = (T*)allocator->allocate(sizeof(T) * m * n * num_batches, stream);
+  T* A_dense = (T*)allocator->allocate(sizeof(T) * m * n * batch_size, stream);
   if (setZero)
     CUDA_CHECK(
-      cudaMemsetAsync(A_dense, 0, sizeof(T) * m * n * num_batches, stream));
+      cudaMemsetAsync(A_dense, 0, sizeof(T) * m * n * batch_size, stream));
 
   // Allocate and fill array of pointers to each batch matrix
-  T** A_array = (T**)allocator->allocate(sizeof(T*) * num_batches, stream);
+  T** A_array = (T**)allocator->allocate(sizeof(T*) * batch_size, stream);
   // Fill array of pointers to each batch matrix.
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + num_batches,
+    thrust::cuda::par.on(stream), counting, counting + batch_size,
     [=] __device__(int bid) { A_array[bid] = &(A_dense[bid * m * n]); });
   return std::make_pair(A_dense, A_array);
 }
@@ -95,7 +95,8 @@ __global__ void identity_matrix_kernel(T* I, int m) {
 }
 
 /**
- * @brief Kernel to compute the first difference of batched vectors
+ * @brief Kernel to compute the difference of batched vectors with a given
+ *        period (1 for simple difference, s for seasonal difference)
  *
  * @note: The thread id is the starting position in each vector and the block
  *        id is the batch id.
@@ -103,14 +104,16 @@ __global__ void identity_matrix_kernel(T* I, int m) {
  * @param[in]  in      Input vector
  * @param[out] out     Output vector
  * @param[in]  n_elem  Number of elements in the input vector
+ * @param[in]  period  Period of the difference
  */
 template <typename T>
-__global__ void batched_diff_kernel(const T* in, T* out, int n_elem) {
+__global__ void batched_diff_kernel(const T* in, T* out, int n_elem,
+                                    int period = 1) {
   const T* batch_in = in + n_elem * blockIdx.x;
-  T* batch_out = out + (n_elem - 1) * blockIdx.x;
+  T* batch_out = out + (n_elem - period) * blockIdx.x;
 
-  for (int i = threadIdx.x; i < n_elem - 1; i += blockDim.x) {
-    batch_out[i] = batch_in[i + 1] - batch_in[i];
+  for (int i = threadIdx.x; i < n_elem - period; i += blockDim.x) {
+    batch_out[i] = batch_in[i + period] - batch_in[i];
   }
 }
 
@@ -126,16 +129,16 @@ class BatchedMatrix {
    * 
    * @param[in]  m            Number of rows
    * @param[in]  n            Number of columns
-   * @param[in]  num_batches  Number of matrices in the batch
+   * @param[in]  batch_size   Number of matrices in the batch
    * @param[in]  cublasHandle cublas handle
    * @param[in]  allocator    device allocator
    * @param[in]  stream       cuda stream where to schedule work
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
-  BatchedMatrix(int m, int n, int num_batches, cublasHandle_t cublasHandle,
+  BatchedMatrix(int m, int n, int batch_size, cublasHandle_t cublasHandle,
                 std::shared_ptr<ML::deviceAllocator> allocator,
                 cudaStream_t stream, bool setZero = true)
-    : m_num_batches(num_batches),
+    : m_batch_size(batch_size),
       m_allocator(allocator),
       m_cublasHandle(cublasHandle),
       m_stream(stream) {
@@ -143,7 +146,7 @@ class BatchedMatrix {
 
     // Allocate memory
     auto memory =
-      BMM_Allocate<T>(m_shape, num_batches, setZero, allocator, stream);
+      BMM_Allocate<T>(m_shape, batch_size, setZero, allocator, stream);
 
     /* Take these references to extract them from member-storage for the
      * lambda below. There are better C++14 ways to do this, but I'll keep
@@ -152,13 +155,13 @@ class BatchedMatrix {
 
     /* Note: we create this "free" function with explicit copies to ensure that
      * the deallocate function gets called with the correct values. */
-    auto f1 = [allocator, num_batches, shape, stream](T* A) {
+    auto f1 = [allocator, batch_size, shape, stream](T* A) {
       allocator->deallocate(
-        A, num_batches * shape.first * shape.second * sizeof(T), stream);
+        A, batch_size * shape.first * shape.second * sizeof(T), stream);
     };
 
-    auto f2 = [allocator, num_batches, stream](T** A) {
-      allocator->deallocate(A, sizeof(T*) * num_batches, stream);
+    auto f2 = [allocator, batch_size, stream](T** A) {
+      allocator->deallocate(A, sizeof(T*) * batch_size, stream);
     };
 
     // When this shared pointer count goes to 0, `f` is called to deallocate
@@ -168,7 +171,7 @@ class BatchedMatrix {
   }
 
   //! Return batches
-  size_t batches() const { return m_num_batches; }
+  size_t batches() const { return m_batch_size; }
 
   //! Return cublas handle
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
@@ -204,10 +207,10 @@ class BatchedMatrix {
    * @return  A batched matrix containing the same data
    */
   BatchedMatrix<T> deepcopy() const {
-    BatchedMatrix<T> out(m_shape.first, m_shape.second, m_num_batches,
+    BatchedMatrix<T> out(m_shape.first, m_shape.second, m_batch_size,
                          m_cublasHandle, m_allocator, m_stream);
-    copy(out[0], m_A_dense.get(),
-         m_num_batches * m_shape.first * m_shape.second, m_stream);
+    copy(out[0], m_A_dense.get(), m_batch_size * m_shape.first * m_shape.second,
+         m_stream);
     return out;
   }
 
@@ -216,9 +219,9 @@ class BatchedMatrix {
     int m = m_shape.first;
     int n = m_shape.second;
     int r = m * n;
-    BatchedMatrix<T> toVec(r, 1, m_num_batches, m_cublasHandle, m_allocator,
+    BatchedMatrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_allocator,
                            m_stream);
-    copy(toVec[0], m_A_dense.get(), m_num_batches * r, m_stream);
+    copy(toVec[0], m_A_dense.get(), m_batch_size * r, m_stream);
     return toVec;
   }
 
@@ -235,16 +238,16 @@ class BatchedMatrix {
       r == m * n,
       "ERROR BatchedMatrix::mat(m,n): Size mismatch - Cannot reshape array "
       "into desired size");
-    BatchedMatrix<T> toMat(m, n, m_num_batches, m_cublasHandle, m_allocator,
+    BatchedMatrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_allocator,
                            m_stream);
-    copy(toMat[0], m_A_dense.get(), m_num_batches * r, m_stream);
+    copy(toMat[0], m_A_dense.get(), m_batch_size * r, m_stream);
 
     return toMat;
   }
 
   //! Visualize the first matrix.
   void print(std::string name) const {
-    size_t len = m_shape.first * m_shape.second * m_num_batches;
+    size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
     updateHost(A.data(), m_A_dense.get(), len, m_stream);
     std::cout << name << "=\n";
@@ -258,26 +261,30 @@ class BatchedMatrix {
   }
 
   /**
-   * @brief Compute the first difference of the batched vector
+   * @brief Compute the difference of the batched vector with a given period
+   *        (1 for simple difference, s for seasonal)
+   * 
+   * @param[in]  period  Period of the difference (defaults to 1)
    *
    * @return A batched vector corresponding to the first difference. Matches
    *         the layout of the input vector (row or column vector)
    */
-  BatchedMatrix<T> difference() const {
+  BatchedMatrix<T> difference(int period = 1) const {
     ASSERT(m_shape.first == 1 || m_shape.second == 1,
            "Invalid operation: must be a vector");
     int len = m_shape.second * m_shape.first;
-    ASSERT(len > 1, "Length of the vector must be > 1");
+    ASSERT(len > period, "Length of the vector must be > period");
 
     // Create output batched vector
     bool row_vector = (m_shape.first == 1);
-    BatchedMatrix<T> out(row_vector ? 1 : len, row_vector ? len : 1,
-                         m_num_batches, m_cublasHandle, m_allocator, m_stream);
+    BatchedMatrix<T> out(row_vector ? 1 : len - period,
+                         row_vector ? len - period : 1, m_batch_size,
+                         m_cublasHandle, m_allocator, m_stream);
 
     // Execute kernel
-    const int TPB = (len - 1) > 512 ? 256 : 128;  // quick heuristics
-    batched_diff_kernel<<<m_num_batches, TPB, 0, m_stream>>>(
-      raw_data(), out.raw_data(), len);
+    const int TPB = (len - period) > 512 ? 256 : 128;  // quick heuristics
+    batched_diff_kernel<<<m_batch_size, TPB, 0, m_stream>>>(
+      raw_data(), out.raw_data(), len, period);
     CUDA_CHECK(cudaPeekAtLastError());
 
     return out;
@@ -287,20 +294,20 @@ class BatchedMatrix {
    * @brief Initialize a batched identity matrix.
    * 
    * @param[in]  m            Number of rows/columns of matrix
-   * @param[in]  num_batches  Number of matrices in batch
+   * @param[in]  batch_size   Number of matrices in batch
    * @param[in]  handle       cuml handle
    * @param[in]  allocator    device allocator
    * @param[in]  stream       cuda stream to schedule work on
    * 
    * @return A batched identity matrix
    */
-  static BatchedMatrix Identity(int m, int num_batches, cublasHandle_t handle,
+  static BatchedMatrix Identity(int m, int batch_size, cublasHandle_t handle,
                                 std::shared_ptr<ML::deviceAllocator> allocator,
                                 cudaStream_t stream) {
-    BatchedMatrix I(m, m, num_batches, handle, allocator, stream, true);
+    BatchedMatrix I(m, m, batch_size, handle, allocator, stream, true);
 
     identity_matrix_kernel<T>
-      <<<num_batches, std::min(1024, m), 0, stream>>>(I.raw_data(), m);
+      <<<batch_size, std::min(1024, m), 0, stream>>>(I.raw_data(), m);
     CUDA_CHECK(cudaGetLastError());
     return I;
   }
@@ -316,7 +323,7 @@ class BatchedMatrix {
   std::shared_ptr<T> m_A_dense;
 
   //! Number of matrices in batch
-  size_t m_num_batches;
+  size_t m_batch_size;
 
   std::shared_ptr<deviceAllocator> m_allocator;
   cublasHandle_t m_cublasHandle;
@@ -488,15 +495,15 @@ BatchedMatrix<T> b_aA_op_B(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B,
 
   ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
-  auto num_batches = A.batches();
+  auto batch_size = A.batches();
   int m = A.shape().first;
   int n = A.shape().second;
 
-  BatchedMatrix<T> C(m, n, num_batches, A.cublasHandle(), A.allocator(),
+  BatchedMatrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(),
                      A.stream());
 
-  LinAlg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(),
-                   m * n * num_batches, binary_op, A.stream());
+  LinAlg::binaryOp(C.raw_data(), A.raw_data(), B.raw_data(), m * n * batch_size,
+                   binary_op, A.stream());
 
   return C;
 }
@@ -550,30 +557,30 @@ BatchedMatrix<T> operator-(const BatchedMatrix<T>& A,
  */
 template <typename T>
 BatchedMatrix<T> b_solve(const BatchedMatrix<T>& A, const BatchedMatrix<T>& b) {
-  auto num_batches = A.batches();
+  auto batch_size = A.batches();
   const auto& handle = A.cublasHandle();
 
   int n = A.shape().first;
   auto allocator = A.allocator();
-  int* P = (int*)allocator->allocate(sizeof(int) * n * num_batches, A.stream());
-  int* info = (int*)allocator->allocate(sizeof(int) * num_batches, A.stream());
+  int* P = (int*)allocator->allocate(sizeof(int) * n * batch_size, A.stream());
+  int* info = (int*)allocator->allocate(sizeof(int) * batch_size, A.stream());
 
   // A copy of A is necessary as the cublas operations write in A
   BatchedMatrix<T> Acopy = A.deepcopy();
 
-  BatchedMatrix<T> Ainv(n, n, num_batches, A.cublasHandle(), A.allocator(),
+  BatchedMatrix<T> Ainv(n, n, batch_size, A.cublasHandle(), A.allocator(),
                         A.stream());
 
   CUBLAS_CHECK(LinAlg::cublasgetrfBatched(handle, n, Acopy.data(), n, P, info,
-                                          num_batches, A.stream()));
+                                          batch_size, A.stream()));
   CUBLAS_CHECK(LinAlg::cublasgetriBatched(handle, n, Acopy.data(), n, P,
-                                          Ainv.data(), n, info, num_batches,
+                                          Ainv.data(), n, info, batch_size,
                                           A.stream()));
 
   BatchedMatrix<T> x = Ainv * b;
 
-  allocator->deallocate(P, sizeof(int) * n * num_batches, A.stream());
-  allocator->deallocate(info, sizeof(int) * num_batches, A.stream());
+  allocator->deallocate(P, sizeof(int) * n * batch_size, A.stream());
+  allocator->deallocate(info, sizeof(int) * batch_size, A.stream());
 
   return x;
 }
