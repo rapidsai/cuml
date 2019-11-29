@@ -445,3 +445,37 @@ __global__ void best_split_gather_classification_kernel(
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
+//A light weight implementation of the above kernel for last level,
+// when all nodes are to be leafed out
+template <typename T, typename FDEV>
+__global__ void make_leaf_gather_classification_kernel(
+  const int* __restrict__ labels, const unsigned int* __restrict__ g_nodestart,
+  const unsigned int* __restrict__ samplelist, const int n_unique_labels,
+  float* d_infogain, SparseTreeNode<T, int>* d_sparsenodes, int* d_nodelist) {
+  __shared__ float parent_metric;
+  //shmemhist_parent[n_unique_labels]
+  extern __shared__ unsigned int shmemhist_parent[];
+  unsigned int nodestart = g_nodestart[blockIdx.x];
+  unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
+
+  //Compute parent histograms
+  for (int i = threadIdx.x; i < n_unique_labels; i += blockDim.x) {
+    shmemhist_parent[i] = 0;
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    unsigned int dataid = samplelist[nodestart + tid];
+    int local_label = labels[dataid];
+    atomicAdd(&shmemhist_parent[local_label], 1);
+  }
+  FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    SparseTreeNode<T, int> localnode;
+    localnode.prediction =
+      get_class_hist_shared(shmemhist_parent, n_unique_labels);
+    localnode.colid = colid;
+    localnode.best_metric_val = parent_metric;
+    d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
+  }
+}
