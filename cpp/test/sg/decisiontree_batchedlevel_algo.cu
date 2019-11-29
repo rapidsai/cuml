@@ -129,6 +129,7 @@ TEST_P(DtClsTestF, Test) {
                              data, inparams.N, inparams.M, labels, quantiles,
                              rowids, colids, inparams.M, inparams.nclasses,
                              params, stream, sparsetree);
+  ASSERT_EQ(sparsetree.size(), 3);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
                         ::testing::ValuesIn(allC));
