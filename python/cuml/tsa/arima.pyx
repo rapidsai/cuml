@@ -233,10 +233,21 @@ class ARIMA(Base):
                  handle=None):
         super().__init__(handle)
 
-        # TODO: check orders!!
+        # Check validity of the ARIMA order and seasonal order
+        p, d, q = order
+        P, D, Q, s = seasonal_order
+        if d + D > 2:
+            raise ValueError("Invalid order. Required: d+D <= 2")
+        if P + D + Q > 0 and s < 2:
+            raise ValueError("Invalid period for seasonal ARIMA: {}"
+                             .format(s))
+        if p + P > 8:
+            raise ValueError("Invalid order. Required: p+P <= 8")
+        if q + Q > 7:
+            raise ValueError("Invalid order. Required: q+Q <= 7")
 
         self.order = order
-        self.seasonal_order = order
+        self.seasonal_order = seasonal_order
         if fit_intercept is None:
             # by default, use an intercept only with non differenced models
             fit_intercept = (order[1] + seasonal_order[1] == 0)
@@ -251,11 +262,11 @@ class ARIMA(Base):
 
     def __str__(self):
         if self.seasonal_order[3]:
-            return "Batched ARIMA{}".format(self.order)
-        else:
             return "Batched ARIMA{}{}_{}".format(self.order,
                                                  self.seasonal_order[:3],
                                                  self.seasonal_order[3])
+        else:
+            return "Batched ARIMA{}".format(self.order)
 
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
