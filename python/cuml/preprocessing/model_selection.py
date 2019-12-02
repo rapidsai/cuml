@@ -180,6 +180,7 @@ def train_test_split(
             # fancy indexing
             if test_numba_cupy_version_conflict(X):
                 X = PatchedNumbaDeviceArray(X)
+            if cuda.devicearray.is_cuda_ndarray(X):
                 x_numba = True
             X = cp.asarray(X)[idxs]
 
@@ -189,6 +190,7 @@ def train_test_split(
         elif cuda.is_cuda_array(y):
             if test_numba_cupy_version_conflict(y):
                 y = PatchedNumbaDeviceArray(y)
+            if cuda.devicearray.is_cuda_ndarray(y):
                 y_numba = True
             y = cp.asarray(y)[idxs]
 
