@@ -120,6 +120,12 @@ if __name__ == '__main__':
     parser.add_argument('--skip-cpu', action='store_true')
     parser.add_argument('--input-type', default='numpy')
     parser.add_argument(
+        '--test-split',
+        default=0.1,
+        type=float,
+        help='Fraction of input data used for testing (between 0.0 and 1.0)',
+    )
+    parser.add_argument(
         '--input-dimensions',
         default=[64, 256, 512],
         nargs='+',
@@ -181,6 +187,11 @@ if __name__ == '__main__':
             print(dataset)
         sys.exit()
 
+    if not 0.0 <= args.test_split <= 1.0:
+        raise ValueError(
+            "test_split: got %f, want a value between 0.0 and 1.0" %
+            args.test_split)
+
     bench_rows = np.logspace(
         np.log10(args.min_rows),
         np.log10(args.max_rows),
@@ -219,6 +230,7 @@ if __name__ == '__main__':
         bench_rows=bench_rows,
         bench_dims=bench_dims,
         input_type=args.input_type,
+        test_fraction=args.test_split,
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
         run_cpu=(not args.skip_cpu),
