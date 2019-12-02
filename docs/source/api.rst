@@ -248,9 +248,15 @@ Random Forest
     :members:
 
 
-Dimensionality Reduction
-------------------------
+Nearest Neighbors
+-----------------
 
+.. autoclass:: cuml.dask.neighbors.NearestNeighbors
+    :members:
+
+
+Principal Component Analysis
+-----------------------------
 .. autoclass:: cuml.dask.decomposition.PCA
     :members:
 
@@ -258,10 +264,4 @@ Truncated SVD
 --------------
 
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
-    :members:
-
-Nearest Neighbors
------------------
-
-.. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
