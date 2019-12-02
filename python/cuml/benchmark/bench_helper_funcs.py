@@ -48,24 +48,18 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     else:
         raise ImportError("No XGBoost package found")
 
-    train_size = data[0].shape[0]
-
     if isinstance(data[0], (pd.DataFrame, pd.Series)):
-        train_data = datagen._convert_to_numpy(data[0])[:train_size, :]
-        train_label = datagen._convert_to_numpy(data[1])[:train_size]
+        train_data = datagen._convert_to_numpy(data[0])
+        train_label = datagen._convert_to_numpy(data[1])
     elif isinstance(data[0], np.ndarray):
-        train_data = data[0][:train_size, :]
-        train_label = data[1][:train_size]
+        train_data = data[0]
+        train_label = data[1]
     elif isinstance(data[0], cudf.DataFrame):
-        train_data_ = data[0].as_gpu_matrix().copy_to_host()
-        train_label_ = data[1].to_gpu_array().copy_to_host()
-        train_data = train_data_[:train_size, :]
-        train_label = train_label_[:train_size]
+        train_data = data[0].as_gpu_matrix().copy_to_host()
+        train_label = data[1].to_gpu_array().copy_to_host()
     elif cuda.devicearray.is_cuda_ndarray(data[0]):
-        train_data_ = data[0][:train_size, :]
-        train_label_ = data[1][:train_size]
-        train_data = train_data_.copy_to_host()
-        train_label = train_label_.copy_to_host()
+        train_data = data[0].copy_to_host()
+        train_label = data[1].copy_to_host()
     else:
         raise TypeError("Received unsupported input type " % type(data[0]))
 
@@ -79,7 +73,7 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     max_depth = arg["max_depth"]
     num_rounds = arg["num_rounds"]
     n_feature = data[0].shape[1]
-
+    train_size = data[0].shape[0]
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
     bst = xgb.train(params, dtrain, num_rounds)
@@ -104,12 +98,10 @@ def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
     else:
         raise ImportError("No XGBoost package found")
 
-    train_size = data[0].shape[0]
-
     max_depth = arg["max_depth"]
     num_rounds = arg["num_rounds"]
     n_feature = data[0].shape[1]
-
+    train_size = data[0].shape[0]
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
     model_path = os.path.join(tmpdir, model_name)
 
