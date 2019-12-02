@@ -100,7 +100,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   DtTestParams inparams;
   std::vector<SparseTreeNode<T, L>> sparsetree;
 
-  void prepareDataset(T* tmp) {}
+  virtual void prepareDataset(T* tmp) = 0;
 };  // class DtBaseTest
 
 const std::vector<DtTestParams> allC = {
@@ -112,7 +112,7 @@ const std::vector<DtTestParams> allC = {
 template <typename T>
 class DtClassifierTest : public DtBaseTest<T, int> {
  protected:
-  void prepareDataset(T* tmp) {
+  void prepareDataset(T* tmp) override {
     auto allocator = this->handle->getImpl().getDeviceAllocator();
     auto inparams = this->inparams;
     MLCommon::Random::make_blobs<T>(tmp, this->labels, inparams.M, inparams.N,
@@ -129,7 +129,7 @@ TEST_P(DtClsTestF, Test) {
                              data, inparams.N, inparams.M, labels, quantiles,
                              rowids, colids, inparams.M, inparams.nclasses,
                              params, stream, sparsetree);
-  ASSERT_EQ(sparsetree.size(), 3);
+  ASSERT_EQ(sparsetree.size(), inparams.splitType == CRITERION::GINI ? 3 : 1);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
                         ::testing::ValuesIn(allC));
@@ -141,7 +141,7 @@ const std::vector<DtTestParams> allR = {
 template <typename T>
 class DtRegressorTest : public DtBaseTest<T, T> {
  protected:
-  void prepareDataset(T* tmp) {
+  void prepareDataset(T* tmp) override {
     auto allocator = this->handle->getImpl().getDeviceAllocator();
     auto cublas = this->handle->getImpl().getCublasHandle();
     auto cusolver = this->handle->getImpl().getcusolverDnHandle();
@@ -159,6 +159,7 @@ TEST_P(DtRegTestF, Test) {
   grow_tree<float, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
                         data, inparams.N, inparams.M, labels, quantiles, rowids,
                         colids, inparams.M, 0, params, stream, sparsetree);
+  ASSERT_EQ(sparsetree.size(), 1);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF,
                         ::testing::ValuesIn(allR));

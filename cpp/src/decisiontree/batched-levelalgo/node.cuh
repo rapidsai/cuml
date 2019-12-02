@@ -57,6 +57,7 @@ struct Node {
    */
   DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile {
     info.left_child_id = Leaf;
+    info.colid = Leaf;
     info.prediction = pred;
     atomicAdd(n_leaves, 1);
   }
