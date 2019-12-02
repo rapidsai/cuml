@@ -450,7 +450,7 @@ template <typename T, typename FDEV>
 __global__ void make_leaf_gather_classification_kernel(
   const int* __restrict__ labels, const unsigned int* __restrict__ g_nodestart,
   const unsigned int* __restrict__ samplelist, const int n_unique_labels,
-  float* d_infogain, SparseTreeNode<T, int>* d_sparsenodes, int* d_nodelist) {
+  SparseTreeNode<T, int>* d_sparsenodes, int* d_nodelist) {
   __shared__ float parent_metric;
   //shmemhist_parent[n_unique_labels]
   extern __shared__ unsigned int shmemhist_parent[];

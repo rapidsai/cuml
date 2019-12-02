@@ -348,3 +348,15 @@ void best_split_gather_classification(
   }
   CUDA_CHECK(cudaDeviceSynchronize());
 }
+template <typename T, typename FDEV>
+void make_leaf_gather_classification(
+  const int *labels, const unsigned int *nodestart,
+  const unsigned int *samplelist, const int n_unique_labels,
+  SparseTreeNode<T, int> *d_sparsenodes, int *nodelist, const int n_nodes,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  size_t shmemsz = n_unique_labels * sizeof(int);
+  make_leaf_gather_classification<T, FDEV>
+    <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+      labels, nodestart, samplelist, n_unique_labels, d_sparsenodes, nodelist);
+  CUDA_CHECK(cudaGetLastError());
+}

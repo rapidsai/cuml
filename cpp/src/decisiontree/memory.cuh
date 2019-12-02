@@ -105,7 +105,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   d_child_best_metric =
     new MLCommon::device_buffer<T>(device_allocator, stream, 2 * maxnodes);
   d_outgain =
-    new MLCommon::device_buffer<float>(device_allocator, stream, maxnodes);
+    new MLCommon::device_buffer<float>(device_allocator, stream, maxnodes + 1);
   if (split_algo == 0) {
     d_globalminmax = new MLCommon::device_buffer<T>(
       device_allocator, stream, 2 * maxnodes * ncols_sampled);
@@ -145,12 +145,22 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                 maxnodes + 1);
   temp_cub_buffer = new MLCommon::device_buffer<char>(device_allocator, stream,
                                                       temp_storage_bytes);
+  h_counter = new MLCommon::host_buffer<int>(host_allocator, stream, 1);
+  d_counter = new MLCommon::device_buffer<int>(device_allocator, stream, 1);
   temp_cub_bytes = temp_storage_bytes;
-  totalmem += nrows * 2 * sizeof(unsigned int);
+  totalmem += nrows * 2 * sizeof(unsigned int) + temp_cub_bytes + 1;
   totalmem += maxnodes * 3 * sizeof(int);
   totalmem += maxnodes * sizeof(float);
   totalmem += 3 * maxnodes * sizeof(T);
   totalmem += (ncols + maxnodes) * sizeof(int);
+
+  //Allocate node vectors
+  d_sparsenodes = new MLCommon::device_buffer<SparseTreeNode<T, L>>(
+    device_allocator, stream, maxnodes);
+  h_sparsenodes = new MLCommon::host_buffer<SparseTreeNode<T, L>>(
+    host_allocator, stream, maxnodes);
+  totalmem += maxnodes * sizeof(SparseTreeNode<T, L>);
+
   //Regression
   if (typeid(L) == typeid(T)) {
     d_mseout = new MLCommon::device_buffer<T>(
@@ -267,6 +277,16 @@ void TemporaryMemory<T, L>::LevelMemCleaner() {
   delete h_colids;
   if (d_colstart != nullptr) delete d_colstart;
   if (h_colstart != nullptr) delete h_colstart;
+  temp_cub_buffer->release(stream);
+  delete temp_cub_buffer;
+  h_counter->release(stream);
+  d_counter->release(stream);
+  delete h_counter;
+  delete d_counter;
+  d_sparsenodes->release(stream);
+  h_sparsenodes->release(stream);
+  delete d_sparsenodes;
+  delete h_sparsenodes;
   //Classification
   if (typeid(L) == typeid(int)) {
     h_histogram->release(stream);

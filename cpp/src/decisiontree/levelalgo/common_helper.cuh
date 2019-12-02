@@ -262,18 +262,20 @@ void make_split_gather(const T *data, unsigned int *nodestart,
   int nthreads = 128;
   int nblocks = (int)(nrows / nthreads);
   if (nrows % nthreads != 0) nblocks++;
-  //fill_all_leaf<<<nblocks, nthreads>>>(flagsptr, nrows);
   split_nodes_compute_counts_kernel<<<n_nodes, 64,
                                       sizeof(SparseTreeNode<T, L>)>>>(
     data, d_sparsenodes, nodestart, samplelist, nrows, nodelist, new_nodelist,
     nodecount, counter, flagsptr);
   CUDA_CHECK(cudaGetLastError());
   void *d_temp_storage = (void *)(tempmem->temp_cub_buffer->data());
-  int h_counter = counter[0];
+  int *h_counter = tempmem->h_counter->data();
+  MLCommon::updateHost(h_counter, counter, 1, tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
-                                nodecount, nodestart, h_counter + 1);
+                                nodecount, nodestart, h_counter[0] + 1);
   CUDA_CHECK(cudaGetLastError());
-  CUDA_CHECK(cudaMemset(nodecount, 0, h_counter * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMemset(nodecount, 0, h_counter[0] * sizeof(unsigned int)));
   build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, nrows, nodecount,
                                     samplelist);
+  CUDA_CHECK(cudaGetLastError());
 }
