@@ -176,35 +176,41 @@ unsigned int getQuesColumn(const unsigned int *colids, const int colstart_local,
   }
   return col;
 }
-
+template <typename T, typename L>
 void convert_scatter_to_gather(const unsigned int *flagsptr,
                                const unsigned int *sample_cnt,
                                const int n_nodes, const int n_rows,
                                unsigned int *nodecount, unsigned int *nodestart,
-                               unsigned int *samplelist) {
+                               unsigned int *samplelist,
+                               std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   int nthreads = 128;
   int nblocks = (int)(n_rows / nthreads);
   if (n_rows % nthreads != 0) nblocks++;
   fill_counts<<<nblocks, nthreads>>>(flagsptr, sample_cnt, n_rows, nodecount);
 
-  void *d_temp_storage = NULL;
-  size_t temp_storage_bytes = 0;
-  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
-                                nodestart, n_nodes + 1);
-  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
-                                nodestart, n_nodes + 1);
+  void *d_temp_storage = (void *)(tempmem->temp_cub_buffer->data());
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
+                                nodecount, nodestart, n_nodes + 1);
   CUDA_CHECK(cudaGetLastError());
 
-  CUDA_CHECK(cudaFree(d_temp_storage));
   CUDA_CHECK(cudaMemset(nodecount, 0, n_nodes * sizeof(unsigned int)));
   build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, n_rows, nodecount,
                                     samplelist);
   CUDA_CHECK(cudaGetLastError());
 }
+template <typename T, typename L>
+void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
+                     unsigned int *d_samplelist, int n_nodes,
+                     std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  unsigned int *nodecount = (unsigned int *)(tempmem->h_split_colidx->data());
+  unsigned int *nodestart = (unsigned int *)(tempmem->h_split_binidx->data());
+  unsigned int *samplelist = (unsigned int *)(tempmem->h_parent_metric->data());
+  MLCommon::updateHost(nodecount, d_nodecount, n_nodes + 1, tempmem->stream);
+  MLCommon::updateHost(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
+  MLCommon::updateHost(samplelist, d_samplelist, tempmem->max_nodes_per_level,
+                       tempmem->stream);
+  CUDA_CHECK(cudaDeviceSynchronize());
 
-void print_convertor(unsigned int *nodecount, unsigned int *nodestart,
-                     unsigned int *samplelist, int n_nodes) {
   std::cout << "Printing node count\n";
   for (int i = 0; i < n_nodes + 1; i++) {
     printf("%u ", nodecount[i]);
@@ -226,7 +232,7 @@ void print_convertor(unsigned int *nodecount, unsigned int *nodestart,
 }
 template <typename T, typename L>
 void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
-                 int n_nodes) {
+                 int n_nodes, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   printf(
     "Node format --> (colid, quesval, best_metric, prediction, left_child) \n");
   for (int i = 0; i < n_nodes; i++) {
@@ -242,13 +248,13 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
   }
 }
 template <typename T, typename L>
-void make_split_gather(const T *data, const float *gain,
-                       unsigned int *nodestart, unsigned int *samplelist,
-                       const float min_impurity_gain, const int n_nodes,
+void make_split_gather(const T *data, unsigned int *nodestart,
+                       unsigned int *samplelist, const int n_nodes,
                        const int nrows, const int *nodelist, int *new_nodelist,
                        unsigned int *nodecount, int *counter,
                        unsigned int *flagsptr,
-                       const SparseTreeNode<T, L> *d_sparsenodes) {
+                       const SparseTreeNode<T, L> *d_sparsenodes,
+                       std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   CUDA_CHECK(
     cudaMemset(nodecount, 0, (2 * n_nodes + 1) * sizeof(unsigned int)));
   CUDA_CHECK(cudaMemset(counter, 0, sizeof(unsigned int)));
@@ -262,20 +268,10 @@ void make_split_gather(const T *data, const float *gain,
     data, d_sparsenodes, nodestart, samplelist, nrows, nodelist, new_nodelist,
     nodecount, counter, flagsptr);
   CUDA_CHECK(cudaGetLastError());
-  void *d_temp_storage = NULL;
-  size_t temp_storage_bytes = 0;
-  CUDA_CHECK(cudaDeviceSynchronize());
+  void *d_temp_storage = (void *)(tempmem->temp_cub_buffer->data());
   int h_counter = counter[0];
-  printf("\nfrom inside count -->");
-  for (int i = 0; i < h_counter; i++) {
-    printf(" %d ", nodecount[i]);
-  }
-  printf("\n");
-  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
-                                nodestart, h_counter + 1);
-  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, nodecount,
-                                nodestart, h_counter + 1);
+  cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
+                                nodecount, nodestart, h_counter + 1);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaMemset(nodecount, 0, h_counter * sizeof(unsigned int)));
   build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, nrows, nodecount,

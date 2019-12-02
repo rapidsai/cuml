@@ -81,26 +81,27 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   int ncols_sampled = (int)(ncols * colper);
   d_flags =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
+  //This buffers will be renamed and reused in gather algorithms
   h_split_colidx =
-    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes);
+    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes + 1);
   h_split_binidx =
-    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes);
+    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes + 1);
   d_split_colidx =
-    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes);
+    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes + 1);
   d_split_binidx =
-    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes);
+    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes + 1);
   h_new_node_flags =
     new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
   d_new_node_flags = new MLCommon::device_buffer<unsigned int>(
     device_allocator, stream, maxnodes);
   h_parent_metric =
-    new MLCommon::host_buffer<T>(host_allocator, stream, maxnodes);
+    new MLCommon::host_buffer<T>(host_allocator, stream, maxnodes + 1);
   h_child_best_metric =
     new MLCommon::host_buffer<T>(host_allocator, stream, 2 * maxnodes);
   h_outgain =
     new MLCommon::host_buffer<float>(host_allocator, stream, maxnodes);
   d_parent_metric =
-    new MLCommon::device_buffer<T>(device_allocator, stream, maxnodes);
+    new MLCommon::device_buffer<T>(device_allocator, stream, maxnodes + 1);
   d_child_best_metric =
     new MLCommon::device_buffer<T>(device_allocator, stream, 2 * maxnodes);
   d_outgain =
@@ -136,6 +137,15 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     h_colstart =
       new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
   }
+  //CUB memory for gather algorithms
+  size_t temp_storage_bytes = 0;
+  void* cub_buffer = NULL;
+  cub::DeviceScan::ExclusiveSum(cub_buffer, temp_storage_bytes,
+                                d_split_colidx->data(), d_split_binidx->data(),
+                                maxnodes + 1);
+  temp_cub_buffer = new MLCommon::device_buffer<char>(device_allocator, stream,
+                                                      temp_storage_bytes);
+  temp_cub_bytes = temp_storage_bytes;
   totalmem += nrows * 2 * sizeof(unsigned int);
   totalmem += maxnodes * 3 * sizeof(int);
   totalmem += maxnodes * sizeof(float);
