@@ -277,7 +277,7 @@ class ARIMA(Base):
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
-        if d:
+        if self.intercept:
             d_mu, d_mu_ptr, _, _, _ = \
                 input_to_dev_array(self.mu, check_dtype=np.float64)
         if p:
@@ -362,11 +362,12 @@ class ARIMA(Base):
         """
 
         p, d, q = self.order
+        P, D, Q, s = self.seasonal_order
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        x = pack(p, q, self.intercept, self.batch_size, self.mu, self.ar,
-                 self.ma)
+        x = pack(self.order, self.seasonal_order, self.intercept,
+                 self.batch_size, self.get_params())
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = \
             input_to_dev_array(x, check_dtype=np.float64)
@@ -427,10 +428,12 @@ class ARIMA(Base):
         """
 
         p, d, q = self.order
+        P, D, Q, s = self.seasonal_order
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        x = pack(p, q, self.intercept, self.batch_size, self.mu, self.ar, self.ma)
+        x = pack(self.order, self.seasonal_order, self.intercept,
+                 self.batch_size, self.get_params())
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = \
             input_to_dev_array(x, check_dtype=np.float64)
@@ -506,20 +509,10 @@ class ARIMA(Base):
                         <int> self.intercept)
 
         params = dict()
-        # TODO: when pack/unpack support dicts, we can avoid empty params
-        if d > 0:
-            params["mu"] = d_mu.copy_to_host()
-        else:
-            params["mu"] = np.zeros(0)
-        if p > 0:
-            params["ar"] = d_ar.copy_to_host()
-        else:
-            params["ar"] = np.zeros((0, self.batch_size))
-        if q > 0:
-            params["ma"] = d_ma.copy_to_host()
-        else:
-            params["ma"] = np.zeros((0, self.batch_size))
-
+        if d > 0: params["mu"] = d_mu.copy_to_host()
+        if p > 0: params["ar"] = d_ar.copy_to_host()
+        if q > 0: params["ma"] = d_ma.copy_to_host()
+        # TODO: sar and sma
         self.set_params(params)
 
     # TODO: missing range wraps?
@@ -546,7 +539,8 @@ class ARIMA(Base):
                             2 * h
         """
         p, d, q = self.order
-        num_parameters = d + p + q
+        P, D, Q, s = self.seasonal_order
+        num_parameters = p + q + P + Q + self.intercept
 
         if start_params is None:
             self.estimate_x0()
@@ -574,8 +568,8 @@ class ARIMA(Base):
                             self.d_y, x, h, trans=True, handle=self.handle)
             return n_gllf/(self.num_samples-1)
 
-        x0 = pack(p, q, self.intercept, self.batch_size, self.mu, self.ar,
-                  self.ma)
+        x0 = pack(self.order, self.seasonal_order, self.intercept,
+                  self.batch_size, self.get_params())
         x0 = _batch_invtrans(p, d, q, self.batch_size, x0, self.handle)
 
         # check initial parameter sanity
@@ -592,9 +586,9 @@ class ARIMA(Base):
 
         Tx = _batch_trans(p, q, self.intercept, self.batch_size, x,
                           self.handle)
-        mu, ar, ma = unpack(p, q, self.intercept, self.batch_size, Tx)
 
-        self.set_params({"mu": mu, "ar": ar, "ma": ma})
+        self.set_params(unpack(self.order, self.seasonal_order, self.intercept,
+                               self.batch_size, Tx))
         self.niter = niter
 
 
@@ -780,38 +774,54 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     return (best_order, best_mu, best_ar, best_ma, best_ic)
 
 
-# TODO: return dictionary?
 @nvtx_range_wrap("unpack")
-def unpack(p, q, k, nb, x: Union[list, np.ndarray]):
+def unpack(order: Tuple[int, int, int],
+           seasonal_order: Tuple[int, int, int, int],
+           k: int, nb: int, x: Union[list, np.ndarray]
+           ) -> Dict[str, np.ndarray]:
     """Unpack linearized parameter vector `x` into separarate arrays
-       Parameters: p, q, intercept, batch size, parameter vector
+       Parameters: order, seasonal order, intercept, batch size, vector
     """
-    if type(x) is list or x.shape != (p + k + q, nb):
-        x_mat = np.reshape(x, (p + k + q, nb), order='F')
+    p, _, q = order
+    P, _, Q, _ = seasonal_order
+    N = p + q + P + Q + k
+
+    if type(x) is list or x.shape != (N, nb):
+        x_mat = np.reshape(x, (N, nb), order='F')
     else:
         x_mat = x
-    if k > 0:
-        mu = x_mat[0]
-    else:
-        mu = np.zeros(nb)
-    ar = x_mat[k:k+p]
-    ma = x_mat[k+p:]
 
-    return (mu, ar, ma)
+    params = dict()
+    if k > 0: params["mu"] = x_mat[0]
+    if p > 0: params["ar"] = x_mat[k:k+p]
+    if q > 0: params["ma"] = x_mat[k+p:k+p+q]
+    if P > 0: params["sar"] = x_mat[k+p+q:k+p+q+P]
+    if Q > 0: params["sma"] = x_mat[k+p+q+P:k+p+q+P+Q]
+
+    return params
 
 
-# TODO: construct from dictionary?
 @nvtx_range_wrap("pack")
-def pack(p, q, k, nb, mu, ar, ma) -> np.ndarray:
+def pack(order: Tuple[int, int, int],
+         seasonal_order: Tuple[int, int, int, int],
+         k: int, nb: int, params: Mapping[str, np.ndarray]
+         ) -> np.ndarray:
     """Pack parameters into a linearized vector `x`
-       Parameters: p, q, intercept, batch size, parameters
-       """
-    x = np.zeros((p + k + q, nb), order='F')  # 2D array for convenience
-    if k > 0:
-        x[0:k] = mu
-    x[k:k+p] = ar
-    x[k+p:] = ma
-    return x.reshape((p + k + q) * nb, order='F')  # return 1D shape
+       Parameters: order, seasonal order, intercept, batch size, parameters
+    """
+    p, _, q = order
+    P, _, Q, _ = seasonal_order
+    N = p + q + P + Q + k
+
+    x = np.zeros((N, nb), order='F')  # 2D array for convenience
+
+    if k > 0: x[0] = params["mu"]
+    if p > 0: x[k:k+p] = params["ar"]
+    if q > 0: x[k+p:k+p+q] = params["ma"]
+    if P > 0: x[k+p+q:k+p+q+P] = params["sar"]
+    if Q > 0: x[k+p+q+P:k+p+q+P+Q] = params["sma"]
+
+    return x.reshape(N * nb, order='F')  # return 1D shape
 
 
 @nvtx_range_wrap("batched_transform")
