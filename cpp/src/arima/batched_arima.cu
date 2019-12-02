@@ -65,7 +65,7 @@ using std::vector;
  */
 static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
                           int batch_size, int n_obs, int d, int D, int s,
-                          int intercept = 0, double* d_mu = nullptr) {
+                          int intercept = 0, const double* d_mu = nullptr) {
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
 
@@ -116,12 +116,90 @@ static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
     allocator->deallocate(d_temp, temp_size * batch_size * sizeof(double),
                           stream);
 }
+///TODO: generalize all differences into one kernel?
 
 /**
- * TODO: docs and implementation
+ * @brief Helper function that will read in src0 if the given index is
+ *        negative, src1 otherwise.
+ * @note  This is useful when one array is the logical continuation of
+ *        another and the index is expressed relatively to the second array.
  */
-static void _finalize_forecast() {
-  ///TODO: do it
+static __device__ double _select_read(const double* src0, int size0,
+                                      const double* src1, int idx) {
+  return idx < 0 ? src0[size0 + idx] : src1[idx];
+}
+
+/**
+ * @brief Kernel to undifference the data with up to two levels of simple
+ *        and/or seasonal differencing.
+ * @note  One thread per series.
+ */
+template <bool double_diff>
+static __global__ void _undiff_kernel(double* d_fc, const double* d_in,
+                                      int num_steps, int batch_size, int n_obs,
+                                      int s0, int s1 = 0) {
+  int bid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (bid < batch_size) {
+    double* b_fc = d_fc + bid * num_steps;
+    const double* b_in = d_in + bid * n_obs;
+    for (int i = 0; i < num_steps; i++) {
+      if (!double_diff) {  // One simple or seasonal difference
+        b_fc[i] += _select_read(b_in, n_obs, b_fc, i - s0);
+      } else {  // Two differences (simple, seasonal or both)
+        double fc_acc = _select_read(b_in, n_obs, b_fc, i - s0 - s1);
+        fc_acc += _select_read(b_in, n_obs, b_fc, i - s0);
+        fc_acc += _select_read(b_in, n_obs, b_fc, i - s1);
+        b_fc[i] += fc_acc;
+      }
+    }
+  }
+}
+
+/**
+ * @brief Finalizes a forecast by adding the trend and/or undifferencing
+ *
+ * @note: It is assumed that d + D <= 2. This is enforced on the Python side
+ *
+ * @param[in]     handle      cuML handle
+ * @param[in|out] d_fc        Forecast. Shape (num_steps, batch_size) (device)
+ * @param[in]     d_in        Original data. Shape (n_obs, batch_size) (device)
+ * @param[in]     num_steps   Number of steps forecasted
+ * @param[in]     batch_size  Number of series per batch
+ * @param[in]     n_obs       Number of observations per series
+ * @param[in]     d           Order of simple differences (0, 1 or 1)
+ * @param[in]     D           Order of seasonal differences (0, 1 or 1)
+ * @param[in]     s           Seasonal period if D > 0
+ * @param[in]     intercept   Whether the model fits an intercept
+ * @param[in]     d_mu        Mu array if intercept > 0
+ *                            Shape (batch_size,) (device)
+ */
+static void _finalize_forecast(cumlHandle& handle, double* d_fc,
+                               const double* d_in, int num_steps,
+                               int batch_size, int n_obs, int d, int D, int s,
+                               int intercept = 0,
+                               const double* d_mu = nullptr) {
+  const auto stream = handle.getStream();
+
+  // Add the trend in-place
+  if (intercept) {
+    MLCommon::LinAlg::matrixVectorOp(
+      d_fc, d_fc, d_mu, batch_size, num_steps, false, true,
+      [] __device__(double a, double b) { return a + b; }, stream);
+  }
+
+  // Undifference
+  constexpr int TPB = 64;  // One thread per series -> avoid big blocks
+  if (d + D == 1) {
+    _undiff_kernel<false>
+      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+        d_fc, d_in, num_steps, batch_size, n_obs, d ? 1 : s);
+    CUDA_CHECK(cudaPeekAtLastError());
+  } else if (d + D == 2) {
+    _undiff_kernel<true>
+      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+        d_fc, d_in, num_steps, batch_size, n_obs, d ? 1 : s, d == 2 ? 1 : s);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 }
 
 void residual(cumlHandle& handle, double* d_y, int batch_size, int n_obs, int p,
@@ -223,35 +301,8 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
                      }
                    });
 
-  // Undifference and/or add trend
-  /// TODO: custom generic function !!!
-
-  // Temporary: add mu to the forecast
-  if (intercept) {
-    MLCommon::LinAlg::matrixVectorOp(
-      d_y_fc, d_y_fc, d_mu, batch_size, num_steps, false, true,
-      [] __device__(double a, double b) { return a + b; }, stream);
-  }
-
-  // Temporary: undiff
-  if (d > 0) {
-    thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + batch_size,
-      [=] __device__(int bid) {
-        for (int i = 0; i < num_steps; i++) {
-          // Undifference via cumsum, using last 'y' as initial value.
-          // Then drop that first value.
-          // In python:
-          // xi = np.append(y[-1], fc)
-          // return np.cumsum(xi)[1:]
-          if (i == 0) {
-            d_y_fc[bid * num_steps] += d_y[bid * n_obs + (n_obs - 1)];
-          } else {
-            d_y_fc[bid * num_steps + i] += d_y_fc[bid * num_steps + i - 1];
-          }
-        }
-      });
-  }
+  _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, d, D, s,
+                     intercept, d_mu);
 
   allocator->deallocate(d_mu, sizeof(double) * batch_size, stream);
   allocator->deallocate(d_ar, sizeof(double) * p * batch_size, stream);
