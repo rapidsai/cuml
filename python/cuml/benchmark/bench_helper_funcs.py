@@ -48,34 +48,32 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     else:
         raise ImportError("No XGBoost package found")
 
-    # use maximum 1e5 rows to train the model
-    train_size = min(data[0].shape[0], 100000)
+    train_size = data[0].shape[0]
 
     if isinstance(data[0], (pd.DataFrame, pd.Series)):
         train_data = datagen._convert_to_numpy(data[0])[:train_size, :]
         train_label = datagen._convert_to_numpy(data[1])[:train_size]
-        dtrain = xgb.DMatrix(train_data, label=train_label)
     elif isinstance(data[0], np.ndarray):
         train_data = data[0][:train_size, :]
         train_label = data[1][:train_size]
-        dtrain = xgb.DMatrix(train_data, label=train_label)
     elif isinstance(data[0], cudf.DataFrame):
-        train_data_np_ = data[0].as_gpu_matrix().copy_to_host()
-        train_label_np_ = data[1].to_gpu_array().copy_to_host()
-        train_data_np = train_data_np_[:train_size, :]
-        train_label_np = train_label_np_[:train_size]
-        dtrain = xgb.DMatrix(train_data_np, label=train_label_np)
+        train_data_ = data[0].as_gpu_matrix().copy_to_host()
+        train_label_ = data[1].to_gpu_array().copy_to_host()
+        train_data = train_data_[:train_size, :]
+        train_label = train_label_[:train_size]
     elif cuda.devicearray.is_cuda_ndarray(data[0]):
-        train_data = data[0][:train_size, :]
-        train_label = data[1][:train_size]
-        train_data_np = train_data.copy_to_host()
-        train_label_np = train_label.copy_to_host()
-        dtrain = xgb.DMatrix(train_data_np, label=train_label_np)
+        train_data_ = data[0][:train_size, :]
+        train_label_ = data[1][:train_size]
+        train_data = train_data_.copy_to_host()
+        train_label = train_label_.copy_to_host()
     else:
         raise TypeError("Received unsupported input type " % type(data[0]))
 
+    dtrain = xgb.DMatrix(train_data, label=train_label)
+
     params = {
-        "silent": 1, "eval_metric": "error", "objective": "binary:logistic"
+        "silent": 1, "eval_metric": "error",
+        "objective": "binary:logistic", "tree_method": "gpu_hist",
     }
     params.update(arg)
     max_depth = arg["max_depth"]
@@ -106,8 +104,7 @@ def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
     else:
         raise ImportError("No XGBoost package found")
 
-    # # use maximum 1e5 rows to train the model
-    train_size = min(data[0].shape[0], 100000)
+    train_size = data[0].shape[0]
 
     max_depth = arg["max_depth"]
     num_rounds = arg["num_rounds"]
