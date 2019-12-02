@@ -19,10 +19,17 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
 
-Dataset Generation
-------------------
+Dataset Generation (Single-GPU)
+-------------------------------
 
   .. automethod:: cuml.datasets.make_blobs
+
+
+Dataset Generation (Dask)
+-------------------------
+  .. automodule:: cuml.dask.datasets.blobs
+     :members:
+
 
 Metrics
 ---------
@@ -62,6 +69,13 @@ Utilities for I/O and Numba
   .. automodule:: cuml.utils.numba_utils
     :members:
 
+Utilities for Dask and Multi-GPU Preprocessing
+-----------------------------------------------
+
+  .. automodule:: cuml.dask.common.utils
+     :members:
+  
+
 Regression and Classification
 =============================
 
@@ -72,7 +86,7 @@ Linear Regression
     :members:
 
 Logistic Regression
------------------
+-------------------
 
 .. autoclass:: cuml.LogisticRegression
     :members:
@@ -96,13 +110,13 @@ ElasticNet Regression
     :members:
 
 Mini Batch SGD Classifier 
----------------------
+-------------------------
 
 .. autoclass:: cuml.MBSGDClassifier
     :members:
 
 Mini Batch SGD Regressor
----------------------
+------------------------
 
 .. autoclass:: cuml.MBSGDRegressor
     :members:
@@ -231,4 +245,17 @@ Random Forest
     :members:
 
 .. autoclass:: cuml.dask.ensemble.RandomForestRegressor
+    :members:
+
+
+Principal Component Analysis
+-----------------------------
+
+.. autoclass:: cuml.dask.decomposition.PCA
+    :members:
+
+Nearest Neighbors
+-----------------
+
+.. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
