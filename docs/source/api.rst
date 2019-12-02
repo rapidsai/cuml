@@ -248,10 +248,16 @@ Random Forest
     :members:
 
 
-Principal Component Analysis
------------------------------
+Dimensionality Reduction
+------------------------
 
 .. autoclass:: cuml.dask.decomposition.PCA
+    :members:
+
+Truncated SVD
+--------------
+
+.. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
 
 Nearest Neighbors
