@@ -156,7 +156,7 @@ def test_array_split(type, test_size, train_size, shuffle):
                                                         train_size=train_size,
                                                         test_size=test_size,
                                                         shuffle=shuffle,
-                                                        seed=0)
+                                                        random_state=0)
 
     if type == 'cupy':
         assert isinstance(X_train, cp.ndarray)
