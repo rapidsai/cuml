@@ -118,6 +118,31 @@ __global__ void batched_diff_kernel(const T* in, T* out, int n_elem,
 }
 
 /**
+ * @brief Kernel to compute the second difference of batched vectors with given
+ *        periods (1 for simple difference, s for seasonal difference)
+ *
+ * @note: The thread id is the starting position in each vector and the block
+ *        id is the batch id.
+ * 
+ * @param[in]  in       Input vector
+ * @param[out] out      Output vector
+ * @param[in]  n_elem   Number of elements in the input vector
+ * @param[in]  period1  Period for the 1st difference
+ * @param[in]  period2  Period for the 2nd difference
+ */
+template <typename T>
+__global__ void batched_second_diff_kernel(const T* in, T* out, int n_elem,
+                                           int period1 = 1, int period2 = 1) {
+  const T* batch_in = in + n_elem * blockIdx.x;
+  T* batch_out = out + (n_elem - period1 - period2) * blockIdx.x;
+
+  for (int i = threadIdx.x; i < n_elem - period1 - period2; i += blockDim.x) {
+    batch_out[i] = batch_in[i + period1 + period2] - batch_in[i + period1] -
+                   batch_in[i + period2] + batch_in[i];
+  }
+}
+
+/**
  * @brief The BatchedMatrix class provides storage and a number of linear
  *        operations on collections (batches) of matrices of identical shape.
  */

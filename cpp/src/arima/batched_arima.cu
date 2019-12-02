@@ -66,44 +66,31 @@ using std::vector;
 static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
                           int batch_size, int n_obs, int d, int D, int s,
                           int intercept = 0, const double* d_mu = nullptr) {
-  auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
 
-  // Use temporary buffer when there are two steps of differencing
-  double* d_temp;
-  int temp_size = (D == 2 ? n_obs - s : n_obs - 1);
-  if (d + D > 1)
-    d_temp = (double*)allocator->allocate(
-      temp_size * batch_size * sizeof(double), stream);
-
-  // If no differencing and pointers are different, copy in to out
-  if (d + D == 0 && d_in != d_out) {
+  // Only one difference (simple or seasonal)
+  if (d + D == 1) {
+    int period = d ? 1 : s;
+    int tpb = (n_obs - period) > 512 ? 256 : 128;  // quick heuristics
+    MLCommon::Matrix::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
+      d_in, d_out, n_obs, period);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
+  // Two differences (simple or seasonal or both)
+  else if (d + D == 2) {
+    int period1 = d ? 1 : s;
+    int period2 = d == 2 ? 1 : s;
+    int tpb = (n_obs - period1 - period2) > 512 ? 256 : 128;
+    MLCommon::Matrix::
+      batched_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
+        d_in, d_out, n_obs, period1, period2);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
+  // If no difference and the pointers are different, copy in to out
+  else if (d + D == 0 && d_in != d_out) {
     MLCommon::copy(d_out, d_in, n_obs, stream);
   }
-
-  // Simple differencing
-  if (d >= 1) {
-    int tpb = (n_obs - 1) > 512 ? 256 : 128;  // quick heuristics
-    MLCommon::Matrix::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
-      d_in, d + D > 1 ? d_temp : d_out, n_obs);
-  }
-  if (d >= 2) {
-    int tpb = (n_obs - 2) > 512 ? 256 : 128;  // quick heuristics
-    MLCommon::Matrix::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
-      d_temp, d_out, n_obs - 1);
-  }
-
-  // Seasonal differencing
-  if (D >= 1) {
-    int tpb = (n_obs - d - s) > 512 ? 256 : 128;  // quick heuristics
-    MLCommon::Matrix::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
-      d > 0 ? d_temp : d_in, D > 1 ? d_temp : d_out, n_obs - d, s);
-  }
-  if (D >= 2) {
-    int tpb = (n_obs - 2 * s) > 512 ? 256 : 128;  // quick heuristics
-    MLCommon::Matrix::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
-      d_temp, d_out, n_obs - s, s);
-  }
+  // Other cases: no difference and the pointers are the same, nothing to do
 
   // Remove trend in-place
   if (intercept) {
@@ -111,12 +98,7 @@ static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
       d_out, d_out, d_mu, batch_size, n_obs - d - D * s, false, true,
       [] __device__(double a, double b) { return a - b; }, stream);
   }
-
-  if (d + D > 1)
-    allocator->deallocate(d_temp, temp_size * batch_size * sizeof(double),
-                          stream);
 }
-///TODO: generalize all differences into one kernel?
 
 /**
  * @brief Helper function that will read in src0 if the given index is
