@@ -25,7 +25,7 @@ import cuml.metrics
 import cuml.decomposition
 from cuml.utils.import_utils import has_umap
 import numpy as np
-import tempfile 
+import tempfile
 
 from cuml.benchmark.bench_helper_funcs import (
     fit,
