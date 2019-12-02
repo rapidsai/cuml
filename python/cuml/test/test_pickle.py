@@ -124,7 +124,6 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, keys):
         X_train, y_train, X_test = make_dataset(datatype, nrows,
                                                 ncols, n_info)
         model = rf_regression_model[keys]()
-        print("model :", model)
         model.fit(X_train, y_train)
         result["rf_reg"] = model.predict(X_test)
         return model, X_test
