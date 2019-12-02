@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "selection/knn.h"
-#include <vector>
-#include <gtest/gtest.h>
 #include <cuda_utils.h>
+#include <gtest/gtest.h>
 #include <test_utils.h>
 #include <iostream>
+#include <vector>
+#include "selection/knn.h"
 
 namespace MLCommon {
 namespace Selection {
@@ -31,83 +31,78 @@ namespace Selection {
  * knn.cu class is accepting inputs and providing outputs as
  * expected.
  */
-template<typename T>
-class KNNTest: public ::testing::Test {
-protected:
-	void basicTest() {
+template <typename T>
+class KNNTest : public ::testing::Test {
+ protected:
+  void basicTest() {
+    auto alloc = std::make_shared<defaultDeviceAllocator>();
 
-      // Allocate input
-      allocate(d_train_inputs, n * d);
+    // Allocate input
+    allocate(d_train_inputs, n * d);
 
-      // Allocate reference arrays
-      allocate<long>(d_ref_I, n*n);
-      allocate(d_ref_D, n*n);
+    // Allocate reference arrays
+    allocate<long>(d_ref_I, n * n);
+    allocate(d_ref_D, n * n);
 
-      // Allocate predicted arrays
-      allocate<long>(d_pred_I, n*n);
-      allocate(d_pred_D, n*n);
+    // Allocate predicted arrays
+    allocate<long>(d_pred_I, n * n);
+    allocate(d_pred_D, n * n);
 
-      // make testdata on host
-      std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
-      h_train_inputs.resize(n);
-      updateDevice(d_train_inputs, h_train_inputs.data(), n*d, 0);
+    // make testdata on host
+    std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
+    h_train_inputs.resize(n);
+    updateDevice(d_train_inputs, h_train_inputs.data(), n * d, 0);
 
-      std::vector<T> h_res_D = { 0.0, 2401.0, 2500.0, 0.0, 1.0, 2401.0, 0.0, 1.0, 2500.0 };
-      h_res_D.resize(n*n);
-      updateDevice(d_ref_D, h_res_D.data(), n*n, 0);
+    std::vector<T> h_res_D = {0.0, 49.0, 50.0, 0.0, 1.0, 49.0, 0.0, 1.0, 50.0};
+    h_res_D.resize(n * n);
+    updateDevice(d_ref_D, h_res_D.data(), n * n, 0);
 
-      std::vector<long> h_res_I = { 0, 1, 2, 1, 2, 0, 2, 1, 0 };
-      h_res_I.resize(n*n);
-      updateDevice<long>(d_ref_I, h_res_I.data(), n*n, 0);
+    std::vector<long> h_res_I = {0, 1, 2, 1, 2, 0, 2, 1, 0};
+    h_res_I.resize(n * n);
+    updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
+    float **ptrs = new float *[1];
+    int *sizes = new int[1];
+    ptrs[0] = d_train_inputs;
+    sizes[0] = n;
 
-      float **ptrs = new float*[1];
-      int *sizes = new int[1];
-      ptrs[0] = d_train_inputs;
-      sizes[0] = n;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
-      cudaStream_t stream;
-      cudaStreamCreate(&stream);
+    brute_force_knn(ptrs, sizes, 1, d, d_train_inputs, n, d_pred_I, d_pred_D, n,
+                    alloc, stream);
 
-      brute_force_knn(ptrs, sizes, 1, d, d_train_inputs, n, d_pred_I, d_pred_D, n, stream);
-
-      cudaStreamDestroy(stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
- 	void SetUp() override {
-		basicTest();
-	}
+  void SetUp() override { basicTest(); }
 
-	void TearDown() override {
-		CUDA_CHECK(cudaFree(d_train_inputs));
-		CUDA_CHECK(cudaFree(d_pred_I));
-		CUDA_CHECK(cudaFree(d_pred_D));
-		CUDA_CHECK(cudaFree(d_ref_I));
-		CUDA_CHECK(cudaFree(d_ref_D));
-	}
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(d_train_inputs));
+    CUDA_CHECK(cudaFree(d_pred_I));
+    CUDA_CHECK(cudaFree(d_pred_D));
+    CUDA_CHECK(cudaFree(d_ref_I));
+    CUDA_CHECK(cudaFree(d_ref_D));
+  }
 
-protected:
+ protected:
+  T *d_train_inputs;
 
-	T* d_train_inputs;
-
-	int n = 3;
-	int d = 1;
+  int n = 3;
+  int d = 1;
 
   long *d_pred_I;
-  T* d_pred_D;
+  T *d_pred_D;
 
   long *d_ref_I;
-  T* d_ref_D;
+  T *d_ref_D;
 };
-
 
 typedef KNNTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
-	ASSERT_TRUE(
-			devArrMatch(d_ref_D, d_pred_D, n*n, Compare<float>()));
-	ASSERT_TRUE(
-			devArrMatch(d_ref_I, d_pred_I, n*n, Compare<long>()));
+  ASSERT_TRUE(devArrMatch(d_ref_D, d_pred_D, n * n, Compare<float>()));
+  ASSERT_TRUE(devArrMatch(d_ref_I, d_pred_I, n * n, Compare<long>()));
 }
 
-}; // end namespace Selection
-}; // end namespace ML
+};  // end namespace Selection
+};  // namespace MLCommon

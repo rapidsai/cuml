@@ -18,7 +18,6 @@ from dask.distributed import default_client
 from toolz import first
 from uuid import uuid1
 import dask.dataframe as dd
-from collections import OrderedDict
 
 from dask.distributed import wait
 
@@ -47,21 +46,10 @@ def extract_ddf_partitions(ddf, client=None, agg=True):
         worker = first(workers)
         worker_map[key_to_part_dict[key]] = worker
 
-    if agg:
-        # Ensure that partitions in each list have the
-        # same order as the input 'parts' list
-        worker_to_parts = OrderedDict()
-        for part in parts:
-            worker = worker_map[part]
-            if worker not in worker_to_parts:
-                worker_to_parts[worker] = []
-            worker_to_parts[worker].append(part)
-
-    else:
-        worker_to_parts = []
-        for part in parts:
-            worker = worker_map[part]
-            worker_to_parts.append((worker, part))
+    worker_to_parts = []
+    for part in parts:
+        worker = worker_map[part]
+        worker_to_parts.append((worker, part))
 
     yield wait(worker_to_parts)
     raise gen.Return(worker_to_parts)
