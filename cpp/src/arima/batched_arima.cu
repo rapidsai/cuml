@@ -185,37 +185,29 @@ static void _finalize_forecast(cumlHandle& handle, double* d_fc,
 }
 
 void residual(cumlHandle& handle, double* d_y, int batch_size, int n_obs, int p,
-              int d, int q, int intercept, double* d_params, double* d_vs,
-              bool trans) {
+              int d, int q, int P, int D, int Q, int s, int intercept,
+              double* d_params, double* d_vs, bool trans) {
   ML::PUSH_RANGE(__func__);
   std::vector<double> loglike = std::vector<double>(batch_size);
-  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, intercept, d_params,
-                  loglike.data(), d_vs, trans);
+  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
+                  intercept, d_params, loglike.data(), d_vs, trans);
   ML::POP_RANGE();
 }
 
-void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
-              int intercept, int batch_size, int n_obs, double* d_y,
-              double* d_y_prep, double* d_vs, double* d_params,
+void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
+              int D, int Q, int s, int intercept, int batch_size, int n_obs,
+              double* d_y, double* d_y_prep, double* d_vs, double* d_params,
               double* d_y_fc) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
 
-  // Temporary
-  int D = 0, s = 0;
-
   // Unpack parameters
-  double *d_mu, *d_ar, *d_ma;
-  if (intercept)
-    d_mu = (double*)allocator->allocate(sizeof(double) * batch_size, stream);
-  if (p)
-    d_ar =
-      (double*)allocator->allocate(sizeof(double) * batch_size * p, stream);
-  if (q)
-    d_ma =
-      (double*)allocator->allocate(sizeof(double) * batch_size * q, stream);
-  unpack(d_params, d_mu, d_ar, d_ma, batch_size, p, q, intercept, stream);
+  double *d_mu, *d_ar, *d_ma, *d_sar, *d_sma;
+  allocate_params(allocator, stream, p, q, P, Q, batch_size, &d_ar, &d_ma,
+                  &d_sar, &d_sma, intercept, &d_mu);
+  unpack(d_params, d_mu, d_ar, d_ma, d_sar, d_sma, batch_size, p, q, P, Q,
+         intercept, stream);
 
   int ld_yprep = n_obs - d - D * s;
 
@@ -286,9 +278,8 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
   _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, d, D, s,
                      intercept, d_mu);
 
-  allocator->deallocate(d_mu, sizeof(double) * batch_size, stream);
-  allocator->deallocate(d_ar, sizeof(double) * p * batch_size, stream);
-  allocator->deallocate(d_ma, sizeof(double) * q * batch_size, stream);
+  deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_ar, d_ma,
+                    d_sar, d_sma, intercept, d_mu);
   allocator->deallocate(d_y_, (p + num_steps) * batch_size, stream);
   allocator->deallocate(d_vs_, (q + num_steps) * batch_size, stream);
   if (dealloc_yprep)
@@ -298,11 +289,12 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q,
 }
 
 void predict_in_sample(cumlHandle& handle, double* d_y, int batch_size,
-                       int n_obs, int p, int d, int q, int intercept,
-                       double* d_params, double* d_vs, double* d_y_p) {
+                       int n_obs, int p, int d, int q, int P, int D, int Q,
+                       int s, int intercept, double* d_params, double* d_vs,
+                       double* d_y_p) {
   ML::PUSH_RANGE(__func__);
-  residual(handle, d_y, batch_size, n_obs, p, d, q, intercept, d_params, d_vs,
-           false);
+  residual(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s, intercept,
+           d_params, d_vs, false);
   auto stream = handle.getStream();
   double* d_y_diff;
 
@@ -341,8 +333,8 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int batch_size,
   if (d == 1) {
     double* d_y_fc = (double*)handle.getDeviceAllocator()->allocate(
       sizeof(double) * batch_size, handle.getStream());
-    forecast(handle, 1, p, d, q, intercept, batch_size, n_obs, d_y, d_y_diff,
-             d_vs, d_params, d_y_fc);
+    forecast(handle, 1, p, d, q, P, D, Q, s, intercept, batch_size, n_obs, d_y,
+             d_y_diff, d_vs, d_params, d_y_fc);
 
     // append forecast to end of in-sample prediction
     auto counting = thrust::make_counting_iterator(0);
@@ -359,36 +351,40 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int batch_size,
 }
 
 void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int n_obs,
-                     int p, int d, int q, int intercept, double* d_mu,
-                     double* d_ar, double* d_ma, double* loglike, double* d_vs,
-                     bool trans, bool host_loglike) {
+                     int p, int d, int q, int P, int D, int Q, int s,
+                     int intercept, double* d_mu, double* d_ar, double* d_ma,
+                     double* d_sar, double* d_sma, double* loglike,
+                     double* d_vs, bool trans, bool host_loglike) {
   using std::get;
 
   ML::PUSH_RANGE(__func__);
 
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
-  double* d_Tar =
-    (double*)allocator->allocate(sizeof(double) * batch_size * p, stream);
-  double* d_Tma =
-    (double*)allocator->allocate(sizeof(double) * batch_size * q, stream);
+  double *d_Tar, *d_Tma, *d_Tsar, *d_Tsma;
+  allocate_params(allocator, stream, p, q, P, Q, batch_size, &d_Tar, &d_Tma,
+                  &d_Tsar, &d_Tsma);
 
   if (trans) {
-    batched_jones_transform(handle, p, q, batch_size, false, d_ar, d_ma, d_Tar,
-                            d_Tma);
+    batched_jones_transform(handle, p, q, P, Q, batch_size, false, d_ar, d_ma,
+                            d_sar, d_sma, d_Tar, d_Tma, d_Tsar, d_Tsma);
   } else {
     // non-transformed case: just use original parameters
     CUDA_CHECK(cudaMemcpyAsync(d_Tar, d_ar, sizeof(double) * batch_size * p,
                                cudaMemcpyDeviceToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_Tma, d_ma, sizeof(double) * batch_size * q,
                                cudaMemcpyDeviceToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_Tsar, d_sar, sizeof(double) * batch_size * P,
+                               cudaMemcpyDeviceToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_Tsma, d_sma, sizeof(double) * batch_size * Q,
+                               cudaMemcpyDeviceToDevice, stream));
   }
 
   ///TODO: use _prepare_data
   if (d == 0) {
     // no diff
-    batched_kalman_filter(handle, d_y, n_obs, d_Tar, d_Tma, p, q, batch_size,
-                          loglike, d_vs);
+    batched_kalman_filter(handle, d_y, n_obs, d_Tar, d_Tma, d_Tsar, d_Tsma, p,
+                          q, P, Q, batch_size, loglike, d_vs);
   } else if (d == 1) {
     ////////////////////////////////////////////////////////////
     // diff and center (with `mu`):
@@ -414,72 +410,70 @@ void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int n_obs,
                        });
     }
 
-    batched_kalman_filter(handle, y_diff, n_obs - d, d_Tar, d_Tma, p, q,
-                          batch_size, loglike, d_vs);
+    batched_kalman_filter(handle, y_diff, n_obs - d, d_Tar, d_Tma, d_Tsar,
+                          d_Tsma, p, q, P, Q, batch_size, loglike, d_vs);
 
     allocator->deallocate(y_diff, sizeof(double) * batch_size * (n_obs - 1),
                           stream);
   } else {
-    throw std::runtime_error("Not supported difference parameter: d=0, 1");
+    ///TODO: support for d=2 etc
   }
-  allocator->deallocate(d_Tar, sizeof(double) * p * batch_size, stream);
-  allocator->deallocate(d_Tma, sizeof(double) * q * batch_size, stream);
+  deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_Tar, d_Tma,
+                    d_Tsar, d_Tsma);
   ML::POP_RANGE();
 }
 
 void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int n_obs,
-                     int p, int d, int q, int intercept, double* d_params,
-                     double* loglike, double* d_vs, bool trans,
-                     bool host_loglike) {
+                     int p, int d, int q, int P, int D, int Q, int s,
+                     int intercept, double* d_params, double* loglike,
+                     double* d_vs, bool trans, bool host_loglike) {
   ML::PUSH_RANGE(__func__);
 
   // unpack parameters
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
-  double* d_mu =
-    (double*)allocator->allocate(sizeof(double) * batch_size, stream);
-  double* d_ar =
-    (double*)allocator->allocate(sizeof(double) * batch_size * p, stream);
-  double* d_ma =
-    (double*)allocator->allocate(sizeof(double) * batch_size * q, stream);
+  double *d_mu, *d_ar, *d_ma, *d_sar, *d_sma;
+  allocate_params(allocator, stream, p, q, P, Q, batch_size, &d_ar, &d_ma,
+                  &d_sar, &d_sma, intercept, &d_mu);
+  unpack(d_params, d_mu, d_ar, d_ma, d_sar, d_sma, batch_size, p, q, P, Q,
+         intercept, stream);
 
-  // params -> (mu, ar, ma)
-  unpack(d_params, d_mu, d_ar, d_ma, batch_size, p, q, intercept, stream);
+  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
+                  intercept, d_mu, d_ar, d_ma, d_sar, d_sma, loglike, d_vs,
+                  trans, host_loglike);
 
-  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, intercept, d_mu,
-                  d_ar, d_ma, loglike, d_vs, trans, host_loglike);
-
-  allocator->deallocate(d_mu, sizeof(double) * batch_size, stream);
-  allocator->deallocate(d_ar, sizeof(double) * p * batch_size, stream);
-  allocator->deallocate(d_ma, sizeof(double) * q * batch_size, stream);
+  deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_ar, d_ma,
+                    d_sar, d_sma, intercept, d_mu);
   ML::POP_RANGE();
 }
 
 void information_criterion(cumlHandle& handle, double* d_y, int batch_size,
-                           int n_obs, int p, int d, int q, int intercept,
-                           double* d_mu, double* d_ar, double* d_ma, double* ic,
-                           int ic_type) {
+                           int n_obs, int p, int d, int q, int P, int D, int Q,
+                           int s, int intercept, double* d_mu, double* d_ar,
+                           double* d_ma, double* d_sar, double* d_sma,
+                           double* ic, int ic_type) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_vs = (double*)allocator->allocate(
-    sizeof(double) * (n_obs - d) * batch_size, stream);
+    sizeof(double) * (n_obs - d - s * D) * batch_size, stream);
   double* d_ic =
     (double*)allocator->allocate(sizeof(double) * batch_size, stream);
 
   /* Compute log-likelihood in d_ic */
-  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, intercept, d_mu,
-                  d_ar, d_ma, d_ic, d_vs, true, false);
+  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
+                  intercept, d_mu, d_ar, d_ma, d_sar, d_sma, d_ic, d_vs, true,
+                  false);
 
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(
     d_ic, d_ic, static_cast<MLCommon::Metrics::IC_Type>(ic_type),
-    p + q + intercept, batch_size, n_obs, stream);
+    p + q + P + Q + intercept, batch_size, n_obs, stream);
 
   /* Transfer information criterion device -> host */
   MLCommon::updateHost(ic, d_ic, batch_size, stream);
 
-  allocator->deallocate(d_vs, sizeof(double) * (n_obs - d) * batch_size,
+  allocator->deallocate(d_vs, sizeof(double) * (n_obs - d - s * D) * batch_size,
                         stream);
   allocator->deallocate(d_ic, sizeof(double) * batch_size, stream);
   ML::POP_RANGE();
@@ -492,9 +486,9 @@ void information_criterion(cumlHandle& handle, double* d_y, int batch_size,
  * @note: bm_y is mutated! estimate_x0 has already created a copy.
  */
 static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
-                          double* d_ma,
+                          double* d_ma, double* d_sar, double* d_sma,
                           MLCommon::Matrix::BatchedMatrix<double>& bm_y,
-                          int batch_size, int n_obs, int p, int q,
+                          int batch_size, int n_obs, int p, int q, int P, int Q,
                           int intercept) {
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
@@ -606,14 +600,16 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
 }
 
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
-                 const double* d_y, int batch_size, int n_obs, int p, int d,
-                 int q, int intercept) {
+                 double* d_sar, double* d_sma, const double* d_y,
+                 int batch_size, int n_obs, int p, int d, int q, int P, int D,
+                 int Q, int s, int intercept) {
   ML::PUSH_RANGE(__func__);
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
 
+  ///TODO: use _prepare_data
   /* Based on d, differenciate the series or simply copy it
    * Note: the copy is needed because _start_params writes in it */
   int actual_n_obs = n_obs - d;
@@ -632,8 +628,8 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
   }
 
   // Do the computation of the initial parameters
-  _start_params(handle, d_mu, d_ar, d_ma, bm_yd, batch_size, actual_n_obs, p, q,
-                intercept);
+  _start_params(handle, d_mu, d_ar, d_ma, d_sar, d_sma, bm_yd, batch_size,
+                actual_n_obs, p, q, P, Q, intercept);
   ML::POP_RANGE();
 }
 
