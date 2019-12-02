@@ -323,8 +323,9 @@ class LinearRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
-        ----------
+        -------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
