@@ -127,20 +127,21 @@ def test_transform():
 
     # Without corrections to the MA parameters, this inverse transform will
     # return NaN
-    Tx0 = arima._batch_invtrans(0, 1, 2, 2, x0)
+    Tx0 = arima._batch_invtrans((0, 1, 2), (0, 0, 0, 0), 1, 2, x0)
 
     assert(not np.isnan(Tx0).any())
 
-    Tx0 = arima._batch_invtrans(2, 1, 0, 2, x0)
+    Tx0 = arima._batch_invtrans((2, 1, 0), (0, 0, 0, 0), 1, 2, x0)
 
     assert(not np.isnan(Tx0).any())
 
-    Tx0 = arima._batch_invtrans(1, 1, 1, 2, np.array([-1.27047619e+02,
-                                                      1.90024682e-02,
-                                                      -5.88867176e-01,
-                                                      -1.20404762e+02,
-                                                      5.12333137e-05,
-                                                      -6.14485076e-01]))
+    Tx0 = arima._batch_invtrans((1, 1, 1), (0, 0, 0, 0), 1, 2,
+                                np.array([-1.27047619e+02,
+                                          1.90024682e-02,
+                                          -5.88867176e-01,
+                                          -1.20404762e+02,
+                                          5.12333137e-05,
+                                          -6.14485076e-01]))
     np.testing.assert_allclose(Tx0, np.array([-1.27047619e+02,
                                               3.80095119e-02,
                                               -1.35186024e+00,
@@ -167,12 +168,13 @@ def test_log_likelihood():
         order = (p, 1, 1)
         y0 = np.zeros((len(t), 1), order='F')
         y0[:, 0] = y[:, 0]
-        ll = arima.ll_f(1, len(t), order, 1, y0, np.copy(x0[p-1]), trans=True)
+        ll = arima.ll_f(1, len(t), order, (0, 0, 0, 0), 1,
+                        y0, np.copy(x0[p-1]), trans=True)
         np.testing.assert_almost_equal(ll, ref_ll[p-1])
 
     x = [-1.2704761899e+02, 3.8009501900e-02, -1.3518602400e+00,
          -1.2040476199e+02, 1.0245662700e-04, -1.4321914400e+00]
-    ll = arima.ll_f(2, len(t), (1, 1, 1), 1, y, np.array(x))
+    ll = arima.ll_f(2, len(t), (1, 1, 1), (0, 0, 0, 0), 1, y, np.array(x))
     np.set_printoptions(precision=14)
     ll_ref = np.array([-418.2732740315433, -413.7692130741877])
     np.testing.assert_allclose(ll, ll_ref)
@@ -185,7 +187,7 @@ def test_gradient_ref():
 
     _, y = get_data()
     np.set_printoptions(precision=14)
-    g = arima.ll_gf(2, len(t), 3, (1, 1, 1), 1, y, x)
+    g = arima.ll_gf(2, len(t), 3, (1, 1, 1), (0, 0, 0, 0), 1, y, x)
     g_ref = np.array([-7.16227077646181e-04, -4.09565927839139e+00,
                       -4.10715017551411e+00, -1.02602371043758e-03,
                       -4.46265460141149e+00,
@@ -216,14 +218,14 @@ def test_gradient():
 
         p, d, q = order
         num_parameters = d + p + q
-        g = arima.ll_gf(num_batches, num_samples,
-                        num_parameters, order, 1, ys_df, x)
+        g = arima.ll_gf(num_batches, num_samples, num_parameters, order,
+                        (0, 0, 0, 0), 1, ys_df, x)
         grad_fd = np.zeros(len(x))
         h = 1e-8
         for i in range(len(x)):
             def fx(xp):
-                return arima.ll_f(num_batches, num_samples, order, 1,
-                                  ys_df, xp).sum()
+                return arima.ll_f(num_batches, num_samples, order,
+                                  (0, 0, 0, 0), 1, ys_df, xp).sum()
 
             xph = np.copy(x)
             xmh = np.copy(x)
@@ -236,8 +238,8 @@ def test_gradient():
         np.testing.assert_allclose(g, grad_fd, rtol=1e-4)
 
         def f(xk):
-            return arima.ll_f(num_batches, num_samples, order, 1,
-                              ys_df, xk).sum()
+            return arima.ll_f(num_batches, num_samples, order, (0, 0, 0, 0),
+                              1, ys_df, xk).sum()
 
         # from scipy
         g_sp = _approx_fprime_helper(x, f, h)
@@ -293,7 +295,7 @@ def test_fit():
 
         x = arima.pack(order, (0, 0, 0, 0), 1, 2, batched_model.get_params())
 
-        llx = arima.ll_f(2, len(t), order, 1, y, x, trans=False)
+        llx = arima.ll_f(2, len(t), order, (0, 0, 0, 0), 1, y, x, trans=False)
 
         rtol = 1e-2
         # parameter differences are more difficult to test precisely due to the

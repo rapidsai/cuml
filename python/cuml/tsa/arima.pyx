@@ -47,97 +47,44 @@ from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
-    void batched_loglike(cumlHandle& handle,
-                         double* y,
-                         int batch_size,
-                         int nobs,
-                         int p,
-                         int d,
-                         int q,
-                         int intercept,
-                         double* params,
-                         double* loglike,
-                         double* d_vs,
-                         bool trans,
-                         bool host_loglike)
+    void batched_loglike(
+        cumlHandle& handle, double* y, int batch_size, int nobs, int p, int d,
+        int q, int P, int D, int Q, int s, int intercept, double* params,
+        double* loglike, double* d_vs, bool trans, bool host_loglike)
 
-    void predict_in_sample(cumlHandle& handle,
-                           double* d_y,
-                           int batch_size,
-                           int nobs,
-                           int p,
-                           int d,
-                           int q,
-                           int intercept,
-                           double* d_params,
-                           double* d_vs_ptr,
-                           double* d_y_p)
+    void predict_in_sample(
+        cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
+        int d, int q, int P, int D, int Q, int s, int intercept,
+        double* d_params, double* d_vs_ptr, double* d_y_p)
 
-    void residual(cumlHandle& handle,
-                  double* d_y,
-                  int batch_size,
-                  int nobs,
-                  int p,
-                  int d,
-                  int q,
-                  int intercept,
-                  double* d_params,
-                  double* d_vs,
-                  bool trans)
+    void residual(
+        cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
+        int d, int q, int P, int D, int Q, int s, int intercept,
+        double* d_params, double* d_vs, bool trans)
 
-    void forecast(cumlHandle& handle,
-                  int num_steps,
-                  int p,
-                  int d,
-                  int q,
-                  int intercept,
-                  int batch_size,
-                  int nobs,
-                  double* d_y,
-                  double* d_y_prep,
-                  double* d_vs,
-                  double* d_params,
-                  double* d_y_fc)
+    void forecast(
+        cumlHandle& handle, int num_steps, int p, int d, int q, int P, int D,
+        int Q, int s, int intercept, int batch_size, int nobs, double* d_y,
+        double* d_y_prep, double* d_vs, double* d_params, double* d_y_fc)
 
     void information_criterion(
-        cumlHandle& handle,
-        double* d_y,
-        int batch_size,
-        int nobs,
-        int p,
-        int d,
-        int q,
-        int intercept,
-        double* d_mu,
-        double* d_ar,
-        double* d_ma,
-        double* ic,
-        int ic_type)
+        cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
+        int d, int q, int P, int D, int Q, int s, int intercept,
+        double* d_mu, double* d_ar, double* d_ma, double* d_sar,
+        double* d_sma, double* ic, int ic_type)
 
     void cpp_estimate_x0 "estimate_x0" (
-        cumlHandle& handle,
-        double* d_mu,
-        double* d_ar,
-        double* d_ma,
-        const double* d_y,
-        int batch_size,
-        int nobs,
-        int p,
-        int d,
-        int q,
+        cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
+        double* d_sar, double* d_sma, const double* d_y, int batch_size,
+        int nobs, int p, int d, int q, int P, int D, int Q, int s,
         int intercept)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
 
-    void batched_jones_transform(cumlHandle& handle,
-                                 int p,
-                                 int q,
-                                 int intercept,
-                                 int batchSize,
-                                 bool isInv,
-                                 const double* h_params,
-                                 double* h_Tparams)
+    void batched_jones_transform(
+        cumlHandle& handle, int p, int q, int P, int Q, int intercept,
+        int batchSize, bool isInv, const double* h_params, double* h_Tparams)
 
 
 class ARIMA(Base):
@@ -236,11 +183,14 @@ class ARIMA(Base):
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
         P, D, Q, s = seasonal_order
-        if d + D > 2:
-            raise ValueError("Invalid order. Required: d+D <= 2")
         if P + D + Q > 0 and s < 2:
             raise ValueError("Invalid period for seasonal ARIMA: {}"
                              .format(s))
+        if P + D + Q == 0 and s > 0:
+            raise ValueError("Period specified for non-seasonal ARIMA: {}"
+                             .format(s))
+        if d + D > 2:
+            raise ValueError("Invalid order. Required: d+D <= 2")
         if p + P > 8:
             raise ValueError("Invalid order. Required: p+P <= 8")
         if q + Q > 7:
@@ -272,11 +222,15 @@ class ARIMA(Base):
         """Wrapper around C++ information_criterion
         """
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        (p, d, q) = self.order
+        p, d, q = self.order
+        P, D, Q, s = self.seasonal_order
+
         # Convert host parameters to device parameters (will be removed later)
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         if self.intercept:
             d_mu, d_mu_ptr, _, _, _ = \
                 input_to_dev_array(self.mu, check_dtype=np.float64)
@@ -286,6 +240,12 @@ class ARIMA(Base):
         if q:
             d_ma, d_ma_ptr, _, _, _ = \
                 input_to_dev_array(self.ma, check_dtype=np.float64)
+        if P:
+            d_sar, d_sar_ptr, _, _, _ = \
+                input_to_dev_array(self.sar, check_dtype=np.float64)
+        if Q:
+            d_sma, d_sma_ptr, _, _, _ = \
+                input_to_dev_array(self.sma, check_dtype=np.float64)
 
         cdef vector[double] ic
         ic.resize(self.batch_size)
@@ -298,31 +258,38 @@ class ARIMA(Base):
         except KeyError as e:
             raise NotImplementedError("IC type '{}' unknown". format(ic_type))
 
-        information_criterion(handle_[0],
-                              <double*> d_y_ptr,
-                              <int> self.batch_size,
-                              <int> self.num_samples,
-                              <int> p, <int> d, <int> q,
-                              <int> self.intercept,
-                              <double*> d_mu_ptr,
-                              <double*> d_ar_ptr,
-                              <double*> d_ma_ptr,
-                              <double*> ic.data(),
+        information_criterion(handle_[0], <double*> d_y_ptr,
+                              <int> self.batch_size, <int> self.num_samples,
+                              <int> p, <int> d, <int> q, <int> P, <int> D,
+                              <int> Q, <int> s, <int> self.intercept,
+                              <double*> d_mu_ptr, <double*> d_ar_ptr,
+                              <double*> d_ma_ptr, <double*> d_sar_ptr,
+                              <double*> d_sma_ptr, <double*> ic.data(),
                               <int> ic_type_id)
 
         return ic
 
     @property
     def aic(self):
+        """Akaike Information Criterion"""
         return self._ic("aic")
 
     @property
     def aicc(self):
+        """Corrected Akaike Information Criterion"""
         return self._ic("aicc")
 
     @property
     def bic(self):
+        """Bayesian Information Criterion"""
         return self._ic("bic")
+
+    @property
+    def complexity(self):
+        """Model complexity (number of parameters)"""
+        p, _, q = self.order
+        P, _, Q, s = self.seasonal_order
+        return p + P + q + Q + self.intercept
 
     def get_params(self) -> Dict[str, np.ndarray]:
         """TODO: docs
@@ -385,15 +352,11 @@ class ARIMA(Base):
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
-        predict_in_sample(handle_[0],
-                          <double*>d_y_ptr,
-                          self.batch_size,
-                          self.num_samples,
-                          p, d, q,
-                          self.intercept,
-                          <double*>d_params_ptr,
-                          <double*>d_vs_ptr,
-                          <double*>d_y_p_ptr)
+        predict_in_sample(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
+                          <int> self.num_samples, <int> p, <int> d, <int> q,
+                          <int> P, <int> D, <int> Q, <int> s,
+                          <int> self.intercept, <double*>d_params_ptr,
+                          <double*>d_vs_ptr, <double*>d_y_p_ptr)
 
         self.yp = d_y_p
         return d_y_p
@@ -445,15 +408,10 @@ class ARIMA(Base):
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
-        residual(handle_[0],
-                 <double*>d_y_ptr,
-                 self.batch_size,
-                 self.num_samples,
-                 p, d, q,
-                 self.intercept,
-                 <double*>d_params_ptr,
-                 <double*>d_vs_ptr,
-                 False)
+        residual(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
+                 <int> self.num_samples, <int> p, <int> d, <int> q, <int> P,
+                 <int> D, <int> Q, <int> s, <int> self.intercept,
+                 <double*>d_params_ptr, <double*>d_vs_ptr, False)
 
         cdef uintptr_t d_y_diff_ptr = <uintptr_t> NULL
 
@@ -461,17 +419,11 @@ class ARIMA(Base):
                                   dtype=np.float64, order="F")
         cdef uintptr_t d_y_fc_ptr = get_dev_array_ptr(d_y_fc)
 
-        forecast(handle_[0],
-                 nsteps,
-                 p, d, q,
-                 self.intercept,
-                 self.batch_size,
-                 self.num_samples,
-                 <double*> d_y_ptr,
-                 <double*>d_y_diff_ptr,
-                 <double*>d_vs_ptr,
-                 <double*>d_params_ptr,
-                 <double*> d_y_fc_ptr)
+        forecast(handle_[0], <int> nsteps, <int> p, <int> d, <int> q, <int> P,
+                 <int> D, <int> Q, <int> s, <int> self.intercept,
+                 <int> self.batch_size, <int> self.num_samples,
+                 <double*> d_y_ptr, <double*>d_y_diff_ptr, <double*>d_vs_ptr,
+                 <double*>d_params_ptr, <double*> d_y_fc_ptr)
 
         return d_y_fc
 
@@ -479,6 +431,7 @@ class ARIMA(Base):
     def estimate_x0(self):
         """TODO: docs"""
         p, d, q = self.order
+        P, D, Q, s = self.seasonal_order
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -487,32 +440,38 @@ class ARIMA(Base):
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
+        if self.intercept > 0:
+            d_mu = zeros(self.batch_size, dtype=self.dtype)
+            d_mu_ptr = get_dev_array_ptr(d_mu)
         if p > 0:
             d_ar = zeros((p, self.batch_size), dtype=self.dtype, order='F')
             d_ar_ptr = get_dev_array_ptr(d_ar)
         if q > 0:
             d_ma = zeros((q, self.batch_size), dtype=self.dtype, order='F')
             d_ma_ptr = get_dev_array_ptr(d_ma)
-        if d > 0:
-            d_mu = zeros(self.batch_size, dtype=self.dtype)
-            d_mu_ptr = get_dev_array_ptr(d_mu)
+        if P > 0:
+            d_sar = zeros((P, self.batch_size), dtype=self.dtype, order='F')
+            d_sar_ptr = get_dev_array_ptr(d_sar)
+        if Q > 0:
+            d_sma = zeros((Q, self.batch_size), dtype=self.dtype, order='F')
+            d_sma_ptr = get_dev_array_ptr(d_sma)
 
         # Call C++ function
-        cpp_estimate_x0(handle_[0],
-                        <double*> d_mu_ptr,
-                        <double*> d_ar_ptr,
-                        <double*> d_ma_ptr,
-                        <double*> d_y_ptr,
-                        <int> self.batch_size,
-                        <int> self.num_samples,
-                        <int> p, <int> d, <int> q,
-                        <int> self.intercept)
+        cpp_estimate_x0(handle_[0], <double*> d_mu_ptr, <double*> d_ar_ptr,
+                        <double*> d_ma_ptr, <double*> d_sar_ptr,
+                        <double*> d_sma_ptr, <double*> d_y_ptr,
+                        <int> self.batch_size, <int> self.num_samples,
+                        <int> p, <int> d, <int> q, <int> P, <int> D, <int> Q,
+                        <int> s, <int> self.intercept)
 
         params = dict()
         if d > 0: params["mu"] = d_mu.copy_to_host()
         if p > 0: params["ar"] = d_ar.copy_to_host()
         if q > 0: params["ma"] = d_ma.copy_to_host()
-        # TODO: sar and sma
+        if P > 0: params["sar"] = d_sar.copy_to_host()
+        if Q > 0: params["sma"] = d_sma.copy_to_host()
         self.set_params(params)
 
     # TODO: missing range wraps?
@@ -540,7 +499,6 @@ class ARIMA(Base):
         """
         p, d, q = self.order
         P, D, Q, s = self.seasonal_order
-        num_parameters = p + q + P + Q + self.intercept
 
         if start_params is None:
             self.estimate_x0()
@@ -555,8 +513,8 @@ class ARIMA(Base):
 
             # Recall: Maximimize LL means minimize negative
             n_llf = -(ll_f(self.batch_size, self.num_samples, self.order,
-                           self.intercept, self.d_y, x, trans=True,
-                           handle=self.handle))
+                           self.seasonal_order, self.intercept, self.d_y, x,
+                           trans=True, handle=self.handle))
             return n_llf/(self.num_samples-1)
 
         # optimized finite differencing gradient for batches
@@ -564,13 +522,15 @@ class ARIMA(Base):
             """The gradient of the (batched) energy functional."""
             # Recall: We maximize LL by minimizing -LL
             n_gllf = -ll_gf(self.batch_size, self.num_samples,
-                            num_parameters, self.order, self.intercept,
-                            self.d_y, x, h, trans=True, handle=self.handle)
+                            self.complexity, self.order, self.seasonal_order,
+                            self.intercept, self.d_y, x, h, trans=True,
+                            handle=self.handle)
             return n_gllf/(self.num_samples-1)
 
         x0 = pack(self.order, self.seasonal_order, self.intercept,
                   self.batch_size, self.get_params())
-        x0 = _batch_invtrans(p, d, q, self.batch_size, x0, self.handle)
+        x0 = _batch_invtrans(self.order, self.seasonal_order, self.intercept,
+                             self.batch_size, x0, self.handle)
 
         # check initial parameter sanity
         if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
@@ -584,18 +544,17 @@ class ARIMA(Base):
         if (flags != 0).any():
             print("WARNING(`fit()`): Some batch members had optimizer problems.")
 
-        Tx = _batch_trans(p, q, self.intercept, self.batch_size, x,
-                          self.handle)
+        Tx = _batch_trans(self.order, self.seasonal_order, self.intercept,
+                          self.batch_size, x, self.handle)
 
         self.set_params(unpack(self.order, self.seasonal_order, self.intercept,
                                self.batch_size, Tx))
         self.niter = niter
 
 
-# TODO: method of the arima model?
 @nvtx_range_wrap("ll_f")
-def ll_f(batch_size, nobs, order, intercept, y, x,
-         trans=True, handle=None):
+def ll_f(batch_size, nobs, order, seasonal_order, intercept, y, x, trans=True,
+         handle=None):
     """Computes batched loglikelihood for given parameters and series.
 
     Parameters:
@@ -620,10 +579,8 @@ def ll_f(batch_size, nobs, order, intercept, y, x,
 
     cdef vector[double] vec_loglike
 
-    vec_loglike = _batched_loglike(batch_size,
-                                   nobs, order, intercept,
-                                   y, x,
-                                   trans, handle)
+    vec_loglike = _batched_loglike(batch_size, nobs, order, seasonal_order,
+                                   intercept, y, x, trans, handle)
 
     loglike = np.zeros(batch_size)
     for i in range(batch_size):
@@ -632,9 +589,8 @@ def ll_f(batch_size, nobs, order, intercept, y, x,
     return loglike
 
 
-# TODO: method of the arima model?
 @nvtx_range_wrap("ll_gf")
-def ll_gf(batch_size, nobs, num_parameters, order, intercept,
+def ll_gf(batch_size, nobs, num_parameters, order, seasonal_order, intercept,
           y, x, h=1e-8, trans=True, handle=None):
     """Computes gradient (via finite differencing) of the batched
     loglikelihood.
@@ -646,7 +602,7 @@ def ll_gf(batch_size, nobs, num_parameters, order, intercept,
     nobs : int
            Number of samples in each series (identical across series)
     num_parameters : int
-                     The number of parameters per series (p + d + q)
+                     The number of parameters per series
     order : Tuple[int, int, int]
             ARIMA Order (p, d, q)
     y     : array like, shape = (n_samples, n_series)
@@ -680,10 +636,10 @@ def ll_gf(batch_size, nobs, num_parameters, order, intercept,
         # reset perturbation
         fd[i] = 0.0
 
-        ll_b_ph = ll_f(batch_size, nobs, order, intercept, y, x+fdph,
-                       trans=trans, handle=handle)
-        ll_b_mh = ll_f(batch_size, nobs, order, intercept, y, x-fdph,
-                       trans=trans, handle=handle)
+        ll_b_ph = ll_f(batch_size, nobs, order, seasonal_order, intercept, y,
+                       x+fdph, trans=trans, handle=handle)
+        ll_b_mh = ll_f(batch_size, nobs, order, seasonal_order, intercept, y,
+                       x-fdph, trans=trans, handle=handle)
 
         # first derivative second order accuracy
         grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
@@ -825,7 +781,11 @@ def pack(order: Tuple[int, int, int],
 
 
 @nvtx_range_wrap("batched_transform")
-def _batched_transform(p, q, intercept, nb, x, isInv, handle=None):
+def _batched_transform(order, seasonal_order, intercept, nb, x, isInv,
+                       handle=None):
+    p, _, q = order
+    P, _, Q, _ = seasonal_order
+
     cdef vector[double] vec_ar
     cdef vector[double] vec_ma
     cdef vector[double] vec_Tar
@@ -834,36 +794,31 @@ def _batched_transform(p, q, intercept, nb, x, isInv, handle=None):
     if handle is None:
         handle = cuml.common.handle.Handle()
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-    Tx = np.zeros(nb * (p + q + intercept))
+    Tx = np.zeros(nb * (p + q + P + Q + intercept))
 
     cdef uintptr_t x_ptr = x.ctypes.data
     cdef uintptr_t Tx_ptr = Tx.ctypes.data
-    batched_jones_transform(handle_[0], p, q, intercept, nb, isInv,
+    batched_jones_transform(handle_[0], p, q, P, Q, intercept, nb, isInv,
                             <double*>x_ptr, <double*>Tx_ptr)
 
     return (Tx)
 
 
-def _model_complexity(order):
-    (p, d, q) = order
-    # complexity is number of parameters: mu + ar + ma
-    return d + p + q
-
-
 @nvtx_range_wrap("jones trans")
-def _batch_trans(p, q, intercept, nb, x, handle=None):
+def _batch_trans(order, seasonal_order, intercept, nb, x, handle=None):
     """Apply the stationarity/invertibility guaranteeing transform
     to batched-parameter vector x."""
     if handle is None:
         handle = cuml.common.handle.Handle()
 
-    Tx = _batched_transform(p, q, intercept, nb, x, False, handle)
+    Tx = _batched_transform(order, seasonal_order, intercept, nb, x, False,
+                            handle)
 
     return Tx
 
 
 @nvtx_range_wrap("jones inv-trans")
-def _batch_invtrans(p, q, intercept, nb, x, handle=None):
+def _batch_invtrans(order, seasonal_order, intercept, nb, x, handle=None):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
     """
@@ -871,21 +826,23 @@ def _batch_invtrans(p, q, intercept, nb, x, handle=None):
     if handle is None:
         handle = cuml.common.handle.Handle()
 
-    Tx = _batched_transform(p, q, intercept, nb, x, True, handle)
+    Tx = _batched_transform(order, seasonal_order, intercept, nb, x, True,
+                            handle)
 
     return Tx
 
 
 @nvtx_range_wrap("batched loglikelihood")
-def _batched_loglike(batch_size, nobs, order, intercept, y, x,
+def _batched_loglike(batch_size, nobs, order, seasonal_order, intercept, y, x,
                      trans=False, handle=None):
     cdef vector[double] vec_loglike
     cdef vector[double] vec_y_cm
     cdef vector[double] vec_x
 
     p, d, q = order
+    P, D, Q, s = seasonal_order
 
-    num_params = (p+d+q)
+    num_params = p + q + P + Q + intercept
 
     vec_loglike.resize(batch_size)
 
@@ -912,15 +869,10 @@ def _batched_loglike(batch_size, nobs, order, intercept, y, x,
         raise \
             ValueError("Only 64-bit floating point inputs currently supported")
 
-    batched_loglike(handle_[0],
-                    <double*>d_y_ptr,
-                    batch_size,
-                    nobs,
-                    p, d, q, intercept,
-                    <double*>d_x_ptr,
-                    vec_loglike.data(),
-                    <double*>d_vs_ptr,
-                    trans,
-                    True)
+    batched_loglike(handle_[0], <double*> d_y_ptr, <int> batch_size,
+                    <int> nobs, <int> p, <int> d, <int> q, <int> P, <int> D,
+                    <int> Q, <int> s, <int> intercept, <double*> d_x_ptr,
+                    <double*> vec_loglike.data(), <double*> d_vs_ptr, trans,
+                    <bool> True)
 
     return vec_loglike
