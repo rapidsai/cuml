@@ -18,7 +18,6 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-"""C definitions used across classifier and regressor"""
 
 import ctypes
 import math
