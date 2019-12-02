@@ -474,7 +474,8 @@ __global__ void make_leaf_gather_classification_kernel(
     SparseTreeNode<T, int> localnode;
     localnode.prediction =
       get_class_hist_shared(shmemhist_parent, n_unique_labels);
-    localnode.colid = colid;
+    //TODO: compute the correct colid and enable the below statement
+    // localnode.colid = colid;
     localnode.best_metric_val = parent_metric;
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
