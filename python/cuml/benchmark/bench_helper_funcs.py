@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 import os
-import tempfile
 import cuml
 from cuml.utils import input_utils
 import numpy as np
@@ -22,6 +21,7 @@ import pandas as pd
 import cudf
 from numba import cuda
 import datagen
+
 
 def fit_kneighbors(m, x):
     m.fit(x)
