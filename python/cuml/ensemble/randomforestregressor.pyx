@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 import ctypes
-import cython
 import math
 import numpy as np
 import warnings
