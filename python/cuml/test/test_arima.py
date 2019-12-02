@@ -291,10 +291,9 @@ def test_fit():
 
         print("num iterations: ", batched_model.niter)
 
-        x = arima.pack(p, 1, 1, 2, batched_model.mu,
-                       batched_model.ar, batched_model.ma)
+        x = arima.pack(order, (0, 0, 0, 0), 1, 2, batched_model.get_params())
 
-        llx = arima.ll_f(2, len(t), (p, 1, 1), 1, y, x, trans=False)
+        llx = arima.ll_f(2, len(t), order, 1, y, x, trans=False)
 
         rtol = 1e-2
         # parameter differences are more difficult to test precisely due to the
