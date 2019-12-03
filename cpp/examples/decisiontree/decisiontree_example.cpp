@@ -162,6 +162,10 @@ int main(int argc, char* argv[]) {
   auto regression = get_arg(argv, argv + argc, "-regression");
   int maxDepth = get_argval<int>(argv, argv + argc, "-max_depth", 2);
   int nBins = get_argval<int>(argv, argv + argc, "-num_bins", 8);
+  if (get_arg(argv, argv + argc, "-h")) {
+    printUsage();
+    return 0;
+  }
   if (dataset.empty()) {
     std::cerr << "'-dataset' option is mandatory!" << std::endl;
     printUsage();
