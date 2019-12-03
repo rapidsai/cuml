@@ -159,11 +159,18 @@ void setDeviceAllocator(ML::cumlHandle& h) {
 
 int main(int argc, char* argv[]) {
   int devId = get_argval<int>(argv, argv + argc, "-dev_id", 0);
-  // from iris dataset!
-  int nRows = get_argval<int>(argv, argv + argc, "-num_rows", 150);
-  int nCols = get_argval<int>(argv, argv + argc, "-num_cols", 4);
   auto dataset = get_argval<std::string>(argv, argv + argc, "-dataset", "");
   auto regression = get_arg(argv, argv + argc, "-regression");
+  int nRows, nCols;
+  if (regression) {
+    // from reg dataset!
+    nRows = get_argval<int>(argv, argv + argc, "-num_rows", 99);
+    nCols = get_argval<int>(argv, argv + argc, "-num_cols", 4);
+  } else {
+    // from iris dataset!
+    nRows = get_argval<int>(argv, argv + argc, "-num_rows", 150);
+    nCols = get_argval<int>(argv, argv + argc, "-num_cols", 4);
+  }
   int maxDepth = get_argval<int>(argv, argv + argc, "-max_depth", 2);
   int nBins = get_argval<int>(argv, argv + argc, "-num_bins", 8);
   if (get_arg(argv, argv + argc, "-h")) {
