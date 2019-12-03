@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
-add_subdirectory(kmeans)
-add_subdirectory(dbscan)
-add_subdirectory(decisiontree)
+include_directories(${CUDA_INCLUDE_DIRS})
+
+add_executable(decisiontree_example decisiontree_example.cpp)
+add_dependencies(decisiontree_example ${ClangFormat_TARGET})
+target_link_libraries(decisiontree_example cuml++)
