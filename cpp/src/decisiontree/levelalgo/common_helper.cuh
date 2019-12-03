@@ -235,9 +235,14 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
                  int n_nodes, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   printf(
     "Node format --> (colid, quesval, best_metric, prediction, left_child) \n");
+  int *h_nodelist = (int *)(tempmem->h_outgain->data());
+  if (nodelist != nullptr) {
+    MLCommon::updateHost(h_nodelist, nodelist, n_nodes, tempmem->stream);
+    CUDA_CHECK(cudaDeviceSynchronize());
+  }
   for (int i = 0; i < n_nodes; i++) {
     int nodeid = i;
-    if (nodelist != nullptr) nodeid = nodelist[i];
+    if (nodelist != nullptr) nodeid = h_nodelist[i];
     SparseTreeNode<T, L> &node = sparsenodes[nodeid];
     printf("Node id %d --> (%d ,%f ,%f, ", i, node.colid, node.quesval,
            node.best_metric_val);

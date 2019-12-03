@@ -21,7 +21,7 @@
 #include "common_helper.cuh"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
-
+#define depth_split 4
 /*
 This is the driver function for building classification tree
 level by level using a simple for loop.
@@ -103,7 +103,8 @@ void grow_deep_tree_classification(
     MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
-  for (int depth = 0; (depth < 4) && (n_nodes_nextitr != 0); depth++) {
+  for (int depth = 0; (depth < depth_split) && (n_nodes_nextitr != 0);
+       depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
     sparsesize = sparsesize_nextitr;
@@ -152,25 +153,17 @@ void grow_deep_tree_classification(
     memcpy(h_parent_hist, h_child_hist,
            2 * n_nodes * n_unique_labels * sizeof(unsigned int));
   }
-  //  for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
-  //    sparsetree[i].prediction =
-  //      get_class_hist(&h_child_hist[(i - sparsesize_nextitr) * n_unique_labels],
-  //                     n_unique_labels);
-  //  }
 
   // Start of gather algorithm
   //Convertor
 
   int lastsize = sparsetree.size() - sparsesize_nextitr;
-  std::cout << "last sz-->" << lastsize << "tree sz--> " << sparsetree.size()
-            << std::endl;
+  n_nodes = n_nodes_nextitr;
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, int>* d_sparsenodes;
   SparseTreeNode<T, int>* h_sparsenodes;
   int *h_nodelist, *d_nodelist, *d_new_nodelist;
   int max_nodes = tempmem->max_nodes_per_level;
-  printf("nodes %d nodes next %d\n", n_nodes, n_nodes_nextitr);
-  n_nodes = n_nodes_nextitr;
   d_nodecount = (unsigned int*)(tempmem->d_split_colidx->data());
   d_nodestart = (unsigned int*)(tempmem->d_split_binidx->data());
   d_samplelist = (unsigned int*)(tempmem->d_parent_metric->data());
@@ -190,49 +183,52 @@ void grow_deep_tree_classification(
          sizeof(int) * sparse_nodelist.size());
   MLCommon::updateDevice(d_nodelist, h_nodelist, sparse_nodelist.size(),
                          tempmem->stream);
-
+  //Resize to remove trailing nodes from previous algorithm
+  sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
-  print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
-  //Algorithm starts here
-  update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
-                          ncols_sampled, n_nodes, mtg, dist, feature_selector,
-                          tempmem, d_rng);
+  //print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
+  for (int depth = depth_split; depth < 6; depth++) {
+    depth_cnt = depth + 1;
+    //Algorithm starts here
+    update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
+                            ncols_sampled, n_nodes, mtg, dist, feature_selector,
+                            tempmem, d_rng);
 
-  if (split_cr == ML::CRITERION::GINI) {
-    best_split_gather_classification<T, GiniDevFunctor>(
-      data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
-      Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
-      sparsetree.size(), tempmem, d_sparsenodes, d_nodelist);
-  } else {
-    best_split_gather_classification<T, EntropyDevFunctor>(
-      data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
-      Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
-      sparsetree.size(), tempmem, d_sparsenodes, d_nodelist);
+    if (split_cr == ML::CRITERION::GINI) {
+      best_split_gather_classification<T, GiniDevFunctor>(
+        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
+        Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
+        sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
+        d_sparsenodes, d_nodelist);
+    } else {
+      best_split_gather_classification<T, EntropyDevFunctor>(
+        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
+        Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
+        sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
+        d_sparsenodes, d_nodelist);
+    }
+    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
+                         tempmem->stream);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    //Update nodelist and split nodes
+    print_nodes(h_sparsenodes, (float*)nullptr, d_nodelist, n_nodes, tempmem);
+
+    make_split_gather(data, d_nodestart, d_samplelist, n_nodes, nrows,
+                      d_nodelist, d_new_nodelist, d_nodecount, d_counter,
+                      flagsptr, d_sparsenodes, tempmem);
+    CUDA_CHECK(cudaMemcpyAsync(d_nodelist, d_new_nodelist,
+                               h_counter[0] * sizeof(int),
+                               cudaMemcpyDeviceToDevice, tempmem->stream));
+    CUDA_CHECK(cudaDeviceSynchronize());
+    sparsetree.insert(sparsetree.end(), h_sparsenodes,
+                      h_sparsenodes + lastsize);
+    //print_convertor(d_nodecount, d_nodestart, d_samplelist, h_counter[0],
+    //                tempmem);
+    lastsize = 2 * n_nodes;
+    n_nodes = h_counter[0];
   }
-  MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
-  CUDA_CHECK(cudaDeviceSynchronize());
-  //Update nodelist and split nodes
-  print_nodes(h_sparsenodes, (float*)nullptr, sparse_nodelist.data(), n_nodes,
-              tempmem);
-
-  make_split_gather(data, d_nodestart, d_samplelist, n_nodes, nrows, d_nodelist,
-                    d_new_nodelist, d_nodecount, d_counter, flagsptr,
-                    d_sparsenodes, tempmem);
-  CUDA_CHECK(cudaMemcpyAsync(d_nodelist, d_new_nodelist,
-                             h_counter[0] * sizeof(int),
-                             cudaMemcpyDeviceToDevice, tempmem->stream));
-  CUDA_CHECK(cudaDeviceSynchronize());
-
-  print_convertor(d_nodecount, d_nodestart, d_samplelist, h_counter[0],
-                  tempmem);
-  sparsetree.resize(sparsetree.size() - lastsize);
-  sparsetree.insert(sparsetree.end(), h_sparsenodes, h_sparsenodes + lastsize);
-  print_convertor(d_nodecount, d_nodestart, d_samplelist, h_counter[0],
-                  tempmem);
-  lastsize = 2 * n_nodes;
-  n_nodes = h_counter[0];
-  printf("No of nodes %d and last size %d\n", n_nodes, lastsize);
+  //printf("No of nodes %d and last size %d\n", n_nodes, lastsize);
   if (split_cr == ML::CRITERION::GINI) {
     make_leaf_gather_classification<T, GiniDevFunctor>(
       labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
@@ -245,6 +241,7 @@ void grow_deep_tree_classification(
   MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
   sparsetree.insert(sparsetree.end(), h_sparsenodes, h_sparsenodes + lastsize);
-  print_nodes(sparsetree.data(), (float*)nullptr, (int*)nullptr,
-              (int)(sparsetree.size()), tempmem);
+  //print_nodes(sparsetree.data(), (float*)nullptr, (int*)nullptr,
+  //            (int)(sparsetree.size()), tempmem);
+  //exit(0);
 }
