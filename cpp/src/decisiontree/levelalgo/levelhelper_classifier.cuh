@@ -355,7 +355,7 @@ void make_leaf_gather_classification(
   SparseTreeNode<T, int> *d_sparsenodes, int *nodelist, const int n_nodes,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   size_t shmemsz = n_unique_labels * sizeof(int);
-  make_leaf_gather_classification<T, FDEV>
+  make_leaf_gather_classification_kernel<T, FDEV>
     <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
       labels, nodestart, samplelist, n_unique_labels, d_sparsenodes, nodelist);
   CUDA_CHECK(cudaGetLastError());
