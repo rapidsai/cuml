@@ -84,18 +84,18 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
         number of rows
     ncols : int
         number of features
-    n_centers : int
+    n_centers : int (default = 8)
         number of centers to generate
-    n_parts : int
+    n_parts : int (default = None)
         number of partitions to generate (this can be greater
         than the number of workers)
-    cluster_std : float
+    cluster_std : float (default = 1.0)
          standard deviation of points around centroid
-    center_box : tuple (int, int, int, int)
+    center_box : tuple (int, int) (default = (-10, 10))
          the bounding box which constrains all the centroids
-    random_state : float
-         sets random seed
-    verbose : bool
+    random_state : int (default = None)
+         sets random seed (or use None to reinitialize each time)
+    verbose : bool (default = False)
          enables / disables verbose printing.
     dtype : dtype (default = np.float32)
          datatype to generate
