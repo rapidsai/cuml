@@ -125,11 +125,14 @@ typedef DtClassifierTest<float> DtClsTestF;
 ///@todo: add checks
 TEST_P(DtClsTestF, Test) {
   auto& impl = handle->getImpl();
+  int num_leaves, depth;
   grow_tree<float, int, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
                              data, inparams.N, inparams.M, labels, quantiles,
                              rowids, colids, inparams.M, inparams.nclasses,
-                             params, stream, sparsetree);
+                             params, stream, sparsetree, num_leaves, depth);
   ASSERT_EQ(sparsetree.size(), inparams.splitType == CRITERION::GINI ? 3 : 1);
+  // ASSERT_EQ(num_leaves, inparams.splitType == CRITERION::GINI ? 2 : 1);
+  ASSERT_EQ(depth, inparams.splitType == CRITERION::GINI ? 1 : 0);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
                         ::testing::ValuesIn(allC));
@@ -156,10 +159,14 @@ typedef DtRegressorTest<float> DtRegTestF;
 ///@todo: add checks
 TEST_P(DtRegTestF, Test) {
   auto& impl = handle->getImpl();
+  int num_leaves, depth;
   grow_tree<float, int>(impl.getDeviceAllocator(), impl.getHostAllocator(),
                         data, inparams.N, inparams.M, labels, quantiles, rowids,
-                        colids, inparams.M, 0, params, stream, sparsetree);
+                        colids, inparams.M, 0, params, stream, sparsetree,
+                        num_leaves, depth);
   ASSERT_EQ(sparsetree.size(), 1);
+  ASSERT_EQ(num_leaves, 1);
+  ASSERT_EQ(depth, 0);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF,
                         ::testing::ValuesIn(allR));

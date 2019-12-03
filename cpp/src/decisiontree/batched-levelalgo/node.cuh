@@ -60,6 +60,8 @@ struct Node {
     info.colid = Leaf;
     info.prediction = pred;
     atomicAdd(n_leaves, 1);
+    __threadfence();
+    printf("n_leaves = %d\n", *n_leaves);
   }
 
   /**
@@ -68,11 +70,12 @@ struct Node {
    * @param total_nodes total nodes created so far across all levels
    * @param nodes the list of nodes
    * @param splits split info for current node
+   * @param n_depth max depth of the created tree so far
    * @return the position of the left child node in the above list
    * @note to be called only by one thread across all participating threadblocks
    */
   DI IdxT makeChildNodes(IdxT* n_nodes, IdxT total_nodes, volatile NodeT* nodes,
-                         const SplitT& split) volatile {
+                         const SplitT& split, IdxT* n_depth) volatile {
     IdxT pos = atomicAdd(n_nodes, 2);
     // current
     info.colid = split.colid;
@@ -90,6 +93,8 @@ struct Node {
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start + split.nLeft;
     nodes[pos].end = end - split.nLeft;
+    // update depth
+    atomicMax(n_depth, depth + 1);
     return pos;
   }
 };  // end Node

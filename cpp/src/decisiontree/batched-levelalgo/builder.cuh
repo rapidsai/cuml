@@ -48,7 +48,8 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                const DataT* quantiles, IdxT* rowids, IdxT* colids,
                int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
-               std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
+               std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
+               IdxT& num_leaves, IdxT& depth) {
   Builder<Traits> builder;
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, params, data, labels, nrows, ncols,
@@ -59,7 +60,7 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
   MLCommon::host_buffer<Node<DataT, LabelT, IdxT>> h_nodes(h_allocator, stream,
                                                            builder.maxNodes);
   builder.assignWorkspace(d_buff.data(), h_buff.data());
-  builder.train(h_nodes.data(), stream);
+  builder.train(h_nodes.data(), num_leaves, depth, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   d_buff.release(stream);
   h_buff.release(stream);
@@ -88,6 +89,8 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
  * @param params decisiontree learning params
  * @param stream cuda stream
  * @param sparsetree output learned tree
+ * @param num_leaves number of leaves created during tree build
+ * @param depth max depth of the built tree
  * @{
  */
 template <typename DataT, typename LabelT, typename IdxT>
@@ -97,11 +100,12 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                const DataT* quantiles, IdxT* rowids, IdxT* colids,
                int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
-               std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
+               std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
+               IdxT& num_leaves, IdxT& depth) {
   typedef ClsTraits<DataT, LabelT, IdxT> Traits;
   grow_tree<Traits>(d_allocator, h_allocator, data, ncols, nrows, labels,
                     quantiles, rowids, colids, n_sampled_rows, unique_labels,
-                    params, stream, sparsetree);
+                    params, stream, sparsetree, num_leaves, depth);
 }
 
 template <typename DataT, typename IdxT>
@@ -111,11 +115,12 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                const DataT* quantiles, IdxT* rowids, IdxT* colids,
                int n_sampled_rows, int unique_labels,
                const DecisionTreeParams& params, cudaStream_t stream,
-               std::vector<SparseTreeNode<DataT, DataT>>& sparsetree) {
+               std::vector<SparseTreeNode<DataT, DataT>>& sparsetree,
+               IdxT& num_leaves, IdxT& depth) {
   typedef RegTraits<DataT, IdxT> Traits;
   grow_tree<Traits>(d_allocator, h_allocator, data, ncols, nrows, labels,
                     quantiles, rowids, colids, n_sampled_rows, unique_labels,
-                    params, stream, sparsetree);
+                    params, stream, sparsetree, num_leaves, depth);
 }
 /** @} */
 

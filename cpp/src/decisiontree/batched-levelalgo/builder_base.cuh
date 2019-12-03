@@ -77,6 +77,8 @@ struct Builder {
   int* mutex;
   /** number of leaves created so far */
   IdxT* n_leaves;
+  /** max depth reached so far */
+  IdxT* n_depth;
   /** best splits for the current batch of nodes */
   SplitT* splits;
   /** current batch of nodes */
@@ -159,6 +161,7 @@ struct Builder {
     d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
     d_wsize += sizeof(int) * max_batch;               // mutex
     d_wsize += sizeof(IdxT);                          // n_leaves
+    d_wsize += sizeof(IdxT);                          // n_depth
     d_wsize += sizeof(SplitT) * max_batch;            // splits
     d_wsize += sizeof(NodeT) * max_batch;             // curr_nodes
     d_wsize += sizeof(NodeT) * 2 * max_batch;         // next_nodes
@@ -200,6 +203,8 @@ struct Builder {
     d_wspace += sizeof(int) * max_batch;
     n_leaves = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += sizeof(IdxT);
+    n_depth = reinterpret_cast<IdxT*>(d_wspace);
+    d_wspace += sizeof(IdxT);
     splits = reinterpret_cast<SplitT*>(d_wspace);
     d_wspace += sizeof(SplitT) * max_batch;
     curr_nodes = reinterpret_cast<NodeT*>(d_wspace);
@@ -218,15 +223,25 @@ struct Builder {
   /**
    * @brief Main training method. To be called only after `assignWorkspace()`
    * @param h_nodes list of nodes (must be allocated using cudaMallocHost!)
+   * @param num_leaves number of leaves created in the tree
+   * @param depth max depth of the built tree
    * @param s cuda steam
    */
-  void train(NodeT* h_nodes, cudaStream_t s) {
+  void train(NodeT* h_nodes, IdxT& num_leaves, IdxT& depth, cudaStream_t s) {
     init(h_nodes, s);
-    do {
+    while (true) {
+      printf("node_start=%d node_end=%d h_total_nodes=%d\n", node_start,
+             node_end, h_total_nodes);
       IdxT new_nodes = doSplit(h_nodes, s);
+      printf("new_nodes=%d\n", new_nodes);
       h_total_nodes += new_nodes;
+      if (new_nodes == 0 && isOver()) break;
       updateNodeRange();
-    } while (!isOver());
+      printf("after node_start=%d node_end=%d h_total_nodes=%d\n", node_start,
+             node_end, h_total_nodes);
+    }
+    MLCommon::updateHost(&num_leaves, n_leaves, 1, s);
+    MLCommon::updateHost(&depth, n_depth, 1, s);
   }
 
  private:
@@ -243,6 +258,7 @@ struct Builder {
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, s));
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
+    CUDA_CHECK(cudaMemsetAsync(n_depth, 0, sizeof(IdxT), s));
     rootGain = Traits::initialMetric(*this, s);
     node_start = 0;
     node_end = h_total_nodes = 1;  // start with root node
@@ -294,6 +310,7 @@ struct Builder {
     MLCommon::updateHost(h_n_nodes, n_nodes, 1, s);
     CUDA_CHECK(cudaStreamSynchronize(s));
     MLCommon::updateHost(h_nodes + h_total_nodes, next_nodes, *h_n_nodes, s);
+    printf("nodes = %d\n", *h_n_nodes);
     return *h_n_nodes;
   }
 };  // end Builder
@@ -358,7 +375,10 @@ struct ClsTraits {
       <<<batchSize, TPB_SPLIT, smemSize, s>>>(
         b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
-        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes);
+        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes, b.n_depth);
+    IdxT n = 0;
+    MLCommon::updateHost(&n, b.n_leaves, 1, s);
+    printf("batch=%d nl=%d\n", batchSize, n);
   }
 
   /**
@@ -455,7 +475,7 @@ struct RegTraits {
       <<<batchSize, TPB_SPLIT, smemSize, s>>>(
         b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
-        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes);
+        b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes, b.n_depth);
   }
 
   /**
