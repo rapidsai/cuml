@@ -228,7 +228,10 @@ class KNeighborsClassifier(NearestNeighbors):
         if isinstance(X, np.ndarray):
             return np.array(classes, dtype=np.int32)
         elif isinstance(X, cudf.DataFrame):
-            return cudf.Series(classes)
+
+            if classes.ndim == 1:
+                classes = classes.reshape(classes.shape[0], 1)
+            return cudf.DataFrame.from_gpu_matrix(classes)
         else:
             return classes
 
