@@ -143,7 +143,7 @@ void loadRegressionDataset(const std::string& file, int nRows, int nCols,
                                cudaMemcpyHostToDevice, s));
 }
 
-void setDeviceAllocator(ML::cumlHandle& h) {
+void setDeviceAllocator(std::shared_ptr<ML::cumlHandle>& h) {
   std::cout << "Setting device allocator..." << std::endl;
 #ifdef HAVE_RMM
   std::shared_ptr<ML::deviceAllocator> allocator(new ML::rmmAllocatorAdapter());
@@ -154,7 +154,7 @@ void setDeviceAllocator(ML::cumlHandle& h) {
   std::shared_ptr<ML::deviceAllocator> allocator(
     new ML::defaultDeviceAllocator());
 #endif  // HAVE_RMM
-  h.setDeviceAllocator(allocator);
+  h->setDeviceAllocator(allocator);
 }
 
 int main(int argc, char* argv[]) {
@@ -183,7 +183,8 @@ int main(int argc, char* argv[]) {
     return -1;
   }
   std::cout << "Creating cumlHandle..." << std::endl;
-  ML::cumlHandle cumlHandle;
+  std::shared_ptr<ML::cumlHandle> cumlHandle;
+  cumlHandle.reset(new ML::cumlHandle);
 #ifdef HAVE_RMM
   rmmOptions_t rmmOptions;
   rmmOptions.allocation_mode = PoolAllocation;
@@ -199,9 +200,9 @@ int main(int argc, char* argv[]) {
   setDeviceAllocator(cumlHandle);
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
-  cumlHandle.setStream(stream);
+  cumlHandle->setStream(stream);
   std::cout << "Setting up buffers..." << std::endl;
-  auto d_alloc = cumlHandle.getDeviceAllocator();
+  auto d_alloc = cumlHandle->getDeviceAllocator();
   float *d_data, *d_labels_reg;
   int* d_labels;
   d_data = (float*)d_alloc->allocate(sizeof(float) * nRows * nCols, stream);
@@ -242,5 +243,6 @@ int main(int argc, char* argv[]) {
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
   CUDA_RT_CALL(cudaStreamDestroy(stream));
   CUDA_RT_CALL(cudaDeviceSynchronize());
+  cumlHandle.reset();
   return 0;
 }
