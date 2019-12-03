@@ -155,10 +155,15 @@ class ARIMA(Base):
         compliant array like CuPy.
     order : Tuple[int, int, int]
         The ARIMA order (p, d, q) of the model
+    TODO: update docs with seasonal parameters
     fit_intercept : bool or int
         Whether to include a constant trend mu in the model
         Leave to None for automatic selection based on d and D
-    TODO: update docs with seasonal parameters
+    TODO: note about the handle
+
+    Attributes
+    ----------
+    TODO: fill this section
 
     References
     ----------
@@ -429,6 +434,7 @@ class ARIMA(Base):
 
         return d_y_fc
 
+    # TODO: _ prefix (semi-private)
     @nvtx_range_wrap("estimate x0")
     def estimate_x0(self):
         """TODO: docs"""
@@ -444,19 +450,19 @@ class ARIMA(Base):
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
-        if self.intercept > 0:
+        if self.intercept:
             d_mu = zeros(self.batch_size, dtype=self.dtype)
             d_mu_ptr = get_dev_array_ptr(d_mu)
-        if p > 0:
+        if p:
             d_ar = zeros((p, self.batch_size), dtype=self.dtype, order='F')
             d_ar_ptr = get_dev_array_ptr(d_ar)
-        if q > 0:
+        if q:
             d_ma = zeros((q, self.batch_size), dtype=self.dtype, order='F')
             d_ma_ptr = get_dev_array_ptr(d_ma)
-        if P > 0:
+        if P:
             d_sar = zeros((P, self.batch_size), dtype=self.dtype, order='F')
             d_sar_ptr = get_dev_array_ptr(d_sar)
-        if Q > 0:
+        if Q:
             d_sma = zeros((Q, self.batch_size), dtype=self.dtype, order='F')
             d_sma_ptr = get_dev_array_ptr(d_sma)
 
@@ -469,11 +475,11 @@ class ARIMA(Base):
                         <int> s, <int> self.intercept)
 
         params = dict()
-        if d > 0: params["mu"] = d_mu.copy_to_host()
-        if p > 0: params["ar"] = d_ar.copy_to_host()
-        if q > 0: params["ma"] = d_ma.copy_to_host()
-        if P > 0: params["sar"] = d_sar.copy_to_host()
-        if Q > 0: params["sma"] = d_sma.copy_to_host()
+        if self.intercept: params["mu"] = d_mu.copy_to_host()
+        if p: params["ar"] = d_ar.copy_to_host()
+        if q: params["ma"] = d_ma.copy_to_host()
+        if P: params["sar"] = d_sar.copy_to_host()
+        if Q: params["sma"] = d_sma.copy_to_host()
         self.set_params(params)
 
     # TODO: missing range wraps?
@@ -659,7 +665,7 @@ def ll_gf(batch_size, nobs, num_parameters, order, seasonal_order, intercept,
     return grad
 
 
-# TODO: later replace with auto-arima?
+# TODO: later replace with AutoARIMA
 def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     """Grid search to find optimal model order (p, q), weighing
     model complexity against likelihood.
@@ -732,6 +738,8 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     return (best_order, best_mu, best_ar, best_ma, best_ic)
 
 
+# TODO: move all these functions as methods of ARIMA with _ prefix?
+
 @nvtx_range_wrap("unpack")
 def unpack(order: Tuple[int, int, int],
            seasonal_order: Tuple[int, int, int, int],
@@ -750,11 +758,13 @@ def unpack(order: Tuple[int, int, int],
         x_mat = x
 
     params = dict()
-    if k > 0: params["mu"] = x_mat[0]
-    if p > 0: params["ar"] = x_mat[k:k+p]
-    if q > 0: params["ma"] = x_mat[k+p:k+p+q]
-    if P > 0: params["sar"] = x_mat[k+p+q:k+p+q+P]
-    if Q > 0: params["sma"] = x_mat[k+p+q+P:k+p+q+P+Q]
+    # Note: going through np.array to avoid getting incorrect strides when
+    # batch_size is 1
+    if k > 0: params["mu"] = np.array(x_mat[0], order='F')
+    if p > 0: params["ar"] = np.array(x_mat[k:k+p], order='F')
+    if q > 0: params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
+    if P > 0: params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
+    if Q > 0: params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
 
     return params
 

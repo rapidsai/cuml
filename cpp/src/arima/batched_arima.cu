@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iostream>
 #include <tuple>
 #include <vector>
 
@@ -459,6 +461,106 @@ void information_criterion(cumlHandle& handle, const double* d_y,
 }
 
 /**
+ * Auxiliary function of _start_params: least square approximation of an
+ * ARMA model (with or without seasonality)
+ */
+static void _arma_least_squares(
+  cumlHandle& handle, double* d_ar, double* d_ma,
+  const MLCommon::Matrix::BatchedMatrix<double>& bm_y, int p, int q,
+  int s = 1) {
+  const auto& handle_impl = handle.getImpl();
+  auto stream = handle_impl.getStream();
+  auto cublas_handle = handle_impl.getCublasHandle();
+  auto allocator = handle_impl.getDeviceAllocator();
+
+  int batch_size = bm_y.batches();
+  int n_obs = bm_y.shape().first;
+
+  // Initialize params
+  if (p)
+    CUDA_CHECK(
+      cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
+  if (q)
+    CUDA_CHECK(
+      cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
+
+  int ps = p * s, qs = q * s;
+  int p_ar = 2 * qs;
+  int r = std::max(p_ar + qs, ps);
+
+  if ((q && p_ar >= n_obs - p_ar) || p + q >= n_obs - r) {
+    // Too few observations for the estimate, keep 0
+    return;
+  }
+
+  /* Matrix formed by lag matrices of y and the residuals respectively,
+   * side by side. The left side will be used to estimate AR, the right
+   * side to estimate MA */
+  MLCommon::Matrix::BatchedMatrix<double> bm_ls_ar_res(
+    n_obs - r, p + q, batch_size, cublas_handle, allocator, stream, false);
+  ///TODO: double-check these
+  int ar_offset = r - ps;
+  int res_offset = (ps < p_ar + qs) ? 0 : ps - p_ar - qs;
+
+  // Get residuals from an AR(p_ar) model to estimate the MA parameters
+  if (q) {
+    // Create lagged y
+    int ls_height = n_obs - p_ar;
+    MLCommon::Matrix::BatchedMatrix<double> bm_ls =
+      MLCommon::Matrix::b_lagged_mat(bm_y, p_ar);
+
+    /* Matrix for the initial AR fit, initialized by copy of y
+     * (note: this is because gels works in-place ; the matrix has larger
+     *  dimensions than the actual AR fit) */
+    MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit =
+      MLCommon::Matrix::b_2dcopy(bm_y, p_ar, 0, ls_height, 1);
+
+    // Residual, initialized as offset y to avoid one kernel call
+    MLCommon::Matrix::BatchedMatrix<double> bm_residual(
+      ls_height, 1, batch_size, cublas_handle, allocator, stream, false);
+    MLCommon::copy(bm_residual.raw_data(), bm_ar_fit.raw_data(),
+                   ls_height * batch_size, stream);
+
+    // Initial AR fit
+    MLCommon::Matrix::b_gels(bm_ls, bm_ar_fit);
+
+    // Compute residual (technically a gemv)
+    MLCommon::Matrix::b_gemm(false, false, ls_height, 1, p_ar, -1.0, bm_ls,
+                             bm_ar_fit, 1.0, bm_residual);
+
+    // Lags of the residual
+    MLCommon::Matrix::b_lagged_mat(bm_residual, bm_ls_ar_res, q, n_obs - r,
+                                   res_offset, (n_obs - r) * p, s);
+  }
+
+  // Lags of y
+  MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, n_obs - r, ar_offset,
+                                 0, s);
+
+  /* Initializing the vector for the ARMA fit
+   * (note: also in-place as described for AR fit) */
+  MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit =
+    MLCommon::Matrix::b_2dcopy(bm_y, r, 0, n_obs - r, 1);
+
+  // ARMA fit
+  MLCommon::Matrix::b_gels(bm_ls_ar_res, bm_arma_fit);
+
+  /* Copy the results in the AR and MA parameters batched vectors
+   * Note: calling directly the kernel as there is not yet a way to wrap
+   *       existing device pointers in a batched matrix */
+  if (p) {
+    MLCommon::Matrix::batched_2dcopy_kernel<<<batch_size, p, 0, stream>>>(
+      bm_arma_fit.raw_data(), d_ar, 0, 0, n_obs - r, 1, p, 1);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
+  if (q) {
+    MLCommon::Matrix::batched_2dcopy_kernel<<<batch_size, q, 0, stream>>>(
+      bm_arma_fit.raw_data(), d_ma, p, 0, n_obs - r, 1, q, 1);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
+}
+
+/**
  * Auxiliary function of estimate_x0: compute the starting parameters for
  * the series pre-processed by estimate_x0
  *
@@ -466,21 +568,12 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  */
 static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                           double* d_ma, double* d_sar, double* d_sma,
-                          MLCommon::Matrix::BatchedMatrix<double>& bm_y,
-                          int batch_size, int n_obs, int p, int q, int P, int Q,
-                          int intercept) {
-  const auto& handle_impl = handle.getImpl();
-  auto stream = handle_impl.getStream();
-  auto cublas_handle = handle_impl.getCublasHandle();
-  auto allocator = handle_impl.getDeviceAllocator();
+                          MLCommon::Matrix::BatchedMatrix<double>& bm_y, int p,
+                          int q, int P, int Q, int s, int intercept) {
+  auto stream = handle.getStream();
 
-  // Initialize params
-  if (p > 0)
-    CUDA_CHECK(
-      cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
-  if (q > 0)
-    CUDA_CHECK(
-      cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
+  int batch_size = bm_y.batches();
+  int n_obs = bm_y.shape().first;
 
   if (intercept) {
     // Compute means and write them in mu
@@ -493,89 +586,11 @@ static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
       [] __device__(double a, double b) { return a - b; }, stream);
   }
 
-  if (p == 0 && q == 0) {
-    return;
-  } else if (p != 0) {
-    /* Note: p_lags fixed to p to avoid non-full-rank matrix issues */
-    int p_lags = p;
+  // Estimate an ARMA fit without seasonality
+  if (p + q) _arma_least_squares(handle, d_ar, d_ma, bm_y, p, q);
 
-    // Create lagged y
-    int ls_height = n_obs - p_lags;
-    MLCommon::Matrix::BatchedMatrix<double> bm_ls =
-      MLCommon::Matrix::b_lagged_mat(bm_y, p_lags);
-
-    /* Matrix for the initial AR fit, initialized by copy of y
-     * (note: this is because gels works in-place ; the matrix has larger
-     *  dimensions than the actual AR fit) */
-    MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit =
-      MLCommon::Matrix::b_2dcopy(bm_y, p_lags, 0, ls_height, 1);
-
-    // Residual if q != 0, initialized as offset y to avoid one kernel call
-    MLCommon::Matrix::BatchedMatrix<double> bm_residual(
-      q != 0 ? ls_height : 1, 1, batch_size, cublas_handle, allocator, stream,
-      false);
-    if (q != 0) {
-      MLCommon::copy(bm_residual.raw_data(), bm_ar_fit.raw_data(),
-                     ls_height * batch_size, stream);
-    }
-
-    // Initial AR fit
-    MLCommon::Matrix::b_gels(bm_ls, bm_ar_fit);
-
-    /* If q == 0, stop here and use these parameters
-     * Note: if q == 0, we must always choose p_lags == p! */
-    if (q == 0) {
-      MLCommon::Matrix::batched_2dcopy_kernel<<<batch_size, p, 0, stream>>>(
-        bm_ar_fit.raw_data(), d_ar, 0, 0, ls_height, 1, p, 1);
-      CUDA_CHECK(cudaPeekAtLastError());
-    } else {
-      // Compute residual (technically a gemv)
-      MLCommon::Matrix::b_gemm(false, false, ls_height, 1, p_lags, -1.0, bm_ls,
-                               bm_ar_fit, 1.0, bm_residual);
-
-      /* Create matrices made of the concatenation of lagged sets of y and the
-       * residual respectively, side by side.
-       * Basically the left side is for AR, the right side is for MA */
-      int arma_fit_offset = std::max(p_lags + q, p);
-      int ls_ar_res_height = n_obs - arma_fit_offset;
-      int ar_offset = (p < p_lags + q) ? (p_lags + q - p) : 0;
-      int res_offset = (p < p_lags + q) ? 0 : p - p_lags - q;
-      MLCommon::Matrix::BatchedMatrix<double> bm_ls_ar_res(
-        ls_ar_res_height, p + q, batch_size, cublas_handle, allocator, stream,
-        false);
-      MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, ls_ar_res_height,
-                                     ar_offset, 0);
-      MLCommon::Matrix::b_lagged_mat(bm_residual, bm_ls_ar_res, q,
-                                     ls_ar_res_height, res_offset,
-                                     ls_ar_res_height * p);
-
-      /* Initializing the vector for the ARMA fit
-       * (note: also in-place as described for AR fit) */
-      MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit =
-        MLCommon::Matrix::b_2dcopy(bm_y, arma_fit_offset, 0, ls_ar_res_height,
-                                   1);
-
-      // ARMA fit
-      MLCommon::Matrix::b_gels(bm_ls_ar_res, bm_arma_fit);
-
-      /* Copy the results in the AR and MA parameters batched vectors
-       * Note: calling directly the kernel as there is not yet a way to wrap
-       *       existing device pointers in a batched matrix */
-      MLCommon::Matrix::batched_2dcopy_kernel<<<batch_size, p, 0, stream>>>(
-        bm_arma_fit.raw_data(), d_ar, 0, 0, ls_ar_res_height, 1, p, 1);
-      CUDA_CHECK(cudaPeekAtLastError());
-      MLCommon::Matrix::batched_2dcopy_kernel<<<batch_size, q, 0, stream>>>(
-        bm_arma_fit.raw_data(), d_ma, p, 0, ls_ar_res_height, 1, q, 1);
-      CUDA_CHECK(cudaPeekAtLastError());
-    }
-  } else {  // p == 0 && q > 0
-    ///TODO: `statsmodels` has a more clever estimate for this case
-
-    // Set MA params to -1
-    thrust::device_ptr<double> __ma = thrust::device_pointer_cast(d_ma);
-    thrust::fill(thrust::cuda::par.on(stream), __ma, __ma + q * batch_size,
-                 -1.0);
-  }
+  // Estimate a seasonal ARMA fit independantly
+  if (P + Q) _arma_least_squares(handle, d_sar, d_sma, bm_y, P, Q, s);
 }
 
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
@@ -588,27 +603,15 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
   auto cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
 
-  ///TODO: use _prepare_data
-  /* Based on d, differenciate the series or simply copy it
-   * Note: the copy is needed because _start_params writes in it */
-  int actual_n_obs = n_obs - d;
+  // Difference if necessary, copy otherwise
   MLCommon::Matrix::BatchedMatrix<double> bm_yd(
-    actual_n_obs, 1, batch_size, cublas_handle, allocator, stream, false);
-  if (d == 0) {
-    MLCommon::copy(bm_yd.raw_data(), d_y, n_obs * batch_size, stream);
-  } else if (d == 1) {
-    const int TPB = (n_obs - 1) > 512 ? 256 : 128;  // Quick heuristics
-    MLCommon::Matrix::batched_diff_kernel<<<batch_size, TPB, 0, stream>>>(
-      d_y, bm_yd.raw_data(), n_obs);
-    CUDA_CHECK(cudaPeekAtLastError());
-  } else {
-    throw std::runtime_error(
-      "Not supported difference parameter. Required: d=0 or 1");
-  }
+    n_obs - d - s * D, 1, batch_size, cublas_handle, allocator, stream, false);
+  _prepare_data(handle, bm_yd.raw_data(), d_y, batch_size, n_obs, d, D, s);
+  // Note: mu is not known yet! We just want to difference the data
 
   // Do the computation of the initial parameters
-  _start_params(handle, d_mu, d_ar, d_ma, d_sar, d_sma, bm_yd, batch_size,
-                actual_n_obs, p, q, P, Q, intercept);
+  _start_params(handle, d_mu, d_ar, d_ma, d_sar, d_sma, bm_yd, p, q, P, Q, s,
+                intercept);
   ML::POP_RANGE();
 }
 

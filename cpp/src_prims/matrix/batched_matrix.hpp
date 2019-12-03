@@ -654,17 +654,21 @@ BatchedMatrix<T> b_kron(const BatchedMatrix<T>& A, const BatchedMatrix<T>& B) {
  * @param[in]  ld               Length of the underlying vector
  * @param[in]  mat_offset       Offset in the lagged matrix
  * @param[in]  ls_batch_stride  Stride between batches in the output matrix
+ * @param[in]  s                Seasonality of the lags
  */
 template <typename T>
 __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
                                   int lagged_height, int vec_offset, int ld,
-                                  int mat_offset, int ls_batch_stride) {
-  const T* batch_in = vec + blockIdx.x * ld + vec_offset - 1;
+                                  int mat_offset, int ls_batch_stride,
+                                  int s = 1) {
+  const T* batch_in = vec + blockIdx.x * ld + vec_offset;
   T* batch_out = mat + blockIdx.x * ls_batch_stride + mat_offset;
 
   for (int lag = 0; lag < lags; lag++) {
+    const T* b_in = batch_in + s * (lags - lag - 1);
+    T* b_out = batch_out + lag * lagged_height;
     for (int i = threadIdx.x; i < lagged_height; i += blockDim.x) {
-      batch_out[lag * lagged_height + i] = batch_in[i + lags - lag];
+      b_out[i] = b_in[i];
     }
   }
 }
@@ -682,8 +686,9 @@ __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
  * @param[in]  mat_offset     Offset in the lagged matrix
  */
 template <typename T>
-void b_lagged_mat(BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat, int lags,
-                  int lagged_height, int vec_offset, int mat_offset) {
+void b_lagged_mat(const BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat,
+                  int lags, int lagged_height, int vec_offset, int mat_offset,
+                  int s = 1) {
   // Verify all the dimensions ; it's better to fail loudly than hide errors
   ASSERT(vec.batches() == lagged_mat.batches(),
          "The numbers of batches of the matrix and the vector must match");
@@ -691,8 +696,8 @@ void b_lagged_mat(BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat, int lags,
          "The first argument must be a vector (either row or column)");
   int len = vec.shape().first == 1 ? vec.shape().second : vec.shape().first;
   int mat_batch_stride = lagged_mat.shape().first * lagged_mat.shape().second;
-  ASSERT(lagged_height <= len - lags - vec_offset,
-         "Lagged height can't exceed vector length - lags - vector offset");
+  ASSERT(lagged_height <= len - s * lags - vec_offset,
+         "Lagged height can't exceed vector length - s * lags - vector offset");
   ASSERT(mat_offset <= mat_batch_stride - lagged_height * lags,
          "Matrix offset can't exceed real matrix size - lagged matrix size");
 
@@ -716,7 +721,7 @@ void b_lagged_mat(BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat, int lags,
  * @return A batched matrix corresponding to the output lagged matrix
  */
 template <typename T>
-BatchedMatrix<T> b_lagged_mat(BatchedMatrix<T>& vec, int lags) {
+BatchedMatrix<T> b_lagged_mat(const BatchedMatrix<T>& vec, int lags) {
   ASSERT(vec.shape().first == 1 || vec.shape().second == 1,
          "The first argument must be a vector (either row or column)");
   int len = vec.shape().first * vec.shape().second;
@@ -777,8 +782,8 @@ static __global__ void batched_2dcopy_kernel(const T* in, T* out,
  * @param[in]  out_cols      Number of columns to copy
  */
 template <typename T>
-void b_2dcopy(BatchedMatrix<T>& in, BatchedMatrix<T>& out, int starting_row,
-              int starting_col, int rows, int cols) {
+void b_2dcopy(const BatchedMatrix<T>& in, BatchedMatrix<T>& out,
+              int starting_row, int starting_col, int rows, int cols) {
   ASSERT(out.shape().first == rows, "Dimension mismatch: rows");
   ASSERT(out.shape().second == cols, "Dimension mismatch: columns");
 
@@ -805,7 +810,7 @@ void b_2dcopy(BatchedMatrix<T>& in, BatchedMatrix<T>& out, int starting_row,
  * @return The batched output matrix
  */
 template <typename T>
-BatchedMatrix<T> b_2dcopy(BatchedMatrix<T>& in, int starting_row,
+BatchedMatrix<T> b_2dcopy(const BatchedMatrix<T>& in, int starting_row,
                           int starting_col, int rows, int cols) {
   // Create output matrix
   BatchedMatrix<T> out(rows, cols, in.batches(), in.cublasHandle(),
