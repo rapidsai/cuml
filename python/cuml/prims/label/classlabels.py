@@ -101,7 +101,9 @@ def make_monotonic(labels, classes=None, copy=False):
     if classes is None:
         classes = cp.unique(labels)
 
-    smem = 4 * labels.shape[0]
+    print(str(classes))
+
+    smem = 4 * int(classes.shape[0])
     map_kernel((math.ceil(labels.shape[0] / 32),), (32, ),
                (labels,
                 labels.shape[0],
@@ -139,7 +141,7 @@ def invert_labels(labels, classes, copy=False):
     if copy:
         labels = labels.copy()
 
-    smem = 4 * classes.shape[0]
+    smem = 4 * int(classes.shape[0])
     inverse_map_kernel((math.ceil(labels.shape[0] / 32),), (32,),
                        (classes, classes.shape[0],
                         labels, labels.shape[0]), shared_mem=smem)

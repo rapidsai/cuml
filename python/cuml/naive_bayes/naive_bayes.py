@@ -19,7 +19,7 @@ import math
 
 import cupy as cp
 import cupy.prof
-from cuml.prims.label import make_monotonic, check_labels
+from cuml.prims.label import make_monotonic, check_labels, invert_labels
 
 """
 A simple reduction kernel that takes in a sparse (COO) array
@@ -210,7 +210,11 @@ class MultinomialNB(object):
     def predict(self, X):
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1)
-        return indices
+
+        print(str(self.classes_))
+
+        y_hat = invert_labels(indices, classes=self.classes_)
+        return y_hat
 
     def _init_counters(self, n_effective_classes, n_features, dtype=cp.float32):
         self.class_count_ = cp.zeros(n_effective_classes, order="F", dtype=dtype)
@@ -234,6 +238,7 @@ class MultinomialNB(object):
 
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
+
             count_features_coo((math.ceil(X.nnz / 32),), (32,),
                            (counts,
                             X.row,
@@ -244,6 +249,8 @@ class MultinomialNB(object):
                             n_cols,
                             Y,
                             self.n_classes_, False))
+
+
         else:
             count_features_dense((math.ceil(n_rows / 32),
                                   math.ceil(n_cols / 32), 1),
@@ -258,6 +265,8 @@ class MultinomialNB(object):
                             X.flags["C_CONTIGUOUS"]))
 
         self.feature_count_ += counts
+
+        print(str(counts.dtype))
         self.class_count_ += counts.sum(axis=1).reshape(self.n_classes_)
 
     def _update_class_log_prior(self, class_prior=None):
