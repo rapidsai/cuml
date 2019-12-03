@@ -41,6 +41,7 @@
 - PR #1340: Updated unit tests to uses larger dataset
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
   model importing
+- PR #1367: --test-split benchmark parameter for train-test split
 - PR #1360: Improved tests for importing SciKit-Learn models into FIL
 - PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
@@ -49,6 +50,7 @@
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
 - PR #1376: AUTO value for FIL algorithm
+- PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
 
