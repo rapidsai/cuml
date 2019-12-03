@@ -185,15 +185,12 @@ class RandomForestRegressor(Base):
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-<<<<<<< HEAD
-       * Instances of RandomForestRegressor cannot be fully pickled currently.
-=======
        * GPU-based inference is only supported if the model was trained
-         with 32-bit (float32) datatypes
+         with 32-bit (float32) datatypes CPU-based inference may be used
+         in this case as a slower fallback.
        * Very deep / very wide models may exhaust available GPU memory.
          Future versions of cuML will provide an alternative algorithm to
          reduce memory consumption.
->>>>>>> Doc improvements for 0.11
 
     Examples
     ---------
