@@ -186,6 +186,7 @@ class KNeighborsClassifier(NearestNeighbors):
                                       convert_dtype=convert_dtype)
 
         cdef uintptr_t inds_ctype
+
         inds, inds_ctype, n_rows, _, _ = \
             input_to_dev_array(knn_indices, order='C', check_dtype=np.int64,
                                convert_to_dtype=(np.int64
@@ -227,7 +228,7 @@ class KNeighborsClassifier(NearestNeighbors):
         if isinstance(X, np.ndarray):
             return np.array(classes, dtype=np.int32)
         elif isinstance(X, cudf.DataFrame):
-            return cudf.DataFrame.from_gpu_matrix(X)
+            return cudf.Series(classes)
         else:
             return classes
 
