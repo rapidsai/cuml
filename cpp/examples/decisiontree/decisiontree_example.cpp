@@ -32,8 +32,9 @@
 #include <cuml/common/rmmAllocatorAdapter.hpp>
 #endif  //HAVE_RMM
 
-#include <cuml/tree/decisiontree.hpp>
+#include <cuml/tree/algo_helper.h>
 #include <cuml/cuml.hpp>
+#include <cuml/tree/decisiontree.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -69,11 +70,12 @@ bool get_arg(char** begin, char** end, const std::string& arg) {
 }
 
 void printUsage() {
-  std::cout
-    << "To run default example use:" << std::endl
-    << "  decisiontree_example [-dev_id <GPU id>] [-num_rows <nr>]" << std::endl
-    << "    [-num_cols <nc>] [-regression] [-max_depth <md>]" << std::endl
-    << "    -dataset /path/to/dataset.csv" << std::endl;
+  std::cout << "To run default example use:" << std::endl
+            << "  decisiontree_example [-dev_id <GPU id>] [-num_rows <nr>]"
+            << std::endl
+            << "    [-num_cols <nc>] [-regression] [-max_depth <md>]"
+            << std::endl
+            << "    -dataset /path/to/dataset.csv" << std::endl;
   return;
 }
 
@@ -102,7 +104,8 @@ void loadClassificationDataset(const std::string& file, int nRows, int nCols,
     ++counter;
   }
   fp.close();
-  CUDA_RT_CALL(cudaMemcpyAsync(d_data, data.data(), sizeof(float) * nRows * nCols,
+  CUDA_RT_CALL(cudaMemcpyAsync(d_data, data.data(),
+                               sizeof(float) * nRows * nCols,
                                cudaMemcpyHostToDevice, s));
   CUDA_RT_CALL(cudaMemcpyAsync(d_labels, labels.data(), sizeof(int) * nRows,
                                cudaMemcpyHostToDevice, s));
@@ -133,7 +136,8 @@ void loadRegressionDataset(const std::string& file, int nRows, int nCols,
     ++counter;
   }
   fp.close();
-  CUDA_RT_CALL(cudaMemcpyAsync(d_data, data.data(), sizeof(float) * nRows * nCols,
+  CUDA_RT_CALL(cudaMemcpyAsync(d_data, data.data(),
+                               sizeof(float) * nRows * nCols,
                                cudaMemcpyHostToDevice, s));
   CUDA_RT_CALL(cudaMemcpyAsync(d_labels, labels.data(), sizeof(int) * nRows,
                                cudaMemcpyHostToDevice, s));
@@ -206,13 +210,13 @@ int main(int argc, char* argv[]) {
   }
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
   std::cout << "Setting up parameters..." << std::endl;
-  ML::DecisionTree::DecisionTreeParams params;
-  ML::DecisionTree::set_tree_params(params);
-  params.split_algo = 1;
-  params.max_depth = maxDepth;
-  params.n_bins = nBins;
-  params.max_features = 1.0;
-  params.shuffle_features = false;
+  using namespace ML::DecisionTree;
+  DecisionTreeParams params;
+  set_tree_params(params, maxDepth, 1 << maxDepth, 1.f, nBins,
+                  ML::SPLIT_ALGO::GLOBAL_QUANTILE, 2, 0.f, false,
+                  regression ? ML::CRITERION::MSE : ML::CRITERION::GINI, true,
+                  false, 128, 10, 4, 0);
+  print(params);
   std::cout << "Starting the training..." << std::endl;
   if (regression) {
     ///@todo!!
