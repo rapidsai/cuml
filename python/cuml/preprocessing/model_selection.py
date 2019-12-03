@@ -54,6 +54,9 @@ def train_test_split(
         Whether or not to shuffle inputs before splitting
     random_state : int, CuPy RandomState or NumPy RandomState optional
         If shuffle is true, seeds the generator. Unseeded by default
+    seed: random_state : int, CuPy RandomState or NumPy RandomState optional
+        Deprecated in favor of `random_state`.
+        If shuffle is true, seeds the generator. Unseeded by default
 
     Examples
     --------
@@ -161,7 +164,7 @@ def train_test_split(
 
     if seed is not None:
         if random_state is None:
-            warnings.warn("Parameter 'seed' is deprecatedm please use \
+            warnings.warn("Parameter 'seed' is deprecated, please use \
                           'random_state' instead.")
             random_state = seed
         else:
