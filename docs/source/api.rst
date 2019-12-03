@@ -25,8 +25,8 @@ Dataset Generation (Single-GPU)
   .. automethod:: cuml.datasets.make_blobs
 
 
-Dataset Generation (Dask)
--------------------------
+Dataset Generation (Dask-based Multi-GPU)
+-----------------------------------------
   .. automodule:: cuml.dask.datasets.blobs
      :members:
 
