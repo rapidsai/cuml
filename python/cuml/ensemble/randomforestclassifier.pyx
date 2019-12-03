@@ -231,8 +231,8 @@ class RandomForestClassifier(Base):
 
     Parameters
     -----------
-    n_estimators : int (default = 10)
-        Number of trees in the forest.
+    n_estimators : int (default = 100)
+        Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     handle : cuml.Handle
         If it is None, a new one is created just for this class.
     split_criterion: The criterion used to split nodes.
