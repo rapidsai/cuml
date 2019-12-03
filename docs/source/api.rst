@@ -229,6 +229,13 @@ Kalman Filter
 .. autoclass:: cuml.KalmanFilter
     :members:
 
+ARIMA
+-----
+
+.. autoclass:: cuml.tsa.ARIMAModel
+    :members:
+
+
 Multi-Node, Multi-GPU Algorithms
 ================================
 
