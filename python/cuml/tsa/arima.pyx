@@ -48,27 +48,29 @@ from libcpp.vector cimport vector
 
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void batched_loglike(
-        cumlHandle& handle, double* y, int batch_size, int nobs, int p, int d,
-        int q, int P, int D, int Q, int s, int intercept, double* params,
-        double* loglike, double* d_vs, bool trans, bool host_loglike)
+        cumlHandle& handle, const double* y, int batch_size, int nobs, int p,
+        int d, int q, int P, int D, int Q, int s, int intercept,
+        double* params, double* loglike, double* d_vs, bool trans,
+        bool host_loglike)
 
     void predict_in_sample(
-        cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
+        cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
         int d, int q, int P, int D, int Q, int s, int intercept,
         double* d_params, double* d_vs_ptr, double* d_y_p)
 
     void residual(
-        cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
+        cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
         int d, int q, int P, int D, int Q, int s, int intercept,
         double* d_params, double* d_vs, bool trans)
 
     void forecast(
         cumlHandle& handle, int num_steps, int p, int d, int q, int P, int D,
-        int Q, int s, int intercept, int batch_size, int nobs, double* d_y,
-        double* d_y_prep, double* d_vs, double* d_params, double* d_y_fc)
+        int Q, int s, int intercept, int batch_size, int nobs,
+        const double* d_y, const double* d_y_prep, double* d_vs,
+        double* d_params, double* d_y_fc)
 
     void information_criterion(
-        cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
+        cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
         int d, int q, int P, int D, int Q, int s, int intercept,
         double* d_mu, double* d_ar, double* d_ma, double* d_sar,
         double* d_sma, double* ic, int ic_type)

@@ -45,8 +45,8 @@ namespace ML {
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  */
-void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int nobs,
-                     int p, int d, int q, int P, int D, int Q, int s,
+void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+                     int nobs, int p, int d, int q, int P, int D, int Q, int s,
                      int intercept, double* d_params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true);
 
@@ -83,8 +83,8 @@ void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int nobs,
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  */
-void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int nobs,
-                     int p, int d, int q, int P, int D, int Q, int s,
+void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+                     int nobs, int p, int d, int q, int P, int D, int Q, int s,
                      int intercept, double* d_mu, double* d_ar, double* d_ma,
                      double* d_sar, double* d_sma, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true);
@@ -112,7 +112,7 @@ void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int nobs,
  * @param[out] d_vs        Residual output (device)
  * @param[out] d_y_p       Prediction output (device)
  */
-void predict_in_sample(cumlHandle& handle, double* d_y, int batch_size,
+void predict_in_sample(cumlHandle& handle, const double* d_y, int batch_size,
                        int nobs, int p, int d, int q, int P, int D, int Q,
                        int s, int intercept, double* d_params, double* d_vs,
                        double* d_y_p);
@@ -139,8 +139,8 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int batch_size,
  * @param[out] d_vs        Residual output (device)
  * @param[in]  trans       Run `jones_transform` on params.
  */
-void residual(cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
-              int d, int q, int P, int D, int Q, int s, int intercept,
+void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+              int p, int d, int q, int P, int D, int Q, int s, int intercept,
               double* d_params, double* d_vs, bool trans);
 
 ///TODO: allow nullptr for the diff to be calculated inside this function if
@@ -172,8 +172,8 @@ void residual(cumlHandle& handle, double* d_y, int batch_size, int nobs, int p,
  */
 void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
               int D, int Q, int s, int intercept, int batch_size, int nobs,
-              double* d_y, double* d_y_diff, double* d_vs, double* d_params,
-              double* d_y_fc);
+              const double* d_y, const double* d_y_prep, double* d_vs,
+              double* d_params, double* d_y_fc);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
@@ -204,11 +204,11 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
  * @param[in]  ic_type     Type of information criterion wanted.
  *                         0: AIC, 1: AICc, 2: BIC
  */
-void information_criterion(cumlHandle& handle, double* d_y, int batch_size,
-                           int nobs, int p, int d, int q, int P, int D, int Q,
-                           int s, int intercept, double* d_mu, double* d_ar,
-                           double* d_ma, double* d_sar, double* d_sma,
-                           double* ic, int ic_type);
+void information_criterion(cumlHandle& handle, const double* d_y,
+                           int batch_size, int nobs, int p, int d, int q, int P,
+                           int D, int Q, int s, int intercept, double* d_mu,
+                           double* d_ar, double* d_ma, double* d_sar,
+                           double* d_sma, double* ic, int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
