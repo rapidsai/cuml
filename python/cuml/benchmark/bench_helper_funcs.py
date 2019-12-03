@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 import cudf
 from numba import cuda
-import datagen
+from cuml.benchmark import datagen
 
 
 def fit_kneighbors(m, x):
