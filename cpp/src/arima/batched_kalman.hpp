@@ -52,7 +52,7 @@ namespace ML {
  *                             with 1 or more kalman iterations instead of
  *                             an analytical heuristic.
  */
-void batched_kalman_filter(cumlHandle& handle, double* d_ys_b, int nobs,
+void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            const double* d_ar, const double* d_ma,
                            const double* d_sar, const double* d_sma, int p,
                            int q, int P, int Q, int batch_size, double* loglike,
@@ -101,8 +101,8 @@ void unpack(const double* d_params, double* d_mu, double* d_ar, double* d_ma,
  * @param[out]  d_mu       Intercept parameters to allocate (device)
  */
 template <typename AllocatorT>
-void allocate_params(AllocatorT alloc, cudaStream_t stream, int p, int q, int P,
-                     int Q, int batch_size, double** d_ar, double** d_ma,
+void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q,
+                     int P, int Q, int batch_size, double** d_ar, double** d_ma,
                      double** d_sar, double** d_sma, int k = 0,
                      double** d_mu = nullptr);
 
@@ -125,7 +125,7 @@ void allocate_params(AllocatorT alloc, cudaStream_t stream, int p, int q, int P,
  * @param[out]  d_mu       Intercept parameters to deallocate (device)
  */
 template <typename AllocatorT>
-void deallocate_params(AllocatorT alloc, cudaStream_t stream, int p, int q,
+void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q,
                        int P, int Q, int batch_size, double* d_ar, double* d_ma,
                        double* d_sar, double* d_sma, int k = 0,
                        double* d_mu = nullptr);

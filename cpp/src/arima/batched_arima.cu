@@ -184,8 +184,8 @@ static void _finalize_forecast(cumlHandle& handle, double* d_fc,
   }
 }
 
-void residual(cumlHandle& handle, double* d_y, int batch_size, int n_obs, int p,
-              int d, int q, int P, int D, int Q, int s, int intercept,
+void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
+              int p, int d, int q, int P, int D, int Q, int s, int intercept,
               double* d_params, double* d_vs, bool trans) {
   ML::PUSH_RANGE(__func__);
   std::vector<double> loglike = std::vector<double>(batch_size);
@@ -196,8 +196,8 @@ void residual(cumlHandle& handle, double* d_y, int batch_size, int n_obs, int p,
 
 void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
               int D, int Q, int s, int intercept, int batch_size, int n_obs,
-              double* d_y, double* d_y_prep, double* d_vs, double* d_params,
-              double* d_y_fc) {
+              const double* d_y, const double* d_y_prep, double* d_vs,
+              double* d_params, double* d_y_fc) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
@@ -212,16 +212,16 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
   int ld_yprep = n_obs - d - D * s;
 
   // Prepare data if given unprepared data
-  bool dealloc_yprep = false;
+  double* yprep = nullptr;
   if (d_y_prep == nullptr) {
     if (intercept + d + D == 0)
       d_y_prep = d_y;
     else {
-      d_y_prep = (double*)allocator->allocate(
+      yprep = (double*)allocator->allocate(
         ld_yprep * batch_size * sizeof(double), stream);
-      dealloc_yprep = true;
-      _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, d, 0, 0,
-                    intercept, d_mu);
+      _prepare_data(handle, yprep, d_y, batch_size, n_obs, d, 0, 0, intercept,
+                    d_mu);
+      d_y_prep = yprep;
     }
   }
 
@@ -282,13 +282,13 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
                     d_sar, d_sma, intercept, d_mu);
   allocator->deallocate(d_y_, (p + num_steps) * batch_size, stream);
   allocator->deallocate(d_vs_, (q + num_steps) * batch_size, stream);
-  if (dealloc_yprep)
-    allocator->deallocate(d_y_prep, ld_yprep * batch_size * sizeof(double),
+  if (yprep != nullptr)
+    allocator->deallocate(yprep, ld_yprep * batch_size * sizeof(double),
                           stream);
   ML::POP_RANGE();
 }
 
-void predict_in_sample(cumlHandle& handle, double* d_y, int batch_size,
+void predict_in_sample(cumlHandle& handle, const double* d_y, int batch_size,
                        int n_obs, int p, int d, int q, int P, int D, int Q,
                        int s, int intercept, double* d_params, double* d_vs,
                        double* d_y_p) {
@@ -350,8 +350,8 @@ void predict_in_sample(cumlHandle& handle, double* d_y, int batch_size,
   ML::POP_RANGE();
 }
 
-void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int n_obs,
-                     int p, int d, int q, int P, int D, int Q, int s,
+void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+                     int n_obs, int p, int d, int q, int P, int D, int Q, int s,
                      int intercept, double* d_mu, double* d_ar, double* d_ma,
                      double* d_sar, double* d_sma, double* loglike,
                      double* d_vs, bool trans, bool host_loglike) {
@@ -380,51 +380,29 @@ void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int n_obs,
                                cudaMemcpyDeviceToDevice, stream));
   }
 
-  ///TODO: use _prepare_data
-  if (d == 0) {
-    // no diff
+  if (d + D + intercept == 0) {
     batched_kalman_filter(handle, d_y, n_obs, d_Tar, d_Tma, d_Tsar, d_Tsma, p,
                           q, P, Q, batch_size, loglike, d_vs);
-  } else if (d == 1) {
-    ////////////////////////////////////////////////////////////
-    // diff and center (with `mu`):
-    ////////////////////////////////////////////////////////////
+  } else {
+    double* d_y_prep = (double*)allocator->allocate(
+      batch_size * (n_obs - d - s * D) * sizeof(double), stream);
 
-    // make device array and pointer
-    double* y_diff = (double*)allocator->allocate(
-      batch_size * (n_obs - 1) * sizeof(double), stream);
+    _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, d, D, s, intercept,
+                  d_mu);
 
-    {
-      auto counting = thrust::make_counting_iterator(0);
-      // TODO: This for_each should probably go over samples, so batches
-      // are in the inner loop.
-      thrust::for_each(thrust::cuda::par.on(stream), counting,
-                       counting + batch_size, [=] __device__(int bid) {
-                         double mu_ib = d_mu[bid];
-                         for (int i = 0; i < n_obs - 1; i++) {
-                           // diff and center (with `mu` parameter)
-                           y_diff[bid * (n_obs - 1) + i] =
-                             (d_y[bid * n_obs + i + 1] - d_y[bid * n_obs + i]) -
-                             mu_ib;
-                         }
-                       });
-    }
-
-    batched_kalman_filter(handle, y_diff, n_obs - d, d_Tar, d_Tma, d_Tsar,
+    batched_kalman_filter(handle, d_y_prep, n_obs - d, d_Tar, d_Tma, d_Tsar,
                           d_Tsma, p, q, P, Q, batch_size, loglike, d_vs);
 
-    allocator->deallocate(y_diff, sizeof(double) * batch_size * (n_obs - 1),
-                          stream);
-  } else {
-    ///TODO: support for d=2 etc
+    allocator->deallocate(
+      d_y_prep, sizeof(double) * batch_size * (n_obs - d - s * D), stream);
   }
   deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_Tar, d_Tma,
                     d_Tsar, d_Tsma);
   ML::POP_RANGE();
 }
 
-void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int n_obs,
-                     int p, int d, int q, int P, int D, int Q, int s,
+void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
+                     int n_obs, int p, int d, int q, int P, int D, int Q, int s,
                      int intercept, double* d_params, double* loglike,
                      double* d_vs, bool trans, bool host_loglike) {
   ML::PUSH_RANGE(__func__);
@@ -447,11 +425,12 @@ void batched_loglike(cumlHandle& handle, double* d_y, int batch_size, int n_obs,
   ML::POP_RANGE();
 }
 
-void information_criterion(cumlHandle& handle, double* d_y, int batch_size,
-                           int n_obs, int p, int d, int q, int P, int D, int Q,
-                           int s, int intercept, double* d_mu, double* d_ar,
-                           double* d_ma, double* d_sar, double* d_sma,
-                           double* ic, int ic_type) {
+void information_criterion(cumlHandle& handle, const double* d_y,
+                           int batch_size, int n_obs, int p, int d, int q,
+                           int P, int D, int Q, int s, int intercept,
+                           double* d_mu, double* d_ar, double* d_ma,
+                           double* d_sar, double* d_sma, double* ic,
+                           int ic_type) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();

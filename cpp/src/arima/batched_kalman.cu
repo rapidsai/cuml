@@ -87,17 +87,29 @@ __device__ void MM_l(double* A, double* B, double* out) {
   }
 }
 
-//! Kalman loop. Each thread computes kalman filter for a single series and
-//! stores relevant matrices in registers.
+/**
+ * Kalman loop. Each thread computes kalman filter for a single series and
+ * stores relevant matrices in registers.
+ *
+ * @tparam     r          Dimension of the state vector
+ * @param[in]  ys         Batched time series
+ * @param[in]  T          Batched transition matrix.            (r x r)
+ * @param[in]  Z          Batched "design" vector               (1 x r)
+ * @param[in]  RRT        Batched R*R.T (R="selection" vector)  (r x r)
+ * @param[in]  P          Batched P                             (r x r)
+ * @param[in]  alpha      Batched state vector                  (r x 1)
+ * @param[in]  batch_size Batch size
+ * @param[out] vs         Batched residuals                     (nobs)
+ * @param[out] Fs         Batched variance of prediction errors (nobs)    
+ * @param[out] sum_logFs  Batched sum of the logs of Fs         (1)
+ */
 template <int r>
-__global__ void batched_kalman_loop_kernel(double* ys, int nobs,
-                                           double* T,      // \in R^(r x r)
-                                           double* Z,      // \in R^(1 x r)
-                                           double* RRT,    // \in R^(r x r)
-                                           double* P,      // \in R^(r x r)
-                                           double* alpha,  // \in R^(r x 1)
-                                           int batch_size, double* vs,
-                                           double* Fs, double* sum_logFs) {
+__global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
+                                           const double* T, const double* Z,
+                                           const double* RRT, const double* P,
+                                           const double* alpha, int batch_size,
+                                           double* vs, double* Fs,
+                                           double* sum_logFs) {
   double l_RRT[r * r];
   double l_T[r * r];
   double l_Z[r];
@@ -202,7 +214,7 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
   }
 }
 
-void batched_kalman_loop(double* ys, int nobs, const BatchedMatrix& T,
+void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
                          const BatchedMatrix& Z, const BatchedMatrix& RRT,
                          const BatchedMatrix& P0, const BatchedMatrix& alpha,
                          int r, double* vs, double* Fs, double* sum_logFs) {
@@ -291,7 +303,7 @@ void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs,
 }
 
 // Internal Kalman filter implementation that assumes data exists on GPU.
-void _batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
+void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                             const BatchedMatrix& Zb, const BatchedMatrix& Tb,
                             const BatchedMatrix& Rb, int r, double* d_vs,
                             double* d_Fs, double* d_loglike, double* d_sigma2,
@@ -426,7 +438,7 @@ static void init_batched_kalman_matrices(
   ML::POP_RANGE();
 }  // namespace ML
 
-void batched_kalman_filter(cumlHandle& handle, double* d_ys, int nobs,
+void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            const double* d_ar, const double* d_ma,
                            const double* d_sar, const double* d_sma, int p,
                            int q, int P, int Q, int batch_size, double* loglike,
@@ -600,7 +612,7 @@ void pack(int batch_size, int p, int q, int P, int Q, int k, const double* d_mu,
 }
 
 template <typename AllocatorT>
-void allocate_params(AllocatorT alloc, cudaStream_t stream, int p, int q, int P,
+void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q, int P,
                      int Q, int batch_size, double** d_ar, double** d_ma,
                      double** d_sar, double** d_sma, int k, double** d_mu) {
   if (k) *d_mu = (double*)alloc->allocate(batch_size * sizeof(double), stream);
@@ -615,7 +627,7 @@ void allocate_params(AllocatorT alloc, cudaStream_t stream, int p, int q, int P,
 }
 
 template <typename AllocatorT>
-void deallocate_params(AllocatorT alloc, cudaStream_t stream, int p, int q,
+void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q,
                        int P, int Q, int batch_size, double* d_ar, double* d_ma,
                        double* d_sar, double* d_sma, int k, double* d_mu) {
   if (k) alloc->deallocate(d_mu, batch_size * sizeof(double), stream);
