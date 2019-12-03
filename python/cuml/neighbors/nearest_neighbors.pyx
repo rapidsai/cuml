@@ -291,10 +291,11 @@ class NearestNeighbors(Base):
             raise ValueError("Dimensions of X need to match dimensions of "
                              "indices (%d)" % self.n_dims)
 
+
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
-                                                 else None))
+                                                 else False))
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
@@ -343,7 +344,6 @@ class NearestNeighbors(Base):
             for i in range(0, D_ndarr.shape[1]):
                 dists[str(i)] = D_ndarr[:, i]
 
-            return dists, inds
 
         elif isinstance(X, np.ndarray):
             inds = np.asarray(I_ndarr)
