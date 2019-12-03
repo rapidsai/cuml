@@ -52,6 +52,21 @@ void count_features_coo(float *out,
 }
 ''', 'count_features_coo')
 
+count_classes = cp.RawKernel(r'''
+extern "C" __global__
+void count_classes(float *out,
+                    int n_rows,
+                    int *labels) {
+
+  int row = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(row >= n_rows) return;
+
+  int label = labels[row];
+  atomicAdd(out + label, 1);
+}
+''', 'count_classes')
+
 count_features_dense = cp.RawKernel(r'''
 extern "C" __global__
 void count_features_dense(
@@ -115,10 +130,10 @@ class GaussianNB(object):
         x_coo = X.tocoo()
 
         counts = cp.zeros((self.n_classes_, self.n_features_),
-                          order="F", dtype=cp.float32)
+                          order="F", dtype=cp.float64)
 
         sq_counts = cp.zeros((self.n_classes_, self.n_features_),
-                             order="F", dtype=cp.float32)
+                             order="F", dtype=cp.float64)
 
         count_features_coo((math.ceil(x_coo.nnz / 32),), (32,),
                        (counts,
@@ -233,6 +248,8 @@ class MultinomialNB(object):
         counts = cp.zeros((self.n_classes_, self.n_features_),
                           order="F", dtype=X.dtype)
 
+        class_c = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
+
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
@@ -264,10 +281,13 @@ class MultinomialNB(object):
                             False,
                             X.flags["C_CONTIGUOUS"]))
 
-        self.feature_count_ += counts
+        count_classes((math.ceil(n_rows / 32),), (32,),
+                           (class_c,
+                            n_rows,
+                            Y))
 
-        print(str(counts.dtype))
-        self.class_count_ += counts.sum(axis=1).reshape(self.n_classes_)
+        self.feature_count_ += counts
+        self.class_count_ += class_c
 
     def _update_class_log_prior(self, class_prior=None):
 
@@ -291,10 +311,11 @@ class MultinomialNB(object):
         """ apply add-lambda smoothing to raw counts and recompute log probabilities"""
         smoothed_fc = self.feature_count_ + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self.feature_log_prob_ = (cp.log(smoothed_fc) - cp.log(smoothed_cc))
+        self.feature_log_prob_ = (cp.log(smoothed_fc) -
+                                  cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
         """ Calculate the posterior log probability of the samples X """
         ret = X.dot(self.feature_log_prob_.T)
-        ret += self.class_log_prior_.T
+        ret += self.class_log_prior_
         return ret
