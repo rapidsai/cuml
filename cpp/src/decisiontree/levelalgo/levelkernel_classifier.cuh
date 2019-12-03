@@ -355,7 +355,7 @@ __global__ void best_split_gather_classification_kernel(
   const unsigned int* __restrict__ g_nodestart,
   const unsigned int* __restrict__ samplelist, const int n_nodes,
   const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
-  const int ncols_sampled, const size_t treesz,
+  const int ncols_sampled, const size_t treesz, const float min_impurity_split,
   SparseTreeNode<T, int>* d_sparsenodes, int* d_nodelist) {
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
@@ -427,7 +427,7 @@ __global__ void best_split_gather_classification_kernel(
   __syncthreads();
   if (threadIdx.x == 0) {
     SparseTreeNode<T, int> localnode;
-    if (shmem_col != -1) {
+    if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
       colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
                             shmem_col, blockIdx.x);
       QuestionType question(question_ptr, colid, shmem_col, n_nodes, blockIdx.x,
@@ -475,6 +475,8 @@ __global__ void make_leaf_gather_classification_kernel(
       get_class_hist_shared(shmemhist_parent, n_unique_labels);
     localnode.colid = -1;
     localnode.best_metric_val = parent_metric;
+    printf("parent metric %f and count %d and pred %d from block %d\n",
+           parent_metric, count, localnode.prediction, blockIdx.x);
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
