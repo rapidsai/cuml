@@ -197,18 +197,19 @@ int main(int argc, char* argv[]) {
   }
 #endif  //HAVE_RMM
   setDeviceAllocator(cumlHandle);
-  std::cout << "Setting up buffers..." << std::endl;
-  float *d_data, *d_labels_reg;
-  int* d_labels;
-  CUDA_RT_CALL(cudaMalloc((void**)&d_data, sizeof(float) * nRows * nCols));
-  if (regression) {
-    CUDA_RT_CALL(cudaMalloc((void**)&d_labels_reg, sizeof(float) * nRows));
-  } else {
-    CUDA_RT_CALL(cudaMalloc((void**)&d_labels, sizeof(int) * nRows));
-  }
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
   cumlHandle.setStream(stream);
+  std::cout << "Setting up buffers..." << std::endl;
+  auto d_alloc = cumlHandle.getDeviceAllocator();
+  float *d_data, *d_labels_reg;
+  int* d_labels;
+  d_data = (float*)d_alloc->allocate(sizeof(float) * nRows * nCols, stream);
+  if (regression) {
+    d_labels_reg = (float*)d_alloc->allocate(sizeof(float) * nRows, stream);
+  } else {
+    d_labels = (int*)d_alloc->allocate(sizeof(int) * nRows, stream);
+  }
   std::cout << "Loading dataset..." << std::endl;
   if (regression) {
     loadRegressionDataset(dataset, nRows, nCols, d_data, d_labels_reg, stream);
@@ -231,12 +232,14 @@ int main(int argc, char* argv[]) {
     ///@todo!!
   }
   std::cout << "Cleaning up..." << std::endl;
+  CUDA_RT_CALL(cudaStreamSynchronize(stream));
   if (regression) {
-    CUDA_RT_CALL(cudaFree(d_labels_reg));
+    d_alloc->deallocate(d_labels_reg, sizeof(float) * nRows, stream);
   } else {
-    CUDA_RT_CALL(cudaFree(d_labels));
+    d_alloc->deallocate(d_labels, sizeof(int) * nRows, stream);
   }
-  CUDA_RT_CALL(cudaFree(d_data));
+  d_alloc->deallocate(d_data, sizeof(float) * nRows * nCols, stream);
+  CUDA_RT_CALL(cudaStreamSynchronize(stream));
   CUDA_RT_CALL(cudaStreamDestroy(stream));
   CUDA_RT_CALL(cudaDeviceSynchronize());
   return 0;
