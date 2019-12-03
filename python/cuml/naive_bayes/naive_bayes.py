@@ -282,9 +282,7 @@ class MultinomialNB(object):
                             X.flags["C_CONTIGUOUS"]))
 
         count_classes((math.ceil(n_rows / 32),), (32,),
-                           (class_c,
-                            n_rows,
-                            Y))
+                           (class_c, n_rows, Y))
 
         self.feature_count_ += counts
         self.class_count_ += class_c
