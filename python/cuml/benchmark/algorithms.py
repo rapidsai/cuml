@@ -328,7 +328,7 @@ def all_algorithms():
             shared_args=dict(num_rounds=10, max_depth=10),
             cuml_args=dict(
                 fil_algo="BATCH_TREE_REORG",
-                output_class=True,
+                output_class=False,
                 threshold=0.5,
                 storage_type="AUTO",
             ),
