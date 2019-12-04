@@ -65,7 +65,7 @@ def test_kmeans_sklearn_comparison(name, nrows):
         print(cuml_kmeans.score(X), kmeans.score(X))
         score_test = (cuml_kmeans.score(X) - kmeans.score(X)) < 2e-3
         if name == 'noisy_circles':
-            assert (calculation < 2e-3) and score_test
+            assert (calculation < 4e-3) and score_test
 
         else:
             if name == 'aniso':
