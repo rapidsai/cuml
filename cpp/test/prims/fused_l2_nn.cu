@@ -56,7 +56,7 @@ void naive(cub::KeyValuePair<int, DataT> *min, DataT *x, DataT *y, int m, int n,
            int k, int *workspace, cudaStream_t stream) {
   static const dim3 TPB(32, 16, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
-  CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int), stream));
+  CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   auto blks = ceildiv(m, 256);
   initKernel<DataT, cub::KeyValuePair<int, DataT>, int,
              MinAndDistanceReduceOp<int, DataT>>
@@ -200,7 +200,7 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 128, 32, 33, 1234ULL},  {0.001f, 128, 64, 33, 1234ULL},
   {0.001f, 128, 128, 65, 1234ULL}, {0.001f, 64, 128, 129, 1234ULL},
 
-  {0.001f, 1805, 134, 2, 1234ULL},
+  {0.004f, 1805, 134, 2, 1234ULL},
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result) {

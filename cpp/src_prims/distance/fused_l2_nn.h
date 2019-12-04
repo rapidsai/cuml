@@ -358,6 +358,7 @@ struct FusedL2NN {
         }
       }
     }
+    __syncthreads();
     if (lid % P::AccThCols == 0) {
       auto ridx = IdxT(blockIdx.x) * P::Mblk + accrowid;
 #pragma unroll
