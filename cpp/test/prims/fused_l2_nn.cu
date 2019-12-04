@@ -41,14 +41,14 @@ __global__ void naiveKernel(cub::KeyValuePair<int, DataT> *min, DataT *x,
     acc = mySqrt(acc);
   }
   ReduceOpT redOp;
-  while (atomicCAS(workspace, 0, 1) == 1)
+  while (atomicCAS(workspace + midx, 0, 1) == 1)
     ;
   cub::KeyValuePair<int, DataT> tmp;
   tmp.key = nidx;
   tmp.value = acc;
   redOp(min + midx, tmp);
   __threadfence();
-  atomicCAS(workspace, 1, 0);
+  atomicCAS(workspace + midx, 1, 0);
 }
 
 template <typename DataT, bool Sqrt>
