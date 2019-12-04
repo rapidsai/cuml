@@ -336,14 +336,8 @@ class NearestNeighbors(Base):
         D_ndarr = D_ndarr.reshape((N, n_neighbors))
 
         if isinstance(X, cudf.DataFrame):
-            inds = cudf.DataFrame()
-            for i in range(0, I_ndarr.shape[1]):
-                inds[str(i)] = I_ndarr[:, i]
-
-            dists = cudf.DataFrame()
-            for i in range(0, D_ndarr.shape[1]):
-                dists[str(i)] = D_ndarr[:, i]
-
+            inds = cudf.DataFrame.from_gpu_matrix(I_ndarr)
+            dists = cudf.DataFrame.from_gpu_matrix(D_ndarr)
 
         elif isinstance(X, np.ndarray):
             inds = np.asarray(I_ndarr)
