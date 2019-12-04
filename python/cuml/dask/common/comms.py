@@ -312,7 +312,7 @@ async def _func_destroy_all(sessionId, comms_p2p):
         for ep in worker_state(sessionId)["ucp_eps"]:
             if ep is not None:
                 if not ep.closed():
-                    await ep.abort()
+                    ep.abort()
                 del ep
         del worker_state(sessionId)["ucp_eps"]
         del worker_state(sessionId)["handle"]
