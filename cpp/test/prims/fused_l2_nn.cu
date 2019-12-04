@@ -96,8 +96,14 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     naive<DataT, Sqrt>(min_ref, x, y, m, n, k, (int *)workspace, stream);
     LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
     LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
+  }
+
+  void runTest(cub::KeyValuePair<int, DataT> *out) {
+    int m = params.m;
+    int n = params.n;
+    int k = params.k;
     fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int, Sqrt,
-              MinAndDistanceReduceOp<int, DataT>>(min, x, y, xn, yn, m, n, k,
+              MinAndDistanceReduceOp<int, DataT>>(out, x, y, xn, yn, m, n, k,
                                                   (void *)workspace, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -179,14 +185,16 @@ const std::vector<Inputs<float>> inputsf = {
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result) {
-  ASSERT_TRUE(devArrMatch(min_ref, min_ref, params.m,
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
                           CompareApproxAbsKVP<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sq,
                         ::testing::ValuesIn(inputsf));
 typedef FusedL2NNTest<float, true> FusedL2NNTestF_Sqrt;
 TEST_P(FusedL2NNTestF_Sqrt, Result) {
-  ASSERT_TRUE(devArrMatch(min_ref, min_ref, params.m,
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
                           CompareApproxAbsKVP<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestF_Sqrt,
@@ -210,14 +218,16 @@ const std::vector<Inputs<double>> inputsd = {
 };
 typedef FusedL2NNTest<double, false> FusedL2NNTestD_Sq;
 TEST_P(FusedL2NNTestD_Sq, Result) {
-  ASSERT_TRUE(devArrMatch(min_ref, min_ref, params.m,
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
                           CompareApproxAbsKVP<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sq,
                         ::testing::ValuesIn(inputsd));
 typedef FusedL2NNTest<double, true> FusedL2NNTestD_Sqrt;
 TEST_P(FusedL2NNTestD_Sqrt, Result) {
-  ASSERT_TRUE(devArrMatch(min_ref, min_ref, params.m,
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
                           CompareApproxAbsKVP<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sqrt,
