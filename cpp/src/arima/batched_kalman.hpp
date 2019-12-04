@@ -42,6 +42,7 @@ namespace ML {
  * @param[in]  q               Number of MA parameters
  * @param[in]  P               Number of seasonal AR parameters
  * @param[in]  Q               Number of seasonal MA parameters
+ * @param[in]  s               Seasonal period
  * @param[in]  batch_size      Number of series making up the batch
  * @param[out] loglike_b       Resulting loglikelihood (for each series)
  * @param[out] d_vs            Residual between the prediction and the
@@ -55,7 +56,7 @@ namespace ML {
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            const double* d_ar, const double* d_ma,
                            const double* d_sar, const double* d_sma, int p,
-                           int q, int P, int Q, int batch_size, double* loglike,
+                           int q, int P, int Q, int s, int batch_size, double* loglike,
                            double* d_vs, bool host_loglike = true,
                            bool initP_kalman_it = false);
 
