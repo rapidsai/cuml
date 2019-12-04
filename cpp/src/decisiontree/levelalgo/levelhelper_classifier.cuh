@@ -347,7 +347,6 @@ void best_split_gather_classification(
         ncols_sampled, treesz, min_impurity_split, d_sparsenodes, d_nodelist);
     CUDA_CHECK(cudaGetLastError());
   }
-  CUDA_CHECK(cudaDeviceSynchronize());
 }
 template <typename T, typename FDEV>
 void make_leaf_gather_classification(

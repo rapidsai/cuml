@@ -21,7 +21,6 @@
 #include "common_helper.cuh"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
-#define depth_split 4
 /*
 This is the driver function for building classification tree
 level by level using a simple for loop.
@@ -103,7 +102,7 @@ void grow_deep_tree_classification(
     MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
-  for (int depth = 0; (depth < depth_split) && (n_nodes_nextitr != 0);
+  for (int depth = 0; (depth < tempmem->swap_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
@@ -187,13 +186,13 @@ void grow_deep_tree_classification(
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
-  //print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
-  for (int depth = depth_split; depth < 6; depth++) {
+  print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
+  for (int depth = tempmem->swap_depth; depth < maxdepth; depth++) {
     depth_cnt = depth + 1;
     //Algorithm starts here
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
-                            ncols_sampled, n_nodes, mtg, dist, feature_selector,
-                            tempmem, d_rng);
+                            ncols_sampled, lastsize, mtg, dist,
+                            feature_selector, tempmem, d_rng);
 
     if (split_cr == ML::CRITERION::GINI) {
       best_split_gather_classification<T, GiniDevFunctor>(
@@ -210,7 +209,6 @@ void grow_deep_tree_classification(
     }
     MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
                          tempmem->stream);
-    CUDA_CHECK(cudaDeviceSynchronize());
     //Update nodelist and split nodes
     print_nodes(h_sparsenodes, (float*)nullptr, d_nodelist, n_nodes, tempmem);
 
@@ -220,11 +218,11 @@ void grow_deep_tree_classification(
     CUDA_CHECK(cudaMemcpyAsync(d_nodelist, d_new_nodelist,
                                h_counter[0] * sizeof(int),
                                cudaMemcpyDeviceToDevice, tempmem->stream));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);
-    //print_convertor(d_nodecount, d_nodestart, d_samplelist, h_counter[0],
-    //                tempmem);
+    print_convertor(d_nodecount, d_nodestart, d_samplelist, h_counter[0],
+                    tempmem);
     lastsize = 2 * n_nodes;
     n_nodes = h_counter[0];
   }
@@ -239,9 +237,6 @@ void grow_deep_tree_classification(
       d_nodelist, n_nodes, tempmem);
   }
   MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
-  CUDA_CHECK(cudaDeviceSynchronize());
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   sparsetree.insert(sparsetree.end(), h_sparsenodes, h_sparsenodes + lastsize);
-  //print_nodes(sparsetree.data(), (float*)nullptr, (int*)nullptr,
-  //            (int)(sparsetree.size()), tempmem);
-  //exit(0);
 }

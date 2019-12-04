@@ -186,16 +186,19 @@ void convert_scatter_to_gather(const unsigned int *flagsptr,
   int nthreads = 128;
   int nblocks = (int)(n_rows / nthreads);
   if (n_rows % nthreads != 0) nblocks++;
-  fill_counts<<<nblocks, nthreads>>>(flagsptr, sample_cnt, n_rows, nodecount);
+  fill_counts<<<nblocks, nthreads, 0, tempmem->stream>>>(flagsptr, sample_cnt,
+                                                         n_rows, nodecount);
 
   void *d_temp_storage = (void *)(tempmem->temp_cub_buffer->data());
   cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
-                                nodecount, nodestart, n_nodes + 1);
+                                nodecount, nodestart, n_nodes + 1,
+                                tempmem->stream);
   CUDA_CHECK(cudaGetLastError());
 
-  CUDA_CHECK(cudaMemset(nodecount, 0, n_nodes * sizeof(unsigned int)));
-  build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, n_rows, nodecount,
-                                    samplelist);
+  CUDA_CHECK(cudaMemsetAsync(nodecount, 0, n_nodes * sizeof(unsigned int),
+                             tempmem->stream));
+  build_list<<<nblocks, nthreads, 0, tempmem->stream>>>(
+    flagsptr, nodestart, n_rows, nodecount, samplelist);
   CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename L>
@@ -233,6 +236,7 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
 template <typename T, typename L>
 void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
                  int n_nodes, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  CUDA_CHECK(cudaDeviceSynchronize());
   printf(
     "Node format --> (colid, quesval, best_metric, prediction, left_child) \n");
   int *h_nodelist = (int *)(tempmem->h_outgain->data());
@@ -260,15 +264,17 @@ void make_split_gather(const T *data, unsigned int *nodestart,
                        unsigned int *flagsptr,
                        const SparseTreeNode<T, L> *d_sparsenodes,
                        std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  CUDA_CHECK(cudaMemsetAsync(
+    nodecount, 0, (2 * n_nodes + 1) * sizeof(unsigned int), tempmem->stream));
   CUDA_CHECK(
-    cudaMemset(nodecount, 0, (2 * n_nodes + 1) * sizeof(unsigned int)));
-  CUDA_CHECK(cudaMemset(counter, 0, sizeof(unsigned int)));
-  CUDA_CHECK(cudaMemset(flagsptr, LEAF, nrows * sizeof(unsigned int)));
+    cudaMemsetAsync(counter, 0, sizeof(unsigned int), tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(flagsptr, LEAF, nrows * sizeof(unsigned int),
+                             tempmem->stream));
   int nthreads = 128;
   int nblocks = (int)(nrows / nthreads);
   if (nrows % nthreads != 0) nblocks++;
-  split_nodes_compute_counts_kernel<<<n_nodes, 64,
-                                      sizeof(SparseTreeNode<T, L>)>>>(
+  split_nodes_compute_counts_kernel<<<n_nodes, 64, sizeof(SparseTreeNode<T, L>),
+                                      tempmem->stream>>>(
     data, d_sparsenodes, nodestart, samplelist, nrows, nodelist, new_nodelist,
     nodecount, counter, flagsptr);
   CUDA_CHECK(cudaGetLastError());
@@ -277,10 +283,12 @@ void make_split_gather(const T *data, unsigned int *nodestart,
   MLCommon::updateHost(h_counter, counter, 1, tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   cub::DeviceScan::ExclusiveSum(d_temp_storage, tempmem->temp_cub_bytes,
-                                nodecount, nodestart, h_counter[0] + 1);
+                                nodecount, nodestart, h_counter[0] + 1,
+                                tempmem->stream);
   CUDA_CHECK(cudaGetLastError());
-  CUDA_CHECK(cudaMemset(nodecount, 0, h_counter[0] * sizeof(unsigned int)));
-  build_list<<<nblocks, nthreads>>>(flagsptr, nodestart, nrows, nodecount,
-                                    samplelist);
+  CUDA_CHECK(cudaMemsetAsync(nodecount, 0, h_counter[0] * sizeof(unsigned int),
+                             tempmem->stream));
+  build_list<<<nblocks, nthreads, 0, tempmem->stream>>>(
+    flagsptr, nodestart, nrows, nodecount, samplelist);
   CUDA_CHECK(cudaGetLastError());
 }

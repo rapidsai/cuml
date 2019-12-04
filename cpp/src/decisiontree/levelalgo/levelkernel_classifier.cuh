@@ -324,24 +324,26 @@ DI GainIdxPair bin_info_gain_classification(
   GainIdxPair tid_pair;
   tid_pair.gain = 0.0;
   tid_pair.idx = -1;
-  for (int tid = threadIdx.x; tid < nbins; tid++) {
+  for (int tid = threadIdx.x; tid < nbins; tid += blockDim.x) {
     int nrows_left = 0;
-    unsigned int* shmemhist = &shmemhist_left[tid * n_unique_labels];
+    unsigned int* shmemhist = shmemhist_left + tid * n_unique_labels;
     for (int i = 0; i < n_unique_labels; i++) {
       nrows_left += shmemhist[i];
     }
-    float left_metric = F::exec(shmemhist, nrows_left, n_unique_labels);
-    int nrows_right = nsamples - nrows_left;
-    for (int i = 0; i < n_unique_labels; i++) {
-      shmemhist[i] = shmemhist_parent[i] - shmemhist[i];
-    }
-    float right_metric = F::exec(shmemhist, nrows_right, n_unique_labels);
-    float impurity = ((nrows_left * 1.0f) / nsamples) * left_metric +
-                     ((nrows_right * 1.0f) / nsamples) * right_metric;
-    float info_gain = parent_metric[0] - impurity;
-    if (info_gain > tid_pair.gain) {
-      tid_pair.gain = info_gain;
-      tid_pair.idx = tid;
+    if ((nrows_left != nsamples) && (nrows_left != 0)) {
+      int nrows_right = nsamples - nrows_left;
+      float left_metric = F::exec(shmemhist, nrows_left, n_unique_labels);
+      for (int i = 0; i < n_unique_labels; i++) {
+        shmemhist[i] = shmemhist_parent[i] - shmemhist[i];
+      }
+      float right_metric = F::exec(shmemhist, nrows_right, n_unique_labels);
+      float impurity = ((nrows_left * 1.0f) / nsamples) * left_metric +
+                       ((nrows_right * 1.0f) / nsamples) * right_metric;
+      float info_gain = parent_metric[0] - impurity;
+      if (info_gain > tid_pair.gain) {
+        tid_pair.gain = info_gain;
+        tid_pair.idx = tid;
+      }
     }
   }
   return tid_pair;
@@ -418,6 +420,7 @@ __global__ void best_split_gather_classification_kernel(
       n_unique_labels);
     GainIdxPair best_bin_pair =
       BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
+    __syncthreads();
 
     if ((best_bin_pair.gain > shmem_pair.gain) && (threadIdx.x == 0)) {
       shmem_pair = best_bin_pair;
@@ -475,8 +478,6 @@ __global__ void make_leaf_gather_classification_kernel(
       get_class_hist_shared(shmemhist_parent, n_unique_labels);
     localnode.colid = -1;
     localnode.best_metric_val = parent_metric;
-    printf("parent metric %f and count %d and pred %d from block %d\n",
-           parent_metric, count, localnode.prediction, blockIdx.x);
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }

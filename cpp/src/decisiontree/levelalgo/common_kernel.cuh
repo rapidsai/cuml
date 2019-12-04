@@ -330,7 +330,7 @@ __global__ void split_nodes_compute_counts_kernel(
     T quesval = localnode->quesval;
     for (int tid = threadIdx.x; tid < ncount; tid += blockDim.x) {
       unsigned int dataid = samplelist[nstart + tid];
-      if (data[colid * nrows + dataid] < quesval) {
+      if (data[colid * nrows + dataid] <= quesval) {
         tid_count++;
         flagsptr[dataid] = (unsigned int)(currcnt);
       } else {
@@ -338,7 +338,7 @@ __global__ void split_nodes_compute_counts_kernel(
       }
     }
     int cnt_left = BlockReduce(temp_storage).Sum(tid_count);
-
+    __syncthreads();
     if (threadIdx.x == 0) {
       samplecount[currcnt] = cnt_left;
       samplecount[currcnt + 1] = ncount - cnt_left;
