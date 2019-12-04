@@ -191,6 +191,9 @@ class ListenerThread(threading.Thread):
             print("Closing listener thread")
         self.listener.close()
 
+        if self.verbose:
+            print("Closed")
+
 
 async def _func_ucp_create_listener(sessionId, verbose, r):
     """
@@ -221,7 +224,9 @@ async def _func_ucp_stop_listener(sessionId):
         listener = worker_state(sessionId)["ucp_listener"]
         listener.close()
         listener.join()
+
         del worker_state(sessionId)["ucp_listener"]
+        print("Joined")
     else:
         print("Listener not found with sessionId=" + str(sessionId))
 
@@ -316,7 +321,6 @@ async def _func_destroy_all(sessionId, comms_p2p):
                 del ep
         del worker_state(sessionId)["ucp_eps"]
         del worker_state(sessionId)["handle"]
-    return 0
 
 
 def _func_ucp_ports(sessionId, client, workers):
@@ -473,5 +477,8 @@ class CommsContext:
         if self.comms_p2p:
             self.stop_ucp_listeners()
 
+        print("Destroyed")
+
         self.nccl_initialized = False
         self.ucx_initialized = False
+
