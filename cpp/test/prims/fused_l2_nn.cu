@@ -192,6 +192,8 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 64, 32, 33, 1234ULL},   {0.001f, 64, 64, 33, 1234ULL},
   {0.001f, 128, 32, 33, 1234ULL},  {0.001f, 128, 64, 33, 1234ULL},
   {0.001f, 128, 128, 65, 1234ULL}, {0.001f, 64, 128, 129, 1234ULL},
+
+  {0.001f, 1805, 134, 2, 1234ULL},
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result) {
@@ -225,6 +227,8 @@ const std::vector<Inputs<double>> inputsd = {
   {0.00001, 64, 32, 33, 1234ULL},   {0.00001, 64, 64, 33, 1234ULL},
   {0.00001, 128, 32, 33, 1234ULL},  {0.00001, 128, 64, 33, 1234ULL},
   {0.00001, 128, 128, 65, 1234ULL}, {0.00001, 64, 128, 129, 1234ULL},
+
+  {0.00001, 1805, 134, 2, 1234ULL},
 };
 typedef FusedL2NNTest<double, false> FusedL2NNTestD_Sq;
 TEST_P(FusedL2NNTestD_Sq, Result) {
@@ -260,7 +264,7 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
  protected:
   cub::KeyValuePair<int, DataT> *min1;
 
-  static const int NumRepeats = 20;
+  static const int NumRepeats = 10;
 };
 
 typedef FusedL2NNDetTest<float, false> FusedL2NNDetTestF_Sq;
