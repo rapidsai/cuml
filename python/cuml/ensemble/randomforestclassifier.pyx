@@ -204,6 +204,15 @@ class RandomForestClassifier(Base):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
+    **Known Limitations**: This is an early release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+       * GPU-based inference is only supported if the model was trained
+         with 32-bit (float32) datatypes. CPU-based inference may be used
+         in this case as a slower fallback.
+       * Very deep / very wide models may exhaust available GPU memory.
+         Future versions of cuML will provide an alternative algorithm to
+         reduce memory consumption.
 
     Examples
     ---------
