@@ -91,6 +91,7 @@ struct sparse_node_t {
   float val;
   int bits;
   int left_idx;
+  int dummy;
 };
 
 /** dense_node_init initializes node from paramters */
