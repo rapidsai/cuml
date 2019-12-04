@@ -90,7 +90,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=0, n_neighbors=n_neighbors,
                            streams_per_handle=streams_per_handle)
         cumlModel.fit(X_cudf)
 
@@ -215,7 +215,7 @@ def test_default_n_neighbors(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=1, streams_per_handle=5)
+        cumlModel = daskNN(verbose=0, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
