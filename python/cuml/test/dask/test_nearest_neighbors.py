@@ -24,8 +24,6 @@ import numpy as np
 
 from cuml.dask.common import utils as dask_utils
 
-from cuml.dask.common import raise_exception_from_futures
-
 from dask.distributed import Client, wait
 
 from cuml.test.utils import unit_param, quality_param, stress_param
