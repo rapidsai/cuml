@@ -143,7 +143,8 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 
         if verbose:
             elapsed = time.time() - start
-            print("Done initializing UCX endpoints. Took: %f seconds." % elapsed)
+            print("Done initializing UCX endpoints. Took: %f seconds." %
+                  elapsed)
             print("Building handle")
 
         _func_build_handle_p2p(sessionId, streams_per_handle)
