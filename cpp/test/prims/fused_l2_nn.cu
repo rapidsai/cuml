@@ -144,6 +144,16 @@ struct CompareApproxAbsKVP {
   T eps;
 };
 
+template <typename T>
+struct CompareExactKVP {
+  typedef typename cub::KeyValuePair<int, T> KVP;
+  bool operator()(const KVP &a, const KVP &b) const {
+    if (a.key != b.key) return false;
+    if (a.value != b.value) return false;
+    return true;
+  }
+};
+
 template <typename K, typename V, typename L>
 ::testing::AssertionResult devArrMatch(const cub::KeyValuePair<K, V> *expected,
                                        const cub::KeyValuePair<K, V> *actual,
@@ -260,8 +270,7 @@ TEST_P(FusedL2NNDetTestF_Sq, Result) {
                           CompareApproxAbsKVP<float>(params.tolerance)));
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
-    ASSERT_TRUE(devArrMatch(min1, min, params.m,
-                            CompareApproxAbsKVP<float>(params.tolerance)));
+    ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<float>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sq,
@@ -273,8 +282,7 @@ TEST_P(FusedL2NNDetTestF_Sqrt, Result) {
                           CompareApproxAbsKVP<float>(params.tolerance)));
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
-    ASSERT_TRUE(devArrMatch(min1, min, params.m,
-                            CompareApproxAbsKVP<float>(params.tolerance)));
+    ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<float>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sqrt,
@@ -287,8 +295,7 @@ TEST_P(FusedL2NNDetTestD_Sq, Result) {
                           CompareApproxAbsKVP<double>(params.tolerance)));
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
-    ASSERT_TRUE(devArrMatch(min1, min, params.m,
-                            CompareApproxAbsKVP<double>(params.tolerance)));
+    ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<double>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sq,
@@ -300,8 +307,7 @@ TEST_P(FusedL2NNDetTestD_Sqrt, Result) {
                           CompareApproxAbsKVP<double>(params.tolerance)));
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
-    ASSERT_TRUE(devArrMatch(min1, min, params.m,
-                            CompareApproxAbsKVP<double>(params.tolerance)));
+    ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<double>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sqrt,
