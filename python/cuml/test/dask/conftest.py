@@ -1,6 +1,5 @@
 import pytest
 
-from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
 
 
