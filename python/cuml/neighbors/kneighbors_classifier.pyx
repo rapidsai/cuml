@@ -228,7 +228,6 @@ class KNeighborsClassifier(NearestNeighbors):
         if isinstance(X, np.ndarray):
             return np.array(classes, dtype=np.int32)
         elif isinstance(X, cudf.DataFrame):
-
             if classes.ndim == 1:
                 classes = classes.reshape(classes.shape[0], 1)
             return cudf.DataFrame.from_gpu_matrix(classes)
@@ -334,6 +333,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)
         if isinstance(y_hat, tuple):
-            return (accuracy_score(y, y_hat_i) for y_hat_i in y_hat)
+            return (accuracy_score(y, y_hat_i, convert_dtype=convert_dtype)
+                    for y_hat_i in y_hat)
         else:
-            return accuracy_score(y, y_hat)
+            return accuracy_score(y, y_hat, convert_dtype=convert_dtype)
