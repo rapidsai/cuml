@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1443: Added a new overloaded GEMM primitive
 
 ## Bug Fixes
 
