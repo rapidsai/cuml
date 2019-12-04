@@ -24,6 +24,8 @@ import numpy as np
 
 from cuml.dask.common import utils as dask_utils
 
+from cuml.dask.common import raise_exception_from_futures
+
 from dask.distributed import Client, wait
 
 from cuml.test.utils import unit_param, quality_param, stress_param
@@ -58,7 +60,6 @@ def _prep_training_data(c, X_train, partitions_per_worker):
     return X_train_df
 
 
-@pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
                                    quality_param(1e6),
                                    stress_param(5e8)])
@@ -90,13 +91,14 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
                            streams_per_handle=streams_per_handle)
         cumlModel.fit(X_cudf)
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
         local_i = np.array(out_i.compute().as_gpu_matrix())
+        print(str(local_i))
 
         sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
 
@@ -110,7 +112,6 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
         client.close()
 
 
-@pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1000), stress_param(1e5)])
 @pytest.mark.parametrize("ncols", [unit_param(10), stress_param(500)])
 @pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
@@ -138,7 +139,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
         cumlModel.fit(X_cudf)
@@ -146,6 +147,8 @@ def test_batch_size(nrows, ncols, n_parts,
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
         local_i = np.array(out_i.compute().as_gpu_matrix())
+
+        print(str(local_i))
 
         y_hat, _ = predict(local_i, y, n_neighbors)
 
@@ -177,7 +180,7 @@ def test_return_distance(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel = daskNN(verbose=True, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
@@ -215,14 +218,14 @@ def test_default_n_neighbors(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel = daskNN(verbose=True, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
 
         assert ret.shape[1] == cumlNN().n_neighbors
 
-        cumlModel = daskNN(verbose=False, n_neighbors=k)
+        cumlModel = daskNN(verbose=True, n_neighbors=k)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
