@@ -103,6 +103,7 @@ struct dense_storage {
 /** sparse_node is a single node in a sparse forest */
 struct alignas(16) sparse_node : base_node {
   int left_idx;
+  // pad the size to 16 bytes to match sparse_node_t (in fil.h)
   int dummy;
   __host__ __device__ sparse_node() : left_idx(0), base_node() {}
   sparse_node(sparse_node_t node)
