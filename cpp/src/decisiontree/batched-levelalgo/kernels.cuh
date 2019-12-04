@@ -251,10 +251,6 @@ __global__ void nodeSplitClassificationKernel(
   auto range_start = node->start, range_len = node->end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (threadIdx.x == 0) {
-    printf("isLeaf = %d max_leaves = %d max_depth = %d\n", isLeaf, max_leaves,
-           max_depth);
-  }
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
     computePredClassification<DataT, LabelT, IdxT, TPB>(
       range_start, range_len, input, node, n_leaves, smem);
@@ -309,14 +305,13 @@ __global__ void computeSplitClassificationKernel(
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto len = nbins * 2 * nclasses;
-  auto* shist = reinterpret_cast<int*>(smem);
-  auto* sbins = reinterpret_cast<DataT*>(smem + sizeof(int) * len);
+  int* shist = reinterpret_cast<int*>(smem);
+  DataT* sbins = reinterpret_cast<DataT*>(&shist[len]);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
-  if (col >= input.nSampledCols) return;
-  for (IdxT i = 0; i < len; i += blockDim.x) shist[i] = 0;
-  for (IdxT b = 0; b < nbins; b += blockDim.x)
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) shist[i] = 0;
+  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
   __syncthreads();
   auto coloffset = col * input.M;
@@ -337,6 +332,7 @@ __global__ void computeSplitClassificationKernel(
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     atomicAdd(hist + histOffset + i, shist[i]);
   }
+  __threadfence();  // for commit guarantee
   __syncthreads();
   // last threadblock will go ahead and compute the best split
   bool last = true;
@@ -345,12 +341,11 @@ __global__ void computeSplitClassificationKernel(
                                 gridDim.x, blockIdx.x == 0, smem);
   }
   if (!last) return;
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x)
     shist[i] = hist[histOffset + i];
-  }
-  __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
+  __syncthreads();
   if (splitType == CRITERION::GINI) {
     giniGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len, nbins,
                           nclasses);
@@ -358,6 +353,7 @@ __global__ void computeSplitClassificationKernel(
     entropyGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
                              nbins, nclasses);
   }
+  __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
@@ -388,15 +384,12 @@ __global__ void computeSplitRegressionKernel(
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
   if (col >= input.nSampledCols) return;
-  for (IdxT i = 0; i < len; i += blockDim.x) {
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred[i] = spred2[i] = DataT(0.0);
   }
-  for (IdxT i = 0; i < nbins; i += blockDim.x) {
-    scount[i] = 0;
-  }
-  for (IdxT b = 0; b < nbins; b += blockDim.x) {
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) scount[i] = 0;
+  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
-  }
   __syncthreads();
   auto coloffset = col * input.M;
   // compute prediction averages for all bins in shared mem
@@ -425,6 +418,7 @@ __global__ void computeSplitRegressionKernel(
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     atomicAdd(count + gcOffset + i, scount[i]);
   }
+  __threadfence();  // for commit guarantee
   __syncthreads();
   // last threadblock will go ahead and compute the best split
   bool last = true;
@@ -441,15 +435,16 @@ __global__ void computeSplitRegressionKernel(
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     scount[i] = count[gcOffset + i];
   }
-  __syncthreads();
   Split<DataT, IdxT> sp;
   sp.init();
+  __syncthreads();
   if (splitType == CRITERION::MSE) {
     mseGain(spred, spred2, scount, sbins, parentGain, sp, col, range_len,
             nbins);
   } else {
     ///@todo: support
   }
+  __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 

@@ -37,7 +37,7 @@ namespace DecisionTree {
  * @param nclasses number of classes
  */
 template <typename DataT, typename IdxT>
-DI void giniGain(const int* shist, const DataT* sbins, DataT parentGain,
+DI void giniGain(int* shist, DataT* sbins, DataT parentGain,
                  Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins,
                  IdxT nclasses) {
   constexpr DataT One = DataT(1.0);
@@ -47,14 +47,21 @@ DI void giniGain(const int* shist, const DataT* sbins, DataT parentGain,
     for (IdxT j = 0; j < nclasses; ++j) {
       nLeft += shist[i * 2 * nclasses + j];
     }
+    auto nRight = len - nLeft;
     auto invLeft = One / nLeft;
-    auto invRight = One / (len - nLeft);
+    auto invRight = One / nRight;
     auto sum = DataT(0.0);
-    for (IdxT j = 0; j < nclasses; ++j) {
-      auto lval = DataT(shist[i * 2 * nclasses + j]);
-      sum += lval * invLeft * lval * invlen;
-      auto rval = DataT(shist[i * 2 * nclasses + nclasses + j]);
-      sum += rval * invRight * rval * invlen;
+    if (nLeft != 0) {
+      for (IdxT j = 0; j < nclasses; ++j) {
+        DataT lval = DataT(shist[i * 2 * nclasses + j]);
+        sum += lval * invLeft * lval * invlen;
+      }
+    }
+    if (nRight != 0) {
+      for (IdxT j = 0; j < nclasses; ++j) {
+        DataT rval = DataT(shist[i * 2 * nclasses + nclasses + j]);
+        sum += rval * invRight * rval * invlen;
+      }
     }
     auto gain = parentGain - One + sum;
     sp.update({sbins[i], col, gain, nLeft});
@@ -74,7 +81,7 @@ DI void giniGain(const int* shist, const DataT* sbins, DataT parentGain,
  * @param nclasses number of classes
  */
 template <typename DataT, typename IdxT>
-DI void entropyGain(const int* shist, const DataT* sbins, DataT parentGain,
+DI void entropyGain(int* shist, DataT* sbins, DataT parentGain,
                     Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins,
                     IdxT nclasses) {
   constexpr DataT One = DataT(1.0);
@@ -118,9 +125,9 @@ DI void entropyGain(const int* shist, const DataT* sbins, DataT parentGain,
  * @param nbins number of bins
  */
 template <typename DataT, typename IdxT>
-DI void mseGain(const DataT* spred, const DataT* spred2, const IdxT* scount,
-                const DataT* sbins, DataT parentGain, Split<DataT, IdxT>& sp,
-                IdxT col, IdxT len, IdxT nbins) {
+DI void mseGain(DataT* spred, DataT* spred2, IdxT* scount, DataT* sbins,
+                DataT parentGain, Split<DataT, IdxT>& sp, IdxT col, IdxT len,
+                IdxT nbins) {
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     IdxT nLeft = scount[i];
     auto invLeft = (DataT)len / nLeft;

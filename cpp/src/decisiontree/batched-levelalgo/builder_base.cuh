@@ -310,7 +310,6 @@ struct Builder {
     MLCommon::updateHost(h_n_nodes, n_nodes, 1, s);
     CUDA_CHECK(cudaStreamSynchronize(s));
     MLCommon::updateHost(h_nodes + h_total_nodes, next_nodes, *h_n_nodes, s);
-    printf("nodes = %d\n", *h_n_nodes);
     return *h_n_nodes;
   }
 };  // end Builder
@@ -349,10 +348,10 @@ struct ClsTraits {
     auto nbins = b.params.n_bins;
     auto nclasses = b.input.nclasses;
     auto binSize = nbins * 2 * nclasses;
-    auto len = binSize + 2 * nbins;
-    auto n_col_blks = b.params.n_blks_for_cols;
-    dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
-    size_t smemSize = sizeof(int) * len + sizeof(DataT) * nbins;
+    auto colBlks =
+      std::min(b.params.n_blks_for_cols, b.input.nSampledCols - col);
+    dim3 grid(b.params.n_blks_for_rows, colBlks, batchSize);
+    size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
@@ -376,9 +375,6 @@ struct ClsTraits {
         b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
         b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes, b.n_depth);
-    IdxT n = 0;
-    MLCommon::updateHost(&n, b.n_leaves, 1, s);
-    printf("batch=%d nl=%d\n", batchSize, n);
   }
 
   /**

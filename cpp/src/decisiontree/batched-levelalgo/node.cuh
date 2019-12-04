@@ -61,7 +61,6 @@ struct Node {
     info.prediction = pred;
     atomicAdd(n_leaves, 1);
     __threadfence();
-    printf("n_leaves = %d\n", *n_leaves);
   }
 
   /**
