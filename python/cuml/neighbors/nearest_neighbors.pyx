@@ -92,27 +92,22 @@ class NearestNeighbors(Base):
 
       import cudf
       from cuml.neighbors import NearestNeighbors
-      import numpy as np
+      from cuml.datasets import make_blobs
 
-      np_float = np.array([
-        [1,2,3], # Point 1
-        [1,2,4], # Point 2
-        [2,2,4]  # Point 3
-      ]).astype('float32')
+      X, _ = make_blobs(n_samples=25, centers=5,
+                        n_features=10, random_state=42)
 
-      gdf_float = cudf.DataFrame()
-      gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
-      gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
-      gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
+      # build a cudf Dataframe
+      X_cudf = cudf.DataFrame.from_gpu_matrix(X)
 
-      print('n_samples = 3, n_dims = 3')
-      print(gdf_float)
+      # fit model
+      model = NearestNeighbors(n_neighbors=3)
+      model.fit(X)
 
-      nn_float = NearestNeighbors()
-      nn_float.fit(gdf_float)
       # get 3 nearest neighbors
-      distances,indices = nn_float.kneighbors(gdf_float,k=3)
+      distances, indices = model.kneighbors(X_cudf)
 
+      # print results
       print(indices)
       print(distances)
 
@@ -120,38 +115,71 @@ class NearestNeighbors(Base):
 
     .. code-block:: python
 
-      import cudf
 
-      # Both import methods supported
-      # from cuml.neighbors import NearestNeighbors
-      from cuml import NearestNeighbors
+    indices:
 
-      n_samples = 3, n_dims = 3
+             0   1   2
+        0    0  14  21
+        1    1  19   8
+        2    2   9  23
+        3    3  14  21
+        4    4  15  18
+        5    5   1  19
+        6    6  10  13
+        7    7  14   3
+        8    8  19   1
+        9    9  23   2
+        10  10  24   6
+        11  11  18  15
+        12  12  19   8
+        13  13  17  24
+        14  14  21   7
+        15  15  18   4
+        16  16  23   9
+        17  17  24  13
+        18  18  11  15
+        19  19   1  12
+        20  20   2   9
+        21  21  14   3
+        22  22  18  11
+        23  23  16   9
+        24  24  17  10
 
-      dim_0 dim_1 dim_2
+    distances:
 
-      0   1.0   2.0   3.0
-      1   1.0   2.0   4.0
-      2   2.0   2.0   4.0
+              0         1         2
+        0   0.0  4.883116  5.570006
+        1   0.0  3.047896  4.105496
+        2   0.0  3.558557  3.567704
+        3   0.0  3.806127  3.880100
+        4   0.0  3.604866  4.257425
+        5   0.0  5.013218  5.018098
+        6   0.0  4.701295  5.285057
+        7   0.0  3.761291  4.024879
+        8   0.0  3.942976  4.105496
+        9   0.0  3.404269  3.558557
+        10  0.0  3.818043  4.701295
+        11  0.0  2.254586  3.620186
+        12  0.0  3.457439  4.459381
+        13  0.0  3.987583  4.324923
+        14  0.0  3.149770  3.761291
+        15  0.0  3.097861  3.604866
+        16  0.0  3.357889  3.664541
+        17  0.0  3.428183  3.987583
+        18  0.0  2.254586  3.097861
+        19  0.0  3.047896  3.457439
+        20  0.0  3.963187  4.498718
+        21  0.0  3.149770  3.880100
+        22  0.0  4.210738  4.227068
+        23  0.0  3.357889  3.404269
+        24  0.0  3.428183  3.818043
 
-      # indices:
-
-               index_neighbor_0 index_neighbor_1 index_neighbor_2
-      0                0                1                2
-      1                1                0                2
-      2                2                1                0
-      # distances:
-
-               distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
-      0                 0.0                 1.0                 2.0
-      1                 0.0                 1.0                 1.0
-      2                 0.0                 1.0                 2.0
 
     Notes
     ------
 
     For an additional example see `the NearestNeighbors notebook
-    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
+    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/nearest_neighbors_demo.ipynb>`_.
 
     For additional docs, see `scikitlearn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.

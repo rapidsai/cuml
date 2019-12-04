@@ -101,13 +101,13 @@ class KNeighborsClassifier(NearestNeighbors):
 
 
     Output:
+    -------
 
 
     .. code-block:: python
 
       array([3, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1, 0, 0, 0, 2, 3, 3,
              0, 3, 0, 0, 0, 0, 3, 2, 0, 0, 0], dtype=int32)
-
 
     Notes
     ------
