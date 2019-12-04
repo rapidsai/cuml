@@ -86,10 +86,10 @@ template <typename DataT, typename IdxT>
 DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
                           IdxT max_leaves, const IdxT* n_leaves,
                           IdxT nSamples) {
-  if (myDepth < max_depth) return false;
-  if (nSamples >= min_rows_per_node) return false;
-  if (*n_leaves < max_leaves) return false;
-  return true;
+  if (myDepth >= max_depth) return true;
+  if (nSamples < min_rows_per_node) return true;
+  if (*n_leaves >= max_leaves) return true;
+  return false;
 }
 
 namespace internal {

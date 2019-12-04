@@ -52,7 +52,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
                     inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, inparams.nbins,
                     inparams.min_gain, false, inparams.splitType, false, false,
-                    32, 10, 4, 0);
+                    128, 10, 4, 0);
     auto allocator = handle->getImpl().getDeviceAllocator();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
@@ -130,9 +130,8 @@ TEST_P(DtClsTestF, Test) {
                              data, inparams.N, inparams.M, labels, quantiles,
                              rowids, colids, inparams.M, inparams.nclasses,
                              params, stream, sparsetree, num_leaves, depth);
-  ASSERT_EQ(sparsetree.size(), inparams.splitType == CRITERION::GINI ? 3 : 1);
-  // ASSERT_EQ(num_leaves, inparams.splitType == CRITERION::GINI ? 2 : 1);
-  ASSERT_EQ(depth, inparams.splitType == CRITERION::GINI ? 1 : 0);
+  // dataset is such that it makes the tree reach all the way to max_depth
+  ASSERT_EQ(depth, inparams.max_depth);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
                         ::testing::ValuesIn(allC));

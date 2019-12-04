@@ -93,7 +93,8 @@ struct Node {
     nodes[pos].start = start + split.nLeft;
     nodes[pos].end = end - split.nLeft;
     // update depth
-    atomicMax(n_depth, depth + 1);
+    auto val = atomicMax(n_depth, depth + 1);
+    __threadfence();
     return pos;
   }
 };  // end Node
