@@ -104,7 +104,6 @@ def test_allreduce(cluster):
         cb = CommsContext()
         cb.init()
 
-        start = time.time()
         dfs = [client.submit(func_test_allreduce, cb.sessionId,
                              random.random(), workers=[w])
                for wid, w in zip(range(len(cb.worker_addresses)),
@@ -128,7 +127,6 @@ def test_send_recv(n_trials, ucx_cluster):
         cb = CommsContext(comms_p2p=True, verbose=True)
         cb.init()
 
-        start = time.time()
         dfs = [client.submit(func_test_send_recv,
                              cb.sessionId,
                              n_trials,
