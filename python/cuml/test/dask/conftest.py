@@ -11,7 +11,7 @@ def ucx_cluster():
 
 
 @pytest.fixture(scope="module")
-def ucx_cluster():
+def cluster():
     cluster = LocalCUDACluster(threads_per_worker=1)
     yield cluster
     cluster.close()
