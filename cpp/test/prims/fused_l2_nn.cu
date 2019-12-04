@@ -93,19 +93,9 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     allocate(min_ref, m);
     r.uniform(x, m * k, DataT(-1.0), DataT(1.0), stream);
     r.uniform(y, n * k, DataT(-1.0), DataT(1.0), stream);
-    naive<DataT, Sqrt>(min_ref, x, y, m, n, k, (int *)workspace, stream);
+    generateGoldenResult();
     LinAlg::rowNorm(xn, x, k, m, LinAlg::L2Norm, true, stream);
     LinAlg::rowNorm(yn, y, k, n, LinAlg::L2Norm, true, stream);
-  }
-
-  void runTest(cub::KeyValuePair<int, DataT> *out) {
-    int m = params.m;
-    int n = params.n;
-    int k = params.k;
-    fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int, Sqrt,
-              MinAndDistanceReduceOp<int, DataT>>(out, x, y, xn, yn, m, n, k,
-                                                  (void *)workspace, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
@@ -126,6 +116,23 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   char *workspace;
   cub::KeyValuePair<int, DataT> *min, *min_ref;
   cudaStream_t stream;
+
+  virtual void generateGoldenResult() {
+    int m = params.m;
+    int n = params.n;
+    int k = params.k;
+    naive<DataT, Sqrt>(min_ref, x, y, m, n, k, (int *)workspace, stream);
+  }
+
+  void runTest(cub::KeyValuePair<int, DataT> *out) {
+    int m = params.m;
+    int n = params.n;
+    int k = params.k;
+    fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int, Sqrt,
+              MinAndDistanceReduceOp<int, DataT>>(out, x, y, xn, yn, m, n, k,
+                                                  (void *)workspace, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
 };
 
 template <typename T>
@@ -264,14 +271,14 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
  protected:
   cub::KeyValuePair<int, DataT> *min1;
 
-  static const int NumRepeats = 10;
+  static const int NumRepeats = 100;
+
+  void generateGoldenResult() override {}
 };
 
 typedef FusedL2NNDetTest<float, false> FusedL2NNDetTestF_Sq;
 TEST_P(FusedL2NNDetTestF_Sq, Result) {
-  runTest(min);
-  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
-                          CompareApproxAbsKVP<float>(params.tolerance)));
+  runTest(min);  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
     ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<float>()));
@@ -281,9 +288,7 @@ INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sq,
                         ::testing::ValuesIn(inputsf));
 typedef FusedL2NNDetTest<float, true> FusedL2NNDetTestF_Sqrt;
 TEST_P(FusedL2NNDetTestF_Sqrt, Result) {
-  runTest(min);
-  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
-                          CompareApproxAbsKVP<float>(params.tolerance)));
+  runTest(min);  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
     ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<float>()));
@@ -294,9 +299,7 @@ INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sqrt,
 
 typedef FusedL2NNDetTest<double, false> FusedL2NNDetTestD_Sq;
 TEST_P(FusedL2NNDetTestD_Sq, Result) {
-  runTest(min);
-  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
-                          CompareApproxAbsKVP<double>(params.tolerance)));
+  runTest(min);  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
     ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<double>()));
@@ -306,9 +309,7 @@ INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sq,
                         ::testing::ValuesIn(inputsd));
 typedef FusedL2NNDetTest<double, true> FusedL2NNDetTestD_Sqrt;
 TEST_P(FusedL2NNDetTestD_Sqrt, Result) {
-  runTest(min);
-  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
-                          CompareApproxAbsKVP<double>(params.tolerance)));
+  runTest(min);  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
     runTest(min1);
     ASSERT_TRUE(devArrMatch(min1, min, params.m, CompareExactKVP<double>()));
