@@ -397,14 +397,17 @@ __global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
 /**
  * @brief Batched GEMM operation (exhaustive version)
  *        [C1, C2, ...] = [alpha*A1*B1+beta*C1, alpha*A2*B2+beta*C2, ...]
- * 
- * @param[in]      A      Batch of matrices A
- * @param[in]      B      Batch of matrices B
- * @param[in,out]  C      Batch of matrices C
- * @param[in]      alpha  Parameter alpha
- * @param[in]      beta   Parameter beta
+ *
  * @param[in]      aT     Is `A` transposed?
  * @param[in]      bT     Is `B` transposed?
+ * @param[in]      m      Number of rows of A or A.T
+ * @param[in]      n      Number of columns of B or B.T
+ * @param[in]      k      Common dimension of A or A.T and B or B.T
+ * @param[in]      alpha  Parameter alpha
+ * @param[in]      A      Batch of matrices A
+ * @param[in]      B      Batch of matrices B
+ * @param[in]      beta   Parameter beta
+ * @param[in,out]  C      Batch of matrices C
  */
 template <typename T>
 void b_gemm(bool aT, bool bT, int m, int n, int k, T alpha,

@@ -384,7 +384,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
   if (d + D + intercept == 0) {
     batched_kalman_filter(handle, d_y, n_obs, d_Tar, d_Tma, d_Tsar, d_Tsma, p,
-                          q, P, Q, batch_size, loglike, d_vs);
+                          q, P, Q, s, batch_size, loglike, d_vs);
   } else {
     double* d_y_prep = (double*)allocator->allocate(
       batch_size * (n_obs - d - s * D) * sizeof(double), stream);
@@ -393,7 +393,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                   d_mu);
 
     batched_kalman_filter(handle, d_y_prep, n_obs - d, d_Tar, d_Tma, d_Tsar,
-                          d_Tsma, p, q, P, Q, batch_size, loglike, d_vs);
+                          d_Tsma, p, q, P, Q, s, batch_size, loglike, d_vs);
 
     allocator->deallocate(
       d_y_prep, sizeof(double) * batch_size * (n_obs - d - s * D), stream);
@@ -463,6 +463,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
 /**
  * Auxiliary function of _start_params: least square approximation of an
  * ARMA model (with or without seasonality)
+ * @note: in this function the non-seasonal case has s=1, not s=0!
  */
 static void _arma_least_squares(
   cumlHandle& handle, double* d_ar, double* d_ma,
@@ -534,8 +535,8 @@ static void _arma_least_squares(
   }
 
   // Lags of y
-  MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, n_obs - r, ar_offset,
-                                 0, s);
+  MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, n_obs - r, ar_offset, 0,
+                                 s);
 
   /* Initializing the vector for the ARMA fit
    * (note: also in-place as described for AR fit) */
