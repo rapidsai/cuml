@@ -798,11 +798,6 @@ def _batched_transform(order, seasonal_order, intercept, nb, x, isInv,
     p, _, q = order
     P, _, Q, _ = seasonal_order
 
-    cdef vector[double] vec_ar
-    cdef vector[double] vec_ma
-    cdef vector[double] vec_Tar
-    cdef vector[double] vec_Tma
-
     if handle is None:
         handle = cuml.common.handle.Handle()
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
