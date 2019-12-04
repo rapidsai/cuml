@@ -230,10 +230,15 @@ struct Builder {
   void train(NodeT* h_nodes, IdxT& num_leaves, IdxT& depth, cudaStream_t s) {
     init(h_nodes, s);
     while (true) {
+      printf("node_start=%d node_end=%d h_total_nodes=%d\n", node_start,
+             node_end, h_total_nodes);
       IdxT new_nodes = doSplit(h_nodes, s);
+      printf("new_nodes=%d\n", new_nodes);
       h_total_nodes += new_nodes;
       if (new_nodes == 0 && isOver()) break;
       updateNodeRange();
+      printf("after node_start=%d node_end=%d h_total_nodes=%d\n", node_start,
+             node_end, h_total_nodes);
     }
     MLCommon::updateHost(&num_leaves, n_leaves, 1, s);
     MLCommon::updateHost(&depth, n_depth, 1, s);

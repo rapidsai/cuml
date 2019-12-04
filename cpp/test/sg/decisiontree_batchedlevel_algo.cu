@@ -163,9 +163,9 @@ TEST_P(DtRegTestF, Test) {
                         data, inparams.N, inparams.M, labels, quantiles, rowids,
                         colids, inparams.M, 0, params, stream, sparsetree,
                         num_leaves, depth);
-  ASSERT_EQ(sparsetree.size(), 1);
-  ASSERT_EQ(num_leaves, 1);
-  ASSERT_EQ(depth, 0);
+  ASSERT_EQ(sparsetree.size(), 5);
+  ASSERT_EQ(num_leaves, 3);
+  ASSERT_EQ(depth, 2);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF,
                         ::testing::ValuesIn(allR));

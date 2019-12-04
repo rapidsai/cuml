@@ -129,13 +129,16 @@ DI void mseGain(DataT* spred, DataT* spred2, IdxT* scount, DataT* sbins,
                 DataT parentGain, Split<DataT, IdxT>& sp, IdxT col, IdxT len,
                 IdxT nbins) {
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    IdxT nLeft = scount[i];
+    auto nLeft = scount[i];
+    auto nRight = len - nLeft;
     auto invLeft = (DataT)len / nLeft;
-    auto invRight = (DataT)len / (len - nLeft);
+    auto invRight = (DataT)len / nRight;
     DataT sum = spred2[i] + spred2[nbins + i];
-    sum -= spred[i] * spred[i] * invLeft;
-    sum -= spred[nbins + i] * spred[nbins + i] * invRight;
+    if (nLeft != 0) sum -= spred[i] * invLeft * spred[i];
+    if (nRight != 0) sum -= spred[nbins + i] * invRight * spred[nbins + i];
     auto gain = parentGain - sum;
+    printf("i=%d bid=%d,%d,%d gain=%f parentGain=%f nLeft=%d\n", i, blockIdx.x,
+           blockIdx.y, blockIdx.z, gain, parentGain, nLeft);
     sp.update({sbins[i], col, gain, nLeft});
   }
 }

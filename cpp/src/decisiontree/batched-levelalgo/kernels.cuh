@@ -61,7 +61,7 @@ __global__ void initialMeanPredKernel(DataT* meanPred, DataT* meanPred2,
     auto row = rowids[i];
     auto label = labels[row];
     atomicAdd(spred, label);
-    atomicAdd(spred + 1, label);
+    atomicAdd(spred + 1, label * label);
   }
   __syncthreads();
   if (threadIdx.x == 0) {
@@ -86,6 +86,11 @@ template <typename DataT, typename IdxT>
 DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
                           IdxT max_leaves, const IdxT* n_leaves,
                           IdxT nSamples) {
+  if (threadIdx.x == 0) {
+    printf("mydep=%d maxdep=%d min_row=%d max_leaf=%d n_leaves=%d nSamp=%d\n",
+           myDepth, max_depth, min_rows_per_node, max_leaves, *n_leaves,
+           nSamples);
+  }
   if (myDepth >= max_depth) return true;
   if (nSamples < min_rows_per_node) return true;
   if (*n_leaves >= max_leaves) return true;
@@ -275,6 +280,10 @@ __global__ void nodeSplitRegressionKernel(
   auto range_start = node->start, range_len = node->end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
+  if (threadIdx.x == 0) {
+    printf("nid=%d best=%f min=%f\n", nid, splits[nid].best_metric_val,
+           min_impurity_decrease);
+  }
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
     computePredRegression<DataT, DataT, IdxT, TPB>(range_start, range_len,
                                                    input, node, n_leaves, smem);
@@ -306,7 +315,7 @@ __global__ void computeSplitClassificationKernel(
   auto nclasses = input.nclasses;
   auto len = nbins * 2 * nclasses;
   int* shist = reinterpret_cast<int*>(smem);
-  DataT* sbins = reinterpret_cast<DataT*>(&shist[len]);
+  DataT* sbins = reinterpret_cast<DataT*>(shist + len);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
@@ -383,13 +392,13 @@ __global__ void computeSplitRegressionKernel(
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
-  if (col >= input.nSampledCols) return;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred[i] = spred2[i] = DataT(0.0);
   }
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) scount[i] = 0;
-  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
-    sbins[b] = input.quantiles[col * nbins + b];
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    scount[i] = 0;
+    sbins[i] = input.quantiles[col * nbins + i];
+  }
   __syncthreads();
   auto coloffset = col * input.M;
   // compute prediction averages for all bins in shared mem
@@ -397,14 +406,13 @@ __global__ void computeSplitRegressionKernel(
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
+    auto label2 = label * label;
     for (IdxT b = 0; b < nbins; ++b) {
       auto isRight = d > sbins[b];  // no divergence
       auto offset = isRight * nbins + b;
       atomicAdd(spred + offset, label);
-      atomicAdd(spred2 + offset, label * label);
-      if (!isRight) {
-        atomicAdd(scount + b, 1);
-      }
+      atomicAdd(spred2 + offset, label2);
+      if (!isRight) atomicAdd(scount + b, 1);
     }
   }
   __syncthreads();
