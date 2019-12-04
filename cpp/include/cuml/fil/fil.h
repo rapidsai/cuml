@@ -91,6 +91,8 @@ struct sparse_node_t {
   float val;
   int bits;
   int left_idx;
+  // pad the size to 16 bytes to match sparse_node
+  // (in cpp/src/fil/common.cuh)
   int dummy;
 };
 
