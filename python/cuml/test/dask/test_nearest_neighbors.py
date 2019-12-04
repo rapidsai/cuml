@@ -96,7 +96,6 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
         local_i = np.array(out_i.compute().as_gpu_matrix())
-        print(str(local_i))
 
         sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
 
@@ -145,8 +144,6 @@ def test_batch_size(nrows, ncols, n_parts,
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
         local_i = np.array(out_i.compute().as_gpu_matrix())
-
-        print(str(local_i))
 
         y_hat, _ = predict(local_i, y, n_neighbors)
 
