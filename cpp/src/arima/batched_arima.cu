@@ -564,7 +564,7 @@ static void _arma_least_squares(
  * Auxiliary function of estimate_x0: compute the starting parameters for
  * the series pre-processed by estimate_x0
  *
- * @note: bm_y is mutated! estimate_x0 has already created a copy.
+ * @note: bm_y can be mutated! estimate_x0 has already created a copy.
  */
 static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                           double* d_ma, double* d_sar, double* d_sma,

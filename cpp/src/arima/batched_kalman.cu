@@ -612,8 +612,8 @@ void pack(int batch_size, int p, int q, int P, int Q, int k, const double* d_mu,
 }
 
 template <typename AllocatorT>
-void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q, int P,
-                     int Q, int batch_size, double** d_ar, double** d_ma,
+void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q,
+                     int P, int Q, int batch_size, double** d_ar, double** d_ma,
                      double** d_sar, double** d_sma, int k, double** d_mu) {
   if (k) *d_mu = (double*)alloc->allocate(batch_size * sizeof(double), stream);
   if (p)
@@ -640,7 +640,7 @@ void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q,
 void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
                              int intercept, int batch_size, bool isInv,
                              const double* h_params, double* h_Tparams) {
-  int N = p + q + intercept;
+  int N = p + q + P + Q + intercept;
   auto alloc = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_params =
@@ -674,6 +674,33 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
                     d_Tsma);
 }
 
+/**
+ * Auxiliary function of batched_jones_transform to remove redundancy.
+ * Applies the transform to the given batched parameters.
+ */
+void _transform_helper(cumlHandle& handle, const double* d_param,
+                       double* d_Tparam, int k, int batch_size, bool isInv,
+                       bool isAr) {
+  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
+
+  // inverse transform will produce NaN if parameters are outside of a
+  // "triangle" region
+  double* d_param_fixed =
+    (double*)allocator->allocate(sizeof(double) * batch_size * k, stream);
+  if (isInv) {
+    fix_ar_ma_invparams(d_param, d_param_fixed, batch_size, k, stream, isAr);
+  } else {
+    CUDA_CHECK(cudaMemcpyAsync(d_param_fixed, d_param,
+                               sizeof(double) * batch_size * k,
+                               cudaMemcpyDeviceToDevice, stream));
+  }
+  MLCommon::TimeSeries::jones_transform(d_param_fixed, batch_size, k, d_Tparam,
+                                        isAr, isInv, allocator, stream);
+
+  allocator->deallocate(d_param_fixed, sizeof(double) * batch_size * k, stream);
+}
+
 void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
                              int batch_size, bool isInv, const double* d_ar,
                              const double* d_ma, const double* d_sar,
@@ -681,46 +708,14 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
                              double* d_Tsar, double* d_Tsma) {
   ML::PUSH_RANGE("batched_jones_transform");
 
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
-
-  if (p) {
-    // inverse transform will produce NaN if parameters are outside of a "triangle" region
-    double* d_ar_fixed =
-      (double*)allocator->allocate(sizeof(double) * batch_size * p, stream);
-    if (isInv) {
-      fix_ar_ma_invparams(d_ar, d_ar_fixed, batch_size, p, stream, true);
-    } else {
-      CUDA_CHECK(cudaMemcpyAsync(d_ar_fixed, d_ar,
-                                 sizeof(double) * batch_size * p,
-                                 cudaMemcpyDeviceToDevice, stream));
-    }
-    MLCommon::TimeSeries::jones_transform(d_ar_fixed, batch_size, p, d_Tar,
-                                          true, isInv, allocator, stream);
-
-    allocator->deallocate(d_ar_fixed, sizeof(double) * batch_size * p, stream);
-  }
-  if (q) {
-    // inverse transform will produce NaN if parameters are outside of a "triangle" region
-    double* d_ma_fixed;
-    d_ma_fixed =
-      (double*)allocator->allocate(sizeof(double) * batch_size * q, stream);
-    if (isInv) {
-      fix_ar_ma_invparams(d_ma, d_ma_fixed, batch_size, q, stream, false);
-    } else {
-      CUDA_CHECK(cudaMemcpyAsync(d_ma_fixed, d_ma,
-                                 sizeof(double) * batch_size * q,
-                                 cudaMemcpyDeviceToDevice, stream));
-    }
-
-    MLCommon::TimeSeries::jones_transform(d_ma_fixed, batch_size, q, d_Tma,
-                                          false, isInv, allocator, stream);
-
-    allocator->deallocate(d_ma_fixed, sizeof(double) * batch_size * q, stream);
-  }
-  ML::POP_RANGE();
+  if (p) _transform_helper(handle, d_ar, d_Tar, p, batch_size, isInv, true);
+  if (q) _transform_helper(handle, d_ma, d_Tma, q, batch_size, isInv, false);
+  if (P) _transform_helper(handle, d_sar, d_Tsar, P, batch_size, isInv, true);
+  if (Q) _transform_helper(handle, d_sma, d_Tsma, Q, batch_size, isInv, false);
 
   ///TODO: tranform SAR and SMA coefficients?!
+
+  ML::POP_RANGE();
 }
 
 }  // namespace ML
