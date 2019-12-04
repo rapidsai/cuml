@@ -233,5 +233,79 @@ TEST_P(FusedL2NNTestD_Sqrt, Result) {
 INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sqrt,
                         ::testing::ValuesIn(inputsd));
 
+/// This is to test output determinism of the prim
+template <typename DataT, bool Sqrt>
+class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
+  void SetUp() override {
+    FusedL2NNTest<DataT, Sqrt>::SetUp();
+    int m = this->params.m;
+    allocate(min1, m);
+  }
+
+  void TearDown() override {
+    FusedL2NNTest<DataT, Sqrt>::TearDown();
+    CUDA_CHECK(cudaFree(min1));
+  }
+
+ protected:
+  cub::KeyValuePair<int, DataT> *min1;
+
+  static const int NumRepeats = 20;
+};
+
+typedef FusedL2NNDetTest<float, false> FusedL2NNDetTestF_Sq;
+TEST_P(FusedL2NNDetTestF_Sq, Result) {
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
+                          CompareApproxAbsKVP<float>(params.tolerance)));
+  for (int i = 0; i < NumRepeats; ++i) {
+    runTest(min1);
+    ASSERT_TRUE(devArrMatch(min1, min, params.m,
+                            CompareApproxAbsKVP<float>(params.tolerance)));
+  }
+}
+INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sq,
+                        ::testing::ValuesIn(inputsf));
+typedef FusedL2NNDetTest<float, true> FusedL2NNDetTestF_Sqrt;
+TEST_P(FusedL2NNDetTestF_Sqrt, Result) {
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
+                          CompareApproxAbsKVP<float>(params.tolerance)));
+  for (int i = 0; i < NumRepeats; ++i) {
+    runTest(min1);
+    ASSERT_TRUE(devArrMatch(min1, min, params.m,
+                            CompareApproxAbsKVP<float>(params.tolerance)));
+  }
+}
+INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestF_Sqrt,
+                        ::testing::ValuesIn(inputsf));
+
+typedef FusedL2NNDetTest<double, false> FusedL2NNDetTestD_Sq;
+TEST_P(FusedL2NNDetTestD_Sq, Result) {
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
+                          CompareApproxAbsKVP<double>(params.tolerance)));
+  for (int i = 0; i < NumRepeats; ++i) {
+    runTest(min1);
+    ASSERT_TRUE(devArrMatch(min1, min, params.m,
+                            CompareApproxAbsKVP<double>(params.tolerance)));
+  }
+}
+INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sq,
+                        ::testing::ValuesIn(inputsd));
+typedef FusedL2NNDetTest<double, true> FusedL2NNDetTestD_Sqrt;
+TEST_P(FusedL2NNDetTestD_Sqrt, Result) {
+  runTest(min);
+  ASSERT_TRUE(devArrMatch(min, min_ref, params.m,
+                          CompareApproxAbsKVP<double>(params.tolerance)));
+  for (int i = 0; i < NumRepeats; ++i) {
+    runTest(min1);
+    ASSERT_TRUE(devArrMatch(min1, min, params.m,
+                            CompareApproxAbsKVP<double>(params.tolerance)));
+  }
+}
+INSTANTIATE_TEST_CASE_P(FusedL2NNDetTests, FusedL2NNDetTestD_Sqrt,
+                        ::testing::ValuesIn(inputsd));
+
 }  // end namespace Distance
 }  // end namespace MLCommon
