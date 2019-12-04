@@ -74,7 +74,6 @@ class NearestNeighbors(object):
                          local_query_parts, query_m, query_parts_to_ranks,
                          rank, k):
 
-        print("Calling kneighbors")
         return model.kneighbors(
             local_idx_parts, idx_m, n, idx_parts_to_ranks,
             local_query_parts, query_m, query_parts_to_ranks,

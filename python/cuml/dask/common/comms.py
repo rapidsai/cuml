@@ -130,8 +130,8 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
     _func_init_nccl(sessionId, uniqueId)
 
     if verbose:
-        end = time.time() - start
-        print("NCCL Initialization took: %f seconds." % end)
+        elapsed = time.time() - start
+        print("NCCL Initialization took: %f seconds." % elapsed)
 
     if comms_p2p:
         if verbose:
@@ -142,8 +142,8 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
         await _func_ucp_create_endpoints(sessionId, worker_info)
 
         if verbose:
-            end = time.time() - start
-            print("Done initializing UCX endpoints. Took: %f seconds." % end)
+            elapsed = time.time() - start
+            print("Done initializing UCX endpoints. Took: %f seconds." % elapsed)
             print("Building handle")
 
         _func_build_handle_p2p(sessionId, streams_per_handle)
@@ -177,7 +177,7 @@ def _func_init_nccl(sessionId, uniqueId):
 
 class ListenerThread(threading.Thread):
     def __init__(self, verbose):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
         self.listener = ucp.create_listener(_connection_func)
         self.port = self.listener.port
         self.verbose = verbose
@@ -186,7 +186,7 @@ class ListenerThread(threading.Thread):
         if self.verbose:
             print("Running listener thread")
         while not self.listener.closed():
-            time.sleep(0.01)
+            time.sleep(1)
 
     def close(self):
         if self.verbose:
