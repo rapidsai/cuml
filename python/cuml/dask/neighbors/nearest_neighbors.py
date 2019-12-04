@@ -230,16 +230,11 @@ class NearestNeighbors(object):
         """
         Perform model query
         """
-
-        print("Calling query")
         nn_fit, out_d_futures, out_i_futures = \
             self._query_models(n_neighbors, comms, nn_models,
                                self.X, query_futures)
 
-        print("Done")
         comms.destroy()
-
-        print("Returning futures")
 
         if _return_futures:
             ret = nn_fit, out_i_futures if not return_distance else \
@@ -249,5 +244,4 @@ class NearestNeighbors(object):
                 if not return_distance else (to_dask_cudf(out_d_futures),
                                              to_dask_cudf(out_i_futures))
 
-        print(str(ret))
         return ret

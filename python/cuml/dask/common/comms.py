@@ -226,7 +226,6 @@ async def _func_ucp_stop_listener(sessionId):
         listener.join()
 
         del worker_state(sessionId)["ucp_listener"]
-        print("Joined")
     else:
         print("Listener not found with sessionId=" + str(sessionId))
 
@@ -476,8 +475,6 @@ class CommsContext:
 
         if self.comms_p2p:
             self.stop_ucp_listeners()
-
-        print("Destroyed")
 
         self.nccl_initialized = False
         self.ucx_initialized = False
