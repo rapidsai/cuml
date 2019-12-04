@@ -46,22 +46,6 @@ def test_comms_init_no_p2p(cluster):
         client.close()
 
 
-def test_comms_init_p2p_no_ucx(cluster):
-
-    client = Client(cluster)
-
-    try:
-        cb = CommsContext(comms_p2p=True)
-        cb.init()
-
-        assert cb.nccl_initialized is True
-        assert cb.ucx_initialized is False
-
-    finally:
-        cb.destroy()
-        client.close()
-
-
 def func_test_allreduce(sessionId, r):
     handle = worker_state(sessionId)["handle"]
     return perform_test_comms_allreduce(handle)
@@ -127,10 +111,6 @@ def test_allreduce(cluster):
                                  cb.worker_addresses)]
         wait(dfs)
 
-        print("Time: " + str(time.time() - start))
-
-        print(str(list(map(lambda x: x.result(), dfs))))
-
         assert all(list(map(lambda x: x.result(), dfs)))
 
     finally:
@@ -139,10 +119,9 @@ def test_allreduce(cluster):
 
 
 @pytest.mark.ucx
-@pytest.mark.skip(reason="UCX support not enabled in CI")
-def test_send_recv(n_trials, cluster):
+def test_send_recv(n_trials, ucx_cluster):
 
-    client = Client(cluster)
+    client = Client(ucx_cluster)
 
     try:
 
@@ -159,23 +138,18 @@ def test_send_recv(n_trials, cluster):
                                  cb.worker_addresses)]
 
         wait(dfs)
-        print("Time: " + str(time.time() - start))
 
-        result = list(map(lambda x: x.result(), dfs))
-
-        print(str(result))
-
-        assert(result)
+        assert(list(map(lambda x: x.result(), dfs)))
 
     finally:
         cb.destroy()
         client.close()
 
 
-@pytest.mark.skip(reason="UCX support not enabled in CI")
-def test_recv_any_rank(n_trials, cluster):
+@pytest.mark.ucx
+def test_recv_any_rank(n_trials, ucx_cluster):
 
-    client = Client(cluster)
+    client = Client(ucx_cluster)
 
     try:
 
