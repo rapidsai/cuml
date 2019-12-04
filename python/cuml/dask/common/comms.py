@@ -183,16 +183,16 @@ class ListenerThread(threading.Thread):
         self.verbose = verbose
 
     def run(self):
+        if self.verbose:
+            print("Running listener thread")
         while not self.listener.closed():
             time.sleep(0.01)
 
     def close(self):
         if self.verbose:
             print("Closing listener thread")
-        self.listener.close()
 
-        if self.verbose:
-            print("Closed")
+        self.listener.close()
 
 
 async def _func_ucp_create_listener(sessionId, verbose, r):
