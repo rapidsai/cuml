@@ -3,6 +3,7 @@ import pytest
 from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
 
+
 @pytest.fixture(scope="module")
 def cluster():
     initialize.initialize(create_cuda_context=True,
