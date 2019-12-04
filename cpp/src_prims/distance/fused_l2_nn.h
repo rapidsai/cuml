@@ -367,6 +367,7 @@ struct FusedL2NN {
         if (rid < m) {
           while (atomicCAS(mutex + rid, 0, 1) == 1)
             ;
+          __threadfence();
           redOp(min + rid, val[i]);
           __threadfence();
           atomicCAS(mutex + rid, 1, 0);
