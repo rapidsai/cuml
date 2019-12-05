@@ -211,7 +211,7 @@ class SmoSolver {
       // alpha for both batches individually
       CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
         handle.getCublasHandle(), CUBLAS_OP_N, n_rows_x, n_ws, &one, cacheTile,
-        n_rows_x, delta_alpha + n_rows_x, 1, &one, f + n_rows_x, 1, stream));
+        n_rows_x, delta_alpha, 1, &one, f + n_rows_x, 1, stream));
     }
   }
 
@@ -260,7 +260,7 @@ class SmoSolver {
     // \epsilon \sum_{i=1}^l (\alpha_i^+ + \alpha_i^-) -
     //          \sum_{i=1}^l yc_i (\alpha_i^+ - \alpha_i^-)
     // + \frac{1}{2}\sum_{i,j=1}^l(\alpha_i^+ - \alpha_i^-)(\alpha_j^+ - \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
-    // Then f_i = y_i {\partial W(\alpha}{\partial \alpha_i} = yc_i epsilon - yr_i
+    // Then f_i = y_i {\partial W(\alpha}{\partial \alpha_i} = yc_i*epsilon - yr_i
     // this is consistent with thunderSVM code and paper.
     // LIBSVM code has epsilon + yr_i. If I remember correctly, they
     // multiply with yC_i later, to get similar quantity as our f_i
