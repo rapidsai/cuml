@@ -359,13 +359,14 @@ __global__ void best_split_gather_classification_kernel(
   const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
   const int ncols_sampled, const size_t treesz, const float min_impurity_split,
   SparseTreeNode<T, int>* d_sparsenodes, int* d_nodelist) {
+  //shmemhist_parent[n_unique_labels]
+  extern __shared__ unsigned int shmemhist_parent[];
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
   __shared__ float parent_metric;
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
-  //shmemhist_parent[n_unique_labels]
-  extern __shared__ unsigned int shmemhist_parent[];
+
   //shmemhist_left[n_unique_labels*nbins]
   unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
 
@@ -391,7 +392,6 @@ __global__ void best_split_gather_classification_kernel(
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
   FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
-
   //Loop over cols
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
     colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled, colcnt,

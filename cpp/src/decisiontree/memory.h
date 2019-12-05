@@ -24,7 +24,7 @@
 template <class T, class L>
 struct TemporaryMemory {
   //depth algorithm changer
-  const int swap_depth = 4;
+  const int swap_depth = 8;
   //Allocators parsed from CUML handle
   std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
   std::shared_ptr<MLCommon::hostAllocator> host_allocator;
