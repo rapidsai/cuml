@@ -162,7 +162,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   int idx = ws_idx[tid];
   int kidx =
     (svmType == EPSILON_SVR && idx >= n_rows / 2) ? idx - n_rows / 2 : idx;
-
+  int n_rows_x = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
   // store values in registers
   math_t y = y_array[idx];
   math_t f = f_array[idx];
@@ -171,7 +171,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 
-  Kd[tid] = kernel[tid * n_rows + kidx];
+  Kd[tid] = kernel[tid * n_rows_x + kidx];
   int n_iter = 0;
   printf("tid - idx: %d - %d\n", tid, idx);
   for (; n_iter < max_iter; n_iter++) {
@@ -186,7 +186,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     // select f_max to check stopping condition
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
     __syncthreads();  // needed because we are reusing the shared memory buffer
-    math_t Kui = kernel[u * n_rows + kidx];
+    math_t Kui = kernel[u * n_rows_x + kidx];
     math_t f_max =
       BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
 
@@ -215,7 +215,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
       l = res.key;
     }
     __syncthreads();
-    math_t Kli = kernel[l * n_rows + kidx];
+    math_t Kli = kernel[l * n_rows_x + kidx];
 
     // Update alpha
     // Let's set q = \frac{f_l - f_u}{\eta_{ul}
