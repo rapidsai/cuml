@@ -182,10 +182,15 @@ class RandomForestRegressor(Base):
     histogram-based algorithm to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an initial release of the cuML
+    **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-       * Instances of RandomForestRegressor cannot be fully pickled currently.
+       * GPU-based inference is only supported if the model was trained
+         with 32-bit (float32) datatypes CPU-based inference may be used
+         in this case as a slower fallback.
+       * Very deep / very wide models may exhaust available GPU memory.
+         Future versions of cuML will provide an alternative algorithm to
+         reduce memory consumption.
 
     Examples
     ---------
@@ -212,8 +217,8 @@ class RandomForestRegressor(Base):
 
     Parameters
     -----------
-    n_estimators : int (default = 10)
-        Number of trees in the forest.
+    n_estimators : int (default = 100)
+        Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     handle : cuml.Handle
         If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
@@ -282,7 +287,7 @@ class RandomForestRegressor(Base):
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
-    def __init__(self, n_estimators=10, max_depth=16, handle=None,
+    def __init__(self, n_estimators=100, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,

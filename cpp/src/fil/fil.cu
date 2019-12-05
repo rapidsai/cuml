@@ -172,6 +172,7 @@ struct dense_forest : forest {
   void init(const cumlHandle& h, const dense_node_t* nodes,
             const forest_params_t* params) {
     init_common(params);
+    if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
     nodes_ = (dense_node*)h.getDeviceAllocator()->allocate(
@@ -212,6 +213,7 @@ struct sparse_forest : forest {
   void init(const cumlHandle& h, const int* trees, const sparse_node_t* nodes,
             const forest_params_t* params) {
     init_common(params);
+    if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_ = 0;  // a placeholder value
     num_nodes_ = params->num_nodes;
 
@@ -251,18 +253,21 @@ void check_params(const forest_params_t* params, bool dense) {
   } else {
     ASSERT(params->num_nodes >= 0,
            "num_nodes must be non-negative for sparse forests");
-    ASSERT(params->algo == algo_t::NAIVE,
-           "only NAIVE algorithm is supported for sparse forests");
+    ASSERT(params->algo == algo_t::NAIVE || params->algo == algo_t::ALGO_AUTO,
+           "only ALGO_AUTO and NAIVE algorithms are supported "
+           "for sparse forests");
   }
   ASSERT(params->num_trees >= 0, "num_trees must be non-negative");
   ASSERT(params->num_cols >= 0, "num_cols must be non-negative");
   switch (params->algo) {
+    case algo_t::ALGO_AUTO:
     case algo_t::NAIVE:
     case algo_t::TREE_REORG:
     case algo_t::BATCH_TREE_REORG:
       break;
     default:
-      ASSERT(false, "aglo should be NAIVE, TREE_REORG or BATCH_TREE_REORG");
+      ASSERT(false,
+             "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
