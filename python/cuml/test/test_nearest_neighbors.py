@@ -124,7 +124,6 @@ def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-
     assert array_equal(D_cuml_arr, D_sk, 1e-2, with_sign=True)
     assert I_cuml_arr.all() == I_sk.all()
 
