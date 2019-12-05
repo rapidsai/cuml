@@ -124,7 +124,7 @@ static __global__ void _undiff_kernel(double* d_fc, const double* d_in,
       if (!double_diff) {  // One simple or seasonal difference
         b_fc[i] += _select_read(b_in, n_obs, b_fc, i - s0);
       } else {  // Two differences (simple, seasonal or both)
-        double fc_acc = _select_read(b_in, n_obs, b_fc, i - s0 - s1);
+        double fc_acc = -_select_read(b_in, n_obs, b_fc, i - s0 - s1);
         fc_acc += _select_read(b_in, n_obs, b_fc, i - s0);
         fc_acc += _select_read(b_in, n_obs, b_fc, i - s1);
         b_fc[i] += fc_acc;
@@ -215,7 +215,7 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
     else {
       yprep = (double*)allocator->allocate(
         ld_yprep * batch_size * sizeof(double), stream);
-      _prepare_data(handle, yprep, d_y, batch_size, n_obs, d, 0, 0, intercept,
+      _prepare_data(handle, yprep, d_y, batch_size, n_obs, d, D, s, intercept,
                     d_mu);
       d_y_prep = yprep;
     }
@@ -223,53 +223,61 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
 
   const auto counting = thrust::make_counting_iterator(0);
 
+  int p_sP = p + s * P;
+  int q_sQ = q + s * Q;
+
   // Copy data into temporary work arrays
   double* d_y_ =
-    (double*)allocator->allocate((p + num_steps) * batch_size, stream);
+    (double*)allocator->allocate((p_sP + num_steps) * batch_size, stream);
   double* d_vs_ =
-    (double*)allocator->allocate((q + num_steps) * batch_size, stream);
+    (double*)allocator->allocate((q_sQ + num_steps) * batch_size, stream);
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
-                     if (p > 0) {
-                       for (int ip = 0; ip < p; ip++) {
-                         d_y_[(p + num_steps) * bid + ip] =
-                           d_y_prep[ld_yprep * bid + ld_yprep - p + ip];
+                     if (p_sP) {
+                       for (int ip = 0; ip < p_sP; ip++) {
+                         d_y_[(p_sP + num_steps) * bid + ip] =
+                           d_y_prep[ld_yprep * bid + ld_yprep - p_sP + ip];
                        }
                      }
-                     if (q > 0) {
-                       for (int iq = 0; iq < q; iq++) {
-                         d_vs_[(q + num_steps) * bid + iq] =
-                           d_vs[ld_yprep * bid + ld_yprep - q + iq];
+                     if (q_sQ) {
+                       for (int iq = 0; iq < q_sQ; iq++) {
+                         d_vs_[(q_sQ + num_steps) * bid + iq] =
+                           d_vs[ld_yprep * bid + ld_yprep - q_sQ + iq];
                        }
                      }
                    });
 
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int bid) {
-                     for (int i = 0; i < num_steps; i++) {
-                       auto it = num_steps * bid + i;
-                       d_y_fc[it] = 0.0;
-                       if (p > 0) {
-                         double dot_ar_y = 0.0;
-                         for (int ip = 0; ip < p; ip++) {
-                           dot_ar_y += d_ar[p * bid + ip] *
-                                       d_y_[(p + num_steps) * bid + i + ip];
-                         }
-                         d_y_fc[it] += dot_ar_y;
-                       }
-                       if (q > 0 && i < q) {
-                         double dot_ma_y = 0.0;
-                         for (int iq = 0; iq < q; iq++) {
-                           dot_ma_y += d_ma[q * bid + iq] *
-                                       d_vs_[(q + num_steps) * bid + i + iq];
-                         }
-                         d_y_fc[it] += dot_ma_y;
-                       }
-                       if (p > 0) {
-                         d_y_[(p + num_steps) * bid + i + p] = d_y_fc[it];
-                       }
-                     }
-                   });
+  thrust::for_each(
+    thrust::cuda::par.on(stream), counting, counting + batch_size,
+    [=] __device__(int bid) {
+      for (int i = 0; i < num_steps; i++) {
+        auto it = num_steps * bid + i;
+        d_y_fc[it] = 0.0;
+        if (p_sP) {
+          double dot_ar_y = 0.0;
+          for (int ip = 0; ip < p_sP; ip++) {
+            double coef =
+              reduced_polynomial<true>(bid, d_ar, p, d_sar, P, s, ip + 1);
+            if (coef != 0.0)
+              dot_ar_y += coef * d_y_[(p_sP + num_steps) * bid + i + ip];
+          }
+          d_y_fc[it] += dot_ar_y;
+        }
+        if (i < q_sQ) {
+          double dot_ma_y = 0.0;
+          for (int iq = 0; iq < q_sQ; iq++) {
+            double coef =
+              reduced_polynomial<false>(bid, d_ma, q, d_sma, Q, s, iq + 1);
+            if (coef != 0.0)
+              dot_ma_y += coef * d_vs_[(q_sQ + num_steps) * bid + i + iq];
+          }
+          d_y_fc[it] += dot_ma_y;
+        }
+        if (p_sP) {
+          d_y_[(p_sP + num_steps) * bid + i + p_sP] = d_y_fc[it];
+        }
+      }
+    });
 
   _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, d, D, s,
                      intercept, d_mu);
