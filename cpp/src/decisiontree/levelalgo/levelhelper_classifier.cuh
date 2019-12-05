@@ -334,18 +334,25 @@ void best_split_gather_classification(
   const float min_impurity_split,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem,
   SparseTreeNode<T, int> *d_sparsenodes, int *d_nodelist) {
-  const T *d_question_ptr = tempmem->d_quantile->data();
   if (split_algo == 0) {
-    ASSERT(false, "MINMAX not yet supported in gather mode");
+    using E = typename MLCommon::Stats::encode_traits<T>::E;
+    T init_val = std::numeric_limits<T>::max();
+    size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
+    best_split_gather_classification_minmax_kernel<T, E, FDEV>
+      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, n_nodes,
+        n_unique_labels, nbins, nrows, Ncols, ncols_sampled, treesz,
+        min_impurity_split, init_val, d_sparsenodes, d_nodelist);
   } else {
+    const T *d_question_ptr = tempmem->d_quantile->data();
     size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
     best_split_gather_classification_kernel<T, QuantileQues<T>, FDEV>
       <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
         d_samplelist, n_nodes, n_unique_labels, nbins, nrows, Ncols,
         ncols_sampled, treesz, min_impurity_split, d_sparsenodes, d_nodelist);
-    CUDA_CHECK(cudaGetLastError());
   }
+  CUDA_CHECK(cudaGetLastError());
 }
 template <typename T, typename FDEV>
 void make_leaf_gather_classification(
