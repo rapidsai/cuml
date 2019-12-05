@@ -17,8 +17,6 @@ import pytest
 
 import random
 
-import time
-
 from dask.distributed import Client, wait
 
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
