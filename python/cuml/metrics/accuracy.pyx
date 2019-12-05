@@ -66,9 +66,9 @@ def accuracy_score(ground_truth, predictions, handle=None, convert_dtype=True):
                            convert_to_dtype=np.int32
                            if convert_dtype else None)
 
-    ground_truth_m, ground_truth_ptr, _, _, ground_truth_dtype = \
+    ground_truth_m, ground_truth_ptr, _, _, ground_truth_dtype=\
         input_to_dev_array(ground_truth,
-                           convert_to_dtype = np.int32
+                           convert_to_dtype=np.int32
                            if convert_dtype else None)
 
     acc = accuracy_score_py(handle_[0],
