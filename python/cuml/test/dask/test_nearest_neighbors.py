@@ -89,7 +89,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            streams_per_handle=streams_per_handle)
         cumlModel.fit(X_cudf)
 
@@ -136,7 +136,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
         cumlModel.fit(X_cudf)
@@ -175,7 +175,7 @@ def test_return_distance(ucx_cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=True, streams_per_handle=5)
+        cumlModel = daskNN(verbose=False, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
@@ -213,14 +213,14 @@ def test_default_n_neighbors(ucx_cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=True, streams_per_handle=5)
+        cumlModel = daskNN(verbose=False, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
 
         assert ret.shape[1] == cumlNN().n_neighbors
 
-        cumlModel = daskNN(verbose=True, n_neighbors=k)
+        cumlModel = daskNN(verbose=False, n_neighbors=k)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
