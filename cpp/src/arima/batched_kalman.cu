@@ -234,15 +234,10 @@ void _batched_kalman_loop_large_matrices(
 
   BatchedMatrix v_tmp1(r, 1, nb, cublasHandle, allocator, stream, false);
   BatchedMatrix v_tmp2(r, 1, nb, cublasHandle, allocator, stream, false);
-
   BatchedMatrix m_tmp1(r, r, nb, cublasHandle, allocator, stream, false);
   BatchedMatrix m_tmp2(r, r, nb, cublasHandle, allocator, stream, false);
-
   BatchedMatrix K(r, 1, nb, cublasHandle, allocator, stream, false);
 
-  // const double* d_T = T.raw_data();
-  // const double* d_Z = Z.raw_data();
-  // const double* d_RRT = RRT.raw_data();
   double* d_P = P.raw_data();
   double* d_alpha = alpha.raw_data();
   double* d_K = K.raw_data();
@@ -516,41 +511,41 @@ static void init_batched_kalman_matrices(
   cudaMemsetAsync(d_T_b, 0.0, r * r * nb * sizeof(double), stream);
 
   auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
-                   [=] __device__(int bid) {
-                     // See TSA pg. 54 for Z,R,T matrices
-                     // Z = [1 0 0 0 ... 0]
-                     d_Z_b[bid * r] = 1.0;
+  thrust::for_each(
+    thrust::cuda::par.on(stream), counting, counting + nb,
+    [=] __device__(int bid) {
+      // See TSA pg. 54 for Z,R,T matrices
+      // Z = [1 0 0 0 ... 0]
+      d_Z_b[bid * r] = 1.0;
 
-                     /*     |1.0        |
-                      * R = |theta_1    |
-                      *     | ...       |
-                      *     |theta_{r-1}|
-                      */
-                     d_R_b[bid * r] = 1.0;
-                     for (int i = 0; i < r - 1; i++) {
-                       d_R_b[bid * r + i + 1] = _reduced_polynomial<false>(
-                         bid, d_ma, q, d_sma, Q, s, i + 1);
-                     }
+      /*     |1.0        |
+       * R = |theta_1    |
+       *     | ...       |
+       *     |theta_{r-1}|
+       */
+      d_R_b[bid * r] = 1.0;
+      for (int i = 0; i < r - 1; i++) {
+        d_R_b[bid * r + i + 1] =
+          reduced_polynomial<false>(bid, d_ma, q, d_sma, Q, s, i + 1);
+      }
 
-                     /*     |phi_1  1.0  0.0  ...  0.0|
-                      *     | .          1.0          |
-                      *     | .              .        |
-                      * T = | .                .   0.0|
-                      *     | .                  .    |
-                      *     | .                    1.0|
-                      *     |phi_r  0.0  0.0  ...  0.0|
-                      */
-                     double* batch_T = d_T_b + bid * r * r;
-                     for (int i = 0; i < r; i++) {
-                       batch_T[i] = _reduced_polynomial<true>(
-                         bid, d_ar, p, d_sar, P, s, i + 1);
-                     }
-                     // shifted identity
-                     for (int i = 0; i < r - 1; i++) {
-                       batch_T[(i + 1) * r + i] = 1.0;
-                     }
-                   });
+      /*     |phi_1  1.0  0.0  ...  0.0|
+       *     | .          1.0          |
+       *     | .              .        |
+       * T = | .                .   0.0|
+       *     | .                  .    |
+       *     | .                    1.0|
+       *     |phi_r  0.0  0.0  ...  0.0|
+       */
+      double* batch_T = d_T_b + bid * r * r;
+      for (int i = 0; i < r; i++) {
+        batch_T[i] = reduced_polynomial<true>(bid, d_ar, p, d_sar, P, s, i + 1);
+      }
+      // shifted identity
+      for (int i = 0; i < r - 1; i++) {
+        batch_T[(i + 1) * r + i] = 1.0;
+      }
+    });
   ML::POP_RANGE();
 }  // namespace ML
 

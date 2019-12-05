@@ -190,6 +190,7 @@ class ARIMA(Base):
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
         P, D, Q, s = seasonal_order
+        # TODO: check that period is > p and q
         if P + D + Q > 0 and s < 2:
             raise ValueError("Invalid period for seasonal ARIMA: {}"
                              .format(s))
@@ -198,10 +199,6 @@ class ARIMA(Base):
                              .format(s))
         if d + D > 2:
             raise ValueError("Invalid order. Required: d+D <= 2")
-        if p + P > 8:
-            raise ValueError("Invalid order. Required: p+P <= 8")
-        if q + Q > 7:
-            raise ValueError("Invalid order. Required: q+Q <= 7")
 
         self.order = order
         self.seasonal_order = seasonal_order
@@ -213,6 +210,8 @@ class ARIMA(Base):
         # Get device array. Float64 only for now.
         self.d_y, _, self.num_samples, self.batch_size, self.dtype \
             = input_to_dev_array(y, check_dtype=np.float64)
+
+        # TODO: check that number of observations ok with orders
 
         self.yp = None
         self.niter = None  # number of iterations used during fit
@@ -700,7 +699,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
 
     """
 
-    batch_size = y_b.shape[1]
+    batch_size = y_b.shape[1] if len(y_b.shape) > 1 else 1
     best_ic = np.full(batch_size, np.finfo(np.float64).max/2)
 
     best_order = batch_size*[None]
