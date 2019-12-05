@@ -234,6 +234,8 @@ class KNeighborsRegressor(NearestNeighbors):
         if isinstance(X, np.ndarray):
             return np.array(results)
         elif isinstance(X, cudf.DataFrame):
+            if results.ndim == 1:
+                results = results.reshape(results.shape[0], 1)
             return cudf.DataFrame.from_gpu_matrix(results)
         else:
             return results
