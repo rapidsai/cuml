@@ -267,7 +267,7 @@ void check_params(const forest_params_t* params, bool dense) {
       break;
     default:
       ASSERT(false,
-             "aglo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
+             "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
