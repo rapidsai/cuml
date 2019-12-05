@@ -1106,19 +1106,22 @@ class SvrTest : public ::testing::Test {
     updateDevice(y_dev, y_host, 2, stream);
     svrFit(handle, x_dev, 2, 1, y_dev, param, kernelParams, model);
     smoOutput<math_t> exp{2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}};
-    std::cout << "b:" << model.b << "\n";
     checkResults(model, exp, stream);
   }
 
-  // void TestSvrFit() {
-  //   svmParameter param{1, 200, 1000, 10, 1e-3, true, 0.1, EPSILON_SVR};
-  //   KernelParams kernelParams{LINEAR, 3, 1, 0};
-  //   svrFit(handle, x_dev, n_rows, n_cols, y_dev, param, kernelParams, model);
-  //   smoOutput<math_t> exp{
-  //     6,     {-1, 1, 0.45, -0.45, -1, 1},    -0.4,
-  //     {1.1}, {1.0, 2.0, 3.0, 5.0, 6.0, 7.0}, {0, 1, 2, 4, 5, 6}};
-  //   checkResults(model, exp, stream);
-  // }
+  void TestSvrFit2() {
+    svmParameter param{1, 0, 100, 10, 1e-6, true, 0.1, EPSILON_SVR};
+    KernelParams kernelParams{LINEAR, 3, 1, 0};
+    svrFit(handle, x_dev, n_rows, n_cols, y_dev, param, kernelParams, model);
+    smoOutput<math_t> exp{
+      6,     {-1, 1, 0.45, -0.45, -1, 1},    -0.4,
+      {1.1}, {1.0, 2.0, 3.0, 5.0, 6.0, 7.0}, {0, 1, 2, 4, 5, 6}};
+    checkResults(model, exp, stream);
+    device_buffer<math_t> preds(allocator, stream, n_rows);
+    svcPredict(handle, x_dev, n_rows, n_cols, kernelParams, model, preds.data(),
+               (math_t)200.0, false);
+    myPrintDevVector("pred", preds.data(), n_rows);
+  }
 
  protected:
   cumlHandle handle;
@@ -1151,6 +1154,7 @@ TYPED_TEST(SvrTest, Init) { this->TestSvrInit(); }
 TYPED_TEST(SvrTest, WorkingSet) { this->TestSvrWorkingSet(); }
 TYPED_TEST(SvrTest, Results) { this->TestSvrResults(); }
 TYPED_TEST(SvrTest, Fit) { this->TestSvrFit(); }
+TYPED_TEST(SvrTest, Fit2) { this->TestSvrFit2(); }
 
 };  // end namespace SVM
 };  // end namespace ML
