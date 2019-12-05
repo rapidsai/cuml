@@ -155,7 +155,7 @@ void grow_deep_tree_classification(
 
   // Start of gather algorithm
   //Convertor
-
+  //std::cout << "begin gather \n";
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
@@ -172,10 +172,6 @@ void grow_deep_tree_classification(
   d_sparsenodes = tempmem->d_sparsenodes->data();
   h_sparsenodes = tempmem->h_sparsenodes->data();
 
-  CUDA_CHECK(
-    cudaMemsetAsync(d_nodestart, 0, (max_nodes + 1) * sizeof(unsigned int)));
-  CUDA_CHECK(cudaMemsetAsync(
-    d_nodecount, 0, (max_nodes + 1) * sizeof(unsigned int), tempmem->stream));
   int* h_counter = tempmem->h_counter->data();
   int* d_counter = tempmem->d_counter->data();
   memcpy(h_nodelist, sparse_nodelist.data(),
@@ -188,6 +184,9 @@ void grow_deep_tree_classification(
                             d_nodestart, d_samplelist, tempmem);
   //print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
   for (int depth = tempmem->swap_depth; depth < maxdepth; depth++) {
+    //std::cout << "at depth --> " << depth_cnt << "nodes --> " << n_nodes
+    //          << std::endl;
+
     depth_cnt = depth + 1;
     //Algorithm starts here
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,

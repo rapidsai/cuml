@@ -17,6 +17,7 @@
 #pragma once
 #include <thrust/extrema.h>
 #include <utils.h>
+#include <algorithm>
 #include "cub/cub.cuh"
 #include "memory.h"
 
@@ -72,40 +73,53 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
                                               int nbins, int depth,
                                               const int split_algo,
                                               bool col_shuffle) {
-  if (depth > 20 || (depth == -1)) {
-    max_nodes_per_level = pow(2, 20);
+  if (depth > swap_depth || (depth == -1)) {
+    max_nodes_per_level = pow(2, swap_depth);
   } else {
     max_nodes_per_level = pow(2, depth);
   }
-  int maxnodes = max_nodes_per_level;
-  int ncols_sampled = (int)(ncols * colper);
+  size_t maxnodes = max_nodes_per_level;
+  size_t ncols_sampled = (int)(ncols * colper);
+  size_t gather_max_nodes =
+    std::min((size_t)(nrows + 1), (size_t)(pow(2, depth)));
+  size_t parentsz = std::max(maxnodes, gather_max_nodes);
+  size_t childsz = std::max(2 * maxnodes, gather_max_nodes);
+  //std::cout << "maxnodes --> " << maxnodes << "  gather maxnodes--> "
+  //          << gather_max_nodes << std::endl;
+  //std::cout << "Parent size --> " << parentsz << std::endl;
+  //std::cout << "Child size  --> " << childsz << std::endl;
   d_flags =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
-  //This buffers will be renamed and reused in gather algorithms
-  h_split_colidx =
-    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes + 1);
-  h_split_binidx =
-    new MLCommon::host_buffer<int>(host_allocator, stream, maxnodes + 1);
-  d_split_colidx =
-    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes + 1);
-  d_split_binidx =
-    new MLCommon::device_buffer<int>(device_allocator, stream, maxnodes + 1);
   h_new_node_flags =
     new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
   d_new_node_flags = new MLCommon::device_buffer<unsigned int>(
     device_allocator, stream, maxnodes);
+  totalmem += nrows * sizeof(int) + maxnodes * sizeof(int);
+  //This buffers will be renamed and reused in gather algorithms
+  h_split_colidx =
+    new MLCommon::host_buffer<int>(host_allocator, stream, parentsz);
+  h_split_binidx =
+    new MLCommon::host_buffer<int>(host_allocator, stream, parentsz);
+  d_split_colidx =
+    new MLCommon::device_buffer<int>(device_allocator, stream, parentsz);
+  d_split_binidx =
+    new MLCommon::device_buffer<int>(device_allocator, stream, parentsz);
   h_parent_metric =
-    new MLCommon::host_buffer<T>(host_allocator, stream, maxnodes + 1);
+    new MLCommon::host_buffer<T>(host_allocator, stream, parentsz);
   h_child_best_metric =
-    new MLCommon::host_buffer<T>(host_allocator, stream, 2 * maxnodes);
+    new MLCommon::host_buffer<T>(host_allocator, stream, childsz);
   h_outgain =
-    new MLCommon::host_buffer<float>(host_allocator, stream, maxnodes);
-  d_parent_metric =
-    new MLCommon::device_buffer<T>(device_allocator, stream, maxnodes + 1);
+    new MLCommon::host_buffer<float>(host_allocator, stream, parentsz);
+  d_parent_metric = new MLCommon::device_buffer<T>(
+    device_allocator, stream, std::max(parentsz, (size_t)(nrows + 1)));
   d_child_best_metric =
-    new MLCommon::device_buffer<T>(device_allocator, stream, 2 * maxnodes);
+    new MLCommon::device_buffer<T>(device_allocator, stream, childsz);
   d_outgain =
-    new MLCommon::device_buffer<float>(device_allocator, stream, maxnodes + 1);
+    new MLCommon::device_buffer<float>(device_allocator, stream, parentsz);
+  //end of reusable buffers
+  totalmem =
+    3 * parentsz * sizeof(int) + childsz * sizeof(T) + (nrows + 1) * sizeof(T);
+
   if (split_algo == 0) {
     d_globalminmax = new MLCommon::device_buffer<T>(
       device_allocator, stream, 2 * maxnodes * ncols_sampled);
@@ -126,40 +140,39 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
       device_allocator, stream, ncols_sampled * maxnodes);
     h_colids = new MLCommon::host_buffer<unsigned int>(
       host_allocator, stream, ncols_sampled * maxnodes);
+    totalmem += ncols_sampled * maxnodes * sizeof(int);
 
   } else {
+    //This buffers are also reused by gather algorithm
     d_colids = new MLCommon::device_buffer<unsigned int>(device_allocator,
                                                          stream, ncols);
     d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
-                                                           stream, maxnodes);
+                                                           stream, parentsz);
     h_colids =
       new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
     h_colstart =
-      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, maxnodes);
+      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, parentsz);
+    totalmem += ncols * sizeof(int) + parentsz * sizeof(int);
   }
   //CUB memory for gather algorithms
   size_t temp_storage_bytes = 0;
   void* cub_buffer = NULL;
   cub::DeviceScan::ExclusiveSum(cub_buffer, temp_storage_bytes,
                                 d_split_colidx->data(), d_split_binidx->data(),
-                                maxnodes + 1);
+                                gather_max_nodes);
   temp_cub_buffer = new MLCommon::device_buffer<char>(device_allocator, stream,
                                                       temp_storage_bytes);
   h_counter = new MLCommon::host_buffer<int>(host_allocator, stream, 1);
   d_counter = new MLCommon::device_buffer<int>(device_allocator, stream, 1);
   temp_cub_bytes = temp_storage_bytes;
-  totalmem += nrows * 2 * sizeof(unsigned int) + temp_cub_bytes + 1;
-  totalmem += maxnodes * 3 * sizeof(int);
-  totalmem += maxnodes * sizeof(float);
-  totalmem += 3 * maxnodes * sizeof(T);
-  totalmem += (ncols + maxnodes) * sizeof(int);
+  totalmem += temp_cub_bytes + 1;
 
   //Allocate node vectors
   d_sparsenodes = new MLCommon::device_buffer<SparseTreeNode<T, L>>(
-    device_allocator, stream, maxnodes);
+    device_allocator, stream, gather_max_nodes);
   h_sparsenodes = new MLCommon::host_buffer<SparseTreeNode<T, L>>(
-    host_allocator, stream, maxnodes);
-  totalmem += maxnodes * sizeof(SparseTreeNode<T, L>);
+    host_allocator, stream, gather_max_nodes);
+  totalmem += gather_max_nodes * sizeof(SparseTreeNode<T, L>);
 
   //Regression
   if (typeid(L) == typeid(T)) {

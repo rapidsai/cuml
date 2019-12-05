@@ -183,6 +183,11 @@ void convert_scatter_to_gather(const unsigned int *flagsptr,
                                unsigned int *nodecount, unsigned int *nodestart,
                                unsigned int *samplelist,
                                std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  CUDA_CHECK(
+    cudaMemsetAsync(nodestart, 0, (n_nodes + 1) * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMemsetAsync(nodecount, 0, (n_nodes + 1) * sizeof(unsigned int),
+                             tempmem->stream));
+
   int nthreads = 128;
   int nblocks = (int)(n_rows / nthreads);
   if (n_rows % nthreads != 0) nblocks++;

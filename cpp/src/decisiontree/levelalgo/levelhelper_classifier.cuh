@@ -338,8 +338,7 @@ void best_split_gather_classification(
   if (split_algo == 0) {
     ASSERT(false, "MINMAX not yet supported in gather mode");
   } else {
-    size_t shmemsz =
-      n_unique_labels * (nbins + 1) * sizeof(unsigned int) + sizeof(float);
+    size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
     best_split_gather_classification_kernel<T, QuantileQues<T>, FDEV>
       <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
