@@ -92,6 +92,7 @@
 - PR #1401: Patch for lbfgs solver for logistic regression with no l1 penalty
 - PR #1416: train_test_split numba and rmm device_array output bugfix
 - PR #1419: UMAP pickle tests are using wrong n_neighbors value for trustworthiness
+- PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
 - PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
 
 # cuML 0.10.0 (16 Oct 2019)
