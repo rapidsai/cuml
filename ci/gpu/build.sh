@@ -124,6 +124,15 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
+
+export UCX_TLS=tcp,sockcm,cuda_copy,cuda_ipc
+export UCX_SOCKADDR_TLS_PRIORITY=sockcm
+export UCXPY_IFNAME="eth0"
+export UCX_LOG_LEVEL=INFO
+export UCX_MEMTYPE_CACHE=n
+export UCX_PATH=$CONDA_PREFIX
+export UCX_WARN_UNUSED_ENV_VARS=n
+
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
 
 ################################################################################
