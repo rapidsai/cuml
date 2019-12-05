@@ -307,7 +307,7 @@ class ARIMA(Base):
                     self.seasonal_order[0], self.seasonal_order[2]]
         for i in range(len(names)):
             if criteria[i] > 0:
-                params[names[i]] = self.__dict__[names[i]]
+                params[names[i]] = getattr(self, names[i])
         return params
 
     def set_params(self, params: Mapping[str, object]):
@@ -316,7 +316,7 @@ class ARIMA(Base):
         for param_name in ["mu", "ar", "ma", "sar", "sma"]:
             if param_name in params:
                 array, _, _, _, _ = input_to_host_array(params[param_name])
-                self.__dict__[param_name] = array
+                setattr(self, param_name, array)
 
     def predict_in_sample(self):
         """Return in-sample prediction on batched series given batched model
