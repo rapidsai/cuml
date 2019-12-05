@@ -186,12 +186,12 @@ def test_rf_classification_default(datatype, column_info, nrows):
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(2000), quality_param(25000),
                          stress_param(500000)])
 def test_rf_regression_default(datatype, column_info, nrows):
 
     ncols, n_info = column_info
-    X, y = make_regression(n_samples=500, n_features=ncols,
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info,
                            random_state=123)
     X = X.astype(datatype)
@@ -217,6 +217,8 @@ def test_rf_regression_default(datatype, column_info, nrows):
         sk_model.fit(X_train, y_train)
         sk_predict = sk_model.predict(X_test)
         sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+        # XXX Accuracy gap exists with default parameters, requires
+        # further investigation for next release
         assert fil_r2 >= (sk_r2 - 0.08)
     assert fil_r2 >= (cu_r2 - 0.02)
 
@@ -317,12 +319,12 @@ def test_rf_classification_float64(datatype, column_info, nrows):
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(25000),
                          stress_param(500000)])
 def test_rf_regression_float64(datatype, column_info, nrows):
 
     ncols, n_info = column_info
-    X, y = make_regression(n_samples=500, n_features=ncols,
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info,
                            random_state=123)
 

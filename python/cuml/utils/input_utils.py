@@ -77,23 +77,18 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     Acceptable input formats:
 
-    * cuDF Dataframe - returns a deep copy always
-
+    * cuDF Dataframe - returns a deep copy always.
     * cuDF Series - returns by reference or a deep copy depending on
-        `deepcopy`
-
+        `deepcopy`.
     * Numpy array - returns a copy in device always
-
     * cuda array interface compliant array (like Cupy) - returns a
-        reference unless `deepcopy`=True
-
+        reference unless `deepcopy`=True.
     * numba device array - returns a reference unless deepcopy=True
 
     Parameters
-        ----------
+    ----------
 
-    X:
-        cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
+    X : cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
         cuda_array_interface compliant array like CuPy or pytorch.
 
     order: string (default: 'F')
