@@ -33,7 +33,8 @@ from cuml.test.utils import array_equal
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
-def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,datatype):
+def test_neighborhood_predictions(nrows, ncols, n_neighbors,
+                                  n_clusters, datatype):
 
     X, y = make_blobs(n_samples=nrows,
                       centers=n_clusters,
