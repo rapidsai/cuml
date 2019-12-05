@@ -438,7 +438,7 @@ __global__ void best_split_gather_classification_kernel(
       localnode.quesval = question(shmem_pair.idx);
       localnode.left_child_id = treesz + 2 * blockIdx.x;
     } else {
-      colid = shmem_col;
+      colid = -1;
       localnode.prediction =
         get_class_hist_shared(shmemhist_parent, n_unique_labels);
     }
@@ -447,6 +447,154 @@ __global__ void best_split_gather_classification_kernel(
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
+
+//The same as above but fused minmax at block level
+template <typename T, typename E, typename FDEV>
+__global__ void best_split_gather_classification_minmax_kernel(
+  const T* __restrict__ data, const int* __restrict__ labels,
+  const unsigned int* __restrict__ colids,
+  const unsigned int* __restrict__ colstart,
+  const unsigned int* __restrict__ g_nodestart,
+  const unsigned int* __restrict__ samplelist, const int n_nodes,
+  const int n_unique_labels, const int nbins, const int nrows, const int Ncols,
+  const int ncols_sampled, const size_t treesz, const float min_impurity_split,
+  const T init_min_val, SparseTreeNode<T, int>* d_sparsenodes,
+  int* d_nodelist) {
+  //shmemhist_parent[n_unique_labels]
+  extern __shared__ unsigned int shmemhist_parent[];
+  __shared__ GainIdxPair shmem_pair;
+  __shared__ int shmem_col;
+  __shared__ float parent_metric;
+  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+  __shared__ T shmem_min, shmem_max;
+  //shmemhist_left[n_unique_labels*nbins]
+  unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
+
+  int colstart_local = -1;
+  int colid;
+  unsigned int nodestart = g_nodestart[blockIdx.x];
+  unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
+  if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
+
+  //Compute parent histograms
+  for (int i = threadIdx.x; i < n_unique_labels; i += blockDim.x) {
+    shmemhist_parent[i] = 0;
+  }
+  if (threadIdx.x == 0) {
+    shmem_pair.gain = 0.0f;
+    shmem_pair.idx = -1;
+    shmem_col = -1;
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    unsigned int dataid = samplelist[nodestart + tid];
+    int local_label = labels[dataid];
+    atomicAdd(&shmemhist_parent[local_label], 1);
+  }
+  FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
+  //Loop over cols
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    if (threadIdx.x == 0) {
+      *(E*)&shmem_min = MLCommon::Stats::encode(init_min_val);
+      *(E*)&shmem_max = MLCommon::Stats::encode(-init_min_val);
+    }
+    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled, colcnt,
+                          blockIdx.x);
+    for (int i = threadIdx.x; i < nbins * n_unique_labels; i += blockDim.x) {
+      shmemhist_left[i] = 0;
+    }
+    __syncthreads();
+
+    //If looping is needed compute min/max using independent data pass
+    if (count > blockDim.x) {
+      for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+        unsigned int dataid = samplelist[nodestart + tid];
+        T local_data = data[dataid + colid * nrows];
+        MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
+        MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
+      }
+      __syncthreads();
+
+      T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
+      T delta = (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / nbins;
+
+      for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+        unsigned int dataid = samplelist[nodestart + tid];
+        T local_data = data[dataid + colid * nrows];
+        int local_label = labels[dataid];
+#pragma unroll(8)
+        for (unsigned int binid = 0; binid < nbins; binid++) {
+          int histid = binid * n_unique_labels + local_label;
+          if (local_data <= threadmin + delta * (binid + 1)) {
+            atomicAdd(&shmemhist_left[histid], 1);
+          }
+        }
+      }
+    } else {  //reduces memory access when count is small
+      auto& tid = threadIdx.x;
+      unsigned int dataid = samplelist[nodestart + tid];
+      T local_data = data[dataid + colid * nrows];
+      MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
+      MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
+      __syncthreads();
+
+      T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
+      T delta = (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / nbins;
+      int local_label = labels[dataid];
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        int histid = binid * n_unique_labels + local_label;
+        if (local_data <= threadmin + delta * (binid + 1)) {
+          atomicAdd(&shmemhist_left[histid], 1);
+        }
+      }
+    }
+    __syncthreads();
+    GainIdxPair bin_pair = bin_info_gain_classification<FDEV>(
+      shmemhist_parent, &parent_metric, shmemhist_left, count, nbins,
+      n_unique_labels);
+    GainIdxPair best_bin_pair =
+      BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
+    __syncthreads();
+
+    if ((best_bin_pair.gain > shmem_pair.gain) && (threadIdx.x == 0)) {
+      shmem_pair = best_bin_pair;
+      shmem_col = colcnt;
+    }
+  }
+  __syncthreads();
+  if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
+    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                          shmem_col, blockIdx.x);
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      unsigned int dataid = samplelist[nodestart + tid];
+      T local_data = data[dataid + colid * nrows];
+      MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
+      MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
+    }
+    __syncthreads();
+    T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
+    T delta = (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / nbins;
+    if (threadIdx.x == 0) {
+      SparseTreeNode<T, int> localnode;
+      localnode.quesval = threadmin + (shmem_pair.idx + 1) * delta;
+      localnode.left_child_id = treesz + 2 * blockIdx.x;
+      localnode.colid = colid;
+      localnode.best_metric_val = parent_metric;
+      d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
+    }
+  } else {
+    if (threadIdx.x == 0) {
+      SparseTreeNode<T, int> localnode;
+      localnode.colid = -1;
+      localnode.prediction =
+        get_class_hist_shared(shmemhist_parent, n_unique_labels);
+      d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
+    }
+  }
+}
+
 //A light weight implementation of the above kernel for last level,
 // when all nodes are to be leafed out
 template <typename T, typename FDEV>
