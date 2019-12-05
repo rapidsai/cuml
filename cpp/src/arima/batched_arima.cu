@@ -16,23 +16,17 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 #include <iostream>
-#include <tuple>
 #include <vector>
-
-#include "batched_arima.hpp"
-#include "batched_kalman.hpp"
-#include "cuda_utils.h"
-#include "utils.h"
 
 #include <common/nvtx.hpp>
 
-#include <thrust/device_vector.h>
-#include <thrust/fill.h>
 #include <thrust/for_each.h>
-#include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
+
+#include "arima_helpers.cuh"
+#include "batched_arima.hpp"
+#include "batched_kalman.hpp"
 
 #include <cuml/cuml.hpp>
 
@@ -42,10 +36,10 @@
 #include <metrics/batched/information_criterion.h>
 #include <stats/mean.h>
 #include <matrix/batched_matrix.hpp>
+#include "cuda_utils.h"
+#include "utils.h"
 
 namespace ML {
-
-using std::vector;
 
 /**
  * @brief Prepare data by differencing if needed (simple and/or seasonal)

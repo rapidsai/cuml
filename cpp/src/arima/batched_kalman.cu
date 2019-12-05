@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
+#include "arima_helpers.cuh"
 #include "batched_kalman.hpp"
 
 #include <nvToolsExt.h>
-#include <thrust/device_vector.h>
-#include <thrust/fill.h>
 #include <thrust/for_each.h>
-#include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <common/nvtx.hpp>
-#include <cub/cub.cuh>  // TODO: remove?
+#include <cub/cub.cuh>
 
 #include <cuml/cuml.hpp>
 
+#include "common/nvtx.hpp"
 #include "cuda_utils.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
@@ -505,36 +503,6 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                                           sizeof(double) * batch_size, stream);
 }
 
-/**
- * TODO: quick docs
- */
-template <bool isAr>
-static inline __device__ double _param_to_poly(const double* param, int lags,
-                                               int idx) {
-  if (idx > lags) {
-    return 0.0;
-  } else if (idx) {
-    return isAr ? -param[idx - 1] : param[idx - 1];
-  } else
-    return 1.0;
-}
-
-/**
- * TODO: quick docs
- */
-template <bool isAr>
-static inline __device__ double _reduced_polynomial(int bid,
-                                                    const double* param,
-                                                    int lags,
-                                                    const double* sparam,
-                                                    int slags, int s, int idx) {
-  int idx1 = s ? idx / s : 0;
-  int idx0 = idx - s * idx1;
-  double coef0 = _param_to_poly<isAr>(param + bid * lags, lags, idx0);
-  double coef1 = _param_to_poly<isAr>(sparam + bid * slags, slags, idx1);
-  return isAr ? -coef0 * coef1 : coef0 * coef1;
-}
-
 static void init_batched_kalman_matrices(
   cumlHandle& handle, const double* d_ar, const double* d_ma,
   const double* d_sar, const double* d_sma, int nb, int p, int q, int P, int Q,
@@ -688,92 +656,6 @@ void fix_ar_ma_invparams(const double* d_old_params, double* d_new_params,
         }
       }
     });
-}
-
-void unpack(const double* d_params, double* d_mu, double* d_ar, double* d_ma,
-            double* d_sar, double* d_sma, int batch_size, int p, int q, int P,
-            int Q, int k, cudaStream_t stream) {
-  int N = (p + q + P + Q + k);
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int bid) {
-                     const double* param = d_params + bid * N;
-                     if (k) {
-                       d_mu[bid] = *param;
-                       param++;
-                     }
-                     for (int ip = 0; ip < p; ip++) {
-                       d_ar[p * bid + ip] = param[ip];
-                     }
-                     param += p;
-                     for (int iq = 0; iq < q; iq++) {
-                       d_ma[q * bid + iq] = param[iq];
-                     }
-                     param += q;
-                     for (int iP = 0; iP < P; iP++) {
-                       d_sar[P * bid + iP] = param[iP];
-                     }
-                     param += P;
-                     for (int iQ = 0; iQ < Q; iQ++) {
-                       d_sma[Q * bid + iQ] = param[iQ];
-                     }
-                   });
-}
-
-void pack(int batch_size, int p, int q, int P, int Q, int k, const double* d_mu,
-          const double* d_ar, const double* d_ma, const double* d_sar,
-          const double* d_sma, double* d_params, cudaStream_t stream) {
-  int N = (p + q + P + Q + k);
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int bid) {
-                     double* param = d_params + bid * N;
-                     if (k) {
-                       *param = d_mu[bid];
-                       param++;
-                     }
-                     for (int ip = 0; ip < p; ip++) {
-                       param[ip] = d_ar[p * bid + ip];
-                     }
-                     param += p;
-                     for (int iq = 0; iq < q; iq++) {
-                       param[iq] = d_ma[q * bid + iq];
-                     }
-                     param += q;
-                     for (int iP = 0; iP < P; iP++) {
-                       param[iP] = d_sar[P * bid + iP];
-                     }
-                     param += P;
-                     for (int iQ = 0; iQ < Q; iQ++) {
-                       param[iQ] = d_sma[Q * bid + iQ];
-                     }
-                   });
-}
-
-template <typename AllocatorT>
-void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q,
-                     int P, int Q, int batch_size, double** d_ar, double** d_ma,
-                     double** d_sar, double** d_sma, int k, double** d_mu) {
-  if (k) *d_mu = (double*)alloc->allocate(batch_size * sizeof(double), stream);
-  if (p)
-    *d_ar = (double*)alloc->allocate(p * batch_size * sizeof(double), stream);
-  if (q)
-    *d_ma = (double*)alloc->allocate(q * batch_size * sizeof(double), stream);
-  if (P)
-    *d_sar = (double*)alloc->allocate(P * batch_size * sizeof(double), stream);
-  if (Q)
-    *d_sma = (double*)alloc->allocate(Q * batch_size * sizeof(double), stream);
-}
-
-template <typename AllocatorT>
-void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p, int q,
-                       int P, int Q, int batch_size, double* d_ar, double* d_ma,
-                       double* d_sar, double* d_sma, int k, double* d_mu) {
-  if (k) alloc->deallocate(d_mu, batch_size * sizeof(double), stream);
-  if (p) alloc->deallocate(d_ar, p * batch_size * sizeof(double), stream);
-  if (q) alloc->deallocate(d_ma, q * batch_size * sizeof(double), stream);
-  if (P) alloc->deallocate(d_sar, P * batch_size * sizeof(double), stream);
-  if (Q) alloc->deallocate(d_sma, Q * batch_size * sizeof(double), stream);
 }
 
 void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
