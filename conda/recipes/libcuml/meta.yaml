@@ -37,6 +37,7 @@ requirements:
     - libcumlprims {{ minor_version }}
     - lapack
     - protobuf >=3.4.1,<4.0.0
+    - ucx-py=0.3
   run:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}

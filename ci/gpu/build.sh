@@ -99,7 +99,7 @@ cd $WORKSPACE/cpp/build/treelite/src/treelite
 mkdir build
 cd build
 cmake ..
-make -j${PARALLEL_LEVEL} -DWITH_UCX=ON
+make -j${PARALLEL_LEVEL}
 cd ../python
 python setup.py install
 
