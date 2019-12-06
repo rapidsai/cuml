@@ -79,23 +79,16 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         from sklearn.datasets import make_blobs
 
-        print("Calling make_blobs")
-
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=nclusters)
-
         X = X.astype(np.float32)
 
-        print("Prepping traiing data...")
         X_cudf = _prep_training_data(client, X, n_parts)
-        print("Done.")
 
         wait(X_cudf)
 
-        print("Finished prepping training data./ Running cuml")
-
-        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            streams_per_handle=streams_per_handle)
         cumlModel.fit(X_cudf)
 
@@ -103,16 +96,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         local_i = np.array(out_i.compute().as_gpu_matrix())
 
-        print("Finished cuml query")
-
-        import time
-        start = time.time()
-        print("Performing skl query at " + str(start))
         sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
-        end = time.time() - start
-
-        print("Elapsed: " + str(end))
-
         skl_y_hat = sklModel.predict(X)
 
         y_hat, _ = predict(local_i, y, n_neighbors)
@@ -140,7 +124,6 @@ def test_batch_size(nrows, ncols, n_parts,
 
         from sklearn.datasets import make_blobs
 
-        print("Test batch size")
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=n_clusters)
@@ -151,9 +134,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
         wait(X_cudf)
 
-        print("Prepped training data")
-
-        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
         cumlModel.fit(X_cudf)
@@ -162,12 +143,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
         local_i = np.array(out_i.compute().as_gpu_matrix())
 
-        print("Finished query")
-
-        print("Calling predict")
         y_hat, _ = predict(local_i, y, n_neighbors)
-
-        print("Done")
 
         assert array_equal(y_hat, y)
 
@@ -197,7 +173,7 @@ def test_return_distance(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=True, streams_per_handle=5)
+        cumlModel = daskNN(verbose=False, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
@@ -226,8 +202,6 @@ def test_default_n_neighbors(cluster):
 
         from sklearn.datasets import make_blobs
 
-        print("Making blobs...")
-
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
@@ -237,30 +211,19 @@ def test_default_n_neighbors(cluster):
 
         wait(X_cudf)
 
-        print("Done.")
-
-        print("Running NN1")
-
-        cumlModel = daskNN(verbose=True, streams_per_handle=5)
+        cumlModel = daskNN(verbose=False, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
 
-        print("Done.")
-
         assert ret.shape[1] == cumlNN().n_neighbors
 
-        print("Running NN2")
-
-        cumlModel = daskNN(verbose=True, n_neighbors=k)
+        cumlModel = daskNN(verbose=False, n_neighbors=k)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
 
-        print("Done.")
-
         assert ret.shape[1] == k
 
     finally:
-        print("Closing client.")
         client.close()
