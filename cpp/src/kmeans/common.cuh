@@ -17,6 +17,7 @@
 #pragma once
 
 #include <distance/distance.h>
+#include <distance/fused_l2_nn.h>
 #include <linalg/binary_op.h>
 #include <linalg/matrix_vector_op.h>
 #include <linalg/mean_squared_error.h>
@@ -44,6 +45,7 @@
 
 #include <cuml/cluster/kmeans.hpp>
 
+#include <fstream>
 namespace ML {
 
 //@todo: Use GLOG once https://github.com/rapidsai/cuml/issues/100 is addressed.
@@ -60,6 +62,31 @@ namespace ML {
 
 namespace kmeans {
 namespace detail {
+
+template <typename LabelT, typename DataT>
+struct FusedL2NNReduceOp {
+  LabelT offset;
+
+  FusedL2NNReduceOp(LabelT _offset) : offset(_offset){};
+
+  typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
+  DI void operator()(KVP *out, const KVP &other) {
+    if (other.value < out->value) {
+      out->key = offset + other.key;
+      out->value = other.value;
+    }
+  }
+
+  DI void init(KVP *out, DataT maxVal) {}
+
+  DI void operator()(DataT *out, const KVP &other) {
+    if (other.value < *out) {
+      *out = other.value;
+    }
+  }
+
+  DI void init(DataT *out, DataT maxVal) {}
+};
 
 template <typename DataT>
 struct SamplingOp {
@@ -231,17 +258,34 @@ template <typename DataT, typename IndexT>
 void minClusterAndDistance(
   const cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 2, IndexT> &centroids,
-  Tensor<DataT, 2, IndexT> &pairwiseDistance,
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1, IndexT> &minClusterAndDistance,
+  MLCommon::device_buffer<DataT> &pairwiseDistanceBuf,
   MLCommon::device_buffer<char> &workspace,
   MLCommon::Distance::DistanceType metric, cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
-
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
   auto centroidsBatchSize =
     kmeans::detail::getCentroidsBatchSize(params, n_clusters);
+
+  Tensor<DataT, 1> samplesNorm({n_samples}, handle.getDeviceAllocator(),
+                               stream);
+
+  Tensor<DataT, 1> centroidsNorm({n_clusters}, handle.getDeviceAllocator(),
+                                 stream);
+
+  if (metric == MLCommon::Distance::EucExpandedL2 ||
+      metric == MLCommon::Distance::EucExpandedL2Sqrt) {
+    MLCommon::LinAlg::rowNorm(samplesNorm.data(), X.data(), X.getSize(1),
+                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
+                              stream);
+    MLCommon::LinAlg::rowNorm(centroidsNorm.data(), centroids.data(),
+                              centroids.getSize(1), centroids.getSize(0),
+                              MLCommon::LinAlg::L2Norm, true, stream);
+  } else {
+    pairwiseDistanceBuf.resize(dataBatchSize * centroidsBatchSize, stream);
+  }
 
   cub::KeyValuePair<IndexT, DataT> initial_value(
     0, std::numeric_limits<DataT>::max());
@@ -264,100 +308,82 @@ void minClusterAndDistance(
     auto minClusterAndDistanceView =
       minClusterAndDistance.template view<1>({ns}, {dIdx});
 
+    auto samplesNormView = samplesNorm.template view<1>({ns}, {dIdx});
+
     // tile over the centroids
     for (auto cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
       // # of centroids for the current batch
       auto nc = std::min(centroidsBatchSize, n_clusters - cIdx);
-
-      // distanceView [ns x nc]
-      auto distanceView = pairwiseDistance.template view<2>({ns, nc}, {0, 0});
 
       // centroidsView [nc x n_features] - view representing the current batch
       // of centroids
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      // calculate pairwise distance between current tile of cluster centroids
-      // and input dataset
-      kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
-                                       distanceView, workspace, metric, stream);
+      auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
 
-      // argmin reduction returning <index, value> pair
-      // calculates the closest centroid and the distance to the closest
-      // centroid
-      MLCommon::LinAlg::coalescedReduction(
-        minClusterAndDistanceView.data(), distanceView.data(),
-        distanceView.getSize(1), distanceView.getSize(0), initial_value, stream,
-        true,
-        [=] __device__(const DataT val, const IndexT i) {
-          cub::KeyValuePair<IndexT, DataT> pair;
-          pair.key = cIdx + i;  //???
-          pair.value = val;
-          return pair;
-        },
-        [=] __device__(cub::KeyValuePair<IndexT, DataT> a,
-                       cub::KeyValuePair<IndexT, DataT> b) {
-          return (b.value < a.value) ? b : a;
-        },
-        [=] __device__(cub::KeyValuePair<IndexT, DataT> pair) { return pair; });
+      if (metric == MLCommon::Distance::EucExpandedL2) {
+        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+        workspace.resize((sizeof(int)) * ns, stream);
+        MLCommon::Distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
+                                      IndexT, false>(
+          minClusterAndDistanceView.data(), datasetView.data(),
+          centroidsView.data(), samplesNormView.data(),
+          centroidsNormView.data(), ns, nc, n_features,
+          (void *)workspace.data(), redOp, stream);
+
+      } else if (metric == MLCommon::Distance::EucExpandedL2Sqrt) {
+        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+        workspace.resize((sizeof(int)) * ns, stream);
+        MLCommon::Distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
+                                      IndexT, true>(
+          minClusterAndDistanceView.data(), datasetView.data(),
+          centroidsView.data(), samplesNormView.data(),
+          centroidsNormView.data(), ns, nc, n_features,
+          (void *)workspace.data(), redOp, stream);
+
+      } else {
+        // pairwiseDistance[ns x nc] - tensor wrapper around the distance buffer
+        Tensor<DataT, 2, IndexT> pairwiseDistance(
+          (DataT *)pairwiseDistanceBuf.data(), {ns, nc});
+
+        // calculate pairwise distance between current tile of cluster centroids
+        // and input dataset
+        kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
+                                         pairwiseDistance, workspace, metric,
+                                         stream);
+
+        // argmin reduction returning <index, value> pair
+        // calculates the closest centroid and the distance to the closest
+        // centroid
+        MLCommon::LinAlg::coalescedReduction(
+          minClusterAndDistanceView.data(), pairwiseDistance.data(),
+          pairwiseDistance.getSize(1), pairwiseDistance.getSize(0),
+          initial_value, stream, true,
+          [=] __device__(const DataT val, const IndexT i) {
+            cub::KeyValuePair<IndexT, DataT> pair;
+            pair.key = cIdx + i;
+            pair.value = val;
+            return pair;
+          },
+          [=] __device__(cub::KeyValuePair<IndexT, DataT> a,
+                         cub::KeyValuePair<IndexT, DataT> b) {
+            return (b.value < a.value) ? b : a;
+          },
+          [=] __device__(cub::KeyValuePair<IndexT, DataT> pair) {
+            return pair;
+          });
+      }
     }
-    /*
-    // distanceView [ns x n_clusters]
-    auto distanceView =
-      pairwiseDistance.template view<2>({ns, n_clusters}, {0, 0});
-
-    // calculate pairwise distance between cluster centroids and current batch
-    // of input dataset
-    kmeans::detail::pairwiseDistance(handle, datasetView, centroids,
-                                     distanceView, workspace, metric, stream);
-
-    // argmin reduction returning <index, value> pair
-    // calculates the closest centroid and the distance to the closent centroid
-    cub::KeyValuePair<IndexT, DataT> initial_value(
-      0, std::numeric_limits<DataT>::max());
-    MLCommon::LinAlg::coalescedReduction(
-      minClusterAndDistanceView.data(), distanceView.data(),
-      distanceView.getSize(1), distanceView.getSize(0), initial_value, stream,
-      false,
-      [=] __device__(const DataT val, const IndexT i) {
-        cub::KeyValuePair<IndexT, DataT> pair;
-        pair.key = i;
-        pair.value = val;
-        return pair;
-      },
-      [=] __device__(cub::KeyValuePair<IndexT, DataT> a,
-                     cub::KeyValuePair<IndexT, DataT> b) {
-        return (b.value < a.value) ? b : a;
-      },
-      [=] __device__(cub::KeyValuePair<IndexT, DataT> pair) { return pair; });
-    */
   }
-  /*
-  Tensor<int, 1> diff({n_samples}, handle.getDeviceAllocator(), stream);
-  //thrust::fill(thrust_exec_policy, diff.begin(), diff.end(), 0);
-
-  thrust::transform(
-    thrust_exec_policy, minClusterAndDistance.begin(),
-    minClusterAndDistance.end(), minClusterAndDistance2.begin(), diff.begin(),
-    [=] __host__ __device__(cub::KeyValuePair<IndexT, DataT> lhs,
-                            cub::KeyValuePair<IndexT, DataT> rhs) {
-      bool val = (lhs.key == rhs.key) && (lhs.value == rhs.value);
-      return !val;
-    });
-
-  //std::cout << diff << "\n";
-  int idiff = thrust::reduce(thrust_exec_policy, diff.begin(), diff.end());
-  LOG(1, "KMeans++ - %d\n", idiff);
-  ASSERT(idiff == 0, "failed!!");
-  */
 }
 
 template <typename DataT, typename IndexT>
 void minClusterDistance(const cumlHandle_impl &handle,
                         const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
                         Tensor<DataT, 2, IndexT> &centroids,
-                        Tensor<DataT, 2, IndexT> &pairwiseDistance,
                         Tensor<DataT, 1, IndexT> &minClusterDistance,
+                        MLCommon::device_buffer<DataT> &pairwiseDistanceBuf,
                         MLCommon::device_buffer<char> &workspace,
                         MLCommon::Distance::DistanceType metric,
                         cudaStream_t stream) {
@@ -369,6 +395,24 @@ void minClusterDistance(const cumlHandle_impl &handle,
   auto centroidsBatchSize =
     kmeans::detail::getCentroidsBatchSize(params, n_clusters);
 
+  Tensor<DataT, 1> samplesNorm({n_samples}, handle.getDeviceAllocator(),
+                               stream);
+
+  Tensor<DataT, 1> centroidsNorm({n_clusters}, handle.getDeviceAllocator(),
+                                 stream);
+
+  if (metric == MLCommon::Distance::EucExpandedL2 ||
+      metric == MLCommon::Distance::EucExpandedL2Sqrt) {
+    MLCommon::LinAlg::rowNorm(samplesNorm.data(), X.data(), X.getSize(1),
+                              X.getSize(0), MLCommon::LinAlg::L2Norm, true,
+                              stream);
+    MLCommon::LinAlg::rowNorm(centroidsNorm.data(), centroids.data(),
+                              centroids.getSize(1), centroids.getSize(0),
+                              MLCommon::LinAlg::L2Norm, true, stream);
+  } else {
+    pairwiseDistanceBuf.resize(dataBatchSize * centroidsBatchSize, stream);
+  }
+
   ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
   auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
   thrust::fill(thrust_exec_policy, minClusterDistance.begin(),
@@ -378,7 +422,7 @@ void minClusterDistance(const cumlHandle_impl &handle,
   // n_clusters]
   for (int dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
     // # of samples for the current batch
-    int ns = std::min(dataBatchSize, X.getSize(0) - dIdx);
+    auto ns = std::min(dataBatchSize, n_samples - dIdx);
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
@@ -388,76 +432,66 @@ void minClusterDistance(const cumlHandle_impl &handle,
     auto minClusterDistanceView =
       minClusterDistance.template view<1>({ns}, {dIdx});
 
+    auto samplesNormView = samplesNorm.template view<1>({ns}, {dIdx});
+
     // tile over the centroids
     for (auto cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
       // # of centroids for the current batch
       auto nc = std::min(centroidsBatchSize, n_clusters - cIdx);
-
-      // distanceView [ns x nc]
-      auto distanceView = pairwiseDistance.template view<2>({ns, nc}, {0, 0});
 
       // centroidsView [nc x n_features] - view representing the current batch
       // of centroids
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      // calculate pairwise distance between current tile of cluster centroids
-      // and input dataset
-      kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
-                                       distanceView, workspace, metric, stream);
+      auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
 
-      MLCommon::LinAlg::coalescedReduction(
-        minClusterDistanceView.data(), distanceView.data(),
-        distanceView.getSize(1),  // leading dimension of pairwiseDistance
-        distanceView.getSize(0),  // second dimension of pairwiseDistance
-        std::numeric_limits<DataT>::max(), stream, true,
-        [=] __device__(DataT val, int i) {  // MainLambda
-          return val;
-        },
-        [=] __device__(DataT a, DataT b) {  // ReduceLambda
-          return (b < a) ? b : a;
-        },
-        [=] __device__(DataT val) {  // FinalLambda
-          return val;
-        });
+      if (metric == MLCommon::Distance::EucExpandedL2) {
+        workspace.resize((sizeof(int)) * ns, stream);
+
+        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT, false>(
+          minClusterDistanceView.data(), datasetView.data(),
+          centroidsView.data(), samplesNormView.data(),
+          centroidsNormView.data(), ns, nc, n_features,
+          (void *)workspace.data(), redOp, stream);
+      } else if (metric == MLCommon::Distance::EucExpandedL2Sqrt) {
+        workspace.resize((sizeof(int)) * ns, stream);
+
+        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT, true>(
+          minClusterDistanceView.data(), datasetView.data(),
+          centroidsView.data(), samplesNormView.data(),
+          centroidsNormView.data(), ns, nc, n_features,
+          (void *)workspace.data(), redOp, stream);
+      } else {
+        // pairwiseDistance[ns x nc] - tensor wrapper around the distance buffer
+        Tensor<DataT, 2, IndexT> pairwiseDistance(
+          (DataT *)pairwiseDistanceBuf.data(), {ns, nc});
+
+        // calculate pairwise distance between current tile of cluster centroids
+        // and input dataset
+        kmeans::detail::pairwiseDistance(handle, datasetView, centroidsView,
+                                         pairwiseDistance, workspace, metric,
+                                         stream);
+
+        MLCommon::LinAlg::coalescedReduction(
+          minClusterDistanceView.data(), pairwiseDistance.data(),
+          pairwiseDistance.getSize(1),  // leading dimension of pairwiseDistance
+          pairwiseDistance.getSize(0),  // second dimension of pairwiseDistance
+          std::numeric_limits<DataT>::max(), stream, true,
+          [=] __device__(DataT val, int i) {  // MainLambda
+            return val;
+          },
+          [=] __device__(DataT a, DataT b) {  // ReduceLambda
+            return (b < a) ? b : a;
+          },
+          [=] __device__(DataT val) {  // FinalLambda
+            return val;
+          });
+      }
     }
-    /*
-    // calculate pairwise distance between cluster centroids and current batch
-    // of input dataset
-    kmeans::detail::pairwiseDistance(handle, datasetView, centroids,
-                                     pairwiseDistance, workspace, metric,
-                                     stream);
-
-    MLCommon::LinAlg::coalescedReduction(
-      minClusterDistanceView.data(), pairwiseDistance.data(),
-      n_clusters,  // leading dimension of pairwiseDistance
-      ns,          // second dimension of pairwiseDistance
-      std::numeric_limits<DataT>::max(), stream, false,
-      [=] __device__(DataT val, int i) {  // MainLambda
-        return val;
-      },
-      [=] __device__(DataT a, DataT b) {  // ReduceLambda
-        return (b < a) ? b : a;
-      },
-      [=] __device__(DataT val) {  // FinalLambda
-        return val;
-      });
-    */
   }
-  /*
-  Tensor<int, 1> diff({n_samples}, handle.getDeviceAllocator(), stream);
-
-  thrust::transform(thrust_exec_policy, minClusterDistance.begin(),
-                    minClusterDistance.end(), minClusterDistance2.begin(),
-                    diff.begin(),
-                    [=] __host__ __device__(DataT lhs, DataT rhs) {
-                      bool val = (lhs == rhs);
-                      return !val;
-                    });
-  int idiff = thrust::reduce(thrust_exec_policy, diff.begin(), diff.end());
-  LOG(1, "KMeans++ - %d\n", idiff);
-  ASSERT(idiff == 0, "failed!!");
-  */
 }
 
 // shuffle and randomly select 'n_samples_to_gather' from input 'in' and stores
@@ -510,8 +544,6 @@ void countSamplesInCluster(const cumlHandle_impl &handle,
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
 
-  int dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
-
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
   //   - value is the distance to the nearest cluster
@@ -519,17 +551,17 @@ void countSamplesInCluster(const cumlHandle_impl &handle,
     {n_samples}, handle.getDeviceAllocator(), stream);
 
   // temporary buffer to store distance matrix, destructor releases the resource
-  Tensor<DataT, 2, IndexT> pairwiseDistance(
-    {dataBatchSize, n_clusters}, handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<DataT> pairwiseDistanceBuf(
+    handle.getDeviceAllocator(), stream);
 
   // computes minClusterAndDistance[0:n_samples) where  minClusterAndDistance[i]
   // is a <key, value> pair where
   //   'key' is index to an sample in 'centroids' (index of the nearest
   //   centroid) and 'value' is the distance between the sample 'X[i]' and the
   //   'centroid[key]'
-  kmeans::detail::minClusterAndDistance(handle, params, X, centroids,
-                                        pairwiseDistance, minClusterAndDistance,
-                                        workspace, metric, stream);
+  kmeans::detail::minClusterAndDistance(
+    handle, params, X, centroids, minClusterAndDistance, pairwiseDistanceBuf,
+    workspace, metric, stream);
 
   // Using TransformInputIteratorT to dereference an array of cub::KeyValuePair
   // and converting them to just return the Key to be used in reduce_rows_by_key
@@ -580,16 +612,15 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
 
   int dataBatchSize = kmeans::detail::getDataBatchSize(params, n_pot_centroids);
 
-  MLCommon::device_buffer<DataT> pairwiseDistanceRaw(
+  MLCommon::device_buffer<DataT> pairwiseDistanceBuf(
     handle.getDeviceAllocator(), stream);
-  pairwiseDistanceRaw.resize(dataBatchSize * n_clusters, stream);
 
   MLCommon::device_buffer<DataT> clusterCost(handle.getDeviceAllocator(),
                                              stream, 1);
 
   int n_pts_sampled = 0;
   for (int iter = 0; iter < n_clusters; iter++) {
-    LOG(params.verbose, "KMeans++ - Iteraton %d/%d\n", iter, n_clusters);
+    LOG(params.verbose, "KMeans++ - Iteration %d/%d\n", iter, n_clusters);
 
     MLCommon::copy(h_prob.data(), prob.data(), prob.numElements(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -612,12 +643,8 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
     auto centroids = std::move(Tensor<DataT, 2, IndexT>(
       centroidsRawData.data(), {n_pts_sampled, n_features}));
 
-    Tensor<DataT, 2, IndexT> pairwiseDistance(
-      (DataT *)pairwiseDistanceRaw.data(),
-      {dataBatchSize, centroids.getSize(0)});
-
     kmeans::detail::minClusterDistance(handle, params, C, centroids,
-                                       pairwiseDistance, minClusterDistance,
+                                       minClusterDistance, pairwiseDistanceBuf,
                                        workspace, metric, stream);
 
     kmeans::detail::computeClusterCost(
@@ -648,6 +675,6 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
   }
 }
 
-};  // end namespace detail
-};  // end namespace kmeans
-};  // end namespace ML
+};  // namespace detail
+};  // namespace kmeans
+};  // namespace ML
