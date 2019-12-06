@@ -190,6 +190,8 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ML::POP_RANGE();
 }
 
+/// TODO: current way of forecasting won't work for d=2 because the noise
+/// influences the trend at the start of the forecast!
 void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
               int D, int Q, int s, int intercept, int batch_size, int n_obs,
               const double* d_y, const double* d_y_prep, double* d_vs,
@@ -303,7 +305,7 @@ void predict_in_sample(cumlHandle& handle, const double* d_y, int batch_size,
   double* d_y_diff;
 
   ///TODO: update for seasonality
-  if (d == 0) {
+  if (d + D == 0) {
     auto counting = thrust::make_counting_iterator(0);
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
@@ -313,43 +315,19 @@ void predict_in_sample(cumlHandle& handle, const double* d_y, int batch_size,
                        }
                      });
   } else {
-    ///TODO: compute diff with _prepare_data
-    d_y_diff = (double*)handle.getDeviceAllocator()->allocate(
-      sizeof(double) * batch_size * (n_obs - 1), handle.getStream());
     auto counting = thrust::make_counting_iterator(0);
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
+                       d_y_p[0] = 0.0;
                        for (int i = 0; i < n_obs - 1; i++) {
                          int it = bid * n_obs + i;
                          int itd = bid * (n_obs - 1) + i;
                          // note: d_y[it] + (d_y[it + 1] - d_y[it]) - d_vs[itd]
                          //    -> d_y[it+1] - d_vs[itd]
-                         d_y_p[it] = d_y[it + 1] - d_vs[itd];
-                         d_y_diff[itd] = d_y[it + 1] - d_y[it];
-                         if (intercept)
-                           d_y_diff[itd] -= d_params[(p + q + intercept) * bid];
+                         d_y_p[it + 1] = d_y[it + 1] - d_vs[itd];
+                         /// TODO: need to support seasonality
                        }
                      });
-  }
-
-  // due to `differencing` we need to forecast a single step to make the
-  // in-sample prediction the same length as the original signal.
-  if (d == 1) {
-    double* d_y_fc = (double*)handle.getDeviceAllocator()->allocate(
-      sizeof(double) * batch_size, handle.getStream());
-    forecast(handle, 1, p, d, q, P, D, Q, s, intercept, batch_size, n_obs, d_y,
-             d_y_diff, d_vs, d_params, d_y_fc);
-
-    // append forecast to end of in-sample prediction
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       d_y_p[bid * n_obs + (n_obs - 1)] = d_y_fc[bid];
-                     });
-    handle.getDeviceAllocator()->deallocate(
-      d_y_diff, sizeof(double) * batch_size * (n_obs - 1), handle.getStream());
-    handle.getDeviceAllocator()->deallocate(d_y_fc, sizeof(double) * batch_size,
-                                            handle.getStream());
   }
   ML::POP_RANGE();
 }
