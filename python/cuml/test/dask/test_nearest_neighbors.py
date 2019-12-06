@@ -226,6 +226,8 @@ def test_default_n_neighbors(ucx_cluster):
 
         from sklearn.datasets import make_blobs
 
+        print("Making blobs...")
+
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
@@ -235,19 +237,30 @@ def test_default_n_neighbors(ucx_cluster):
 
         wait(X_cudf)
 
+        print("Done.")
+
+        print("Running NN1")
+
         cumlModel = daskNN(verbose=True, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
 
+        print("Done.")
+
         assert ret.shape[1] == cumlNN().n_neighbors
+
+        print("Running NN2")
 
         cumlModel = daskNN(verbose=True, n_neighbors=k)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
 
+        print("Done.")
+
         assert ret.shape[1] == k
 
     finally:
+        print("Closing client.")
         client.close()
