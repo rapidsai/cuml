@@ -3,9 +3,9 @@ import pytest
 from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
 
-enable_tcp_over_ucx=True
-enable_nvlink=False
-enable_infiniband=False
+enable_tcp_over_ucx = True
+enable_nvlink = False
+enable_infiniband = False
 
 
 @pytest.fixture(scope="module")
