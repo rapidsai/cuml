@@ -18,6 +18,32 @@
 #include "cub/cub.cuh"
 
 template <typename T>
+struct MSEImpurity {
+  static HDI T exec(const unsigned int total, const unsigned int left,
+                    const unsigned int right, const T parent_mean,
+                    const T sumleft, const T sumsq_left, const T sumsq_right) {
+    T sumright = (parent_mean * total) - sumleft;
+    T left_impurity = (sumsq_left / total) -
+                      (total / left) * (sumleft / total) * (sumleft / total);
+    T right_impurity = (sumsq_right / total) - (total / right) *
+                                                 (sumright / total) *
+                                                 (sumright / total);
+    return (left_impurity + right_impurity);
+  }
+};
+
+template <typename T>
+struct MAEImpurity {
+  static HDI T exec(const unsigned int total, const unsigned int left,
+                    const unsigned int right, const T parent_mean,
+                    const T sumleft, const T mae_left, const T mae_right) {
+    T left_impurity = (left * 1.0 / total) * (mae_left / left);
+    T right_impurity = (right * 1.0 / total) * (mae_right / right);
+    return (left_impurity + right_impurity);
+  }
+};
+
+template <typename T>
 __global__ void pred_kernel_level(const T *__restrict__ labels,
                                   const unsigned int *__restrict__ sample_cnt,
                                   const int nrows, T *predout,
