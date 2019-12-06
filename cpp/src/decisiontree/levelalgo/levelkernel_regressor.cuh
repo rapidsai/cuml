@@ -136,6 +136,91 @@ __global__ void get_pred_kernel(
   }
 }
 
+//This kernel computes sum left , count left and sqared sum both left and right,
+//for all colls, all bins and all nodes at a given level
+template <typename T, typename QuestionType>
+__global__ void get_mse_pred_kernel(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ flags,
+  const unsigned int *__restrict__ sample_cnt,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
+  const T *__restrict__ question_ptr, T *predout, unsigned int *countout,
+  T *mseout) {
+  extern __shared__ char shmem_mse_pred_kernel[];
+  T *shmem_predout = (T *)(shmem_mse_pred_kernel);
+  T *shmem_mse = (T *)(shmem_mse_pred_kernel + n_nodes * nbins * sizeof(T));
+  unsigned int *shmem_countout =
+    (unsigned int *)(shmem_mse_pred_kernel + 3 * n_nodes * nbins * sizeof(T));
+
+  unsigned int local_flag = LEAF;
+  T local_label;
+  int local_cnt;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int colid;
+  int colstart_local = -1;
+  if (tid < nrows) {
+    local_flag = flags[tid];
+  }
+
+  if (local_flag != LEAF) {
+    local_label = labels[tid];
+    local_cnt = sample_cnt[tid];
+    if (colstart != nullptr) colstart_local = colstart[local_flag];
+  }
+
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    if (local_flag != LEAF) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            colcnt, local_flag);
+    }
+    unsigned int coloff = colcnt * nbins * n_nodes;
+    for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
+      shmem_predout[i] = (T)0;
+      shmem_countout[i] = 0;
+    }
+
+    for (unsigned int i = threadIdx.x; i < 2 * nbins * n_nodes;
+         i += blockDim.x) {
+      shmem_mse[i] = (T)0;
+    }
+    __syncthreads();
+
+    //Check if leaf
+    if (local_flag != LEAF) {
+      T local_data = data[tid + colid * nrows];
+      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
+                            nbins);
+
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        unsigned int nodeoff = local_flag * nbins;
+        if (local_data <= question(binid)) {
+          atomicAdd(&shmem_countout[nodeoff + binid], local_cnt);
+          atomicAdd(&shmem_predout[nodeoff + binid], local_label);
+          atomicAdd(&shmem_mse[2 * (nodeoff + binid)],
+                    local_label * local_label);
+        } else {
+          atomicAdd(&shmem_mse[2 * (nodeoff + binid) + 1],
+                    local_label * local_label);
+        }
+      }
+    }
+
+    __syncthreads();
+    for (unsigned int i = threadIdx.x; i < 2 * nbins * n_nodes;
+         i += blockDim.x) {
+      atomicAdd(&mseout[2 * coloff + i], shmem_mse[i]);
+    }
+    for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
+      atomicAdd(&predout[coloff + i], shmem_predout[i]);
+      atomicAdd(&countout[coloff + i], shmem_countout[i]);
+    }
+    __syncthreads();
+  }
+}
+
 //This kernel computes mse/mae for all colls, all bins and all nodes at a given level
 template <typename T, typename F, typename QuestionType>
 __global__ void get_mse_kernel(
@@ -328,6 +413,65 @@ __global__ void get_mse_kernel_global(
     }
   }
 }
+
+//This kernel computes sum left , count left and sqared sum both left and right,
+//for all colls, all bins and all nodes at a given level, a global mem version
+template <typename T, typename QuestionType>
+__global__ void get_mse_pred_kernel_global(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ flags,
+  const unsigned int *__restrict__ sample_cnt,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
+  const T *__restrict__ question_ptr, T *predout, unsigned int *countout,
+  T *mseout) {
+  unsigned int local_flag = LEAF;
+  T local_label;
+  int local_cnt;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int colid;
+  int colstart_local = -1;
+  if (tid < nrows) {
+    local_flag = flags[tid];
+  }
+
+  if (local_flag != LEAF) {
+    local_label = labels[tid];
+    local_cnt = sample_cnt[tid];
+    if (colstart != nullptr) colstart_local = colstart[local_flag];
+  }
+
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    if (local_flag != LEAF) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            colcnt, local_flag);
+    }
+    unsigned int coloff = colcnt * nbins * n_nodes;
+
+    //Check if leaf
+    if (local_flag != LEAF) {
+      T local_data = data[tid + colid * nrows];
+      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
+                            nbins);
+
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        unsigned int nodeoff = local_flag * nbins;
+        if (local_data <= question(binid)) {
+          atomicAdd(&countout[coloff + nodeoff + binid], local_cnt);
+          atomicAdd(&predout[coloff + nodeoff + binid], local_label);
+          atomicAdd(&mseout[2 * (coloff + nodeoff + binid)],
+                    local_label * local_label);
+        } else {
+          atomicAdd(&mseout[2 * (coloff + nodeoff + binid) + 1],
+                    local_label * local_label);
+        }
+      }
+    }
+  }
+}
+
 //This is device version of best split in case, used when more than 512 nodes.
 template <typename T>
 __global__ void get_best_split_regression_kernel(
