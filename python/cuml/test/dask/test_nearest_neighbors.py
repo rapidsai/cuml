@@ -79,13 +79,17 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         from sklearn.datasets import make_blobs
 
+        print("Calling make_blobs")
+
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=nclusters)
 
         X = X.astype(np.float32)
 
+        print("Prepping traiing data...")
         X_cudf = _prep_training_data(client, X, n_parts)
+        print("Done.")
 
         wait(X_cudf)
 
@@ -136,6 +140,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
         from sklearn.datasets import make_blobs
 
+        print("Test batch size")
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=n_clusters)
@@ -146,6 +151,8 @@ def test_batch_size(nrows, ncols, n_parts,
 
         wait(X_cudf)
 
+        print("Prepped training data")
+
         cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
@@ -155,7 +162,12 @@ def test_batch_size(nrows, ncols, n_parts,
 
         local_i = np.array(out_i.compute().as_gpu_matrix())
 
+        print("Finished query")
+
+        print("Calling predict")
         y_hat, _ = predict(local_i, y, n_neighbors)
+
+        print("Done")
 
         assert array_equal(y_hat, y)
 
