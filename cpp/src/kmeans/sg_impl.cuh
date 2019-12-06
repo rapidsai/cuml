@@ -50,10 +50,6 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   MLCommon::Distance::DistanceType metric =
     static_cast<MLCommon::Distance::DistanceType>(params.metric);
 
-  auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
-  auto centroidsBatchSize =
-    kmeans::detail::getCentroidsBatchSize(params, n_clusters);
-
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
   //   - value is the distance to the nearest cluster
@@ -61,8 +57,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     {n_samples}, handle.getDeviceAllocator(), stream);
 
   // temporary buffer to store distance matrix, destructor releases the resource
-  Tensor<DataT, 2, IndexT> pairwiseDistance(
-    {dataBatchSize, centroidsBatchSize}, handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<DataT> pairwiseDistanceBuf(
+    handle.getDeviceAllocator(), stream);
 
   // temporary buffer to store intermediate centroids, destructor releases the
   // resource
@@ -84,7 +80,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
       n_samples);
 
   DataT priorClusteringCost = 0;
-  for (n_iter = 0; n_iter < params.max_iter; ++n_iter) {
+  for (n_iter = 1; n_iter <= params.max_iter; ++n_iter) {
     LOG(params.verbose,
         "KMeans.fit: Iteration-%d: fitting the model using the initialized "
         "cluster centers\n",
@@ -99,7 +95,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     //   centroid) and 'value' is the distance between the sample 'X[i]' and the
     //   'centroid[key]'
     kmeans::detail::minClusterAndDistance(
-      handle, params, X, centroids, pairwiseDistance, minClusterAndDistance,
+      handle, params, X, centroids, minClusterAndDistance, pairwiseDistanceBuf,
       workspace, metric, stream);
 
     // Using TransformInputIteratorT to dereference an array of
@@ -214,7 +210,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
              "Too few points and centriods being found is getting 0 cost from "
              "centers\n");
 
-      if (n_iter > 0) {
+      if (n_iter > 1) {
         DataT delta = curClusteringCost / priorClusteringCost;
         if (delta > 1 - params.tol) done = true;
       }
@@ -245,6 +241,10 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     stream);
 
   MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
+
+  LOG(params.verbose,
+      "KMeans.fit: completed after %d iterations with %f inertia \n", n_iter,
+      inertia);
 
   handle.getDeviceAllocator()->deallocate(
     clusterCostD, sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
@@ -320,13 +320,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     {initialCentroid.getSize(0), initialCentroid.getSize(1)}));
   // <<< End of Step-1 >>>
 
-  auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
-  auto centroidsBatchSize =
-    kmeans::detail::getCentroidsBatchSize(params, n_clusters);
-
-  MLCommon::device_buffer<DataT> pairwiseDistanceRaw(
+  MLCommon::device_buffer<DataT> pairwiseDistanceBuf(
     handle.getDeviceAllocator(), stream);
-  pairwiseDistanceRaw.resize(dataBatchSize * centroidsBatchSize, stream);
 
   Tensor<DataT, 1, IndexT> minClusterDistance(
     {n_samples}, handle.getDeviceAllocator(), stream);
@@ -336,12 +331,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
                                              stream, 1);
 
   // <<< Step-2 >>>: psi <- phi_X (C)
-  Tensor<DataT, 2, IndexT> pairwiseDistance(
-    (DataT *)pairwiseDistanceRaw.data(),
-    {dataBatchSize, potentialCentroids.getSize(0)});
-
   kmeans::detail::minClusterDistance(handle, params, X, potentialCentroids,
-                                     pairwiseDistance, minClusterDistance,
+                                     minClusterDistance, pairwiseDistanceBuf,
                                      workspace, metric, stream);
 
   // compute partial cluster cost from the samples in rank
@@ -366,14 +357,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
         "KMeans|| - Iteration %d: # potential centroids sampled - %d\n", iter,
         potentialCentroids.getSize(0));
 
-    pairwiseDistanceRaw.resize(dataBatchSize * potentialCentroids.getSize(0),
-                               stream);
-    Tensor<DataT, 2, IndexT> pairwiseDistance(
-      (DataT *)pairwiseDistanceRaw.data(),
-      {dataBatchSize, potentialCentroids.getSize(0)});
-
     kmeans::detail::minClusterDistance(handle, params, X, potentialCentroids,
-                                       pairwiseDistance, minClusterDistance,
+                                       minClusterDistance, pairwiseDistanceBuf,
                                        workspace, metric, stream);
 
     kmeans::detail::computeClusterCost(
@@ -382,6 +367,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
 
     MLCommon::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
+
     // <<<< Step-4 >>> : Sample each point x in X independently and identify new
     // potentialCentroids
     rng.uniform(uniformRands.data(), uniformRands.getSize(0), (DataT)0,
@@ -546,10 +532,6 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> X((DataT *)Xptr, {n_samples, n_features});
   Tensor<DataT, 2, IndexT> centroids((DataT *)cptr, {n_clusters, n_features});
 
-  auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
-  auto centroidsBatchSize =
-    kmeans::detail::getCentroidsBatchSize(params, n_clusters);
-
   // underlying expandable storage that holds labels
   MLCommon::device_buffer<IndexT> labelsRawData(handle.getDeviceAllocator(),
                                                 stream);
@@ -559,17 +541,18 @@ void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1> minClusterAndDistance(
     {n_samples}, handle.getDeviceAllocator(), stream);
-  Tensor<DataT, 2, IndexT> pairwiseDistance(
-    {dataBatchSize, centroidsBatchSize}, handle.getDeviceAllocator(), stream);
+
+  MLCommon::device_buffer<DataT> pairwiseDistanceBuf(
+    handle.getDeviceAllocator(), stream);
 
   // computes minClusterAndDistance[0:n_samples) where  minClusterAndDistance[i]
   // is a <key, value> pair where
   //   'key' is index to an sample in 'centroids' (index of the nearest
   //   centroid) and 'value' is the distance between the sample 'X[i]' and the
   //   'centroid[key]'
-  kmeans::detail::minClusterAndDistance(handle, params, X, centroids,
-                                        pairwiseDistance, minClusterAndDistance,
-                                        workspace, metric, stream);
+  kmeans::detail::minClusterAndDistance(
+    handle, params, X, centroids, minClusterAndDistance, pairwiseDistanceBuf,
+    workspace, metric, stream);
 
   // calculate cluster cost phi_x(C)
   cub::KeyValuePair<IndexT, DataT> *clusterCostD =
