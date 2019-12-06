@@ -152,12 +152,12 @@ void grow_deep_tree_classification(
     memcpy(h_parent_hist, h_child_hist,
            2 * n_nodes * n_unique_labels * sizeof(unsigned int));
   }
-
   // Start of gather algorithm
   //Convertor
   //std::cout << "begin gather \n";
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
+  if (n_nodes == 0) return;
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, int>* d_sparsenodes;
   SparseTreeNode<T, int>* h_sparsenodes;
@@ -183,7 +183,8 @@ void grow_deep_tree_classification(
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
   //print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
-  for (int depth = tempmem->swap_depth; depth < maxdepth; depth++) {
+  for (int depth = tempmem->swap_depth; (depth < maxdepth) && (n_nodes != 0);
+       depth++) {
     //std::cout << "at depth --> " << depth_cnt << "nodes --> " << n_nodes
     //          << std::endl;
 
