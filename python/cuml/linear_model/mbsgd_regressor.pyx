@@ -30,6 +30,7 @@ class MBSGDRegressor:
     Examples
     ---------
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.linear_model import MBSGDRegressor as cumlMBSGDRegressor
