@@ -31,6 +31,9 @@ namespace fil {
 
 /** Inference algorithm to use. */
 enum algo_t {
+  /** choose the algorithm automatically; currently chooses NAIVE for sparse forests 
+      and BATCH_TREE_REORG for dense ones */
+  ALGO_AUTO,
   /** naive algorithm: 1 thread block predicts 1 row; the row is cached in
       shared memory, and the trees are distributed cyclically between threads */
   NAIVE,
@@ -91,6 +94,9 @@ struct sparse_node_t {
   float val;
   int bits;
   int left_idx;
+  // pad the size to 16 bytes to match sparse_node
+  // (in cpp/src/fil/common.cuh)
+  int dummy;
 };
 
 /** dense_node_init initializes node from paramters */

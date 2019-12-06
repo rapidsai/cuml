@@ -23,6 +23,8 @@ import numpy as np
 
 from libc.stdint cimport uintptr_t
 
+import cudf
+
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_dev_array
 import cuml.common.handle
@@ -36,7 +38,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                             int n) except +
 
 
-def accuracy_score(ground_truth, predictions, handle=None):
+def accuracy_score(ground_truth, predictions, handle=None, convert_dtype=True):
     """
     Calcuates the accuracy score of a classification model.
 
@@ -57,19 +59,17 @@ def accuracy_score(ground_truth, predictions, handle=None):
         if handle is None else handle
     cdef cumlHandle* handle_ =\
         <cumlHandle*><size_t>handle.getHandle()
-    if type(predictions) == np.ndarray:
-        predictions = predictions.astype(np.int32)
-        ground_truth = ground_truth.astype(np.int32)
-    else:
-        predictions = np.asarray(predictions, dtype=np.int32)
-        ground_truth = np.asarray(ground_truth, dtype=np.int32)
 
     cdef uintptr_t preds_ptr, ground_truth_ptr
     preds_m, preds_ptr, n_rows, _, _ = \
-        input_to_dev_array(predictions)
+        input_to_dev_array(predictions,
+                           convert_to_dtype=np.int32
+                           if convert_dtype else None)
 
-    ground_truth_m, ground_truth_ptr, _, _, ground_truth_dtype = \
-        input_to_dev_array(ground_truth)
+    ground_truth_m, ground_truth_ptr, _, _, ground_truth_dtype=\
+        input_to_dev_array(ground_truth,
+                           convert_to_dtype=np.int32
+                           if convert_dtype else None)
 
     acc = accuracy_score_py(handle_[0],
                             <int*> preds_ptr,

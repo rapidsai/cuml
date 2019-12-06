@@ -72,7 +72,7 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
         if attr == 'singular_values_':
             assert array_equal(cuml_res, skl_res, 1, with_sign=with_sign)
         else:
-            assert array_equal(cuml_res, skl_res, 1e-2, with_sign=with_sign)
+            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
 
 
 @pytest.mark.mg

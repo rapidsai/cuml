@@ -41,6 +41,7 @@
 - PR #1340: Updated unit tests to uses larger dataset
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
   model importing
+- PR #1367: --test-split benchmark parameter for train-test split
 - PR #1360: Improved tests for importing SciKit-Learn models into FIL
 - PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
@@ -48,9 +49,15 @@
 - PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1376: AUTO value for FIL algorithm
+- PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
 - PR #1377: Add GPU array support for FIL benchmarking
+- PR #1445: Improved performance of FIL sparse trees
+- PR #1431: Updated API docs
+- PR #1441: Remove unused CUDA conda labels
+- PR #1439: Match sklearn 0.22 default n_estimators for RF and fix test errors
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
@@ -77,6 +84,8 @@
 - PR #1401: Patch for lbfgs solver for logistic regression with no l1 penalty
 - PR #1416: train_test_split numba and rmm device_array output bugfix
 - PR #1419: UMAP pickle tests are using wrong n_neighbors value for trustworthiness
+- PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
+- PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
 
 # cuML 0.10.0 (16 Oct 2019)
 
