@@ -128,6 +128,9 @@ void grow_deep_tree_regression(
                       sparsesize, depth, tempmem);
 
     if (split_cr == ML::CRITERION::MSE) {
+      get_mse_regression_fused<T>(
+        data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
+        n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
       get_mse_regression<T, SquareFunctor>(
         data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
         n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);

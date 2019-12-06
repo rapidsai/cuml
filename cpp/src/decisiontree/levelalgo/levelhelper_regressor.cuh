@@ -49,6 +49,67 @@ void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
   initial_metric = tempmem->h_mseout->data()[0] / count;
 }
 
+template <typename T>
+void get_mse_regression_fused(const T *data, const T *labels,
+                              unsigned int *flags, unsigned int *sample_cnt,
+                              const int nrows, const int Ncols,
+                              const int ncols_sampled, const int nbins,
+                              const int n_nodes, const int split_algo,
+                              std::shared_ptr<TemporaryMemory<T, T>> tempmem,
+                              T *d_mseout, T *d_predout,
+                              unsigned int *d_count) {
+  size_t predcount = ncols_sampled * nbins * n_nodes;
+  CUDA_CHECK(
+    cudaMemsetAsync(d_mseout, 0, 2 * predcount * sizeof(T), tempmem->stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(d_predout, 0, predcount * sizeof(T), tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(d_count, 0, predcount * sizeof(unsigned int),
+                             tempmem->stream));
+
+  int node_batch_mse = min(n_nodes, tempmem->max_nodes_mse);
+  size_t shmempred = nbins * (sizeof(unsigned int) + sizeof(T)) * n_nodes;
+  size_t shmemmse = shmempred + 2 * nbins * n_nodes * sizeof(T);
+
+  int threads = 256;
+  int blocks = MLCommon::ceildiv(nrows, threads);
+  unsigned int *d_colstart = nullptr;
+  if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
+  if (split_algo == 0) {
+    get_minmax(data, flags, tempmem->d_colids->data(), d_colstart, nrows, Ncols,
+               ncols_sampled, n_nodes, tempmem->max_nodes_minmax,
+               tempmem->d_globalminmax->data(), tempmem->h_globalminmax->data(),
+               tempmem->stream);
+    if ((n_nodes == node_batch_mse)) {
+      get_mse_pred_kernel<T, MinMaxQues<T>>
+        <<<blocks, threads, shmemmse, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(),
+          d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
+          tempmem->d_globalminmax->data(), d_predout, d_count, d_mseout);
+
+    } else {
+      get_mse_pred_kernel_global<T, MinMaxQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(),
+          d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
+          tempmem->d_globalminmax->data(), d_predout, d_count, d_mseout);
+    }
+  } else {
+    if ((n_nodes == node_batch_mse)) {
+      get_mse_pred_kernel<T, QuantileQues<T>>
+        <<<blocks, threads, shmemmse, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(),
+          d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
+          tempmem->d_quantile->data(), d_predout, d_count, d_mseout);
+
+    } else {
+      get_mse_pred_kernel_global<T, QuantileQues<T>>
+        <<<blocks, threads, 0, tempmem->stream>>>(
+          data, labels, flags, sample_cnt, tempmem->d_colids->data(),
+          d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
+          tempmem->d_quantile->data(), d_predout, d_count, d_mseout);
+    }
+  }
+}
 template <typename T, typename F>
 void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
                         unsigned int *sample_cnt, const int nrows,
@@ -283,13 +344,17 @@ void get_best_split_regression(
             continue;
           T tmp_meanleft = predout[coloff_pred + binoff_pred + nodeoff_pred];
           T tmp_meanright = parent_mean * parent_count - tmp_meanleft;
+          T tmp_mse_left = mseout[coloff_mse + binoff_mse + nodeoff_mse];
+          T tmp_mse_right = mseout[coloff_mse + binoff_mse + nodeoff_mse + 1];
+
+          T impurity2 = MAEImpurity<T>::exec(
+            parent_count, tmp_lnrows, tmp_rnrows, parent_mean, tmp_meanleft,
+            tmp_mse_left, tmp_mse_right);
+
           tmp_meanleft /= tmp_lnrows;
           tmp_meanright /= tmp_rnrows;
-          T tmp_mse_left =
-            mseout[coloff_mse + binoff_mse + nodeoff_mse] / tmp_lnrows;
-          T tmp_mse_right =
-            mseout[coloff_mse + binoff_mse + nodeoff_mse + 1] / tmp_rnrows;
-
+          tmp_mse_left /= tmp_lnrows;
+          tmp_mse_right /= tmp_rnrows;
           T impurity = (tmp_lnrows * 1.0 / totalrows) * tmp_mse_left +
                        (tmp_rnrows * 1.0 / totalrows) * tmp_mse_right;
           float info_gain =
