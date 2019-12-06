@@ -133,6 +133,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           -DBUILD_CUML_C_LIBRARY=ON \
           -DBUILD_CUML_STD_COMMS=ON \
           -DWITH_UCX=ON \
+          -DUCX_LIBRARY=${INSTALL_PREFIX/lib/libucp.so \
           -DBUILD_CUML_MPI_COMMS=OFF \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
