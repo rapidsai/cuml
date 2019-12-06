@@ -95,19 +95,15 @@ class ExponentialSmoothing(Base):
     other minor ways:
 
         * .__init__() : Cannot pass trend component or damped trend component
-
         * .__init__() : this version can take additional parameter eps,
                         start_periods, ts_num, and handle
-
         * .score() : returns SSE rather than gradient logL
                      https://github.com/rapidsai/cuml/issues/876
-
         * this version provides get_level(), get_trend(), get_season()
 
     Examples
     ---------
     .. code-block:: python
-
 
             from cuml import ExponentialSmoothing
             import cudf
@@ -127,7 +123,7 @@ class ExponentialSmoothing(Base):
 
     Output:
 
-    .. code-block:: none
+    .. code-block:: python
 
             Forecasted points :
             0    4.000143766093652
