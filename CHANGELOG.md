@@ -86,6 +86,7 @@
 - PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
 - PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
 - PR #1458: Add joblib as an explicit requirement
+- PR #1465: Adjust ratio of logreg test to account for Scikit-learn 0.22
 
 # cuML 0.10.0 (16 Oct 2019)
 
