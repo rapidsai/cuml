@@ -4,6 +4,8 @@
 
 ## Improvements
 
+- PR #1463: Update FAISS submodule to 1.6.1
+
 ## Bug Fixes
 
 
