@@ -58,6 +58,7 @@
 - PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1376: AUTO value for FIL algorithm
 - PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
@@ -91,7 +92,9 @@
 - PR #1401: Patch for lbfgs solver for logistic regression with no l1 penalty
 - PR #1416: train_test_split numba and rmm device_array output bugfix
 - PR #1419: UMAP pickle tests are using wrong n_neighbors value for trustworthiness
+- PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
 - PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
+- PR #1458: Add joblib as an explicit requirement
 
 # cuML 0.10.0 (16 Oct 2019)
 
