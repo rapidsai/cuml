@@ -186,7 +186,7 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
  * It computes the following equation: Z = alpha . X * Y + beta . Z
  * @tparam T Data type of input/output matrices (float/double)
  * @param handle cublas handle
- * @param Z output matrix of size M rows x N columns
+ * @param z output matrix of size M rows x N columns
  * @param X input matrix of size M rows x K columns
  * @param Y input matrix of size K rows x N columns
  * @param _M number of rows of X and Z
