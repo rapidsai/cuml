@@ -21,6 +21,7 @@
 
 import numpy as np
 import cupy as cp
+import sys
 
 import ctypes
 
@@ -53,21 +54,15 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         double* params, double* loglike, double* d_vs, bool trans,
         bool host_loglike)
 
-    void predict_in_sample(
-        cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
-        int d, int q, int P, int D, int Q, int s, int intercept,
-        double* d_params, double* d_vs_ptr, double* d_y_p)
+    void predict(
+        cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+        int start, int end, int p, int d, int q, int P, int D, int Q, int s,
+        int intercept, double* d_params, double* d_vs_ptr, double* d_y_p)
 
     void residual(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
         int d, int q, int P, int D, int Q, int s, int intercept,
         double* d_params, double* d_vs, bool trans)
-
-    void forecast(
-        cumlHandle& handle, int num_steps, int p, int d, int q, int P, int D,
-        int Q, int s, int intercept, int batch_size, int nobs,
-        const double* d_y, const double* d_y_prep, double* d_vs,
-        double* d_params, double* d_y_fc)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
@@ -192,13 +187,13 @@ class ARIMA(Base):
         P, D, Q, s = seasonal_order
         # TODO: check that period is > p and q
         if P + D + Q > 0 and s < 2:
-            raise ValueError("Invalid period for seasonal ARIMA: {}"
+            raise ValueError("ERROR: Invalid period for seasonal ARIMA: {}"
                              .format(s))
         if P + D + Q == 0 and s > 0:
-            raise ValueError("Period specified for non-seasonal ARIMA: {}"
-                             .format(s))
+            raise ValueError("ERROR: Period specified for non-seasonal ARIMA:"
+                             " {}".format(s))
         if d + D > 2:
-            raise ValueError("Invalid order. Required: d+D <= 2")
+            raise ValueError("ERROR: Invalid order. Required: d+D <= 2")
 
         self.order = order
         self.seasonal_order = seasonal_order
@@ -317,8 +312,10 @@ class ARIMA(Base):
                 array, _, _, _, _ = input_to_host_array(params[param_name])
                 setattr(self, param_name, array)
 
-    def predict_in_sample(self):
-        """Return in-sample prediction on batched series given batched model
+    def predict(self, start=0, end=None):
+        """Compute in-sample and/or out-of-sample prediction for each series
+
+        TODO: docs
 
         Returns:
         --------
@@ -331,11 +328,24 @@ class ARIMA(Base):
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
-            y_pred = model.predict_in_sample()
+            y_pred = model.predict().copy_to_host()
         """
 
         p, d, q = self.order
         P, D, Q, s = self.seasonal_order
+
+        if start < 0:
+            raise ValueError("ERROR(`predict`): start < 0")
+        elif start > self.num_samples:
+            raise ValueError("ERROR(`predict`): There can't be a gap between"
+                             " the data and the prediction")
+        elif start < d + D * s:
+            print("WARNING(`predict`): predictions before {} are undefined,"
+                  " will be padded with NaN".format(d + D * s),
+                  file=sys.stderr)
+
+        if end is None:
+            end = self.num_samples
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -345,21 +355,24 @@ class ARIMA(Base):
         d_params, d_params_ptr, _, _, _ = \
             input_to_dev_array(x, check_dtype=np.float64)
 
+        predict_size = end - start
+
         # allocate residual (vs) and prediction (y_p) device memory and get
         # pointers
         cdef uintptr_t d_vs_ptr
         cdef uintptr_t d_y_p_ptr
-        d_vs = rmm.device_array((self.num_samples - d, self.batch_size),
-                                dtype=np.float64, order="F")
-        d_y_p = rmm.device_array((self.num_samples, self.batch_size),
+        d_vs = rmm.device_array((self.num_samples - d - D * s,
+                                 self.batch_size), dtype=np.float64, order="F")
+        d_y_p = rmm.device_array((predict_size, self.batch_size),
                                  dtype=np.float64, order="F")
         d_vs_ptr = get_dev_array_ptr(d_vs)
         d_y_p_ptr = get_dev_array_ptr(d_y_p)
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
-        predict_in_sample(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
-                          <int> self.num_samples, <int> p, <int> d, <int> q,
+        predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
+                          <int> self.num_samples, <int> start, <int> end,
+                          <int> p, <int> d, <int> q,
                           <int> P, <int> D, <int> Q, <int> s,
                           <int> self.intercept, <double*>d_params_ptr,
                           <double*>d_vs_ptr, <double*>d_y_p_ptr)
@@ -388,50 +401,10 @@ class ARIMA(Base):
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
-            d_y_fc = model.forecast(10)
-            y_fc = cuml.utils.input_to_host_array(d_y_fc)
-            dx = xs[1] - xs[0]
-            xfc = np.linspace(1, 1+50*dx, 50)
-            plt.plot(xs, ys, xfc, yfc)
-
+            d_y_fc = model.forecast(10).copy_to_host()
         """
 
-        p, d, q = self.order
-        P, D, Q, s = self.seasonal_order
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        x = pack(self.order, self.seasonal_order, self.intercept,
-                 self.batch_size, self.get_params())
-        cdef uintptr_t d_params_ptr
-        d_params, d_params_ptr, _, _, _ = \
-            input_to_dev_array(x, check_dtype=np.float64)
-
-        d_vs = rmm.device_array((self.num_samples - d,
-                                 self.batch_size), dtype=np.float64,
-                                order="F")
-        cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
-
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
-
-        residual(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
-                 <int> self.num_samples, <int> p, <int> d, <int> q, <int> P,
-                 <int> D, <int> Q, <int> s, <int> self.intercept,
-                 <double*>d_params_ptr, <double*>d_vs_ptr, False)
-
-        cdef uintptr_t d_y_diff_ptr = <uintptr_t> NULL
-
-        d_y_fc = rmm.device_array((nsteps, self.batch_size),
-                                  dtype=np.float64, order="F")
-        cdef uintptr_t d_y_fc_ptr = get_dev_array_ptr(d_y_fc)
-
-        forecast(handle_[0], <int> nsteps, <int> p, <int> d, <int> q, <int> P,
-                 <int> D, <int> Q, <int> s, <int> self.intercept,
-                 <int> self.batch_size, <int> self.num_samples,
-                 <double*> d_y_ptr, <double*>d_y_diff_ptr, <double*>d_vs_ptr,
-                 <double*>d_params_ptr, <double*> d_y_fc_ptr)
-
-        return d_y_fc
+        return self.predict(self.num_samples, self.num_samples + nsteps)
 
     # TODO: _ prefix (semi-private)
     @nvtx_range_wrap("estimate x0")
@@ -549,7 +522,8 @@ class ARIMA(Base):
 
         # Handle non-zero flags with Warning
         if (flags != 0).any():
-            print("WARNING(`fit()`): Some batch members had optimizer problems.")
+            print("WARNING(`fit`): Some batch members had optimizer problems.",
+                  file=sys.stderr)
 
         Tx = _batch_trans(self.order, self.seasonal_order, self.intercept,
                           self.batch_size, x, self.handle)

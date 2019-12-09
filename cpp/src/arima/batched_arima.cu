@@ -190,12 +190,22 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ML::POP_RANGE();
 }
 
-/// TODO: current way of forecasting won't work for d=2 because the noise
-/// influences the trend at the start of the forecast!
-void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
-              int D, int Q, int s, int intercept, int batch_size, int n_obs,
-              const double* d_y, const double* d_y_prep, double* d_vs,
-              double* d_params, double* d_y_fc) {
+void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
+              int p, int d, int q, int P, int D, int Q, int s, int intercept,
+              double* d_mu, double* d_ar, double* d_ma, double* d_sar,
+              double* d_sma, double* d_vs, bool trans) {
+  ML::PUSH_RANGE(__func__);
+  std::vector<double> loglike = std::vector<double>(batch_size);
+  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
+                  intercept, d_mu, d_ar, d_ma, d_sar, d_sma, loglike.data(),
+                  d_vs, trans);
+  ML::POP_RANGE();
+}
+
+void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
+             int start, int end, int p, int d, int q, int P, int D, int Q,
+             int s, int intercept, double* d_params, double* d_vs,
+             double* d_y_p) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
@@ -207,128 +217,130 @@ void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
   unpack(d_params, d_mu, d_ar, d_ma, d_sar, d_sma, batch_size, p, q, P, Q,
          intercept, stream);
 
-  int ld_yprep = n_obs - d - D * s;
+  // Prepare data
+  int dDs = d + D * s;
+  int ld_yprep = n_obs - dDs;
+  double* d_y_prep = (double*)allocator->allocate(
+    ld_yprep * batch_size * sizeof(double), stream);
+  _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, d, D, s, intercept,
+                d_mu);
 
-  // Prepare data if given unprepared data
-  double* yprep = nullptr;
-  if (d_y_prep == nullptr) {
-    if (intercept + d + D == 0)
-      d_y_prep = d_y;
-    else {
-      yprep = (double*)allocator->allocate(
-        ld_yprep * batch_size * sizeof(double), stream);
-      _prepare_data(handle, yprep, d_y, batch_size, n_obs, d, D, s, intercept,
-                    d_mu);
-      d_y_prep = yprep;
-    }
-  }
+  // Compute the residual - provide already prepared data and parameters
+  residual(handle, d_y_prep, batch_size, n_obs - dDs, p, 0, q, P, 0, Q, s, 0,
+           nullptr, d_ar, d_ma, d_sar, d_sma, d_vs, false);
 
-  const auto counting = thrust::make_counting_iterator(0);
+  int predict_size = end - start;
+  int p_start = std::max(start, dDs);
+  int p_end = std::min(n_obs, end);
 
-  int p_sP = p + s * P;
-  int q_sQ = q + s * Q;
+  auto counting = thrust::make_counting_iterator(0);
 
-  // Copy data into temporary work arrays
-  double* d_y_ =
-    (double*)allocator->allocate((p_sP + num_steps) * batch_size, stream);
-  double* d_vs_ =
-    (double*)allocator->allocate((q_sQ + num_steps) * batch_size, stream);
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int bid) {
-                     if (p_sP) {
-                       for (int ip = 0; ip < p_sP; ip++) {
-                         d_y_[(p_sP + num_steps) * bid + ip] =
-                           d_y_prep[ld_yprep * bid + ld_yprep - p_sP + ip];
-                       }
-                     }
-                     if (q_sQ) {
-                       for (int iq = 0; iq < q_sQ; iq++) {
-                         d_vs_[(q_sQ + num_steps) * bid + iq] =
-                           d_vs[ld_yprep * bid + ld_yprep - q_sQ + iq];
-                       }
-                     }
-                   });
+  //
+  // In-sample prediction
+  //
 
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + batch_size,
-    [=] __device__(int bid) {
-      for (int i = 0; i < num_steps; i++) {
-        auto it = num_steps * bid + i;
-        d_y_fc[it] = 0.0;
-        if (p_sP) {
-          double dot_ar_y = 0.0;
-          for (int ip = 0; ip < p_sP; ip++) {
-            double coef =
-              reduced_polynomial<true>(bid, d_ar, p, d_sar, P, s, ip + 1);
-            if (coef != 0.0)
-              dot_ar_y += coef * d_y_[(p_sP + num_steps) * bid + i + ip];
-          }
-          d_y_fc[it] += dot_ar_y;
-        }
-        if (i < q_sQ) {
-          double dot_ma_y = 0.0;
-          for (int iq = 0; iq < q_sQ; iq++) {
-            double coef =
-              reduced_polynomial<false>(bid, d_ma, q, d_sma, Q, s, iq + 1);
-            if (coef != 0.0)
-              dot_ma_y += coef * d_vs_[(q_sQ + num_steps) * bid + i + iq];
-          }
-          d_y_fc[it] += dot_ma_y;
-        }
-        if (p_sP) {
-          d_y_[(p_sP + num_steps) * bid + i + p_sP] = d_y_fc[it];
-        }
-      }
-    });
-
-  _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, d, D, s,
-                     intercept, d_mu);
-
-  deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_ar, d_ma,
-                    d_sar, d_sma, intercept, d_mu);
-  allocator->deallocate(d_y_, (p + num_steps) * batch_size, stream);
-  allocator->deallocate(d_vs_, (q + num_steps) * batch_size, stream);
-  if (yprep != nullptr)
-    allocator->deallocate(yprep, ld_yprep * batch_size * sizeof(double),
-                          stream);
-  ML::POP_RANGE();
-}
-
-void predict_in_sample(cumlHandle& handle, const double* d_y, int batch_size,
-                       int n_obs, int p, int d, int q, int P, int D, int Q,
-                       int s, int intercept, double* d_params, double* d_vs,
-                       double* d_y_p) {
-  ML::PUSH_RANGE(__func__);
-  residual(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s, intercept,
-           d_params, d_vs, false);
-  auto stream = handle.getStream();
-  double* d_y_diff;
-
-  ///TODO: update for seasonality
-  if (d + D == 0) {
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       for (int i = 0; i < n_obs; i++) {
-                         int it = bid * n_obs + i;
-                         d_y_p[it] = d_y[it] - d_vs[it];
-                       }
-                     });
-  } else {
-    auto counting = thrust::make_counting_iterator(0);
+  if (start < n_obs) {
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
                        d_y_p[0] = 0.0;
-                       for (int i = 0; i < n_obs - 1; i++) {
-                         int it = bid * n_obs + i;
-                         int itd = bid * (n_obs - 1) + i;
-                         // note: d_y[it] + (d_y[it + 1] - d_y[it]) - d_vs[itd]
-                         //    -> d_y[it+1] - d_vs[itd]
-                         d_y_p[it + 1] = d_y[it + 1] - d_vs[itd];
-                         /// TODO: need to support seasonality
+                       for (int i = 0; i < dDs - start; i++) {
+                         d_y_p[bid * predict_size + i] = nan("");
+                       }
+                       for (int i = p_start; i < p_end; i++) {
+                         d_y_p[bid * predict_size + i - start] =
+                           d_y[bid * n_obs + i] -
+                           d_vs[bid * ld_yprep + i - d - D * s];
                        }
                      });
   }
+
+  //
+  // Out-of-sample forecasting
+  //
+
+  int num_steps = end - n_obs;
+  if (num_steps >= 0) {
+    int p_sP = p + s * P;
+    int q_sQ = q + s * Q;
+
+    // Copy data into temporary work arrays
+    double* d_y_ =
+      (double*)allocator->allocate((p_sP + num_steps) * batch_size, stream);
+    double* d_vs_ =
+      (double*)allocator->allocate((q_sQ + num_steps) * batch_size, stream);
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       if (p_sP) {
+                         for (int ip = 0; ip < p_sP; ip++) {
+                           d_y_[(p_sP + num_steps) * bid + ip] =
+                             d_y_prep[ld_yprep * bid + ld_yprep - p_sP + ip];
+                         }
+                       }
+                       if (q_sQ) {
+                         for (int iq = 0; iq < q_sQ; iq++) {
+                           d_vs_[(q_sQ + num_steps) * bid + iq] =
+                             d_vs[ld_yprep * bid + ld_yprep - q_sQ + iq];
+                         }
+                       }
+                     });
+
+    // Temporary array for the forecasts
+    double* d_y_fc = (double*)allocator->allocate(
+      num_steps * batch_size * sizeof(double), stream);
+
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size,
+      [=] __device__(int bid) {
+        for (int i = 0; i < num_steps; i++) {
+          double l_fc = 0.0;
+          if (p_sP) {
+            double dot_ar_y = 0.0;
+            for (int ip = 0; ip < p_sP; ip++) {
+              double coef =
+                reduced_polynomial<true>(bid, d_ar, p, d_sar, P, s, ip + 1);
+              if (coef != 0.0)
+                dot_ar_y += coef * d_y_[(p_sP + num_steps) * bid + i + ip];
+            }
+            l_fc = dot_ar_y;
+          }
+          if (i < q_sQ) {
+            double dot_ma_y = 0.0;
+            for (int iq = 0; iq < q_sQ; iq++) {
+              double coef =
+                reduced_polynomial<false>(bid, d_ma, q, d_sma, Q, s, iq + 1);
+              if (coef != 0.0)
+                dot_ma_y += coef * d_vs_[(q_sQ + num_steps) * bid + i + iq];
+            }
+            l_fc += dot_ma_y;
+          }
+          if (p_sP) {
+            d_y_[(p_sP + num_steps) * bid + i + p_sP] = l_fc;
+          }
+          d_y_fc[num_steps * bid + i] = l_fc;
+        }
+      });
+
+    // Add trend and/or undiff
+    _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, d, D,
+                       s, intercept, d_mu);
+
+    // Copy results in d_y_p
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       for (int i = 0; i < num_steps; i++) {
+                         d_y_p[bid * predict_size + n_obs - start + i] =
+                           d_y_fc[num_steps * bid + i];
+                       }
+                     });
+
+    allocator->deallocate(d_y_fc, num_steps * batch_size * sizeof(double),
+                          stream);
+  }
+
+  deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_ar, d_ma,
+                    d_sar, d_sma, intercept, d_mu);
+  allocator->deallocate(d_y_prep, ld_yprep * batch_size * sizeof(double),
+                        stream);
   ML::POP_RANGE();
 }
 
