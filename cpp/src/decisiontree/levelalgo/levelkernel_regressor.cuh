@@ -22,12 +22,11 @@ struct MSEImpurity {
   static HDI T exec(const unsigned int total, const unsigned int left,
                     const unsigned int right, const T parent_mean,
                     const T sumleft, const T sumsq_left, const T sumsq_right) {
+    T temp = sumleft / total;
     T sumright = (parent_mean * total) - sumleft;
-    T left_impurity = (sumsq_left / total) -
-                      (total / left) * (sumleft / total) * (sumleft / total);
-    T right_impurity = (sumsq_right / total) - (total / right) *
-                                                 (sumright / total) *
-                                                 (sumright / total);
+    T left_impurity = (sumsq_left / total) - (total / left) * temp * temp;
+    temp = sumright / total;
+    T right_impurity = (sumsq_right / total) - (total / right) * temp * temp;
     return (left_impurity + right_impurity);
   }
 };
@@ -499,7 +498,7 @@ __global__ void get_mse_pred_kernel_global(
 }
 
 //This is device version of best split in case, used when more than 512 nodes.
-template <typename T>
+template <typename T, typename Impurity>
 __global__ void get_best_split_regression_kernel(
   const T *__restrict__ mseout, const T *__restrict__ predout,
   const unsigned int *__restrict__ count, const T *__restrict__ parentmean,
@@ -530,13 +529,17 @@ __global__ void get_best_split_regression_kernel(
       if (tmp_lnrows == 0 || tmp_rnrows == 0 || totalrows < min_rpn) continue;
       T tmp_meanleft = predout[threadoffset];
       T tmp_meanright = parent_mean * parent_count - tmp_meanleft;
+      T tmp_mse_left = mseout[2 * threadoffset];
+      T tmp_mse_right = mseout[2 * threadoffset + 1];
+
+      T impurity =
+        Impurity::exec(parent_count, tmp_lnrows, tmp_rnrows, parent_mean,
+                       tmp_meanleft, tmp_mse_left, tmp_mse_right);
+
       tmp_meanleft /= tmp_lnrows;
       tmp_meanright /= tmp_rnrows;
-      T tmp_mse_left = mseout[2 * threadoffset] / tmp_lnrows;
-      T tmp_mse_right = mseout[2 * threadoffset + 1] / tmp_rnrows;
-
-      T impurity = (tmp_lnrows * 1.0 / totalrows) * tmp_mse_left +
-                   (tmp_rnrows * 1.0 / totalrows) * tmp_mse_right;
+      tmp_mse_left /= tmp_lnrows;
+      tmp_mse_right /= tmp_rnrows;
       float info_gain = (float)(parent_metric - impurity);
 
       if (info_gain > tid_pair.gain) {

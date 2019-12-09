@@ -205,7 +205,7 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
     CUDA_CHECK(cudaGetLastError());
   }
 }
-template <typename T>
+template <typename T, typename Impurity>
 void get_best_split_regression(
   T *mseout, T *d_mseout, T *predout, T *d_predout, unsigned int *count,
   unsigned int *d_count, unsigned int *h_colids, unsigned int *d_colids,
@@ -263,10 +263,12 @@ void get_best_split_regression(
     CUDA_CHECK(cudaMemsetAsync(d_split_colidx, 0, n_nodes * sizeof(int),
                                tempmem->stream));
 
-    get_best_split_regression_kernel<<<n_nodes, threads, 0, tempmem->stream>>>(
-      d_mseout, d_predout, d_count, d_parentmean, d_parentcount, d_parentmetric,
-      nbins, ncols_sampled, n_nodes, min_rpn, d_outgain, d_split_colidx,
-      d_split_binidx, d_childmean, d_childcount, d_childmetric);
+    get_best_split_regression_kernel<T, Impurity>
+      <<<n_nodes, threads, 0, tempmem->stream>>>(
+        d_mseout, d_predout, d_count, d_parentmean, d_parentcount,
+        d_parentmetric, nbins, ncols_sampled, n_nodes, min_rpn, d_outgain,
+        d_split_colidx, d_split_binidx, d_childmean, d_childcount,
+        d_childmetric);
     CUDA_CHECK(cudaGetLastError());
 
     MLCommon::updateHost(h_childmetric, d_childmetric, 2 * n_nodes,
@@ -347,16 +349,13 @@ void get_best_split_regression(
           T tmp_mse_left = mseout[coloff_mse + binoff_mse + nodeoff_mse];
           T tmp_mse_right = mseout[coloff_mse + binoff_mse + nodeoff_mse + 1];
 
-          T impurity2 = MAEImpurity<T>::exec(
-            parent_count, tmp_lnrows, tmp_rnrows, parent_mean, tmp_meanleft,
-            tmp_mse_left, tmp_mse_right);
-
+          T impurity =
+            Impurity::exec(parent_count, tmp_lnrows, tmp_rnrows, parent_mean,
+                           tmp_meanleft, tmp_mse_left, tmp_mse_right);
           tmp_meanleft /= tmp_lnrows;
           tmp_meanright /= tmp_rnrows;
           tmp_mse_left /= tmp_lnrows;
           tmp_mse_right /= tmp_rnrows;
-          T impurity = (tmp_lnrows * 1.0 / totalrows) * tmp_mse_left +
-                       (tmp_rnrows * 1.0 / totalrows) * tmp_mse_right;
           float info_gain =
             (float)(sparsetree[parentid].best_metric_val - impurity);
 
