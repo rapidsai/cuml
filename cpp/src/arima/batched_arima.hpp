@@ -90,8 +90,41 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      double* d_vs, bool trans = true, bool host_loglike = true);
 
 /**
- * Batched in-sample prediction of a time-series given trend, AR, and MA
+ * Batched in-sample and out-of-sample prediction of a time-series given all
+ * the model parameters
+ *
+ * @param[in]  handle      cuML handle
+ * @param[in]  d_y         Batched Time series to predict.
+ *                         Shape: (num_samples, batch size) (device)
+ * @param[in]  batch_size  Total number of batched time series
+ * @param[in]  nobs        Number of samples per time series
+ *                         (all series must be identical)
+ * @param[in]  start       Index to start the prediction
+ * @param[in]  end         Index to end the prediction (excluded)
+ * @param[in]  p           Number of AR parameters
+ * @param[in]  d           Difference order
+ * @param[in]  q           Number of MA parameters
+ * @param[in]  P           Number of seasonal AR parameters
+ * @param[in]  D           Seasonal difference order
+ * @param[in]  Q           Number of seasonal MA parameters
+ * @param[in]  s           Seasonal period
+ * @param[in]  intercept   Whether the model fits an intercept (constant term)
+ * @param[in]  d_params    Zipped trend, AR, and MA parameters
+ *                         [mu, ar, ma] x batches (device)
+ * @param[out] d_vs        Residual output (device)
+ * @param[out] d_y_p       Prediction output (device)
+ */
+void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+             int start, int end, int p, int d, int q, int P, int D, int Q,
+             int s, int intercept, double* d_params, double* d_vs,
+             double* d_y_p);
+
+/**
+ * Residual of in-sample prediction of a time-series given all the model
  * parameters.
+ * 
+ * @note: this overload should be used when the parameters are already unpacked
+ *        to avoid useless packing / unpacking
  *
  * @param[in]  handle      cuML handle
  * @param[in]  d_y         Batched Time series to predict.
@@ -107,18 +140,24 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  Q           Number of seasonal MA parameters
  * @param[in]  s           Seasonal period
  * @param[in]  intercept   Whether the model fits an intercept (constant term)
- * @param[in]  d_params    Zipped trend, AR, and MA parameters
- *                         [mu, ar, ma] x batches (device)
+ * @param[in]  d_mu        mu if d != 0. Shape: (d, batch_size) (device)
+ * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
+ * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
+ * @param[in]  d_sar       Seasonal AR parameters.
+ *                         Shape: (P, batch_size) (device)
+ * @param[in]  d_sma       Seasonal MA parameters.
+ *                         Shape: (Q, batch_size) (device)
  * @param[out] d_vs        Residual output (device)
- * @param[out] d_y_p       Prediction output (device)
+ * @param[in]  trans       Run `jones_transform` on params.
  */
-void predict_in_sample(cumlHandle& handle, const double* d_y, int batch_size,
-                       int nobs, int p, int d, int q, int P, int D, int Q,
-                       int s, int intercept, double* d_params, double* d_vs,
-                       double* d_y_p);
+void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+              int p, int d, int q, int P, int D, int Q, int s, int intercept,
+              double* d_mu, double* d_ar, double* d_sar, double* d_sma,
+              double* d_vs, bool trans);
 
 /**
- * Residual of in-sample prediction of a time-series given trend, AR, and MA parameters.
+ * Residual of in-sample prediction of a time-series given all the model
+ * parameters.
  *
  * @param[in]  handle      cuML handle
  * @param[in]  d_y         Batched Time series to predict.
@@ -142,38 +181,6 @@ void predict_in_sample(cumlHandle& handle, const double* d_y, int batch_size,
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
               double* d_params, double* d_vs, bool trans);
-
-///TODO: allow nullptr for the diff to be calculated inside this function if
-///      needed (d > 0 or D > 0)
-/**
- * Batched forecast of a time-series given trend, AR, and MA parameters.
- *
- * @param[in]  handle     cuML handle
- * @param[in]  num_steps  The number of steps to forecast
- * @param[in]  p          Number of AR parameters
- * @param[in]  d          Trend parameter
- * @param[in]  q          Number of MA parameters
- * @param[in]  P          Number of seasonal AR parameters
- * @param[in]  D          Seasonal difference order
- * @param[in]  Q          Number of seasonal MA parameters
- * @param[in]  s          Seasonal period
- * @param[in]  intercept  Whether the model fits an intercept (constant term)
- * @param[in]  batch_size Total number of batched time series
- * @param[in]  nobs       Number of samples per time series
- *                        (all series must be identical)
- * @param[in]  d_y        Batched Time series to predict.
- *                        Shape: (num_samples, batch size) (device)
- * @param[in]  d_y_prep   Prepared data, or nullptr to prepare it now
- *                        Shape: (num_samples - d - D*s, batch size) (device)
- * @param[in]  d_vs       Residual input (device)
- * @param[in]  d_params   Zipped trend, AR, and MA parameters
- *                        [mu, ar, ma] x batches (device)
- * @param[out] d_y_fc     Forecast output (device)
- */
-void forecast(cumlHandle& handle, int num_steps, int p, int d, int q, int P,
-              int D, int Q, int s, int intercept, int batch_size, int nobs,
-              const double* d_y, const double* d_y_prep, double* d_vs,
-              double* d_params, double* d_y_fc);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)

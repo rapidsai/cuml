@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+# TODO: pretty much rewrite these tests
 
 import numpy as np
 from timeit import default_timer as timer
