@@ -187,8 +187,8 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
  * @tparam T Data type of input/output matrices (float/double)
  * @param handle cublas handle
  * @param z output matrix of size M rows x N columns
- * @param X input matrix of size M rows x K columns
- * @param Y input matrix of size K rows x N columns
+ * @param x input matrix of size M rows x K columns
+ * @param y input matrix of size K rows x N columns
  * @param _M number of rows of X and Z
  * @param _N number of rows of Y and columns of Z
  * @param _K number of columns of X and rows of Y
