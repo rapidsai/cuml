@@ -129,6 +129,7 @@ if "--singlegpu" in sys.argv:
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
+    libs.append("ucp")
 
     sys_include = os.path.dirname(sysconfig.get_path("include"))
     include_dirs.append("%s/cumlprims" % sys_include)
