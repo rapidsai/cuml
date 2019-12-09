@@ -95,7 +95,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
                                    params.yLayout);
 
     gemm(handle, Z, X, Y, params.M, params.N, params.K, params.zLayout,
-         params.xLayout, params.yLayout);
+         params.xLayout, params.yLayout, stream);
 
     CUDA_CHECK(cudaFree(X));
     CUDA_CHECK(cudaFree(Y));
@@ -136,19 +136,21 @@ const std::vector<GemmLayoutInputs<double>> inputsd = {
 
 typedef GemmLayoutTest<float> GemmLayoutTestF;
 TEST_P(GemmLayoutTestF, Result) {
-  ASSERT_TRUE(devArrMatch(refZ, Z, params.M*params.N,
-              CompareApprox<float>(1e-4)));
+  ASSERT_TRUE(
+    devArrMatch(refZ, Z, params.M * params.N, CompareApprox<float>(1e-4)));
 }
 
 typedef GemmLayoutTest<double> GemmLayoutTestD;
 TEST_P(GemmLayoutTestD, Result) {
-  ASSERT_TRUE(devArrMatch(refZ, Z, params.M*params.N,
-              CompareApprox<float>(1e-6)));
+  ASSERT_TRUE(
+    devArrMatch(refZ, Z, params.M * params.N, CompareApprox<float>(1e-6)));
 }
 
-INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestF,
+                        ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(GemmLayoutTests, GemmLayoutTestD,
+                        ::testing::ValuesIn(inputsd));
 
 }  // end namespace LinAlg
 }  // end namespace MLCommon
