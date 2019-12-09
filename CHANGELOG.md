@@ -57,6 +57,7 @@
 - PR #1431: Updated API docs
 - PR #1441: Remove unused CUDA conda labels
 - PR #1439: Match sklearn 0.22 default n_estimators for RF and fix test errors
+- PR #1461: Add kneighbors to API docs
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe

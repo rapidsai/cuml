@@ -137,7 +137,7 @@ Random Forest
     :members:
 
 Forest Inferencing
--------------------------
+------------------
 
 .. autoclass:: cuml.ForestInference
     :members:
@@ -152,6 +152,18 @@ Support Vector Machines
 ------------------------
 
 .. autoclass:: cuml.svm.SVC
+    :members:
+
+Nearest Neighbors Classification
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsClassifier
+    :members:
+
+Nearest Neighbors Regression
+----------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Clustering
@@ -211,7 +223,19 @@ Neighbors
 Nearest Neighbors
 -----------------
 
-.. autoclass:: cuml.NearestNeighbors
+.. autoclass:: cuml.neighbors.NearestNeighbors
+    :members:
+
+Nearest Neighbors Classification
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsClassifier
+    :members:
+
+Nearest Neighbors Classification
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Time Series
