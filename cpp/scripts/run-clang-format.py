@@ -36,10 +36,13 @@ def parse_args():
     argparser.add_argument("-regex", type=str,
                            default=r"[.](cu|cuh|h|hpp|cpp)$",
                            help="Regex string to filter in sources")
+    argparser.add_argument("-ignore", type=str, default=r"cannylab/bh[.]cu$",
+                           help="Regex used to ignore files from matched list")
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
     args = argparser.parse_args()
     args.regexCompiled = re.compile(args.regex)
+    args.ignoreCompiled = re.compile(args.ignore)
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
     version = VersionRegex.match(ret)
@@ -51,13 +54,15 @@ def parse_args():
     return args
 
 
-def list_all_src_files(fileRegex, srcdirs, dstdir, inplace):
+def list_all_src_files(fileRegex, ignoreRegex, srcdirs, dstdir, inplace):
     allFiles = []
     for srcdir in srcdirs:
         for root, dirs, files in os.walk(srcdir):
             for f in files:
                 if re.search(fileRegex, f):
                     src = os.path.join(root, f)
+                    if re.search(ignoreRegex, src):
+                        continue
                     if inplace:
                         _dir = root
                     else:
@@ -95,8 +100,8 @@ def run_clang_format(src, dst, exe):
 
 def main():
     args = parse_args()
-    allFiles = list_all_src_files(args.regexCompiled, args.dirs, args.dstdir,
-                                  args.inplace)
+    allFiles = list_all_src_files(args.regexCompiled, args.ignoreCompiled,
+                                  args.dirs, args.dstdir, args.inplace)
     # actual format checker
     status = True
     for src, dst in allFiles:
