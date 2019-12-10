@@ -26,51 +26,6 @@
 namespace ML {
 namespace DecisionTree {
 
-template <typename DataT, typename LabelT, typename IdxT>
-__global__ void initialClassHistKernel(int* gclasshist, const IdxT* rowids,
-                                       const LabelT* labels, IdxT nclasses,
-                                       IdxT nrows) {
-  extern __shared__ int shist[];
-  for (IdxT i = threadIdx.x; i < nclasses; i += blockDim.x) shist[i] = 0;
-  __syncthreads();
-  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  IdxT stride = blockDim.x * gridDim.x;
-  for (auto i = tid; i < nrows; i += stride) {
-    auto row = rowids[i];
-    auto label = labels[row];
-    atomicAdd(shist + label, 1);
-  }
-  __syncthreads();
-  for (IdxT i = threadIdx.x; i < nclasses; i += blockDim.x)
-    atomicAdd(gclasshist + i, shist[i]);
-}
-
-template <typename DataT, typename LabelT, typename IdxT>
-__global__ void initialMeanPredKernel(DataT* meanPred, DataT* meanPred2,
-                                      const IdxT* rowids, const LabelT* labels,
-                                      IdxT nrows) {
-  __shared__ DataT spred[2];
-  if (threadIdx.x == 0) {
-    spred[0] = DataT(0.0);
-    spred[1] = DataT(0.0);
-  }
-  __syncthreads();
-  IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
-  IdxT stride = blockDim.x * gridDim.x;
-  for (auto i = tid; i < nrows; i += stride) {
-    auto row = rowids[i];
-    auto label = labels[row];
-    atomicAdd(spred, label);
-    atomicAdd(spred + 1, label * label);
-  }
-  __syncthreads();
-  if (threadIdx.x == 0) {
-    auto inv = DataT(1.0) / nrows;
-    atomicAdd(meanPred, spred[0] * inv);
-    atomicAdd(meanPred2, spred[1] * inv);
-  }
-}
-
 /**
  * @brief Decide whether the current node is to be declared as a leaf entirely
  *        based on the input hyper-params set by the user
