@@ -18,10 +18,11 @@
 #include "cub/cub.cuh"
 
 template <typename T>
-struct MSEImpurity {
-  static HDI T exec(const unsigned int total, const unsigned int left,
-                    const unsigned int right, const T parent_mean,
-                    const T sumleft, const T sumsq_left, const T sumsq_right) {
+struct MSEGain {
+  static HDI T exec(const T parent_best_metric, const unsigned int total,
+                    const unsigned int left, const unsigned int right,
+                    const T parent_mean, const T sumleft, const T sumsq_left,
+                    const T sumsq_right) {
     T temp = sumleft / total;
     T sumright = (parent_mean * total) - sumleft;
     T left_impurity = (sumsq_left / total) - (total / left) * temp * temp;
@@ -32,13 +33,14 @@ struct MSEImpurity {
 };
 
 template <typename T>
-struct MAEImpurity {
-  static HDI T exec(const unsigned int total, const unsigned int left,
-                    const unsigned int right, const T parent_mean,
-                    const T sumleft, const T mae_left, const T mae_right) {
+struct MAEGain {
+  static HDI T exec(const T parent_best_metric, const unsigned int total,
+                    const unsigned int left, const unsigned int right,
+                    const T parent_mean, const T sumleft, const T mae_left,
+                    const T mae_right) {
     T left_impurity = (left * 1.0 / total) * (mae_left / left);
     T right_impurity = (right * 1.0 / total) * (mae_right / right);
-    return (left_impurity + right_impurity);
+    return (parent_best_metric - (left_impurity + right_impurity));
   }
 };
 
@@ -498,7 +500,7 @@ __global__ void get_mse_pred_kernel_global(
 }
 
 //This is device version of best split in case, used when more than 512 nodes.
-template <typename T, typename Impurity>
+template <typename T, typename Gain>
 __global__ void get_best_split_regression_kernel(
   const T *__restrict__ mseout, const T *__restrict__ predout,
   const unsigned int *__restrict__ count, const T *__restrict__ parentmean,
@@ -532,15 +534,14 @@ __global__ void get_best_split_regression_kernel(
       T tmp_mse_left = mseout[2 * threadoffset];
       T tmp_mse_right = mseout[2 * threadoffset + 1];
 
-      T impurity =
-        Impurity::exec(parent_count, tmp_lnrows, tmp_rnrows, parent_mean,
-                       tmp_meanleft, tmp_mse_left, tmp_mse_right);
+      float info_gain = (float)Gain::exec(
+        parent_metric, parent_count, tmp_lnrows, tmp_rnrows, parent_mean,
+        tmp_meanleft, tmp_mse_left, tmp_mse_right);
 
       tmp_meanleft /= tmp_lnrows;
       tmp_meanright /= tmp_rnrows;
       tmp_mse_left /= tmp_lnrows;
       tmp_mse_right /= tmp_rnrows;
-      float info_gain = (float)(parent_metric - impurity);
 
       if (info_gain > tid_pair.gain) {
         tid_pair.gain = info_gain;
