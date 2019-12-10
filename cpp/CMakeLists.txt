@@ -128,9 +128,6 @@ set(Protobuf_USE_STATIC_LIBS ON)
 find_package(Protobuf REQUIRED)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(ClangFormat 8.0.0 EXACT REQUIRED)
-# TODO: enable this when we are ready!
-#find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
@@ -240,13 +237,6 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 
 set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
-
-##############################################################################
-# - clang-format targets -----------------------------------------------------
-
-add_clang_format(
-  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
-  SRCDIR ${PROJECT_SOURCE_DIR})
 
 ##############################################################################
 # - Cloning header only libraries---------------------------------------------
@@ -423,8 +413,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
-  add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
-
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
@@ -456,7 +444,7 @@ endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 # - build comms ------------------------------------------------------------------------
 
 if(BUILD_CUML_STD_COMMS)
-	add_subdirectory(comms/std)
+  add_subdirectory(comms/std)
 endif(BUILD_CUML_STD_COMMS)
 
 if(BUILD_CUML_MPI_COMMS)

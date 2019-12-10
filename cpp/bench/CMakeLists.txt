@@ -62,5 +62,4 @@ add_executable(${CUML_SG_BENCH_TARGET}
   sg/rf_regressor.cu
   )
 
-add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})
 target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
