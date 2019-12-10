@@ -62,10 +62,12 @@
 - PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
+- PR #1444: UCX listener running in its own isolated thread
 - PR #1445: Improved performance of FIL sparse trees
 - PR #1431: Updated API docs
 - PR #1441: Remove unused CUDA conda labels
 - PR #1439: Match sklearn 0.22 default n_estimators for RF and fix test errors
+- PR #1461: Add kneighbors to API docs
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
