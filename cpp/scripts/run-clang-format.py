@@ -111,7 +111,9 @@ def main():
         print("Clang-format failed! You have 2 options:")
         print(" 1. Look at formatting differences above and fix them manually")
         print(" 2. Or run the below command to bulk-fix all these at once")
-        print("Bulk-fix command: python %s -inplace" % " ".join(sys.argv))
+        print("Bulk-fix command: ")
+        print("  cd /path/to/your/cuml/repo")
+        print("  python %s -inplace" % " ".join(sys.argv))
         sys.exit(-1)
     return
 
