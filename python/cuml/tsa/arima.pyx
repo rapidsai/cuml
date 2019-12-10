@@ -51,26 +51,21 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs, int p,
         int d, int q, int P, int D, int Q, int s, int intercept,
-        double* params, double* loglike, double* d_vs, bool trans,
+        const double* params, double* loglike, double* d_vs, bool trans,
         bool host_loglike)
 
-    void predict(
+    void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         int start, int end, int p, int d, int q, int P, int D, int Q, int s,
-        int intercept, double* d_params, double* d_vs_ptr, double* d_y_p)
-
-    void residual(
-        cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
-        int d, int q, int P, int D, int Q, int s, int intercept,
-        double* d_params, double* d_vs, bool trans)
+        int intercept, const double* d_params, double* d_vs_ptr, double* d_y_p)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
         int d, int q, int P, int D, int Q, int s, int intercept,
-        double* d_mu, double* d_ar, double* d_ma, double* d_sar,
-        double* d_sma, double* ic, int ic_type)
+        const double* d_mu, const double* d_ar, const double* d_ma,
+        const double* d_sar, const double* d_sma, double* ic, int ic_type)
 
-    void cpp_estimate_x0 "estimate_x0" (
+    void estimate_x0 (
         cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
         double* d_sar, double* d_sma, const double* d_y, int batch_size,
         int nobs, int p, int d, int q, int P, int D, int Q, int s,
@@ -85,13 +80,15 @@ cdef extern from "arima/batched_kalman.hpp" namespace "ML":
 
 
 class ARIMA(Base):
-    r"""Implements an ARIMA model for in- and out-of-sample
+    r"""Implements a batched ARIMA model for in- and out-of-sample
     time-series prediction.
 
     The ARIMA model consists of three model parameter classes:
     "AutoRegressive", "Integrated", and "Moving Average" to fit to a given
     time-series input. The library provides both in-sample prediction, and out
     of sample forecasting.
+
+    TODO: update for seasonality
 
     The Batched ARIMA model fits the following to each given time-series input:
     if d=1:
@@ -139,6 +136,8 @@ class ARIMA(Base):
         dx = xs[1] - xs[0]
         xfc = np.linspace(1, 1+50*dx, 50)
         plt.plot(xs, yp, xfc, yfc)
+
+        TODO: this is outdated
 
     Parameters
     ----------
@@ -219,6 +218,7 @@ class ARIMA(Base):
         else:
             return "Batched ARIMA{}".format(self.order)
 
+    @nvtx_range_wrap
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
@@ -312,6 +312,7 @@ class ARIMA(Base):
                 array, _, _, _, _ = input_to_host_array(params[param_name])
                 setattr(self, param_name, array)
 
+    @nvtx_range_wrap
     def predict(self, start=0, end=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
@@ -370,16 +371,17 @@ class ARIMA(Base):
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
-        predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
-                          <int> self.num_samples, <int> start, <int> end,
-                          <int> p, <int> d, <int> q,
-                          <int> P, <int> D, <int> Q, <int> s,
-                          <int> self.intercept, <double*>d_params_ptr,
-                          <double*>d_vs_ptr, <double*>d_y_p_ptr)
+        cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
+                    <int> self.num_samples, <int> start, <int> end,
+                    <int> p, <int> d, <int> q,
+                    <int> P, <int> D, <int> Q, <int> s,
+                    <int> self.intercept, <double*>d_params_ptr,
+                    <double*>d_vs_ptr, <double*>d_y_p_ptr)
 
         self.yp = d_y_p
         return d_y_p
 
+    @nvtx_range_wrap
     def forecast(self, nsteps: int):
         """Forecast the given model `nsteps` into the future.
 
@@ -406,9 +408,8 @@ class ARIMA(Base):
 
         return self.predict(self.num_samples, self.num_samples + nsteps)
 
-    # TODO: _ prefix (semi-private)
-    @nvtx_range_wrap("estimate x0")
-    def estimate_x0(self):
+    @nvtx_range_wrap
+    def _estimate_x0(self):
         """TODO: docs"""
         p, d, q = self.order
         P, D, Q, s = self.seasonal_order
@@ -439,12 +440,12 @@ class ARIMA(Base):
             d_sma_ptr = get_dev_array_ptr(d_sma)
 
         # Call C++ function
-        cpp_estimate_x0(handle_[0], <double*> d_mu_ptr, <double*> d_ar_ptr,
-                        <double*> d_ma_ptr, <double*> d_sar_ptr,
-                        <double*> d_sma_ptr, <double*> d_y_ptr,
-                        <int> self.batch_size, <int> self.num_samples,
-                        <int> p, <int> d, <int> q, <int> P, <int> D, <int> Q,
-                        <int> s, <int> self.intercept)
+        estimate_x0(handle_[0], <double*> d_mu_ptr, <double*> d_ar_ptr,
+                    <double*> d_ma_ptr, <double*> d_sar_ptr,
+                    <double*> d_sma_ptr, <double*> d_y_ptr,
+                    <int> self.batch_size, <int> self.num_samples,
+                    <int> p, <int> d, <int> q, <int> P, <int> D, <int> Q,
+                    <int> s, <int> self.intercept)
 
         params = dict()
         if self.intercept: params["mu"] = d_mu.copy_to_host()
@@ -454,7 +455,7 @@ class ARIMA(Base):
         if Q: params["sma"] = d_sma.copy_to_host()
         self.set_params(params)
 
-    # TODO: missing range wraps?
+    @nvtx_range_wrap
     def fit(self,
             start_params: Optional[Mapping[str, object]]=None,
             opt_disp: int=-1,
@@ -481,7 +482,7 @@ class ARIMA(Base):
         P, D, Q, s = self.seasonal_order
 
         if start_params is None:
-            self.estimate_x0()
+            self._estimate_x0()
         else:
             self.set_params(start_params)
 
@@ -533,7 +534,7 @@ class ARIMA(Base):
         self.niter = niter
 
 
-@nvtx_range_wrap("ll_f")
+@nvtx_range_wrap
 def ll_f(batch_size, nobs, order, seasonal_order, intercept, y, x, trans=True,
          handle=None):
     """Computes batched loglikelihood for given parameters and series.
@@ -570,7 +571,7 @@ def ll_f(batch_size, nobs, order, seasonal_order, intercept, y, x, trans=True,
     return loglike
 
 
-@nvtx_range_wrap("ll_gf")
+@nvtx_range_wrap
 def ll_gf(batch_size, nobs, num_parameters, order, seasonal_order, intercept,
           y, x, h=1e-8, trans=True, handle=None):
     """Computes gradient (via finite differencing) of the batched
@@ -639,7 +640,7 @@ def ll_gf(batch_size, nobs, num_parameters, order, seasonal_order, intercept,
 
 
 # TODO: later replace with AutoARIMA
-def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
+def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
     """Grid search to find optimal model order (p, q), weighing
     model complexity against likelihood.
     Optimality is based on minimizing BIC or AIC, which
@@ -659,6 +660,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
             Maximum `q` in search
     method : str
              Complexity method to use ("bic" or "aic")
+    fit_intercept: TODO: copy description from __init__
 
     Returns:
 
@@ -687,7 +689,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
             if p == 0 and q == 0:
                 continue
 
-            b_model = ARIMA(y_b, (p, d, q), fit_intercept=True)
+            b_model = ARIMA(y_b, (p, d, q), fit_intercept=fit_intercept)
             b_model.fit()
 
             ic = b_model._ic(method)
@@ -711,9 +713,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic"):
     return (best_order, best_mu, best_ar, best_ma, best_ic)
 
 
-# TODO: move all these functions as methods of ARIMA with _ prefix?
-
-@nvtx_range_wrap("unpack")
+@nvtx_range_wrap
 def unpack(order: Tuple[int, int, int],
            seasonal_order: Tuple[int, int, int, int],
            k: int, nb: int, x: Union[list, np.ndarray]
@@ -742,7 +742,7 @@ def unpack(order: Tuple[int, int, int],
     return params
 
 
-@nvtx_range_wrap("pack")
+@nvtx_range_wrap
 def pack(order: Tuple[int, int, int],
          seasonal_order: Tuple[int, int, int, int],
          k: int, nb: int, params: Mapping[str, np.ndarray]
@@ -765,7 +765,7 @@ def pack(order: Tuple[int, int, int],
     return x.reshape(N * nb, order='F')  # return 1D shape
 
 
-@nvtx_range_wrap("batched_transform")
+@nvtx_range_wrap
 def _batched_transform(order, seasonal_order, intercept, nb, x, isInv,
                        handle=None):
     p, _, q = order
@@ -784,7 +784,7 @@ def _batched_transform(order, seasonal_order, intercept, nb, x, isInv,
     return (Tx)
 
 
-@nvtx_range_wrap("jones trans")
+@nvtx_range_wrap
 def _batch_trans(order, seasonal_order, intercept, nb, x, handle=None):
     """Apply the stationarity/invertibility guaranteeing transform
     to batched-parameter vector x."""
@@ -797,7 +797,7 @@ def _batch_trans(order, seasonal_order, intercept, nb, x, handle=None):
     return Tx
 
 
-@nvtx_range_wrap("jones inv-trans")
+@nvtx_range_wrap
 def _batch_invtrans(order, seasonal_order, intercept, nb, x, handle=None):
     """Apply the *inverse* stationarity/invertibility guaranteeing transform to
        batched-parameter vector x.
@@ -812,7 +812,7 @@ def _batch_invtrans(order, seasonal_order, intercept, nb, x, handle=None):
     return Tx
 
 
-@nvtx_range_wrap("batched loglikelihood")
+@nvtx_range_wrap
 def _batched_loglike(batch_size, nobs, order, seasonal_order, intercept, y, x,
                      trans=False, handle=None):
     cdef vector[double] vec_loglike

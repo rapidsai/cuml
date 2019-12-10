@@ -47,7 +47,7 @@ namespace ML {
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, int p, int d, int q, int P, int D, int Q, int s,
-                     int intercept, double* d_params, double* loglike,
+                     int intercept, const double* d_params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true);
 
 /**
@@ -85,9 +85,10 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, int p, int d, int q, int P, int D, int Q, int s,
-                     int intercept, double* d_mu, double* d_ar, double* d_ma,
-                     double* d_sar, double* d_sma, double* loglike,
-                     double* d_vs, bool trans = true, bool host_loglike = true);
+                     int intercept, const double* d_mu, const double* d_ar,
+                     const double* d_ma, const double* d_sar,
+                     const double* d_sma, double* loglike, double* d_vs,
+                     bool trans = true, bool host_loglike = true);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -116,7 +117,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  */
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
              int start, int end, int p, int d, int q, int P, int D, int Q,
-             int s, int intercept, double* d_params, double* d_vs,
+             int s, int intercept, const double* d_params, double* d_vs,
              double* d_y_p);
 
 /**
@@ -152,8 +153,8 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  */
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              double* d_mu, double* d_ar, double* d_sar, double* d_sma,
-              double* d_vs, bool trans);
+              const double* d_mu, const double* d_ar, const double* d_sar,
+              const double* d_sma, double* d_vs, bool trans);
 
 /**
  * Residual of in-sample prediction of a time-series given all the model
@@ -180,7 +181,7 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  */
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              double* d_params, double* d_vs, bool trans);
+              const double* d_params, double* d_vs, bool trans);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
@@ -213,9 +214,10 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
                            int batch_size, int nobs, int p, int d, int q, int P,
-                           int D, int Q, int s, int intercept, double* d_mu,
-                           double* d_ar, double* d_ma, double* d_sar,
-                           double* d_sma, double* ic, int ic_type);
+                           int D, int Q, int s, int intercept,
+                           const double* d_mu, const double* d_ar,
+                           const double* d_ma, const double* d_sar,
+                           const double* d_sma, double* ic, int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA

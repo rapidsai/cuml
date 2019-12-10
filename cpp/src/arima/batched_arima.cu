@@ -182,7 +182,7 @@ static void _finalize_forecast(cumlHandle& handle, double* d_fc,
 
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              double* d_params, double* d_vs, bool trans) {
+              const double* d_params, double* d_vs, bool trans) {
   ML::PUSH_RANGE(__func__);
   std::vector<double> loglike = std::vector<double>(batch_size);
   batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
@@ -192,8 +192,9 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              double* d_mu, double* d_ar, double* d_ma, double* d_sar,
-              double* d_sma, double* d_vs, bool trans) {
+              const double* d_mu, const double* d_ar, const double* d_ma,
+              const double* d_sar, const double* d_sma, double* d_vs,
+              bool trans) {
   ML::PUSH_RANGE(__func__);
   std::vector<double> loglike = std::vector<double>(batch_size);
   batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
@@ -204,7 +205,7 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, int p, int d, int q, int P, int D, int Q,
-             int s, int intercept, double* d_params, double* d_vs,
+             int s, int intercept, const double* d_params, double* d_vs,
              double* d_y_p) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
@@ -324,7 +325,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
     _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, d, D,
                        s, intercept, d_mu);
 
-    // Copy results in d_y_p
+    // Copy results in d_y_p (TODO: avoid this copy?)
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
                        for (int i = 0; i < num_steps; i++) {
@@ -346,9 +347,10 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, int p, int d, int q, int P, int D, int Q, int s,
-                     int intercept, double* d_mu, double* d_ar, double* d_ma,
-                     double* d_sar, double* d_sma, double* loglike,
-                     double* d_vs, bool trans, bool host_loglike) {
+                     int intercept, const double* d_mu, const double* d_ar,
+                     const double* d_ma, const double* d_sar,
+                     const double* d_sma, double* loglike, double* d_vs,
+                     bool trans, bool host_loglike) {
   using std::get;
 
   ML::PUSH_RANGE(__func__);
@@ -397,7 +399,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, int p, int d, int q, int P, int D, int Q, int s,
-                     int intercept, double* d_params, double* loglike,
+                     int intercept, const double* d_params, double* loglike,
                      double* d_vs, bool trans, bool host_loglike) {
   ML::PUSH_RANGE(__func__);
 
@@ -422,9 +424,9 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 void information_criterion(cumlHandle& handle, const double* d_y,
                            int batch_size, int n_obs, int p, int d, int q,
                            int P, int D, int Q, int s, int intercept,
-                           double* d_mu, double* d_ar, double* d_ma,
-                           double* d_sar, double* d_sma, double* ic,
-                           int ic_type) {
+                           const double* d_mu, const double* d_ar,
+                           const double* d_ma, const double* d_sar,
+                           const double* d_sma, double* ic, int ic_type) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
@@ -491,7 +493,6 @@ static void _arma_least_squares(
    * side to estimate MA */
   MLCommon::Matrix::BatchedMatrix<double> bm_ls_ar_res(
     n_obs - r, p + q, batch_size, cublas_handle, allocator, stream, false);
-  ///TODO: double-check these
   int ar_offset = r - ps;
   int res_offset = (ps < p_ar + qs) ? 0 : ps - p_ar - qs;
 
