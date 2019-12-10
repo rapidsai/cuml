@@ -154,43 +154,5 @@ DI void mseGain(DataT* spred, DataT* spredP, IdxT* scount, DataT* sbins,
   }
 }
 
-/**
- * @defgroup ClassificationMetrics Metric computation
- * @{
- * @brief Computes the initial metric on CPU
- * @tparam DataT data type
- * @tparam IdxT index type
- * @param h_hist class histogram
- * @param nclasses number of classes
- * @param nSampledRows number of rows upon which class histogram was computed
- * @return the computed metric
- */
-template <typename DataT, typename IdxT>
-DataT giniMetric(const int* h_hist, IdxT nclasses, IdxT nSampledRows) {
-  const auto one = DataT(1.0);
-  auto out = one;
-  auto invlen = one / DataT(nSampledRows);
-  for (IdxT i = 0; i < nclasses; ++i) {
-    auto val = h_hist[i] * invlen;
-    out -= val * val;
-  }
-  return out;
-}
-
-template <typename DataT, typename IdxT>
-DataT entropyMetric(const int* h_hist, IdxT nclasses, IdxT nSampledRows) {
-  const auto one = DataT(1.0);
-  auto out = one;
-  auto invlen = one / DataT(nSampledRows);
-  for (IdxT i = 0; i < nclasses; ++i) {
-    if (h_hist[i] != 0) {
-      auto val = h_hist[i] * invlen;
-      out -= MLCommon::myLog(val) * val;
-    }
-  }
-  return out;
-}
-/** @} */
-
 }  // namespace DecisionTree
 }  // namespace ML
