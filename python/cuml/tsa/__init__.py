@@ -13,3 +13,4 @@
 # limitations under the License.
 #
 from cuml.tsa.holtwinters import ExponentialSmoothing
+from cuml.tsa.arima import ARIMAModel
