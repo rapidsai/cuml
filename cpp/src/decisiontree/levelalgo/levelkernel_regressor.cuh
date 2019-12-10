@@ -21,14 +21,17 @@ template <typename T>
 struct MSEGain {
   static HDI T exec(const T parent_best_metric, const unsigned int total,
                     const unsigned int left, const unsigned int right,
-                    const T parent_mean, const T sumleft, const T sumsq_left,
-                    const T sumsq_right) {
+                    const T parent_mean, const T sumleft, T &mse_left,
+                    T &mse_right) {
     T temp = sumleft / total;
+    mse_left = sumleft;
     T sumright = (parent_mean * total) - sumleft;
-    T left_impurity = (sumsq_left / total) - (total / left) * temp * temp;
+    mse_right = sumright;
+    T left_impurity = (total / left) * temp * temp;
     temp = sumright / total;
-    T right_impurity = (sumsq_right / total) - (total / right) * temp * temp;
-    return (left_impurity + right_impurity);
+    T right_impurity = (total / right) * temp * temp;
+    temp = parent_mean * parent_mean;
+    return (left_impurity + right_impurity - temp);
   }
 };
 

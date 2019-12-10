@@ -129,26 +129,26 @@ void grow_deep_tree_regression(
                       sparsesize, depth, tempmem);
 
     if (split_cr == ML::CRITERION::MSE) {
-      //get_mse_regression_fused<T>(
-      //  data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
-      //  n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
-      //get_best_split_regression<T, MSEImpurity<T>>(
-      //  h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
-      //  d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
-      //  depth, min_rows_per_node, split_algo, sparsesize, infogain,
-      //  sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
-      //  h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
-      //  tempmem);
-      get_mse_regression<T, SquareFunctor>(
+      get_mse_regression_fused<T>(
         data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
         n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
-      get_best_split_regression<T, MAEGain<T>>(
+      get_best_split_regression<T, MSEGain<T>>(
         h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
         d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
         depth, min_rows_per_node, split_algo, sparsesize, infogain,
         sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
+      //get_mse_regression<T, SquareFunctor>(
+      //  data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
+      //  n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
+      //get_best_split_regression<T, MAEGain<T>>(
+      //  h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
+      //  d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
+      //  depth, min_rows_per_node, split_algo, sparsesize, infogain,
+      //  sparse_meanstate, sparse_countstate, sparsetree, sparse_nodelist,
+      //  h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
+      //  tempmem);
 
     } else {
       get_mse_regression<T, AbsFunctor>(

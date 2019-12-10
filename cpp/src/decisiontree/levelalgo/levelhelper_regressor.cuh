@@ -66,48 +66,48 @@ void get_mse_regression_fused(const T *data, const T *labels,
   CUDA_CHECK(cudaMemsetAsync(d_count, 0, predcount * sizeof(unsigned int),
                              tempmem->stream));
 
-  int node_batch_mse = min(n_nodes, tempmem->max_nodes_mse);
+  int node_batch_pred = min(n_nodes, tempmem->max_nodes_pred);
   size_t shmempred = nbins * (sizeof(unsigned int) + sizeof(T)) * n_nodes;
-  size_t shmemmse = shmempred + 2 * nbins * n_nodes * sizeof(T);
 
   int threads = 256;
   int blocks = MLCommon::ceildiv(nrows, threads);
   unsigned int *d_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
+
   if (split_algo == 0) {
     get_minmax(data, flags, tempmem->d_colids->data(), d_colstart, nrows, Ncols,
                ncols_sampled, n_nodes, tempmem->max_nodes_minmax,
                tempmem->d_globalminmax->data(), tempmem->h_globalminmax->data(),
                tempmem->stream);
-    if ((n_nodes == node_batch_mse)) {
-      get_mse_pred_kernel<T, MinMaxQues<T>>
-        <<<blocks, threads, shmemmse, tempmem->stream>>>(
+    if ((n_nodes == node_batch_pred)) {
+      get_pred_kernel<T, MinMaxQues<T>>
+        <<<blocks, threads, shmempred, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
           d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
-          tempmem->d_globalminmax->data(), d_predout, d_count, d_mseout);
-
+          tempmem->d_globalminmax->data(), d_predout, d_count);
     } else {
-      get_mse_pred_kernel_global<T, MinMaxQues<T>>
+      get_pred_kernel_global<T, MinMaxQues<T>>
         <<<blocks, threads, 0, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
           d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
-          tempmem->d_globalminmax->data(), d_predout, d_count, d_mseout);
+          tempmem->d_globalminmax->data(), d_predout, d_count);
     }
+    CUDA_CHECK(cudaGetLastError());
   } else {
-    if ((n_nodes == node_batch_mse)) {
-      get_mse_pred_kernel<T, QuantileQues<T>>
-        <<<blocks, threads, shmemmse, tempmem->stream>>>(
+    if ((n_nodes == node_batch_pred)) {
+      get_pred_kernel<T, QuantileQues<T>>
+        <<<blocks, threads, shmempred, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
           d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
-          tempmem->d_quantile->data(), d_predout, d_count, d_mseout);
-
+          tempmem->d_quantile->data(), d_predout, d_count);
     } else {
-      get_mse_pred_kernel_global<T, QuantileQues<T>>
+      get_pred_kernel_global<T, QuantileQues<T>>
         <<<blocks, threads, 0, tempmem->stream>>>(
           data, labels, flags, sample_cnt, tempmem->d_colids->data(),
           d_colstart, nrows, Ncols, ncols_sampled, nbins, n_nodes,
-          tempmem->d_quantile->data(), d_predout, d_count, d_mseout);
+          tempmem->d_quantile->data(), d_predout, d_count);
     }
+    CUDA_CHECK(cudaGetLastError());
   }
 }
 template <typename T, typename F>
@@ -356,7 +356,6 @@ void get_best_split_regression(
           tmp_meanright /= tmp_rnrows;
           tmp_mse_left /= tmp_lnrows;
           tmp_mse_right /= tmp_rnrows;
-
           // Compute best information col_gain so far
           if (info_gain > gain[nodecnt]) {
             gain[nodecnt] = info_gain;
