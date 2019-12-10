@@ -364,40 +364,6 @@ struct ClsTraits {
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
         b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes, b.n_depth);
   }
-
-  /**
-   * @brief computes the initial metric needed for root node split decision
-   * @param b builder object
-   * @param s cuda stream
-   */
-  static DataT initialMetric(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
-                             cudaStream_t s) {
-    static constexpr int NITEMS = 8;
-    auto nblks =
-      MLCommon::ceildiv<int>(b.input.nSampledRows, TPB_DEFAULT * NITEMS);
-    size_t smemSize = sizeof(int) * b.input.nclasses;
-    auto out = DataT(0.0);
-    // reusing `hist` for initial bin computation only
-    CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.input.nclasses, s));
-    initialClassHistKernel<DataT, LabelT, IdxT>
-      <<<nblks, TPB_DEFAULT, smemSize, s>>>(b.hist, b.input.rowids,
-                                            b.input.labels, b.input.nclasses,
-                                            b.input.nSampledRows);
-    CUDA_CHECK(cudaGetLastError());
-    MLCommon::updateHost(b.h_hist, b.hist, b.input.nclasses, s);
-    CUDA_CHECK(cudaStreamSynchronize(s));
-    // better to compute the initial metric (after class histograms) on CPU
-    if (b.params.split_criterion == CRITERION::GINI) {
-      out = giniMetric<DataT, IdxT>(b.h_hist, b.input.nclasses,
-                                    b.input.nSampledRows);
-    } else if (b.params.split_criterion == CRITERION::ENTROPY) {
-      out = entropyMetric<DataT, IdxT>(b.h_hist, b.input.nclasses,
-                                       b.input.nSampledRows);
-    } else {
-      ASSERT(false, "DT: Classification only supports GINI/ENTROPY!");
-    }
-    return out;
-  }
 };  // end ClsTraits
 
 /**
@@ -461,35 +427,6 @@ struct RegTraits {
         b.params.max_depth, b.params.min_rows_per_node, b.params.max_leaves,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, b.next_nodes,
         b.n_nodes, b.splits, b.n_leaves, b.h_total_nodes, b.n_depth);
-  }
-
-  /**
-   * @brief computes the initial metric needed for root node split decision
-   * @param b builder object
-   * @param s cuda stream
-   */
-  static DataT initialMetric(Builder<RegTraits<DataT, IdxT>>& b,
-                             cudaStream_t s) {
-    static constexpr int NITEMS = 8;
-    auto nblks =
-      MLCommon::ceildiv<int>(b.input.nSampledRows, TPB_DEFAULT * NITEMS);
-    auto out = DataT(0.0);
-    // reusing `pred` for initial mse computation only
-    CUDA_CHECK(cudaMemsetAsync(b.pred, 0, sizeof(DataT) * 2, s));
-    initialMeanPredKernel<DataT, DataT, IdxT><<<nblks, TPB_DEFAULT, 0, s>>>(
-      b.pred, b.pred + 1, b.input.rowids, b.input.labels, b.input.nSampledRows);
-    CUDA_CHECK(cudaGetLastError());
-    MLCommon::updateHost(b.h_mse, b.pred, 2, s);
-    CUDA_CHECK(cudaStreamSynchronize(s));
-    if (b.params.split_criterion == CRITERION::MSE) {
-      out = b.h_mse[1] - b.h_mse[0] * b.h_mse[0];
-    } else if (b.params.split_criterion == CRITERION::MAE) {
-      ///@todo: enable this and remove the below assert
-      ASSERT(false, "DT: Regression currently only supports MSE metric!");
-    } else {
-      ASSERT(false, "DT: Regression only supports MSE/MAE!");
-    }
-    return out;
   }
 };  // end RegTraits
 
