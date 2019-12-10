@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1468: C++: updates to clang format flow to make it more usable among devs
 
 ## Bug Fixes
 
