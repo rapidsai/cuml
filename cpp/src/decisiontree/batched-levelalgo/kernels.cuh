@@ -256,6 +256,10 @@ __global__ void nodeSplitClassificationKernel(
   auto range_start = node->start, range_len = node->end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
+  if (threadIdx.x == 0) {
+    printf("nid=%d best=%f min=%f\n", nid, splits[nid].best_metric_val,
+           min_impurity_decrease);
+  }
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
     computePredClassification<DataT, LabelT, IdxT, TPB>(
       range_start, range_len, input, node, n_leaves, smem);
@@ -356,13 +360,16 @@ __global__ void computeSplitClassificationKernel(
   sp.init();
   __syncthreads();
   if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len, nbins,
-                          nclasses);
+    giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
   } else {
     entropyGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
                              nbins, nclasses);
   }
   __syncthreads();
+  if (threadIdx.x < nbins) {
+    printf("nid=%d tid=%d best=%f col=%d\n", nid, threadIdx.x,
+           sp.best_metric_val, col);
+  }
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 

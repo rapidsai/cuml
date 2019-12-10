@@ -29,7 +29,6 @@ namespace DecisionTree {
  * @brief Compute gain based on gini impurity metric
  * @param shist left/right class histograms for all bins (nbins x 2 x nclasses)
  * @param sbins quantiles for the current column (len = nbins)
- * @param parentGain parent node's best gain
  * @param sp will contain the per-thread best split so far
  * @param col current column
  * @param len total number of samples for the current node to be split
@@ -37,9 +36,8 @@ namespace DecisionTree {
  * @param nclasses number of classes
  */
 template <typename DataT, typename IdxT>
-DI void giniGain(int* shist, DataT* sbins, DataT parentGain,
-                 Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins,
-                 IdxT nclasses) {
+DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
+                 IdxT len, IdxT nbins, IdxT nclasses) {
   constexpr DataT One = DataT(1.0);
   DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -50,20 +48,24 @@ DI void giniGain(int* shist, DataT* sbins, DataT parentGain,
     auto nRight = len - nLeft;
     auto invLeft = One / nLeft;
     auto invRight = One / nRight;
-    auto sum = DataT(0.0);
-    if (nLeft != 0) {
-      for (IdxT j = 0; j < nclasses; ++j) {
-        DataT lval = DataT(shist[i * 2 * nclasses + j]);
-        sum += lval * invLeft * lval * invlen;
+    auto gain = DataT(0.0);
+    for (IdxT j = 0; j < nclasses; ++j) {
+      int val_i = 0;
+      if (nLeft != 0) {
+        auto lval_i = shist[i * 2 * nclasses + j];
+        auto lval = DataT(lval_i);
+        gain += lval * invLeft * lval * invlen;
+        val_i += lval_i;
       }
-    }
-    if (nRight != 0) {
-      for (IdxT j = 0; j < nclasses; ++j) {
-        DataT rval = DataT(shist[i * 2 * nclasses + nclasses + j]);
-        sum += rval * invRight * rval * invlen;
+      if (nRight != 0) {
+        auto rval_i = shist[i * 2 * nclasses + nclasses + j];
+        auto rval = DataT(rval_i);
+        gain += rval * invRight * rval * invlen;
+        val_i += rval_i;
       }
+      auto val = DataT(val_i) * invlen;
+      gain -= val * val;
     }
-    auto gain = parentGain - One + sum;
     sp.update({sbins[i], col, gain, nLeft});
   }
 }

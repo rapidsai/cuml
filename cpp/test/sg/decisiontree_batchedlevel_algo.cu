@@ -130,8 +130,8 @@ TEST_P(DtClsTestF, Test) {
                              data, inparams.N, inparams.M, labels, quantiles,
                              rowids, colids, inparams.M, inparams.nclasses,
                              params, stream, sparsetree, num_leaves, depth);
-  // dataset is such that it makes the tree reach all the way to max_depth
-  ASSERT_EQ(depth, inparams.max_depth);
+  // this is a "well behaved" dataset!
+  ASSERT_EQ(depth, 1);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
                         ::testing::ValuesIn(allC));
