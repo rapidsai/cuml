@@ -75,7 +75,6 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
  * @param shist left/right class histograms for all bins
  *              (len = nbins x 2 x nclasses)
  * @param sbins quantiles for the current column (len = nbins)
- * @param parentGain parent node's best gain
  * @param sp will contain the per-thread best split so far
  * @param col current column
  * @param len total number of samples for the current node to be split
@@ -83,9 +82,8 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
  * @param nclasses number of classes
  */
 template <typename DataT, typename IdxT>
-DI void entropyGain(int* shist, DataT* sbins, DataT parentGain,
-                    Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins,
-                    IdxT nclasses) {
+DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
+                    IdxT len, IdxT nbins, IdxT nclasses) {
   constexpr DataT One = DataT(1.0);
   DataT invlen = One / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -93,22 +91,33 @@ DI void entropyGain(int* shist, DataT* sbins, DataT parentGain,
     for (IdxT j = 0; j < nclasses; ++j) {
       nLeft += shist[i * 2 * nclasses + j];
     }
+    auto nRight = len - nLeft;
     auto invLeft = One / nLeft;
-    auto invRight = One / (len - nLeft);
-    auto sum = DataT(0.0);
+    auto invRight = One / nRight;
+    auto gain = DataT(0.0);
     for (IdxT j = 0; j < nclasses; ++j) {
-      auto lhistval = shist[i * 2 * nclasses + j];
-      if (lhistval != 0) {
-        auto lval = DataT(lhistval);
-        sum += MLCommon::myLog(lval * invLeft) * lval * invlen;
+      int val_i = 0;
+      if (nLeft != 0) {
+        auto lval_i = shist[i * 2 * nclasses + j];
+        if (lval_i != 0) {
+          auto lval = DataT(lval_i);
+          gain += MLCommon::myLog(lval * invLeft) * lval * invlen;
+        }
+        val_i += lval_i;
       }
-      auto rhistval = shist[i * 2 * nclasses + nclasses + j];
-      if (rhistval != 0) {
-        auto rval = DataT(rhistval);
-        sum += MLCommon::myLog(rval * invRight) * rval * invlen;
+      if (nRight != 0) {
+        auto rval_i = shist[i * 2 * nclasses + nclasses + j];
+        if (rval_i != 0) {
+          auto rval = DataT(rval_i);
+          gain += MLCommon::myLog(rval * invRight) * rval * invlen;
+        }
+        val_i += rval_i;
+      }
+      if (val_i != 0) {
+        auto val = DataT(val_i) * invlen;
+        gain -= val * MLCommon::myLog(val);
       }
     }
-    auto gain = parentGain + sum;
     sp.update({sbins[i], col, gain, nLeft});
   }
 }

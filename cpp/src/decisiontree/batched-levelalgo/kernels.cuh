@@ -362,8 +362,7 @@ __global__ void computeSplitClassificationKernel(
   if (splitType == CRITERION::GINI) {
     giniGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
   } else {
-    entropyGain<DataT, IdxT>(shist, sbins, parentGain, sp, col, range_len,
-                             nbins, nclasses);
+    entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
   }
   __syncthreads();
   if (threadIdx.x < nbins) {
