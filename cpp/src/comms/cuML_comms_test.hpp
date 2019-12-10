@@ -37,7 +37,8 @@ bool test_collective_allreduce(const ML::cumlHandle& handle);
 bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& handle,
                                         int n_trials);
 
-bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& handle, int numTrials);
+bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& handle,
+                                     int numTrials);
 
 };  // namespace Comms
 };  // end namespace ML
