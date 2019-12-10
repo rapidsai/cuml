@@ -84,10 +84,6 @@ struct Builder {
 
   /** host copy of the number of new nodes in current branch */
   IdxT* h_n_nodes;
-  /** host copy for initial histograms (classification only) */
-  int* h_hist;
-  /** host copy for MSE computation (regression only) */
-  DataT* h_mse;
   /** total number of nodes created so far */
   IdxT h_total_nodes;
   /** range of the currently worked upon nodes */
@@ -162,11 +158,6 @@ struct Builder {
     d_wsize += sizeof(NodeT) * 2 * max_batch;         // next_nodes
     // all nodes in the tree
     h_wsize = sizeof(IdxT);  // h_n_nodes
-    if (!isRegression()) {
-      h_wsize += sizeof(int) * nclasses;  // h_hist
-    } else {
-      h_wsize += sizeof(DataT) * 2;  // h_mse
-    }
   }
 
   /**
@@ -207,12 +198,6 @@ struct Builder {
     next_nodes = reinterpret_cast<NodeT*>(d_wspace);
     // host
     h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
-    h_wspace += sizeof(IdxT);
-    if (!isRegression()) {
-      h_hist = reinterpret_cast<int*>(h_wspace);
-    } else {
-      h_mse = reinterpret_cast<DataT*>(h_wspace);
-    }
   }
 
   /**
