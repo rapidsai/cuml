@@ -142,7 +142,7 @@ void grow_deep_tree_regression(
       get_mse_regression<T, SquareFunctor>(
         data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
         n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
-      get_best_split_regression<T, MAEImpurity<T>>(
+      get_best_split_regression<T, MAEGain<T>>(
         h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
         d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
         depth, min_rows_per_node, split_algo, sparsesize, infogain,
@@ -154,7 +154,7 @@ void grow_deep_tree_regression(
       get_mse_regression<T, AbsFunctor>(
         data, labels, flagsptr, sample_cnt, nrows, Ncols, ncols_sampled, nbins,
         n_nodes, split_algo, tempmem, d_mseout, d_predout, d_count);
-      get_best_split_regression<T, MAEImpurity<T>>(
+      get_best_split_regression<T, MAEGain<T>>(
         h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
         d_colids, h_colstart, d_colstart, Ncols, ncols_sampled, nbins, n_nodes,
         depth, min_rows_per_node, split_algo, sparsesize, infogain,
