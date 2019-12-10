@@ -56,8 +56,6 @@ struct Builder {
   IdxT nHistBins;
   /** total number of prediction counts (regression only) */
   IdxT nPredCounts;
-  /** total number of prediction summations (regression only) */
-  IdxT nPreds;
   /** gain/metric before splitting root node */
   DataT rootGain;
 
@@ -67,8 +65,8 @@ struct Builder {
   int* hist;
   /** sum of predictions (regression only) */
   DataT* pred;
-  /** sum of squared of predictions (regression only) */
-  DataT* pred2;
+  /** sum of predictions for parent (regression only) */
+  DataT* predP;
   /** node count tracker for averaging (regression only) */
   IdxT* pred_count;
   /** threadblock arrival count */
@@ -145,7 +143,6 @@ struct Builder {
     nHistBins = 2 * max_batch * params.n_bins * n_col_blks * nclasses;
     // x2 for mean and mean-of-square
     nPredCounts = max_batch * params.n_bins * n_col_blks;
-    nPreds = 2 * nPredCounts;
     // x3 just to be safe since we can't strictly adhere to max_leaves
     maxNodes = params.max_leaves * 3;
     d_wsize = 0;
@@ -154,9 +151,9 @@ struct Builder {
       d_wsize += sizeof(int) * nHistBins;  // hist
     } else {
       // x2 for left and right children
-      d_wsize += 2 * nPreds * sizeof(DataT);  // pred
-      d_wsize += 2 * nPreds * sizeof(DataT);  // pred2
-      d_wsize += nPredCounts * sizeof(IdxT);  // pred_count
+      d_wsize += 2 * nPredCounts * sizeof(DataT);  // pred
+      d_wsize += nPredCounts * sizeof(DataT);      // predP
+      d_wsize += nPredCounts * sizeof(IdxT);       // pred_count
     }
     d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
     d_wsize += sizeof(int) * max_batch;               // mutex
@@ -191,9 +188,9 @@ struct Builder {
       d_wspace += sizeof(int) * nHistBins;
     } else {
       pred = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += 2 * nPreds * sizeof(DataT);
-      pred2 = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += 2 * nPreds * sizeof(DataT);
+      d_wspace += 2 * nPredCounts * sizeof(DataT);
+      predP = reinterpret_cast<DataT*>(d_wspace);
+      d_wspace += nPredCounts * sizeof(DataT);
       pred_count = reinterpret_cast<IdxT*>(d_wspace);
       d_wspace += nPredCounts * sizeof(IdxT);
     }
@@ -230,15 +227,10 @@ struct Builder {
   void train(NodeT* h_nodes, IdxT& num_leaves, IdxT& depth, cudaStream_t s) {
     init(h_nodes, s);
     while (true) {
-      printf("node_start=%d node_end=%d h_total_nodes=%d\n", node_start,
-             node_end, h_total_nodes);
       IdxT new_nodes = doSplit(h_nodes, s);
-      printf("new_nodes=%d\n", new_nodes);
       h_total_nodes += new_nodes;
       if (new_nodes == 0 && isOver()) break;
       updateNodeRange();
-      printf("after node_start=%d node_end=%d h_total_nodes=%d\n", node_start,
-             node_end, h_total_nodes);
     }
     MLCommon::updateHost(&num_leaves, n_leaves, 1, s);
     MLCommon::updateHost(&depth, n_depth, 1, s);
@@ -446,14 +438,15 @@ struct RegTraits {
     auto n_col_blks = b.params.n_blks_for_cols;
     dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
-    size_t smemSize = 5 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
-    CUDA_CHECK(cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPreds * 2, s));
-    CUDA_CHECK(cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPreds * 2, s));
+    size_t smemSize = 4 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
+    CUDA_CHECK(
+      cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
+    CUDA_CHECK(cudaMemsetAsync(b.predP, 0, sizeof(DataT) * b.nPredCounts, s));
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred2, b.pred_count, b.params.n_bins, b.params.max_depth,
+        b.pred, b.predP, b.pred_count, b.params.n_bins, b.params.max_depth,
         b.params.min_rows_per_node, b.params.max_leaves, b.input, b.curr_nodes,
         col, b.done_count, b.mutex, b.n_leaves, b.splits, splitType);
   }

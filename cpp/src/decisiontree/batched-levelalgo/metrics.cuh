@@ -125,31 +125,31 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
 /**
  * @brief Compute gain based on MSE
  * @param spred left/right child mean prediction for all bins (len = 2 x bins)
- * @param spred2 left/right child mean of prediction squared for all bins
- *               (len = 2 x bins)
+ * @param spredP mean of prediction for current node (len = bins)
  * @param scount left child count for all bins (len = nbins)
  * @param sbins quantiles for the current column (len = nbins)
- * @param parentGain parent node's best gain
  * @param sp will contain the per-thread best split so far
  * @param col current column
  * @param len total number of samples for the current node to be split
  * @param nbins number of bins
  */
 template <typename DataT, typename IdxT>
-DI void mseGain(DataT* spred, DataT* spred2, IdxT* scount, DataT* sbins,
-                DataT parentGain, Split<DataT, IdxT>& sp, IdxT col, IdxT len,
-                IdxT nbins) {
+DI void mseGain(DataT* spred, DataT* spredP, IdxT* scount, DataT* sbins,
+                Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins) {
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     auto nLeft = scount[i];
     auto nRight = len - nLeft;
     auto invLeft = (DataT)len / nLeft;
     auto invRight = (DataT)len / nRight;
-    DataT sum = spred2[i] + spred2[nbins + i];
-    if (nLeft != 0) sum -= spred[i] * invLeft * spred[i];
-    if (nRight != 0) sum -= spred[nbins + i] * invRight * spred[nbins + i];
-    auto gain = parentGain - sum;
-    printf("i=%d bid=%d,%d,%d gain=%f parentGain=%f nLeft=%d\n", i, blockIdx.x,
-           blockIdx.y, blockIdx.z, gain, parentGain, nLeft);
+    DataT gain = -spredP[i] * spredP[i];
+    if (nLeft != 0) {
+      auto valL = spred[i];
+      gain += valL * valL * len * invLeft;
+    }
+    if (nRight != 0) {
+      auto valR = spred[nbins + i];
+      gain += valR * valR * len * invRight;
+    }
     sp.update({sbins[i], col, gain, nLeft});
   }
 }

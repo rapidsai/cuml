@@ -86,11 +86,6 @@ template <typename DataT, typename IdxT>
 DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_rows_per_node,
                           IdxT max_leaves, const IdxT* n_leaves,
                           IdxT nSamples) {
-  if (threadIdx.x == 0) {
-    printf("mydep=%d maxdep=%d min_row=%d max_leaf=%d n_leaves=%d nSamp=%d\n",
-           myDepth, max_depth, min_rows_per_node, max_leaves, *n_leaves,
-           nSamples);
-  }
   if (myDepth >= max_depth) return true;
   if (nSamples < min_rows_per_node) return true;
   if (*n_leaves >= max_leaves) return true;
@@ -256,10 +251,6 @@ __global__ void nodeSplitClassificationKernel(
   auto range_start = node->start, range_len = node->end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (threadIdx.x == 0) {
-    printf("nid=%d best=%f min=%f\n", nid, splits[nid].best_metric_val,
-           min_impurity_decrease);
-  }
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
     computePredClassification<DataT, LabelT, IdxT, TPB>(
       range_start, range_len, input, node, n_leaves, smem);
@@ -284,10 +275,6 @@ __global__ void nodeSplitRegressionKernel(
   auto range_start = node->start, range_len = node->end;
   auto isLeaf = leafBasedOnParams<DataT, IdxT>(
     node->depth, max_depth, min_rows_per_node, max_leaves, n_leaves, range_len);
-  if (threadIdx.x == 0) {
-    printf("nid=%d best=%f min=%f\n", nid, splits[nid].best_metric_val,
-           min_impurity_decrease);
-  }
   if (isLeaf || splits[nid].best_metric_val < min_impurity_decrease) {
     computePredRegression<DataT, DataT, IdxT, TPB>(range_start, range_len,
                                                    input, node, n_leaves, smem);
@@ -314,7 +301,6 @@ __global__ void computeSplitClassificationKernel(
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
-  auto parentGain = node.parentGain;
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto len = nbins * 2 * nclasses;
@@ -365,16 +351,12 @@ __global__ void computeSplitClassificationKernel(
     entropyGain<DataT, IdxT>(shist, sbins, sp, col, range_len, nbins, nclasses);
   }
   __syncthreads();
-  if (threadIdx.x < nbins) {
-    printf("nid=%d tid=%d best=%f col=%d\n", nid, threadIdx.x,
-           sp.best_metric_val, col);
-  }
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
-  DataT* pred, DataT* pred2, IdxT* count, IdxT nbins, IdxT max_depth,
+  DataT* pred, DataT* predP, IdxT* count, IdxT nbins, IdxT max_depth,
   IdxT min_rows_per_node, IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
   const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
   int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
@@ -388,20 +370,20 @@ __global__ void computeSplitRegressionKernel(
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
-  auto parentGain = node.parentGain;
   auto end = range_start + range_len;
   auto len = nbins * 2;
   auto* spred = reinterpret_cast<DataT*>(smem);
-  auto* spred2 = spred + len;
-  auto* scount = reinterpret_cast<int*>(spred2 + len);
+  auto* spredP = spred + len;
+  auto* scount = reinterpret_cast<int*>(spredP + nbins);
   auto* sbins = reinterpret_cast<DataT*>(scount + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    spred[i] = spred2[i] = DataT(0.0);
+    spred[i] = DataT(0.0);
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    spredP[i] = DataT(0.0);
     scount[i] = 0;
     sbins[i] = input.quantiles[col * nbins + i];
   }
@@ -412,25 +394,24 @@ __global__ void computeSplitRegressionKernel(
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
-    auto label2 = label * label;
     for (IdxT b = 0; b < nbins; ++b) {
       auto isRight = d > sbins[b];  // no divergence
       auto offset = isRight * nbins + b;
       atomicAdd(spred + offset, label);
-      atomicAdd(spred2 + offset, label2);
+      atomicAdd(spredP + b, label);
       if (!isRight) atomicAdd(scount + b, 1);
     }
   }
   __syncthreads();
   // update the corresponding global location
-  auto gOffset = ((nid * gridDim.y) + blockIdx.y) * len;
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    atomicAdd(pred + gOffset + i, spred[i]);
-    atomicAdd(pred2 + gOffset + i, spred2[i]);
-  }
   auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    atomicAdd(predP + gcOffset + i, spredP[i]);
     atomicAdd(count + gcOffset + i, scount[i]);
+  }
+  auto gOffset = gcOffset * 2;
+  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+    atomicAdd(pred + gOffset + i, spred[i]);
   }
   __threadfence();  // for commit guarantee
   __syncthreads();
@@ -444,17 +425,16 @@ __global__ void computeSplitRegressionKernel(
   auto invlen = DataT(1.0) / range_len;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
     spred[i] = pred[gOffset + i] * invlen;
-    spred2[i] = pred2[gOffset + i] * invlen;
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    spredP[i] = predP[gcOffset + i] * invlen;
     scount[i] = count[gcOffset + i];
   }
   Split<DataT, IdxT> sp;
   sp.init();
   __syncthreads();
   if (splitType == CRITERION::MSE) {
-    mseGain(spred, spred2, scount, sbins, parentGain, sp, col, range_len,
-            nbins);
+    mseGain(spred, spredP, scount, sbins, sp, col, range_len, nbins);
   } else {
     ///@todo: support
   }
