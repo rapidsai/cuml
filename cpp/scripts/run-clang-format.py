@@ -113,7 +113,8 @@ def main():
         print(" 2. Or run the below command to bulk-fix all these at once")
         print("Bulk-fix command: ")
         print("  cd /path/to/your/cuml/repo")
-        print("  python %s -inplace" % " ".join(sys.argv))
+        print("  python cpp/scripts/run-clang-format.py %s -inplace" % \
+              " ".join(sys.argv[1:]))
         sys.exit(-1)
     return
 
