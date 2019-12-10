@@ -351,11 +351,8 @@ void get_best_split_regression(
 
           float info_gain = (float)Gain::exec(
             sparsetree[parentid].best_metric_val, parent_count, tmp_lnrows,
-            tmp_rnrows, parent_mean, tmp_meanleft, tmp_mse_left, tmp_mse_right);
-          tmp_meanleft /= tmp_lnrows;
-          tmp_meanright /= tmp_rnrows;
-          tmp_mse_left /= tmp_lnrows;
-          tmp_mse_right /= tmp_rnrows;
+            tmp_rnrows, parent_mean, tmp_meanleft, tmp_meanright, tmp_mse_left,
+            tmp_mse_right);
           // Compute best information col_gain so far
           if (info_gain > gain[nodecnt]) {
             gain[nodecnt] = info_gain;
