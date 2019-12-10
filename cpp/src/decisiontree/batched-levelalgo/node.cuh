@@ -38,8 +38,6 @@ struct Node {
 
   /** node related public information */
   SparseTreeNode<DataT, LabelT, IdxT> info;
-  /** parent gain */
-  DataT parentGain;
   /** start of sampled rows belonging to this node */
   IdxT start;
   /** number of sampled rows belonging to this node */
@@ -82,13 +80,11 @@ struct Node {
     info.best_metric_val = split.best_metric_val;
     info.left_child_id = total_nodes + pos;
     // left
-    nodes[pos].parentGain = split.best_metric_val;
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start;
     nodes[pos].end = split.nLeft;
     // right
     ++pos;
-    nodes[pos].parentGain = split.best_metric_val;
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start + split.nLeft;
     nodes[pos].end = end - split.nLeft;

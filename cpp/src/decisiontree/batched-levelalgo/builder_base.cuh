@@ -249,10 +249,8 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
     CUDA_CHECK(cudaMemsetAsync(n_depth, 0, sizeof(IdxT), s));
-    auto rootGain = Traits::initialMetric(*this, s);
     node_start = 0;
     node_end = h_total_nodes = 1;  // start with root node
-    h_nodes[0].parentGain = rootGain;
     h_nodes[0].start = 0;
     h_nodes[0].end = input.nSampledRows;
     h_nodes[0].depth = 0;
