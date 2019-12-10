@@ -21,17 +21,16 @@ template <typename T>
 struct MSEGain {
   static HDI T exec(const T parent_best_metric, const unsigned int total,
                     const unsigned int left, const unsigned int right,
-                    const T parent_mean, const T sumleft, T &mse_left,
-                    T &mse_right) {
-    T temp = sumleft / total;
-    mse_left = sumleft;
-    T sumright = (parent_mean * total) - sumleft;
-    mse_right = sumright;
-    T left_impurity = (total / left) * temp * temp;
-    temp = sumright / total;
-    T right_impurity = (total / right) * temp * temp;
-    temp = parent_mean * parent_mean;
-    return (left_impurity + right_impurity - temp);
+                    const T parent_mean, T &mean_left, T &mean_right,
+                    T &mse_left, T &mse_right) {
+    mean_right /= right;
+    mean_left /= left;
+    mse_left = mean_left;
+    mse_right = mean_right;
+    T left_impurity = ((float)left / total) * mean_left * mean_left;
+    T right_impurity = ((float)right / total) * mean_right * mean_right;
+    T temp = left_impurity + right_impurity - (parent_mean * parent_mean);
+    return temp;
   }
 };
 
@@ -39,10 +38,14 @@ template <typename T>
 struct MAEGain {
   static HDI T exec(const T parent_best_metric, const unsigned int total,
                     const unsigned int left, const unsigned int right,
-                    const T parent_mean, const T sumleft, const T mae_left,
-                    const T mae_right) {
-    T left_impurity = (left * 1.0 / total) * (mae_left / left);
-    T right_impurity = (right * 1.0 / total) * (mae_right / right);
+                    const T parent_mean, T &mean_left, T &mean_right,
+                    T &mae_left, T &mae_right) {
+    mean_left /= left;
+    mean_right /= right;
+    mae_left /= left;
+    mae_right /= right;
+    T left_impurity = (left * 1.0 / total) * mae_left;
+    T right_impurity = (right * 1.0 / total) * mae_right;
     return (parent_best_metric - (left_impurity + right_impurity));
   }
 };
@@ -161,91 +164,6 @@ __global__ void get_pred_kernel(
       unsigned int offset = colcnt * nbins * n_nodes;
       atomicAdd(&predout[offset + i], shmempred[i]);
       atomicAdd(&countout[offset + i], shmemcount[i]);
-    }
-    __syncthreads();
-  }
-}
-
-//This kernel computes sum left , count left and sqared sum both left and right,
-//for all colls, all bins and all nodes at a given level
-template <typename T, typename QuestionType>
-__global__ void get_mse_pred_kernel(
-  const T *__restrict__ data, const T *__restrict__ labels,
-  const unsigned int *__restrict__ flags,
-  const unsigned int *__restrict__ sample_cnt,
-  const unsigned int *__restrict__ colids,
-  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
-  const int ncols_sampled, const int nbins, const int n_nodes,
-  const T *__restrict__ question_ptr, T *predout, unsigned int *countout,
-  T *mseout) {
-  extern __shared__ char shmem_mse_pred_kernel[];
-  T *shmem_predout = (T *)(shmem_mse_pred_kernel);
-  T *shmem_mse = (T *)(shmem_mse_pred_kernel + n_nodes * nbins * sizeof(T));
-  unsigned int *shmem_countout =
-    (unsigned int *)(shmem_mse_pred_kernel + 3 * n_nodes * nbins * sizeof(T));
-
-  unsigned int local_flag = LEAF;
-  T local_label;
-  int local_cnt;
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int colid;
-  int colstart_local = -1;
-  if (tid < nrows) {
-    local_flag = flags[tid];
-  }
-
-  if (local_flag != LEAF) {
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
-    if (colstart != nullptr) colstart_local = colstart[local_flag];
-  }
-
-  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
-    if (local_flag != LEAF) {
-      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
-                            colcnt, local_flag);
-    }
-    unsigned int coloff = colcnt * nbins * n_nodes;
-    for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
-      shmem_predout[i] = (T)0;
-      shmem_countout[i] = 0;
-    }
-
-    for (unsigned int i = threadIdx.x; i < 2 * nbins * n_nodes;
-         i += blockDim.x) {
-      shmem_mse[i] = (T)0;
-    }
-    __syncthreads();
-
-    //Check if leaf
-    if (local_flag != LEAF) {
-      T local_data = data[tid + colid * nrows];
-      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
-                            nbins);
-
-#pragma unroll(8)
-      for (unsigned int binid = 0; binid < nbins; binid++) {
-        unsigned int nodeoff = local_flag * nbins;
-        if (local_data <= question(binid)) {
-          atomicAdd(&shmem_countout[nodeoff + binid], local_cnt);
-          atomicAdd(&shmem_predout[nodeoff + binid], local_label);
-          atomicAdd(&shmem_mse[2 * (nodeoff + binid)],
-                    local_label * local_label);
-        } else {
-          atomicAdd(&shmem_mse[2 * (nodeoff + binid) + 1],
-                    local_label * local_label);
-        }
-      }
-    }
-
-    __syncthreads();
-    for (unsigned int i = threadIdx.x; i < 2 * nbins * n_nodes;
-         i += blockDim.x) {
-      atomicAdd(&mseout[2 * coloff + i], shmem_mse[i]);
-    }
-    for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
-      atomicAdd(&predout[coloff + i], shmem_predout[i]);
-      atomicAdd(&countout[coloff + i], shmem_countout[i]);
     }
     __syncthreads();
   }
@@ -444,64 +362,6 @@ __global__ void get_mse_kernel_global(
   }
 }
 
-//This kernel computes sum left , count left and sqared sum both left and right,
-//for all colls, all bins and all nodes at a given level, a global mem version
-template <typename T, typename QuestionType>
-__global__ void get_mse_pred_kernel_global(
-  const T *__restrict__ data, const T *__restrict__ labels,
-  const unsigned int *__restrict__ flags,
-  const unsigned int *__restrict__ sample_cnt,
-  const unsigned int *__restrict__ colids,
-  const unsigned int *__restrict__ colstart, const int nrows, const int Ncols,
-  const int ncols_sampled, const int nbins, const int n_nodes,
-  const T *__restrict__ question_ptr, T *predout, unsigned int *countout,
-  T *mseout) {
-  unsigned int local_flag = LEAF;
-  T local_label;
-  int local_cnt;
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int colid;
-  int colstart_local = -1;
-  if (tid < nrows) {
-    local_flag = flags[tid];
-  }
-
-  if (local_flag != LEAF) {
-    local_label = labels[tid];
-    local_cnt = sample_cnt[tid];
-    if (colstart != nullptr) colstart_local = colstart[local_flag];
-  }
-
-  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
-    if (local_flag != LEAF) {
-      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
-                            colcnt, local_flag);
-    }
-    unsigned int coloff = colcnt * nbins * n_nodes;
-
-    //Check if leaf
-    if (local_flag != LEAF) {
-      T local_data = data[tid + colid * nrows];
-      QuestionType question(question_ptr, colid, colcnt, n_nodes, local_flag,
-                            nbins);
-
-#pragma unroll(8)
-      for (unsigned int binid = 0; binid < nbins; binid++) {
-        unsigned int nodeoff = local_flag * nbins;
-        if (local_data <= question(binid)) {
-          atomicAdd(&countout[coloff + nodeoff + binid], local_cnt);
-          atomicAdd(&predout[coloff + nodeoff + binid], local_label);
-          atomicAdd(&mseout[2 * (coloff + nodeoff + binid)],
-                    local_label * local_label);
-        } else {
-          atomicAdd(&mseout[2 * (coloff + nodeoff + binid) + 1],
-                    local_label * local_label);
-        }
-      }
-    }
-  }
-}
-
 //This is device version of best split in case, used when more than 512 nodes.
 template <typename T, typename Gain>
 __global__ void get_best_split_regression_kernel(
@@ -539,12 +399,7 @@ __global__ void get_best_split_regression_kernel(
 
       float info_gain = (float)Gain::exec(
         parent_metric, parent_count, tmp_lnrows, tmp_rnrows, parent_mean,
-        tmp_meanleft, tmp_mse_left, tmp_mse_right);
-
-      tmp_meanleft /= tmp_lnrows;
-      tmp_meanright /= tmp_rnrows;
-      tmp_mse_left /= tmp_lnrows;
-      tmp_mse_right /= tmp_rnrows;
+        tmp_meanleft, tmp_meanright, tmp_mse_left, tmp_mse_right);
 
       if (info_gain > tid_pair.gain) {
         tid_pair.gain = info_gain;
