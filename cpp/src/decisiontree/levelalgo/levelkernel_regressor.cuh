@@ -589,7 +589,7 @@ __global__ void make_leaf_gather_regression_kernel(
   }
   __syncthreads();
   if (threadIdx.x == 0) {
-    SparseTreeNode<T, int> localnode;
+    SparseTreeNode<T, T> localnode;
     localnode.prediction = mean_parent / count;
     localnode.colid = -1;
     localnode.best_metric_val = mean_parent / count;

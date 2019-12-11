@@ -112,7 +112,8 @@ void grow_deep_tree_regression(
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
   float* infogain = tempmem->h_outgain->data();
 
-  for (int depth = 0; (depth < maxdepth) && (n_nodes_nextitr != 0); depth++) {
+  for (int depth = 0; (depth < tempmem->swap_depth) && (n_nodes_nextitr != 0);
+       depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
@@ -175,7 +176,46 @@ void grow_deep_tree_regression(
                      split_algo, d_split_colidx, d_split_binidx,
                      d_new_node_flags, flagsptr, tempmem);
   }
-  for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
-    sparsetree[i].prediction = sparse_meanstate[i];
+  //for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
+  //  sparsetree[i].prediction = sparse_meanstate[i];
+  //}
+  int lastsize = sparsetree.size() - sparsesize_nextitr;
+  n_nodes = n_nodes_nextitr;
+  if (n_nodes == 0) return;
+  unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
+  SparseTreeNode<T, T>* d_sparsenodes;
+  SparseTreeNode<T, T>* h_sparsenodes;
+  int *h_nodelist, *d_nodelist, *d_new_nodelist;
+  int max_nodes = tempmem->max_nodes_per_level;
+  d_nodecount = (unsigned int*)(tempmem->d_split_colidx->data());
+  d_nodestart = (unsigned int*)(tempmem->d_split_binidx->data());
+  d_samplelist = (unsigned int*)(tempmem->d_parent_metric->data());
+  d_nodelist = (int*)(tempmem->d_outgain->data());
+  d_new_nodelist = (int*)(tempmem->d_child_best_metric->data());
+  h_nodelist = (int*)(tempmem->h_outgain->data());
+  d_sparsenodes = tempmem->d_sparsenodes->data();
+  h_sparsenodes = tempmem->h_sparsenodes->data();
+
+  int* h_counter = tempmem->h_counter->data();
+  int* d_counter = tempmem->d_counter->data();
+  memcpy(h_nodelist, sparse_nodelist.data(),
+         sizeof(int) * sparse_nodelist.size());
+  MLCommon::updateDevice(d_nodelist, h_nodelist, sparse_nodelist.size(),
+                         tempmem->stream);
+  //Resize to remove trailing nodes from previous algorithm
+  sparsetree.resize(sparsetree.size() - lastsize);
+  convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
+                            d_nodestart, d_samplelist, tempmem);
+  //print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
+
+  if (split_cr == ML::CRITERION::MSE) {
+    make_leaf_gather_regression(labels, d_nodestart, d_samplelist,
+                                d_sparsenodes, d_nodelist, n_nodes, tempmem);
+  } else {
+    printf("deep tree does not exist for MAE\n");
+    exit(0);
   }
+  MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  sparsetree.insert(sparsetree.end(), h_sparsenodes, h_sparsenodes + lastsize);
 }

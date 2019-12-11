@@ -464,7 +464,7 @@ void best_split_gather_regression(
   const unsigned int *d_samplelist, const int nrows, const int Ncols,
   const int ncols_sampled, const int nbins, const int n_nodes,
   const int split_algo, const size_t treesz, const float min_impurity_split,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
   if (split_algo == 0) {
     using E = typename MLCommon::Stats::encode_traits<T>::E;
@@ -487,7 +487,7 @@ void make_leaf_gather_regression(
   const T *labels, const unsigned int *nodestart,
   const unsigned int *samplelist, SparseTreeNode<T, T> *d_sparsenodes,
   int *nodelist, const int n_nodes,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   make_leaf_gather_regression_kernel<<<n_nodes, 64, 0, tempmem->stream>>>(
     labels, nodestart, samplelist, d_sparsenodes, nodelist);
   CUDA_CHECK(cudaGetLastError());
