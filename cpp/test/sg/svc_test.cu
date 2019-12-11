@@ -118,7 +118,7 @@ TYPED_TEST(WorkingSetTest, Select) {
 //TYPED_TEST(WorkingSetTest, Priority) {
 // See Issue #946
 //}
-/*
+
 template <typename math_t>
 class KernelCacheTest : public ::testing::Test {
  protected:
@@ -294,7 +294,7 @@ class GetResultsTest : public ::testing::Test {
 TYPED_TEST_CASE(GetResultsTest, FloatTypes);
 
 TYPED_TEST(GetResultsTest, Results) { this->TestResults(); }
-*/
+
 svmParameter getDefaultSvmParameter() {
   svmParameter param;
   param.C = 1;
@@ -307,7 +307,7 @@ svmParameter getDefaultSvmParameter() {
   param.svmType = C_SVC;
   return param;
 }
-/*
+
 template <typename math_t>
 class SmoUpdateTest : public ::testing::Test {
  protected:
@@ -431,7 +431,7 @@ TYPED_TEST_CASE(SmoBlockSolverTest, FloatTypes);
 
 // test a single iteration of the block solver
 TYPED_TEST(SmoBlockSolverTest, SolveSingleTest) { this->testBlockSolve(); }
-*/
+
 template <typename math_t>
 struct smoInput {
   math_t C;
@@ -560,7 +560,7 @@ void checkResults(svmModel<math_t> model, smoOutput<math_t> expected,
   delete[] dual_coefs_host;
   delete[] x_support_host;
 }
-/*
+
 template <typename math_t>
 class SmoSolverTest : public ::testing::Test {
  protected:
@@ -987,7 +987,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
   float delta = (free1 - free2);
   EXPECT_EQ(delta, 0);
 }
-*/
+
 template <typename math_t>
 class SvrTest : public ::testing::Test {
  protected:
@@ -1109,6 +1109,20 @@ class SvrTest : public ::testing::Test {
     checkResults(model, exp, stream);
   }
 
+  void TestSvrFit1b() {
+    svmParameter param{1, 0, 1, 1, 1e-3, true, 0.1, EPSILON_SVR};
+    KernelParams kernelParams{LINEAR, 3, 1, 0};
+    x_host[0] = 1;
+    x_host[1] = 2;
+    y_host[0] = 2;
+    y_host[1] = 3;
+    updateDevice(x_dev, x_host, 2, stream);
+    updateDevice(y_dev, y_host, 2, stream);
+    svrFit(handle, x_dev, 2, 1, y_dev, param, kernelParams, model);
+    smoOutput<math_t> exp{2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}};
+    checkResults(model, exp, stream);
+  }
+
   void TestSvrFit2() {
     svmParameter param{1, 0, 100, 10, 1e-6, true, 0.1, EPSILON_SVR};
     KernelParams kernelParams{LINEAR, 3, 1, 0};
@@ -1154,7 +1168,10 @@ TYPED_TEST(SvrTest, Init) { this->TestSvrInit(); }
 TYPED_TEST(SvrTest, WorkingSet) { this->TestSvrWorkingSet(); }
 TYPED_TEST(SvrTest, Results) { this->TestSvrResults(); }
 TYPED_TEST(SvrTest, Fit) { this->TestSvrFit(); }
+TYPED_TEST(SvrTest, Fit1b) { this->TestSvrFit1b(); }
 TYPED_TEST(SvrTest, Fit2) { this->TestSvrFit2(); }
+// need to test prediction too.
+
 
 };  // end namespace SVM
 };  // end namespace ML
