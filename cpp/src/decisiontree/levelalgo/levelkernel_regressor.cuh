@@ -32,6 +32,16 @@ struct MSEGain {
     T temp = left_impurity + right_impurity - (parent_mean * parent_mean);
     return temp;
   }
+  static HDI T exec(const unsigned int total, const unsigned int left,
+                    const unsigned int right, const T parent_mean, T &mean_left,
+                    T &mean_right) {
+    mean_right /= right;
+    mean_left /= left;
+    T left_impurity = ((float)left / total) * mean_left * mean_left;
+    T right_impurity = ((float)right / total) * mean_right * mean_right;
+    T temp = left_impurity + right_impurity - (parent_mean * parent_mean);
+    return temp;
+  }
 };
 
 template <typename T>
@@ -431,5 +441,158 @@ __global__ void get_best_split_regression_kernel(
           mseout[2 * threadoffset + 1] / tmp_rnrows;
       }
     }
+  }
+}
+
+template <typename T>
+DI GainIdxPair bin_info_gain_regression(const T sum_parent, const T *sum_left,
+                                        const int *count_right, const int count,
+                                        const int nbins) {
+  GainIdxPair tid_pair;
+  tid_pair.gain = 0.0;
+  tid_pair.idx = -1;
+  for (int tid = threadIdx.x; tid < nbins; tid += blockDim.x) {
+    T mean_left = sum_left[tid];
+    int right = count_right[tid];
+    T mean_right = sum_parent - sum_left;
+    T mean_parent = sum_parent / count;
+    int left = count - right;
+    float info_gain = (float)MSEGain<T>::exec(count, left, right, mean_parent,
+                                              mean_left, mean_right);
+    if (info_gain > tid_pair.gain) {
+      tid_pair.gain = info_gain;
+      tid_pair.idx = tid;
+    }
+  }
+  return tid_pair;
+}
+
+template <typename T, typename QuestionType>
+__global__ void best_split_gather_regression_kernel(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const T *__restrict__ question_ptr,
+  const unsigned int *__restrict__ g_nodestart,
+  const unsigned int *__restrict__ samplelist, const int n_nodes,
+  const int nbins, const int nrows, const int Ncols, const int ncols_sampled,
+  const size_t treesz, const float min_impurity_split,
+  SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
+  //shmemhist_parent[n_unique_labels]
+  extern __shared__ char gather_regression_shmem[];
+  T *mean_left = (T *)gather_regression_shmem;
+  int *count_right = (int *)(gather_regression_shmem + nbins * sizeof(T));
+  __shared__ T mean_parent;
+
+  __shared__ GainIdxPair shmem_pair;
+  __shared__ int shmem_col;
+  __shared__ float parent_metric;
+  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  int colstart_local = -1;
+  int colid;
+  unsigned int nodestart = g_nodestart[blockIdx.x];
+  unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
+  if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
+
+  //Compute parent histograms
+  if (threadIdx.x == 0) {
+    mean_parent = 0.0;
+    shmem_pair.gain = 0.0f;
+    shmem_pair.idx = -1;
+    shmem_col = -1;
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    unsigned int dataid = samplelist[nodestart + tid];
+    T local_label = labels[dataid];
+    atomicAdd(&mean_parent, local_label);
+  }
+
+  //Loop over cols
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled, colcnt,
+                          blockIdx.x);
+    for (int tid = threadIdx.x; tid < 2 * nbins; tid += blockDim.x) {
+      if (tid < nbins)
+        mean_left[tid] = 0.0;
+      else
+        count_right[tid] = 0;
+    }
+    QuestionType question(question_ptr, colid, colcnt, n_nodes, blockIdx.x,
+                          nbins);
+    __syncthreads();
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      unsigned int dataid = samplelist[nodestart + tid];
+      T local_data = data[dataid + colid * nrows];
+      T local_label = labels[dataid];
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        if (local_data <= question(binid)) {
+          atomicAdd(&mean_left[binid], local_label);
+        } else {
+          atomicAdd(&count_right[binid], 1);
+        }
+      }
+    }
+    __syncthreads();
+    GainIdxPair bin_pair = bin_info_gain_regression(mean_parent, mean_left,
+                                                    count_right, count, nbins);
+    GainIdxPair best_bin_pair =
+      BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
+    __syncthreads();
+
+    if ((best_bin_pair.gain > shmem_pair.gain) && (threadIdx.x == 0)) {
+      shmem_pair = best_bin_pair;
+      shmem_col = colcnt;
+    }
+  }
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    SparseTreeNode<T, T> localnode;
+    if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            shmem_col, blockIdx.x);
+      QuestionType question(question_ptr, colid, shmem_col, n_nodes, blockIdx.x,
+                            nbins);
+      localnode.quesval = question(shmem_pair.idx);
+      localnode.left_child_id = treesz + 2 * blockIdx.x;
+    } else {
+      colid = -1;
+      localnode.prediction = mean_parent / count;
+    }
+    localnode.colid = colid;
+    localnode.best_metric_val = mean_parent / count;
+    d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
+  }
+}
+
+//A light weight implementation of the above kernel for last level,
+// when all nodes are to be leafed out
+template <typename T>
+__global__ void make_leaf_gather_regression_kernel(
+  const T *__restrict__ labels, const unsigned int *__restrict__ g_nodestart,
+  const unsigned int *__restrict__ samplelist,
+  SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
+  __shared__ T mean_parent;
+  unsigned int nodestart = g_nodestart[blockIdx.x];
+  unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
+
+  //Compute parent histograms
+  mean_parent = 0.0f;
+  __syncthreads();
+
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    unsigned int dataid = samplelist[nodestart + tid];
+    T local_label = labels[dataid];
+    atomicAdd(&mean_parent, local_label);
+  }
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    SparseTreeNode<T, int> localnode;
+    localnode.prediction = mean_parent / count;
+    localnode.colid = -1;
+    localnode.best_metric_val = mean_parent / count;
+    d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
