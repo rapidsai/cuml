@@ -34,7 +34,6 @@ requirements:
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py=0.11
   run:
     - python x.x
     - cudf {{ minor_version }}
@@ -42,7 +41,6 @@ requirements:
     - libcumlprims {{ minor_version }}
     - cupy>=6.5,<7.0
     - nccl 2.4.*
-    - ucx-py=0.11
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
