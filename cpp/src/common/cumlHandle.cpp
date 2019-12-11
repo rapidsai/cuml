@@ -148,7 +148,7 @@ void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
 
 cudaStream_t cumlHandle::getStream() const { return _impl->getStream(); }
 
-const cudaDeviceProp& cumlHandle::getDeviceProperties() {
+const cudaDeviceProp& cumlHandle::getDeviceProperties() const {
   return _impl->getDeviceProperties();
 }
 
@@ -207,7 +207,7 @@ void cumlHandle_impl::setStream(cudaStream_t stream) { _userStream = stream; }
 
 cudaStream_t cumlHandle_impl::getStream() const { return _userStream; }
 
-const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() {
+const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
   if (!_devicePropInitialized) {
     CUDA_CHECK(cudaGetDeviceProperties(&_prop, _dev_id));
     _devicePropInitialized = true;
@@ -233,7 +233,7 @@ std::shared_ptr<hostAllocator> cumlHandle_impl::getHostAllocator() const {
   return _hostAllocator;
 }
 
-cublasHandle_t cumlHandle_impl::getCublasHandle() {
+cublasHandle_t cumlHandle_impl::getCublasHandle() const {
   if (!_cublasInitialized) {
     CUBLAS_CHECK(cublasCreate(&_cublas_handle));
     _cublasInitialized = true;
@@ -241,7 +241,7 @@ cublasHandle_t cumlHandle_impl::getCublasHandle() {
   return _cublas_handle;
 }
 
-cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() {
+cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const {
   if (!_cusolverDnInitialized) {
     CUSOLVER_CHECK(cusolverDnCreate(&_cusolverDn_handle));
     _cusolverDnInitialized = true;
@@ -249,7 +249,7 @@ cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() {
   return _cusolverDn_handle;
 }
 
-cusparseHandle_t cumlHandle_impl::getcusparseHandle() {
+cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
   if (!_cusparseInitialized) {
     CUSPARSE_CHECK(cusparseCreate(&_cusparse_handle));
     _cusparseInitialized = true;

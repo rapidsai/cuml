@@ -66,7 +66,7 @@ class cumlHandle {
      */
   cudaStream_t getStream() const;
   /** Get the cached device properties of the device this handle is for */
-  const cudaDeviceProp& getDeviceProperties();
+  const cudaDeviceProp& getDeviceProperties() const;
   /**
      * @brief sets the allocator to use for all device allocations done in cuML.
      * 

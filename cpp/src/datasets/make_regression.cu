@@ -27,7 +27,7 @@ void make_regression_helper(const cumlHandle& handle, DataT* out, DataT* values,
                             DataT* coef, IdxT n_targets, DataT bias,
                             IdxT effective_rank, DataT tail_strength,
                             DataT noise, bool shuffle, uint64_t seed) {
-  auto& handle_impl = handle.getImpl();
+  const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
   auto cusolver_handle = handle_impl.getcusolverDnHandle();
