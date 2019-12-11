@@ -456,3 +456,39 @@ void init_parent_value(std::vector<T> &sparse_meanstate,
   MLCommon::updateDevice(tempmem->d_parent_count->data(), h_count, n_nodes,
                          tempmem->stream);
 }
+
+template <typename T>
+void best_split_gather_regression(
+  const T *data, const T *labels, const unsigned int *d_colids,
+  const unsigned int *d_colstart, const unsigned int *d_nodestart,
+  const unsigned int *d_samplelist, const int nrows, const int Ncols,
+  const int ncols_sampled, const int nbins, const int n_nodes,
+  const int split_algo, const size_t treesz, const float min_impurity_split,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+  SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
+  if (split_algo == 0) {
+    using E = typename MLCommon::Stats::encode_traits<T>::E;
+    T init_val = std::numeric_limits<T>::max();
+    printf("min max in regressor not yet completed use quantile algo");
+    exit(0);
+  } else {
+    const T *d_question_ptr = tempmem->d_quantile->data();
+    size_t shmemsz = nbins * sizeof(T) + nbins * sizeof(int);
+    best_split_gather_regression_kernel<T, QuantileQues<T>>
+      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+        data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
+        d_samplelist, n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
+        min_impurity_split, d_sparsenodes, d_nodelist);
+  }
+  CUDA_CHECK(cudaGetLastError());
+}
+template <typename T>
+void make_leaf_gather_regression(
+  const T *labels, const unsigned int *nodestart,
+  const unsigned int *samplelist, SparseTreeNode<T, T> *d_sparsenodes,
+  int *nodelist, const int n_nodes,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  make_leaf_gather_regression_kernel<<<n_nodes, 64, 0, tempmem->stream>>>(
+    labels, nodestart, samplelist, d_sparsenodes, nodelist);
+  CUDA_CHECK(cudaGetLastError());
+}
