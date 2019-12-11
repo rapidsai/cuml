@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 #pragma once
+#include <cuml/tree/flatnode.h>
+#include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>
-#include "../decisiontree.hpp"
-#include "../flatnode.h"
 #include "common_helper.cuh"
 #include "levelhelper_regressor.cuh"
 #include "metric.cuh"
 /*
-This is the driver function for building regression tree 
+This is the driver function for building regression tree
 level by level using a simple for loop.
 At each level; following steps are involved.
 1. Set up parent node mean and counts
@@ -37,8 +37,9 @@ void grow_deep_tree_regression(
   const float colper, const int n_sampled_rows, const int nrows,
   const int nbins, int maxdepth, const int maxleaves,
   const int min_rows_per_node, const ML::CRITERION split_cr, int split_algo,
-  int& depth_cnt, int& leaf_cnt, std::vector<SparseTreeNode<T, T>>& sparsetree,
-  const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  const float min_impurity_decrease, int& depth_cnt, int& leaf_cnt,
+  std::vector<SparseTreeNode<T, T>>& sparsetree, const int treeid,
+  std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -79,6 +80,7 @@ void grow_deep_tree_regression(
   sparse_nodelist.push_back(0);
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
+  MLCommon::Random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<int> dist(0, Ncols - 1);
 
   //Setup pointers
@@ -114,7 +116,7 @@ void grow_deep_tree_regression(
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
-                            tempmem);
+                            tempmem, d_rng);
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
 
@@ -144,9 +146,10 @@ void grow_deep_tree_regression(
       h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-    leaf_eval_regression(infogain, depth, maxdepth, maxleaves, h_new_node_flags,
-                         sparsetree, sparsesize, sparse_meanstate,
-                         n_nodes_nextitr, sparse_nodelist, leaf_cnt);
+    leaf_eval_regression(infogain, depth, min_impurity_decrease, maxdepth,
+                         maxleaves, h_new_node_flags, sparsetree, sparsesize,
+                         sparse_meanstate, n_nodes_nextitr, sparse_nodelist,
+                         leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);

@@ -18,12 +18,20 @@
 #else
 #define omp_get_max_threads() 1
 #endif
-#include "randomforest.hpp"
+#include <treelite/tree.h>
+#include <cstdio>
+#include <cuml/ensemble/randomforest.hpp>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 #include "randomforest_impl.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
+using namespace std;
+namespace tl = treelite;
 
 /**
  * @brief Set RF_metrics.
@@ -268,39 +276,69 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features, int task_category) {
-  // Non-zero value here for random forest models.
-  // The value should be set to 0 if the model is gradient boosted trees.
-  int random_forest_flag = 1;
-  ModelBuilderHandle model_builder;
-  // num_output_group is 1 for binary classification and regression
-  // num_output_group is #class for multiclass classification which is the same as task_category
-  int num_output_group = task_category > 2 ? task_category : 1;
-  TREELITE_CHECK(TreeliteCreateModelBuilder(
-    num_features, num_output_group, random_forest_flag, &model_builder));
-
-  if (task_category > 2) {
-    // Multi-class classification
-    TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
-      model_builder, "pred_transform", "max_index"));
+                           int num_features, int task_category,
+                           std::vector<unsigned char>& data) {
+  bool check_val = (data).empty();
+  if (not check_val) {
+    // create a temp file
+    const char* filename = std::tmpnam(nullptr);
+    // write the model bytes into the temp file
+    std::ofstream file(filename, std::ios::binary);
+    file.write((char*)&data[0], data.size());
+    // read the file as a protobuf model
+    TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
   }
 
-  for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
-    TreeBuilderHandle tree_builder;
-    TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
-    if (tree_ptr->sparsetree.size() != 0) {
-      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
-                                              num_output_group);
+  else {
+    // Non-zero value here for random forest models.
+    // The value should be set to 0 if the model is gradient boosted trees.
+    int random_forest_flag = 1;
+    ModelBuilderHandle model_builder;
+    // num_output_group is 1 for binary classification and regression
+    // num_output_group is #class for multiclass classification which is the same as task_category
+    int num_output_group = task_category > 2 ? task_category : 1;
+    TREELITE_CHECK(TreeliteCreateModelBuilder(
+      num_features, num_output_group, random_forest_flag, &model_builder));
 
-      // The third argument -1 means append to the end of the tree list.
-      TREELITE_CHECK(
-        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
+    if (task_category > 2) {
+      // Multi-class classification
+      TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
+        model_builder, "pred_transform", "max_index"));
     }
-  }
 
-  TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
-  TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+    for (int i = 0; i < forest->rf_params.n_trees; i++) {
+      DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
+      TreeBuilderHandle tree_builder;
+
+      TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
+      if (tree_ptr->sparsetree.size() != 0) {
+        DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
+                                                num_output_group);
+
+        // The third argument -1 means append to the end of the tree list.
+        TREELITE_CHECK(
+          TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
+      }
+    }
+
+    TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
+    TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  }
+}
+
+std::vector<unsigned char> save_model(ModelHandle model) {
+  // create a temp file
+  const char* filename = std::tmpnam(nullptr);
+  // export the treelite model to protobuf nd save it in the temp file
+  TreeliteExportProtobufModel(filename, model);
+  // read from the temp file and obtain the model bytes
+  std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
+  in.seekg(0, std::ios::end);
+  int size_of_file = in.tellg();
+  vector<unsigned char> bytes_info(size_of_file, 0);
+  ifstream infile(filename, ios::in | ios::binary);
+  infile.read((char*)&bytes_info[0], bytes_info.size());
+  return bytes_info;
 }
 
 /**
@@ -435,42 +473,40 @@ void predictGetAll(const cumlHandle& user_handle,
  * @{
  */
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestClassifierF* forest, const float* input,
-                 const int* ref_labels, int n_rows, int n_cols,
-                 int* predictions, bool verbose) {
+                 const RandomForestClassifierF* forest, const int* ref_labels,
+                 int n_rows, int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<float>> rf_classifier =
     std::make_shared<rfClassifier<float>>(forest->rf_params);
   RF_metrics classification_score =
-    rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
-                         predictions, forest, verbose);
+    rf_classifier->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return classification_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestClassifierD* forest, const double* input,
-                 const int* ref_labels, int n_rows, int n_cols,
-                 int* predictions, bool verbose) {
+                 const RandomForestClassifierD* forest, const int* ref_labels,
+                 int n_rows, int* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<double>> rf_classifier =
     std::make_shared<rfClassifier<double>>(forest->rf_params);
   RF_metrics classification_score =
-    rf_classifier->score(user_handle, input, ref_labels, n_rows, n_cols,
-                         predictions, forest, verbose);
+    rf_classifier->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return classification_score;
 }
+
 /** @} */
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
-                           bool bootstrap_features, bool bootstrap, int n_trees,
-                           float rows_sample, int seed,
-                           CRITERION split_criterion, bool quantile_per_tree,
-                           int cfg_n_streams) {
+                           float min_impurity_decrease, bool bootstrap_features,
+                           bool bootstrap, int n_trees, float rows_sample,
+                           int seed, CRITERION split_criterion,
+                           bool quantile_per_tree, int cfg_n_streams) {
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
-    min_rows_per_node, bootstrap_features, split_criterion, quantile_per_tree);
+    min_rows_per_node, min_impurity_decrease, bootstrap_features,
+    split_criterion, quantile_per_tree);
   RF_params rf_params;
   set_all_rf_params(rf_params, n_trees, bootstrap, rows_sample, seed,
                     cfg_n_streams, tree_params);
@@ -569,28 +605,24 @@ void predict(const cumlHandle& user_handle,
  * @{
  */
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestRegressorF* forest, const float* input,
-                 const float* ref_labels, int n_rows, int n_cols,
-                 float* predictions, bool verbose) {
+                 const RandomForestRegressorF* forest, const float* ref_labels,
+                 int n_rows, float* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfRegressor<float>> rf_regressor =
     std::make_shared<rfRegressor<float>>(forest->rf_params);
   RF_metrics regression_score =
-    rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
-                        predictions, forest, verbose);
+    rf_regressor->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return regression_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
-                 const RandomForestRegressorD* forest, const double* input,
-                 const double* ref_labels, int n_rows, int n_cols,
-                 double* predictions, bool verbose) {
+                 const RandomForestRegressorD* forest, const double* ref_labels,
+                 int n_rows, double* predictions, bool verbose) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfRegressor<double>> rf_regressor =
     std::make_shared<rfRegressor<double>>(forest->rf_params);
   RF_metrics regression_score =
-    rf_regressor->score(user_handle, input, ref_labels, n_rows, n_cols,
-                        predictions, forest, verbose);
+    rf_regressor->score(user_handle, ref_labels, n_rows, predictions, verbose);
   return regression_score;
 }
 /** @} */
@@ -621,14 +653,14 @@ template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
 template void build_treelite_forest<float, int>(
   ModelHandle* model, const RandomForestMetaData<float, int>* forest,
-  int num_features, int task_category);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 template void build_treelite_forest<double, int>(
   ModelHandle* model, const RandomForestMetaData<double, int>* forest,
-  int num_features, int task_category);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 template void build_treelite_forest<float, float>(
   ModelHandle* model, const RandomForestMetaData<float, float>* forest,
-  int num_features, int task_category);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 template void build_treelite_forest<double, double>(
   ModelHandle* model, const RandomForestMetaData<double, double>* forest,
-  int num_features, int task_category);
+  int num_features, int task_category, std::vector<unsigned char>& data);
 }  // End namespace ML

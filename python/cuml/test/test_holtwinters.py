@@ -13,11 +13,12 @@
 # limitations under the License.
 
 import numpy as np
-from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
-from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
 import pytest
+
+from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
+
+from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
 from sklearn.metrics import r2_score
-import cudf
 
 airpassengers = [112, 118, 132, 129, 121, 135, 148, 148, 136, 119, 104, 118,
                  115, 126, 141, 135, 125, 149, 170, 170, 158, 133, 114, 140,
@@ -62,23 +63,10 @@ nybirths = [26.663, 23.598, 26.931, 24.740, 25.806, 24.364, 24.477, 23.901,
             24.767, 26.219, 28.361, 28.599, 27.914, 27.784, 25.693, 26.881]
 
 
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
-
-
 @pytest.mark.parametrize('seasonal', ['additive', 'multiplicative'])
 @pytest.mark.parametrize('h', [12, 24])
 @pytest.mark.parametrize('datatype', [np.float64])
-@pytest.mark.parametrize('input_type', ['cudf', 'np'])
-def test_singlets_holtwinters(seasonal, h, datatype, input_type):
+def test_singlets_holtwinters(seasonal, h, datatype):
     global airpassengers
     airpassengers = np.asarray(airpassengers, dtype=datatype)
     train = airpassengers[:-h]
@@ -88,8 +76,7 @@ def test_singlets_holtwinters(seasonal, h, datatype, input_type):
                   seasonal_periods=12)
     sm_hw = sm_hw.fit()
 
-    if input_type == 'cudf':
-        train = cudf.Series(train)
+    # train = cudf.Series(train)
 
     cu_hw = cuml_ES(train, seasonal=seasonal,
                     seasonal_periods=12)
@@ -106,8 +93,7 @@ def test_singlets_holtwinters(seasonal, h, datatype, input_type):
 @pytest.mark.parametrize('seasonal', ['additive', 'multiplicative'])
 @pytest.mark.parametrize('h', [12, 24])
 @pytest.mark.parametrize('datatype', [np.float64])
-@pytest.mark.parametrize('input_type', ['cudf', 'np'])
-def test_multits_holtwinters(seasonal, h, datatype, input_type):
+def test_multits_holtwinters(seasonal, h, datatype):
     global airpassengers, co2
     airpassengers = np.asarray(airpassengers, dtype=datatype)
     co2 = np.asarray(co2, dtype=datatype)
@@ -117,10 +103,6 @@ def test_multits_holtwinters(seasonal, h, datatype, input_type):
     co2_train = co2[:-h]
     co2_test = co2[-h:]
     data = np.asarray([air_train, co2_train], dtype=datatype)
-
-    if input_type == 'cudf':
-        data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
-
     cu_hw = cuml_ES(data, seasonal=seasonal,
                     seasonal_periods=12, ts_num=2)
 
@@ -198,18 +180,10 @@ def test_eps_holtwinters(eps):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['cudf', 'np', 'cupy'])
-def test_inputs_holtwinters(datatype, input_type):
+def test_inputs_holtwinters(datatype):
     global airpassengers, co2, nybirths
     data = np.asarray([airpassengers, co2, nybirths], dtype=datatype)
-    if input_type == 'cudf':
-        data = cudf.DataFrame({i: data[i] for i in range(data.shape[0])})
-    elif input_type == 'cupy':
-        try:
-            import cupy as cp
-            data = cp.asarray(data)
-        except ImportError:
-            pytest.skip("CuPy import error -- skipping test.")
+
     cu_hw = cuml_ES(data, ts_num=3)
     cu_hw.fit()
     cu_hw.forecast(5)

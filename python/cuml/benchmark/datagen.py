@@ -231,6 +231,10 @@ _data_converters = {
 }
 
 
+def all_datasets():
+    return _data_generators
+
+
 @functools.lru_cache(maxsize=8)
 def gen_data(
     dataset_name,

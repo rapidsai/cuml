@@ -19,14 +19,16 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <utility>
 
+#include <cuml/fil/fil.h>
+#include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
-#include "fil.h"
 
 namespace ML {
 namespace fil {
@@ -51,6 +53,27 @@ void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
   *is_leaf = dn.is_leaf();
 }
 
+void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
+                      bool def_left, bool is_leaf, int left_index) {
+  sparse_node n(output, thresh, fid, def_left, is_leaf, left_index);
+  node->bits = n.bits;
+  node->val = n.val;
+  node->left_idx = n.left_idx;
+}
+
+/** sparse_node_decode extracts individual members from node */
+void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
+                        int* fid, bool* def_left, bool* is_leaf,
+                        int* left_index) {
+  sparse_node n(*node);
+  *output = n.output();
+  *thresh = n.thresh();
+  *fid = n.fid();
+  *def_left = n.def_left();
+  *is_leaf = n.is_leaf();
+  *left_index = n.left_index();
+}
+
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 /** performs additional transformations on the array of forest predictions
@@ -73,26 +96,6 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 }
 
 struct forest {
-  forest()
-    : depth_(0),
-      ntrees_(0),
-      cols_(0),
-      algo_(algo_t::NAIVE),
-      output_(output_t::RAW),
-      threshold_(0.5),
-      global_bias_(0) {}
-
-  void transform_trees(const dense_node_t* nodes) {
-    // populate node information
-    for (int i = 0, gid = 0; i < ntrees_; ++i) {
-      for (int j = 0, nid = 0; j <= depth_; ++j) {
-        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
-          h_nodes_[nid * ntrees_ + i] = dense_node(nodes[gid]);
-        }
-      }
-    }
-  }
-
   void init_max_shm() {
     int max_shm_std = 48 * 1024;  // 48 KiB
     int device = 0;
@@ -104,87 +107,167 @@ struct forest {
     max_shm_ = std::min(max_shm_, max_shm_std);
   }
 
-  void init(const cumlHandle& h, const forest_params_t* params) {
+  void init_common(const forest_params_t* params) {
     depth_ = params->depth;
-    ntrees_ = params->ntrees;
-    cols_ = params->cols;
+    num_trees_ = params->num_trees;
+    num_cols_ = params->num_cols;
     algo_ = params->algo;
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
     init_max_shm();
-
-    int nnodes = forest_num_nodes(ntrees_, depth_);
-    nodes_ = (dense_node*)h.getDeviceAllocator()->allocate(
-      sizeof(dense_node) * nnodes, h.getStream());
-    h_nodes_.resize(nnodes);
-    if (algo_ == algo_t::NAIVE) {
-      std::copy(params->nodes, params->nodes + nnodes, h_nodes_.begin());
-    } else {
-      transform_trees(params->nodes);
-    }
-    CUDA_CHECK(cudaMemcpy(nodes_, h_nodes_.data(), nnodes * sizeof(dense_node),
-                          cudaMemcpyHostToDevice));
-    h_nodes_.clear();
-    h_nodes_.shrink_to_fit();
   }
 
+  virtual void infer(predict_params params, cudaStream_t stream) = 0;
+
   void predict(const cumlHandle& h, float* preds, const float* data,
-               size_t rows) {
+               size_t num_rows) {
     // Initialize prediction parameters.
-    predict_params ps;
-    ps.nodes = nodes_;
-    ps.ntrees = ntrees_;
-    ps.depth = depth_;
-    ps.cols = cols_;
-    ps.algo = algo_;
-    ps.preds = preds;
-    ps.data = data;
-    ps.rows = rows;
-    ps.max_shm = max_shm_;
+    predict_params params;
+    params.num_cols = num_cols_;
+    params.algo = algo_;
+    params.preds = preds;
+    params.data = data;
+    params.num_rows = num_rows;
+    params.max_shm = max_shm_;
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
-    infer(ps, stream);
+    infer(params, stream);
 
     // Transform the output if necessary.
     if (output_ != output_t::RAW || global_bias_ != 0.0f) {
-      transform_k<<<ceildiv(int(rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, rows, output_, ntrees_ > 0 ? (1.0f / ntrees_) : 1.0f, threshold_,
-        global_bias_);
+      transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
+        preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+        threshold_, global_bias_);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
 
-  void free(const cumlHandle& h) {
-    int num_nodes = forest_num_nodes(ntrees_, depth_);
+  virtual void free(const cumlHandle& h) = 0;
+  virtual ~forest() {}
+
+  int num_trees_ = 0;
+  int depth_ = 0;
+  int num_cols_ = 0;
+  algo_t algo_ = algo_t::NAIVE;
+  int max_shm_ = 0;
+  output_t output_ = output_t::RAW;
+  float threshold_ = 0.5;
+  float global_bias_ = 0;
+};
+
+struct dense_forest : forest {
+  void transform_trees(const dense_node_t* nodes) {
+    // populate node information
+    for (int i = 0, gid = 0; i < num_trees_; ++i) {
+      for (int j = 0, nid = 0; j <= depth_; ++j) {
+        for (int k = 0; k < 1 << j; ++k, ++nid, ++gid) {
+          h_nodes_[nid * num_trees_ + i] = dense_node(nodes[gid]);
+        }
+      }
+    }
+  }
+
+  void init(const cumlHandle& h, const dense_node_t* nodes,
+            const forest_params_t* params) {
+    init_common(params);
+    if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
+
+    int num_nodes = forest_num_nodes(num_trees_, depth_);
+    nodes_ = (dense_node*)h.getDeviceAllocator()->allocate(
+      sizeof(dense_node) * num_nodes, h.getStream());
+    h_nodes_.resize(num_nodes);
+    if (algo_ == algo_t::NAIVE) {
+      std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
+    } else {
+      transform_trees(nodes);
+    }
+    CUDA_CHECK(cudaMemcpyAsync(nodes_, h_nodes_.data(),
+                               num_nodes * sizeof(dense_node),
+                               cudaMemcpyHostToDevice, h.getStream()));
+    // copy must be finished before freeing the host data
+    CUDA_CHECK(cudaStreamSynchronize(h.getStream()));
+    h_nodes_.clear();
+    h_nodes_.shrink_to_fit();
+  }
+
+  virtual void infer(predict_params params, cudaStream_t stream) override {
+    dense_storage forest(nodes_, num_trees_,
+                         algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
+                         algo_ == algo_t::NAIVE ? 1 : num_trees_);
+    fil::infer(forest, params, stream);
+  }
+
+  virtual void free(const cumlHandle& h) override {
+    int num_nodes = forest_num_nodes(num_trees_, depth_);
     h.getDeviceAllocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
                                        h.getStream());
   }
 
-  int ntrees_;
-  int depth_;
-  int cols_;
-  algo_t algo_;
-  int max_shm_;
-  output_t output_;
-  float threshold_;
-  float global_bias_;
   dense_node* nodes_ = nullptr;
   thrust::host_vector<dense_node> h_nodes_;
 };
 
-void check_params(const forest_params_t* params) {
-  ASSERT(params->depth >= 0, "depth must be non-negative");
-  ASSERT(params->ntrees >= 0, "ntrees must be non-negative");
-  ASSERT(params->cols >= 0, "cols must be non-negative");
+struct sparse_forest : forest {
+  void init(const cumlHandle& h, const int* trees, const sparse_node_t* nodes,
+            const forest_params_t* params) {
+    init_common(params);
+    if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
+    depth_ = 0;  // a placeholder value
+    num_nodes_ = params->num_nodes;
+
+    // trees
+    trees_ = (int*)h.getDeviceAllocator()->allocate(sizeof(int) * num_trees_,
+                                                    h.getStream());
+    CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
+                               cudaMemcpyHostToDevice, h.getStream()));
+
+    // nodes
+    nodes_ = (sparse_node*)h.getDeviceAllocator()->allocate(
+      sizeof(sparse_node) * num_nodes_, h.getStream());
+    CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(sparse_node) * num_nodes_,
+                               cudaMemcpyHostToDevice, h.getStream()));
+  }
+
+  virtual void infer(predict_params params, cudaStream_t stream) override {
+    sparse_storage forest(trees_, nodes_, num_trees_);
+    fil::infer(forest, params, stream);
+  }
+
+  void free(const cumlHandle& h) override {
+    h.getDeviceAllocator()->deallocate(trees_, sizeof(int) * num_trees_,
+                                       h.getStream());
+    h.getDeviceAllocator()->deallocate(nodes_, sizeof(sparse_node) * num_nodes_,
+                                       h.getStream());
+  }
+
+  int num_nodes_ = 0;
+  int* trees_ = nullptr;
+  sparse_node* nodes_ = nullptr;
+};
+
+void check_params(const forest_params_t* params, bool dense) {
+  if (dense) {
+    ASSERT(params->depth >= 0, "depth must be non-negative for dense forests");
+  } else {
+    ASSERT(params->num_nodes >= 0,
+           "num_nodes must be non-negative for sparse forests");
+    ASSERT(params->algo == algo_t::NAIVE || params->algo == algo_t::ALGO_AUTO,
+           "only ALGO_AUTO and NAIVE algorithms are supported "
+           "for sparse forests");
+  }
+  ASSERT(params->num_trees >= 0, "num_trees must be non-negative");
+  ASSERT(params->num_cols >= 0, "num_cols must be non-negative");
   switch (params->algo) {
+    case algo_t::ALGO_AUTO:
     case algo_t::NAIVE:
     case algo_t::TREE_REORG:
     case algo_t::BATCH_TREE_REORG:
       break;
     default:
-      ASSERT(false, "aglo should be NAIVE, TREE_REORG or BATCH_TREE_REORG");
+      ASSERT(false,
+             "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
@@ -233,20 +316,8 @@ int max_depth(const tl::Tree& tree) {
                           RECURSION_LIMIT);
 }
 
-void node2fil(std::vector<dense_node_t>* pnodes, int root, int cur,
-              const tl::Tree& tree, const tl::Tree::Node& node) {
-  std::vector<dense_node_t>& nodes = *pnodes;
-  if (node.is_leaf()) {
-    dense_node_init(&nodes[root + cur], node.leaf_value(), 0, 0, false, true);
-    return;
-  }
-
-  // inner node
-  ASSERT(node.split_type() == tl::SplitFeatureType::kNumerical,
-         "only numerical split nodes are supported");
-  int left = node.cleft(), right = node.cright();
-  bool default_left = node.default_left();
-  float threshold = node.threshold();
+void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
+                      bool* default_left, const tl::Tree::Node& node) {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
@@ -256,43 +327,100 @@ void node2fil(std::vector<dense_node_t>* pnodes, int root, int cur,
       break;
     case tl::Operator::kLE:
       // x <= y is equivalent to x < y', where y' is the next representable float
-      threshold =
-        std::nextafterf(threshold, std::numeric_limits<float>::infinity());
+      *pthreshold =
+        std::nextafterf(*pthreshold, std::numeric_limits<float>::infinity());
       break;
     case tl::Operator::kGT:
       // x > y is equivalent to x >= y', where y' is the next representable float
       // left and right still need to be swapped
-      threshold =
-        std::nextafterf(threshold, std::numeric_limits<float>::infinity());
+      *pthreshold =
+        std::nextafterf(*pthreshold, std::numeric_limits<float>::infinity());
     case tl::Operator::kGE:
       // swap left and right
-      std::swap(left, right);
-      default_left = !default_left;
+      std::swap(*tl_left, *tl_right);
+      *default_left = !*default_left;
       break;
     default:
       ASSERT(false, "only <, >, <= and >= comparisons are supported");
   }
-  dense_node_init(&nodes[root + cur], 0, threshold, node.split_index(),
+}
+
+void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
+                    const tl::Tree& tree, const tl::Tree::Node& node) {
+  if (node.is_leaf()) {
+    dense_node_init(&(*pnodes)[root + cur], node.leaf_value(), 0, 0, false,
+                    true);
+    return;
+  }
+
+  // inner node
+  ASSERT(node.split_type() == tl::SplitFeatureType::kNumerical,
+         "only numerical split nodes are supported");
+  int tl_left = node.cleft(), tl_right = node.cright();
+  bool default_left = node.default_left();
+  float threshold = node.threshold();
+  adjust_threshold(&threshold, &tl_left, &tl_right, &default_left, node);
+  dense_node_init(&(*pnodes)[root + cur], 0, threshold, node.split_index(),
                   default_left, false);
-  node2fil(pnodes, root, 2 * cur + 1, tree, tl_node_at(tree, left));
-  node2fil(pnodes, root, 2 * cur + 2, tree, tl_node_at(tree, right));
+  int left = 2 * cur + 1;
+  node2fil_dense(pnodes, root, left, tree, tl_node_at(tree, tl_left));
+  node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right));
 }
 
-void tree2fil(std::vector<dense_node_t>* pnodes, int root,
-              const tl::Tree& tree) {
-  node2fil(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
+void node2fil_sparse(std::vector<sparse_node_t>* pnodes, int root, int cur,
+                     const tl::Tree& tree, const tl::Tree::Node& node) {
+  if (node.is_leaf()) {
+    sparse_node_init(&(*pnodes)[root + cur], node.leaf_value(), 0, 0, false,
+                     true, 0);
+    return;
+  }
+
+  // inner node
+  ASSERT(node.split_type() == tl::SplitFeatureType::kNumerical,
+         "only numerical split nodes are supported");
+  // tl_left and tl_right are indices of the children in the treelite tree
+  // (stored  as an array of nodes)
+  int tl_left = node.cleft(), tl_right = node.cright();
+  bool default_left = node.default_left();
+  float threshold = node.threshold();
+  adjust_threshold(&threshold, &tl_left, &tl_right, &default_left, node);
+
+  // reserve space for child nodes
+  // left is the offset of the left child node relative to the tree root
+  // in the array of all nodes of the FIL sparse forest
+  int left = pnodes->size() - root;
+  pnodes->push_back(sparse_node_t());
+  pnodes->push_back(sparse_node_t());
+  sparse_node_init(&(*pnodes)[root + cur], 0, threshold, node.split_index(),
+                   default_left, false, left);
+
+  // init child nodes
+  node2fil_sparse(pnodes, root, left, tree, tl_node_at(tree, tl_left));
+  node2fil_sparse(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right));
 }
 
-// uses treelite model with additional tl_params to initialize FIL params
-// and nodes (stored in *pnodes)
-void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
-            const tl::Model& model, const treelite_params_t* tl_params) {
+void tree2fil_dense(std::vector<dense_node_t>* pnodes, int root,
+                    const tl::Tree& tree) {
+  node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
+}
+
+int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
+  int root = pnodes->size();
+  pnodes->push_back(sparse_node_t());
+  node2fil_sparse(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
+  return root;
+}
+
+// tl2fil_common is the part of conversion from a treelite model
+// common for dense and sparse forests
+void tl2fil_common(forest_params_t* params, const tl::Model& model,
+                   const treelite_params_t* tl_params) {
   // fill in forest-indendent params
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
 
   // fill in forest-dependent params
-  params->cols = model.num_feature;
+  params->num_cols = model.num_feature;
   ASSERT(model.num_output_group == 1,
          "multi-class classification not supported");
   const tl::ModelParam& param = model.param;
@@ -312,38 +440,91 @@ void tl2fil(forest_params_t* params, std::vector<dense_node_t>* pnodes,
     ASSERT(false, "%s: unsupported treelite prediction transform",
            param.pred_transform.c_str());
   }
-  params->ntrees = model.trees.size();
+  params->num_trees = model.trees.size();
 
   int depth = 0;
   for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
   params->depth = depth;
-
-  // convert the nodes
-  int num_nodes = forest_num_nodes(params->ntrees, params->depth);
-  pnodes->resize(num_nodes, dense_node_t{0, 0});
-  for (int i = 0; i < model.trees.size(); ++i) {
-    tree2fil(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
-  }
-  params->nodes = pnodes->data();
 }
 
-void init_dense(const cumlHandle& h, forest_t* pf,
+// uses treelite model with additional tl_params to initialize FIL params
+// and dense nodes (stored in *pnodes)
+void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
+                  const tl::Model& model, const treelite_params_t* tl_params) {
+  tl2fil_common(params, model, tl_params);
+
+  // convert the nodes
+  int num_nodes = forest_num_nodes(params->num_trees, params->depth);
+  pnodes->resize(num_nodes, dense_node_t{0, 0});
+  for (int i = 0; i < model.trees.size(); ++i) {
+    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
+  }
+}
+
+// uses treelite model with additional tl_params to initialize FIL params,
+// trees (stored in *ptrees) and sparse nodes (stored in *pnodes)
+void tl2fil_sparse(std::vector<int>* ptrees, std::vector<sparse_node_t>* pnodes,
+                   forest_params_t* params, const tl::Model& model,
+                   const treelite_params_t* tl_params) {
+  tl2fil_common(params, model, tl_params);
+
+  // convert the nodes
+  for (int i = 0; i < model.trees.size(); ++i) {
+    int root = tree2fil_sparse(pnodes, model.trees[i]);
+    ptrees->push_back(root);
+  }
+  params->num_nodes = pnodes->size();
+}
+
+void init_dense(const cumlHandle& h, forest_t* pf, const dense_node_t* nodes,
                 const forest_params_t* params) {
-  check_params(params);
-  forest* f = new forest;
-  f->init(h, params);
+  check_params(params, true);
+  dense_forest* f = new dense_forest;
+  f->init(h, nodes, params);
+  *pf = f;
+}
+
+void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
+                 const sparse_node_t* nodes, const forest_params_t* params) {
+  check_params(params, false);
+  sparse_forest* f = new sparse_forest;
+  f->init(h, trees, nodes, params);
   *pf = f;
 }
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
-  forest_params_t params;
-  std::vector<dense_node_t> nodes;
-  tl2fil(&params, &nodes, *(tl::Model*)model, tl_params);
-  init_dense(handle, pforest, &params);
-  // sync is necessary as nodes is used in init_dense(),
-  // but destructed at the end of this function
-  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+  storage_type_t storage_type = tl_params->storage_type;
+  // build dense trees by default
+  if (storage_type == storage_type_t::AUTO) {
+    storage_type = storage_type_t::DENSE;
+  }
+
+  switch (storage_type) {
+    case storage_type_t::DENSE: {
+      forest_params_t params;
+      std::vector<dense_node_t> nodes;
+      tl2fil_dense(&nodes, &params, *(tl::Model*)model, tl_params);
+      init_dense(handle, pforest, nodes.data(), &params);
+      // sync is necessary as nodes is used in init_dense(),
+      // but destructed at the end of this function
+      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      break;
+    }
+    case storage_type_t::SPARSE: {
+      forest_params_t params;
+      std::vector<int> trees;
+      std::vector<sparse_node_t> nodes;
+      tl2fil_sparse(&trees, &nodes, &params, *(tl::Model*)model, tl_params);
+      init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
+      // sync is necessary as nodes is used in init_dense(),
+      // but destructed at the end of this function
+      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      break;
+    }
+    default:
+      ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
+  }
 }
 
 void free(const cumlHandle& h, forest_t f) {
@@ -352,8 +533,8 @@ void free(const cumlHandle& h, forest_t f) {
 }
 
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t n) {
-  f->predict(h, preds, data, n);
+             size_t num_rows) {
+  f->predict(h, preds, data, num_rows);
 }
 
 }  // namespace fil

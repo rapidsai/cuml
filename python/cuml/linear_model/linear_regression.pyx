@@ -36,7 +36,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "glm/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     cdef void olsFit(cumlHandle& handle,
                      float *input,
@@ -323,8 +323,9 @@ class LinearRegression(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
-        ----------
+        -------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
 

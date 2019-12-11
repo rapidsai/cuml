@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #include "holtwinters_api.h"
-#include <cuML_api.h>
+#include <cuml/cuml_api.h>
+#include <cuml/tsa/holtwinters.h>
 #include "common/cumlHandle.hpp"
-#include "holtwinters.h"
 
 cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
                                         int *start_leveltrend_len,

@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
 #include "common/device_buffer.hpp"
-#include "umap/umapparams.h"
 
 #include "sparse/coo.h"
 
@@ -26,8 +26,8 @@
 #include "linalg/transpose.h"
 #include "random/rng.h"
 
+#include <cuml/cluster/spectral.hpp>
 #include <iostream>
-#include "spectral/spectral.hpp"
 
 namespace UMAPAlgo {
 
@@ -53,8 +53,9 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
   MLCommon::device_buffer<T> tmp_storage(handle.getDeviceAllocator(), stream,
                                          n * params->n_components);
 
-  Spectral::fit_embedding(handle, coo->rows, coo->cols, coo->vals, coo->nnz, n,
-                          params->n_components, tmp_storage.data());
+  Spectral::fit_embedding(handle, coo->rows(), coo->cols(), coo->vals(),
+                          coo->nnz, n, params->n_components,
+                          tmp_storage.data());
 
   MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
                               params->n_components,

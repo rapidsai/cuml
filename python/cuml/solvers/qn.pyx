@@ -33,9 +33,11 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.cupy_utils import checked_cupy_unique
+from cuml.utils.import_utils import has_cupy
 
 
-cdef extern from "glm/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     void qnFit(cumlHandle& cuml_handle,
                float *X,
@@ -154,6 +156,7 @@ class QN(Base):
     Output:
 
     .. code-block:: python
+
         Coefficients:
                     10.647417
                     0.3267412
@@ -189,8 +192,8 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbose: bool (optional, default False)
-        Controls verbosity of logging.
+    verbose: int (optional, default 0)
+        Controls verbosity level of logging.
 
     Attributes
     -----------
@@ -212,10 +215,10 @@ class QN(Base):
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
-                 linesearch_max_iter=50, lbfgs_memory=5, verbose=False,
+                 linesearch_max_iter=50, lbfgs_memory=5, verbose=0,
                  handle=None):
 
-        super(QN, self).__init__(handle=handle, verbose=False)
+        super(QN, self).__init__(handle=handle, verbose=verbose)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
@@ -224,13 +227,12 @@ class QN(Base):
         self.tol = tol
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
-        self.alpha = 0.0
         self.num_iter = 0
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
 
-        self.loss_type = self._get_loss_int(loss)
+        self.loss = loss
 
     def _get_loss_int(self, loss):
         return {
@@ -271,14 +273,9 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        try:
-            import cupy
-            self.num_classes = len(cupy.unique(y_m)) - 1
-        except ImportError:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            self.num_classes = len(np.unique(y_m)) - 1
+        self.num_classes = len(checked_cupy_unique(y_m)) - 1
 
+        self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self.num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
@@ -292,7 +289,7 @@ class QN(Base):
         else:
             coef_size = (self.n_cols, self.num_classes)
 
-        self.coef_ = rmm.to_device(zeros(coef_size, dtype=self.dtype))
+        self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
 
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
 
@@ -316,7 +313,7 @@ class QN(Base):
                   <float> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> 0,
+                  <int> self.verbose,
                   <float*> coef_ptr,
                   <float*> &objective32,
                   <int*> &num_iters,
@@ -339,7 +336,7 @@ class QN(Base):
                   <double> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> 0,
+                  <int> self.verbose,
                   <double*> coef_ptr,
                   <double*> &objective64,
                   <int*> &num_iters,

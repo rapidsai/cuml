@@ -48,6 +48,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       nvstrings=${NVSTRINGS_VERSION} \
       lapack cmake==3.14.3 \
       umap-learn \
+      protobuf >=3.4.1,<4.0.0 \
       libclang \
       nccl>=2.4 \
       dask=2.3.0 \

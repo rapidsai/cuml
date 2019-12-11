@@ -18,7 +18,7 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 #include <sstream>
 #include <vector>
 #include "dataset.cuh"
@@ -111,6 +111,32 @@ class BlobsFixture : public Fixture {
   BlobsParams bParams;
   Dataset<D, L> data;
 };  // end class BlobFixture
+
+/**
+ * Fixture to be used for benchmarking regression algorithms when the input
+ * suffices to be generated via `make_regression`.
+ */
+template <typename D>
+class RegressionFixture : public Fixture {
+ public:
+  RegressionFixture(const DatasetParams p, const RegressionParams r)
+    : Fixture(p), rParams(r) {}
+  RegressionFixture() = delete;
+
+ protected:
+  void allocateData(const ::benchmark::State& state) override {
+    data.allocate(*handle, params);
+    data.regression(*handle, params, rParams);
+  }
+
+  void deallocateData(const ::benchmark::State& state) override {
+    data.deallocate(*handle, params);
+  }
+
+  /** parameters passed to `make_regression` */
+  RegressionParams rParams;
+  Dataset<D, D> data;
+};  // end class RegressionFixture
 
 /**
  * RAII way of timing cuda calls. This has been shamelessly copied from the

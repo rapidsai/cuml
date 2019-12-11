@@ -24,7 +24,7 @@
 
 #include <cub/device/device_select.cuh>
 #include "common/cumlHandle.hpp"
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
 #include "linalg/binary_op.h"

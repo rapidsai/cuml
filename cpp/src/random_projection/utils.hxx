@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "rproj_c.h"
+#include <cuml/random_projection/rproj_c.h>
 #include <random/rng.h>
 #include <cuda_utils.h>
 #include <common/cumlHandle.hpp>

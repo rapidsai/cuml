@@ -15,7 +15,7 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures
+    raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
 import cudf
 
@@ -99,7 +99,7 @@ class RandomForestClassifier:
                         The minimum number of samples (rows) needed
                         to split a node.
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individal trees in RF.
+                        Whether quantile is computed for individual RF trees.
                         Only relevant for GLOBAL_QUANTILE split_algo.
     n_streams : int (default = 4 )
                 Number of parallel streams used for forest building
@@ -109,7 +109,7 @@ class RandomForestClassifier:
 
     Examples
     ---------
-    For usage examples, please see the RAPIDS notebookss repository:
+    For usage examples, please see the RAPIDS notebooks repository:
     https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
     """
 
@@ -335,8 +335,8 @@ class RandomForestClassifier:
         """
         c = default_client()
 
-        X_futures = c.sync(extract_ddf_partitions, X)
-        y_futures = c.sync(extract_ddf_partitions, y)
+        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
+        y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
 
         X_partition_workers = [w for w, xc in X_futures.items()]
         y_partition_workers = [w for w, xc in y_futures.items()]

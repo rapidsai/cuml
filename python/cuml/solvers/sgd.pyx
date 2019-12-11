@@ -33,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "solver/solver.hpp" namespace "ML::Solver":
+cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
     cdef void sgdFit(cumlHandle& handle,
                      float *input,
@@ -128,6 +128,7 @@ class SGD(Base):
     Examples
     ---------
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.solvers import SGD as cumlSGD
@@ -146,7 +147,8 @@ class SGD(Base):
         print(" cuML intercept : ", cu_sgd.intercept_)
         print(" cuML coef : ", cu_sgd.coef_)
         print("cuML predictions : ", cu_pred)
-    Output:
+
+    *Output*:
     .. code-block:: python
 
         cuML intercept :  0.004561662673950195
@@ -183,7 +185,7 @@ class SGD(Base):
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
-    eta0 : float (default = 0.0)
+    eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
@@ -204,8 +206,8 @@ class SGD(Base):
 
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5,
-                 batch_size=32, n_iter_no_change=5, handle=None):
+                 shuffle=True, learning_rate='constant', eta0=0.001,
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
 
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
@@ -441,6 +443,7 @@ class SGD(Base):
     def predictClass(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -452,9 +455,10 @@ class SGD(Base):
             When set to True, the predictClass method will automatically
             convert the input to the data type which was used to train the
             model. This will increase memory used for the method.
+
         Returns
         ----------
-        y: cuDF DataFrame
+        y : cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 

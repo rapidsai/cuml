@@ -15,16 +15,18 @@
 
 import pytest
 import numpy as np
-import cuml
-import cuml.svm
 from numba import cuda
+
+import cuml
+import cuml.svm as cu_svm
+from cuml.test.utils import unit_param, quality_param, stress_param
+
 from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
 from sklearn.datasets.samples_generator import make_classification, \
     make_gaussian_quantiles
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import to_nparray, np_to_cudf
 import cudf
 
 
@@ -50,7 +52,7 @@ def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
 
 def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
                 cmp_sv=False, dcoef_tol=None, accuracy_tol=None,
-                report_summary=False):
+                report_summary=False, cmp_decision_func=False):
     """ Compares two svm classifiers
     Parameters:
     -----------
@@ -69,10 +71,12 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
     """
 
     n = X.shape[0]
-    svm1_y_hat = to_nparray(svm1.predict(X))
+    svm1_y_hat = svm1.predict(X).to_array()
     svm1_n_wrong = np.sum(np.abs(y - svm1_y_hat))
     accuracy1 = (n-svm1_n_wrong)*100/n
-    svm2_y_hat = to_nparray(svm2.predict(X))
+    svm2_y_hat = svm2.predict(X)
+    if type(svm2_y_hat) != np.ndarray:
+        svm2_y_hat = svm2_y_hat.to_array()
     svm2_n_wrong = np.sum(np.abs(y - svm2_y_hat))
     accuracy2 = (n-svm2_n_wrong)*100/n
 
@@ -126,33 +130,34 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
         assert cs > 1 - coef_tol
 
     if cmp_sv or (dcoef_tol is not None):
-        sidx1 = np.argsort(to_nparray(svm1.support_))
-        sidx2 = np.argsort(to_nparray(svm2.support_))
+        sidx1 = np.argsort((svm1.support_).copy_to_host())
+        sidx2 = np.argsort((svm2.support_).copy_to_host())
 
     if cmp_sv:
-        support_idx1 = to_nparray(svm1.support_)[sidx1]
-        support_idx2 = to_nparray(svm2.support_)[sidx2]
+        support_idx1 = ((svm1.support_).copy_to_host())[sidx1]
+        support_idx2 = ((svm2.support_).copy_to_host())[sidx2]
         assert np.all(support_idx1-support_idx2) == 0
-        sv1 = to_nparray(svm1.support_vectors_)[sidx1, :]
-        sv2 = to_nparray(svm2.support_vectors_)[sidx2, :]
+        sv1 = ((svm1.support_vectors_).copy_to_host())[sidx1, :]
+        sv2 = ((svm2.support_vectors_).copy_to_host())[sidx2, :]
         assert np.all(sv1-sv2 == 0)
 
     if dcoef_tol is not None:
-        dcoef1 = to_nparray(svm1.dual_coef_)[0, sidx1]
-        dcoef2 = to_nparray(svm2.dual_coef_)[0, sidx2]
+        dcoef1 = ((svm1.dual_coef_).copy_to_host())[0, sidx1]
+        dcoef2 = ((svm2.dual_coef_).copy_to_host())[0, sidx2]
         assert np.all(np.abs(dcoef1-dcoef2) <= dcoef_tol)
 
-
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+    if cmp_decision_func:
+        if accuracy2 > 90:
+            df1 = svm1.decision_function(X).to_array()
+            df2 = svm2.decision_function(X)
+            # For classification, the class is determined by
+            # sign(decision function). We should not expect tight match for
+            # the actual value of the function, therfore we set large tolerance
+            assert(array_equal(df1, df2, tol=1e-1, relative_diff=True,
+                   report_summary=True))
+        else:
+            print("Skipping decision function test due to low  accuracy",
+                  accuracy2)
 
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2):
@@ -209,13 +214,13 @@ def get_binary_iris_dataset():
 def test_svm_skl_cmp_kernels(params):
     # X_train, X_test, y_train, y_test = make_dataset('gaussian', 1000, 4)
     X_train, y_train = get_binary_iris_dataset()
-    cuSVC = cuml.svm.SVC(**params)
+    cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X_train, y_train)
 
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X_train, y_train)
 
-    compare_svm(cuSVC, sklSVC, X_train, y_train)
+    compare_svm(cuSVC, sklSVC, X_train, y_train, cmp_decision_func=True)
 
 
 @pytest.mark.parametrize('params', [
@@ -236,7 +241,7 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
         return
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
 
-    cuSVC = cuml.svm.SVC(**params)
+    cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X_train, y_train)
 
     sklSVC = svm.SVC(**params)
@@ -261,37 +266,62 @@ def test_svm_predict(params, n_pred):
                       centers=[[-5, -5], [5, 5]])
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=n_rows)
-    cuSVC = cuml.svm.SVC(**params)
+    cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X_train, y_train)
-    y_pred = to_nparray(cuSVC.predict(X_test))
+    y_pred = cuSVC.predict(X_test).to_array()
     n_correct = np.sum(y_test == y_pred)
     accuracy = n_correct * 100 / n_pred
     assert accuracy > 99
 
 
+@pytest.mark.parametrize('params', [
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'auto'},
+                 marks=pytest.mark.xfail(reason="fp overflow in kernel "
+                                         "function due to non scaled input "
+                                         "features")),
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale',
+                  'x_arraytype': 'numpy'}),
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale',
+                  'x_arraytype': 'dataframe'}),
+    pytest.param({'kernel': 'poly', 'degree': 40, 'C': 1, 'gamma': 'scale',
+                  'x_arraytype': 'numba'}),
+])
+def test_svm_gamma(params):
+    # Note: we test different array types to make sure that the X.var() is
+    # calculated correctly for gamma == 'scale' option.
+    x_arraytype = params.pop('x_arraytype', 'numpy')
+    n_rows = 500
+    n_cols = 380
+    centers = [10*np.ones(380), -10*np.ones(380)]
+    X, y = make_blobs(n_samples=n_rows, n_features=n_cols, random_state=137,
+                      centers=centers)
+    X = X.astype(np.float32)
+    if x_arraytype == 'dataframe':
+        X_df = cudf.DataFrame()
+        X = X_df.from_gpu_matrix(cuda.to_device(X))
+    elif x_arraytype == 'numba':
+        X = cuda.to_device(X)
+    # Using degree 40 polynomials and fp32 training would fail with
+    # gamma = 1/(n_cols*X.std()), but it works with the correct implementation:
+    # gamma = 1/(n_cols*X.var())
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X, y)
+    y_pred = cuSVC.predict(X).to_array()
+    n_correct = np.sum(y == y_pred)
+    accuracy = n_correct * 100 / n_rows
+    assert accuracy > 70
+
+
 @pytest.mark.parametrize('x_dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('y_dtype', [np.float32, np.float64, np.int32])
-@pytest.mark.parametrize('x_arraytype', ['numpy', 'dataframe', 'numba'])
-@pytest.mark.parametrize('y_arraytype', ['numpy', 'series', 'numba'])
-def test_svm_numeric_arraytype(x_arraytype, y_arraytype, x_dtype, y_dtype):
+def test_svm_numeric_arraytype(x_dtype, y_dtype):
     X, y = get_binary_iris_dataset()
     X = X.astype(x_dtype, order="F")
     y = y.astype(y_dtype)
-    if x_arraytype == 'dataframe':
-        X_in = np_to_cudf(X)
-    elif x_arraytype == 'numba':
-        X_in = cuda.to_device(X)
-    else:
-        X_in = X
-    if y_arraytype == 'numba':
-        y_in = cuda.to_device(y)
-    elif y_arraytype == 'series':
-        y_in = cudf.Series(y)
-    else:
-        y_in = y
+
     params = {'kernel': 'rbf', 'C': 1, 'gamma': 0.25}
-    cuSVC = cuml.svm.SVC(**params)
-    cuSVC.fit(X_in, y_in)
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X, y)
     intercept_exp = 0.23468959692060373
     n_sv_exp = 15
     assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
@@ -326,7 +356,9 @@ def get_memsize(svc):
 @pytest.mark.parametrize('n_iter', [unit_param(10), quality_param(100),
                                     stress_param(1000)])
 @pytest.mark.parametrize('n_cols', [1000])
-def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset='blobs'):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_svm_memleak(params, n_rows, n_iter, n_cols,
+                     use_handle, dataset='blobs'):
     """
     Test whether there is any memory leak. Note: small n_rows, and n_cols
     values will result in small model size, that will not be measured by
@@ -339,7 +371,7 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset='blobs'):
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
     # before the first call to get_memory_info.
-    tmp = cuml.svm.SVC(handle=handle, **params)
+    tmp = cu_svm.SVC(handle=handle, **params)
     tmp.fit(X_train, y_train)
     ms = get_memsize(tmp)
     print("Memory consumtion of SVC object is {} MiB".format(ms/(1024*1024.0)))
@@ -348,7 +380,7 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset='blobs'):
 
     # Check first whether the get_memory_info gives us the correct memory
     # footprint
-    cuSVC = cuml.svm.SVC(handle=handle, **params)
+    cuSVC = cu_svm.SVC(handle=handle, **params)
     cuSVC.fit(X_train, y_train)
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
     assert delta_mem >= ms
@@ -356,10 +388,51 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset='blobs'):
     # Main test loop
     b_sum = 0
     for i in range(n_iter):
-        cuSVC = cuml.svm.SVC(handle=handle, **params)
+        cuSVC = cu_svm.SVC(handle=handle, **params)
         cuSVC.fit(X_train, y_train)
         b_sum += cuSVC.intercept_
         cuSVC.predict(X_train)
+
+    del(cuSVC)
+    handle.sync()
+    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    print("Delta GPU mem: {} bytes".format(delta_mem))
+    assert delta_mem == 0
+
+
+@pytest.mark.parametrize('params', [
+    {'kernel': 'poly', 'degree': 30, 'C': 1, 'gamma': 1}
+])
+def test_svm_memleak_on_exception(params, n_rows=1000, n_iter=10,
+                                  n_cols=1000, dataset='blobs'):
+    """
+    Test whether there is any mem leak when we exit training with an exception.
+    The poly kernel with degree=30 will overflow, and triggers the
+    'SMO error: NaN found...' exception.
+    """
+    X_train, y_train = make_blobs(n_samples=n_rows, n_features=n_cols,
+                                  random_state=137, centers=2)
+    X_train = X_train.astype(np.float32)
+    stream = cuml.cuda.Stream()
+    handle = cuml.Handle()
+    handle.setStream(stream)
+
+    # Warmup. Some modules that are used in SVC allocate space on the device
+    # and consume memory. Here we make sure that this allocation is done
+    # before the first call to get_memory_info.
+    tmp = cu_svm.SVC(handle=handle, **params)
+    with pytest.raises(RuntimeError):
+        tmp.fit(X_train, y_train)
+        # SMO error: NaN found during fitting.
+
+    free_mem = cuda.current_context().get_memory_info()[0]
+
+    # Main test loop
+    for i in range(n_iter):
+        cuSVC = cu_svm.SVC(handle=handle, **params)
+        with pytest.raises(RuntimeError):
+            cuSVC.fit(X_train, y_train)
+            # SMO error: NaN found during fitting.
 
     del(cuSVC)
     handle.sync()

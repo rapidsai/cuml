@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/umapparams.h>
+#include <cuml/manifold/umap.hpp>
 #include "runner.h"
-#include "umap.hpp"
-#include "umapparams.h"
 
 #include <iostream>
 
@@ -30,7 +30,6 @@ void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   UMAPAlgo::_transform<float, TPB_X>(handle, X, n, d, orig_X, orig_n, embedding,
                                      embedding_n, params, transformed);
 }
-
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          float *y,  // labels
@@ -45,7 +44,6 @@ void fit(const cumlHandle &handle,
          UMAPParams *params, float *embeddings) {
   UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, params, embeddings);
 }
-
 UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
   : params(params) {
   this->handle = const_cast<cumlHandle *>(&handle);
@@ -56,16 +54,16 @@ UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
 UMAP_API::~UMAP_API() {}
 
 /**
-     * Fits a UMAP model
-     * @param X
-     *        pointer to an array in row-major format (note: this will be col-major soon)
-     * @param n
-     *        n_samples in X
-     * @param d
-     *        d_features in X
-     * @param embeddings
-     *        an array to return the output embeddings of size (n_samples, n_components)
-     */
+ * Fits a UMAP model
+ * @param X
+ *        pointer to an array in row-major format (note: this will be col-major soon)
+ * @param n
+ *        n_samples in X
+ * @param d
+ *        d_features in X
+ * @param embeddings
+ *        an array to return the output embeddings of size (n_samples, n_components)
+ */
 void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
   this->orig_X = X;
   this->orig_n = n;
@@ -81,20 +79,20 @@ void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
 }
 
 /**
-     * Project a set of X vectors into the embedding space.
-     * @param X
-     *        pointer to an array in row-major format (note: this will be col-major soon)
-     * @param n
-     *        n_samples in X
-     * @param d
-     *        d_features in X
-     * @param embedding
-     *        pointer to embedding array of size (embedding_n, n_components) that has been created with fit()
-     * @param embedding_n
-     *        n_samples in embedding array
-     * @param out
-     *        pointer to array for storing output embeddings (n, n_components)
-     */
+ * Project a set of X vectors into the embedding space.
+ * @param X
+ *        pointer to an array in row-major format (note: this will be col-major soon)
+ * @param n
+ *        n_samples in X
+ * @param d
+ *        d_features in X
+ * @param embedding
+ *        pointer to embedding array of size (embedding_n, n_components) that has been created with fit()
+ * @param embedding_n
+ *        n_samples in embedding array
+ * @param out
+ *        pointer to array for storing output embeddings (n, n_components)
+ */
 void UMAP_API::transform(float *X, int n, int d, float *embedding,
                          int embedding_n, float *out) {
   UMAPAlgo::_transform<float, TPB_X>(*this->handle, X, n, d, this->orig_X,
@@ -103,7 +101,7 @@ void UMAP_API::transform(float *X, int n, int d, float *embedding,
 }
 
 /**
-     * Get the UMAPParams instance
-     */
+ * Get the UMAPParams instance
+ */
 UMAPParams *UMAP_API::get_params() { return this->params; }
 }  // namespace ML

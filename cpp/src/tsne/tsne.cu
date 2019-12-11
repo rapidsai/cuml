@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cuml/manifold/tsne.h>
 #include "../../src_prims/utils.h"
 #include "distances.h"
 #include "exact_kernels.h"
-#include "tsne/tsne.h"
 #include "utils.h"
 
 #include "barnes_hut.h"
@@ -104,7 +104,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   long *indices =
     (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
-  TSNE::get_distances(X, n, p, indices, distances, n_neighbors, stream);
+  TSNE::get_distances(X, n, p, indices, distances, n_neighbors, d_alloc,
+                      stream);
   //---------------------------------------------------
   END_TIMER(DistancesTime);
 
@@ -135,13 +136,13 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Convert data to COO layout
-  MLCommon::Sparse::COO<float> COO_Matrix;
+  MLCommon::Sparse::COO<float> COO_Matrix(d_alloc, stream);
   TSNE::symmetrize_perplexity(P, indices, n, n_neighbors, P_sum,
                               early_exaggeration, &COO_Matrix, stream, handle);
   const int NNZ = COO_Matrix.nnz;
-  float *VAL = COO_Matrix.vals;
-  const int *COL = COO_Matrix.cols;
-  const int *ROW = COO_Matrix.rows;
+  float *VAL = COO_Matrix.vals();
+  const int *COL = COO_Matrix.cols();
+  const int *ROW = COO_Matrix.rows();
   //---------------------------------------------------
   END_TIMER(SymmetrizeTime);
 
@@ -158,8 +159,6 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
                      post_momentum, random_state, verbose,
                      intialize_embeddings);
   }
-
-  COO_Matrix.destroy();
 }
 
 }  // namespace ML

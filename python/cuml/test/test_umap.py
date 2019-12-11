@@ -17,38 +17,28 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
+import numpy as np
 import pytest
-from cuml.test.utils import array_equal
+import umap
 
 from cuml.manifold.umap import UMAP as cuUMAP
-import umap
-import cudf
-import pandas as pd
-import numpy as np
+from cuml.test.utils import array_equal, unit_param, \
+    quality_param, stress_param
+
+import joblib
+
 from sklearn import datasets
-from sklearn.manifold.t_sne import trustworthiness
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
 from sklearn.datasets.samples_generator import make_blobs
+from sklearn.manifold.t_sne import trustworthiness
+from sklearn.metrics import adjusted_rand_score
 
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
 
-def unit_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
-
-
-def quality_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
-
-
-def stress_param(*args, **kwargs):
-    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
-
-
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_blobs_cluster(nrows, n_feats):
     data, labels = datasets.make_blobs(
@@ -61,9 +51,9 @@ def test_blobs_cluster(nrows, n_feats):
         assert score == 1.0
 
 
-@pytest.mark.parametrize('nrows', [unit_param(10), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
                          stress_param(1000)])
 def test_umap_fit_transform_score(nrows, n_feats):
 
@@ -90,23 +80,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
 
 
 # Allow slight deviation from expected trust due to numerical error
-TRUST_TOLERANCE_THRESH = 0.001
-
-
-def test_supervised_umap_trustworthiness_against_umap_learn():
-    iris = datasets.load_iris()
-    data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data, iris.target,
-                                                    convert_dtype=True)
-
-    skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
-                              verbose=False).fit_transform(data, iris.target)
-
-    trust = trustworthiness(iris.data, embedding, 10)
-
-    skl_trust = trustworthiness(iris.data, skl_embedding, 10)
-    assert (skl_trust - 0.009) <= trust <= (skl_trust + 0.009)
+TRUST_TOLERANCE_THRESH = 0.005
 
 
 def test_supervised_umap_trustworthiness_on_iris():
@@ -116,24 +90,7 @@ def test_supervised_umap_trustworthiness_on_iris():
                        verbose=False).fit_transform(data, iris.target,
                                                     convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
-
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
-
-
-def test_umap_trustworthiness_against_umap_learn():
-    iris = datasets.load_iris()
-    data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=False).fit_transform(data,
-                                                    convert_dtype=True)
-
-    skl_embedding = umap.UMAP(n_neighbors=10, min_dist=0.01,
-                              verbose=False).fit_transform(data)
-
-    trust = trustworthiness(iris.data, embedding, 10)
-
-    skl_trust = trustworthiness(iris.data, skl_embedding, 10)
-    assert (skl_trust - 0.008) <= trust <= (skl_trust + 0.008)
 
 
 def test_semisupervised_umap_trustworthiness_on_iris():
@@ -159,17 +116,7 @@ def test_umap_trustworthiness_on_iris():
     # We are doing a spectral embedding but not a
     # multi-component layout (which is marked experimental).
     # As a result, our score drops by 0.006.
-    assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
-
-
-def test_umap_trustworthiness_on_iris_random_init():
-    iris = datasets.load_iris()
-    data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
-                       verbose=False).fit_transform(data, convert_dtype=True)
-    trust = trustworthiness(iris.data, embedding, 10)
-
-    assert trust >= 0.95
+    assert trust >= 0.964 - TRUST_TOLERANCE_THRESH
 
 
 def test_umap_transform_on_iris():
@@ -210,7 +157,7 @@ def test_umap_fit_transform_trust(name):
                                   centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
@@ -245,44 +192,63 @@ def test_umap_data_formats(input_type, should_downcast,
 
     umap = cuUMAP(n_neighbors=3, n_components=2, verbose=False)
 
-    if input_type == 'dataframe':
-        X_pd = pd.DataFrame(
-               {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_pd)
-        embeds = umap.fit_transform(X_cudf, convert_dtype=True)
-        assert type(embeds) == cudf.DataFrame
-
-    else:
-        embeds = umap.fit_transform(X)
-        assert type(embeds) == np.ndarray
+    embeds = umap.fit_transform(X)
+    assert type(embeds) == np.ndarray
 
 
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_downcast_fails(input_type, nrows, n_feats):
-    n_samples = nrows
-    n_feats = n_feats
-    X, y = datasets.make_blobs(n_samples=n_samples,
-                               n_features=n_feats, random_state=0)
+def test_umap_fit_transform_score_default():
 
-    # Test fit() fails with double precision when should_downcast set to False
-    umap = cuUMAP(should_downcast=False, verbose=False)
+    n_samples = 500
+    n_features = 20
 
-    if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
+                              centers=10, random_state=42)
 
-    with pytest.raises(Exception):
-        umap.fit(X, should_downcast=False, convert_dtype=False)
+    model = umap.UMAP()
+    cuml_model = cuUMAP()
 
-    # Test fit() fails when downcast corrupted data
-    X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
+    embedding = model.fit_transform(data)
+    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
-    umap = cuUMAP(should_downcast=True)
-    if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+    cuml_score = adjusted_rand_score(labels,
+                                     KMeans(10).fit_predict(
+                                        cuml_embedding))
+    score = adjusted_rand_score(labels,
+                                KMeans(10).fit_predict(embedding))
 
-    with pytest.raises(Exception):
-        umap.fit(X, convert_dtype=True)
+    assert array_equal(score, cuml_score, 1e-2, with_sign=True)
+
+
+def test_umap_fit_transform_against_fit_and_transform():
+
+    n_samples = 500
+    n_features = 20
+
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
+                              centers=10, random_state=42)
+
+    """
+    First test the default option does not hash the input
+    """
+
+    cuml_model = cuUMAP()
+
+    ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
+
+    assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_same_input)
+
+    """
+    Next, test explicitly enabling feature hashes the input
+    """
+
+    cuml_model = cuUMAP(hash_input=True)
+
+    ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
+
+    assert joblib.hash(ft_embedding) == joblib.hash(fit_embedding_same_input)
+
+    fit_embedding_diff_input = cuml_model.transform(data[1:],
+                                                    convert_dtype=True)
+    assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
