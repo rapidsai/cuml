@@ -52,9 +52,9 @@ class cumlHandle_impl {
   void setHostAllocator(std::shared_ptr<hostAllocator> allocator);
   std::shared_ptr<hostAllocator> getHostAllocator() const;
 
-  cublasHandle_t getCublasHandle();
-  cusolverDnHandle_t getcusolverDnHandle();
-  cusparseHandle_t getcusparseHandle();
+  cublasHandle_t getCublasHandle() const;
+  cusolverDnHandle_t getcusolverDnHandle() const;
+  cusparseHandle_t getcusparseHandle() const;
 
   cudaStream_t getInternalStream(int sid) const;
   int getNumInternalStreams() const;
@@ -69,24 +69,24 @@ class cumlHandle_impl {
   const MLCommon::cumlCommunicator& getCommunicator() const;
   bool commsInitialized() const;
 
-  const cudaDeviceProp& getDeviceProperties();
+  const cudaDeviceProp& getDeviceProperties() const;
 
  private:
   const int _dev_id;
   const int _num_streams;
   std::vector<cudaStream_t> _streams;
-  cublasHandle_t _cublas_handle;
-  bool _cublasInitialized;
-  cusolverDnHandle_t _cusolverDn_handle;
-  bool _cusolverDnInitialized;
-  cusparseHandle_t _cusparse_handle;
-  bool _cusparseInitialized;
+  mutable cublasHandle_t _cublas_handle;
+  mutable bool _cublasInitialized;
+  mutable cusolverDnHandle_t _cusolverDn_handle;
+  mutable bool _cusolverDnInitialized;
+  mutable cusparseHandle_t _cusparse_handle;
+  mutable bool _cusparseInitialized;
   std::shared_ptr<deviceAllocator> _deviceAllocator;
   std::shared_ptr<hostAllocator> _hostAllocator;
   cudaStream_t _userStream;
   cudaEvent_t _event;
-  cudaDeviceProp _prop;
-  bool _devicePropInitialized;
+  mutable cudaDeviceProp _prop;
+  mutable bool _devicePropInitialized;
 
   std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 

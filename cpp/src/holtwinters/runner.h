@@ -30,10 +30,10 @@ void HWTranspose(const ML::cumlHandle &handle, Dtype *data_in, int m, int n,
                  Dtype *data_out) {
   ASSERT(!(!data_in || !data_out || n < 1 || m < 1), "HW error in in line %d",
          __LINE__);
-  auto &handle_impl = handle.getImpl();
+  const auto &handle_impl = handle.getImpl();
   ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
-  cublasHandle_t cublas_h = handle_impl.getCublasHandle();
+  auto stream = handle_impl.getStream();
+  auto cublas_h = handle_impl.getCublasHandle();
 
   MLCommon::LinAlg::transpose<Dtype>(data_in, data_out, n, m, cublas_h, stream);
 }
