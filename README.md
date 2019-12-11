@@ -38,8 +38,8 @@ Output:
 dtype: int32
 ```
 
-cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a 
-growing list of algorithms. The following Python snippet reads input from a CSV file and performs 
+cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a
+growing list of algorithms. The following Python snippet reads input from a CSV file and performs
 a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
 ```python
 # Create a Dask CUDA cluster w/ one worker per device
@@ -83,8 +83,8 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
-|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query.  |
 |  | Support Vector Machine Classifier (SVC) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
