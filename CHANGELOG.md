@@ -8,7 +8,7 @@
 
 - PR #1470: Documentation: add make_regression, fix ARIMA section
 
-# cuML 0.11.0 (Date TBD)
+# cuML 0.11.0 (11 Dec 2019)
 
 ## New Features
 
