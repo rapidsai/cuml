@@ -57,8 +57,8 @@ Benchmarking
 
   .. automodule:: cuml.benchmark.datagen
     :members:
-    
-       
+
+
 
 Utilities for I/O and Numba
 ---------------------------
@@ -74,7 +74,7 @@ Utilities for Dask and Multi-GPU Preprocessing
 
   .. automodule:: cuml.dask.common.utils
      :members:
-  
+
 
 Regression and Classification
 =============================
@@ -109,7 +109,7 @@ ElasticNet Regression
 .. autoclass:: cuml.ElasticNet
     :members:
 
-Mini Batch SGD Classifier 
+Mini Batch SGD Classifier
 -------------------------
 
 .. autoclass:: cuml.MBSGDClassifier
@@ -276,13 +276,6 @@ Random Forest
     :members:
 
 .. autoclass:: cuml.dask.ensemble.RandomForestRegressor
-    :members:
-
-
-Nearest Neighbors
------------------
-
-.. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
 
 
