@@ -46,6 +46,9 @@ cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
         double coef0
 
 cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
+    enum SvmType:
+        C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
+
     cdef struct svmParameter:
         # parameters for trainig
         double C
@@ -54,6 +57,8 @@ cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
         int nochange_steps
         double tol
         int verbose
+        double epsilon
+        SvmType svmType
 
 cdef extern from "svm/svm_model.h" namespace "ML::SVM":
     cdef cppclass svmModel[math_t]:
@@ -68,18 +73,6 @@ cdef extern from "svm/svm_model.h" namespace "ML::SVM":
         math_t *unique_labels
 
 cdef extern from "svm/svc.hpp" namespace "ML::SVM":
-
-    cdef cppclass CppSVC "ML::SVM::SVC" [math_t]:
-        # The CppSVC class manages the memory of the parameters that are found
-        # during fitting (the support vectors, and the dual_coefficients). The
-        # number of these parameters are not known before fitting.
-
-        svmModel[math_t] model
-        CppSVC(cumlHandle& handle, svmParameter param,
-               KernelParams _kernel_params) except+
-        void fit(math_t *input, int n_rows, int n_cols, math_t *labels) except+
-        void predict(math_t *input, int n_rows, int n_cols,
-                     math_t *preds) except+
 
     cdef void svcFit[math_t](const cumlHandle &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
@@ -96,9 +89,9 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVC(Base):
+class SvmBase(Base):
     """
-    SVC (C-Support Vector Classification)
+    Base class for Support Vector Machines
 
     Currently only binary classification is supported.
 
@@ -117,7 +110,8 @@ class SVC(Base):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, nochange_steps=1000, verbose=False):
+                 max_iter=-1, nochange_steps=1000, verbose=False,
+                 epsilon = 0.1):
         """
         Construct an SVC classifier for training and predictions.
 
@@ -196,6 +190,9 @@ class SVC(Base):
         self.max_iter = max_iter
         self.nochange_steps = nochange_steps
         self.verbose = verbose
+        self.epsilon = epsilon
+        self.svmType = None # Child class should set self.svmType
+
 
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
@@ -309,6 +306,8 @@ class SVC(Base):
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
         param.verbose = self.verbose
+        param.epsilon = self.epsilon
+        param.svmType = self.svmType
         return param
 
     def _get_svm_model(self):
@@ -333,8 +332,11 @@ class SVC(Base):
             model_f.support_idx = \
                 <int*><uintptr_t>get_dev_array_ptr(self.support_)
             model_f.n_classes = self._n_classes
-            model_f.unique_labels = \
-                <float*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+            if self._n_classes > 0:
+                model_f.unique_labels = \
+                    <float*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+            else:
+                model_f.unique_labels = None
             return <uintptr_t>model_f
         else:
             model_d = new svmModel[double]()
@@ -348,8 +350,11 @@ class SVC(Base):
             model_d.support_idx = \
                 <int*><uintptr_t>get_dev_array_ptr(self.support_)
             model_d.n_classes = self._n_classes
-            model_d.unique_labels = \
-                <double*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+            if self._n_classes > 0:
+                model_d.unique_labels = \
+                    <double*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+            else:
+                model_d.unique_labels = None
             return <uintptr_t>model_d
 
     def _unpack_model(self):
@@ -378,9 +383,12 @@ class SVC(Base):
                 <uintptr_t>model_f.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
             self._n_classes = model_f.n_classes
-            self._unique_labels = device_array_from_ptr(
-                <uintptr_t>model_f.unique_labels, (self._n_classes,),
-                self.dtype)
+            if self.n_classes > 0:
+                self._unique_labels = device_array_from_ptr(
+                    <uintptr_t>model_f.unique_labels, (self._n_classes,),
+                      self.dtype)
+            else:
+                self._unique_labels = None
         else:
             model_d = <svmModel[double]*><uintptr_t> self._model
             if model_d.n_support == 0:
@@ -397,9 +405,12 @@ class SVC(Base):
                 <uintptr_t>model_d.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
             self._n_classes = model_d.n_classes
-            self._unique_labels = device_array_from_ptr(
-                <uintptr_t>model_d.unique_labels, (self._n_classes,),
-                self.dtype)
+            if self.n_classes > 0:
+                self._unique_labels = device_array_from_ptr(
+                    <uintptr_t>model_d.unique_labels, (self._n_classes,),
+                      self.dtype)
+            else:
+                self._unique_labels = None
 
     def fit(self, X, y):
         """
@@ -513,45 +524,6 @@ class SVC(Base):
         del(X_m)
 
         return preds
-
-    def predict(self, X):
-        """
-        Predicts the class labels for X. The returned y values are the class
-        labels associated to sign(decision_function(X)).
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-        """
-
-        return self._predict(X, True)
-
-    def decision_function(self, X):
-        """
-        Calculates the decision function values for X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        y : cuDF Series
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-        """
-
-        return self._predict(X, False)
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
