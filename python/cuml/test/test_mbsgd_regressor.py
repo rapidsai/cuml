@@ -61,7 +61,7 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
         skl_sgd_regressor.fit(X_train, y_train)
         skl_pred = skl_sgd_regressor.predict(X_test)
         skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
-        assert abs(cu_r2 - skl_r2) <= 0.02    
+        assert abs(cu_r2 - skl_r2) <= 0.02
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -92,4 +92,3 @@ def test_mbsgd_regressor_default(datatype, nrows,
         skl_pred = skl_sgd_regressor.predict(X_test)
         skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
         assert abs(cu_r2 - skl_r2) <= 0.02
-    

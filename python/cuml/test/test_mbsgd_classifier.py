@@ -66,7 +66,6 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
         assert cu_acc >= skl_acc - 0.05
 
 
-
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
