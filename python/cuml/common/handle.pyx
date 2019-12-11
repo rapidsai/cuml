@@ -25,7 +25,7 @@ from libcpp.memory cimport shared_ptr
 from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
 
-cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
+cdef extern from "cuml/common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
     cdef cppclass rmmAllocatorAdapter(deviceAllocator):
         pass
 
@@ -33,7 +33,7 @@ cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
     of cumlHandle exposed by cuML's C++ interface. Refer to the header file
-    cuML.hpp for interface level details of this struct
+    cuml/cuml.hpp for interface level details of this struct
 
     Examples
     --------

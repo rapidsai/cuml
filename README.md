@@ -38,8 +38,8 @@ Output:
 dtype: int32
 ```
 
-cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a 
-growing list of algorithms. The following Python snippet reads input from a CSV file and performs 
+cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a
+growing list of algorithms. The following Python snippet reads input from a CSV file and performs
 a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
 ```python
 # Create a Dask CUDA cluster w/ one worker per device
@@ -70,9 +70,9 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | Category | Algorithm | Notes |
 | --- | --- | --- |
 | **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
-|  | K-Means | Multi-Node Multi-GPU |
-| **Dimensionality Reduction** | Principal Components Analysis (PCA) | |
-| | Truncated Singular Value Decomposition (tSVD) | Multi-GPU version available (CUDA 10 only) |
+|  | K-Means | Multi-node multi-GPU via Dask |
+| **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
+| | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | |
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
@@ -81,12 +81,14 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | ElasticNet Regression | |
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
-| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node, multi-GPU version available via Dask integration |
-| | Random Forest (RF) Regression | Experimental multi-node, multi-GPU version available via Dask integration |
-|  | K-Nearest Neighbors (KNN) | Multi-GPU <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
+| | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
+|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query.  |
 |  | Support Vector Machine Classifier (SVC) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
+|  | Auto-regressive Integrated Moving Average (ARIMA) | |
 ---
 
 More ML algorithms in cuML and more ML primitives in ml-prims are planned for

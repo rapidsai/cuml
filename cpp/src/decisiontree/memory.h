@@ -18,8 +18,8 @@
 #include <utils.h>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/cumlHandle.hpp"
-#include "common/cuml_allocator.hpp"
 
 template <class T, class L>
 struct TemporaryMemory {

@@ -35,11 +35,12 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, numba_utils
 
-cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans::KMeansParams":
+cdef extern from "cuml/cluster/kmeans.hpp" namespace \
+        "ML::kmeans::KMeansParams":
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
-cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
+cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
     cdef struct KMeansParams:
         int n_clusters,
@@ -114,14 +115,14 @@ class KMeans(Base):
 
     """
     KMeans is a basic but powerful clustering method which is optimized via
-    Expectation Maximization. It randomnly selects K data points in X, and
+    Expectation Maximization. It randomly selects K data points in X, and
     computes which samples are close to these points.
     For every cluster of points, a mean is computed (hence the name), and this
     becomes the new centroid.
 
     cuML's KMeans expects an array-like object or cuDF DataFrame, and supports
-    the scalable KMeans++ intialization method. This method is more stable
-    than randomnly selecting K points.
+    the scalable KMeans++ initialization method. This method is more stable
+    than randomly selecting K points.
 
     Examples
     --------
@@ -199,14 +200,14 @@ class KMeans(Base):
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : boolean (default = 0)
-        If True, prints diagnositc information.
+        If True, prints diagnostic information.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ intialization.
+        kmeans++ initialization.
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
@@ -262,7 +263,6 @@ class KMeans(Base):
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
-        self.init = init
         self.max_iter = max_iter
         self.tol = tol
         self.labels_ = None
@@ -274,34 +274,21 @@ class KMeans(Base):
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
-        if (isinstance(self.init, cudf.DataFrame)):
-            if(len(self.init) != self.n_clusters):
-                raise ValueError('The shape of the initial centers (%s) '
-                                 'does not match the number of clusters %i'
-                                 % (self.init.shape, self.n_clusters))
-            params.init = Array
-            dim_cc = self.n_clusters * self.n_cols
-            self.cluster_centers_ = rmm.device_array(dim_cc,
-                                                     dtype=self.dtype)
-            si = self.init
-            self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
 
-        elif (isinstance(self.init, np.ndarray)):
-            if(self.init.shape[0] != self.n_clusters):
-                raise ValueError('The shape of the initial centers (%s) '
-                                 'does not match the number of clusters %i'
-                                 % (self.init.shape, self.n_clusters))
-            params.init = Array
-            self.cluster_centers_ = rmm.to_device(self.init.flatten())
-
-        elif (self.init in ['scalable-k-means++', 'k-means||']):
+        if (init in ['scalable-k-means++', 'k-means||']):
+            self.init = init
             params.init = KMeansPlusPlus
 
-        elif (self.init == 'random'):
+        elif (init == 'random'):
+            self.init = init
             params.init = Random
 
         else:
-            raise TypeError('initialization method not supported')
+            self.init = 'preset'
+            params.init = Array
+            self.cluster_centers_, _, n_rows, self.n_cols, self.dtype = \
+                input_to_dev_array(init, order='C',
+                                   check_dtype=[np.float32, np.float64])
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
@@ -327,13 +314,21 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
 
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+        if self.init == 'preset':
+            check_cols = self.n_cols
+            check_dtype = self.dtype
+        else:
+            check_cols = False
+            check_dtype = [np.float32, np.float64]
+
+        X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='C',
-                               check_dtype=[np.float32, np.float64])
+                               check_cols=check_cols,
+                               check_dtype=check_dtype)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
@@ -355,7 +350,7 @@ class KMeans(Base):
                 handle_[0],
                 <KMeansParams> params,
                 <const float*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <float*> cluster_centers_ptr,
                 <int*> labels_ptr,
@@ -369,7 +364,7 @@ class KMeans(Base):
                 handle_[0],
                 <KMeansParams> params,
                 <const double*> input_ptr,
-                <size_t> self.n_rows,
+                <size_t> n_rows,
                 <size_t> self.n_cols,
                 <double*> cluster_centers_ptr,
                 <int*> labels_ptr,
@@ -385,10 +380,9 @@ class KMeans(Base):
 
         self.handle.sync()
         cc_df = cudf.DataFrame()
-        for i in range(0, self.n_cols):
-            n_c = self.n_clusters
-            n_cols = self.n_cols
-            cc_df[str(i)] = self.cluster_centers_[i:n_c*n_cols:n_cols]
+        cc_df = cc_df.from_gpu_matrix(
+            self.cluster_centers_.reshape(self.n_clusters,
+                                          self.n_cols))
         self.cluster_centers_ = cc_df
 
         del(X_m)

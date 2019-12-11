@@ -19,7 +19,7 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "knn/knn.hpp"
+#include "cuml/neighbors/knn.hpp"
 
 namespace ML {
 
@@ -52,8 +52,7 @@ class KNNTest : public ::testing::Test {
     h_train_inputs.resize(n);
     updateDevice(d_train_inputs, h_train_inputs.data(), n * d, 0);
 
-    std::vector<T> h_res_D = {0.0,    2401.0, 2500.0, 0.0,   1.0,
-                              2401.0, 0.0,    1.0,    2500.0};
+    std::vector<T> h_res_D = {0.0, 49.0, 50.0, 0.0, 1.0, 49.0, 0.0, 1.0, 50.0};
     h_res_D.resize(n * n);
     updateDevice(d_ref_D, h_res_D.data(), n * n, 0);
 
@@ -61,12 +60,12 @@ class KNNTest : public ::testing::Test {
     h_res_I.resize(n * n);
     updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
-    float **ptrs = new float *[1];
-    int *sizes = new int[1];
+    std::vector<float *> ptrs(1);
+    std::vector<int> sizes(1);
     ptrs[0] = d_train_inputs;
     sizes[0] = n;
 
-    knn->fit(ptrs, sizes, 1);
+    knn->fit(ptrs, sizes);
     knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
   }
 

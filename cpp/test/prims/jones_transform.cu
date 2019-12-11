@@ -14,9 +14,9 @@
  */
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "common/cuml_allocator.hpp"
 #include "test_utils.h"
 #include "timeSeries/jones_transform.h"
 

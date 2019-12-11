@@ -18,6 +18,7 @@ build_prims/
 cuml.egg-info/
 dist/
 python/cuml/**/*.cpp
+python/external_repositories
 log
 .ipynb_checkpoints
 .DS_Store
@@ -30,3 +31,13 @@ dask-worker-space/
 
 ## Pycharm
 .idea
+
+## ccls
+.ccls-cache
+.ccls
+
+## profiling
+*.qdrep
+*.qdrep.cache
+*.qdstrm
+*.nvprof

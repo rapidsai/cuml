@@ -21,6 +21,9 @@
 
 static const ucp_tag_t default_tag_mask = -1;
 
+static const ucp_tag_t any_rank_tag_mask = 0x0000FFFF;
+
+static const int UCP_ANY_RANK = -1;
 
 /**
  * @brief Asynchronous send callback sets request to completed
@@ -43,15 +46,15 @@ static void recv_handle(void *request, ucs_status_t status,
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
 struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
-                              int tag, int rank) {
-
+                              int tag, ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to send UCX data message (%d)\n",
+    ASSERT(!UCS_PTR_IS_ERR(ucp_request),
+           "unable to send UCX data message (%d)\n",
            UCS_PTR_STATUS(ucp_request));
     /**
    * If the request didn't fail, but it's not OK, it is in flight.
@@ -76,15 +79,15 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
 struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
-                              int size, int tag, int sender_rank) {
+                              int size, int tag,  ucp_tag_t tag_mask, int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
-    worker, buf, size, ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
-    recv_handle);
+    worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
-    ASSERT(!UCS_PTR_IS_ERR(ucp_request), "unable to receive UCX data message (%d)\n",
+    ASSERT(!UCS_PTR_IS_ERR(ucp_request),
+           "unable to receive UCX data message (%d)\n",
            UCS_PTR_STATUS(ucp_request));
   }
 

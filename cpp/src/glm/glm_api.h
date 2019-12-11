@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <cuML_api.h>
+#include <cuml/cuml_api.h>
 
 #ifdef __cplusplus
 extern "C" {

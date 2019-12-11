@@ -20,7 +20,7 @@
 #include <unordered_set>
 #include <random>
 
-#include "rproj_c.h"
+#include <cuml/random_projection/rproj_c.h>
 #include "utils.hxx"
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusparse_wrappers.h>

@@ -446,8 +446,9 @@ void DecisionTreeClassifier<T>::grow_deep_tree(
   grow_deep_tree_classification(
     data, labels, rowids, ncols, colper, n_sampled_rows, nrows,
     this->n_unique_labels, this->nbins, this->treedepth, this->maxleaves,
-    this->min_rows_per_node, this->split_criterion, this->split_algo, depth_cnt,
-    leaf_cnt, sparsetree, treeid, tempmem);
+    this->min_rows_per_node, this->split_criterion, this->split_algo,
+    this->min_impurity_decrease, depth_cnt, leaf_cnt, sparsetree, treeid,
+    tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }
@@ -460,11 +461,11 @@ void DecisionTreeRegressor<T>::grow_deep_tree(
   const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
-  grow_deep_tree_regression(data, labels, rowids, ncols, colper, n_sampled_rows,
-                            nrows, this->nbins, this->treedepth,
-                            this->maxleaves, this->min_rows_per_node,
-                            this->split_criterion, this->split_algo, depth_cnt,
-                            leaf_cnt, sparsetree, treeid, tempmem);
+  grow_deep_tree_regression(
+    data, labels, rowids, ncols, colper, n_sampled_rows, nrows, this->nbins,
+    this->treedepth, this->maxleaves, this->min_rows_per_node,
+    this->split_criterion, this->split_algo, this->min_impurity_decrease,
+    depth_cnt, leaf_cnt, sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }

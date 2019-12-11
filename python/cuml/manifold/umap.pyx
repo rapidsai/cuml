@@ -26,6 +26,12 @@ import numpy as np
 import pandas as pd
 import warnings
 
+import joblib
+
+import cupy
+
+import numba.cuda as cuda
+
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -42,7 +48,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
+cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 
     enum MetricType:
         EUCLIDEAN = 0,
@@ -52,7 +58,7 @@ cdef extern from "internals/internals.h" namespace "ML::Internals":
 
     cdef cppclass GraphBasedDimRedCallback
 
-cdef extern from "umap/umapparams.h" namespace "ML":
+cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
     cdef cppclass UMAPParams:
         int n_neighbors,
@@ -76,7 +82,7 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         GraphBasedDimRedCallback* callback
 
 
-cdef extern from "umap/umap.hpp" namespace "ML":
+cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
     void fit(cumlHandle & handle,
              float * X,
              int n,
@@ -179,6 +185,28 @@ class UMAP(Base):
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
+    hash_input: UMAP can hash the training input so that exact embeddings
+                are returned when transform is called on the same data upon
+                which the model was trained. This enables consistent
+                behavior between calling model.fit_transform(X) and
+                calling model.fit(X).transform(X). Not that the CPU-based
+                UMAP reference implementation does this by default. This
+                feature is made optional in the GPU version due to the
+                significant overhead in copying memory to the host for
+                computing the hash. (default = False)
+    callback: An instance of GraphBasedDimRedCallback class to intercept
+              the internal state of embeddings while they are being trained.
+              Example of callback usage:
+                  from cuml.internals import GraphBasedDimRedCallback
+                  class CustomCallback(GraphBasedDimRedCallback):
+                    def on_preprocess_end(self, embeddings):
+                        print(embeddings.copy_to_host())
+
+                    def on_epoch_end(self, embeddings):
+                        print(embeddings.copy_to_host())
+
+                    def on_train_end(self, embeddings):
+                        print(embeddings.copy_to_host())
     verbose: bool (optional, default False)
         Controls verbosity of logging.
 
@@ -188,8 +216,8 @@ class UMAP(Base):
     However, there are a number of differences and features that are not yet
     implemented in cuml.umap:
       * Specifying the random seed
-      * Using a non-euclidean distance metric (support for a fixed set
-        of non-euclidean metrics is planned for an upcoming release).
+      * Using a non-Euclidean distance metric (support for a fixed set
+        of non-Euclidean metrics is planned for an upcoming release).
       * Using a pre-computed pairwise distance matrix (under consideration
         for future releases)
       * Manual initialization of initial embedding positions
@@ -228,42 +256,44 @@ class UMAP(Base):
                  target_n_neighbors=-1,
                  target_weights=0.5,
                  target_metric="categorical",
-                 should_downcast=True,
                  handle=None,
+                 hash_input=False,
                  callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
         cdef UMAPParams * umap_params = new UMAPParams()
 
+        self.hash_input = hash_input
+
         self.n_neighbors = n_neighbors
         umap_params.n_neighbors = n_neighbors
 
-        umap_params.n_components = <int > n_components
-        umap_params.n_epochs = <int > n_epochs
-        umap_params.verbose = <bool > verbose
+        umap_params.n_components = <int> n_components
+        umap_params.n_epochs = <int> n_epochs
+        umap_params.verbose = <bool> verbose
 
         if(init == "spectral"):
-            umap_params.init = <int > 1
+            umap_params.init = <int> 1
         elif(init == "random"):
-            umap_params.init = <int > 0
+            umap_params.init = <int> 0
         else:
             raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is not None:
-            umap_params.a = <float > a
+            umap_params.a = <float> a
 
         if b is not None:
-            umap_params.b = <float > b
+            umap_params.b = <float> b
 
-        umap_params.learning_rate = <float > learning_rate
-        umap_params.min_dist = <float > min_dist
-        umap_params.spread = <float > spread
-        umap_params.set_op_mix_ratio = <float > set_op_mix_ratio
-        umap_params.local_connectivity = <float > local_connectivity
-        umap_params.repulsion_strength = <float > repulsion_strength
-        umap_params.negative_sample_rate = <int > negative_sample_rate
-        umap_params.transform_queue_size = <int > transform_queue_size
+        umap_params.learning_rate = <float> learning_rate
+        umap_params.min_dist = <float> min_dist
+        umap_params.spread = <float> spread
+        umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
+        umap_params.local_connectivity = <float> local_connectivity
+        umap_params.repulsion_strength = <float> repulsion_strength
+        umap_params.negative_sample_rate = <int> negative_sample_rate
+        umap_params.transform_queue_size = <int> transform_queue_size
 
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
@@ -280,12 +310,6 @@ class UMAP(Base):
             callback_ptr = callback.get_native_callback()
             umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
-        self._should_downcast = should_downcast
-        if should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-
         self.umap_params = <size_t> umap_params
 
         self.callback = callback  # prevent callback destruction
@@ -299,7 +323,8 @@ class UMAP(Base):
         cdef UMAPParams* umap_params = <UMAPParams*>params_t
 
         state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-        state['arr_embed'] = cudf.DataFrame.from_gpu_matrix(self.arr_embed)
+        state['embedding_'] = cudf.DataFrame.from_gpu_matrix(self.embedding_)
+
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components
         state["n_epochs"] = umap_params.n_epochs
@@ -330,11 +355,10 @@ class UMAP(Base):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
         state['X_m'] = row_matrix(state['X_m'])
-        state["arr_embed"] = row_matrix(state["arr_embed"])
+        state["embedding_"] = row_matrix(state["embedding_"])
 
         cdef UMAPParams *umap_params = new UMAPParams()
 
-        self.X_m = None
         umap_params.n_neighbors = state["n_neighbors"]
         umap_params.n_components = state["n_components"]
         umap_params.n_epochs = state["n_epochs"]
@@ -357,7 +381,18 @@ class UMAP(Base):
 
         self.__dict__.update(state)
 
-    def fit(self, X, y=None, convert_dtype=False):
+    @staticmethod
+    def _prep_output(X, embedding):
+        if isinstance(X, cudf.DataFrame):
+            return cudf.DataFrame.from_gpu_matrix(embedding)
+        elif isinstance(X, np.ndarray):
+            return np.asarray(embedding)
+        elif isinstance(X, cuda.DeviceNDArray):
+            return embedding
+        elif isinstance(X, cupy.ndarray):
+            return cupy.array(embedding)
+
+    def fit(self, X, y=None, convert_dtype=True):
         """Fit X into an embedded space.
         Parameters
         ----------
@@ -371,44 +406,39 @@ class UMAP(Base):
             ndarray, cuda array interface compliant array like CuPy
         """
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-            convert_dtype = True
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        self.X_m, X_ctype, n_rows, n_cols, dtype = \
+        self.X_m, X_ctype, self.n_rows, self.n_dims, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
                                                  else None))
 
-        if n_rows <= 1:
+        if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
         cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
-        umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
-        self.n_dims = n_cols
-        self.raw_data = X_ctype
-        self.raw_data_rows = n_rows
+            <UMAPParams*> <size_t> self.umap_params
+        umap_params.n_neighbors = min(self.n_rows, umap_params.n_neighbors)
 
-        self.arr_embed = rmm.to_device(zeros((self.X_m.shape[0],
+        self.embedding_ = rmm.to_device(zeros((self.n_rows,
                                               umap_params.n_components),
-                                             order="C", dtype=np.float32))
-        self.embeddings = \
-            self.arr_embed.device_ctypes_pointer.value
+                                              order="C", dtype=np.float32))
+
+        if self.hash_input:
+            self.input_hash = joblib.hash(self.X_m.copy_to_host())
+
+        embeddings = \
+            self.embedding_.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
-            <cumlHandle*> < size_t > self.handle.getHandle()
+            <cumlHandle*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t y_raw
         cdef uintptr_t x_raw = X_ctype
 
-        cdef uintptr_t embed_raw = self.embeddings
+        cdef uintptr_t embed_raw = embeddings
 
         if y is not None:
             y_m, y_raw, _, _, _ = \
@@ -417,29 +447,37 @@ class UMAP(Base):
                                                      if convert_dtype
                                                      else None))
             fit(handle_[0],
-                < float*> x_raw,
-                < float*> y_raw,
-                < int > self.X_m.shape[0],
-                < int > self.X_m.shape[1],
-                < UMAPParams*>umap_params,
-                < float*>embed_raw)
+                <float*> x_raw,
+                <float*> y_raw,
+                <int> self.n_rows,
+                <int> self.n_dims,
+                <UMAPParams*>umap_params,
+                <float*>embed_raw)
 
         else:
 
             fit(handle_[0],
-                < float*> x_raw,
-                < int > self.X_m.shape[0],
-                < int > self.X_m.shape[1],
-                < UMAPParams*>umap_params,
-                < float*>embed_raw)
+                <float*> x_raw,
+                <int> self.n_rows,
+                <int> self.n_dims,
+                <UMAPParams*>umap_params,
+                <float*>embed_raw)
 
         self.handle.sync()
 
         return self
 
-    def fit_transform(self, X, y=None, convert_dtype=False):
+    def fit_transform(self, X, y=None, convert_dtype=True):
         """Fit X into an embedded space and return that transformed
         output.
+
+        There is a subtle difference between calling fit_transform(X)
+        and calling fit().transform(). Calling fit_transform(X) will
+        train the embeddings on X and return the embeddings. Calling
+        fit(X).transform(X) will train the embeddings on X and then
+        run a second optimization
+        return the embedding after it is trained while calling
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -452,16 +490,9 @@ class UMAP(Base):
             Embedding of the training data in low-dimensional space.
         """
         self.fit(X, y, convert_dtype=convert_dtype)
-        if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame()
-            for i in range(0, self.arr_embed.shape[1]):
-                ret[str(i)] = self.arr_embed[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(self.arr_embed)
+        return UMAP._prep_output(X, self.embedding_)
 
-        return ret
-
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=True):
         """Transform X into the existing embedded space and return that
         transformed output.
 
@@ -486,12 +517,6 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        if self._should_downcast:
-            warnings.warn("Parameter should_downcast is deprecated, use "
-                          "convert_dtype in fit, fit_transform and transform "
-                          " methods instead. ")
-            convert_dtype = True
-
         cdef uintptr_t x_ptr
         X_m, x_ptr, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
@@ -506,40 +531,38 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
+        if self.hash_input and joblib.hash(X_m.copy_to_host()) == \
+                self.input_hash:
+            ret = UMAP._prep_output(X, self.embedding_)
+            del X_m
+            return ret
+
         cdef UMAPParams * umap_params = \
-            <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*> <size_t> self.umap_params
         embedding = rmm.to_device(zeros((X_m.shape[0],
                                          umap_params.n_components),
                                         order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> < size_t > self.handle.getHandle()
+        cdef cumlHandle *handle_ = \
+            <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef uintptr_t orig_x_raw = self.raw_data
+        cdef uintptr_t orig_x_raw = self.X_m.device_ctypes_pointer.value
 
-        cdef uintptr_t embed_ptr = self.embeddings
+        cdef uintptr_t embed_ptr = self.embedding_.device_ctypes_pointer.value
 
         transform(handle_[0],
-                  < float*>x_ptr,
-                  < int > X_m.shape[0],
-                  < int > X_m.shape[1],
-                  < float*>orig_x_raw,
-                  < int > self.raw_data_rows,
-                  < float*> embed_ptr,
-                  < int > self.arr_embed.shape[0],
-                  < UMAPParams*> umap_params,
-                  < float*> xformed_ptr)
-
-        if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame()
-            for i in range(0, embedding.shape[1]):
-                ret[str(i)] = embedding[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(embedding)
-
-        del X_m
-
+                  <float*>x_ptr,
+                  <int> X_m.shape[0],
+                  <int> X_m.shape[1],
+                  <float*>orig_x_raw,
+                  <int> self.n_rows,
+                  <float*> embed_ptr,
+                  <int> self.n_rows,
+                  <UMAPParams*> umap_params,
+                  <float*> xformed_ptr)
         self.handle.sync()
 
+        ret = UMAP._prep_output(X, embedding)
+        del X_m
         return ret

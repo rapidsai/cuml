@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-#include "common/cumlHandle.hpp"
-
-#include "make_blobs.hpp"
-
+#include <cuml/datasets/make_blobs.hpp>
+#include <common/cumlHandle.hpp>
 #include "random/make_blobs.h"
 
 namespace ML {
