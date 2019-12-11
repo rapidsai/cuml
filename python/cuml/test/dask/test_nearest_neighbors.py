@@ -76,7 +76,7 @@ def test_011_exception():
 @pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
                                      quality_param(7), stress_param(50)])
 @pytest.mark.parametrize("streams_per_handle", [1, 5])
-@pytest.skip("MNMG KNN available in cuML 0.12+")
+@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                      streams_per_handle, cluster):
 
@@ -119,7 +119,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 @pytest.mark.parametrize("ncols", [unit_param(10), stress_param(500)])
 @pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
 @pytest.mark.parametrize("batch_size", [unit_param(100), stress_param(1e3)])
-@pytest.skip("MNMG KNN available in cuML 0.12+")
+@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_batch_size(nrows, ncols, n_parts,
                     batch_size, cluster):
 
@@ -160,6 +160,7 @@ def test_batch_size(nrows, ncols, n_parts,
         client.close()
 
 
+@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_return_distance(cluster):
 
     client = Client(cluster)
@@ -198,7 +199,7 @@ def test_return_distance(cluster):
         client.close()
 
 
-@pytest.skip("MNMG KNN available in cuML 0.12+")
+@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_default_n_neighbors(cluster):
 
     client = Client(cluster)
