@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 
 ## Bug Fixes
 
