@@ -117,6 +117,7 @@ def test_allreduce(cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
+@pytest.mark.skip("ucx functionality available in cuML 0.12+")
 def test_send_recv(n_trials, ucx_cluster):
 
     client = Client(ucx_cluster)
@@ -145,6 +146,7 @@ def test_send_recv(n_trials, ucx_cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
+@pytest.mark.skip("ucx functionality available in cuML 0.12+")
 def test_recv_any_rank(n_trials, ucx_cluster):
 
     client = Client(ucx_cluster)
