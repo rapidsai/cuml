@@ -491,6 +491,7 @@ __global__ void best_split_gather_regression_kernel(
 
   int colstart_local = -1;
   int colid;
+  T local_label;
   unsigned int nodestart = g_nodestart[blockIdx.x];
   unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
   if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
@@ -505,7 +506,7 @@ __global__ void best_split_gather_regression_kernel(
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     unsigned int dataid = samplelist[nodestart + tid];
-    T local_label = labels[dataid];
+    local_label = labels[dataid];
     atomicAdd(&mean_parent, local_label);
   }
 
@@ -525,7 +526,7 @@ __global__ void best_split_gather_regression_kernel(
     for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
       unsigned int dataid = samplelist[nodestart + tid];
       T local_data = data[dataid + colid * nrows];
-      T local_label = labels[dataid];
+      local_label = get_label(labels, local_label, dataid, count);
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= question(binid)) {

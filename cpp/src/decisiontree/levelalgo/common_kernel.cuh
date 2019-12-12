@@ -19,11 +19,15 @@
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.h"
 
-struct PredictionPair {
-  unsigned int maxval;
-  int classval;
-};
-
+template <typename L>
+DI L get_label(const L* __restrict__ labels, const L local_label,
+               const unsigned int dataid, const unsigned int count) {
+  if (count < blockDim.x) {
+    return local_label;
+  } else {
+    return labels[dataid];
+  }
+}
 DI int get_class_hist_shared(unsigned int* node_hist,
                              const int n_unique_labels) {
   unsigned int maxval = node_hist[0];

@@ -372,6 +372,7 @@ __global__ void best_split_gather_classification_kernel(
 
   int colstart_local = -1;
   int colid;
+  int local_label;
   unsigned int nodestart = g_nodestart[blockIdx.x];
   unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
   if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
@@ -388,7 +389,7 @@ __global__ void best_split_gather_classification_kernel(
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     unsigned int dataid = samplelist[nodestart + tid];
-    int local_label = labels[dataid];
+    local_label = labels[dataid];
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
   FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
@@ -405,7 +406,7 @@ __global__ void best_split_gather_classification_kernel(
     for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
       unsigned int dataid = samplelist[nodestart + tid];
       T local_data = data[dataid + colid * nrows];
-      int local_label = labels[dataid];
+      local_label = get_label(labels, local_label, dataid, count);
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         int histid = binid * n_unique_labels + local_label;
@@ -473,6 +474,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
 
   int colstart_local = -1;
   int colid;
+  int local_label;
   unsigned int nodestart = g_nodestart[blockIdx.x];
   unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
   if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
@@ -489,7 +491,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     unsigned int dataid = samplelist[nodestart + tid];
-    int local_label = labels[dataid];
+    local_label = labels[dataid];
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
   FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
@@ -522,7 +524,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
       for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
         unsigned int dataid = samplelist[nodestart + tid];
         T local_data = data[dataid + colid * nrows];
-        int local_label = labels[dataid];
+        local_label = get_label(labels, local_label, dataid, count);
 #pragma unroll(8)
         for (unsigned int binid = 0; binid < nbins; binid++) {
           int histid = binid * n_unique_labels + local_label;
