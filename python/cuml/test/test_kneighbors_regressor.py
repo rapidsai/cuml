@@ -16,6 +16,9 @@
 
 import pytest
 
+import cudf
+import rmm
+
 from cuml.neighbors import KNeighborsRegressor as cuKNN
 
 from sklearn.datasets import make_blobs
@@ -49,7 +52,7 @@ def test_kneighbors_regressor(n_samples=40,
     assert np.all(abs(y_pred - y_target) < 0.3)
 
 
-def test_KNeighborsRegressor_multioutput_uniform_weight():
+def test_kneighborsRegressor_multioutput_uniform_weight():
     # Test k-neighbors in multi-output regression with uniform weight
     rng = check_random_state(0)
     n_features = 5
@@ -75,11 +78,12 @@ def test_KNeighborsRegressor_multioutput_uniform_weight():
     assert_array_almost_equal(y_pred, y_pred_idx)
 
 
+@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
-def test_score(nrows, ncols, n_neighbors, n_clusters):
+def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
 
     # Using make_blobs here to check averages and neighborhoods
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
@@ -89,21 +93,34 @@ def test_score(nrows, ncols, n_neighbors, n_clusters):
     X = X.astype(np.float32)
     y = y.astype(np.float32)
 
+    if datatype == "dataframe":
+        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y.reshape(nrows, 1)))
+
     knn_cu = cuKNN(n_neighbors=n_neighbors)
     knn_cu.fit(X, y)
 
     assert knn_cu.score(X, y) >= 0.9999
 
 
-def test_predict_multioutput():
+@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+def test_predict_multioutput(datatype):
 
     X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
-
     y = np.array([[15.0, 2.0], [5.0, 4.0]]).astype(np.int32)
+
+    if datatype == "dataframe":
+        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
 
     knn_cu = cuKNN(n_neighbors=1)
     knn_cu.fit(X, y)
 
     p = knn_cu.predict(X)
+
+    if datatype == "dataframe":
+        assert isinstance(p, cudf.DataFrame)
+    else:
+        assert isinstance(p, np.ndarray)
 
     assert array_equal(p.astype(np.int32), y)
