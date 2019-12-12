@@ -279,6 +279,10 @@ Random Forest
 .. autoclass:: cuml.dask.ensemble.RandomForestRegressor
     :members:
 
+Nearest Neighbors
+-----------------
+.. autoclass:: cuml.dask.neighbors.NearestNeighbors
+    :members:
 
 Principal Component Analysis
 -----------------------------
