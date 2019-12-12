@@ -469,7 +469,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
   __shared__ float parent_metric;
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
-  __shared__ T shmem_min, shmem_max;
+  __shared__ T shmem_min, shmem_max, best_min, best_delta;
   //shmemhist_left[n_unique_labels*nbins]
   unsigned int* shmemhist_left = shmemhist_parent + n_unique_labels;
 
@@ -543,45 +543,31 @@ __global__ void best_split_gather_classification_minmax_kernel(
       BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
     __syncthreads();
 
-    if ((best_bin_pair.gain > shmem_pair.gain) && (threadIdx.x == 0)) {
-      shmem_pair = best_bin_pair;
-      shmem_col = colcnt;
+    if ((best_bin_pair.gain > shmem_pair.gain)) {
+      if (threadIdx.x == 0) {
+        shmem_pair = best_bin_pair;
+        shmem_col = colcnt;
+        best_min = threadmin;
+        best_delta = delta;
+      }
     }
-  }
-  if (threadIdx.x == 0) {
-    *(E*)&shmem_min = MLCommon::Stats::encode(init_min_val);
-    *(E*)&shmem_max = MLCommon::Stats::encode(-init_min_val);
   }
   __syncthreads();
-  if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
+  if (threadIdx.x == 0) {
     colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
                           shmem_col, blockIdx.x);
-    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
-      dataid = samplelist[nodestart + tid];
-      T local_data = data[dataid + colid * nrows];
-      MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
-      MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
-    }
-    __syncthreads();
-    T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
-    T delta =
-      (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / (nbins + 1);
-    if (threadIdx.x == 0) {
-      SparseTreeNode<T, int> localnode;
-      localnode.quesval = threadmin + (shmem_pair.idx + 1) * delta;
+    SparseTreeNode<T, int> localnode;
+    if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
+      localnode.quesval = best_min + (shmem_pair.idx + 1) * best_delta;
       localnode.left_child_id = treesz + 2 * blockIdx.x;
       localnode.colid = colid;
       localnode.best_metric_val = parent_metric;
-      d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
-    }
-  } else {
-    if (threadIdx.x == 0) {
-      SparseTreeNode<T, int> localnode;
+    } else {
       localnode.colid = -1;
       localnode.prediction =
         get_class_hist_shared(shmemhist_parent, n_unique_labels);
-      d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
     }
+    d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
 
