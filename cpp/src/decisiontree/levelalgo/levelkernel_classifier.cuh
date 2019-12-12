@@ -477,6 +477,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
   int colid;
   int local_label;
   unsigned int dataid;
+  T local_data;
   unsigned int nodestart = g_nodestart[blockIdx.x];
   unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
   if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
@@ -510,10 +511,10 @@ __global__ void best_split_gather_classification_minmax_kernel(
     }
     __syncthreads();
 
-    //If looping is needed compute min/max using independent data pass
+    //compute min/max using independent data pass
     for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
       unsigned int dataid = samplelist[nodestart + tid];
-      T local_data = data[dataid + colid * nrows];
+      local_data = data[dataid + colid * nrows];
       MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
       MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
     }
@@ -525,7 +526,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
 
     for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
       dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
-      T local_data = data[dataid + colid * nrows];
+      local_data = get_data(data, local_data, dataid + colid * nrows, count);
       local_label = get_label(labels, local_label, dataid, count);
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
@@ -554,19 +555,19 @@ __global__ void best_split_gather_classification_minmax_kernel(
   }
   __syncthreads();
   if (threadIdx.x == 0) {
-    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
-                          shmem_col, blockIdx.x);
     SparseTreeNode<T, int> localnode;
     if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            shmem_col, blockIdx.x);
       localnode.quesval = best_min + (shmem_pair.idx + 1) * best_delta;
       localnode.left_child_id = treesz + 2 * blockIdx.x;
-      localnode.colid = colid;
-      localnode.best_metric_val = parent_metric;
     } else {
-      localnode.colid = -1;
+      colid = -1;
       localnode.prediction =
         get_class_hist_shared(shmemhist_parent, n_unique_labels);
     }
+    localnode.colid = colid;
+    localnode.best_metric_val = parent_metric;
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
