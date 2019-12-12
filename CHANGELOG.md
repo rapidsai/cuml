@@ -4,18 +4,20 @@
 
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
+- PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 
 ## Bug Fixes
 
+- PR #1470: Documentation: add make_regression, fix ARIMA section
 
-# cuML 0.11.0 (Date TBD)
+# cuML 0.11.0 (11 Dec 2019)
 
 ## New Features
 
 - PR #1295: Cython side of MNMG PCA
 - PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
-- PR #1282: OPG KNN MNMG
+- PR #1282: OPG KNN MNMG Code (disabled for 0.11)
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1194: Initial ARIMA time-series modeling support.
 - PR #1286: Importing treelite models as FIL sparse forests
@@ -98,6 +100,7 @@
 - PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
 - PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
 - PR #1458: Add joblib as an explicit requirement
+- PR #1474: Defer knn mnmg to 0.12 nightly builds and disable ucx-py dependency
 
 # cuML 0.10.0 (16 Oct 2019)
 
