@@ -1,24 +1,11 @@
-# cuML 0.12.0 (Date TBD)
-
-## New Features
-
-## Improvements
-- PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
-
-- PR #1463: Update FAISS submodule to 1.6.1
-
-## Bug Fixes
-
-- PR #1470: Documentation: add make_regression, fix ARIMA section
-
-# cuML 0.11.0 (11 Dec 2019)
+# cuML 0.11.0 (Date TBD)
 
 ## New Features
 
 - PR #1295: Cython side of MNMG PCA
 - PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
-- PR #1282: OPG KNN MNMG Code (disabled for 0.11)
+- PR #1282: OPG KNN MNMG
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1194: Initial ARIMA time-series modeling support.
 - PR #1286: Importing treelite models as FIL sparse forests
@@ -67,12 +54,10 @@
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
 - PR #1377: Add GPU array support for FIL benchmarking
-- PR #1444: UCX listener running in its own isolated thread
 - PR #1445: Improved performance of FIL sparse trees
 - PR #1431: Updated API docs
 - PR #1441: Remove unused CUDA conda labels
 - PR #1439: Match sklearn 0.22 default n_estimators for RF and fix test errors
-- PR #1461: Add kneighbors to API docs
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
@@ -101,8 +86,6 @@
 - PR #1419: UMAP pickle tests are using wrong n_neighbors value for trustworthiness
 - PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
 - PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
-- PR #1458: Add joblib as an explicit requirement
-- PR #1474: Defer knn mnmg to 0.12 nightly builds and disable ucx-py dependency
 
 # cuML 0.10.0 (16 Oct 2019)
 

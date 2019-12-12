@@ -58,13 +58,7 @@ def _prep_training_data(c, X_train, partitions_per_worker):
     return X_train_df
 
 
-def test_011_exception():
-    from cuml.dask.neighbors import NearestNeighbors as daskNN
-
-    with pytest.raises(NotImplementedError):
-        cumlModel = daskNN()  # noqa: F841
-
-
+@pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
                                    quality_param(1e6),
                                    stress_param(5e8)])
@@ -76,7 +70,6 @@ def test_011_exception():
 @pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
                                      quality_param(7), stress_param(50)])
 @pytest.mark.parametrize("streams_per_handle", [1, 5])
-@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                      streams_per_handle, cluster):
 
@@ -90,6 +83,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
                           centers=nclusters)
+
         X = X.astype(np.float32)
 
         X_cudf = _prep_training_data(client, X, n_parts)
@@ -105,6 +99,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
         local_i = np.array(out_i.compute().as_gpu_matrix())
 
         sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
+
         skl_y_hat = sklModel.predict(X)
 
         y_hat, _ = predict(local_i, y, n_neighbors)
@@ -115,11 +110,11 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
         client.close()
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1000), stress_param(1e5)])
 @pytest.mark.parametrize("ncols", [unit_param(10), stress_param(500)])
 @pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
 @pytest.mark.parametrize("batch_size", [unit_param(100), stress_param(1e3)])
-@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_batch_size(nrows, ncols, n_parts,
                     batch_size, cluster):
 
@@ -143,7 +138,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=0, n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
         cumlModel.fit(X_cudf)
@@ -160,7 +155,6 @@ def test_batch_size(nrows, ncols, n_parts,
         client.close()
 
 
-@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_return_distance(cluster):
 
     client = Client(cluster)
@@ -183,7 +177,7 @@ def test_return_distance(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel = daskNN(verbose=0, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
@@ -199,7 +193,6 @@ def test_return_distance(cluster):
         client.close()
 
 
-@pytest.mark.skip("MNMG KNN available in cuML 0.12+")
 def test_default_n_neighbors(cluster):
 
     client = Client(cluster)
@@ -222,14 +215,14 @@ def test_default_n_neighbors(cluster):
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel = daskNN(verbose=1, streams_per_handle=5)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, return_distance=False)
 
         assert ret.shape[1] == cumlNN().n_neighbors
 
-        cumlModel = daskNN(verbose=False, n_neighbors=k)
+        cumlModel = daskNN(verbose=0, n_neighbors=k)
         cumlModel.fit(X_cudf)
 
         ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)

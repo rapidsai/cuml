@@ -23,7 +23,6 @@ Dataset Generation (Single-GPU)
 -------------------------------
 
   .. automethod:: cuml.datasets.make_blobs
-  .. automethod:: cuml.datasets.make_regression
 
 
 Dataset Generation (Dask-based Multi-GPU)
@@ -58,8 +57,8 @@ Benchmarking
 
   .. automodule:: cuml.benchmark.datagen
     :members:
-
-
+    
+       
 
 Utilities for I/O and Numba
 ---------------------------
@@ -75,7 +74,7 @@ Utilities for Dask and Multi-GPU Preprocessing
 
   .. automodule:: cuml.dask.common.utils
      :members:
-
+  
 
 Regression and Classification
 =============================
@@ -110,7 +109,7 @@ ElasticNet Regression
 .. autoclass:: cuml.ElasticNet
     :members:
 
-Mini Batch SGD Classifier
+Mini Batch SGD Classifier 
 -------------------------
 
 .. autoclass:: cuml.MBSGDClassifier
@@ -138,7 +137,7 @@ Random Forest
     :members:
 
 Forest Inferencing
-------------------
+-------------------------
 
 .. autoclass:: cuml.ForestInference
     :members:
@@ -153,18 +152,6 @@ Support Vector Machines
 ------------------------
 
 .. autoclass:: cuml.svm.SVC
-    :members:
-
-Nearest Neighbors Classification
---------------------------------
-
-.. autoclass:: cuml.neighbors.KNeighborsClassifier
-    :members:
-
-Nearest Neighbors Regression
-----------------------------
-
-.. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Clustering
@@ -224,19 +211,7 @@ Neighbors
 Nearest Neighbors
 -----------------
 
-.. autoclass:: cuml.neighbors.NearestNeighbors
-    :members:
-
-Nearest Neighbors Classification
---------------------------------
-
-.. autoclass:: cuml.neighbors.KNeighborsClassifier
-    :members:
-
-Nearest Neighbors Classification
---------------------------------
-
-.. autoclass:: cuml.neighbors.KNeighborsRegressor
+.. autoclass:: cuml.NearestNeighbors
     :members:
 
 Time Series
@@ -277,6 +252,13 @@ Random Forest
     :members:
 
 .. autoclass:: cuml.dask.ensemble.RandomForestRegressor
+    :members:
+
+
+Nearest Neighbors
+-----------------
+
+.. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
 
 
