@@ -373,6 +373,7 @@ __global__ void best_split_gather_classification_kernel(
   int colstart_local = -1;
   int colid;
   int local_label;
+  unsigned int dataid;
   unsigned int nodestart = g_nodestart[blockIdx.x];
   unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
   if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
@@ -388,7 +389,7 @@ __global__ void best_split_gather_classification_kernel(
   }
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
-    unsigned int dataid = samplelist[nodestart + tid];
+    dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
@@ -404,7 +405,7 @@ __global__ void best_split_gather_classification_kernel(
                           nbins);
     __syncthreads();
     for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
-      unsigned int dataid = samplelist[nodestart + tid];
+      dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
       T local_data = data[dataid + colid * nrows];
       local_label = get_label(labels, local_label, dataid, count);
 #pragma unroll(8)
@@ -475,6 +476,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
   int colstart_local = -1;
   int colid;
   int local_label;
+  unsigned int dataid;
   unsigned int nodestart = g_nodestart[blockIdx.x];
   unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
   if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
@@ -490,7 +492,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
   }
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
-    unsigned int dataid = samplelist[nodestart + tid];
+    dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
     atomicAdd(&shmemhist_parent[local_label], 1);
   }
@@ -509,41 +511,22 @@ __global__ void best_split_gather_classification_minmax_kernel(
     __syncthreads();
 
     //If looping is needed compute min/max using independent data pass
-    if (count > blockDim.x) {
-      for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
-        unsigned int dataid = samplelist[nodestart + tid];
-        T local_data = data[dataid + colid * nrows];
-        MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
-        MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
-      }
-      __syncthreads();
-
-      T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
-      T delta = (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / nbins;
-
-      for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
-        unsigned int dataid = samplelist[nodestart + tid];
-        T local_data = data[dataid + colid * nrows];
-        local_label = get_label(labels, local_label, dataid, count);
-#pragma unroll(8)
-        for (unsigned int binid = 0; binid < nbins; binid++) {
-          int histid = binid * n_unique_labels + local_label;
-          if (local_data <= threadmin + delta * (binid + 1)) {
-            atomicAdd(&shmemhist_left[histid], 1);
-          }
-        }
-      }
-    } else {  //reduces memory access when count is small
-      auto& tid = threadIdx.x;
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
       unsigned int dataid = samplelist[nodestart + tid];
       T local_data = data[dataid + colid * nrows];
       MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
       MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
-      __syncthreads();
+    }
+    __syncthreads();
 
-      T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
-      T delta = (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / nbins;
-      int local_label = labels[dataid];
+    T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
+    T delta =
+      (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / (nbins + 1);
+
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
+      T local_data = data[dataid + colid * nrows];
+      local_label = get_label(labels, local_label, dataid, count);
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         int histid = binid * n_unique_labels + local_label;
@@ -565,19 +548,24 @@ __global__ void best_split_gather_classification_minmax_kernel(
       shmem_col = colcnt;
     }
   }
+  if (threadIdx.x == 0) {
+    *(E*)&shmem_min = MLCommon::Stats::encode(init_min_val);
+    *(E*)&shmem_max = MLCommon::Stats::encode(-init_min_val);
+  }
   __syncthreads();
   if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
     colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
                           shmem_col, blockIdx.x);
     for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
-      unsigned int dataid = samplelist[nodestart + tid];
+      dataid = samplelist[nodestart + tid];
       T local_data = data[dataid + colid * nrows];
       MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
       MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
     }
     __syncthreads();
     T threadmin = MLCommon::Stats::decode(*(E*)&shmem_min);
-    T delta = (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / nbins;
+    T delta =
+      (MLCommon::Stats::decode(*(E*)&shmem_max) - threadmin) / (nbins + 1);
     if (threadIdx.x == 0) {
       SparseTreeNode<T, int> localnode;
       localnode.quesval = threadmin + (shmem_pair.idx + 1) * delta;

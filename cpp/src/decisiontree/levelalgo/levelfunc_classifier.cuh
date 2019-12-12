@@ -93,7 +93,6 @@ void grow_deep_tree_classification(
   unsigned int* d_colstart = nullptr;
   unsigned int* h_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) {
-    printf("am using starts\n");
     d_colstart = tempmem->d_colstart->data();
     h_colstart = tempmem->h_colstart->data();
     CUDA_CHECK(cudaMemsetAsync(
@@ -228,16 +227,20 @@ void grow_deep_tree_classification(
     n_nodes = h_counter[0];
   }
   //printf("No of nodes %d and last size %d\n", n_nodes, lastsize);
-  if (split_cr == ML::CRITERION::GINI) {
-    make_leaf_gather_classification<T, GiniDevFunctor>(
-      labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
-      d_nodelist, n_nodes, tempmem);
-  } else {
-    make_leaf_gather_classification<T, EntropyDevFunctor>(
-      labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
-      d_nodelist, n_nodes, tempmem);
+  if (n_nodes != 0) {
+    if (split_cr == ML::CRITERION::GINI) {
+      make_leaf_gather_classification<T, GiniDevFunctor>(
+        labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
+        d_nodelist, n_nodes, tempmem);
+    } else {
+      make_leaf_gather_classification<T, EntropyDevFunctor>(
+        labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
+        d_nodelist, n_nodes, tempmem);
+    }
+    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
+                         tempmem->stream);
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    sparsetree.insert(sparsetree.end(), h_sparsenodes,
+                      h_sparsenodes + lastsize);
   }
-  MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
-  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-  sparsetree.insert(sparsetree.end(), h_sparsenodes, h_sparsenodes + lastsize);
 }
