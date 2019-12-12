@@ -81,7 +81,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (int)(ncols * colper);
   size_t gather_max_nodes =
-    std::min((size_t)(nrows + 1), (size_t)(pow(2, depth)));
+    std::min((size_t)(nrows + 1), (size_t)(pow(2, depth) + 1));
   size_t parentsz = std::max(maxnodes, gather_max_nodes);
   size_t childsz = std::max(2 * maxnodes, gather_max_nodes);
   //std::cout << "maxnodes --> " << maxnodes << "  gather maxnodes--> "
@@ -104,8 +104,8 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     new MLCommon::device_buffer<int>(device_allocator, stream, parentsz);
   d_split_binidx =
     new MLCommon::device_buffer<int>(device_allocator, stream, parentsz);
-  h_parent_metric =
-    new MLCommon::host_buffer<T>(host_allocator, stream, parentsz);
+  h_parent_metric = new MLCommon::host_buffer<T>(
+    host_allocator, stream, std::max(parentsz, (size_t)(nrows + 1)));
   h_child_best_metric =
     new MLCommon::host_buffer<T>(host_allocator, stream, childsz);
   h_outgain =
@@ -137,9 +137,9 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
   if (col_shuffle == true) {
     d_colids = new MLCommon::device_buffer<unsigned int>(
-      device_allocator, stream, ncols_sampled * maxnodes);
+      device_allocator, stream, ncols_sampled * gather_max_nodes);
     h_colids = new MLCommon::host_buffer<unsigned int>(
-      host_allocator, stream, ncols_sampled * maxnodes);
+      host_allocator, stream, ncols_sampled * gather_max_nodes);
     totalmem += ncols_sampled * maxnodes * sizeof(int);
 
   } else {

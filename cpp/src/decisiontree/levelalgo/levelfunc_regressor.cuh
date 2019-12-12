@@ -176,9 +176,11 @@ void grow_deep_tree_regression(
                      split_algo, d_split_colidx, d_split_binidx,
                      d_new_node_flags, flagsptr, tempmem);
   }
-  //for (int i = sparsesize_nextitr; i < sparsetree.size(); i++) {
-  //  sparsetree[i].prediction = sparse_meanstate[i];
-  //}
+
+  // Start of gather algorithm
+  //Convertor
+  //std::cout << "begin gather \n";
+
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
   if (n_nodes == 0) return;
@@ -207,13 +209,51 @@ void grow_deep_tree_regression(
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
   //print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
+  for (int depth = tempmem->swap_depth; (depth < maxdepth) && (n_nodes != 0);
+       depth++) {
+    //std::cout << "at depth --> " << depth_cnt << "nodes --> " << n_nodes
+    //          << std::endl;
+
+    depth_cnt = depth + 1;
+    //Algorithm starts here
+    update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
+                            ncols_sampled, lastsize, mtg, dist,
+                            feature_selector, tempmem, d_rng);
+
+    if (split_cr == ML::CRITERION::MSE) {
+      best_split_gather_regression(
+        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
+        Ncols, ncols_sampled, nbins, n_nodes, split_algo,
+        sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
+        d_sparsenodes, d_nodelist);
+    } else {
+      ASSERT(false, "MAE does not work on depth algo\n");
+    }
+    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
+                         tempmem->stream);
+    //Update nodelist and split nodes
+    //print_nodes(h_sparsenodes, (float*)nullptr, d_nodelist, n_nodes, tempmem);
+
+    make_split_gather(data, d_nodestart, d_samplelist, n_nodes, nrows,
+                      d_nodelist, d_new_nodelist, d_nodecount, d_counter,
+                      flagsptr, d_sparsenodes, tempmem);
+    CUDA_CHECK(cudaMemcpyAsync(d_nodelist, d_new_nodelist,
+                               h_counter[0] * sizeof(int),
+                               cudaMemcpyDeviceToDevice, tempmem->stream));
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    sparsetree.insert(sparsetree.end(), h_sparsenodes,
+                      h_sparsenodes + lastsize);
+    //print_convertor(d_nodecount, d_nodestart, d_samplelist, h_counter[0],
+    //                tempmem);
+    lastsize = 2 * n_nodes;
+    n_nodes = h_counter[0];
+  }
 
   if (split_cr == ML::CRITERION::MSE) {
     make_leaf_gather_regression(labels, d_nodestart, d_samplelist,
                                 d_sparsenodes, d_nodelist, n_nodes, tempmem);
   } else {
-    printf("deep tree does not exist for MAE\n");
-    exit(0);
+    ASSERT(false, "MAE does not work on depth algo\n");
   }
   MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));

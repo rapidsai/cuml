@@ -93,6 +93,7 @@ void grow_deep_tree_classification(
   unsigned int* d_colstart = nullptr;
   unsigned int* h_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) {
+    printf("am using starts\n");
     d_colstart = tempmem->d_colstart->data();
     h_colstart = tempmem->h_colstart->data();
     CUDA_CHECK(cudaMemsetAsync(

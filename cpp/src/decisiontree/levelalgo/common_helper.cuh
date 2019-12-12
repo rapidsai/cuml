@@ -215,7 +215,9 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
   unsigned int *samplelist = (unsigned int *)(tempmem->h_parent_metric->data());
   MLCommon::updateHost(nodecount, d_nodecount, n_nodes + 1, tempmem->stream);
   MLCommon::updateHost(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
-  MLCommon::updateHost(samplelist, d_samplelist, tempmem->max_nodes_per_level,
+  CUDA_CHECK(cudaDeviceSynchronize());
+  printf("Full sample list size %u\n", nodestart[n_nodes]);
+  MLCommon::updateHost(samplelist, d_samplelist, nodestart[n_nodes],
                        tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 

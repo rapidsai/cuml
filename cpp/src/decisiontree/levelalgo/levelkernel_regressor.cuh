@@ -446,22 +446,24 @@ __global__ void get_best_split_regression_kernel(
 
 template <typename T>
 DI GainIdxPair bin_info_gain_regression(const T sum_parent, const T *sum_left,
-                                        const int *count_right, const int count,
-                                        const int nbins) {
+                                        const unsigned int *count_right,
+                                        const int count, const int nbins) {
   GainIdxPair tid_pair;
   tid_pair.gain = 0.0;
   tid_pair.idx = -1;
   for (int tid = threadIdx.x; tid < nbins; tid += blockDim.x) {
-    T mean_left = sum_left[tid];
-    int right = count_right[tid];
-    T mean_right = sum_parent - sum_left;
-    T mean_parent = sum_parent / count;
-    int left = count - right;
-    float info_gain = (float)MSEGain<T>::exec(count, left, right, mean_parent,
-                                              mean_left, mean_right);
-    if (info_gain > tid_pair.gain) {
-      tid_pair.gain = info_gain;
-      tid_pair.idx = tid;
+    unsigned int right = count_right[tid];
+    unsigned int left = count - right;
+    if ((right != 0) && (left != 0)) {
+      T mean_left = sum_left[tid];
+      T mean_right = sum_parent - mean_left;
+      T mean_parent = sum_parent / count;
+      float info_gain = (float)MSEGain<T>::exec(count, left, right, mean_parent,
+                                                mean_left, mean_right);
+      if (info_gain > tid_pair.gain) {
+        tid_pair.gain = info_gain;
+        tid_pair.idx = tid;
+      }
     }
   }
   return tid_pair;
@@ -478,14 +480,12 @@ __global__ void best_split_gather_regression_kernel(
   const size_t treesz, const float min_impurity_split,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
   //shmemhist_parent[n_unique_labels]
-  extern __shared__ char gather_regression_shmem[];
-  T *mean_left = (T *)gather_regression_shmem;
-  int *count_right = (int *)(gather_regression_shmem + nbins * sizeof(T));
+  extern __shared__ char shmem_gather[];
+  T *shmean_left = (T *)(shmem_gather);
+  unsigned int *shcount_right = (unsigned int *)(shmean_left + nbins);
   __shared__ T mean_parent;
-
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
-  __shared__ float parent_metric;
   typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
@@ -515,9 +515,9 @@ __global__ void best_split_gather_regression_kernel(
                           blockIdx.x);
     for (int tid = threadIdx.x; tid < 2 * nbins; tid += blockDim.x) {
       if (tid < nbins)
-        mean_left[tid] = 0.0;
+        shmean_left[tid] = (T)0.0;
       else
-        count_right[tid] = 0;
+        shcount_right[tid - nbins] = 0;
     }
     QuestionType question(question_ptr, colid, colcnt, n_nodes, blockIdx.x,
                           nbins);
@@ -529,15 +529,15 @@ __global__ void best_split_gather_regression_kernel(
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= question(binid)) {
-          atomicAdd(&mean_left[binid], local_label);
+          atomicAdd(&shmean_left[binid], local_label);
         } else {
-          atomicAdd(&count_right[binid], 1);
+          atomicAdd(&shcount_right[binid], 1);
         }
       }
     }
     __syncthreads();
-    GainIdxPair bin_pair = bin_info_gain_regression(mean_parent, mean_left,
-                                                    count_right, count, nbins);
+    GainIdxPair bin_pair = bin_info_gain_regression<T>(
+      mean_parent, shmean_left, shcount_right, count, nbins);
     GainIdxPair best_bin_pair =
       BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
     __syncthreads();
