@@ -178,7 +178,7 @@ class SvmBase(Base):
         For additional docs, see `scikitlearn's SVC
         <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
         """
-        super(SVC, self).__init__(handle=handle, verbose=verbose)
+        super(SvmBase, self).__init__(handle=handle, verbose=verbose)
         # Input parameters for training
         self.tol = tol
         self.C = C
@@ -336,7 +336,7 @@ class SvmBase(Base):
                 model_f.unique_labels = \
                     <float*><uintptr_t>get_dev_array_ptr(self._unique_labels)
             else:
-                model_f.unique_labels = None
+                model_f.unique_labels = NULL
             return <uintptr_t>model_f
         else:
             model_d = new svmModel[double]()
@@ -354,7 +354,7 @@ class SvmBase(Base):
                 model_d.unique_labels = \
                     <double*><uintptr_t>get_dev_array_ptr(self._unique_labels)
             else:
-                model_d.unique_labels = None
+                model_d.unique_labels = NULL
             return <uintptr_t>model_d
 
     def _unpack_model(self):
@@ -542,7 +542,7 @@ class SvmBase(Base):
         return state
 
     def __setstate__(self, state):
-        super(SVC, self).__init__(handle=None, verbose=state['verbose'])
+        super(SvmBase, self).__init__(handle=None, verbose=state['verbose'])
 
         state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
         state['support_'] = state['support_'].to_gpu_array()

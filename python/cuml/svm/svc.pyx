@@ -34,8 +34,44 @@ from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
-import svm_base
+from svm_base import SvmBase
 
+cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
+    enum KernelType:
+        LINEAR, POLYNOMIAL, RBF, TANH
+
+    cdef struct KernelParams:
+        KernelType kernel
+        int degree
+        double gamma
+        double coef0
+
+cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
+    enum SvmType:
+        C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
+
+    cdef struct svmParameter:
+        # parameters for trainig
+        double C
+        double cache_size
+        int max_iter
+        int nochange_steps
+        double tol
+        int verbose
+        double epsilon
+        SvmType svmType
+
+cdef extern from "svm/svm_model.h" namespace "ML::SVM":
+    cdef cppclass svmModel[math_t]:
+        # parameters of a fitted model
+        int n_support
+        int n_cols
+        math_t b
+        math_t *dual_coefs
+        math_t *x_support
+        int *support_idx
+        int n_classes
+        math_t *unique_labels
 
 cdef extern from "svm/svc.hpp" namespace "ML::SVM":
 
@@ -52,7 +88,7 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
                                      svmModel[math_t] &m) except +
-
+                                     
 
 class SVC(SvmBase):
     """
