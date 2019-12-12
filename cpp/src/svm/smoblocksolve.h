@@ -173,7 +173,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
 
   Kd[tid] = kernel[tid * n_rows_x + kidx];
   int n_iter = 0;
-  printf("tid - idx: %d - %d\n", tid, idx);
+
   for (; n_iter < max_iter; n_iter++) {
     // mask values outside of X_upper
     math_t f_tmp = in_upper(a, y, C) ? f : INFINITY;
@@ -238,22 +238,15 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
       math_t eta_ul = max(Kd[u] + Kd[l] - 2 * Kui, ETA_EPS);
 
       tmp_l = min(tmp_l, (f - f_u) / eta_ul);
-      printf("tid=%d, (u, l)=(%d,%d), eta=%f, Kd[u]=%f Kd[l]=%f, K[u,l]= %f\n",
-             tid, u, l, tmp_l, eta_ul, Kd[u], Kd[l], Kui);
     }
     __syncthreads();
     math_t q = min(tmp_u, tmp_l);
     int in_u = in_upper(a, y, C);
     int in_l = in_lower(a, y, C);
     math_t eta_ui_dbg = max(Kd[tid] + Kd[u] - 2 * Kui, ETA_EPS);
-    printf("A: tid=%d, f=%f, a=%f, u:%d l:%d eta%f\n", tid, f, a, in_u, in_l,
-           eta_ui_dbg);
     if (threadIdx.x == u) a += q * y;
     if (threadIdx.x == l) a -= q * y;
     f += q * (Kui - Kli);
-
-    printf("B: tid=%d, f=%f, a=%f, (u, l)=(%d,%d) f_u=%f, q=%f\n", tid, f, a, u,
-           l, f_u, q);
   }
   // save results to global memory before exit
   alpha[idx] = a;
