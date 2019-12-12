@@ -34,7 +34,10 @@
 namespace ML {
 namespace SVM {
 
+namespace {
+// Unnamed namespace to avoid multiple definition error
 __device__ bool dummy_select_op(int idx) { return true; }
+}  // end unnamed namespace
 
 /**
 * Working set selection for the SMO algorithm.
