@@ -114,19 +114,19 @@ static __device__ double _select_read(const double* src0, int size0,
  */
 template <bool double_diff>
 static __global__ void _undiff_kernel(double* d_fc, const double* d_in,
-                                      int num_steps, int batch_size, int n_obs,
-                                      int s0, int s1 = 0) {
+                                      int num_steps, int batch_size, int in_ld,
+                                      int n_in, int s0, int s1 = 0) {
   int bid = blockIdx.x * blockDim.x + threadIdx.x;
   if (bid < batch_size) {
     double* b_fc = d_fc + bid * num_steps;
-    const double* b_in = d_in + bid * n_obs;
+    const double* b_in = d_in + bid * in_ld;
     for (int i = 0; i < num_steps; i++) {
       if (!double_diff) {  // One simple or seasonal difference
-        b_fc[i] += _select_read(b_in, n_obs, b_fc, i - s0);
+        b_fc[i] += _select_read(b_in, n_in, b_fc, i - s0);
       } else {  // Two differences (simple, seasonal or both)
-        double fc_acc = -_select_read(b_in, n_obs, b_fc, i - s0 - s1);
-        fc_acc += _select_read(b_in, n_obs, b_fc, i - s0);
-        fc_acc += _select_read(b_in, n_obs, b_fc, i - s1);
+        double fc_acc = -_select_read(b_in, n_in, b_fc, i - s0 - s1);
+        fc_acc += _select_read(b_in, n_in, b_fc, i - s0);
+        fc_acc += _select_read(b_in, n_in, b_fc, i - s1);
         b_fc[i] += fc_acc;
       }
     }
@@ -143,7 +143,8 @@ static __global__ void _undiff_kernel(double* d_fc, const double* d_in,
  * @param[in]     d_in        Original data. Shape (n_obs, batch_size) (device)
  * @param[in]     num_steps   Number of steps forecasted
  * @param[in]     batch_size  Number of series per batch
- * @param[in]     n_obs       Number of observations per series
+ * @param[in]     in_ld       Leading dimension of d_in
+ * @param[in]     n_in        Number of observations/predictions in d_in
  * @param[in]     d           Order of simple differences (0, 1 or 1)
  * @param[in]     D           Order of seasonal differences (0, 1 or 1)
  * @param[in]     s           Seasonal period if D > 0
@@ -153,8 +154,8 @@ static __global__ void _undiff_kernel(double* d_fc, const double* d_in,
  */
 static void _finalize_forecast(cumlHandle& handle, double* d_fc,
                                const double* d_in, int num_steps,
-                               int batch_size, int n_obs, int d, int D, int s,
-                               int intercept = 0,
+                               int batch_size, int in_ld, int n_in, int d,
+                               int D, int s, int intercept = 0,
                                const double* d_mu = nullptr) {
   const auto stream = handle.getStream();
 
@@ -170,12 +171,13 @@ static void _finalize_forecast(cumlHandle& handle, double* d_fc,
   if (d + D == 1) {
     _undiff_kernel<false>
       <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
-        d_fc, d_in, num_steps, batch_size, n_obs, d ? 1 : s);
+        d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
   } else if (d + D == 2) {
     _undiff_kernel<true>
       <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
-        d_fc, d_in, num_steps, batch_size, n_obs, d ? 1 : s, d == 2 ? 1 : s);
+        d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s,
+        d == 2 ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
@@ -219,40 +221,57 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
          intercept, stream);
 
   // Prepare data
-  int dDs = d + D * s;
-  int ld_yprep = n_obs - dDs;
+  int d_sD = d + D * s;
+  int ld_yprep = n_obs - d_sD;
   double* d_y_prep = (double*)allocator->allocate(
     ld_yprep * batch_size * sizeof(double), stream);
   _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, d, D, s, intercept,
                 d_mu);
 
   // Compute the residual - provide already prepared data and parameters
-  residual(handle, d_y_prep, batch_size, n_obs - dDs, p, 0, q, P, 0, Q, s, 0,
+  residual(handle, d_y_prep, batch_size, n_obs - d_sD, p, 0, q, P, 0, Q, s, 0,
            nullptr, d_ar, d_ma, d_sar, d_sma, d_vs, false);
 
-  int predict_size = end - start;
-  int p_start = std::max(start, dDs);
-  int p_end = std::min(n_obs, end);
-
   auto counting = thrust::make_counting_iterator(0);
+  int predict_ld = end - start;
 
   //
   // In-sample prediction
   //
 
-  if (start < n_obs) {
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       d_y_p[0] = 0.0;
-                       for (int i = 0; i < dDs - start; i++) {
-                         d_y_p[bid * predict_size + i] = nan("");
-                       }
-                       for (int i = p_start; i < p_end; i++) {
-                         d_y_p[bid * predict_size + i - start] =
-                           d_y[bid * n_obs + i] -
-                           d_vs[bid * ld_yprep + i - d - D * s];
-                       }
-                     });
+  // If we predict out-of-sample and use differencing, we need to predict
+  // in-sample the last d + sD observations
+  int in_sample_start = end > n_obs ? std::min(start, n_obs - d_sD) : start;
+  int p_start = std::max(in_sample_start, d_sD);
+  int p_end = std::min(n_obs, end);
+
+  // Create a temp buffer if we predict too many elements for the output array
+  int in_sample_ld;
+  double* predict_temp;
+  if (in_sample_start != start) {
+    in_sample_ld = d_sD;
+    predict_temp = (double*)allocator->allocate(
+      in_sample_ld * batch_size * sizeof(double), stream);
+  } else {
+    in_sample_ld = predict_ld;
+    predict_temp = d_y_p;
+  }
+
+  // The prediction loop starts by filling undefined predictions with NaN,
+  // then computes the predictions from the observations and residuals
+  if (in_sample_start < n_obs) {
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size,
+      [=] __device__(int bid) {
+        predict_temp[0] = 0.0;
+        for (int i = 0; i < d_sD - in_sample_start; i++) {
+          predict_temp[bid * in_sample_ld + i] = nan("");
+        }
+        for (int i = p_start; i < p_end; i++) {
+          predict_temp[bid * in_sample_ld + i - in_sample_start] =
+            d_y[bid * n_obs + i] - d_vs[bid * ld_yprep + i - d_sD];
+        }
+      });
   }
 
   //
@@ -274,7 +293,8 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
                        if (p_sP) {
                          for (int ip = 0; ip < p_sP; ip++) {
                            d_y_[(p_sP + num_steps) * bid + ip] =
-                             d_y_prep[ld_yprep * bid + ld_yprep - p_sP + ip];
+                             d_y_prep[ld_yprep * bid + ld_yprep - p_sP + ip] -
+                             d_vs[ld_yprep * bid + ld_yprep - p_sP + ip];
                          }
                        }
                        if (q_sQ) {
@@ -322,17 +342,37 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
       });
 
     // Add trend and/or undiff
-    _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, d, D,
-                       s, intercept, d_mu);
+    _finalize_forecast(handle, d_y_fc, predict_temp, num_steps, batch_size,
+                       in_sample_ld, n_obs - in_sample_start, d, D, s,
+                       intercept, d_mu);
 
-    // Copy results in d_y_p (TODO: avoid this copy?)
+    // Copy out-of-sample prediction in d_y_p (TODO: avoid this copy?)
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
                        for (int i = 0; i < num_steps; i++) {
-                         d_y_p[bid * predict_size + n_obs - start + i] =
+                         d_y_p[bid * predict_ld + n_obs - start + i] =
                            d_y_fc[num_steps * bid + i];
                        }
                      });
+
+    // Copy in-sample prediction in d_y_p
+    // Note: this is part of the forecast if-else because a temporary buffer
+    // for the in-sample predictions is created only when there are
+    // out-of-sample predictions to forecast
+    if (in_sample_start != start) {
+      int in_sample_offset = start - in_sample_start;
+      thrust::for_each(
+        thrust::cuda::par.on(stream), counting, counting + batch_size,
+        [=] __device__(int bid) {
+          for (int i = 0; i < n_obs - start; i++) {
+            d_y_p[bid * predict_ld + i] =
+              predict_temp[bid * in_sample_ld + i + in_sample_offset];
+          }
+        });
+
+      allocator->deallocate(predict_temp,
+                            in_sample_ld * batch_size * sizeof(double), stream);
+    }
 
     allocator->deallocate(d_y_fc, num_steps * batch_size * sizeof(double),
                           stream);
