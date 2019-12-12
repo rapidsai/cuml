@@ -23,6 +23,18 @@ import tempfile
 
 
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
+# NOTE: populate this list with more top-level dirs as we add more of them to
+#       to the cuml repo
+DEFAULT_DIRS = ["cpp/bench",
+                "cpp/comms/mpi/include",
+                "cpp/comms/mpi/src",
+                "cpp/comms/std/include",
+                "cpp/comms/std/src",
+                "cpp/include",
+                "cpp/examples",
+                "cpp/src",
+                "cpp/src_prims",
+                "cpp/test"]
 
 
 def parse_args():
@@ -55,6 +67,8 @@ def parse_args():
     version = version.group(1)
     if version != "8.0.0":
         raise Exception("clang-format exe must be v8.0.0 found '%s'" % version)
+    if len(args.dirs) == 0:
+        args.dirs = DEFAULT_DIRS
     return args
 
 
@@ -104,6 +118,10 @@ def run_clang_format(src, dst, exe):
 
 def main():
     args = parse_args()
+    # Attempt to making sure that we run this script from root of repo always
+    if not os.path.exists(".git"):
+        print("Error!! This needs to always be run from the root of repo")
+        sys.exit(-1)
     all_files = list_all_src_files(args.regex_compiled, args.ignore_compiled,
                                    args.dirs, args.dstdir, args.inplace)
     # actual format checker
