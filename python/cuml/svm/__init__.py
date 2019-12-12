@@ -13,4 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.svm.svm import SVC
+from cuml.svm.svc import SVC
+from cuml.svm.svr import SVR
