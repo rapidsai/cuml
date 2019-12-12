@@ -101,13 +101,13 @@ class KNeighborsClassifier(NearestNeighbors):
 
 
     Output:
+    -------
 
 
     .. code-block:: python
 
       array([3, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1, 0, 0, 0, 2, 3, 3,
              0, 3, 0, 0, 0, 0, 3, 2, 0, 0, 0], dtype=int32)
-
 
     Notes
     ------
@@ -186,6 +186,7 @@ class KNeighborsClassifier(NearestNeighbors):
                                       convert_dtype=convert_dtype)
 
         cdef uintptr_t inds_ctype
+
         inds, inds_ctype, n_rows, _, _ = \
             input_to_dev_array(knn_indices, order='C', check_dtype=np.int64,
                                convert_to_dtype=(np.int64
@@ -227,7 +228,9 @@ class KNeighborsClassifier(NearestNeighbors):
         if isinstance(X, np.ndarray):
             return np.array(classes, dtype=np.int32)
         elif isinstance(X, cudf.DataFrame):
-            return cudf.DataFrame.from_gpu_matrix(X)
+            if classes.ndim == 1:
+                classes = classes.reshape(classes.shape[0], 1)
+            return cudf.DataFrame.from_gpu_matrix(classes)
         else:
             return classes
 
@@ -330,6 +333,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)
         if isinstance(y_hat, tuple):
-            return (accuracy_score(y, y_hat_i) for y_hat_i in y_hat)
+            return (accuracy_score(y, y_hat_i, convert_dtype=convert_dtype)
+                    for y_hat_i in y_hat)
         else:
-            return accuracy_score(y, y_hat)
+            return accuracy_score(y, y_hat, convert_dtype=convert_dtype)

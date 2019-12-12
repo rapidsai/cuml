@@ -43,6 +43,7 @@ class LabelEncoder(object):
     Converting a categorical implementation to a numerical one
 
     .. code-block:: python
+
         from cudf import DataFrame, Series
 
         data = DataFrame({'category': ['a', 'b', 'c', 'd']})
@@ -79,6 +80,7 @@ class LabelEncoder(object):
     Output:
 
     .. code-block:: python
+
         0    0
         1    1
         2    2
@@ -124,7 +126,7 @@ class LabelEncoder(object):
         Fit a LabelEncoder (nvcategory) instance to a set of categories
 
         Parameters
-        ---------
+        ----------
         y : cudf.Series
             Series containing the categories to be encoded. It's elements
             may or may not be unique
@@ -157,7 +159,7 @@ class LabelEncoder(object):
             categories given to `fit`
 
         Returns
-        ------
+        -------
         encoded : cudf.Series
             The ordinally encoded input series
 
