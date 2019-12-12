@@ -44,6 +44,10 @@ env
 logger "Activate conda env..."
 source activate gdf
 
+# installing libclang separately so it doesn't get installed from conda-forge
+conda install -c rapidsai \
+      libclang=8.0.0
+
 logger "Check versions..."
 python --version
 gcc --version
