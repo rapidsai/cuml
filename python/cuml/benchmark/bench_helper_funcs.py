@@ -79,9 +79,7 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
 
-    print(arg["fil_algo"])
-
-    return m.load(model_path, algo="BATCH_TREE_REORG",
+    return m.load(model_path, algo=arg["fil_algo"],
                   output_class=arg["output_class"],
                   threshold=arg["threshold"],
                   storage_type=arg["storage_type"])
@@ -118,7 +116,7 @@ def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
-    """Function to get correct accuracy for FIL (returns class)"""
+    """Function to get correct accuarcy for FIL (returns probabilities)"""
     y_pred_binary = input_utils.convert_dtype(y_pred > 0.5, np.int32)
     if isinstance(y_true, np.ndarray):
         return cuml.metrics.accuracy_score(y_true, y_pred_binary)
