@@ -201,7 +201,7 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
  */
 template <typename T>
 void gemm(cublasHandle_t handle, T *z, T *x, T *y, int _M, int _N, int _K,
-          bool isZColMajor, bool isXColMajor, int isYColMajor,
+          bool isZColMajor, bool isXColMajor, bool isYColMajor,
           cudaStream_t stream, T alpha = T(1.0), T beta = T(0.0)) {
   cublasOperation_t trans_a, trans_b;
   T *a, *b, *c;
