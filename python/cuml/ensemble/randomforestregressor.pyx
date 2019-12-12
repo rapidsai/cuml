@@ -182,10 +182,15 @@ class RandomForestRegressor(Base):
     histogram-based algorithm to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
-    **Known Limitations**: This is an initial release of the cuML
+    **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-       * Instances of RandomForestRegressor cannot be fully pickled currently.
+       * GPU-based inference is only supported if the model was trained
+         with 32-bit (float32) datatypes CPU-based inference may be used
+         in this case as a slower fallback.
+       * Very deep / very wide models may exhaust available GPU memory.
+         Future versions of cuML will provide an alternative algorithm to
+         reduce memory consumption.
 
     Examples
     ---------
@@ -212,69 +217,65 @@ class RandomForestRegressor(Base):
 
     Parameters
     -----------
-    n_estimators : int (default = 10)
-                   number of trees in the forest.
+    n_estimators : int (default = 100)
+        Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     handle : cuml.Handle
-             If it is None, a new one is created just for this class.
+        If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
-                 0 for HIST, 1 for GLOBAL_QUANTILE
-                 The type of algorithm to be used to create the trees.
-                 HIST currently uses a slower tree-building algorithm
-                 so GLOBAL_QUANTILE is recommended for most cases.
+        The algorithm to determine how nodes are split in the tree.
+        0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
+        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
+        cases.
     split_criterion: int (default = 2)
-                     The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY,
-                     2 for MSE, or 3 for MAE
-                     0 and 1 not valid for regression
+        The criterion used to split nodes.
+        0 for GINI, 1 for ENTROPY,
+        2 for MSE, or 3 for MAE
+        0 and 1 not valid for regression
     bootstrap : boolean (default = True)
-                Control bootstrapping.
-                If set, each tree in the forest is built
-                on a bootstrapped sample with replacement.
-                If false, sampling without replacement is done.
+       Control bootstrapping.
+        If True, each tree in the forest is built
+        on a bootstrapped sample with replacement.
+        If False, sampling without replacement is done.
     bootstrap_features : boolean (default = False)
-                         Control bootstrapping for features.
-                         If features are drawn with or without replacement
+        Control bootstrapping for features.
+        If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
-                  Ratio of dataset rows used while fitting each tree.
+        Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
-                Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1. Unlimited depth is not supported with split_algo=1.
-                *Note that this default differs from scikit-learn's
-                random forest, which defaults to unlimited depth.*
+        Maximum tree depth. Unlimited (i.e, until leaves are pure),
+        if -1. Unlimited depth is not supported with split_algo=1.
+        *Note that this default differs from scikit-learn's
+        random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
-                 Maximum leaf nodes per tree. Soft constraint. Unlimited,
-                 if -1.
-    max_features : int or float or string or None (default = 'auto')
-                   Ratio of number of features (columns) to consider
-                   per node split.
-                   If int then max_features/n_features.
-                   If float then max_features is a fraction.
-                   If 'auto' then max_features=n_features which is 1.0.
-                   If 'sqrt' then max_features=1/sqrt(n_features).
-                   If 'log2' then max_features=log2(n_features)/n_features.
-                   If None, then max_features=n_features which is 1.0.
+        Maximum leaf nodes per tree. Soft constraint. Unlimited,
+        if -1.
+     max_features : int, float, or string (default = 'auto')
+        Ratio of number of features (columns) to consider
+        per node split.
+        If int then max_features/n_features.
+        If float then max_features is used as a fraction.
+        If 'auto' then max_features=1/sqrt(n_features).
+        If 'sqrt' then max_features=1/sqrt(n_features).
+        If 'log2' then max_features=log2(n_features)/n_features.
     n_bins :  int (default = 8)
-              Number of bins used by the split algorithm.
+        Number of bins used by the split algorithm.
     min_rows_per_node : int or float (default = 2)
-                        The minimum number of samples (rows) needed
-                        to split a node.
-                        If int then number of sample rows
-                        If float the min_rows_per_sample*n_rows
+        The minimum number of samples (rows) needed to split a node.
+        If int then number of sample rows
+        If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
-                            The minimum decrease in impurity required
-                            for node to be split
+        The minimum decrease in impurity required for node to be split
     accuracy_metric : string (default = 'mse')
-                      Decides the metric used to evaluate the performance
-                      of the model.
-                      for median of abs error : 'median_ae'
-                      for mean of abs error : 'mean_ae'
-                      for mean square error' : 'mse'
+        Decides the metric used to evaluate the performance of the model.
+        for median of abs error : 'median_ae'
+        for mean of abs error : 'mean_ae'
+        for mean square error' : 'mse'
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individal trees in RF.
-                        Only relevant for GLOBAL_QUANTILE split_algo.
+        Whether quantile is computed for individal trees in RF.
+        Only relevant for GLOBAL_QUANTILE split_algo.
     seed : int (default = None)
-           Seed for the random number generator. Unseeded by default. Does not
-           currently fully guarantee the exact same results.
+        Seed for the random number generator. Unseeded by default. Does not
+        currently fully guarantee the exact same results.
 
     """
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -286,7 +287,7 @@ class RandomForestRegressor(Base):
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
-    def __init__(self, n_estimators=10, max_depth=16, handle=None,
+    def __init__(self, n_estimators=100, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
@@ -475,8 +476,8 @@ class RandomForestRegressor(Base):
             input_to_dev_array(X, order='F')
 
         if self.dtype == np.float64:
-            warnings.warn("In order to run predict on the GPU convert"
-                          " the data to float32")
+            warnings.warn("To use GPU-based prediction, first train using \
+                          float 32 data to fit the estimator.")
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -531,13 +532,14 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def _predict_model_on_gpu(self, X,
-                              output_class,
-                              algo, task_category=1):
+    def _predict_model_on_gpu(self, X, algo,
+                              convert_dtype, task_category=1):
 
         cdef ModelHandle cuml_model_ptr
-        _, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, check_dtype=self.dtype,
+        X_m, _, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
                                check_cols=self.n_cols)
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
@@ -554,15 +556,18 @@ class RandomForestRegressor(Base):
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
+                                             output_class=False,
                                              algo=algo)
-        preds = tl_to_fil_model.predict(X)
+        preds = tl_to_fil_model.predict(X_m)
+        del(X_m)
         return preds
 
-    def _predict_model_on_cpu(self, X):
+    def _predict_model_on_cpu(self, X, convert_dtype):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
                                check_cols=self.n_cols)
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
@@ -610,8 +615,7 @@ class RandomForestRegressor(Base):
         return preds
 
     def predict(self, X, predict_model="GPU",
-                output_class=False,
-                algo='BATCH_TREE_REORG'):
+                algo='BATCH_TREE_REORG', convert_dtype=True):
         """
         Predicts the labels for X.
         Parameters
@@ -620,40 +624,42 @@ class RandomForestRegressor(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        predict_model : String
-                        "GPU" if prediction should be carried out on the GPU
-                        "CPU" or None if prediction should be carried out
-                        on the CPU
-        output_class: boolean
-                      This is optional and required only while performing the
-                      predict operation on the GPU.
-                      If true, return a 1 or 0 depending on whether the raw
-                      prediction exceeds the threshold. If False, just return
-                      the raw prediction.
-        algo : string name of the algo from (from algo_t enum)
-               This is optional and required only while performing the
-               predict operation on the GPU.
-               'NAIVE' - simple inference using shared memory
-               'TREE_REORG' - similar to naive but trees rearranged to be more
-                              coalescing-friendly
-               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
-                                    multiple rows per thread block
+        predict_model : String (default = 'GPU')
+            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
+            be used if the model was trained on float32 data and `X` is float32
+            or convert_dtype is set to True.
+        algo : string (default = 'BATCH_TREE_REORG')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'NAIVE' - simple inference using shared memory
+            'TREE_REORG' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+            multiple rows per thread block
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        if self.dtype == np.float64:
-            raise TypeError("GPU predict model only accepts float32 dtype"
-                            " as input, convert the data to float32 or "
-                            "use the CPU predict with `predict_model='CPU'`.")
+        if predict_model == "CPU":
+            preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif predict_model == "GPU":
-            preds = self._predict_model_on_gpu(X,
-                                               output_class,
-                                               algo, task_category=1)
+        elif self.dtype == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            In order use the GPU predict the model should \
+                            also be trained using a np.float32 dataset. \
+                            If you would like to use np.float64 dtype \
+                            then please use the CPU based predict by \
+                            setting predict_model = 'CPU'")
+
         else:
-            preds = self._predict_model_on_cpu(X)
+            preds = self._predict_model_on_gpu(X, algo, convert_dtype,
+                                               task_category=1)
+
         return preds
 
     def score(self, X, y, algo='BATCH_TREE_REORG'):
@@ -666,15 +672,15 @@ class RandomForestRegressor(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         y: NumPy
-           Dense vector (int) of shape (n_samples, 1)
+            Dense vector (int) of shape (n_samples, 1)
         algo : string name of the algo from (from algo_t enum)
-               This is optional and required only while performing the
-               predict operation on the GPU.
-               'NAIVE' - simple inference using shared memory
-               'TREE_REORG' - similar to naive but trees rearranged to be more
-                              coalescing-friendly
-               'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
-                                    multiple rows per thread block
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'NAIVE' - simple inference using shared memory
+            'TREE_REORG' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+            multiple rows per thread block
         Returns
         ----------
         mean_square_error : float or

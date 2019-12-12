@@ -30,6 +30,7 @@ class MBSGDClassifier:
     Examples
     ---------
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.linear_model import MBSGDClassifier as cumlMBSGDClassifier
@@ -52,8 +53,11 @@ class MBSGDClassifier:
         print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
         print(" cuML coef : ", cu_mbsgd_classifier.coef_)
         print("cuML predictions : ", cu_pred)
+
     Output:
+
     .. code-block:: python
+
         cuML intercept :  0.7150013446807861
         cuML coef :  0    0.27320495
                     1     0.1875956
