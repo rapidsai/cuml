@@ -383,7 +383,7 @@ class SvmBase(Base):
                 <uintptr_t>model_f.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
             self._n_classes = model_f.n_classes
-            if self.n_classes > 0:
+            if self._n_classes > 0:
                 self._unique_labels = device_array_from_ptr(
                     <uintptr_t>model_f.unique_labels, (self._n_classes,),
                       self.dtype)
@@ -405,7 +405,7 @@ class SvmBase(Base):
                 <uintptr_t>model_d.x_support, (self.n_support_, self.n_cols),
                 self.dtype)
             self._n_classes = model_d.n_classes
-            if self.n_classes > 0:
+            if self._n_classes > 0:
                 self._unique_labels = device_array_from_ptr(
                     <uintptr_t>model_d.unique_labels, (self._n_classes,),
                       self.dtype)
@@ -471,7 +471,7 @@ class SvmBase(Base):
 
         return self
 
-    def _predict(self, X, predict_class):
+    def predict(self, X, predict_class):
         """
         Predicts the y for X, where y is either the decision function value
         (if predict_class == False), or the label associated with X.

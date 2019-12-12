@@ -34,7 +34,7 @@ from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
-from svm_base import SvmBase
+from cuml.svm.svm_base import SvmBase
 
 cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -88,7 +88,7 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svmFreeBuffers[math_t](const cumlHandle &handle,
                                      svmModel[math_t] &m) except +
-                                     
+
 
 class SVC(SvmBase):
     """
