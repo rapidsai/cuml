@@ -15,9 +15,8 @@
  */
 #pragma once
 
-/** @file svc_impl.h
- * @brief Implementation of the stateless C++ functions to fit an SVM
- * classifier, and predict with it.
+/** @file svr_impl.h
+ * @brief Implementation of the stateless C++ functions to fit an SVM regressor.
  */
 
 #include <iostream>
