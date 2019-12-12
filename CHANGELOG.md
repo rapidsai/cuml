@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
+- PR #1477: Enable multi-node multi-gpu knn in cuml.dask
 
 - PR #1463: Update FAISS submodule to 1.6.1
 
