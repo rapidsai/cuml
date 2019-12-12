@@ -211,7 +211,7 @@ class LinearRegressionMG(LinearRegression):
 
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
-            if rnk == rank:
+            if rnk == rank:    
                 rankSizePair[indx] = <RankSizePair*> \
                     malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
@@ -267,6 +267,8 @@ class LinearRegressionMG(LinearRegression):
             self.intercept_ = c_intercept2
 
         self.handle.sync()
+
+        del(X_m)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
