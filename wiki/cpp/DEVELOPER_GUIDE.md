@@ -153,7 +153,7 @@ The reasons behind these deviations from the Google style guide are given in com
 ### How is the check done?
 All formatting checks are done by this python script: [run-clang-format.py](../../cpp/scripts/run-clang-format.py) which is effectively a wrapper over `clang-format`. An error is raised if the code diverges from the format suggested by clang-format. It is expected that the developers run this script to detect and fix formatting violations before creating PR.
 
-After [PR 1468](https://github.com/rapidsai/cuml/pull/1468) goes through, [run-clang-format.py](../../cpp/scripts/run-clang-format.py) will be executed as part of our `gpuCI/cuml/style-check` CI test. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the following sub-section.
+[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is executed as part of our `gpuCI/cuml/style-check` CI test. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the subsequent sub-section.
 
 ### How to know the formatting violations?
 When there are formatting errors, [run-clang-format.py](../../cpp/scripts/run-clang-format.py) prints a `diff` command, showing where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations, but instead directly formats the code. So, the only way currently to know about formatting differences is to run the diff command as suggested by this script against each violating source file.
