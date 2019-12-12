@@ -65,7 +65,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
 
 # installing libclang separately so it doesn't get installed from conda-forge
 conda install -c rapidsai \
-      libclang
+      libclang=8.0.0
 
 logger "Check versions..."
 python --version
