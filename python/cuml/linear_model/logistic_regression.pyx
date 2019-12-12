@@ -51,6 +51,7 @@ class LogisticRegression(Base):
     regularization
     - Limited Memory BFGS (L-BFGS) otherwise.
 
+
     Note that, just like in Scikit-learn, the bias will not be regularized.
 
     Examples
@@ -89,6 +90,7 @@ class LogisticRegression(Base):
     Output:
 
     .. code-block:: python
+
         Coefficients:
                     0.22309814
                     0.21012752

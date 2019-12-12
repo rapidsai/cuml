@@ -77,21 +77,35 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     For more information on Scikit-learn's `make_blobs:
     <https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html>`_.
 
-    :param nrows : number of rows
-    :param ncols : number of features
-    :param n_centers : number of centers to generate
-    :param n_parts : number of partitions to generate (this can be greater
-    than the number of workers)
-    :param cluster_std : how far can each generated point deviate from its
-    closest centroid?
-    :param center_box : the bounding box which constrains all the centroids
-    :param random_state : sets random seed
-    :param verbose : enables / disables verbose printing.
-    :param dtype : (default = np.float32) datatype to generate
-    :param output : (default = 'dataframe') whether to generate dask array or
-    dask dataframe output. Default will be array soon.
+    Parameters
+    ----------
 
-    :return: (dask.Dataframe for X, dask.Series for labels)
+    nrows : int
+        number of rows
+    ncols : int
+        number of features
+    n_centers : int (default = 8)
+        number of centers to generate
+    n_parts : int (default = None)
+        number of partitions to generate (this can be greater
+        than the number of workers)
+    cluster_std : float (default = 1.0)
+         standard deviation of points around centroid
+    center_box : tuple (int, int) (default = (-10, 10))
+         the bounding box which constrains all the centroids
+    random_state : int (default = None)
+         sets random seed (or use None to reinitialize each time)
+    verbose : bool (default = False)
+         enables / disables verbose printing.
+    dtype : dtype (default = np.float32)
+         datatype to generate
+    output : str (default = 'dataframe')
+         whether to generate dask array or
+         dask dataframe output. Default will be array in the future.
+
+    Returns
+    -------
+         (dask.Dataframe for X, dask.Series for labels)
     """
 
     client = default_client()
