@@ -66,18 +66,7 @@ fi
 
 # Check for a consistent code format
 # TODO: keep adding more dirs when we add more source folders in cuml
-FORMAT=`python cpp/scripts/run-clang-format.py \
-               cpp/bench \
-               cpp/comms/mpi/include \
-               cpp/comms/mpi/src \
-               cpp/comms/std/include \
-               cpp/comms/std/src \
-               cpp/include \
-               cpp/examples \
-               cpp/src \
-               cpp/src_prims \
-               cpp/test \
-               2>&1`
+FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
 FORMAT_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$FORMAT_RETVAL
