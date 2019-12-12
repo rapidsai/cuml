@@ -116,7 +116,7 @@ def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
-    """Function to get correct accuarcy for FIL (returns probabilities)"""
+    """Function to get correct accuracy for FIL (returns class index)"""
     y_pred_binary = input_utils.convert_dtype(y_pred > 0.5, np.int32)
     if isinstance(y_true, np.ndarray):
         return cuml.metrics.accuracy_score(y_true, y_pred_binary)
