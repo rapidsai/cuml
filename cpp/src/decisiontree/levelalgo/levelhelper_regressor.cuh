@@ -467,7 +467,14 @@ void best_split_gather_regression(
   std::shared_ptr<TemporaryMemory<T, T>> tempmem,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
   if (split_algo == 0) {
-    ASSERT(false, "min max in regressor not yet completed use quantile algo\n");
+    using E = typename MLCommon::Stats::encode_traits<T>::E;
+    T init_val = std::numeric_limits<T>::max();
+    size_t shmemsz = nbins * sizeof(int) + nbins * sizeof(T);
+    best_split_gather_regression_minmax_kernel<T, E>
+      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, n_nodes,
+        nbins, nrows, Ncols, ncols_sampled, treesz, min_impurity_split,
+        init_val, d_sparsenodes, d_nodelist);
   } else {
     const T *d_question_ptr = tempmem->d_quantile->data();
     size_t shmemsz = nbins * sizeof(T) + nbins * sizeof(int);

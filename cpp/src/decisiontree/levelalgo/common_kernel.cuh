@@ -19,6 +19,16 @@
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.h"
 
+template <typename T>
+DI T get_data(const T* __restrict__ data, const T local_data,
+              const unsigned int dataid, const unsigned int count) {
+  if (count <= blockDim.x) {
+    return local_data;
+  } else {
+    return data[dataid];
+  }
+}
+
 DI unsigned int get_samplelist(const unsigned int* __restrict__ samplelist,
                                const unsigned int dataid,
                                const unsigned int nodestart, const int tid,
@@ -29,6 +39,7 @@ DI unsigned int get_samplelist(const unsigned int* __restrict__ samplelist,
     return samplelist[nodestart + tid];
   }
 }
+
 template <typename L>
 DI L get_label(const L* __restrict__ labels, const L local_label,
                const unsigned int dataid, const unsigned int count) {
