@@ -248,14 +248,17 @@ void grow_deep_tree_regression(
     lastsize = 2 * n_nodes;
     n_nodes = h_counter[0];
   }
-
-  if (split_cr == ML::CRITERION::MSE) {
-    make_leaf_gather_regression(labels, d_nodestart, d_samplelist,
-                                d_sparsenodes, d_nodelist, n_nodes, tempmem);
-  } else {
-    ASSERT(false, "MAE does not work on depth algo\n");
+  if (n_nodes != 0) {
+    if (split_cr == ML::CRITERION::MSE) {
+      make_leaf_gather_regression(labels, d_nodestart, d_samplelist,
+                                  d_sparsenodes, d_nodelist, n_nodes, tempmem);
+    } else {
+      ASSERT(false, "MAE does not work on depth algo\n");
+    }
+    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
+                         tempmem->stream);
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    sparsetree.insert(sparsetree.end(), h_sparsenodes,
+                      h_sparsenodes + lastsize);
   }
-  MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
-  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-  sparsetree.insert(sparsetree.end(), h_sparsenodes, h_sparsenodes + lastsize);
 }
