@@ -19,16 +19,18 @@ import re
 import os
 import subprocess
 import argparse
+import tempfile
 
 
-VersionRegex = re.compile(r"clang-format version ([0-9.]+)")
+VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 
 
 def parse_args():
     argparser = argparse.ArgumentParser("Runs clang-format on a project")
-    argparser.add_argument("-dstdir", type=str,
-                           default="/tmp/cuml-clang-format",
-                           help="Path to the current build directory.")
+    argparser.add_argument("-dstdir", type=str, default=None,
+                           help="Directory to store the temporary outputs of"
+                           " clang-format. If nothing is passed for this, then"
+                           " a temporary dir will be created using `mkdtemp`")
     argparser.add_argument("-exe", type=str, default="clang-format",
                            help="Path to clang-format exe")
     argparser.add_argument("-inplace", default=False, action="store_true",
@@ -41,11 +43,13 @@ def parse_args():
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
     args = argparser.parse_args()
-    args.regexCompiled = re.compile(args.regex)
-    args.ignoreCompiled = re.compile(args.ignore)
+    args.regex_compiled = re.compile(args.regex)
+    args.ignore_compiled = re.compile(args.ignore)
+    if args.dstdir is None:
+        args.dstdir = tempfile.mkdtemp()
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
-    version = VersionRegex.match(ret)
+    version = VERSION_REGEX.match(ret)
     if version is None:
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)
@@ -54,14 +58,14 @@ def parse_args():
     return args
 
 
-def list_all_src_files(fileRegex, ignoreRegex, srcdirs, dstdir, inplace):
+def list_all_src_files(file_regex, ignore_regex, srcdirs, dstdir, inplace):
     allFiles = []
     for srcdir in srcdirs:
         for root, dirs, files in os.walk(srcdir):
             for f in files:
-                if re.search(fileRegex, f):
+                if re.search(file_regex, f):
                     src = os.path.join(root, f)
-                    if re.search(ignoreRegex, src):
+                    if re.search(ignore_regex, src):
                         continue
                     if inplace:
                         _dir = root
@@ -91,20 +95,20 @@ def run_clang_format(src, dst, exe):
     try:
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        srcPath = os.path.join(os.getcwd(), src)
+        src_path = os.path.join(os.getcwd(), src)
         print("clang-format failed! Run 'diff -y %s %s' to know more about "
-              "the formatting violations!" % (srcPath, dst))
+              "the formatting violations!" % (src_path, dst))
         return False
     return True
 
 
 def main():
     args = parse_args()
-    allFiles = list_all_src_files(args.regexCompiled, args.ignoreCompiled,
-                                  args.dirs, args.dstdir, args.inplace)
+    all_files = list_all_src_files(args.regex_compiled, args.ignore_compiled,
+                                   args.dirs, args.dstdir, args.inplace)
     # actual format checker
     status = True
-    for src, dst in allFiles:
+    for src, dst in all_files:
         if not run_clang_format(src, dst, args.exe):
             status = False
     if not status:
