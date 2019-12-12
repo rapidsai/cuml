@@ -10,6 +10,7 @@
 ## Bug Fixes
 
 - PR #1470: Documentation: add make_regression, fix ARIMA section
+- PR #1482: Updated the code to remove sklearn from the mbsgd stress test
 
 # cuML 0.11.0 (11 Dec 2019)
 
