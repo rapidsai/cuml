@@ -75,18 +75,14 @@ class cumlHandle_impl {
   const int _dev_id;
   const int _num_streams;
   std::vector<cudaStream_t> _streams;
-  mutable cublasHandle_t _cublas_handle;
-  mutable bool _cublasInitialized;
-  mutable cusolverDnHandle_t _cusolverDn_handle;
-  mutable bool _cusolverDnInitialized;
-  mutable cusparseHandle_t _cusparse_handle;
-  mutable bool _cusparseInitialized;
+  cublasHandle_t _cublas_handle;
+  cusolverDnHandle_t _cusolverDn_handle;
+  cusparseHandle_t _cusparse_handle;
   std::shared_ptr<deviceAllocator> _deviceAllocator;
   std::shared_ptr<hostAllocator> _hostAllocator;
   cudaStream_t _userStream;
   cudaEvent_t _event;
-  mutable cudaDeviceProp _prop;
-  mutable bool _devicePropInitialized;
+  cudaDeviceProp prop;
 
   std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 

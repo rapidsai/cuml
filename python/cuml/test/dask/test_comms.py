@@ -17,6 +17,8 @@ import pytest
 
 import random
 
+import time
+
 from dask.distributed import Client, wait
 
 from cuml.dask.common.comms import CommsContext, worker_state, default_comms
@@ -40,6 +42,22 @@ def test_comms_init_no_p2p(cluster):
 
     finally:
 
+        cb.destroy()
+        client.close()
+
+
+def test_comms_init_p2p_no_ucx(cluster):
+
+    client = Client(cluster)
+
+    try:
+        cb = CommsContext(comms_p2p=True)
+        cb.init()
+
+        assert cb.nccl_initialized is True
+        assert cb.ucx_initialized is False
+
+    finally:
         cb.destroy()
         client.close()
 
@@ -102,11 +120,16 @@ def test_allreduce(cluster):
         cb = CommsContext()
         cb.init()
 
+        start = time.time()
         dfs = [client.submit(func_test_allreduce, cb.sessionId,
                              random.random(), workers=[w])
                for wid, w in zip(range(len(cb.worker_addresses)),
                                  cb.worker_addresses)]
         wait(dfs)
+
+        print("Time: " + str(time.time() - start))
+
+        print(str(list(map(lambda x: x.result(), dfs))))
 
         assert all(list(map(lambda x: x.result(), dfs)))
 
@@ -116,17 +139,17 @@ def test_allreduce(cluster):
 
 
 @pytest.mark.ucx
-@pytest.mark.parametrize("n_trials", [5])
-@pytest.mark.skip("ucx functionality available in cuML 0.12+")
-def test_send_recv(n_trials, ucx_cluster):
+@pytest.mark.skip(reason="UCX support not enabled in CI")
+def test_send_recv(n_trials, cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     try:
 
         cb = CommsContext(comms_p2p=True, verbose=True)
         cb.init()
 
+        start = time.time()
         dfs = [client.submit(func_test_send_recv,
                              cb.sessionId,
                              n_trials,
@@ -136,20 +159,23 @@ def test_send_recv(n_trials, ucx_cluster):
                                  cb.worker_addresses)]
 
         wait(dfs)
+        print("Time: " + str(time.time() - start))
 
-        assert(list(map(lambda x: x.result(), dfs)))
+        result = list(map(lambda x: x.result(), dfs))
+
+        print(str(result))
+
+        assert(result)
 
     finally:
         cb.destroy()
         client.close()
 
 
-@pytest.mark.ucx
-@pytest.mark.parametrize("n_trials", [5])
-@pytest.mark.skip("ucx functionality available in cuML 0.12+")
-def test_recv_any_rank(n_trials, ucx_cluster):
+@pytest.mark.skip(reason="UCX support not enabled in CI")
+def test_recv_any_rank(n_trials, cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     try:
 

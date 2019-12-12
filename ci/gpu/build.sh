@@ -42,7 +42,7 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+conda install -c conda-forge -c conda-forge/label/rc_ucx -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
       "cupy>=6.5,<7.0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
@@ -54,12 +54,13 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "umap-learn" \
       "protobuf >=3.4.1,<4.0.0" \
       "nccl>=2.4" \
-      "dask=2.8*" \
-      "distributed=2.8*" \
+      "dask=2.5.0" \
+      "distributed=2.5.1" \
       "dask-ml" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "statsmodels" \
+      "ucx-py=0.2*" \
       "xgboost=0.90.rapidsdev1"
 
 
@@ -123,7 +124,6 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
-
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
 
 ################################################################################
