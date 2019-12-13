@@ -129,21 +129,15 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
     const double* b_ys = ys + bid * nobs;
     double* b_vs = vs + bid * nobs;
     double* b_Fs = Fs + bid * nobs;
-    double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
 
-    for (int it = 0; it < nobs + fc_steps; it++) {
+    for (int it = 0; it < nobs; it++) {
       // 1. & 2.
       double vs_it;
       double _Fs = l_P[0];
-      if (it < nobs) {
-        vs_it = b_ys[it] - l_alpha[0];
-        b_vs[it] = vs_it;
-        b_Fs[it] = _Fs;
-        b_sum_logFs += log(_Fs);
-      } else {
-        b_fc[fc_steps - nobs] = l_alpha[0];
-        vs_it = 0.0;
-      }
+      vs_it = b_ys[it] - l_alpha[0];
+      b_vs[it] = vs_it;
+      b_Fs[it] = _Fs;
+      b_sum_logFs += log(_Fs);
 
       // 3.
       // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
@@ -209,6 +203,18 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
     }
     sum_logFs[bid] = b_sum_logFs;
   }
+
+  // Forecast
+  double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
+  for (int i = 0; i < fc_steps; i++) {
+    b_fc[i] = l_alpha[0];
+
+    // alpha = T*alpha
+    Mv_l<r>(l_T, l_alpha, l_tmpA);
+    for (int i = 0; i < r; i++) {
+      l_alpha[i] = l_tmpA[i];
+    }
+  }
 }
 
 /**
@@ -231,11 +237,14 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
  * @param[out] d_vs         Batched residuals                     (nobs)
  * @param[out] d_Fs         Batched variance of prediction errors (nobs)    
  * @param[out] d_sum_logFs  Batched sum of the logs of Fs         (1)
+ * @param[in]  fc_steps     Number of steps to forecast
+ * @param[in]  d_fc         Array to store the forecast
  */
 void _batched_kalman_loop_large_matrices(
   const double* d_ys, int nobs, const BatchedMatrix& T, const BatchedMatrix& Z,
   const BatchedMatrix& RRT, BatchedMatrix& P, BatchedMatrix& alpha, int r,
-  double* d_vs, double* d_Fs, double* d_sum_logFs) {
+  double* d_vs, double* d_Fs, double* d_sum_logFs, int fc_steps = 0,
+  double* d_fc = nullptr) {
   auto stream = T.stream();
   auto allocator = T.allocator();
   auto cublasHandle = T.cublasHandle();
@@ -311,6 +320,16 @@ void _batched_kalman_loop_large_matrices(
       d_P, m_tmp1.raw_data(), RRT.raw_data(), r2 * nb,
       [=] __device__(double a, double b) { return a + b; }, stream);
   }
+
+  // Forecast
+  for (int i = 0; i < fc_steps; i++) {
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + nb,
+      [=] __device__(int bid) { d_fc[bid * fc_steps + i] = d_alpha[bid * r]; });
+
+    b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp1);
+    MLCommon::copy(d_alpha, v_tmp1.raw_data(), r * nb, stream);
+  }
 }
 
 /**
@@ -381,7 +400,7 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
   } else {
     /// TODO: support forecasts
     _batched_kalman_loop_large_matrices(ys, nobs, T, Z, RRT, P0, alpha, r, vs,
-                                        Fs, sum_logFs);
+                                        Fs, sum_logFs, fc_steps, d_fc);
   }
 }  // namespace ML
 
