@@ -34,7 +34,6 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
-@pytest.mark.xfail(raises=AssertionError)
 def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
                           loss, nrows, column_info):
     ncols, n_info = column_info
@@ -63,7 +62,7 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
         skl_sgd_classifier.fit(X_train, y_train)
         skl_pred = skl_sgd_classifier.predict(X_test)
         skl_acc = accuracy_score(skl_pred, y_test)
-        assert cu_acc >= skl_acc - 0.05
+        assert cu_acc >= skl_acc - 0.06
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -72,7 +71,6 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
-@pytest.mark.xfail(raises=AssertionError)
 def test_mbsgd_classifier_default(datatype, nrows, column_info):
     ncols, n_info = column_info
     X, y = make_classification(n_samples=nrows, n_informative=n_info,
