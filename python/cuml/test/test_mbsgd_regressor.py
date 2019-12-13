@@ -70,7 +70,6 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
-@pytest.mark.xfail(raises=AssertionError)
 def test_mbsgd_regressor_default(datatype, nrows,
                                  column_info):
     ncols, n_info = column_info
