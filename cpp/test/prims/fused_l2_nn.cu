@@ -58,9 +58,9 @@ void naive(cub::KeyValuePair<int, DataT> *min, DataT *x, DataT *y, int m, int n,
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   auto blks = ceildiv(m, 256);
-  initKernel<DataT, cub::KeyValuePair<int, DataT>, int,
-             MinAndDistanceReduceOp<int, DataT>>
-    <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max());
+  MinAndDistanceReduceOp<int, DataT> op;
+  initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
+    <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   CUDA_CHECK(cudaGetLastError());
   naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>>
     <<<nblks, TPB, 0, stream>>>(min, x, y, m, n, k, workspace);
@@ -128,9 +128,9 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int m = params.m;
     int n = params.n;
     int k = params.k;
-    fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int, Sqrt,
-              MinAndDistanceReduceOp<int, DataT>>(out, x, y, xn, yn, m, n, k,
-                                                  (void *)workspace, stream);
+    MinAndDistanceReduceOp<int, DataT> redOp;
+    fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int, Sqrt>(
+      out, x, y, xn, yn, m, n, k, (void *)workspace, redOp, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };
