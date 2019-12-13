@@ -53,8 +53,10 @@ test_121 = ARIMAData(
     y=population_estimate,
     start=100,
     end=150,
-    tolerance_in=2.25,
-    tolerance_out=19.0)
+    tolerance_integration_in=2.25,
+    tolerance_integration_out=52.0,
+    tolerance_sameparam_inout=0.05
+)
 
 # ARIMA(
 # test_ = ARIMAData(
@@ -125,6 +127,8 @@ def test_integration(test_case):
             max_err_out, data.tolerance_out)
 
 # TODO: aic / bic tests against a statsmodels ARMA?
+
+# TODO: predict and forecast tests with same parameters as statsmodels
 
 # # TODO: test with seasonality
 # def test_transform():
