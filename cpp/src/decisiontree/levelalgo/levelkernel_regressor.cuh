@@ -469,7 +469,7 @@ DI GainIdxPair bin_info_gain_regression(const T sum_parent, const T *sum_left,
   return tid_pair;
 }
 
-template <typename T, typename QuestionType>
+template <typename T, typename QuestionType, int TPB>
 __global__ void best_split_gather_regression_kernel(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ colids,
@@ -486,7 +486,7 @@ __global__ void best_split_gather_regression_kernel(
   __shared__ T mean_parent;
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
-  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  typedef cub::BlockReduce<GainIdxPair, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   int colstart_local = -1;
@@ -570,7 +570,7 @@ __global__ void best_split_gather_regression_kernel(
 }
 
 //Same as above but fused with minmax mode.
-template <typename T, typename E>
+template <typename T, typename E, int TPB>
 __global__ void best_split_gather_regression_minmax_kernel(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ colids,
@@ -587,7 +587,7 @@ __global__ void best_split_gather_regression_minmax_kernel(
   __shared__ T mean_parent;
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
-  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  typedef cub::BlockReduce<GainIdxPair, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   __shared__ T shmem_min, shmem_max, best_min, best_delta;
 

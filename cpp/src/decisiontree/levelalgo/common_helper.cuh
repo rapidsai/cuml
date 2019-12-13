@@ -199,9 +199,13 @@ void convert_scatter_to_gather(const unsigned int *flagsptr,
                                 nodecount, nodestart, n_nodes + 1,
                                 tempmem->stream);
   CUDA_CHECK(cudaGetLastError());
-
+  unsigned int *h_nodestart = (unsigned int *)(tempmem->h_split_binidx->data());
+  MLCommon::updateHost(h_nodestart, nodestart + n_nodes, 1, tempmem->stream);
+  CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   CUDA_CHECK(cudaMemsetAsync(nodecount, 0, n_nodes * sizeof(unsigned int),
                              tempmem->stream));
+  CUDA_CHECK(cudaMemsetAsync(
+    samplelist, 0, h_nodestart[0] * sizeof(unsigned int), tempmem->stream));
   build_list<<<nblocks, nthreads, 0, tempmem->stream>>>(
     flagsptr, nodestart, n_rows, nodecount, samplelist);
   CUDA_CHECK(cudaGetLastError());
@@ -293,6 +297,8 @@ void make_split_gather(const T *data, unsigned int *nodestart,
                                 nodecount, nodestart, h_counter[0] + 1,
                                 tempmem->stream);
   CUDA_CHECK(cudaGetLastError());
+  CUDA_CHECK(cudaMemsetAsync(samplelist, 0, h_counter[0] * sizeof(unsigned int),
+                             tempmem->stream));
   CUDA_CHECK(cudaMemsetAsync(nodecount, 0, h_counter[0] * sizeof(unsigned int),
                              tempmem->stream));
   build_list<<<nblocks, nthreads, 0, tempmem->stream>>>(

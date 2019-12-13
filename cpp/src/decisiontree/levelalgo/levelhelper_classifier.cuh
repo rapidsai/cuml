@@ -334,20 +334,21 @@ void best_split_gather_classification(
   const float min_impurity_split,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem,
   SparseTreeNode<T, int> *d_sparsenodes, int *d_nodelist) {
+  const int TPB = TemporaryMemory<T, int>::gather_threads;
   if (split_algo == 0) {
     using E = typename MLCommon::Stats::encode_traits<T>::E;
     T init_val = std::numeric_limits<T>::max();
     size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
-    best_split_gather_classification_minmax_kernel<T, E, FDEV>
-      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+    best_split_gather_classification_minmax_kernel<T, E, FDEV, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, n_nodes,
         n_unique_labels, nbins, nrows, Ncols, ncols_sampled, treesz,
         min_impurity_split, init_val, d_sparsenodes, d_nodelist);
   } else {
     const T *d_question_ptr = tempmem->d_quantile->data();
     size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
-    best_split_gather_classification_kernel<T, QuantileQues<T>, FDEV>
-      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+    best_split_gather_classification_kernel<T, QuantileQues<T>, FDEV, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
         d_samplelist, n_nodes, n_unique_labels, nbins, nrows, Ncols,
         ncols_sampled, treesz, min_impurity_split, d_sparsenodes, d_nodelist);
@@ -362,7 +363,7 @@ void make_leaf_gather_classification(
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   size_t shmemsz = n_unique_labels * sizeof(int);
   make_leaf_gather_classification_kernel<T, FDEV>
-    <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+    <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
       labels, nodestart, samplelist, n_unique_labels, d_sparsenodes, nodelist);
   CUDA_CHECK(cudaGetLastError());
 }
