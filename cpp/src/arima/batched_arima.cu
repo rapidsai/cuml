@@ -182,13 +182,17 @@ static void _finalize_forecast(cumlHandle& handle, double* d_fc,
   }
 }
 
+/// TODO: remove one of the two residual() versions
+
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              const double* d_params, double* d_vs, bool trans) {
+              const double* d_params, double* d_vs, bool trans, int fc_steps,
+              double* d_fc) {
   ML::PUSH_RANGE(__func__);
   std::vector<double> loglike = std::vector<double>(batch_size);
   batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
-                  intercept, d_params, loglike.data(), d_vs, trans);
+                  intercept, d_params, loglike.data(), d_vs, trans, true,
+                  fc_steps, d_fc);
   ML::POP_RANGE();
 }
 
@@ -196,12 +200,12 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
               const double* d_mu, const double* d_ar, const double* d_ma,
               const double* d_sar, const double* d_sma, double* d_vs,
-              bool trans) {
+              bool trans, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE(__func__);
   std::vector<double> loglike = std::vector<double>(batch_size);
   batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
                   intercept, d_mu, d_ar, d_ma, d_sar, d_sma, loglike.data(),
-                  d_vs, trans);
+                  d_vs, trans, true, fc_steps, d_fc);
   ML::POP_RANGE();
 }
 
@@ -228,9 +232,18 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, d, D, s, intercept,
                 d_mu);
 
-  // Compute the residual - provide already prepared data and parameters
+  // Create temporary array for the forecasts
+  int num_steps = std::max(end - n_obs, 0);
+  double* d_y_fc = nullptr;
+  if (num_steps) {
+    d_y_fc = (double*)allocator->allocate(
+      num_steps * batch_size * sizeof(double), stream);
+  }
+
+  // Compute the residual and forecast - provide already prepared data and
+  // extracted parameters
   residual(handle, d_y_prep, batch_size, n_obs - d_sD, p, 0, q, P, 0, Q, s, 0,
-           nullptr, d_ar, d_ma, d_sar, d_sma, d_vs, false);
+           nullptr, d_ar, d_ma, d_sar, d_sma, d_vs, false, num_steps, d_y_fc);
 
   auto counting = thrust::make_counting_iterator(0);
   int predict_ld = end - start;
@@ -275,78 +288,16 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   }
 
   //
-  // Out-of-sample forecasting
+  // Finalize out-of-sample forecast and copy in-sample predictions
   //
 
-  int num_steps = end - n_obs;
-  if (num_steps >= 0) {
-    int p_sP = p + s * P;
-    int q_sQ = q + s * Q;
-
-    // Copy data into temporary work arrays
-    double* d_y_ =
-      (double*)allocator->allocate((p_sP + num_steps) * batch_size, stream);
-    double* d_vs_ =
-      (double*)allocator->allocate((q_sQ + num_steps) * batch_size, stream);
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       if (p_sP) {
-                         for (int ip = 0; ip < p_sP; ip++) {
-                           d_y_[(p_sP + num_steps) * bid + ip] =
-                             d_y_prep[ld_yprep * bid + ld_yprep - p_sP + ip] -
-                             d_vs[ld_yprep * bid + ld_yprep - p_sP + ip];
-                         }
-                       }
-                       if (q_sQ) {
-                         for (int iq = 0; iq < q_sQ; iq++) {
-                           d_vs_[(q_sQ + num_steps) * bid + iq] =
-                             d_vs[ld_yprep * bid + ld_yprep - q_sQ + iq];
-                         }
-                       }
-                     });
-
-    // Temporary array for the forecasts
-    double* d_y_fc = (double*)allocator->allocate(
-      num_steps * batch_size * sizeof(double), stream);
-
-    thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + batch_size,
-      [=] __device__(int bid) {
-        for (int i = 0; i < num_steps; i++) {
-          double l_fc = 0.0;
-          if (p_sP) {
-            double dot_ar_y = 0.0;
-            for (int ip = 0; ip < p_sP; ip++) {
-              double coef =
-                reduced_polynomial<true>(bid, d_ar, p, d_sar, P, s, ip + 1);
-              if (coef != 0.0)
-                dot_ar_y += coef * d_y_[(p_sP + num_steps) * bid + i + ip];
-            }
-            l_fc = dot_ar_y;
-          }
-          if (i < q_sQ) {
-            double dot_ma_y = 0.0;
-            for (int iq = 0; iq < q_sQ; iq++) {
-              double coef =
-                reduced_polynomial<false>(bid, d_ma, q, d_sma, Q, s, iq + 1);
-              if (coef != 0.0)
-                dot_ma_y += coef * d_vs_[(q_sQ + num_steps) * bid + i + iq];
-            }
-            l_fc += dot_ma_y;
-          }
-          if (p_sP) {
-            d_y_[(p_sP + num_steps) * bid + i + p_sP] = l_fc;
-          }
-          d_y_fc[num_steps * bid + i] = l_fc;
-        }
-      });
-
+  if (num_steps) {
     // Add trend and/or undiff
     _finalize_forecast(handle, d_y_fc, predict_temp, num_steps, batch_size,
                        in_sample_ld, n_obs - in_sample_start, d, D, s,
                        intercept, d_mu);
 
-    // Copy out-of-sample prediction in d_y_p (TODO: avoid this copy?)
+    // Copy forecast in d_y_p
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
                        for (int i = 0; i < num_steps; i++) {
@@ -390,9 +341,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int intercept, const double* d_mu, const double* d_ar,
                      const double* d_ma, const double* d_sar,
                      const double* d_sma, double* loglike, double* d_vs,
-                     bool trans, bool host_loglike) {
-  using std::get;
-
+                     bool trans, bool host_loglike, int fc_steps,
+                     double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   auto allocator = handle.getDeviceAllocator();
@@ -418,7 +368,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
   if (d + D + intercept == 0) {
     batched_kalman_filter(handle, d_y, n_obs, d_Tar, d_Tma, d_Tsar, d_Tsma, p,
-                          q, P, Q, s, batch_size, loglike, d_vs);
+                          q, P, Q, s, batch_size, loglike, d_vs, host_loglike,
+                          false, fc_steps, d_fc);
   } else {
     double* d_y_prep = (double*)allocator->allocate(
       batch_size * (n_obs - d - s * D) * sizeof(double), stream);
@@ -427,7 +378,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                   d_mu);
 
     batched_kalman_filter(handle, d_y_prep, n_obs - d, d_Tar, d_Tma, d_Tsar,
-                          d_Tsma, p, q, P, Q, s, batch_size, loglike, d_vs);
+                          d_Tsma, p, q, P, Q, s, batch_size, loglike, d_vs,
+                          host_loglike, false, fc_steps, d_fc);
 
     allocator->deallocate(
       d_y_prep, sizeof(double) * batch_size * (n_obs - d - s * D), stream);
@@ -440,7 +392,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, int p, int d, int q, int P, int D, int Q, int s,
                      int intercept, const double* d_params, double* loglike,
-                     double* d_vs, bool trans, bool host_loglike) {
+                     double* d_vs, bool trans, bool host_loglike, int fc_steps,
+                     double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   // unpack parameters
@@ -454,7 +407,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
   batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
                   intercept, d_mu, d_ar, d_ma, d_sar, d_sma, loglike, d_vs,
-                  trans, host_loglike);
+                  trans, host_loglike, fc_steps, d_fc);
 
   deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_ar, d_ma,
                     d_sar, d_sma, intercept, d_mu);
@@ -477,7 +430,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
 
   /* Compute log-likelihood in d_ic */
   batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
-                  intercept, d_mu, d_ar, d_ma, d_sar, d_sma, d_ic, d_vs, true,
+                  intercept, d_mu, d_ar, d_ma, d_sar, d_sma, d_ic, d_vs, false,
                   false);
 
   /* Compute information criterion from log-likelihood and base term */
