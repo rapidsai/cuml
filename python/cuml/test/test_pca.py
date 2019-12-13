@@ -21,6 +21,7 @@ from cuml.test.utils import get_handle, array_equal, unit_param, \
     quality_param, stress_param
 
 from sklearn import datasets
+from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
 from sklearn.datasets.samples_generator import make_blobs
 
@@ -28,7 +29,7 @@ from sklearn.datasets.samples_generator import make_blobs
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('digits'),
                          stress_param('blobs')])
 def test_pca_fit(datatype, input_type, name, use_handle):
 
@@ -37,13 +38,15 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
 
-    elif name == 'iris':
-        iris = datasets.load_iris()
-        X = iris.data
+    elif name == 'digits':
+        X, _ = datasets.load_digits(return_X_y=True)
 
     else:
-        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                     dtype=datatype)
+        X, Y = make_multilabel_classification(n_samples=500,
+                                              n_classes=2,
+                                              n_labels=1,
+                                              allow_unlabeled=False,
+                                              random_state=1)
 
     skpca = skPCA(n_components=2)
     skpca.fit(X)
@@ -54,7 +57,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
     cupca.handle.sync()
 
     for attr in ['singular_values_', 'components_', 'explained_variance_',
-                 'explained_variance_ratio_', 'noise_variance_']:
+                 'explained_variance_ratio_']:
         with_sign = False if attr in ['components_'] else True
         print(attr)
         print(getattr(cupca, attr))
@@ -63,7 +66,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         if type(cuml_res) == np.ndarray:
             cuml_res = cuml_res.as_matrix()
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
+        assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -82,8 +85,11 @@ def test_pca_fit_then_transform(datatype, input_type,
         X = iris.data
 
     else:
-        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                     dtype=datatype)
+        X, Y = make_multilabel_classification(n_samples=500,
+                                              n_classes=2,
+                                              n_labels=1,
+                                              allow_unlabeled=False,
+                                              random_state=1)
 
     if name != 'blobs':
         skpca = skPCA(n_components=2)
@@ -115,8 +121,11 @@ def test_pca_fit_transform(datatype, input_type,
         X = iris.data
 
     else:
-        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                     dtype=datatype)
+        X, Y = make_multilabel_classification(n_samples=500,
+                                              n_classes=2,
+                                              n_labels=1,
+                                              allow_unlabeled=False,
+                                              random_state=1)
 
     if name != 'blobs':
         skpca = skPCA(n_components=2)
@@ -135,30 +144,29 @@ def test_pca_fit_transform(datatype, input_type,
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('quality'),
                          stress_param('blobs')])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000)])
 def test_pca_inverse_transform(datatype, input_type,
-                               name, use_handle):
+                               name, use_handle, nrows):
     if name == 'blobs':
         pytest.skip('fails when using blobs dataset')
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
 
-    elif name == 'iris':
-        iris = datasets.load_iris()
-        X = iris.data
-
     else:
-        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                     dtype=datatype)
+        rng = np.random.RandomState(0)
+        n, p = nrows, 3
+        X = rng.randn(n, p)  # spherical data
+        X[:, 1] *= .00001  # make middle component relatively small
+        X += [3, 4, 2]  # make a large mean
 
     handle, stream = get_handle(use_handle)
     cupca = cuPCA(n_components=2, handle=handle)
 
     X_cupca = cupca.fit_transform(X)
 
-    input_gdf = cupca.inverse_transform(X_cupca)
+    input_gdf = cupca.inverse_transform(X_cupca).to_pandas().values
     cupca.handle.sync()
-
     assert array_equal(input_gdf, X,
-                       1e-0, with_sign=True)
+                       5e-5, with_sign=True)

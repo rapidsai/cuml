@@ -18,13 +18,12 @@ from dask.distributed import default_client
 from toolz import first
 from uuid import uuid1
 import dask.dataframe as dd
-from collections import OrderedDict
 
 from dask.distributed import wait
 
 
 @gen.coroutine
-def extract_ddf_partitions(ddf, client=None):
+def extract_ddf_partitions(ddf, client=None, agg=True):
     """
     Given a Dask cuDF, return an OrderedDict mapping
     'worker -> [list of futures]' for each partition in ddf.
@@ -47,14 +46,10 @@ def extract_ddf_partitions(ddf, client=None):
         worker = first(workers)
         worker_map[key_to_part_dict[key]] = worker
 
-    # Ensure that partitions in each list have the
-    # same order as the input 'parts' list
-    worker_to_parts = OrderedDict()
+    worker_to_parts = []
     for part in parts:
         worker = worker_map[part]
-        if worker not in worker_to_parts:
-            worker_to_parts[worker] = []
-        worker_to_parts[worker].append(part)
+        worker_to_parts.append((worker, part))
 
     yield wait(worker_to_parts)
     raise gen.Return(worker_to_parts)

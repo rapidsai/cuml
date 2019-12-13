@@ -47,10 +47,10 @@ noise = [3.5]
 @pytest.mark.parametrize('random_state', random_state)
 @pytest.mark.parametrize('bias', bias)
 @pytest.mark.parametrize('noise', noise)
-def test_make_blobs_scalar_parameters(dtype, n_samples, n_features,
-                                      n_informative, n_targets, shuffle, coef,
-                                      effective_rank, random_state, bias,
-                                      noise):
+def test_make_regression(dtype, n_samples, n_features,
+                         n_informative, n_targets, shuffle, coef,
+                         effective_rank, random_state, bias,
+                         noise):
 
     result = cuml.make_regression(n_samples=n_samples, n_features=n_features,
                                   n_informative=n_informative,

@@ -31,6 +31,9 @@ namespace fil {
 
 /** Inference algorithm to use. */
 enum algo_t {
+  /** choose the algorithm automatically; currently chooses NAIVE for sparse forests 
+      and BATCH_TREE_REORG for dense ones */
+  ALGO_AUTO,
   /** naive algorithm: 1 thread block predicts 1 row; the row is cached in
       shared memory, and the trees are distributed cyclically between threads */
   NAIVE,
@@ -70,6 +73,16 @@ enum output_t {
   THRESHOLD = 0x100,
 };
 
+/** storage_type_t defines whether to import the forests as dense or sparse */
+enum storage_type_t {
+  /** decide automatically; currently always builds dense forests */
+  AUTO,
+  /** import the forest as dense */
+  DENSE,
+  /** import the forest as sparse */
+  SPARSE
+};
+
 /** dense_node_t is a node in a densely-stored forest */
 struct dense_node_t {
   float val;
@@ -81,6 +94,9 @@ struct sparse_node_t {
   float val;
   int bits;
   int left_idx;
+  // pad the size to 16 bytes to match sparse_node
+  // (in cpp/src/fil/common.cuh)
+  int dummy;
 };
 
 /** dense_node_init initializes node from paramters */
@@ -138,6 +154,8 @@ struct treelite_params_t {
   // threshold is used for thresholding if output_class == true,
   // and is ignored otherwise
   float threshold;
+  // storage_type indicates whether the forest should be imported as dense or sparse
+  storage_type_t storage_type;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf

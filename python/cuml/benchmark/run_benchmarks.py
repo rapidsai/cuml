@@ -15,7 +15,7 @@
 #
 """Command-line ML benchmark runner"""
 
-from cuml.benchmark import algorithms, runners
+from cuml.benchmark import algorithms, datagen, runners
 import numpy as np
 import json
 
@@ -52,6 +52,7 @@ def extract_param_overrides(params_to_sweep):
 
 if __name__ == '__main__':
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(
         prog='run_benchmarks',
@@ -103,6 +104,13 @@ if __name__ == '__main__':
         default=2,
         help='Number of different sizes to test',
     )
+    parser.add_argument(
+        '--num-rows',
+        type=int,
+        default=None,
+        metavar='N',
+        help='Shortcut for --min-rows N --max-rows N --num-sizes 1'
+    )
     parser.add_argument('--num-features', type=int, default=-1)
     parser.add_argument(
         '--quiet', '-q', action='store_false', dest='verbose', default=True
@@ -111,6 +119,12 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='blobs')
     parser.add_argument('--skip-cpu', action='store_true')
     parser.add_argument('--input-type', default='numpy')
+    parser.add_argument(
+        '--test-split',
+        default=0.1,
+        type=float,
+        help='Fraction of input data used for testing (between 0.0 and 1.0)',
+    )
     parser.add_argument(
         '--input-dimensions',
         default=[64, 256, 512],
@@ -143,11 +157,40 @@ if __name__ == '__main__':
         help='Throw exception on a failed benchmark',
     )
     parser.add_argument(
+        '--print-algorithms',
+        action='store_true',
+        help='Print the list of all available algorithms and exit',
+    )
+    parser.add_argument(
+        '--print-datasets',
+        action='store_true',
+        help='Print the list of all available datasets and exit',
+    )
+    parser.add_argument(
         'algorithms',
         nargs='*',
         help='List of algorithms to run, or omit to run all',
     )
+    parser.add_argument(
+        '--n-reps',
+        type=int,
+        default=1)
     args = parser.parse_args()
+
+    if args.print_algorithms:
+        for algo in algorithms.all_algorithms():
+            print(algo.name)
+        sys.exit()
+
+    if args.print_datasets:
+        for dataset in datagen.all_datasets().keys():
+            print(dataset)
+        sys.exit()
+
+    if not 0.0 <= args.test_split <= 1.0:
+        raise ValueError(
+            "test_split: got %f, want a value between 0.0 and 1.0" %
+            args.test_split)
 
     bench_rows = np.logspace(
         np.log10(args.min_rows),
@@ -155,7 +198,11 @@ if __name__ == '__main__':
         num=args.num_sizes,
         dtype=np.int32,
     )
+
     bench_dims = args.input_dimensions
+
+    if args.num_rows is not None:
+        bench_rows = [args.num_rows]
 
     if args.num_features > 0:
         bench_dims = [args.num_features]
@@ -183,10 +230,12 @@ if __name__ == '__main__':
         bench_rows=bench_rows,
         bench_dims=bench_dims,
         input_type=args.input_type,
+        test_fraction=args.test_split,
         param_override_list=param_override_list,
         cuml_param_override_list=cuml_param_override_list,
         run_cpu=(not args.skip_cpu),
-        raise_on_error=args.raise_on_error
+        raise_on_error=args.raise_on_error,
+        n_reps=args.n_reps
     )
 
     if args.csv:

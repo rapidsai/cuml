@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
+
+import rmm
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
@@ -23,37 +24,108 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from sklearn.datasets.samples_generator import make_blobs
+import cudf
+import pandas as pd
+import numpy as np
+
+import scipy.stats as stats
 
 
-@pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('feature_info', [unit_param([3, 3]),
-                         quality_param([100, 30]),
-                         stress_param([1000, 50])])
-def test_knn(input_type, nrows, feature_info):
-    n_feats, k = feature_info
-    n_samples = nrows
+def predict(neigh_ind, _y, n_neighbors):
+
+    neigh_ind = neigh_ind.astype(np.int32)
+
+    ypred, count = stats.mode(_y[neigh_ind], axis=1)
+    return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
+
+
+@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
+@pytest.mark.parametrize("nrows", [500, 1000, 10000])
+@pytest.mark.parametrize("ncols", [100, 1000])
+@pytest.mark.parametrize("n_neighbors", [10, 50])
+@pytest.mark.parametrize("n_clusters", [2, 10])
+def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
+                                  datatype):
+
+    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
+                      n_features=ncols, random_state=0)
+
+    X = X.astype(np.float32)
+
+    if datatype == "dataframe":
+        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+
+    knn_cu = cuKNN()
+    knn_cu.fit(X)
+    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
+                                  return_distance=False)
+
+    if datatype == "dataframe":
+        assert isinstance(neigh_ind, cudf.DataFrame)
+        neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
+    else:
+        assert isinstance(neigh_ind, np.ndarray)
+
+    labels, probs = predict(neigh_ind, y, n_neighbors)
+
+    assert array_equal(labels, y)
+
+
+def test_return_dists():
+    n_samples = 50
+    n_feats = 50
+    k = 5
+
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
 
     knn_cu = cuKNN()
+    knn_cu.fit(X)
 
+    ret = knn_cu.kneighbors(X, k, return_distance=False)
+    assert not isinstance(ret, tuple)
+    assert ret.shape == (n_samples, k)
+
+    ret = knn_cu.kneighbors(X, k, return_distance=True)
+    assert isinstance(ret, tuple)
+    assert len(ret) == 2
+
+
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('k', [unit_param(3), quality_param(30),
+                         stress_param(50)])
+def test_cuml_against_sklearn(input_type, nrows, n_feats, k):
+    X, _ = make_blobs(n_samples=nrows,
+                      n_features=n_feats, random_state=0)
+
+    knn_sk = skKNN(metric="euclidean")
+    knn_sk.fit(X)
+    D_sk, I_sk = knn_sk.kneighbors(X, k)
+
+    if input_type == "dataframe":
+        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
+
+    knn_cu = cuKNN()
     knn_cu.fit(X)
     D_cuml, I_cuml = knn_cu.kneighbors(X, k)
-    assert type(D_cuml) == np.ndarray
-    assert type(I_cuml) == np.ndarray
 
-    D_cuml_arr = D_cuml
-    I_cuml_arr = I_cuml
+    if input_type == "dataframe":
+        assert isinstance(D_cuml, cudf.DataFrame)
+        assert isinstance(I_cuml, cudf.DataFrame)
+        D_cuml_arr = D_cuml.as_gpu_matrix().copy_to_host()
+        I_cuml_arr = I_cuml.as_gpu_matrix().copy_to_host()
+    else:
+        assert isinstance(D_cuml, np.ndarray)
+        assert isinstance(I_cuml, np.ndarray)
+        D_cuml_arr = D_cuml
+        I_cuml_arr = I_cuml
 
-    if nrows < 500000:
-        knn_sk = skKNN(metric="l2")
-        knn_sk.fit(X)
-        D_sk, I_sk = knn_sk.kneighbors(X, k)
-
-        assert array_equal(D_cuml_arr, np.square(D_sk), 1e-2, with_sign=True)
-        assert I_cuml_arr.all() == I_sk.all()
+    assert array_equal(D_cuml_arr, D_sk, 1e-2, with_sign=True)
+    assert I_cuml_arr.all() == I_sk.all()
 
 
 def test_knn_fit_twice():
@@ -81,21 +153,25 @@ def test_knn_fit_twice():
 
 
 @pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
     X, y = make_blobs(n_samples=nrows,
                       n_features=n_feats, random_state=0)
 
     knn_cu = cuKNN()
+    if input_type == 'dataframe':
+        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X_pd)
+        knn_cu.fit(X_cudf, convert_dtype=True)
 
     with pytest.raises(Exception):
-        knn_cu.fit(X, should_downcast=False)
+        knn_cu.fit(X, convert_dtype=False)
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
     knn_cu = cuKNN()
     with pytest.raises(Exception):
-        knn_cu.fit(X, should_downcast=True)
+        knn_cu.fit(X, convert_dtype=False)

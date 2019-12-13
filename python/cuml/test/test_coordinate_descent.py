@@ -30,9 +30,9 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('X_type', ['ndarray'])
 @pytest.mark.parametrize('alpha', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
 def test_lasso(datatype, X_type, alpha, algorithm,
@@ -64,10 +64,10 @@ def test_lasso(datatype, X_type, alpha, algorithm,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 def test_lasso_default(datatype, nrows, column_info):
 
@@ -96,9 +96,9 @@ def test_lasso_default(datatype, nrows, column_info):
 @pytest.mark.parametrize('X_type', ['ndarray'])
 @pytest.mark.parametrize('alpha', [0.2, 0.7])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
 def test_elastic_net(datatype, X_type, alpha, algorithm,
@@ -132,10 +132,10 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('column_info', [unit_param([3, 2]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 def test_elastic_net_default(datatype, nrows, column_info):
 

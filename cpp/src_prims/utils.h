@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/common/utils.hpp>
 #include <chrono>
+#include <cuml/common/utils.hpp>
 #include <iostream>
 
 namespace MLCommon {

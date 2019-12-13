@@ -156,7 +156,7 @@ class DBSCAN(Base):
         DBSCAN's main benefit is that the number of clusters is not a
         hyperparameter, and that it can find non-linearly shaped clusters.
         This also allows DBSCAN to be robust to noise.
-        DBSCAN has been applied to analyzing particle collisons in the
+        DBSCAN has been applied to analyzing particle collisions in the
         Large Hadron Collider, customer segmentation in marketing analyses,
         and much more.
 

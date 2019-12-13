@@ -114,10 +114,11 @@ static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
                                         const IdxT* perms, IdxT n_rows,
                                         IdxT n_cols) {
   IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;
-  const DataT* row_in = in + n_cols * perms[tid];
-  DataT* row_out = out + n_cols * tid;
 
   if (tid < n_rows) {
+    const DataT* row_in = in + n_cols * perms[tid];
+    DataT* row_out = out + n_cols * tid;
+
     for (IdxT i = 0; i < n_cols; i++) {
       row_out[i] = row_in[i];
     }

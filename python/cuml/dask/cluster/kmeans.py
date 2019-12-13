@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
+from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
+    workers_to_parts, raise_mg_import_exception
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
@@ -95,22 +96,20 @@ class KMeans(object):
         self.kwargs = kwargs
 
     @staticmethod
-    def func_fit(sessionId, dfs, **kwargs):
+    def _func_fit(sessionId, dfs, **kwargs):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
         :param model: Local KMeans instance
         :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoizatiion caching
+        :param r: Stops memoization caching
         :return: The fit model
         """
 
         try:
             from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         except ImportError:
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
+            raise_mg_import_exception()
 
         handle = worker_state(sessionId)["handle"]
 
@@ -119,7 +118,7 @@ class KMeans(object):
         return cumlKMeans(handle=handle, **kwargs).fit(df)
 
     @staticmethod
-    def func_transform(model, dfs):
+    def _func_transform(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -132,7 +131,7 @@ class KMeans(object):
         return model.transform(df)
 
     @staticmethod
-    def func_predict(model, dfs):
+    def _func_predict(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -144,7 +143,7 @@ class KMeans(object):
         return model.predict(df)
 
     @staticmethod
-    def func_score(model, dfs):
+    def _func_score(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
         :param model: Local KMeans instance
@@ -172,20 +171,22 @@ class KMeans(object):
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        workers = list(map(lambda x: x[0], gpu_futures.items()))
+        worker_to_parts = workers_to_parts(gpu_futures)
+
+        workers = list(map(lambda x: x[0], worker_to_parts.items()))
 
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
         key = uuid1()
         kmeans_fit = [self.client.submit(
-            KMeans.func_fit,
+            KMeans._func_fit,
             comms.sessionId,
             wf[1],
             **self.kwargs,
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(gpu_futures.items())]
+            for idx, wf in enumerate(worker_to_parts.items())]
 
         wait(kmeans_fit)
         self.raise_exception_from_futures(kmeans_fit)
@@ -206,13 +207,15 @@ class KMeans(object):
 
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        worker_to_parts = workers_to_parts(gpu_futures)
+
         kmeans_predict = [self.client.submit(
             func,
             self.local_model,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(gpu_futures.items())]
+            for idx, wf in enumerate(worker_to_parts.items())]
         self.raise_exception_from_futures(kmeans_predict)
 
         return to_dask_cudf(kmeans_predict)
@@ -223,7 +226,7 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.parallel_func(X, KMeans.func_predict)
+        return self.parallel_func(X, KMeans._func_predict)
 
     def fit_predict(self, X):
         return self.fit(X).predict(X)
@@ -234,7 +237,7 @@ class KMeans(object):
         :param X: dask_cudf.Dataframe to predict
         :return: A dask_cudf.Dataframe containing label predictions
         """
-        return self.parallel_func(X, KMeans.func_transform)
+        return self.parallel_func(X, KMeans._func_transform)
 
     def fit_transform(self, X):
         """
@@ -248,13 +251,14 @@ class KMeans(object):
 
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
+        worker_to_parts = workers_to_parts(gpu_futures)
         scores = [self.client.submit(
-            KMeans.func_score,
+            KMeans._func_score,
             self.local_model,
             wf[1],
             workers=[wf[0]],
             key="%-%s" % (key, idx)).result()
-                  for idx, wf in enumerate(gpu_futures.items())]
+                  for idx, wf in enumerate(worker_to_parts.items())]
         self.raise_exception_from_futures(scores)
 
         return np.sum(scores)
