@@ -1,10 +1,10 @@
 # cuML 0.12.0 (Date TBD)
 
 ## New Features
+- PR #1483: prims: Fused L2 distance and nearest-neighbor prim
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
-
 - PR #1463: Update FAISS submodule to 1.6.1
 
 ## Bug Fixes
