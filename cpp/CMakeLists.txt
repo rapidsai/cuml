@@ -19,7 +19,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.11.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.12.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -124,6 +124,9 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+set(Protobuf_USE_STATIC_LIBS ON)
+find_package(Protobuf REQUIRED)
+
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
@@ -149,7 +152,6 @@ set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
 
 set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
-
 
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
@@ -280,7 +282,7 @@ add_dependencies(cutlass cub)
 
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           656368b5eda4d376177a3355673d217fa95000b6
+  GIT_TAG           v1.6.1
   CONFIGURE_COMMAND LIBS=-pthread
                     CPPFLAGS=-w
                     LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
@@ -316,7 +318,10 @@ ExternalProject_Add(treelite
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                      -DENABLE_PROTOBUF=ON
+                      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
     UPDATE_COMMAND    ""
+    PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
 )
 
 add_dependencies(treelite faiss)
@@ -341,7 +346,7 @@ include_directories(
   src
   src_prims
   test/prims
-  ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+  ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
@@ -386,9 +391,12 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/ws_util.cu
+    src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu
+    src/arima/batched_kalman.cu
+    src/arima/batched_arima.cu
     )
 
   set(CUML_LINK_LIBRARIES
@@ -399,6 +407,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
+    ${Protobuf_LIBRARIES}
     treelitelib
     dmlclib
     faisslib

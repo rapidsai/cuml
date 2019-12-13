@@ -19,9 +19,11 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import pprint
+
 from cuml.solvers import QN
 from cuml.common.base import Base
-
+from cuml.metrics.accuracy import accuracy_score
 from cuml.utils import input_to_dev_array
 from cuml.utils.cupy_utils import checked_cupy_unique
 
@@ -48,6 +50,7 @@ class LogisticRegression(Base):
     - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
     regularization
     - Limited Memory BFGS (L-BFGS) otherwise.
+
 
     Note that, just like in Scikit-learn, the bias will not be regularized.
 
@@ -87,6 +90,7 @@ class LogisticRegression(Base):
     Output:
 
     .. code-block:: python
+
         Coefficients:
                     0.22309814
                     0.21012752
@@ -115,14 +119,17 @@ class LogisticRegression(Base):
         Custom class weighs are currently not supported.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
-    verbose: bool (optional, default False)
-        Controls verbosity of logging.
+    linesearch_max_iter: int (default = 50)
+        Max number of linesearch iterations per outer iteration used in the
+        lbfgs and owl QN solvers.
+    verbose: int (optional, default 0)
+        Controls verbosity level of logging.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver: 'qn', 'lbfgs', 'owl' (default=qn).
         Algorithm to use in the optimization problem. Currently only `qn` is
         supported, which automatically selects either L-BFGS or OWL-QN
-        depending on the condictions of the l1 regularization described
+        depending on the conditions of the l1 regularization described
         above. Options 'lbfgs' and 'owl' are just convenience values that
         end up using the same solver following the same rules.
 
@@ -147,10 +154,11 @@ class LogisticRegression(Base):
     """
 
     def __init__(self, penalty='l2', tol=1e-4, C=1.0, fit_intercept=True,
-                 class_weight=None, max_iter=1000, verbose=0, l1_ratio=None,
-                 solver='qn', handle=None):
+                 class_weight=None, max_iter=1000, linesearch_max_iter=50,
+                 verbose=0, l1_ratio=None, solver='qn', handle=None):
 
-        super(LogisticRegression, self).__init__(handle=handle, verbose=False)
+        super(LogisticRegression, self).__init__(handle=handle,
+                                                 verbose=verbose)
 
         if class_weight:
             raise ValueError("`class_weight` not supported.")
@@ -166,8 +174,8 @@ class LogisticRegression(Base):
         self.penalty = penalty
         self.tol = tol
         self.fit_intercept = fit_intercept
-        self.verbose = verbose
         self.max_iter = max_iter
+        self.linesearch_max_iter = linesearch_max_iter
         if self.penalty == 'elasticnet':
             if l1_ratio is None:
                 raise ValueError("l1_ratio has to be specified for"
@@ -176,6 +184,38 @@ class LogisticRegression(Base):
                 msg = "l1_ratio value has to be between 0.0 and 1.0"
                 raise ValueError(msg.format(l1_ratio))
             self.l1_ratio = l1_ratio
+
+        if self.penalty == 'none':
+            l1_strength = 0.0
+            l2_strength = 0.0
+
+        elif self.penalty == 'l1':
+            l1_strength = 1.0 / self.C
+            l2_strength = 0.0
+
+        elif self.penalty == 'l2':
+            l1_strength = 0.0
+            l2_strength = 1.0 / self.C
+
+        else:
+            strength = 1.0 / self.C
+            l1_strength = self.l1_ratio * strength
+            l2_strength = (1.0 - self.l1_ratio) * strength
+
+        loss = 'sigmoid'
+
+        self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
+                     l1_strength=l1_strength, l2_strength=l2_strength,
+                     max_iter=self.max_iter,
+                     linesearch_max_iter=self.linesearch_max_iter,
+                     tol=self.tol, verbose=self.verbose, handle=self.handle)
+
+        if self.verbose > 1:
+            self.verb_prefix = "CY::"
+            print(self.verb_prefix + "Estimator parameters:")
+            pprint.pprint(self.__dict__)
+        else:
+            self.verb_prefix = ""
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -213,36 +253,32 @@ class LogisticRegression(Base):
         else:
             loss = 'sigmoid'
 
-        if self.penalty == 'none':
-            l1_strength = 0.0
-            l2_strength = 0.0
+        if self.verbose > 0:
+            print(self.verb_prefix + "Setting loss to " + str(loss))
 
-        elif self.penalty == 'l1':
-            l1_strength = 1.0 / self.C
-            l2_strength = 0.0
+        self.qn.loss = loss
 
-        elif self.penalty == 'l2':
-            l1_strength = 0.0
-            l2_strength = 1.0 / self.C
-
-        else:
-            strength = 1.0 / self.C
-            l1_strength = self.l1_ratio * strength
-            l2_strength = (1.0 - self.l1_ratio) * strength
-
-        self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
-                     l1_strength=l1_strength, l2_strength=l2_strength,
-                     max_iter=self.max_iter, tol=self.tol,
-                     verbose=self.verbose, handle=self.handle)
+        if self.verbose > 0:
+            print(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
+        if self.verbose > 0:
+            print(self.verb_prefix + "Setting coefficients " + str(loss))
+
         if self.fit_intercept:
             self.coef_ = self.qn.coef_[0:-1]
             self.intercept_ = self.qn.coef_[-1]
         else:
             self.coef_ = self.qn.coef_
+
+        if self.verbose > 2:
+            print(self.verb_prefix + "Coefficients: " +
+                  self.coef_.copy_to_host())
+            if self.fit_intercept:
+                print(self.verb_prefix + "Intercept: " +
+                      self.intercept_.copy_to_host())
 
         return self
 
@@ -269,3 +305,21 @@ class LogisticRegression(Base):
 
         """
         return self.qn.predict(X, convert_dtype=convert_dtype)
+
+    def score(self, X, y, convert_dtype=False):
+        """
+        Calculates the accuracy metric score of the model for X.
+
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Observations for which labels score will be calculated.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Ground truth labels to compare predictions to for the score.
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        """
+        return accuracy_score(y, self.predict(X), handle=self.handle)

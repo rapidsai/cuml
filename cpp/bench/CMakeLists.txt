@@ -59,6 +59,7 @@ add_executable(${CUML_SG_BENCH_TARGET}
   sg/kmeans.cu
   sg/main.cpp
   sg/rf_classifier.cu
+  sg/rf_regressor.cu
   )
 
 add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})

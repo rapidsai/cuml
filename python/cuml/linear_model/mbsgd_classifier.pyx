@@ -30,6 +30,7 @@ class MBSGDClassifier:
     Examples
     ---------
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.linear_model import MBSGDClassifier as cumlMBSGDClassifier
@@ -52,8 +53,11 @@ class MBSGDClassifier:
         print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
         print(" cuML coef : ", cu_mbsgd_classifier.coef_)
         print("cuML predictions : ", cu_pred)
+
     Output:
+
     .. code-block:: python
+
         cuML intercept :  0.7150013446807861
         cuML coef :  0    0.27320495
                     1     0.1875956
@@ -125,6 +129,7 @@ class MBSGDClassifier:
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
         self.handle = handle
+        self.cu_mbsgd_classifier = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -147,7 +152,6 @@ class MBSGDClassifier:
             will increase memory used for the method.
         """
 
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
         self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_

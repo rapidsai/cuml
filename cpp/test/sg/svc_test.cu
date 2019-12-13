@@ -23,6 +23,7 @@
 #include <cub/cub.cuh>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 #include "common/cumlHandle.hpp"
 #include "linalg/binary_op.h"
@@ -447,6 +448,24 @@ struct smoOutput {
   std::vector<int> idx;
 };
 
+// If we want to compare decision function values too
+template <typename math_t>
+struct smoOutput2 {  //: smoOutput<math_t> {
+  int n_support;
+  std::vector<math_t> dual_coefs;
+  math_t b;
+  std::vector<math_t> w;
+  std::vector<math_t> x_support;
+  std::vector<int> idx;
+  std::vector<math_t> decision_function;
+};
+
+template <typename math_t>
+smoOutput<math_t> toSmoOutput(smoOutput2<math_t> x) {
+  smoOutput<math_t> y{x.n_support, x.dual_coefs, x.b, x.w, x.x_support, x.idx};
+  return y;
+}
+
 template <typename math_t>
 struct svmTol {
   math_t b;
@@ -716,41 +735,48 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest) {
 }
 
 TYPED_TEST(SmoSolverTest, SvcTest) {
-  std::vector<std::pair<svcInput<TypeParam>, smoOutput<TypeParam>>> data{
+  std::vector<std::pair<svcInput<TypeParam>, smoOutput2<TypeParam>>> data{
     {svcInput<TypeParam>{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, this->n_rows,
                          this->n_cols, this->x_dev, this->y_dev, true},
-     smoOutput<TypeParam>{4,
-                          {-0.6, 1, -1, 0.6},
-                          -1.8f,
-                          {-0.4, 1.2},
-                          {1, 1, 2, 2, 1, 2, 2, 3},
-                          {0, 2, 3, 5}}},
+     smoOutput2<TypeParam>{4,
+                           {-0.6, 1, -1, 0.6},
+                           -1.8f,
+                           {-0.4, 1.2},
+                           {1, 1, 2, 2, 1, 2, 2, 3},
+                           {0, 2, 3, 5},
+                           {-1.0, -1.4, 0.2, -0.2, 1.4, 1.0}}},
     {svcInput<TypeParam>{1, 1e-6, KernelParams{POLYNOMIAL, 3, 1, 0},
                          this->n_rows, this->n_cols, this->x_dev, this->y_dev,
                          true},
-     smoOutput<TypeParam>{3,
-                          {-0.03900895, 0.05904058, -0.02003163},
-                          -0.99999959,
-                          {},
-                          {1, 1, 2, 1, 2, 2},
-                          {0, 2, 3}}},
+     smoOutput2<TypeParam>{3,
+                           {-0.03900895, 0.05904058, -0.02003163},
+                           -0.99999959,
+                           {},
+                           {1, 1, 2, 1, 2, 2},
+                           {0, 2, 3},
+                           {-0.9996812, -2.60106647, 0.9998406, -1.0001594,
+                            6.49681105, 4.31951232}}},
     {svcInput<TypeParam>{10, 1e-6, KernelParams{TANH, 3, 0.3, 1.0},
                          this->n_rows, this->n_cols, this->x_dev, this->y_dev,
                          false},
-     smoOutput<TypeParam>{6,
-                          {-10., -10., 10., -10., 10., 10.},
-                          -0.3927505,
-                          {},
-                          {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
-                          {0, 1, 2, 3, 4, 5}}},
+     smoOutput2<TypeParam>{6,
+                           {-10., -10., 10., -10., 10., 10.},
+                           -0.3927505,
+                           {},
+                           {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
+                           {0, 1, 2, 3, 4, 5},
+                           {0.25670694, -0.16451539, 0.16451427, -0.1568888,
+                            -0.04496891, -0.2387212}}},
     {svcInput<TypeParam>{1, 1.0e-6, KernelParams{RBF, 0, 0.15, 0}, this->n_rows,
                          this->n_cols, this->x_dev, this->y_dev, true},
-     smoOutput<TypeParam>{6,
-                          {-1., -1, 1., -1., 1, 1.},
-                          0,
-                          {},
-                          {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
-                          {0, 1, 2, 3, 4, 5}}}};
+     smoOutput2<TypeParam>{6,
+                           {-1., -1, 1., -1., 1, 1.},
+                           0,
+                           {},
+                           {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3},
+                           {0, 1, 2, 3, 4, 5},
+                           {-0.71964003, -0.95941954, 0.13929202, -0.13929202,
+                            0.95941954, 0.71964003}}}};
 
   for (auto d : data) {
     auto p = d.first;
@@ -758,13 +784,18 @@ TYPED_TEST(SmoSolverTest, SvcTest) {
     SCOPED_TRACE(kernelName(p.kernel_params));
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
     svc.fit(p.x_dev, p.n_rows, p.n_cols, p.y_dev);
-    this->checkResults(svc.model, exp);
+    this->checkResults(svc.model, toSmoOutput(exp));
     device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
                                     this->stream, p.n_rows);
     if (p.predict) {
       svc.predict(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
       EXPECT_TRUE(devArrMatch(this->y_dev, y_pred.data(), p.n_rows,
                               CompareApprox<TypeParam>(1e-6f)));
+    }
+    if (exp.decision_function.size() > 0) {
+      svc.decisionFunction(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
+      EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(), y_pred.data(),
+                                  p.n_rows, CompareApprox<TypeParam>(1e-3f)));
     }
   }
 }
@@ -816,100 +847,6 @@ void make_blobs(math_t *x, math_t *y, int n_rows, int n_cols, int n_cluster,
   cast<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows,
                                                            y_int.data());
   CUDA_CHECK(cudaPeekAtLastError());
-}
-
-TYPED_TEST(SmoSolverTest, Blobs) {
-  std::vector<std::pair<blobInput, smoOutput<TypeParam>>> data{
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
-     smoOutput<TypeParam>{94, {}, 0.5694, {-0.59181675}, {}, {}}},
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2, 100},
-     smoOutput<TypeParam>{2, {0.00377128, -0.00377128}, 0.0392874, {}, {}, {}}},
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 100},
-     smoOutput<TypeParam>{
-       21,
-       {},
-       -0.027839,
-       {-0.01694475, -0.0058431,  -0.00540597, 0.03296302,  0.00389359,
-        0.02106245,  0.0039061,   -0.01332385, 0.00660107,  0.02471894,
-        -0.00449132, 0.0036424,   0.01026903,  0.02074523,  -0.01541529,
-        0.00959903,  -0.01748434, 0.00014968,  0.00110548,  -0.00965647,
-        0.00798169,  0.00621375,  0.01358159,  0.00528406,  0.01153438,
-        -0.01368673, -0.03216547, -0.00200592, 0.0120133,   0.00176928,
-        0.00642773,  0.01619464,  -0.00064005, 0.01400618,  0.01727131,
-        -0.02331973, 0.00197682,  -0.00378402, 0.00612855,  -0.02184831,
-        -0.00363246, -0.0127956,  0.02767534,  -0.00553812, -0.02225143,
-        0.02767332,  0.00623573,  -0.02094788, -0.02012747, 0.01102353,
-        0.00080433,  -0.0311776,  -0.01562613, -0.02279347, 0.02422357,
-        -0.00057321, -0.02881205, 0.00038414,  0.00919522,  0.00644822,
-        -0.02633642, -0.00157511, -0.00627405, -0.00604624, 0.0104084,
-        0.00264318,  0.00155375,  -0.00997641, 0.00110094,  0.01547085,
-        -0.00342524, -0.00329727, 0.00836803,  -0.00882695, -0.0022986,
-        0.0046427,   -0.0214064,  -0.01128186, 0.00787328,  -0.02030728,
-        -0.00835369, 0.0141688,   -0.01291866, 0.0155667,   -0.01748242,
-        -0.01181509, -0.00194211, -0.01517817, 0.01449254,  -0.00437902,
-        0.00218727,  0.01684742,  -0.00274239, 0.01743845,  0.02874734,
-        0.00412968,  0.00070507,  -0.00334403, 0.02057458,  -0.01662802},
-       {},
-       {}}},
-    {blobInput{1, 1e-3, KernelParams{LINEAR, 3, 1, 0}, 1000, 100},
-     smoOutput<TypeParam>{
-       34,
-       {},
-       0.0681913,
-       {-2.74771248e-02, -1.93489987e-03, -5.10868053e-03, 3.62352833e-02,
-        -4.95548876e-03, 2.12629716e-02,  7.24245748e-03,  -9.81239809e-03,
-        1.04116603e-02,  1.98374788e-02,  -8.85246492e-03, 3.87150029e-03,
-        1.33185355e-02,  2.48162036e-02,  -2.19338463e-02, -5.84521038e-03,
-        -1.52917105e-02, -2.02794426e-03, 1.02024677e-02,  -9.34250325e-03,
-        5.39213720e-03,  1.04247828e-02,  2.11718472e-02,  5.84453748e-05,
-        9.20193459e-03,  -2.68006157e-02, -3.37565162e-02, 7.36789225e-03,
-        4.61224812e-03,  -1.16150969e-03, 5.51388041e-03,  2.28353876e-02,
-        1.01278434e-02,  8.88320327e-03,  2.84587444e-02,  -2.69580067e-02,
-        1.28087948e-02,  3.91011504e-03,  5.37012676e-03,  -3.16363924e-02,
-        -3.35284170e-03, -6.50114513e-03, 3.20651614e-02,  -1.16159910e-02,
-        -1.38094305e-02, 3.07976442e-02,  1.63332093e-02,  -2.74646081e-02,
-        -3.29649271e-02, 1.47660371e-02,  6.09094255e-03,  -3.94666490e-02,
-        -1.23632624e-02, -3.69395768e-02, 2.86938112e-02,  -6.44606846e-03,
-        -2.28087983e-02, 7.52382321e-03,  1.09257772e-02,  1.74754686e-03,
-        -2.18251777e-02, 2.26055336e-03,  -7.57926813e-03, -8.66892829e-03,
-        5.56296376e-03,  1.87841417e-03,  -1.16321532e-02, -3.61208310e-03,
-        1.23176737e-02,  2.37739726e-02,  -1.27088417e-02, -5.08065174e-03,
-        2.75792244e-03,  -6.36667336e-03, -4.09090428e-03, 5.91545951e-03,
-        -1.50748294e-02, -1.32456566e-02, 5.02961559e-03,  -2.07146521e-02,
-        1.53120474e-03,  1.16797660e-02,  -1.32767277e-02, 1.50207104e-02,
-        -2.39799601e-02, -7.01546552e-03, 8.88361434e-04,  -1.60787453e-02,
-        1.89898754e-02,  -4.73620907e-03, -4.03131155e-03, 2.93305320e-02,
-        1.33827967e-03,  1.94703514e-02,  2.87304765e-02,  9.69693810e-03,
-        5.91821346e-05,  -9.06411618e-03, 3.03503309e-02,  -1.82080580e-02},
-       {},
-       {}}},
-    {blobInput{1, 1e-3, KernelParams{LINEAR, 3, 0.001, 0}, 100, 1000},
-     smoOutput<TypeParam>{41, {}, -0.0077539393, {}, {}, {}}}};
-
-  std::vector<svmTol<TypeParam>> tolerance{
-    svmTol<TypeParam>{1e-3, 0.99999, -1}, svmTol<TypeParam>{1e-3, 0.99999, -1},
-    svmTol<TypeParam>{1e-3, 0.99999, -1}, svmTol<TypeParam>{0.05, 0.95, 10},
-    svmTol<TypeParam>{0.05, 0.95, 8}};
-  int i = 0;
-  auto allocator = this->handle.getDeviceAllocator();
-  for (auto d : data) {
-    auto p = d.first;
-    SCOPED_TRACE(p);
-    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
-    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
-    make_blobs(x.data(), y.data(), p.n_rows, p.n_cols, 2, allocator,
-               this->handle.getImpl().getCublasHandle(), this->stream);
-    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
-    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-    //std::cout << p << ": " << svc.model.n_support << " " << svc.model.b << "\n";
-    auto exp = d.second;
-    svmTol<TypeParam> tol = tolerance[i];
-    i++;
-    this->checkResults(svc.model, exp, tol);
-    device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
-                                    this->stream, p.n_rows);
-    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
-  }
 }
 
 struct is_same_functor {
@@ -983,9 +920,20 @@ TYPED_TEST(SmoSolverTest, BlobPredict) {
 }
 
 TYPED_TEST(SmoSolverTest, MemoryLeak) {
-  std::vector<std::pair<blobInput, smoOutput<TypeParam>>> data{
+  // We measure that we have the same amount of free memory available on the GPU
+  // before and after we call SVM. This can help catch memory leaks, but it is
+  // not 100% sure. Small allocations might be pooled together by cudaMalloc,
+  // and some of those would be missed by this method.
+  enum class ThrowException { Yes, No };
+  std::vector<std::pair<blobInput, ThrowException>> data{
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 0.01, 0}, 1000, 1000},
-     smoOutput<TypeParam>{34, {}, 0.0681913, {}, {}, {}}}};
+     ThrowException::No},
+    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 400, 5, 10}, 1000, 1000},
+     ThrowException::Yes}};
+  // For the second set of input parameters  training will fail, some kernel
+  // function values would be 1e400 or larger, which does not fit fp64.
+  // This will lead to NaN diff in SmoSolver, which whill throw an exception
+  // to stop fitting.
   size_t free1, total, free2;
   CUDA_CHECK(cudaMemGetInfo(&free1, &total));
   auto allocator = this->handle.getDeviceAllocator();
@@ -999,20 +947,32 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
                this->handle.getImpl().getCublasHandle(), this->stream);
 
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
-    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-    device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
-                                    this->stream, p.n_rows);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
-    CUDA_CHECK(cudaMemGetInfo(&free2, &total));
-    float delta = (free1 - free2);
-    EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
-    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+
+    if (d.second == ThrowException::Yes) {
+      // We want to check whether we leak any memory while we unwind the stack
+      EXPECT_THROW(svc.fit(x.data(), p.n_rows, p.n_cols, y.data()),
+                   MLCommon::Exception);
+    } else {
+      svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+      device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
+                                      this->stream, p.n_rows);
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      CUDA_CHECK(cudaMemGetInfo(&free2, &total));
+      float delta = (free1 - free2);
+      // Just to make sure that we measure any mem consumption at all:
+      // we check if we see the memory consumption of x[n_rows*n_cols].
+      // If this error is triggered, increasing the test size might help to fix
+      // it (one could additionally control the exec time by the max_iter arg to
+      // SVC).
+      EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+    }
   }
   CUDA_CHECK(cudaMemGetInfo(&free2, &total));
   float delta = (free1 - free2);
   EXPECT_EQ(delta, 0);
 }
 
-};  // namespace SVM
+};  // end namespace SVM
 };  // end namespace ML

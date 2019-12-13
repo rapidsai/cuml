@@ -43,8 +43,9 @@ def test_tsvd_fit(datatype, name, use_handle):
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
 
     else:
-        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                     dtype=datatype)
+        n, p = 500, 5
+        rng = np.random.RandomState(0)
+        X = rng.randn(n, p) * .1 + np.array([3, 4, 2, 3, 5])
 
     if name != 'blobs':
         sktsvd = skTSVD(n_components=1)
@@ -81,8 +82,9 @@ def test_tsvd_fit_transform(datatype, name, use_handle):
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
 
     else:
-        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                     dtype=datatype)
+        n, p = 500, 5
+        rng = np.random.RandomState(0)
+        X = rng.randn(n, p) * .1 + np.array([3, 4, 2, 3, 5])
 
     if name != 'blobs':
         skpca = skTSVD(n_components=1)
@@ -117,8 +119,9 @@ def test_tsvd_inverse_transform(datatype, name, use_handle):
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
 
     else:
-        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                     dtype=datatype)
+        n, p = 500, 5
+        rng = np.random.RandomState(0)
+        X = rng.randn(n, p) * .1 + np.array([3, 4, 2, 3, 5])
 
     cutsvd = cuTSVD(n_components=1)
     Xcutsvd = cutsvd.fit_transform(X)

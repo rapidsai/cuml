@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import cupy
+
 import numba
 
 from distutils.version import LooseVersion
@@ -41,6 +41,14 @@ def has_cupy():
 def has_ucp():
     try:
         import ucp  # NOQA
+        return True
+    except ImportError:
+        return False
+
+
+def has_umap():
+    try:
+        import umap  # NOQA
         return True
     except ImportError:
         return False
@@ -83,4 +91,8 @@ def check_min_numba_version(version):
 
 
 def check_min_cupy_version(version):
-    return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
+    if has_cupy():
+        import cupy
+        return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
+    else:
+        return False

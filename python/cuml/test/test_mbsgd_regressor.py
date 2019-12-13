@@ -30,7 +30,7 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([5, 3]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
 def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
@@ -67,7 +67,7 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([5, 3]),
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
 def test_mbsgd_regressor_default(datatype, nrows,

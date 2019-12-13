@@ -34,9 +34,9 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 @pytest.mark.parametrize('max_mbytes_per_batch', [1e9, 5e9])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+@pytest.mark.parametrize('ncols', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 @pytest.mark.parametrize('out_dtype', [unit_param("int32"),
                                        unit_param(np.int32),
@@ -73,7 +73,7 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
                                  'noisy_moons',
                                  'blobs',
                                  'no_structure'])
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 def test_dbscan_sklearn_comparison(name, nrows):
     default_base = {'quantile': .3,
@@ -111,7 +111,7 @@ def test_dbscan_default(name):
                     'preference': -200,
                     'n_neighbors': 10,
                     'n_clusters': 2}
-    n_samples = 20
+    n_samples = 500
     pat = get_pattern(name, n_samples)
     params = default_base.copy()
     params.update(pat[1])
@@ -131,7 +131,7 @@ def test_dbscan_default(name):
 
 @pytest.mark.xfail(strict=True, raises=ValueError)
 def test_dbscan_out_dtype_fails_invalid_input():
-    X, _ = make_blobs(n_samples=100)
+    X, _ = make_blobs(n_samples=500)
 
     cudbscan = cuDBSCAN()
     cudbscan.fit_predict(X, out_dtype="bad_input")

@@ -80,6 +80,7 @@ void grow_deep_tree_regression(
   sparse_nodelist.push_back(0);
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
+  MLCommon::Random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<int> dist(0, Ncols - 1);
 
   //Setup pointers
@@ -115,7 +116,7 @@ void grow_deep_tree_regression(
     n_nodes = n_nodes_nextitr;
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
-                            tempmem);
+                            tempmem, d_rng);
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
 

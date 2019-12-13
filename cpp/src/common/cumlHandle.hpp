@@ -59,6 +59,8 @@ class cumlHandle_impl {
   cudaStream_t getInternalStream(int sid) const;
   int getNumInternalStreams() const;
 
+  std::vector<cudaStream_t> getInternalStreams() const;
+
   void waitOnUserStream() const;
   void waitOnInternalStreams() const;
 
@@ -73,14 +75,18 @@ class cumlHandle_impl {
   const int _dev_id;
   const int _num_streams;
   std::vector<cudaStream_t> _streams;
-  cublasHandle_t _cublas_handle;
-  cusolverDnHandle_t _cusolverDn_handle;
-  cusparseHandle_t _cusparse_handle;
+  mutable cublasHandle_t _cublas_handle;
+  mutable bool _cublasInitialized;
+  mutable cusolverDnHandle_t _cusolverDn_handle;
+  mutable bool _cusolverDnInitialized;
+  mutable cusparseHandle_t _cusparse_handle;
+  mutable bool _cusparseInitialized;
   std::shared_ptr<deviceAllocator> _deviceAllocator;
   std::shared_ptr<hostAllocator> _hostAllocator;
   cudaStream_t _userStream;
   cudaEvent_t _event;
-  cudaDeviceProp prop;
+  mutable cudaDeviceProp _prop;
+  mutable bool _devicePropInitialized;
 
   std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 

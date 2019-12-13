@@ -149,7 +149,7 @@ class KalmanFilter(Base):
         Number of state variables for the Kalman filter.
         This is used to set the default size of P, Q, and u
     dim_z : int
-        Number of of measurement inputs.
+        Number of measurement inputs.
 
     Attributes
     ----------
@@ -161,7 +161,7 @@ class KalmanFilter(Base):
         updates this variable.
     x_prior : numba device array, numpy array or cuDF series(dim_x, 1)
         Prior (predicted) state estimate. The *_prior and *_post attributes
-        are for convienence; they store the  prior and posterior of the
+        are for convenience; they store the  prior and posterior of the
         current epoch. Read Only.
     P_prior : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Prior (predicted) state covariance matrix. Read Only.
