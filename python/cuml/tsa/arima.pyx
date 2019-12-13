@@ -455,6 +455,7 @@ class ARIMA(Base):
         if Q: params["sma"] = d_sma.copy_to_host()
         self.set_params(params)
 
+# TODO: maxiter argument
     @nvtx_range_wrap
     def fit(self,
             start_params: Optional[Mapping[str, object]]=None,

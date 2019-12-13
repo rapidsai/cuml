@@ -14,7 +14,21 @@
 # limitations under the License.
 #
 
-# TODO: pretty much rewrite these tests
+###############################################################################
+#                             How these tests work                            #
+###############################################################################
+#
+# This test file contains some unit tests and an integration test.
+#
+# The integration test has wider tolerance marging because the optimization
+# algorithm may fit the model with different parameters than the reference
+# implementation. These margins have been found empirically when creating the
+# datasets. They will help to identify regressions but might have to be
+# changed, e.g if there are changes in the optimization algorithm.
+#
+# The units tests use some ground truth (e.g the parameters found by the
+# reference implementation) to test a unique piece of code. The error margin
+# is then very small.
 
 import pytest
 
@@ -22,6 +36,7 @@ from collections import namedtuple
 import numpy as np
 import os
 from timeit import default_timer as timer
+import warnings
 
 import pandas as pd
 from scipy.optimize.optimize import _approx_fprime_helper
@@ -30,48 +45,100 @@ import statsmodels.api as sm
 import cudf
 import cuml.tsa.arima as arima
 
+
 ###############################################################################
 #                                  Test data                                  #
 ###############################################################################
 
 # Common structure to hold the data, the reference and the testing parameters
-ARIMAData = namedtuple('ARIMAData', 'batch_size n_obs y start end tolerance_in'
-                       ' tolerance_out')
+ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
+                                     'end', 'tolerance_integration_in',
+                                     'tolerance_integration_out',
+                                     'tolerance_sameparam_inout'])
 
-# Load the datasets
-test_path = os.path.dirname(os.path.abspath(__file__))
-data_path = os.path.join(test_path, 'ts_datasets')
-population_estimate = pd.read_csv(
-    os.path.join(data_path, "population_estimate.csv"),
-    usecols=list(range(1,3)))
+# ARIMA(?,0,?)
+# TODO
 
+# ARIMA(1,1,0)
+test_110 = ARIMAData(
+    batch_size=1,
+    n_obs=137,
+    dataset="police_recorded_crime",
+    start=100,
+    end=150,
+    tolerance_integration_in=45.0,
+    tolerance_integration_out=45.0,
+    tolerance_sameparam_inout=0.0001
+)
+
+# ARIMA(0,1,1)
+test_011 = ARIMAData(
+    batch_size=16,
+    n_obs=28,
+    dataset="deaths_by_region",
+    start=20,
+    end=40,
+    tolerance_integration_in=30.0,
+    tolerance_integration_out=20.0,
+    tolerance_sameparam_inout=0.05
+)
 
 # ARIMA(1,2,1)
 test_121 = ARIMAData(
     batch_size=2,
     n_obs=137,
-    y=population_estimate,
+    dataset="population_estimate",
     start=100,
     end=150,
-    tolerance_integration_in=2.25,
-    tolerance_integration_out=52.0,
+    tolerance_integration_in=2.5,
+    tolerance_integration_out=55.0,
     tolerance_sameparam_inout=0.05
 )
 
-# ARIMA(
-# test_ = ARIMAData(
-#     batch_size=,
-#     n_obs=,
-#     y=,
-#     start=,
-#     end=,
-#     tolerance_in=,
-#     tolerance_out=)
+# ARIMA(1,1,1)(2,0,0)_4
+test_112_012_4 = ARIMAData(
+    batch_size=14,
+    n_obs=123,
+    dataset="hourly_earnings_by_industry",
+    start=115,
+    end=130,
+    tolerance_integration_in=0.35,
+    tolerance_integration_out=0.7,
+    tolerance_sameparam_inout=0.0001
+)
 
-# Dictionary associating a test case to a tuple of model parameters
-# (a test case can be used with different models)
+# ARIMA(1,1,2)(0,1,2)_4
+test_112_012_4 = ARIMAData(
+    batch_size=2,
+    n_obs=395,
+    dataset="passenger_movements",
+    start=380,
+    end=420,
+    tolerance_integration_in=4000.0,
+    tolerance_integration_out=20000.0,
+    tolerance_sameparam_inout=0.0001
+)
+
+# ARIMA(1,1,1)(1,1,1)_12
+test_111_111_12 = ARIMAData(
+    batch_size=12,
+    n_obs=279,
+    dataset="guest_nights_by_region",
+    start=260,
+    end=290,
+    tolerance_integration_in=15.0,
+    tolerance_integration_out=20.0,
+    tolerance_sameparam_inout=0.005
+)
+
+# Dictionary matching a test case to a tuple of model parameters
+# (a test case could be used with different models)
 test_data = {
+    (1, 1, 0, False, 0, 0, 0, 0): test_110,
+    (0, 1, 1, False, 0, 0, 0, 0): test_011,
     (1, 2, 1, False, 0, 0, 0, 0): test_121,
+    (1, 1, 2, False, 0, 1, 2, 4): test_112_012_4,
+    (1, 1, 1, False, 1, 1, 1, 12): test_111_111_12,
 }
 
 
@@ -81,28 +148,43 @@ def extract_order(tup):
     return (p, d, q), (P, D, Q, s), k
 
 
+data_path = os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), 'ts_datasets')
+
+
+def load_dataset(name, batch_size, dtype):
+    return pd.read_csv(
+        os.path.join(data_path, "{}.csv".format(name)),
+        usecols=range(1, batch_size + 1), dtype=dtype)
+
+
 ###############################################################################
 #                                    Tests                                    #
 ###############################################################################
 
 @pytest.mark.parametrize('test_case', test_data.items())
-def test_integration(test_case):
+@pytest.mark.parametrize('dtype', [np.float64])
+def test_integration(test_case, dtype):
     """Full integration test: estimate, fit, predict (in- and out-of-sample)
     """
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
+    y = load_dataset(data.dataset, data.batch_size, dtype)
+
     # Create models
     cuml_model = arima.ARIMA(cudf.from_pandas(
-        data.y), order, seasonal_order, fit_intercept=intercept)
-    ref_models = [sm.tsa.SARIMAX(data.y[col], order=order,
+        y), order, seasonal_order, fit_intercept=intercept)
+    ref_models = [sm.tsa.SARIMAX(y[col], order=order,
                                  seasonal_order=seasonal_order,
                                  trend='c' if intercept else 'n')
-                  for col in data.y.columns]
+                  for col in y.columns]
 
     # Fit models
     cuml_model.fit()
-    ref_fits = [model.fit() for model in ref_models]
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        ref_fits = [model.fit(disp=0) for model in ref_models]
 
     # Predict
     cuml_pred = cuml_model.predict(data.start, data.end).copy_to_host()
@@ -119,16 +201,115 @@ def test_integration(test_case):
     max_err_out = (np.absolute(cuml_pred[boundary:, :]
                                - ref_preds[boundary:, :]).max()
                    if data.end > data.n_obs else 0)
-    assert max_err_in < data.tolerance_in, \
+    assert max_err_in < data.tolerance_integration_in, \
         "In-sample prediction error {} > tolerance {}".format(
-            max_err_in, data.tolerance_in)
-    assert max_err_out < data.tolerance_out, \
+            max_err_in, data.tolerance_integration_in)
+    assert max_err_out < data.tolerance_integration_out, \
         "Out-of-sample prediction error {} > tolerance {}".format(
-            max_err_out, data.tolerance_out)
+            max_err_out, data.tolerance_integration_out)
+
+
+def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
+                         intercept, dtype):
+    p, _, q = order
+    P, _, Q, _ = seasonal_order
+    nb = cuml_model.batch_size
+    params = dict()
+    if p:
+        params["ar"] = np.zeros((p, nb), dtype=dtype)
+    if q:
+        params["ma"] = np.zeros((q, nb), dtype=dtype)
+    if P:
+        params["sar"] = np.zeros((P, nb), dtype=dtype)
+    if Q:
+        params["sma"] = np.zeros((Q, nb), dtype=dtype)
+    if intercept:
+        params["mu"] = np.zeros(nb, dtype=dtype)
+    for i in range(nb):
+        if p:
+            params["ar"][:, i] = ref_fits[i].arparams[:]
+        if q:
+            params["ma"][:, i] = ref_fits[i].maparams[:]
+        if P:
+            params["sar"][:, i] = ref_fits[i].seasonalarparams[:]
+        if Q:
+            params["sma"][:, i] = ref_fits[i].seasonalmaparams[:]
+        if intercept:
+            params["mu"][i] = ref_fits[i].params[0]
+    cuml_model.set_params(params)
+
+
+def _predict_common(test_case, dtype, start, end, num_steps=None):
+    """Utility function used by test_predict and test_forecast to avoid
+    code duplication.
+    """
+    key, data = test_case
+    order, seasonal_order, intercept = extract_order(key)
+    p, d, q = order
+    P, D, Q, s = seasonal_order
+
+    if d + D > 0 and intercept > 0:
+        raise ValueError(
+            "Test not valid: d+D > 0 with intercept (can't compare against"
+            " reference ARIMA)")
+
+    y = load_dataset(data.dataset, data.batch_size, dtype)
+
+    # Create models
+    cuml_model = arima.ARIMA(cudf.from_pandas(
+        y), order, seasonal_order, fit_intercept=intercept)
+    ref_models = [sm.tsa.SARIMAX(y[col], order=order,
+                                 seasonal_order=seasonal_order,
+                                 trend='c' if intercept else 'n')
+                  for col in y.columns]
+
+    # Fit the reference
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        ref_fits = [model.fit(disp=0) for model in ref_models]
+
+    # Feed the parameters to the cuML model
+    _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
+                         intercept, dtype)
+
+    # Predict or forecast
+    ref_preds = np.zeros((end - start, data.batch_size))
+    for i in range(data.batch_size):
+        ref_preds[:, i] = ref_fits[i].get_prediction(
+            start, end - 1).predicted_mean
+    if num_steps is None:
+        cuml_pred = cuml_model.predict(start, end).copy_to_host()
+    else:
+        cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
+
+    # Compare results
+    max_err = np.absolute(cuml_pred[:, :] - ref_preds[:, :]).max()
+    assert max_err < data.tolerance_sameparam_inout, \
+        "Prediction error {} > tolerance {}".format(
+            max_err, data.tolerance_sameparam_inout)
+
+
+@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('dtype', [np.float64])
+def test_predict(test_case, dtype):
+    """Test in-sample prediction against statsmodels (with the same values
+    for the model parameters)
+    """
+    n_obs = test_case[1].n_obs
+    _predict_common(test_case, dtype, n_obs // 2, n_obs)
+
+
+@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('dtype', [np.float64])
+def test_forecast(test_case, dtype):
+    """Test out-of-sample forecasting against statsmodels (with the same
+    values for the model parameters)
+    """
+    n_obs = test_case[1].n_obs
+    _predict_common(test_case, dtype, n_obs, n_obs + 10, 10)
+
 
 # TODO: aic / bic tests against a statsmodels ARMA?
-
-# TODO: predict and forecast tests with same parameters as statsmodels
 
 # # TODO: test with seasonality
 # def test_transform():
@@ -277,196 +458,6 @@ def test_integration(test_case):
 
 #         np.testing.assert_allclose(batched_model.bic,
 #                                    bic_reference[p-1], rtol=1e-4)
-
-
-# def test_fit():
-#     """Test the `fit()` function against reference parameters."""
-#     _, y = get_data()
-
-#     mu_ref = [np.array([-217.7230173548441, -206.81064091237104]),
-#               np.array([-217.72325384510506, -206.77224439903458])]
-#     ar_ref = [
-#         np.array([[0.0309380078339684, -0.0371740508810001]], order='F'),
-#         np.array([[0.0309027562133337, -0.0386322768036704],
-#                   [-0.0191533926207157, -0.0330133336831984]], order='F')]
-#     ma_ref = [
-#         np.array([[-0.9995474311219695, -0.9995645146854383]], order='F'),
-#         np.array([[-0.999629811305126, -0.9997747315789454]], order='F')]
-
-#     ll_ref = [[-414.7628631782474, -410.049081775547],
-#               [-414.7559799310751, -410.0285309839064]]
-
-#     for p in range(1, 3):
-#         order = (p, 1, 1)
-
-#         batched_model = arima.ARIMA(y, order, fit_intercept=True)
-#         batched_model.fit()
-
-#         print("num iterations: ", batched_model.niter)
-
-#         x = arima.pack(order, (0, 0, 0, 0), 1, 2, batched_model.get_params())
-
-#         llx = arima.ll_f(2, len(t), order, (0, 0, 0, 0), 1, y, x, trans=False)
-
-#         rtol = 1e-2
-#         # parameter differences are more difficult to test precisely due to the
-#         # nonlinear-optimization.
-#         np.testing.assert_allclose(batched_model.mu, mu_ref[p-1], rtol=rtol)
-#         np.testing.assert_allclose(batched_model.ar, ar_ref[p-1],
-#                                    rtol=rtol)
-#         np.testing.assert_allclose(batched_model.ma, ma_ref[p-1],
-#                                    rtol=rtol)
-
-#         # more important is that the loglikelihood is close to a relatively
-#         # higher tolerance.
-#         np.testing.assert_allclose(llx, ll_ref[p-1], rtol=1e-6)
-
-
-# def test_predict(plot=False):
-#     """Test the `predict_in_sample()` function using provided parameters"""
-#     _, y = get_data()
-
-#     mu = [np.array([-217.7230173548441, -206.81064091237104]),
-#           np.array([-217.72325384510506, -206.77224439903458])]
-#     ar = [np.array([[0.0309380078339684, -0.0371740508810001]], order='F'),
-#           np.array([[0.0309027562133337, -0.0386322768036704],
-#                     [-0.0191533926207157, -0.0330133336831984]], order='F')]
-#     ma = [np.array([[-0.9995474311219695, -0.9995645146854383]], order='F'),
-#           np.array([[-0.999629811305126, -0.9997747315789454]], order='F')]
-
-#     l2err_ref = [[7.611525998416604e+08, 7.008862739645946e+08],
-#                  [7.663156224285843e+08, 6.993847054122686e+08]]
-
-#     for p in range(1, 3):
-#         order = (p, 1, 1)
-
-#         model = arima.ARIMA(y, order, fit_intercept=True)
-#         model.set_params({"mu": mu[p-1], "ar": ar[p-1], "ma": ma[p-1]})
-
-#         d_y_b_p = model.predict_in_sample()
-#         y_b_p = input_to_host_array(d_y_b_p).array
-
-#         if plot:
-#             import matplotlib.pyplot as plt
-#             nb_plot = 2
-#             fig, axes = plt.subplots(nb_plot, 1)
-#             axes[0].plot(t, y[:, 0], t, y_b_p[:, 0], "r-")
-#             axes[1].plot(t, y[:, 1], t, y_b_p[:, 1], "r-")
-#             if p == 1:
-#                 axes[0].plot(t, yp_ref[p-1][0], "g--")
-#                 axes[1].plot(t, yp_ref[p-1][1], "g--")
-#             plt.show()
-
-#         l2_error_predict = np.sum((y_b_p - y)**2, axis=0)
-#         np.testing.assert_allclose(l2err_ref[p-1], l2_error_predict)
-#         if p == 1:
-#             np.testing.assert_allclose(y_b_p[:, 0], yp_ref[0])
-#             np.testing.assert_allclose(y_b_p[:, 1], yp_ref[1])
-
-
-# def test_forecast():
-#     """Test forecast using provided parameters"""
-#     _, y = get_data()
-
-#     mu = [np.array([-217.7230173548441, -206.81064091237104]),
-#           np.array([-217.72325384510506, -206.77224439903458])]
-#     ar = [np.array([[0.0309380078339684, -0.0371740508810001]], order='F'),
-#           np.array([[0.0309027562133337, -0.0386322768036704],
-#                     [-0.0191533926207157, -0.0330133336831984]], order='F')]
-#     ma = [np.array([[-0.9995474311219695, -0.9995645146854383]], order='F'),
-#           np.array([[-0.999629811305126, -0.9997747315789454]], order='F')]
-
-#     y_fc_ref = [np.array([[8291.97380664, 7993.55508519, 7773.33550351],
-#                           [7648.10631132, 7574.38185979, 7362.6238661]]),
-#                 np.array([[7609.91057747, 7800.22971962, 7473.00968599],
-#                           [8016.79544837, 7472.39902223, 7400.83781943]])]
-
-#     for p in range(1, 3):
-#         order = (p, 1, 1)
-
-#         model = arima.ARIMA(y, order, fit_intercept=True)
-#         model.set_params({"mu": mu[p-1], "ar": ar[p-1], "ma": ma[p-1]})
-
-#         d_y_b_fc = model.forecast(3)
-#         y_b_fc = input_to_host_array(d_y_b_fc).array
-
-#         np.testing.assert_allclose(y_fc_ref[p-1], y_b_fc.T)
-
-
-# def test_fit_predict_forecast(plot=False):
-#     """Full integration test: Tests fit followed by in-sample prediction and
-#     out-of-sample forecast
-
-#     """
-#     np.set_printoptions(precision=16)
-
-#     _, y = get_data()
-
-#     ns_train = 35
-#     ns_test = len(t) - ns_train
-
-#     y_b_p = []
-#     y_f_p = []
-
-#     for p in range(1, 3):
-#         order = (p, 1, 1)
-
-#         nb = 2
-
-#         y_train = np.zeros((ns_train, nb))
-#         for i in range(nb):
-#             y_train[:, i] = y[:ns_train, i]
-
-#         p, _, _ = order
-
-#         batched_model = arima.ARIMA(y_train, order, fit_intercept=True)
-#         batched_model.fit()
-
-#         d_y_b = batched_model.predict_in_sample()
-#         y_b = input_to_host_array(d_y_b).array
-#         d_y_fc = batched_model.forecast(ns_test)
-#         y_fc = input_to_host_array(d_y_fc).array
-
-#         y_b_p.append(y_b)
-#         y_f_p.append(y_fc)
-
-#     if plot:
-#         import matplotlib.pyplot as plt
-#         nb_plot = 2
-#         _, axes = plt.subplots(nb_plot, 1)
-#         axes[0].plot(t, y[:, 0], t[:ns_train], y_b_p[0][:, 0], "r-",
-#                      t[ns_train-1:-1], y_f_p[0][:, 0], "--")
-#         axes[0].plot(t[:ns_train], y_b_p[1][:, 0], "g-",
-#                      t[ns_train-1:-1], y_f_p[1][:, 0], "y--")
-#         axes[0].plot(t, yp_ref[0], "b--")
-#         axes[1].plot(t, y[:, 1], t[:ns_train], y_b_p[0][:, 1], "r-",
-#                      t[ns_train-1:-1], y_f_p[0][:, 1], "--")
-#         axes[1].plot(t[:ns_train], y_b_p[1][:, 1], "g-",
-#                      t[ns_train-1:-1], y_f_p[1][:, 1], "y--")
-#         axes[1].plot(t, yp_ref[1], "b--")
-
-#         plt.show()
-
-#     l2_error_predict0 = np.sum((y_b_p[0][:, :] - y[:ns_train, :])**2, axis=0)
-#     l2_error_predict1 = np.sum((y_b_p[1][:, :] - y[:ns_train, :])**2, axis=0)
-
-#     l2_error_ref0 = [5.1819845778009456e+08, 4.4313075823450834e+08]
-#     l2_error_ref1 = [5.4015810529295897e+08, 4.6489505018349826e+08]
-
-#     l2_error_forecast0 = np.sum((y_f_p[0][:, :] - y[ns_train-1:-1, :])**2,
-#                                 axis=0)
-#     l2_error_forecast1 = np.sum((y_f_p[1][:, :] - y[ns_train-1:-1, :])**2,
-#                                 axis=0)
-
-#     l2_error_fc_ref0 = [2.7841860168252653e+08, 2.4003239604745972e+08]
-#     l2_error_fc_ref1 = [3.728470033076098e+08, 3.039953059636233e+08]
-
-#     rtol = 5e-5
-#     np.testing.assert_allclose(l2_error_predict0, l2_error_ref0, rtol=rtol)
-#     np.testing.assert_allclose(l2_error_predict1, l2_error_ref1, rtol=rtol)
-#     rtol = 1e-3
-#     np.testing.assert_allclose(l2_error_forecast0, l2_error_fc_ref0, rtol=rtol)
-#     np.testing.assert_allclose(l2_error_forecast1, l2_error_fc_ref1, rtol=rtol)
 
 
 # def test_grid_search(num_batches=2):
