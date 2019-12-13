@@ -74,14 +74,14 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     (cub::KeyValuePair<IndexT, DataT> *)handle.getDeviceAllocator()->allocate(
       sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 
-  LOG(params.verbose,
+  LOG(handle, params.verbose,
       "Calling KMeans.fit with %d samples of input data and the initialized "
       "cluster centers\n",
       n_samples);
 
   DataT priorClusteringCost = 0;
   for (n_iter = 1; n_iter <= params.max_iter; ++n_iter) {
-    LOG(params.verbose,
+    LOG(handle, params.verbose,
         "KMeans.fit: Iteration-%d: fitting the model using the initialized "
         "cluster centers\n",
         n_iter);
@@ -221,7 +221,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
-      LOG(params.verbose,
+      LOG(handle, params.verbose,
           "Threshold triggered after %d iterations. Terminating early.\n",
           n_iter);
       break;
@@ -242,9 +242,9 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
 
-  LOG(params.verbose,
-      "KMeans.fit: completed after %d iterations with %f inertia \n", n_iter,
-      inertia);
+  LOG(handle, params.verbose,
+      "KMeans.fit: completed after %d iterations with %f inertia \n",
+      n_iter > params.max_iter ? n_iter - 1 : n_iter, inertia);
 
   handle.getDeviceAllocator()->deallocate(
     clusterCostD, sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
@@ -348,12 +348,12 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   // Scalable kmeans++ paper claims 8 rounds is sufficient
   CUDA_CHECK(cudaStreamSynchronize(stream));
   int niter = std::min(8, (int)ceil(log(psi)));
-  LOG(params.verbose, "KMeans||: psi = %g, log(psi) = %g, niter = %d \n", psi,
-      log(psi), niter);
+  LOG(handle, params.verbose,
+      "KMeans||: psi = %g, log(psi) = %g, niter = %d \n", psi, log(psi), niter);
 
   // <<<< Step-3 >>> : for O( log(psi) ) times do
   for (int iter = 0; iter < niter; ++iter) {
-    LOG(params.verbose,
+    LOG(handle, params.verbose,
         "KMeans|| - Iteration %d: # potential centroids sampled - %d\n", iter,
         potentialCentroids.getSize(0));
 
@@ -394,7 +394,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     /// <<<< End of Step-5 >>>
   }  /// <<<< Step-6 >>>
 
-  LOG(params.verbose, "KMeans||: total # potential centroids sampled - %d\n",
+  LOG(handle, params.verbose,
+      "KMeans||: total # potential centroids sampled - %d\n",
       potentialCentroids.getSize(0));
 
   if (potentialCentroids.getSize(0) > n_clusters) {
@@ -426,7 +427,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     // supplement with random
     auto n_random_clusters = n_clusters - potentialCentroids.getSize(0);
 
-    LOG(true,
+    LOG(handle, true,
         "[Warning!] KMeans||: found fewer than %d centroids during "
         "initialization (found %d centroids, remaining %d centroids will be "
         "chosen randomly from input samples)\n",
@@ -479,17 +480,17 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   if (params.init == KMeansParams::InitMethod::Random) {
     // initializing with random samples from input dataset
-    LOG(params.verbose,
+    LOG(handle, params.verbose,
         "KMeans.fit: initialize cluster centers by randomly choosing from the "
         "input data.\n");
     initRandom(handle, params, data, centroidsRawData);
   } else if (params.init == KMeansParams::InitMethod::KMeansPlusPlus) {
     // default method to initialize is kmeans++
-    LOG(params.verbose,
+    LOG(handle, params.verbose,
         "KMeans.fit: initialize cluster centers using k-means++ algorithm.\n");
     initKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
   } else if (params.init == KMeansParams::InitMethod::Array) {
-    LOG(params.verbose,
+    LOG(handle, params.verbose,
         "KMeans.fit: initialize cluster centers from the ndarray array input "
         "passed to init arguement.\n");
 
@@ -509,6 +510,9 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   MLCommon::copy(centroids, centroidsRawData.data(),
                  params.n_clusters * n_features, stream);
+  LOG(handle, params.verbose,
+      "KMeans.fit: async call returned (fit could still be running on the "
+      "device)\n");
 }
 
 template <typename DataT, typename IndexT = int>
