@@ -88,6 +88,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   //          << gather_max_nodes << std::endl;
   //std::cout << "Parent size --> " << parentsz << std::endl;
   //std::cout << "Child size  --> " << childsz << std::endl;
+  //std::cout << "Nrows size --> " << (nrows + 1) << std::endl;
   d_flags =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
   h_new_node_flags =
@@ -104,14 +105,15 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     new MLCommon::device_buffer<int>(device_allocator, stream, parentsz);
   d_split_binidx =
     new MLCommon::device_buffer<int>(device_allocator, stream, parentsz);
-  h_parent_metric = new MLCommon::host_buffer<T>(
-    host_allocator, stream, std::max(parentsz, (size_t)(nrows + 1)));
+  size_t metric_size = std::max(parentsz, (size_t)(nrows + 1));
+  h_parent_metric =
+    new MLCommon::host_buffer<T>(host_allocator, stream, metric_size);
+  d_parent_metric =
+    new MLCommon::device_buffer<T>(device_allocator, stream, metric_size);
   h_child_best_metric =
     new MLCommon::host_buffer<T>(host_allocator, stream, childsz);
   h_outgain =
     new MLCommon::host_buffer<float>(host_allocator, stream, parentsz);
-  d_parent_metric = new MLCommon::device_buffer<T>(
-    device_allocator, stream, std::max(parentsz, (size_t)(nrows + 1)));
   d_child_best_metric =
     new MLCommon::device_buffer<T>(device_allocator, stream, childsz);
   d_outgain =

@@ -349,7 +349,7 @@ DI GainIdxPair bin_info_gain_classification(
   return tid_pair;
 }
 
-template <typename T, typename QuestionType, typename FDEV>
+template <typename T, typename QuestionType, typename FDEV, int TPB>
 __global__ void best_split_gather_classification_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ colids,
@@ -364,7 +364,7 @@ __global__ void best_split_gather_classification_kernel(
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
   __shared__ float parent_metric;
-  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  typedef cub::BlockReduce<GainIdxPair, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   //shmemhist_left[n_unique_labels*nbins]
@@ -451,7 +451,7 @@ __global__ void best_split_gather_classification_kernel(
 }
 
 //The same as above but fused minmax at block level
-template <typename T, typename E, typename FDEV>
+template <typename T, typename E, typename FDEV, int TPB>
 __global__ void best_split_gather_classification_minmax_kernel(
   const T* __restrict__ data, const int* __restrict__ labels,
   const unsigned int* __restrict__ colids,
@@ -467,7 +467,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
   __shared__ GainIdxPair shmem_pair;
   __shared__ int shmem_col;
   __shared__ float parent_metric;
-  typedef cub::BlockReduce<GainIdxPair, 64> BlockReduce;
+  typedef cub::BlockReduce<GainIdxPair, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   __shared__ T shmem_min, shmem_max, best_min, best_delta;
   //shmemhist_left[n_unique_labels*nbins]

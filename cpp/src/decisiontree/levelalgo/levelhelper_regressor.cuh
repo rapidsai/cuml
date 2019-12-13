@@ -466,20 +466,22 @@ void best_split_gather_regression(
   const int split_algo, const size_t treesz, const float min_impurity_split,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
+  const int TPB = TemporaryMemory<T, T>::gather_threads;
+
   if (split_algo == 0) {
     using E = typename MLCommon::Stats::encode_traits<T>::E;
     T init_val = std::numeric_limits<T>::max();
     size_t shmemsz = nbins * sizeof(int) + nbins * sizeof(T);
-    best_split_gather_regression_minmax_kernel<T, E>
-      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+    best_split_gather_regression_minmax_kernel<T, E, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, n_nodes,
         nbins, nrows, Ncols, ncols_sampled, treesz, min_impurity_split,
         init_val, d_sparsenodes, d_nodelist);
   } else {
     const T *d_question_ptr = tempmem->d_quantile->data();
     size_t shmemsz = nbins * sizeof(T) + nbins * sizeof(int);
-    best_split_gather_regression_kernel<T, QuantileQues<T>>
-      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+    best_split_gather_regression_kernel<T, QuantileQues<T>, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
         d_samplelist, n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
         min_impurity_split, d_sparsenodes, d_nodelist);
@@ -492,7 +494,8 @@ void make_leaf_gather_regression(
   const unsigned int *samplelist, SparseTreeNode<T, T> *d_sparsenodes,
   int *nodelist, const int n_nodes,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
-  make_leaf_gather_regression_kernel<<<n_nodes, 64, 0, tempmem->stream>>>(
+  make_leaf_gather_regression_kernel<<<n_nodes, tempmem->gather_threads, 0,
+                                       tempmem->stream>>>(
     labels, nodestart, samplelist, d_sparsenodes, nodelist);
   CUDA_CHECK(cudaGetLastError());
 }
