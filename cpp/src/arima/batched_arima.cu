@@ -252,39 +252,24 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   // In-sample prediction
   //
 
-  // If we predict out-of-sample and use differencing, we need to predict
-  // in-sample the last d + sD observations
-  int in_sample_start = end > n_obs ? std::min(start, n_obs - d_sD) : start;
-  int p_start = std::max(in_sample_start, d_sD);
+  int p_start = std::max(start, d_sD);
   int p_end = std::min(n_obs, end);
-
-  // Create a temp buffer if we predict too many elements for the output array
-  int in_sample_ld;
-  double* predict_temp;
-  if (in_sample_start != start) {
-    in_sample_ld = d_sD;
-    predict_temp = (double*)allocator->allocate(
-      in_sample_ld * batch_size * sizeof(double), stream);
-  } else {
-    in_sample_ld = predict_ld;
-    predict_temp = d_y_p;
-  }
 
   // The prediction loop starts by filling undefined predictions with NaN,
   // then computes the predictions from the observations and residuals
-  if (in_sample_start < n_obs) {
-    thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + batch_size,
-      [=] __device__(int bid) {
-        predict_temp[0] = 0.0;
-        for (int i = 0; i < d_sD - in_sample_start; i++) {
-          predict_temp[bid * in_sample_ld + i] = nan("");
-        }
-        for (int i = p_start; i < p_end; i++) {
-          predict_temp[bid * in_sample_ld + i - in_sample_start] =
-            d_y[bid * n_obs + i] - d_vs[bid * ld_yprep + i - d_sD];
-        }
-      });
+  if (start < n_obs) {
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       d_y_p[0] = 0.0;
+                       for (int i = 0; i < d_sD - start; i++) {
+                         d_y_p[bid * predict_ld + i] = nan("");
+                       }
+                       for (int i = p_start; i < p_end; i++) {
+                         d_y_p[bid * predict_ld + i - start] =
+                           d_y[bid * n_obs + i] -
+                           d_vs[bid * ld_yprep + i - d_sD];
+                       }
+                     });
   }
 
   //
@@ -293,9 +278,8 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
   if (num_steps) {
     // Add trend and/or undiff
-    _finalize_forecast(handle, d_y_fc, predict_temp, num_steps, batch_size,
-                       in_sample_ld, n_obs - in_sample_start, d, D, s,
-                       intercept, d_mu);
+    _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, n_obs,
+                       d, D, s, intercept, d_mu);
 
     // Copy forecast in d_y_p
     thrust::for_each(thrust::cuda::par.on(stream), counting,
@@ -305,25 +289,6 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
                            d_y_fc[num_steps * bid + i];
                        }
                      });
-
-    // Copy in-sample prediction in d_y_p
-    // Note: this is part of the forecast if-else because a temporary buffer
-    // for the in-sample predictions is created only when there are
-    // out-of-sample predictions to forecast
-    if (in_sample_start != start) {
-      int in_sample_offset = start - in_sample_start;
-      thrust::for_each(
-        thrust::cuda::par.on(stream), counting, counting + batch_size,
-        [=] __device__(int bid) {
-          for (int i = 0; i < n_obs - start; i++) {
-            d_y_p[bid * predict_ld + i] =
-              predict_temp[bid * in_sample_ld + i + in_sample_offset];
-          }
-        });
-
-      allocator->deallocate(predict_temp,
-                            in_sample_ld * batch_size * sizeof(double), stream);
-    }
 
     allocator->deallocate(d_y_fc, num_steps * batch_size * sizeof(double),
                           stream);
