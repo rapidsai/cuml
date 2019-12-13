@@ -52,13 +52,17 @@ namespace ML {
  * @param[in]  initP_kalman_it Initialize the Kalman filter covariance `P`
  *                             with 1 or more kalman iterations instead of
  *                             an analytical heuristic.
+ * @param[in]  fc_steps        Number of steps to forecast
+ * @param[in]  d_fc            Array to store the forecast
  */
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            const double* d_ar, const double* d_ma,
                            const double* d_sar, const double* d_sma, int p,
-                           int q, int P, int Q, int s, int batch_size, double* loglike,
-                           double* d_vs, bool host_loglike = true,
-                           bool initP_kalman_it = false);
+                           int q, int P, int Q, int s, int batch_size,
+                           double* loglike, double* d_vs,
+                           bool host_loglike = true,
+                           bool initP_kalman_it = false, int fc_steps = 0,
+                           double* d_fc = nullptr);
 
 /**
  * Public interface to batched "jones transform" used in ARIMA to ensure

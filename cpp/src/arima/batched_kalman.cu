@@ -85,6 +85,8 @@ __device__ void MM_l(double* A, double* B, double* out) {
  * @param[out] vs         Batched residuals                     (nobs)
  * @param[out] Fs         Batched variance of prediction errors (nobs)    
  * @param[out] sum_logFs  Batched sum of the logs of Fs         (1)
+ * @param[in]  fc_steps   Number of steps to forecast
+ * @param[in]  d_fc       Array to store the forecast
  */
 template <int r>
 __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
@@ -92,7 +94,8 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
                                            const double* RRT, const double* P,
                                            const double* alpha, int batch_size,
                                            double* vs, double* Fs,
-                                           double* sum_logFs) {
+                                           double* sum_logFs, int fc_steps = 0,
+                                           double* d_fc = nullptr) {
   double l_RRT[r * r];
   double l_T[r * r];
   double l_Z[r];
@@ -126,13 +129,21 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
     const double* b_ys = ys + bid * nobs;
     double* b_vs = vs + bid * nobs;
     double* b_Fs = Fs + bid * nobs;
+    double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
 
-    for (int it = 0; it < nobs; it++) {
+    for (int it = 0; it < nobs + fc_steps; it++) {
       // 1. & 2.
-      b_vs[it] = b_ys[it] - l_alpha[0];
+      double vs_it;
       double _Fs = l_P[0];
-      b_Fs[it] = _Fs;
-      b_sum_logFs += log(_Fs);
+      if (it < nobs) {
+        vs_it = b_ys[it] - l_alpha[0];
+        b_vs[it] = vs_it;
+        b_Fs[it] = _Fs;
+        b_sum_logFs += log(_Fs);
+      } else {
+        b_fc[fc_steps - nobs] = l_alpha[0];
+        vs_it = 0.0;
+      }
 
       // 3.
       // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
@@ -150,7 +161,6 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
       // 4.
       // alpha = T*alpha + K*vs[it];
       Mv_l<r>(l_T, l_alpha, l_tmpA);
-      double vs_it = b_vs[it];
       for (int i = 0; i < r; i++) {
         l_alpha[i] = l_tmpA[i] + l_K[i] * vs_it;
       }
@@ -310,7 +320,8 @@ void _batched_kalman_loop_large_matrices(
 void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
                          const BatchedMatrix& Z, const BatchedMatrix& RRT,
                          BatchedMatrix& P0, BatchedMatrix& alpha, int r,
-                         double* vs, double* Fs, double* sum_logFs) {
+                         double* vs, double* Fs, double* sum_logFs,
+                         int fc_steps = 0, double* d_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
   dim3 numThreadsPerBlock(32, 1);
@@ -321,53 +332,54 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
         batched_kalman_loop_kernel<1>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
       case 2:
         batched_kalman_loop_kernel<2>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
       case 3:
         batched_kalman_loop_kernel<3>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
       case 4:
         batched_kalman_loop_kernel<4>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
       case 5:
         batched_kalman_loop_kernel<5>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
       case 6:
         batched_kalman_loop_kernel<6>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
       case 7:
         batched_kalman_loop_kernel<7>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
       case 8:
         batched_kalman_loop_kernel<8>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RRT.raw_data(), P0.raw_data(),
-            alpha.raw_data(), batch_size, vs, Fs, sum_logFs);
+            alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
     }
     CUDA_CHECK(cudaGetLastError());
   } else {
+    /// TODO: support forecasts
     _batched_kalman_loop_large_matrices(ys, nobs, T, Z, RRT, P0, alpha, r, vs,
                                         Fs, sum_logFs);
   }
@@ -407,7 +419,7 @@ __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
 void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs,
                             int nobs, int batch_size, double* sigma2,
                             double* loglike, cudaStream_t stream) {
-  const int NUM_THREADS = 128;
+  constexpr int NUM_THREADS = 128;
   batched_kalman_loglike_kernel<NUM_THREADS>
     <<<batch_size, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, d_sumLogFs, nobs,
                                              batch_size, sigma2, loglike);
@@ -419,7 +431,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                             const BatchedMatrix& Zb, const BatchedMatrix& Tb,
                             const BatchedMatrix& Rb, int r, double* d_vs,
                             double* d_Fs, double* d_loglike, double* d_sigma2,
-                            bool initP_kalman_it = false) {
+                            bool initP_kalman_it = false, int fc_steps = 0,
+                            double* d_fc = nullptr) {
   const size_t batch_size = Zb.batches();
   auto stream = handle.getStream();
 
@@ -484,7 +497,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   // }
 
   batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs,
-                      d_sumlogFs);
+                      d_sumlogFs, fc_steps, d_fc);
 
   // Finalize loglikelihood
   // 7. & 8.
@@ -554,7 +567,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            const double* d_sar, const double* d_sma, int p,
                            int q, int P, int Q, int s, int batch_size,
                            double* loglike, double* d_vs, bool host_loglike,
-                           bool initP_kalman_it) {
+                           bool initP_kalman_it, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE("batched_kalman_filter");
 
   const size_t ys_len = nobs;
@@ -592,7 +605,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   }
 
   _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs,
-                         d_loglike, d_sigma2, initP_kalman_it);
+                         d_loglike, d_sigma2, initP_kalman_it, fc_steps, d_fc);
 
   if (host_loglike) {
     /* Tranfer log-likelihood device -> host */

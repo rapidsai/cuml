@@ -54,7 +54,7 @@ test_121 = ARIMAData(
     start=100,
     end=150,
     tolerance_in=2.25,
-    tolerance_out=50.0)
+    tolerance_out=19.0)
 
 # ARIMA(
 # test_ = ARIMAData(
