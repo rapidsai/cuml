@@ -209,6 +209,7 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ML::POP_RANGE();
 }
 
+/// TODO: see if simplifications can be made because of the recent changes
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, int p, int d, int q, int P, int D, int Q,
              int s, int intercept, const double* d_params, double* d_vs,
