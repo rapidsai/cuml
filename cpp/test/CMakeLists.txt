@@ -205,6 +205,7 @@ if(BUILD_PRIMS_TESTS)
       prims/fused_l2_nn.cu
       prims/gather.cu
       prims/gemm.cu
+      prims/gemm_layout.cu
       prims/gram.cu
       prims/grid_sync.cu
       prims/hinge.cu
