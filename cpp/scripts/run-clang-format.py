@@ -109,9 +109,8 @@ def run_clang_format(src, dst, exe):
     try:
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        src_path = os.path.join(os.getcwd(), src)
-        print("clang-format failed! Run 'diff -y %s %s' to know more about "
-              "the formatting violations!" % (src_path, dst))
+        print("%s failed! 'diff %s %s' will show formatting violations!" % \
+              (os.path.basename(src), src, dst))
         return False
     return True
 
@@ -130,11 +129,10 @@ def main():
         if not run_clang_format(src, dst, args.exe):
             status = False
     if not status:
-        print("Clang-format failed! You have 2 options:")
+        print("clang-format failed! You have 2 options:")
         print(" 1. Look at formatting differences above and fix them manually")
         print(" 2. Or run the below command to bulk-fix all these at once")
         print("Bulk-fix command: ")
-        print("  cd /path/to/your/cuml/repo")
         print("  python cpp/scripts/run-clang-format.py %s -inplace" % \
               " ".join(sys.argv[1:]))
         sys.exit(-1)
