@@ -52,6 +52,8 @@ def parse_args():
                            help="Regex string to filter in sources")
     argparser.add_argument("-ignore", type=str, default=r"cannylab/bh[.]cu$",
                            help="Regex used to ignore files from matched list")
+    argparser.add_argument("-v", dest="verbose", action="store_true",
+                           help="Print verbose messages")
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
     args = argparser.parse_args()
@@ -90,7 +92,7 @@ def list_all_src_files(file_regex, ignore_regex, srcdirs, dstdir, inplace):
     return allFiles
 
 
-def run_clang_format(src, dst, exe):
+def run_clang_format(src, dst, exe, verbose):
     dstdir = os.path.dirname(dst)
     if not os.path.exists(dstdir):
         os.makedirs(dstdir)
@@ -108,6 +110,8 @@ def run_clang_format(src, dst, exe):
     cmd = "diff -q %s %s >/dev/null" % (src, dst)
     try:
         subprocess.check_call(cmd, shell=True)
+        if verbose:
+            print("%s passed" % os.path.basename(src))
     except subprocess.CalledProcessError:
         print("%s failed! 'diff %s %s' will show formatting violations!" % \
               (os.path.basename(src), src, dst))
@@ -126,7 +130,7 @@ def main():
     # actual format checker
     status = True
     for src, dst in all_files:
-        if not run_clang_format(src, dst, args.exe):
+        if not run_clang_format(src, dst, args.exe, args.verbose):
             status = False
     if not status:
         print("clang-format failed! You have 2 options:")
