@@ -272,7 +272,7 @@ add_dependencies(cutlass cub)
 
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           656368b5eda4d376177a3355673d217fa95000b6
+  GIT_TAG           v1.6.1
   CONFIGURE_COMMAND LIBS=-pthread
                     CPPFLAGS=-w
                     LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
