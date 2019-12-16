@@ -54,14 +54,18 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "umap-learn" \
       "protobuf >=3.4.1,<4.0.0" \
       "nccl>=2.4" \
-      "dask=2.8*" \
-      "distributed=2.8*" \
-      "dask-ml" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "statsmodels" \
       "xgboost=0.90.rapidsdev1"
 
+# Install the master version of dask, distributed, and dask-ml
+logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
+pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
+logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
+pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+logger "pip install git+https://github.com/dask/dask-ml.git --upgrade --no-deps"
+pip install "git+https://github.com/dask/dask-ml.git" --upgrade --no-deps
 
 # installing libclang separately so it doesn't get installed from conda-forge
 conda install -c rapidsai \
