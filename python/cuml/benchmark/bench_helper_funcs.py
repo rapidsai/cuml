@@ -40,6 +40,25 @@ def predict(m, x):
     m.predict(x)
 
 
+def _training_data_to_numpy(X, y):
+    """Convert input training data into numpy format"""
+    if isinstance(X, np.ndarray):
+        X_np = X
+        y_np = y
+    elif isinstance(X, cudf.DataFrame):
+        X_np = X.as_gpu_matrix().copy_to_host()
+        y_np = y.to_gpu_array().copy_to_host()
+    elif cuda.devicearray.is_cuda_ndarray(X):
+        X_np = X.copy_to_host()
+        y_np = y.copy_to_host()
+    elif isinstance(X, (pd.DataFrame, pd.Series)):
+        X_np = datagen._convert_to_numpy(X)
+        y_np = datagen._convert_to_numpy(y)
+    else:
+        raise TypeError("Received unsupported input type")
+    return X_np, y_np
+
+
 def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     """Setup function for FIL classification benchmarking"""
     from cuml.utils.import_utils import has_xgboost
@@ -48,20 +67,7 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     else:
         raise ImportError("No XGBoost package found")
 
-    if isinstance(data[0], (pd.DataFrame, pd.Series)):
-        train_data = datagen._convert_to_numpy(data[0])
-        train_label = datagen._convert_to_numpy(data[1])
-    elif isinstance(data[0], np.ndarray):
-        train_data = data[0]
-        train_label = data[1]
-    elif isinstance(data[0], cudf.DataFrame):
-        train_data = data[0].as_gpu_matrix().copy_to_host()
-        train_label = data[1].to_gpu_array().copy_to_host()
-    elif cuda.devicearray.is_cuda_ndarray(data[0]):
-        train_data = data[0].copy_to_host()
-        train_label = data[1].copy_to_host()
-    else:
-        raise TypeError("Received unsupported input type " % type(data[0]))
+    train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
     dtrain = xgb.DMatrix(train_data, label=train_label)
 
@@ -123,5 +129,7 @@ def _treelite_fil_accuracy_score(y_true, y_pred):
     elif cuda.devicearray.is_cuda_ndarray(y_true):
         y_true_np = y_true.copy_to_host()
         return cuml.metrics.accuracy_score(y_true_np, y_pred_binary)
+    elif isinstance(y_true, cudf.Series):
+        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
     else:
-        return cuml.metrics.accuracy_score(y_true, y_pred)
+        raise TypeError("Received unsupported input type")
