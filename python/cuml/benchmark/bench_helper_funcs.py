@@ -131,5 +131,7 @@ def _treelite_fil_accuracy_score(y_true, y_pred):
         return cuml.metrics.accuracy_score(y_true_np, y_pred_binary)
     elif isinstance(y_true, cudf.Series):
         return cuml.metrics.accuracy_score(y_true, y_pred_binary)
+    elif isinstance(y_true, pd.Series):
+        return cuml.metrics.accuracy_score(y_true, y_pred_binary)
     else:
         raise TypeError("Received unsupported input type")
