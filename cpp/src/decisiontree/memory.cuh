@@ -82,8 +82,9 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   size_t ncols_sampled = (int)(ncols * colper);
   size_t gather_max_nodes =
     std::min((size_t)(nrows + 1), (size_t)(pow(2, depth) + 1));
-  size_t parentsz = std::max(maxnodes, gather_max_nodes);
-  size_t childsz = std::max(2 * maxnodes, gather_max_nodes);
+  parentsz = std::max(maxnodes, gather_max_nodes);
+  childsz = std::max(2 * maxnodes, gather_max_nodes);
+  if (parentsz == childsz) childsz *= 2;
   //std::cout << "maxnodes --> " << maxnodes << "  gather maxnodes--> "
   //          << gather_max_nodes << std::endl;
   //std::cout << "Parent size --> " << parentsz << std::endl;

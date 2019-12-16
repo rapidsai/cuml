@@ -189,11 +189,11 @@ void grow_deep_tree_regression(
   SparseTreeNode<T, T>* h_sparsenodes;
   int *h_nodelist, *d_nodelist, *d_new_nodelist;
   int max_nodes = tempmem->max_nodes_per_level;
-  d_nodecount = (unsigned int*)(tempmem->d_split_colidx->data());
+  d_nodecount = (unsigned int*)(tempmem->d_child_best_metric->data());
   d_nodestart = (unsigned int*)(tempmem->d_split_binidx->data());
   d_samplelist = (unsigned int*)(tempmem->d_parent_metric->data());
   d_nodelist = (int*)(tempmem->d_outgain->data());
-  d_new_nodelist = (int*)(tempmem->d_child_best_metric->data());
+  d_new_nodelist = (int*)(tempmem->d_split_colidx->data());
   h_nodelist = (int*)(tempmem->h_outgain->data());
   d_sparsenodes = tempmem->d_sparsenodes->data();
   h_sparsenodes = tempmem->h_sparsenodes->data();

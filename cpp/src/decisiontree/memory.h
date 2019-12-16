@@ -26,6 +26,7 @@ struct TemporaryMemory {
   //depth algorithm changer
   const int swap_depth = 14;
   static const int gather_threads = 256;
+  size_t parentsz, childsz;
   //Allocators parsed from CUML handle
   std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
   std::shared_ptr<MLCommon::hostAllocator> host_allocator;
