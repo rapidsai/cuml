@@ -23,6 +23,7 @@ dependencies:
 - libcumlprims=0.11*
 - statsmodels
 - protobuf >=3.4.1,<4.0.0
+- pip
 - pip:
     - git+https://github.com/dask/dask.git
     - git+https://github.com/dask/distributed.git
