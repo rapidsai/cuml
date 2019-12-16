@@ -342,7 +342,7 @@ class LinearRegressionMG(LinearRegression):
             data = self._build_dataFloat(arr_interfaces)
             arr_interfaces_pred = self._build_predData(partsToRanks,
                                                         rnk,
-                                                        self.n_cols,
+                                                        1,
                                                         np.float32)
             pred_data = self._build_dataFloat(arr_interfaces_pred)
 
@@ -361,7 +361,7 @@ class LinearRegressionMG(LinearRegression):
             data = self._build_dataDouble(arr_interfaces)
             arr_interfaces_pred = self._build_predData(partsToRanks,
                                                         rnk,
-                                                        self.n_cols,
+                                                        1,
                                                         np.float64)
             pred_data = self._build_dataDouble(arr_interfaces_pred)
 

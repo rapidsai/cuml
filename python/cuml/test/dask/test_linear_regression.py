@@ -49,7 +49,7 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
     return df_X, df_y
 
 
-@pytest.mark.skip(reason="Test should be run only with libcuML.so")
+@pytest.mark.mg
 def test_ols(cluster):
 
     client = Client(cluster)
@@ -84,7 +84,7 @@ def test_ols(cluster):
 
         ret = lr.predict(X_df)
 
-        error_cuml = mean_squared_error(y, ret.compute().to_array())
+        error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
         assert(error_cuml < 1e-6)
 
