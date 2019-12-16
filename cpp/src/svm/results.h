@@ -126,8 +126,11 @@ class Results {
   math_t *CollectSupportVectors(const int *idx, int n_support) {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
+
+    // Leading dimension of x (column major layout)
+    int ldx = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
     // Collect support vectors into a contiguous block
-    MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
+    MLCommon::Matrix::copyRows(x, ldx, n_cols, x_support, idx, n_support,
                                stream);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
@@ -164,10 +167,13 @@ class Results {
       MLCommon::LinAlg::add(coef, coef, coef + n, n, stream);
     }
   }
-  /** Calculate coefficients = alpha * y
-   * @param n_support number of support vertors
-   * @param alpha
-   * @return buffer with dual coefficients, size [n_support]
+
+  /** Return non zero dual coefficients.
+   *
+   * @param [in] val_tmp device pointer with dual coefficients
+   * @param [out] dual_coefs device pointer of non-zero dual coefficiens,
+   *   unallocated on entry, on exit size [n_suppert]
+   * @param [out] n_support number of support vertors
    */
   void GetDualCoefs(const math_t *val_tmp, math_t **dual_coefs,
                     int *n_support) {
