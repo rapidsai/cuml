@@ -39,7 +39,7 @@ struct svmParameter {
   int max_iter;
   int nochange_steps;  //<! Number of steps to continue with non-changing diff
   double tol;          //!< Tolerance used to stop fitting.
-  int verbose;         //!< Print information about traning
+  int verbose;         //!< Print information about training
   double epsilon;      //!< epsilon parameter for epsilon-SVR
   SvmType svmType;
 };
