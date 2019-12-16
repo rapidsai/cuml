@@ -819,6 +819,7 @@ __global__ void best_split_gather_regression_mae_kernel(
         shmae_left[tid] = (T)0;
       } else {
         shcount_right[tid - nbins] = 0;
+        shmae_right[tid - nbins] = (T)0;
       }
     }
     QuestionType question(question_ptr, colid, colcnt, n_nodes, blockIdx.x,
