@@ -14,6 +14,7 @@
 #
 from cuml.benchmark import datagen, algorithms
 from cuml.benchmark.runners import AccuracyComparisonRunner, run_variations
+from cuml.benchmark.bench_helper_funcs import _training_data_to_numpy
 
 import numpy as np
 import cudf
@@ -116,3 +117,11 @@ def test_accuracy_runner():
     results = runner.run(pair)[0]
 
     assert results["cuml_acc"] == pytest.approx(0.80)
+
+
+@pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'pandas', 'gpuarray'])
+def test_training_data_to_numpy(input_type):
+    X, y, *_ = datagen.gen_data('blobs', input_type, n_samples=100, n_features=10)
+    X_np, y_np = _training_data_to_numpy(X, y)
+    assert isinstance(X_np, np.ndarray)
+    assert isinstance(y_np, np.ndarray)
