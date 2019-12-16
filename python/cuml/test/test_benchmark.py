@@ -121,7 +121,9 @@ def test_accuracy_runner():
 
 @pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'pandas', 'gpuarray'])
 def test_training_data_to_numpy(input_type):
-    X, y, *_ = datagen.gen_data('blobs', input_type, n_samples=100, n_features=10)
+    X, y, *_ = datagen.gen_data(
+        'blobs', input_type, n_samples=100, n_features=10
+    )
     X_np, y_np = _training_data_to_numpy(X, y)
     assert isinstance(X_np, np.ndarray)
     assert isinstance(y_np, np.ndarray)
