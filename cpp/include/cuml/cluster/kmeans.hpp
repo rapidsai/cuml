@@ -58,9 +58,12 @@ struct KMeansParams {
   // Oversampling factor for use in the k-means|| algorithm.
   double oversampling_factor = 2.0;
 
+  // batch_samples and batch_centroids are used to tile 1NN computation which is
+  // useful to optimize/control the memory footprint
+  // Default tile is [batch_samples x n_clusters] i.e. when batch_centroids is 0
+  // then don't tile the centroids
   int batch_samples = 1 << 15;
-
-  int batch_centroids = 1024;
+  int batch_centroids = 0;  // if 0 then batch_centroids = n_clusters
 
   bool inertia_check = false;
 };
