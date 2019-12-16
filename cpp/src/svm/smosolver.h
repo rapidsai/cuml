@@ -122,7 +122,8 @@ class SmoSolver {
                          : std::numeric_limits<int>::max();
       max_outer_iter = max(100000, max_outer_iter);
     }
-    WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
+    WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType,
+                          verbose);
     int n_ws = ws.GetSize();
     ResizeBuffers(n_rows, n_cols, n_ws);
     initialize(&y);
@@ -142,23 +143,16 @@ class SmoSolver {
 
       math_t *cacheTile = cache.GetTile(ws.GetVecIndices());
 
-      if (svmType == C_SVC) {
-        SmoBlockSolve<math_t, SMO_WS_SIZE, C_SVC><<<1, n_ws, 0, stream>>>(
-          y, n_rows, alpha.data(), n_ws, delta_alpha.data(), f.data(),
-          cacheTile, ws.GetIndices(), C, tol, return_buff.data(),
-          max_inner_iter);
-      } else {
-        SmoBlockSolve<math_t, SMO_WS_SIZE, EPSILON_SVR><<<1, n_ws, 0, stream>>>(
-          y, n_rows, alpha.data(), n_ws, delta_alpha.data(), f.data(),
-          cacheTile, ws.GetIndices(), C, tol, return_buff.data(),
-          max_inner_iter);
-      }
+      SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(
+        y, n_rows, alpha.data(), n_ws, delta_alpha.data(), f.data(), cacheTile,
+        ws.GetIndices(), C, tol, return_buff.data(), max_inner_iter, svmType);
+      // should pass GetVecIndices too, and use that for kernel lookup
 
       CUDA_CHECK(cudaPeekAtLastError());
 
       MLCommon::updateHost(host_return_buff, return_buff.data(), 2, stream);
 
-      UpdateF(f.data(), n_rows, delta_alpha.data(), n_ws, cacheTile);
+      UpdateF(f.data(), n_rows, n_rows_x, delta_alpha.data(), n_ws, cacheTile);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -196,11 +190,11 @@ class SmoSolver {
    * @param cacheTile kernel function evaluated for the following set K[X,x_ws], size [n_rows, n_ws]
    * @param cublas_handle
    */
-  void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
-               const math_t *cacheTile) {
-    MLCommon::myPrintDevVector("Dalpha", delta_alpha, n_ws);
-    MLCommon::myPrintDevVector("f", f, n_rows);
-    MLCommon::myPrintDevVector("cacheTile", cacheTile, n_ws * n_rows_x);
+  void UpdateF(math_t *f, int n_rows, int n_rows_x, const math_t *delta_alpha,
+               int n_ws, const math_t *cacheTile) {
+    //MLCommon::myPrintDevVector("Dalpha", delta_alpha, n_ws);
+    //MLCommon::myPrintDevVector("f", f, n_rows);
+    //MLCommon::myPrintDevVector("cacheTile", cacheTile, n_ws * n_rows_x);
     math_t one =
       1;  // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
@@ -215,6 +209,9 @@ class SmoSolver {
     }
   }
 
+  /// Initialize the problem to solve. Note that the optimization target (W)
+  /// does not appear directly in the SMO formulation, only its derivative:
+  /// f_i = y_i \frac{\partial W }{\partial \alpha_i}.
   void initialize(math_t **y) {
     switch (svmType) {
       case C_SVC:
@@ -260,7 +257,7 @@ class SmoSolver {
     // \epsilon \sum_{i=1}^l (\alpha_i^+ + \alpha_i^-) -
     //          \sum_{i=1}^l yc_i (\alpha_i^+ - \alpha_i^-)
     // + \frac{1}{2}\sum_{i,j=1}^l(\alpha_i^+ - \alpha_i^-)(\alpha_j^+ - \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
-    // Then f_i = y_i {\partial W(\alpha}{\partial \alpha_i} = yc_i*epsilon - yr_i
+    // Then f_i = y_i \frac{\partial W(\alpha}{\partial \alpha_i} = yc_i*epsilon - yr_i
     // this is consistent with thunderSVM code and paper.
     // LIBSVM code has epsilon + yr_i. If I remember correctly, they
     // multiply with yC_i later, to get similar quantity as our f_i
@@ -273,7 +270,7 @@ class SmoSolver {
     MLCommon::LinAlg::unaryOp(
       f + n, yr, n, [epsilon] __device__(math_t y) { return -epsilon - y; },
       stream);
-    MLCommon::myPrintDevVector("smo f", f, 2 * n);
+    //MLCommon::myPrintDevVector("smo f", f, 2 * n);
   }
 
  private:
