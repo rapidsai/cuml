@@ -463,30 +463,54 @@ void best_split_gather_regression(
   const unsigned int *d_colstart, const unsigned int *d_nodestart,
   const unsigned int *d_samplelist, const int nrows, const int Ncols,
   const int ncols_sampled, const int nbins, const int n_nodes,
-  const int split_algo, const size_t treesz, const float min_impurity_split,
+  const int split_algo, const ML::CRITERION split_cr, const size_t treesz,
+  const float min_impurity_split,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
   const int TPB = TemporaryMemory<T, T>::gather_threads;
-
-  if (split_algo == 0) {
-    using E = typename MLCommon::Stats::encode_traits<T>::E;
-    T init_val = std::numeric_limits<T>::max();
-    size_t shmemsz = nbins * sizeof(int) + nbins * sizeof(T);
-    best_split_gather_regression_minmax_kernel<T, E, TPB>
-      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
-        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, n_nodes,
-        nbins, nrows, Ncols, ncols_sampled, treesz, min_impurity_split,
-        init_val, d_sparsenodes, d_nodelist);
+  if (split_cr == ML::CRITERION::MSE) {
+    if (split_algo == 0) {
+      using E = typename MLCommon::Stats::encode_traits<T>::E;
+      T init_val = std::numeric_limits<T>::max();
+      size_t shmemsz = nbins * sizeof(int) + nbins * sizeof(T);
+      best_split_gather_regression_mse_minmax_kernel<T, E, TPB>
+        <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+          data, labels, d_colids, d_colstart, d_nodestart, d_samplelist,
+          n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
+          min_impurity_split, init_val, d_sparsenodes, d_nodelist);
+    } else {
+      const T *d_question_ptr = tempmem->d_quantile->data();
+      size_t shmemsz = nbins * sizeof(T) + nbins * sizeof(int);
+      best_split_gather_regression_mse_kernel<T, QuantileQues<T>, TPB>
+        <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+          data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
+          d_samplelist, n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
+          min_impurity_split, d_sparsenodes, d_nodelist);
+    }
+    CUDA_CHECK(cudaGetLastError());
   } else {
-    const T *d_question_ptr = tempmem->d_quantile->data();
-    size_t shmemsz = nbins * sizeof(T) + nbins * sizeof(int);
-    best_split_gather_regression_kernel<T, QuantileQues<T>, TPB>
-      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
-        data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
-        d_samplelist, n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
-        min_impurity_split, d_sparsenodes, d_nodelist);
+    if (split_algo == 0) {
+      std::cout << "incomplte \n\n";
+      exit(0);
+      //using E = typename MLCommon::Stats::encode_traits<T>::E;
+      //T init_val = std::numeric_limits<T>::max();
+      //size_t shmemsz = 3*nbins * sizeof(int) + nbins * sizeof(T);
+      //best_split_gather_regression_mae_minmax_kernel<T, E, TPB>
+      //  <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+      //    data, labels, d_colids, d_colstart, d_nodestart, d_samplelist,
+      //    n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
+      //    min_impurity_split, init_val, d_sparsenodes, d_nodelist);
+    } else {
+      const T *d_question_ptr = tempmem->d_quantile->data();
+      size_t shmemsz = 3 * nbins * sizeof(T) + nbins * sizeof(int);
+      best_split_gather_regression_mae_kernel<T, QuantileQues<T>, TPB>
+        <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+          data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
+          d_samplelist, n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
+          min_impurity_split, d_sparsenodes, d_nodelist);
+    }
+    CUDA_CHECK(cudaGetLastError());
   }
-  CUDA_CHECK(cudaGetLastError());
 }
 template <typename T>
 void make_leaf_gather_regression(

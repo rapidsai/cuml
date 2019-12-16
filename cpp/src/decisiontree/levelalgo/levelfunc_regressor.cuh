@@ -220,15 +220,12 @@ void grow_deep_tree_regression(
                             ncols_sampled, lastsize, mtg, dist,
                             feature_selector, tempmem, d_rng);
 
-    if (split_cr == ML::CRITERION::MSE) {
-      best_split_gather_regression(
-        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
-        Ncols, ncols_sampled, nbins, n_nodes, split_algo,
-        sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
-        d_sparsenodes, d_nodelist);
-    } else {
-      ASSERT(false, "MAE does not work on depth algo\n");
-    }
+    best_split_gather_regression(
+      data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
+      Ncols, ncols_sampled, nbins, n_nodes, split_algo, split_cr,
+      sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
+      d_sparsenodes, d_nodelist);
+
     MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
                          tempmem->stream);
     //Update nodelist and split nodes
@@ -249,12 +246,8 @@ void grow_deep_tree_regression(
     n_nodes = h_counter[0];
   }
   if (n_nodes != 0) {
-    if (split_cr == ML::CRITERION::MSE) {
-      make_leaf_gather_regression(labels, d_nodestart, d_samplelist,
-                                  d_sparsenodes, d_nodelist, n_nodes, tempmem);
-    } else {
-      ASSERT(false, "MAE does not work on depth algo\n");
-    }
+    make_leaf_gather_regression(labels, d_nodestart, d_samplelist,
+                                d_sparsenodes, d_nodelist, n_nodes, tempmem);
     MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
                          tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));

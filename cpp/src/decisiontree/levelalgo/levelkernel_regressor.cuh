@@ -58,6 +58,13 @@ struct MAEGain {
     T right_impurity = (right * 1.0 / total) * mae_right;
     return (parent_best_metric - (left_impurity + right_impurity));
   }
+  static HDI T exec(const T parent_mae, const T mae_left, const T mae_right,
+                    const unsigned int left, const unsigned int right,
+                    const unsigned int total) {
+    T left_impurity = (left * 1.0 / total) * mae_left;
+    T right_impurity = (right * 1.0 / total) * mae_right;
+    return (parent_mae - (left_impurity + right_impurity));
+  }
 };
 
 template <typename T>
@@ -444,10 +451,12 @@ __global__ void get_best_split_regression_kernel(
   }
 }
 
+//This is the best bin finder at block level for each column using one pass MSE
 template <typename T>
-DI GainIdxPair bin_info_gain_regression(const T sum_parent, const T *sum_left,
-                                        const unsigned int *count_right,
-                                        const int count, const int nbins) {
+DI GainIdxPair bin_info_gain_regression_mse(const T sum_parent,
+                                            const T *sum_left,
+                                            const unsigned int *count_right,
+                                            const int count, const int nbins) {
   GainIdxPair tid_pair;
   tid_pair.gain = 0.0;
   tid_pair.idx = -1;
@@ -469,8 +478,37 @@ DI GainIdxPair bin_info_gain_regression(const T sum_parent, const T *sum_left,
   return tid_pair;
 }
 
+//This is the best bin finder at block level for each column using two pass MAE
+template <typename T>
+DI GainIdxPair bin_info_gain_regression_mae(const T mae_sum_parent,
+                                            const T *mae_sum_left,
+                                            const T *mae_sum_right,
+                                            const unsigned int *count_right,
+                                            const int count, const int nbins) {
+  GainIdxPair tid_pair;
+  tid_pair.gain = 0.0;
+  tid_pair.idx = -1;
+  for (int tid = threadIdx.x; tid < nbins; tid += blockDim.x) {
+    unsigned int right = count_right[tid];
+    unsigned int left = count - right;
+    if ((right != 0) && (left != 0)) {
+      T mae_left = mae_sum_left[tid] / (T)left;
+      T mae_right = mae_sum_right[tid] / (T)right;
+      T mae_parent = mae_sum_parent / (T)count;
+      float info_gain = (float)MAEGain<T>::exec(mae_parent, mae_left, mae_right,
+                                                left, right, count);
+      if (info_gain > tid_pair.gain) {
+        tid_pair.gain = info_gain;
+        tid_pair.idx = tid;
+      }
+    }
+  }
+  return tid_pair;
+}
+
+//One pass best split using MSE
 template <typename T, typename QuestionType, int TPB>
-__global__ void best_split_gather_regression_kernel(
+__global__ void best_split_gather_regression_mse_kernel(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ colids,
   const unsigned int *__restrict__ colstart, const T *__restrict__ question_ptr,
@@ -480,8 +518,8 @@ __global__ void best_split_gather_regression_kernel(
   const size_t treesz, const float min_impurity_split,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
   //shmemhist_parent[n_unique_labels]
-  extern __shared__ char shmem_gather[];
-  T *shmean_left = (T *)(shmem_gather);
+  extern __shared__ char shmem_mse_gather[];
+  T *shmean_left = (T *)(shmem_mse_gather);
   unsigned int *shcount_right = (unsigned int *)(shmean_left + nbins);
   __shared__ T mean_parent;
   __shared__ GainIdxPair shmem_pair;
@@ -538,7 +576,7 @@ __global__ void best_split_gather_regression_kernel(
       }
     }
     __syncthreads();
-    GainIdxPair bin_pair = bin_info_gain_regression<T>(
+    GainIdxPair bin_pair = bin_info_gain_regression_mse<T>(
       mean_parent, shmean_left, shcount_right, count, nbins);
     GainIdxPair best_bin_pair =
       BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
@@ -569,9 +607,10 @@ __global__ void best_split_gather_regression_kernel(
   }
 }
 
-//Same as above but fused with minmax mode.
+//Same as above but fused with minmax mode, one pass min/max
+// one pass MSE. total two pass.
 template <typename T, typename E, int TPB>
-__global__ void best_split_gather_regression_minmax_kernel(
+__global__ void best_split_gather_regression_mse_minmax_kernel(
   const T *__restrict__ data, const T *__restrict__ labels,
   const unsigned int *__restrict__ colids,
   const unsigned int *__restrict__ colstart,
@@ -581,8 +620,8 @@ __global__ void best_split_gather_regression_minmax_kernel(
   const size_t treesz, const float min_impurity_split, const T init_min_val,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
   //shmemhist_parent[n_unique_labels]
-  extern __shared__ char shmem_gather[];
-  T *shmean_left = (T *)(shmem_gather);
+  extern __shared__ char shmem_mse_minmax_gather[];
+  T *shmean_left = (T *)(shmem_mse_minmax_gather);
   unsigned int *shcount_right = (unsigned int *)(shmean_left + nbins);
   __shared__ T mean_parent;
   __shared__ GainIdxPair shmem_pair;
@@ -657,7 +696,7 @@ __global__ void best_split_gather_regression_minmax_kernel(
       }
     }
     __syncthreads();
-    GainIdxPair bin_pair = bin_info_gain_regression<T>(
+    GainIdxPair bin_pair = bin_info_gain_regression_mse<T>(
       mean_parent, shmean_left, shcount_right, count, nbins);
     GainIdxPair best_bin_pair =
       BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
@@ -688,8 +727,8 @@ __global__ void best_split_gather_regression_minmax_kernel(
   }
 }
 
-//A light weight implementation of the above kernel for last level,
-// when all nodes are to be leafed out
+//A light weight implementation of the best split kernel for last level,
+// when all nodes are to be leafed out. works for all algo all split criteria
 template <typename T>
 __global__ void make_leaf_gather_regression_kernel(
   const T *__restrict__ labels, const unsigned int *__restrict__ g_nodestart,
@@ -714,6 +753,138 @@ __global__ void make_leaf_gather_regression_kernel(
     localnode.prediction = mean_parent / count;
     localnode.colid = -1;
     localnode.best_metric_val = mean_parent / count;
+    d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
+  }
+}
+
+//Gather kernel for MAE. We need this different as MAE needs to be multipass
+// One pass for mean and one pass for MAE
+template <typename T, typename QuestionType, int TPB>
+__global__ void best_split_gather_regression_mae_kernel(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart, const T *__restrict__ question_ptr,
+  const unsigned int *__restrict__ g_nodestart,
+  const unsigned int *__restrict__ samplelist, const int n_nodes,
+  const int nbins, const int nrows, const int Ncols, const int ncols_sampled,
+  const size_t treesz, const float min_impurity_split,
+  SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
+  extern __shared__ char shmem_mae_gather[];
+  T *shmean_left = (T *)shmem_mae_gather;
+  T *shmae_left = (T *)(shmean_left + nbins);
+  T *shmae_right = (T *)(shmae_left + nbins);
+  unsigned int *shcount_right = (unsigned int *)(shmae_right + nbins);
+  __shared__ T mean_parent, mae_parent;
+  __shared__ GainIdxPair shmem_pair;
+  __shared__ int shmem_col;
+  typedef cub::BlockReduce<GainIdxPair, TPB> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  int colstart_local = -1;
+  int colid;
+  T local_label;
+  T local_data;
+  unsigned int dataid;
+  unsigned int nodestart = g_nodestart[blockIdx.x];
+  unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
+  if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
+
+  //Compute parent histograms
+  if (threadIdx.x == 0) {
+    mean_parent = 0.0;
+    shmem_pair.gain = 0.0f;
+    shmem_pair.idx = -1;
+    shmem_col = -1;
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    dataid = samplelist[nodestart + tid];
+    local_label = labels[dataid];
+    atomicAdd(&mean_parent, local_label);
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
+    local_label = get_label(labels, local_label, dataid, count);
+    T value = (mean_parent / count) - local_label;
+    atomicAdd(&mae_parent, MLCommon::myAbs(value));
+  }
+  //Loop over cols
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled, colcnt,
+                          blockIdx.x);
+    for (int tid = threadIdx.x; tid < 2 * nbins; tid += blockDim.x) {
+      if (tid < nbins) {
+        shmean_left[tid] = (T)0;
+        shmae_left[tid] = (T)0;
+      } else {
+        shcount_right[tid - nbins] = 0;
+      }
+    }
+    QuestionType question(question_ptr, colid, colcnt, n_nodes, blockIdx.x,
+                          nbins);
+    __syncthreads();
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
+      local_data = data[dataid + colid * nrows];
+      local_label = get_label(labels, local_label, dataid, count);
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        if (local_data <= question(binid)) {
+          atomicAdd(&shmean_left[binid], local_label);
+        } else {
+          atomicAdd(&shcount_right[binid], 1);
+        }
+      }
+    }
+    __syncthreads();
+    //second data pass is needed for MAE
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
+      local_data = get_data(data, local_data, dataid + colid * nrows, count);
+      local_label = get_label(labels, local_label, dataid, count);
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        if (local_data <= question(binid)) {
+          T value =
+            (shmean_left[binid] / (count - shcount_right[binid])) - local_label;
+          atomicAdd(&shmae_left[binid], MLCommon::myAbs(value));
+        } else {
+          T value =
+            ((mean_parent - shmean_left[binid]) / shcount_right[binid]) -
+            local_label;
+          atomicAdd(&shmae_right[binid], MLCommon::myAbs(value));
+        }
+      }
+    }
+    __syncthreads();
+    GainIdxPair bin_pair = bin_info_gain_regression_mae<T>(
+      mae_parent, shmae_left, shmae_right, shcount_right, count, nbins);
+    GainIdxPair best_bin_pair =
+      BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
+    __syncthreads();
+
+    if ((best_bin_pair.gain > shmem_pair.gain) && (threadIdx.x == 0)) {
+      shmem_pair = best_bin_pair;
+      shmem_col = colcnt;
+    }
+  }
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    SparseTreeNode<T, T> localnode;
+    if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            shmem_col, blockIdx.x);
+      QuestionType question(question_ptr, colid, shmem_col, n_nodes, blockIdx.x,
+                            nbins);
+      localnode.quesval = question(shmem_pair.idx);
+      localnode.left_child_id = treesz + 2 * blockIdx.x;
+    } else {
+      colid = -1;
+      localnode.prediction = mean_parent / count;
+    }
+    localnode.colid = colid;
+    localnode.best_metric_val = mae_parent / count;
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
