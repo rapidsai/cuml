@@ -2,11 +2,12 @@
 cpp/               @rapidsai/cuml-cpp-codeowners
 
 #python code owners
-python/            @rapidsai/cuml-python-codeowners
+python/cuml/       @rapidsai/cuml-python-codeowners
 
 #cmake code owners
 **/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
 **/cmake/          @rapidsai/cuml-cmake-codeowners
+python/setup.py    @rapidsai/cuml-cmake-codeowners
 
 #build/ops code owners
 .github/           @rapidsai/ops-codeowners 
