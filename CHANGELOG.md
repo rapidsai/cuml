@@ -5,7 +5,7 @@
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
-
+- PR #1489: Enabling deep trees using Gather tree builder
 - PR #1463: Update FAISS submodule to 1.6.1
 
 ## Bug Fixes
