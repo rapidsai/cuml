@@ -52,7 +52,7 @@ __device__ bool dummy_select_op(int idx) { return true; }
 template <typename math_t>
 class WorkingSet {
  public:
-  bool verbose = false;
+  bool verbose;
 
   //!> Workspace selection strategy, note that only FIFO is tested so far
   bool FIFO_strategy = true;
@@ -64,10 +64,11 @@ class WorkingSet {
    * @param n_ws number of elements in the working set (default 1024)
    */
   WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
-             int n_ws = 0, SvmType svmType = C_SVC)
+             int n_ws = 0, SvmType svmType = C_SVC, bool verbose = false)
     : handle(handle),
       stream(stream),
       svmType(svmType),
+      verbose(verbose),
       available(handle.getDeviceAllocator(), stream),
       available_sorted(handle.getDeviceAllocator(), stream),
       cub_storage(handle.getDeviceAllocator(), stream),
@@ -103,18 +104,30 @@ class WorkingSet {
     n_ws = min(1024, n_ws);
     this->n_ws = n_ws;
     this->n_rows = n_rows;
+    this->n_vec = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
+    if (verbose) {
+      std::cout << "Creating working set with " << n_ws << " elements\n";
+    }
     AllocateBuffers();
   }
 
   /** Return the size of the working set. */
   int GetSize() { return n_ws; }
 
-  /** Return a pointer the the working set indices */
+  /** Return a device pointer to the array with the working set indices */
   int *GetIndices() { return idx.data(); }
 
+  /** Get the original training vector idx.
+   *
+   * For SVC this is the same as GetIndices, for SVR we have duplicate set
+   * of training vectors, we return the original idx, which is simply
+   * ws_idx % n_vec.
+   *
+   * Return device pointer with values GetIndices() % n_vecs
+  */
   int *GetVecIndices() {
     if (svmType == EPSILON_SVR) {
-      int n = n_ws / 2;
+      int n = n_vec;
       MLCommon::LinAlg::unaryOp(
         vec_idx.data(), idx.data(), n_ws,
         [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
@@ -166,7 +179,7 @@ class WorkingSet {
       MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_rows,
                                  std::cout);
     }
-    // Select top n_ws/2 elements
+    // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
     set_upper<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
       available, n_rows, alpha, y, C);
@@ -174,7 +187,7 @@ class WorkingSet {
     n_already_selected +=
       GatherAvailable(n_already_selected, n_needed / 2, true);
 
-    // Select bottom n_ws/2 elements
+    // Select n_ws/2 elements from the lower set with the highest f values
     set_lower<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
       available, n_rows, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -216,7 +229,15 @@ class WorkingSet {
     int nc = n_ws / 4;
     int n_selected = 0;
     if (firstcall) {
-      firstcall = false;
+      if (nc>=1) {
+        firstcall = false;
+      } else {
+        // This can only happen for n_ws < 4.
+        // We keep the calculation always in firstcall mode (only SimpleSelect
+        // is used, no advaced strategies because we do not have enougt elements)
+        //
+        // Nothing to do, firstcall is already true
+      }
     } else {
       // keep 1/2 of the old working set
       if (FIFO_strategy) {
@@ -282,7 +303,8 @@ class WorkingSet {
   cudaStream_t stream;
 
   bool firstcall = true;
-  int n_rows = 0;
+  int n_rows = 0;  ///< number of training vectors (including duplicates for SVR)
+  int n_vec = 0;  ///< number of training vectors (not including SVR duplicates)
   int n_ws = 0;
 
   SvmType svmType;
@@ -412,25 +434,8 @@ class WorkingSet {
   }
 
   void Initialize() {
-    //switch (svmType) {
-    //case C_SVC:
     MLCommon::LinAlg::range(f_idx.data(), n_rows, stream);
     MLCommon::LinAlg::range(idx.data(), n_ws, stream);
-    /*    break;
-      case EPSILON_SVR:
-        MLCommon::LinAlg::range(f_idx.data(), n_rows / 2, stream);
-        MLCommon::LinAlg::range(f_idx.data() + n_rows / 2, n_rows / 2, stream);
-        if (n_ws > n_rows / 2) {
-          MLCommon::LinAlg::range(idx.data(), n_rows / 2, stream);
-          MLCommon::LinAlg::range(idx.data() + n_rows / 2, n_ws - n_rows,
-                                  stream);
-        } else {
-          MLCommon::LinAlg::range(idx.data(), n_ws, stream);
-        }
-        break;
-      default:
-        THROW("Working set initialization not implemented SvmType=%d", svmType);
-    */
   }
 
   /**
