@@ -83,8 +83,8 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   size_t gather_max_nodes =
     std::min((size_t)(nrows + 1), (size_t)(pow(2, depth) + 1));
   parentsz = std::max(maxnodes, gather_max_nodes);
-  childsz = std::max(2 * maxnodes, gather_max_nodes);
-  if (parentsz == childsz) childsz *= 2;
+  childsz = std::max(2 * maxnodes, 2 * gather_max_nodes);
+
   //std::cout << "maxnodes --> " << maxnodes << "  gather maxnodes--> "
   //          << gather_max_nodes << std::endl;
   //std::cout << "Parent size --> " << parentsz << std::endl;
@@ -172,10 +172,10 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
 
   //Allocate node vectors
   d_sparsenodes = new MLCommon::device_buffer<SparseTreeNode<T, L>>(
-    device_allocator, stream, gather_max_nodes);
+    device_allocator, stream, 2 * gather_max_nodes);
   h_sparsenodes = new MLCommon::host_buffer<SparseTreeNode<T, L>>(
-    host_allocator, stream, gather_max_nodes);
-  totalmem += gather_max_nodes * sizeof(SparseTreeNode<T, L>);
+    host_allocator, stream, 2 * gather_max_nodes);
+  totalmem += 2 * gather_max_nodes * sizeof(SparseTreeNode<T, L>);
 
   //Regression
   if (typeid(L) == typeid(T)) {
