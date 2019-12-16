@@ -490,16 +490,14 @@ void best_split_gather_regression(
     CUDA_CHECK(cudaGetLastError());
   } else {
     if (split_algo == 0) {
-      std::cout << "incomplte \n\n";
-      exit(0);
-      //using E = typename MLCommon::Stats::encode_traits<T>::E;
-      //T init_val = std::numeric_limits<T>::max();
-      //size_t shmemsz = 3*nbins * sizeof(int) + nbins * sizeof(T);
-      //best_split_gather_regression_mae_minmax_kernel<T, E, TPB>
-      //  <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
-      //    data, labels, d_colids, d_colstart, d_nodestart, d_samplelist,
-      //    n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
-      //    min_impurity_split, init_val, d_sparsenodes, d_nodelist);
+      using E = typename MLCommon::Stats::encode_traits<T>::E;
+      T init_val = std::numeric_limits<T>::max();
+      size_t shmemsz = 3 * nbins * sizeof(int) + nbins * sizeof(T);
+      best_split_gather_regression_mae_minmax_kernel<T, E, TPB>
+        <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+          data, labels, d_colids, d_colstart, d_nodestart, d_samplelist,
+          n_nodes, nbins, nrows, Ncols, ncols_sampled, treesz,
+          min_impurity_split, init_val, d_sparsenodes, d_nodelist);
     } else {
       const T *d_question_ptr = tempmem->d_quantile->data();
       size_t shmemsz = 3 * nbins * sizeof(T) + nbins * sizeof(int);

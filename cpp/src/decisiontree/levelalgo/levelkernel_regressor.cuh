@@ -889,3 +889,158 @@ __global__ void best_split_gather_regression_mae_kernel(
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
 }
+
+//Same as above but fused with minmax mode, one pass min/max
+// one pass Mean. one pass MAE. total three passes.
+template <typename T, typename E, int TPB>
+__global__ void best_split_gather_regression_mae_minmax_kernel(
+  const T *__restrict__ data, const T *__restrict__ labels,
+  const unsigned int *__restrict__ colids,
+  const unsigned int *__restrict__ colstart,
+  const unsigned int *__restrict__ g_nodestart,
+  const unsigned int *__restrict__ samplelist, const int n_nodes,
+  const int nbins, const int nrows, const int Ncols, const int ncols_sampled,
+  const size_t treesz, const float min_impurity_split, const T init_min_val,
+  SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
+  //shmemhist_parent[n_unique_labels]
+  extern __shared__ char shmem_mae_minmax_gather[];
+  T *shmean_left = (T *)shmem_mae_minmax_gather;
+  T *shmae_left = (T *)(shmean_left + nbins);
+  T *shmae_right = (T *)(shmae_left + nbins);
+  unsigned int *shcount_right = (unsigned int *)(shmae_right + nbins);
+  __shared__ T mean_parent, mae_parent;
+  __shared__ GainIdxPair shmem_pair;
+  __shared__ int shmem_col;
+  typedef cub::BlockReduce<GainIdxPair, TPB> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+  __shared__ T shmem_min, shmem_max, best_min, best_delta;
+
+  int colstart_local = -1;
+  int colid;
+  T local_label;
+  unsigned int dataid;
+  T local_data;
+  unsigned int nodestart = g_nodestart[blockIdx.x];
+  unsigned int count = g_nodestart[blockIdx.x + 1] - nodestart;
+  if (colstart != nullptr) colstart_local = colstart[blockIdx.x];
+
+  //Compute parent histograms
+  if (threadIdx.x == 0) {
+    mean_parent = 0.0;
+    mae_parent = 0.0;
+    shmem_pair.gain = 0.0f;
+    shmem_pair.idx = -1;
+    shmem_col = -1;
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    dataid = samplelist[nodestart + tid];
+    local_label = labels[dataid];
+    atomicAdd(&mean_parent, local_label);
+  }
+  __syncthreads();
+  for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+    dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
+    local_label = get_label(labels, local_label, dataid, count);
+    T value = (mean_parent / count) - local_label;
+    atomicAdd(&mae_parent, MLCommon::myAbs(value));
+  }
+
+  //Loop over cols
+  for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
+    if (threadIdx.x == 0) {
+      *(E *)&shmem_min = MLCommon::Stats::encode(init_min_val);
+      *(E *)&shmem_max = MLCommon::Stats::encode(-init_min_val);
+    }
+    colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled, colcnt,
+                          blockIdx.x);
+    for (int tid = threadIdx.x; tid < 2 * nbins; tid += blockDim.x) {
+      if (tid < nbins) {
+        shmean_left[tid] = (T)0;
+        shmae_left[tid] = (T)0;
+      } else {
+        shcount_right[tid - nbins] = 0;
+        shmae_right[tid - nbins] = (T)0;
+      }
+    }
+    __syncthreads();
+
+    //Compuet minmax on independent data pass
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      unsigned int dataid = samplelist[nodestart + tid];
+      local_data = data[dataid + colid * nrows];
+      MLCommon::Stats::atomicMinBits<T, E>(&shmem_min, local_data);
+      MLCommon::Stats::atomicMaxBits<T, E>(&shmem_max, local_data);
+    }
+    __syncthreads();
+
+    T threadmin = MLCommon::Stats::decode(*(E *)&shmem_min);
+    T delta =
+      (MLCommon::Stats::decode(*(E *)&shmem_max) - threadmin) / (nbins + 1);
+
+    //Second pass for Mean
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
+      local_data = get_data(data, local_data, dataid + colid * nrows, count);
+      local_label = get_label(labels, local_label, dataid, count);
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        if (local_data <= threadmin + delta * (binid + 1)) {
+          atomicAdd(&shmean_left[binid], local_label);
+        } else {
+          atomicAdd(&shcount_right[binid], 1);
+        }
+      }
+    }
+    __syncthreads();
+    //Third pass needed for MAE
+    for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
+      dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
+      local_data = get_data(data, local_data, dataid + colid * nrows, count);
+      local_label = get_label(labels, local_label, dataid, count);
+#pragma unroll(8)
+      for (unsigned int binid = 0; binid < nbins; binid++) {
+        if (local_data <= threadmin + delta * (binid + 1)) {
+          T value =
+            (shmean_left[binid] / (count - shcount_right[binid])) - local_label;
+          atomicAdd(&shmae_left[binid], MLCommon::myAbs(value));
+        } else {
+          T value =
+            ((mean_parent - shmean_left[binid]) / shcount_right[binid]) -
+            local_label;
+          atomicAdd(&shmae_right[binid], MLCommon::myAbs(value));
+        }
+      }
+    }
+    __syncthreads();
+
+    GainIdxPair bin_pair = bin_info_gain_regression_mae<T>(
+      mae_parent, shmae_left, shmae_right, shcount_right, count, nbins);
+    GainIdxPair best_bin_pair =
+      BlockReduce(temp_storage).Reduce(bin_pair, ReducePair<cub::Max>());
+    __syncthreads();
+
+    if ((best_bin_pair.gain > shmem_pair.gain) && (threadIdx.x == 0)) {
+      shmem_pair = best_bin_pair;
+      shmem_col = colcnt;
+      best_min = threadmin;
+      best_delta = delta;
+    }
+  }
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    SparseTreeNode<T, T> localnode;
+    if ((shmem_col != -1) && (shmem_pair.gain > min_impurity_split)) {
+      colid = get_column_id(colids, colstart_local, Ncols, ncols_sampled,
+                            shmem_col, blockIdx.x);
+      localnode.quesval = best_min + (shmem_pair.idx + 1) * best_delta;
+      localnode.left_child_id = treesz + 2 * blockIdx.x;
+    } else {
+      colid = -1;
+      localnode.prediction = mean_parent / count;
+    }
+    localnode.colid = colid;
+    localnode.best_metric_val = mae_parent / count;
+    d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
+  }
+}
