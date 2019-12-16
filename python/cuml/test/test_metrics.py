@@ -126,8 +126,8 @@ dataset_names = ['noisy_circles', 'noisy_moons', 'aniso'] + \
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
-                         stress_param(500000)])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(100000)])
 def test_rand_index_score(name, nrows):
 
     default_base = {'quantile': .3,
