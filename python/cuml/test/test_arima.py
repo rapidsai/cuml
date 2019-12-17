@@ -56,8 +56,41 @@ ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
                                      'tolerance_integration_out',
                                      'tolerance_sameparam_inout'])
 
-# ARIMA(?,0,?)
-# TODO
+# ARIMA(2,0,0)
+test_200 = ARIMAData(
+    batch_size=8,
+    n_obs=15,
+    dataset="long_term_arrivals_by_citizenship",
+    start=10,
+    end=25,
+    tolerance_integration_in=0.05,
+    tolerance_integration_out=0.5,
+    tolerance_sameparam_inout=0.0001
+)
+
+# ARIMA(0,0,2) with intercept
+test_002c = ARIMAData(
+    batch_size=10,
+    n_obs=20,
+    dataset="net_migrations_auckland_by_age",
+    start=15,
+    end=30,
+    tolerance_integration_in=210.0,
+    tolerance_integration_out=180.0,
+    tolerance_sameparam_inout=0.0001
+)
+
+# ARIMA(0,1,0) with intercept
+test_010c = ARIMAData(
+    batch_size=4,
+    n_obs=17,
+    dataset="cattle",
+    start=10,
+    end=25,
+    tolerance_integration_in=0.0001,
+    tolerance_integration_out=0.0001,
+    tolerance_sameparam_inout=0.0001
+)
 
 # ARIMA(1,1,0)
 test_110 = ARIMAData(
@@ -95,8 +128,20 @@ test_121 = ARIMAData(
     tolerance_sameparam_inout=0.05
 )
 
+# ARIMA(1,0,1)(1,1,1)_4
+test_101_111_4 = ARIMAData(
+    batch_size=3,
+    n_obs=101,
+    dataset="alcohol",
+    start=80,
+    end=110,
+    tolerance_integration_in=0.1,
+    tolerance_integration_out=0.1,
+    tolerance_sameparam_inout=0.0001
+)
+
 # ARIMA(1,1,1)(2,0,0)_4
-test_112_012_4 = ARIMAData(
+test_111_200_4 = ARIMAData(
     batch_size=14,
     n_obs=123,
     dataset="hourly_earnings_by_industry",
@@ -110,12 +155,12 @@ test_112_012_4 = ARIMAData(
 # ARIMA(1,1,2)(0,1,2)_4
 test_112_012_4 = ARIMAData(
     batch_size=2,
-    n_obs=395,
+    n_obs=179,
     dataset="passenger_movements",
-    start=380,
-    end=420,
-    tolerance_integration_in=4000.0,
-    tolerance_integration_out=20000.0,
+    start=160,
+    end=200,
+    tolerance_integration_in=5.0,
+    tolerance_integration_out=20.0,
     tolerance_sameparam_inout=0.0001
 )
 
@@ -133,10 +178,17 @@ test_111_111_12 = ARIMAData(
 
 # Dictionary matching a test case to a tuple of model parameters
 # (a test case could be used with different models)
+# Note: be very cautious when using an intercept in the model, it is generally
+# not equivalent in cuML and statsmodels!
 test_data = {
+    (2, 0, 0, False, 0, 0, 0, 0): test_200,
+    (0, 0, 2, True, 0, 0, 0, 0): test_002c,
+    (0, 1, 0, True, 0, 0, 0, 0): test_010c,
     (1, 1, 0, False, 0, 0, 0, 0): test_110,
     (0, 1, 1, False, 0, 0, 0, 0): test_011,
     (1, 2, 1, False, 0, 0, 0, 0): test_121,
+    (1, 0, 1, False, 1, 1, 1, 4): test_101_111_4,
+    (1, 1, 1, False, 2, 0, 0, 4): test_111_200_4,
     (1, 1, 2, False, 0, 1, 2, 4): test_112_012_4,
     (1, 1, 1, False, 1, 1, 1, 12): test_111_111_12,
 }
@@ -211,6 +263,11 @@ def test_integration(test_case, dtype):
 
 def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
                          intercept, dtype):
+    """Utility function to transfer the parameters from a statsmodels'
+    SARIMAXResults object to a cuML ARIMA object.
+    Note: be cautious with the intercept, it is not always equivalent
+    in statsmodels and cuML models (it depends on the order).
+    """
     p, _, q = order
     P, _, Q, _ = seasonal_order
     nb = cuml_model.batch_size
@@ -247,11 +304,6 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     order, seasonal_order, intercept = extract_order(key)
     p, d, q = order
     P, D, Q, s = seasonal_order
-
-    if d + D > 0 and intercept > 0:
-        raise ValueError(
-            "Test not valid: d+D > 0 with intercept (can't compare against"
-            " reference ARIMA)")
 
     y = load_dataset(data.dataset, data.batch_size, dtype)
 
