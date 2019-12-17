@@ -89,11 +89,17 @@ $ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
 $ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
-To run c++ benchmarks (optional):
+To run cuML c++ benchmarks (optional):
 ```bash
 $ ./bench/sg_benchmark  # Single GPU benchmarks
 ```
 Refer to `--help` option to know more on its usage
+
+To run ml-prims C++ benchmarks (optional):
+```bash
+$ ./bench/prims_benchmark  # ml-prims benchmarks
+```
+Refer to `--help` option to know more on its uage
 
 5. Build the `cuml` python package:
 
@@ -133,6 +139,7 @@ $ ./build.sh libcuml                   # build and install the cuML C++ and C-wr
 $ ./build.sh cuml                      # build and install the cuML python package
 $ ./build.sh prims                     # build the ML prims tests
 $ ./build.sh bench                     # build the cuML c++ benchmark
+$ ./build.sh prims-bench               # build the ml-prims c++ benchmark
 ```
 
 Other `build.sh` options:
