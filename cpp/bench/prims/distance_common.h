@@ -85,14 +85,6 @@ static std::vector<Params> getInputs() {
   using Name##D = Distance<double, Metric>;                       \
   PRIMS_BENCH_REGISTER(Params, Name##D, "distance", getInputs())
 
-DIST_BENCH_REGISTER(DistanceL2Sq, MLCommon::Distance::EucExpandedL2);
-DIST_BENCH_REGISTER(DistanceL2Sqrt, MLCommon::Distance::EucExpandedL2Sqrt);
-DIST_BENCH_REGISTER(DistanceUnexpL2Sq, MLCommon::Distance::EucUnexpandedL2);
-DIST_BENCH_REGISTER(DistanceUnexpL2Sqrt,
-                    MLCommon::Distance::EucUnexpandedL2Sqrt);
-DIST_BENCH_REGISTER(DistanceL1, MLCommon::Distance::EucUnexpandedL1);
-DIST_BENCH_REGISTER(DistanceCosine, MLCommon::Distance::EucExpandedCosine);
-
 }  // namespace Distance
 }  // namespace Bench
 }  // namespace MLCommon

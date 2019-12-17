@@ -71,7 +71,10 @@ if(BUILD_CUML_PRIMS_BENCH)
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_PRIMS_BENCH_TARGET}
     prims/add.cu
-    prims/distance.cu
+    prims/distance_cosine.cu
+    prims/distance_exp_l2.cu
+    prims/distance_l1.cu
+    prims/distance_unexp_l2.cu
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/permute.cu
