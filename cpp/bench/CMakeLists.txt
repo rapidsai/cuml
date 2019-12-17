@@ -71,6 +71,7 @@ if(BUILD_CUML_PRIMS_BENCH)
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_PRIMS_BENCH_TARGET}
     prims/add.cu
+    prims/coalesced_reduction.cu
     prims/main.cpp
     )
   target_link_libraries(${CUML_PRIMS_BENCH_TARGET} benchmarklib)
