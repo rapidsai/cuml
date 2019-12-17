@@ -72,6 +72,7 @@ if(BUILD_CUML_PRIMS_BENCH)
   add_executable(${CUML_PRIMS_BENCH_TARGET}
     prims/add.cu
     prims/reduce.cu
+    prims/rng.cu
     prims/main.cpp
     )
   target_link_libraries(${CUML_PRIMS_BENCH_TARGET} benchmarklib)
