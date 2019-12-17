@@ -135,8 +135,8 @@ test_101_111_4 = ARIMAData(
     dataset="alcohol",
     start=80,
     end=110,
-    tolerance_integration_in=0.1,
-    tolerance_integration_out=0.1,
+    tolerance_integration_in=0.01,
+    tolerance_integration_out=0.01,
     tolerance_sameparam_inout=0.0001
 )
 
@@ -159,8 +159,8 @@ test_112_012_4 = ARIMAData(
     dataset="passenger_movements",
     start=160,
     end=200,
-    tolerance_integration_in=5.0,
-    tolerance_integration_out=20.0,
+    tolerance_integration_in=0.01,
+    tolerance_integration_out=0.05,
     tolerance_sameparam_inout=0.0001
 )
 
@@ -171,32 +171,39 @@ test_111_111_12 = ARIMAData(
     dataset="guest_nights_by_region",
     start=260,
     end=290,
-    tolerance_integration_in=15.0,
-    tolerance_integration_out=20.0,
+    tolerance_integration_in=0.05,
+    tolerance_integration_out=0.05,
     tolerance_sameparam_inout=0.005
 )
 
 # Dictionary matching a test case to a tuple of model parameters
 # (a test case could be used with different models)
-# Note: be very cautious when using an intercept in the model, it is generally
-# not equivalent in cuML and statsmodels!
+# (p, d, q, P, D, Q, s, k) -> ARIMAData
 test_data = {
-    (2, 0, 0, False, 0, 0, 0, 0): test_200,
-    (0, 0, 2, True, 0, 0, 0, 0): test_002c,
-    (0, 1, 0, True, 0, 0, 0, 0): test_010c,
-    (1, 1, 0, False, 0, 0, 0, 0): test_110,
-    (0, 1, 1, False, 0, 0, 0, 0): test_011,
-    (1, 2, 1, False, 0, 0, 0, 0): test_121,
-    (1, 0, 1, False, 1, 1, 1, 4): test_101_111_4,
-    (1, 1, 1, False, 2, 0, 0, 4): test_111_200_4,
-    (1, 1, 2, False, 0, 1, 2, 4): test_112_012_4,
-    (1, 1, 1, False, 1, 1, 1, 12): test_111_111_12,
+    (2, 0, 0, 0, 0, 0, 0, 0): test_200,
+    (0, 0, 2, 0, 0, 0, 0, 1): test_002c,
+    (0, 1, 0, 0, 0, 0, 0, 1): test_010c,
+    (1, 1, 0, 0, 0, 0, 0, 0): test_110,
+    (0, 1, 1, 0, 0, 0, 0, 0): test_011,
+    (1, 2, 1, 0, 0, 0, 0, 0): test_121,
+    (1, 0, 1, 1, 1, 1, 4, 0): test_101_111_4,
+    (1, 1, 1, 2, 0, 0, 4, 0): test_111_200_4,
+    (1, 1, 2, 0, 1, 2, 4, 0): test_112_012_4,
+    (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
 }
+
+# Dictionary for lazy-loading of datasets
+# (name, dtype) -> dataframe
+lazy_data = {}
+
+# Dictionary for lazy-evaluation of reference fits
+# (p, d, q, P, D, Q, s, k, name, dtype) -> SARIMAXResults
+lazy_ref_fit = {}
 
 
 def extract_order(tup):
     """Extract the order from a tuple of parameters"""
-    p, d, q, k, P, D, Q, s = tup
+    p, d, q, P, D, Q, s, k = tup
     return (p, d, q), (P, D, Q, s), k
 
 
@@ -204,10 +211,34 @@ data_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), 'ts_datasets')
 
 
-def load_dataset(name, batch_size, dtype):
-    return pd.read_csv(
-        os.path.join(data_path, "{}.csv".format(name)),
-        usecols=range(1, batch_size + 1), dtype=dtype)
+# TODO: store both pandas and cuDF dataframes?
+def get_dataset(data, dtype):
+    """Load a dataset with a given dtype or return a previously loaded dataset
+    """
+    key = (data.dataset, np.dtype(dtype).name)
+    if key not in lazy_data:
+        lazy_data[key] = pd.read_csv(
+            os.path.join(data_path, "{}.csv".format(data.dataset)),
+            usecols=range(1, data.batch_size + 1), dtype=dtype)
+    return lazy_data[key]
+
+
+def get_ref_fit(data, order, seasonal_order, intercept, dtype):
+    """Compute a reference fit of a dataset with the given parameters and dtype
+    or return a previously computed fit
+    """
+    y = get_dataset(data, dtype)
+    key = order + seasonal_order + \
+        (intercept, data.dataset, np.dtype(dtype).name)
+    if key not in lazy_ref_fit:
+        ref_model = [sm.tsa.SARIMAX(y[col], order=order,
+                                    seasonal_order=seasonal_order,
+                                    trend='c' if intercept else 'n')
+                     for col in y.columns]
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            lazy_ref_fit[key] = [model.fit(disp=0) for model in ref_model]
+    return lazy_ref_fit[key]
 
 
 ###############################################################################
@@ -222,21 +253,15 @@ def test_integration(test_case, dtype):
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
-    y = load_dataset(data.dataset, data.batch_size, dtype)
+    y = get_dataset(data, dtype)
 
-    # Create models
+    # Get fit reference model
+    ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
+
+    # Create and fit cuML model
     cuml_model = arima.ARIMA(cudf.from_pandas(
         y), order, seasonal_order, fit_intercept=intercept)
-    ref_models = [sm.tsa.SARIMAX(y[col], order=order,
-                                 seasonal_order=seasonal_order,
-                                 trend='c' if intercept else 'n')
-                  for col in y.columns]
-
-    # Fit models
     cuml_model.fit()
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        ref_fits = [model.fit(disp=0) for model in ref_models]
 
     # Predict
     cuml_pred = cuml_model.predict(data.start, data.end).copy_to_host()
@@ -305,20 +330,14 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     p, d, q = order
     P, D, Q, s = seasonal_order
 
-    y = load_dataset(data.dataset, data.batch_size, dtype)
+    y = get_dataset(data, dtype)
 
-    # Create models
+    # Get fit reference model
+    ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
+
+    # Create cuML model
     cuml_model = arima.ARIMA(cudf.from_pandas(
         y), order, seasonal_order, fit_intercept=intercept)
-    ref_models = [sm.tsa.SARIMAX(y[col], order=order,
-                                 seasonal_order=seasonal_order,
-                                 trend='c' if intercept else 'n')
-                  for col in y.columns]
-
-    # Fit the reference
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        ref_fits = [model.fit(disp=0) for model in ref_models]
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,

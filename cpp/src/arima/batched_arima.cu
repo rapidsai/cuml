@@ -402,7 +402,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(
     d_ic, d_ic, static_cast<MLCommon::Metrics::IC_Type>(ic_type),
-    p + q + P + Q + intercept, batch_size, n_obs, stream);
+    p + q + P + Q + intercept, batch_size, n_obs - d - s * D, stream);
 
   /* Transfer information criterion device -> host */
   MLCommon::updateHost(ic, d_ic, batch_size, stream);
