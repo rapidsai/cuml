@@ -38,6 +38,12 @@ class Fixture : public ::benchmark::Fixture {
   void SetUp(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocateBuffers(state);
+    int devId = 0;
+    CUDA_CHECK(cudaGetDevice(&devId));
+    int l2CacheSize = 0;
+    CUDA_CHECK(
+      cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
+    if (l2CacheSize > 0) allocate(scratchBuffer, l2CacheSize);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -47,6 +53,7 @@ class Fixture : public ::benchmark::Fixture {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaDeviceSynchronize());  // to be safe!
+    CUDA_CHECK(cudaFree(scratchBuffer));
   }
 
   // to keep compiler happy
@@ -72,7 +79,8 @@ class Fixture : public ::benchmark::Fixture {
   }
 
   cudaStream_t stream;
-};  // end class Fixture
+  char* scratchBuffer;  // mostly used to force explicit L2 flushes
+};                      // end class Fixture
 
 /**
  * RAII way of timing cuda calls. This has been shamelessly copied from the
@@ -84,24 +92,24 @@ struct CudaEventTimer {
    * @brief This ctor clears the L2 cache by cudaMemset'ing a buffer of the size
    *        of L2 and then starts the timer.
    * @param st the benchmark::State whose timer we are going to update.
-   * @param flushL2 whether or not to flush the L2 cache before every iteration.
+   * @param ptr flush the L2 cache by writing to this buffer before every
+   *            iteration. It is the responsibility of the caller to manage this
+   *            buffer. Pass a `nullptr` if L2 flush is not needed.
    * @param s The CUDA stream we are measuring time on.
    */
-  CudaEventTimer(::benchmark::State& st, bool flushL2, cudaStream_t s)
+  CudaEventTimer(::benchmark::State& st, char* ptr, cudaStream_t s)
     : state(&st), stream(s) {
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
     // flush L2?
-    if (flushL2) {
+    if (ptr != nullptr) {
       int devId = 0;
       CUDA_CHECK(cudaGetDevice(&devId));
       int l2CacheSize = 0;
       CUDA_CHECK(
         cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
       if (l2CacheSize > 0) {
-        char* buffer;
-        allocate(buffer, l2CacheSize, true);
-        CUDA_CHECK(cudaFree(buffer));
+        CUDA_CHECK(cudaMemsetAsync(ptr, sizeof(char) * l2CacheSize, 0, s));
         CUDA_CHECK(cudaStreamSynchronize(stream));
       }
     }

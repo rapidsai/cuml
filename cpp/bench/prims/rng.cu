@@ -58,7 +58,7 @@ struct RngBench : public Fixture {
   void runBenchmark(::benchmark::State& state) override {
     MLCommon::Random::Rng r(123456ULL, params.gtype);
     for (auto _ : state) {
-      CudaEventTimer timer(state, true, stream);
+      CudaEventTimer timer(state, scratchBuffer, stream);
       switch (params.type) {
         case RNG_Normal:
           r.normal(ptr, params.len, params.start, params.end, stream);
