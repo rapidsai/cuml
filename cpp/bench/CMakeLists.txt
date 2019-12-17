@@ -71,6 +71,7 @@ if(BUILD_CUML_PRIMS_BENCH)
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_PRIMS_BENCH_TARGET}
     prims/add.cu
+    prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/reduce.cu
     prims/rng.cu
