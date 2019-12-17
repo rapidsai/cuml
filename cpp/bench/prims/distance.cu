@@ -107,6 +107,11 @@ using DistanceL1D = Distance<double, MLCommon::Distance::EucUnexpandedL1>;
 PRIMS_BENCH_REGISTER(Params, DistanceL1F, "distance", getInputs());
 PRIMS_BENCH_REGISTER(Params, DistanceL1D, "distance", getInputs());
 
+using DistanceCosineF = Distance<float, MLCommon::Distance::EucExpandedCosine>;
+using DistanceCosineD = Distance<double, MLCommon::Distance::EucExpandedCosine>;
+PRIMS_BENCH_REGISTER(Params, DistanceCosineF, "distance", getInputs());
+PRIMS_BENCH_REGISTER(Params, DistanceCosineD, "distance", getInputs());
+
 }  // namespace Distance
 }  // namespace Bench
 }  // namespace MLCommon
