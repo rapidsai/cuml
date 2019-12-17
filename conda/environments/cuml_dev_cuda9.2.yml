@@ -19,10 +19,13 @@ dependencies:
 - scikit-learn>=0.21
 - dask=2.8*
 - distributed=2.8*
-- dask-ml
 - dask-cuda=0.12*
 - dask-cudf=0.12*
 - nccl>=2.4
 - libcumlprims=0.12*
 - statsmodels
 - protobuf >=3.4.1,<4.0.0
+- pip
+- pip:
+    - git+https://github.com/dask/dask.git
+    - git+https://github.com/dask/distributed.git
