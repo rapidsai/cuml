@@ -95,6 +95,13 @@ using DistanceUnexpL2SqD =
 PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqF, "distance", getInputs());
 PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqD, "distance", getInputs());
 
+using DistanceUnexpL2SqrtF =
+  Distance<float, MLCommon::Distance::EucUnexpandedL2Sqrt>;
+using DistanceUnexpL2SqrtD =
+  Distance<double, MLCommon::Distance::EucUnexpandedL2Sqrt>;
+PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqrtF, "distance", getInputs());
+PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqrtD, "distance", getInputs());
+
 }  // namespace Distance
 }  // namespace Bench
 }  // namespace MLCommon
