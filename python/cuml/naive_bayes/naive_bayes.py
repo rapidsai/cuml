@@ -209,6 +209,10 @@ class MultinomialNB(object):
 
         return self
 
+    def update_log_probs(self):
+        self._update_feature_log_prob(self.alpha)
+        self._update_class_log_prior(class_prior=self.class_prior)
+
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples
@@ -254,6 +258,8 @@ class MultinomialNB(object):
         n_cols = X.shape[1]
 
         if cp.sparse.isspmatrix(X):
+
+            print("SPARSE!")
             X = X.tocoo()
 
             count_features_coo((math.ceil(X.nnz / 32),), (32,),

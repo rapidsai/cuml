@@ -25,8 +25,8 @@ from cuml.dask.common.dask_df_utils import get_meta  # NOQA
 from cuml.dask.common.dask_df_utils import to_dask_cudf  # NOQA
 from cuml.dask.common.dask_df_utils import to_dask_df  # NOQA
 from cuml.dask.common.dask_df_utils import extract_ddf_partitions  # NOQA
-from cuml.dask.common.dask_df_utils import sparse_df_to_cp  # NOQA
-from cuml.dask.common.dask_df_utils import cp_to_sparse_df  # NOQA
+
+from cuml.dask.common.dask_arr_utils import extract_arr_partitions # NOQA
 
 from cuml.dask.common.part_utils import *
 
