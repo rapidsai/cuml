@@ -112,24 +112,15 @@ class SmoSolver {
   void Solve(math_t *x, int n_rows, int n_cols, math_t *y, math_t **dual_coefs,
              int *n_support, math_t **x_support, int **idx, math_t *b,
              int max_outer_iter = -1, int max_inner_iter = 10000) {
-    n_rows_x = n_rows;
-    if (svmType == EPSILON_SVR) {
-      n_rows *= 2;
-    }
-    if (max_outer_iter == -1) {
-      max_outer_iter = n_rows < std::numeric_limits<int>::max() / 100
-                         ? n_rows * 100
-                         : std::numeric_limits<int>::max();
-      max_outer_iter = max(100000, max_outer_iter);
-    }
+    // Prepare data structures for SMO
     WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType,
                           verbose);
-    int n_ws = ws.GetSize();
-    ResizeBuffers(n_rows, n_cols, n_ws);
-    initialize(&y);
-    KernelCache<math_t> cache(handle, x, n_rows_x, n_cols, n_ws, kernel,
+    n_ws = ws.GetSize();
+    Initialize(&y, n_rows, n_cols);
+    KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel,
                               cache_size);
-
+    // Init counters
+    max_outer_iter = GetDefaultMaxIter(n_train, max_outer_iter);
     int n_iter = 0;
     int n_inner_iter = 0;
     diff_prev = 0;
@@ -144,7 +135,7 @@ class SmoSolver {
       math_t *cacheTile = cache.GetTile(ws.GetVecIndices());
 
       SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(
-        y, n_rows, alpha.data(), n_ws, delta_alpha.data(), f.data(), cacheTile,
+        y, n_train, alpha.data(), n_ws, delta_alpha.data(), f.data(), cacheTile,
         ws.GetIndices(), C, tol, return_buff.data(), max_inner_iter, svmType);
       // should pass GetVecIndices too, and use that for kernel lookup
 
@@ -152,7 +143,7 @@ class SmoSolver {
 
       MLCommon::updateHost(host_return_buff, return_buff.data(), 2, stream);
 
-      UpdateF(f.data(), n_rows, n_rows_x, delta_alpha.data(), n_ws, cacheTile);
+      UpdateF(f.data(), n_rows, delta_alpha.data(), n_ws, cacheTile);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -180,45 +171,70 @@ class SmoSolver {
    * Update the f vector after a block solve step.
    *
    * \f[ f_i = f_i + \sum_{k\in WS} K_{i,k} * \Delta \alpha_k, \f]
-   * where i = [0..n_rows-1], WS is the set of workspace indices,
+   * where i = [0..n_train-1], WS is the set of workspace indices,
    * and \f$K_{i,k}\f$ is the kernel function evaluated for training vector x_i and workspace vector x_k.
    *
-   * @param f size [n_rows]
+   * @param f size [n_train]
    * @param n_rows
    * @param delta_alpha size [n_ws]
    * @param n_ws
-   * @param cacheTile kernel function evaluated for the following set K[X,x_ws], size [n_rows, n_ws]
+   * @param cacheTile kernel function evaluated for the following set K[X,x_ws],
+   *   size [n_rows, n_ws]
    * @param cublas_handle
    */
-  void UpdateF(math_t *f, int n_rows, int n_rows_x, const math_t *delta_alpha,
-               int n_ws, const math_t *cacheTile) {
+  void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
+               const math_t *cacheTile) {
     //MLCommon::myPrintDevVector("Dalpha", delta_alpha, n_ws);
-    //MLCommon::myPrintDevVector("f", f, n_rows);
-    //MLCommon::myPrintDevVector("cacheTile", cacheTile, n_ws * n_rows_x);
+    //MLCommon::myPrintDevVector("f", f, n_train);
+    //MLCommon::myPrintDevVector("cacheTile", cacheTile, n_ws * n_rows);
     math_t one =
       1;  // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-      handle.getCublasHandle(), CUBLAS_OP_N, n_rows_x, n_ws, &one, cacheTile,
-      n_rows_x, delta_alpha, 1, &one, f, 1, stream));
+      handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
+      n_rows, delta_alpha, 1, &one, f, 1, stream));
     if (svmType == EPSILON_SVR) {
       // SVR has doubled the number of trainig vectors and we need to update
       // alpha for both batches individually
       CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
-        handle.getCublasHandle(), CUBLAS_OP_N, n_rows_x, n_ws, &one, cacheTile,
-        n_rows_x, delta_alpha, 1, &one, f + n_rows_x, 1, stream));
+        handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
+        n_rows, delta_alpha, 1, &one, f + n_rows, 1, stream));
     }
   }
 
-  /// Initialize the problem to solve. Note that the optimization target (W)
-  /// does not appear directly in the SMO formulation, only its derivative:
-  /// f_i = y_i \frac{\partial W }{\partial \alpha_i}.
-  void initialize(math_t **y) {
+  /** Initialize the problem to solve.
+   *
+   * Both SVC and SVR are solved as a classification problem.
+   * The optimization target (W) does not appear directly in the SMO
+   * formulation, only its derivative through f (optimality indicator vector):
+   * \f[ f_i = y_i \frac{\partial W }{\partial \alpha_i}. \f]
+   *
+   * The f_i values are initialized here, and updated at every solver iteration
+   * when alpha changes. The update step is the same for SVC and SVR, only the
+   * init step differs.
+   *
+   * Additionally, we zero init the dual coefficients (alpha), and initialize
+   * class labels for SVR.
+   *
+   * @parameter [inout] y on entry class labels or target values,
+   *    on exit device pointer to class labels
+   */
+  void Initialize(math_t **y, int n_rows, int n_cols) {
+    this->n_rows = n_rows;
+    this->n_cols = n_cols;
+    n_train = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
+    ResizeBuffers(n_train, n_cols);
+    // Zero init alpha
+    CUDA_CHECK(
+      cudaMemsetAsync(alpha.data(), 0, n_train * sizeof(math_t), stream));
+    // Init f (and also class labels for SVR)
     switch (svmType) {
       case C_SVC:
-        svcInit(*y);
+        SvcInit(*y);
         break;
       case EPSILON_SVR:
-        svrInit(*y, n_rows, y_label.data(), f.data(), alpha.data());
+        SvrInit(*y, n_rows, y_label.data(), f.data());
+        // We return the pointer to the class labels (the target values are
+        // not needed anymore, they are incorporated in f).
         *y = y_label.data();
         break;
       default:
@@ -226,12 +242,19 @@ class SmoSolver {
     }
   }
 
-  /// Initialize the values of alpha and f
-  void svcInit(math_t *y) {
-    // we initialize alpha_i = 0 and
-    // f_i = -y_i
-    CUDA_CHECK(
-      cudaMemsetAsync(alpha.data(), 0, n_rows * sizeof(math_t), stream));
+  /** Initialize Support Vector Classification
+   *
+   * We would like to maximize the following quantity
+   * \f[ W(\mathbf{\alpha}) = -\mathbf{\alpha}^T \mathbf{1}
+   *   + \frac{1}{2} \mathbf{\alpha}^T Q \mathbf{\alpha}, \f]
+   *
+   * We initialize f as:
+   * \f[ f_i = y_i \frac{\partial W(\mathbf{\alpha})}{\partial \alpha_i} =
+   *          -y_i +   y_j \alpha_j K(\mathbf{x}_i, \mathbf{x}_j)
+   *
+   * @param [in] y device pointer of class labels size [n_rows]
+   */
+  void SvcInit(const math_t *y) {
     MLCommon::LinAlg::unaryOp(
       f.data(), y, n_rows, [] __device__(math_t y) { return -y; }, stream);
   }
@@ -239,38 +262,50 @@ class SmoSolver {
   /**
    * Initializes the solver for epsilon-SVR.
    *
-   * @param [in] yr values for regression, size [n_rows/2]
-   * @param [out] yc classes associated for dual coefficients, size [n_rows]
+   * For regression we are optimizing the following quantity
+   * \f[
+   * W(\alpha^+, \alpha^-) =
+   * \epsilon \sum_{i=1}^l (\alpha_i^+ + \alpha_i^-)
+   * - \sum_{i=1}^l yc_i (\alpha_i^+ - \alpha_i^-)
+   * + \frac{1}{2} \sum_{i,j=1}^l
+   *   (\alpha_i^+ - \alpha_i^-)(\alpha_j^+ - \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
+   * \f]
+   *
+   * Then f_i = y_i \frac{\partial W(\alpha}{\partial \alpha_i}
+   *          = yc_i*epsilon - yr_i
+   *
+   * Additionally we set class labels for the training vectors.
+   *
+   * References:
+   * [1] Schölkopf section 6
+   * [2] SVR as SVC
+   *
+   * @param [in] yr device pointer with values for regression, size [n_rows]
+   * @param [in] n_rows
+   * @param [out] yc device pointer to classes associated to the dual coefficients,
+   *    size [n_rows*2]
+   * @param [out] f device pointer f size [n_rows*2]
    */
-  void svrInit(const math_t *yr, int n_rows, math_t *yc, math_t *f,
-               math_t *alpha) {
-    int n = n_rows / 2;  // the original n_rows
+  void SvrInit(const math_t *yr, int n_rows, math_t *yc, math_t *f) {
+    // Init class labels to [1, 1, 1, ..., -1, -1, -1, ...]
     thrust::device_ptr<math_t> yc_ptr(yc);
     thrust::constant_iterator<math_t> one(1);
-    thrust::copy(thrust::cuda::par.on(stream), one, one + n, yc_ptr);
+    thrust::copy(thrust::cuda::par.on(stream), one, one + n_rows, yc_ptr);
     thrust::constant_iterator<math_t> minus_one(-1);
-    thrust::copy(thrust::cuda::par.on(stream), minus_one, minus_one + n,
-                 yc_ptr + n);
-    // we initialize alpha_i = 0 and
-    //
-    // Considering W(\alpha^+, \alpha^-) =
-    // \epsilon \sum_{i=1}^l (\alpha_i^+ + \alpha_i^-) -
-    //          \sum_{i=1}^l yc_i (\alpha_i^+ - \alpha_i^-)
-    // + \frac{1}{2}\sum_{i,j=1}^l(\alpha_i^+ - \alpha_i^-)(\alpha_j^+ - \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
-    // Then f_i = y_i \frac{\partial W(\alpha}{\partial \alpha_i} = yc_i*epsilon - yr_i
-    // this is consistent with thunderSVM code and paper.
-    // LIBSVM code has epsilon + yr_i. If I remember correctly, they
-    // multiply with yC_i later, to get similar quantity as our f_i
+    thrust::copy(thrust::cuda::par.on(stream), minus_one, minus_one + n_rows,
+                 yc_ptr + n_rows);
 
+    // f_i = epsilon - y_i, for i \in [0..n_rows-1]
     math_t epsilon = this->epsilon;
-    CUDA_CHECK(cudaMemsetAsync(alpha, 0, n_rows * sizeof(math_t), stream));
     MLCommon::LinAlg::unaryOp(
-      f, yr, n, [epsilon] __device__(math_t y) { return epsilon - y; }, stream);
-    cudaStreamSynchronize(stream);
-    MLCommon::LinAlg::unaryOp(
-      f + n, yr, n, [epsilon] __device__(math_t y) { return -epsilon - y; },
+      f, yr, n_rows, [epsilon] __device__(math_t y) { return epsilon - y; },
       stream);
-    //MLCommon::myPrintDevVector("smo f", f, 2 * n);
+
+    // f_i = epsilon - y_i, for i \in [n_rows..2*n_rows-1]
+    MLCommon::LinAlg::unaryOp(
+      f + n_rows, yr, n_rows,
+      [epsilon] __device__(math_t y) { return -epsilon - y; },
+      stream);
   }
 
  private:
@@ -280,9 +315,9 @@ class SmoSolver {
   int n_rows = 0;  //!< training data number of rows
   int n_cols = 0;  //!< training data number of columns
   int n_ws = 0;    //!< size of the working set
-  int n_rows_x = 0;
+  int n_train = 0; //!< number of training vectors (including duplicates for SVR)
 
-  // Buffers for the domain [n_rows]
+  // Buffers for the domain [n_train]
   MLCommon::device_buffer<math_t> alpha;    //!< dual coordinates
   MLCommon::device_buffer<math_t> f;        //!< optimality indicator vector
   MLCommon::device_buffer<math_t> y_label;  //!< extra label for regression
@@ -303,7 +338,7 @@ class SmoSolver {
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
   float cache_size;  //!< size of kernel cache in MiB
 
-  SvmType svmType;
+  SvmType svmType;  ///!< Type of the SVM problem to solve
 
   // Variables to track convergence of training
   math_t diff_prev;
@@ -340,15 +375,26 @@ class SmoSolver {
     return keep_going;
   }
 
-  void ResizeBuffers(int n_rows, int n_cols, int n_ws) {
-    // This needs to know n_ws, therefore it can be only called during the solve step
-    this->n_rows = n_rows;
-    this->n_cols = n_cols;
-    this->n_ws = n_ws;
-    alpha.resize(n_rows, stream);
-    f.resize(n_rows, stream);
+  /// Return the number of maximum iterations.
+  int GetDefaultMaxIter(int n_train, int max_outer_iter) {
+    if (max_outer_iter == -1) {
+      max_outer_iter = n_train < std::numeric_limits<int>::max() / 100
+                         ? n_train * 100
+                         : std::numeric_limits<int>::max();
+      max_outer_iter = max(100000, max_outer_iter);
+    }
+    // else we have user defined iteration count which we do not change
+    return max_outer_iter;
+  }
+
+  void ResizeBuffers(int n_train, int n_cols) {
+    // This needs to know n_rows, therefore it can be only called during solve
+    std::cout << "Initializing SMO buffers: " << n_train << ", " << n_rows
+              << ", " << n_cols << ", " << n_ws << "\n";
+    alpha.resize(n_train, stream);
+    f.resize(n_train, stream);
     delta_alpha.resize(n_ws, stream);
-    if (svmType == EPSILON_SVR) y_label.resize(n_rows, stream);
+    if (svmType == EPSILON_SVR) y_label.resize(n_train, stream);
   }
 
   void ReleaseBuffers() {

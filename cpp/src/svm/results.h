@@ -53,7 +53,7 @@ class Results {
    *
    * @param handle cuML handle implementation
    * @param x training vectors in column major format, size [n_rows x n_cols]
-   * @param y target labels (values +/-1), size [n_rows]
+   * @param y target labels (values +/-1), size [n_train]
    * @param n_rows number of training vectors
    * @param n_cols number of features
    * @param C penalty parameter
@@ -69,16 +69,17 @@ class Results {
       y(y),
       C(C),
       svmType(svmType),
+      n_train(svmType == EPSILON_SVR ? n_rows * 2 : n_rows),
       cub_storage(handle.getDeviceAllocator(), stream),
       d_num_selected(handle.getDeviceAllocator(), stream, 1),
       d_val_reduced(handle.getDeviceAllocator(), stream, 1),
-      f_idx(handle.getDeviceAllocator(), stream, n_rows),
-      idx_selected(handle.getDeviceAllocator(), stream, n_rows),
-      val_selected(handle.getDeviceAllocator(), stream, n_rows),
-      val_tmp(handle.getDeviceAllocator(), stream, n_rows),
-      flag(handle.getDeviceAllocator(), stream, n_rows) {
+      f_idx(handle.getDeviceAllocator(), stream, n_train),
+      idx_selected(handle.getDeviceAllocator(), stream, n_train),
+      val_selected(handle.getDeviceAllocator(), stream, n_train),
+      val_tmp(handle.getDeviceAllocator(), stream, n_train),
+      flag(handle.getDeviceAllocator(), stream, n_train) {
     InitCubBuffers();
-    MLCommon::LinAlg::range(f_idx.data(), n_rows, stream);
+    MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -92,8 +93,8 @@ class Results {
    * All output arrays will be allocated on the device.
    * Note that b is not an array but a host scalar.
    *
-   * @param [in] alpha dual coefficients, size [n_rows]
-   * @param [in] f optimality indicator vector, size [n_rows]
+   * @param [in] alpha dual coefficients, size [n_train]
+   * @param [in] f optimality indicator vector, size [n_train]
    * @param [out] dual_coefs size [n_support]
    * @param [out] n_support number of support vectors
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
@@ -126,11 +127,8 @@ class Results {
   math_t *CollectSupportVectors(const int *idx, int n_support) {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
-
-    // Leading dimension of x (column major layout)
-    int ldx = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
     // Collect support vectors into a contiguous block
-    MLCommon::Matrix::copyRows(x, ldx, n_cols, x_support, idx, n_support,
+    MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
                                stream);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
@@ -141,7 +139,7 @@ class Results {
    *
    * The output coefficients are the values that can be used directly
    * to calculate the decision function:
-   * \f[ f(\bm(x)) = \sum_{i=1}^{n_rows coef_i K(\bm{x}_i,\bm{x}) + b. \f]
+   * \f[ f(\bm(x)) = \sum_{i=1}^{n_rows} coef_i K(\bm{x}_i,\bm{x}) + b. \f]
    *
    * Here coefs includes coefficients with zero value.
    *
@@ -149,22 +147,20 @@ class Results {
    * For a regressor \f$ coef_i = y_i * \alpha_i  + y_{i+n/2} * alpha_{i+n/2},
    * (i \in [0..n/2-1]) \f$
    *
-   * @param [in] alpha device array of dual coefficients, size [n_rows]
-   * @param [out] coef device array ouf SVM coefficients size [n_rows] for SVC
-   *        or [n_rows/2] for SVR
+   * @param [in] alpha device array of dual coefficients, size [n_train]
+   * @param [out] coef device array ouf SVM coefficients size [n_rows]
    */
   void CombineCoefs(const math_t *alpha, math_t *coef) {
-    MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_rows);
+    MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_train);
     // Calculate dual coefficients = alpha * y
     MLCommon::LinAlg::binaryOp(
-      coef, alpha, y, n_rows,
+      coef, alpha, y, n_train,
       [] __device__(math_t a, math_t y) { return a * y; }, stream);
 
     if (svmType == EPSILON_SVR) {
-      int n = n_rows / 2;
       // for regression the final coefficients are
       // coef[0..n-rows-1] = alpha[0..nrows-1] - alpha[nrows..2*n_rows-1]
-      MLCommon::LinAlg::add(coef, coef, coef + n, n, stream);
+      MLCommon::LinAlg::add(coef, coef, coef + n_rows, n_rows, stream);
     }
   }
 
@@ -172,17 +168,16 @@ class Results {
    *
    * @param [in] val_tmp device pointer with dual coefficients
    * @param [out] dual_coefs device pointer of non-zero dual coefficiens,
-   *   unallocated on entry, on exit size [n_suppert]
+   *   unallocated on entry, on exit size [n_support]
    * @param [out] n_support number of support vertors
    */
   void GetDualCoefs(const math_t *val_tmp, math_t **dual_coefs,
                     int *n_support) {
     auto allocator = handle.getDeviceAllocator();
-    int n = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support =
-      SelectByCoef(val_tmp, n, val_tmp, select_op, val_selected.data());
+      SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
     *dual_coefs =
       (math_t *)allocator->allocate(*n_support * sizeof(math_t), stream);
     MLCommon::copy(*dual_coefs, val_selected.data(), *n_support, stream);
@@ -192,16 +187,15 @@ class Results {
    * Flag support vectors and also collect their indices.
    * Support vectors are the vectors where alpha > 0.
    *
-   * @param [in] alpha dual coefficients, size [n_rows]
+   * @param [in] coef dual coefficients, size [n_rows]
    * @param [in] n_support number of support vectors
    * @param [out] idx indices of the suport vectors, size [n_support]
    */
   int *GetSupportVectorIndices(const math_t *coef, int n_support) {
-    int n = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
     //MLCommon::myPrintDevVector("coef", coef, n_support);
-    //MLCommon::myPrintDevVector("idx", f_idx.data(), n);
-    SelectByCoef(coef, n, f_idx.data(), select_op, idx_selected.data());
+    //MLCommon::myPrintDevVector("idx", f_idx.data(), n_rows);
+    SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
     int *idx = (int *)allocator->allocate(n_support * sizeof(int), stream);
     MLCommon::copy(idx, idx_selected.data(), n_support, stream);
     return idx;
@@ -227,10 +221,10 @@ class Results {
     // Select f for unbound support vectors (0 < alpha < C)
     math_t C = this->C;
     auto select = [C] __device__(math_t a) -> bool { return 0 < a && a < C; };
-    MLCommon::myPrintDevVector("alpha", alpha, n_rows);
-    MLCommon::myPrintDevVector("f", f, n_rows);
+    MLCommon::myPrintDevVector("alpha", alpha, n_train);
+    MLCommon::myPrintDevVector("f", f, n_train);
 
-    int n_free = SelectByCoef(alpha, n_rows, f, select, val_selected.data());
+    int n_free = SelectByCoef(alpha, n_train, f, select, val_selected.data());
     if (n_free > 0) {
       MLCommon::myPrintDevVector("val_sel", val_selected.data(), n_free);
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
@@ -257,12 +251,13 @@ class Results {
   const cumlHandle_impl &handle;
   cudaStream_t stream;
 
-  int n_rows;       //!< number of training vectors
+  int n_rows;       //!< number of rows in the training vector matrix
   int n_cols;       //!< number of features
   const math_t *x;  //!< training vectors
   const math_t *y;  //!< labels
   math_t C;         //!< penalty parameter
-  SvmType svmType;
+  SvmType svmType;  //!< SVM problem type: SVC or SVR
+  int n_train;      //!< number of training vectors (including duplicates for SVR)
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
@@ -285,16 +280,16 @@ class Results {
     // Query the size of required workspace buffer
     math_t *p = nullptr;
     cub::DeviceSelect::Flagged(NULL, cub_bytes, f_idx.data(), flag.data(),
-                               f_idx.data(), d_num_selected.data(), n_rows,
+                               f_idx.data(), d_num_selected.data(), n_train,
                                stream);
     cub::DeviceSelect::Flagged(NULL, cub_bytes2, p, flag.data(), p,
-                               d_num_selected.data(), n_rows, stream);
+                               d_num_selected.data(), n_train, stream);
     cub_bytes = max(cub_bytes, cub_bytes2);
     cub::DeviceReduce::Sum(NULL, cub_bytes2, val_selected.data(),
-                           d_val_reduced.data(), n_rows, stream);
+                           d_val_reduced.data(), n_train, stream);
     cub_bytes = max(cub_bytes, cub_bytes2);
     cub::DeviceReduce::Min(NULL, cub_bytes2, val_selected.data(),
-                           d_val_reduced.data(), n_rows, stream);
+                           d_val_reduced.data(), n_train, stream);
     cub_bytes = max(cub_bytes, cub_bytes2);
     cub_storage.resize(cub_bytes, stream);
   }
@@ -324,20 +319,20 @@ class Results {
   }
 
   /** Select values from f, and do a min or max reduction on them.
-   * @param [in] alpha dual coefficients, size [n_rows]
-   * @param [in] f optimality indicator vector, size [n_rows]
+   * @param [in] alpha dual coefficients, size [n_train]
+   * @param [in] f optimality indicator vector, size [n_train]
    * @param flag_op operation to flag values for selection (set_upper/lower)
    * @param return the reduced value.
    */
   math_t SelectReduce(const math_t *alpha, const math_t *f, bool min,
                       void (*flag_op)(bool *, int, const math_t *,
                                       const math_t *, math_t)) {
-    flag_op<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
-      flag.data(), n_rows, alpha, y, C);
+    flag_op<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+      flag.data(), n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, f, flag.data(),
                                val_selected.data(), d_num_selected.data(),
-                               n_rows, stream);
+                               n_train, stream);
     int n_selected;
     MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
