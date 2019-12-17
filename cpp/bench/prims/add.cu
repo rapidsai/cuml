@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "benchmark.cuh"
 #include <linalg/add.h>
+#include "benchmark.cuh"
 
 namespace MLCommon {
 namespace Bench {
@@ -27,8 +27,8 @@ struct AddParams {
 
 template <typename T>
 struct AddBench : public Fixture {
-  AddBench(const std::string& name, const AddParams& p) : Fixture(name),
-                                                          params(p) {}
+  AddBench(const std::string& name, const AddParams& p)
+    : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
@@ -53,7 +53,7 @@ struct AddBench : public Fixture {
   T *ptr0, *ptr1;
 };  // struct AddBench
 
-std::vector<AddParams> getInputs() {
+static std::vector<AddParams> getInputs() {
   return {
     {256 * 1024 * 1024},
     {256 * 1024 * 1024 + 2},
