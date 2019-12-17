@@ -29,8 +29,8 @@ struct Params {
 
 template <typename T>
 struct Permute : public Fixture {
-  Permute(const std::string& name, const Params& p) : Fixture(name),
-                                                      params(p) {}
+  Permute(const std::string& name, const Params& p)
+    : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
@@ -39,7 +39,7 @@ struct Permute : public Fixture {
     if (params.needPerms) {
       allocate(perms, vecLen);
     } else {
-        perms = nullptr;
+      perms = nullptr;
     }
     MLCommon::Random::Rng r(123456ULL);
     if (params.needShuffle) {
@@ -73,24 +73,24 @@ struct Permute : public Fixture {
  private:
   Params params;
   T *out, *in;
-  int *perms;
+  int* perms;
 };  // struct Permute
 
 static std::vector<Params> getInputs() {
   return {
-    {32 * 1024, 128,  true, true, true},
-    {1024 * 1024, 128,  true, true, true},
-    {32 * 1024, 128 + 2,  true, true, true},
-    {1024 * 1024, 128 + 2,  true, true, true},
-    {32 * 1024, 128 + 1,  true, true, true},
-    {1024 * 1024, 128 + 1,  true, true, true},
+    {32 * 1024, 128, true, true, true},
+    {1024 * 1024, 128, true, true, true},
+    {32 * 1024, 128 + 2, true, true, true},
+    {1024 * 1024, 128 + 2, true, true, true},
+    {32 * 1024, 128 + 1, true, true, true},
+    {1024 * 1024, 128 + 1, true, true, true},
 
-    {32 * 1024, 128,  true, true, false},
-    {1024 * 1024, 128,  true, true, false},
-    {32 * 1024, 128 + 2,  true, true, false},
-    {1024 * 1024, 128 + 2,  true, true, false},
-    {32 * 1024, 128 + 1,  true, true, false},
-    {1024 * 1024, 128 + 1,  true, true, false},
+    {32 * 1024, 128, true, true, false},
+    {1024 * 1024, 128, true, true, false},
+    {32 * 1024, 128 + 2, true, true, false},
+    {1024 * 1024, 128 + 2, true, true, false},
+    {32 * 1024, 128 + 1, true, true, false},
+    {1024 * 1024, 128 + 1, true, true, false},
   };
 }
 
