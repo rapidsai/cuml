@@ -535,6 +535,8 @@ class ARIMA(Base):
         self.niter = niter
 
 
+# TODO: make it a method of the class and function of x and trans only!
+# (and x defaults to None where it uses current params)
 @nvtx_range_wrap
 def ll_f(batch_size, nobs, order, seasonal_order, intercept, y, x, trans=True,
          handle=None):
@@ -714,6 +716,7 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
     return (best_order, best_mu, best_ar, best_ma, best_ic)
 
 
+# TODO: integrate pack and unpack in class?
 @nvtx_range_wrap
 def unpack(order: Tuple[int, int, int],
            seasonal_order: Tuple[int, int, int, int],
