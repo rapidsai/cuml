@@ -24,46 +24,54 @@
 namespace MLCommon {
 namespace Distance {
 
-template <typename DataT, bool Sqrt, typename ReduceOpT>
+template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
 __global__ void naiveKernel(cub::KeyValuePair<int, DataT> *min, DataT *x,
-                            DataT *y, int m, int n, int k, int *workspace) {
-  int midx = threadIdx.x + blockIdx.x * blockDim.x;
-  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
-  if (midx >= m || nidx >= n) return;
+                            DataT *y, int m, int n, int k, int *workspace,
+                            DataT maxVal) {
+  int midx = threadIdx.y + blockIdx.y * blockDim.y;
+  int nidx = threadIdx.x + blockIdx.x * blockDim.x;
   DataT acc = DataT(0);
   for (int i = 0; i < k; ++i) {
     int xidx = i + midx * k;
     int yidx = i + nidx * k;
-    auto diff = x[xidx] - y[yidx];
+    auto diff = midx >= m || nidx >= n ? DataT(0) : x[xidx] - y[yidx];
     acc += diff * diff;
   }
   if (Sqrt) {
     acc = mySqrt(acc);
   }
   ReduceOpT redOp;
-  while (atomicCAS(workspace + midx, 0, 1) == 1)
-    ;
+  typedef cub::WarpReduce<cub::KeyValuePair<int, DataT>> WarpReduce;
+  __shared__ typename WarpReduce::TempStorage temp[NWARPS];
+  int warpId = threadIdx.x / WarpSize;
   cub::KeyValuePair<int, DataT> tmp;
   tmp.key = nidx;
-  tmp.value = acc;
-  redOp(min + midx, tmp);
-  __threadfence();
-  atomicCAS(workspace + midx, 1, 0);
+  tmp.value = midx >= m || nidx >= n ? maxVal : acc;
+  tmp = WarpReduce(temp[warpId]).Reduce(tmp, KVPMinReduce<int, DataT>());
+  if (threadIdx.x % WarpSize == 0 && midx < m) {
+    while (atomicCAS(workspace + midx, 0, 1) == 1)
+      ;
+    __threadfence();
+    redOp(min + midx, tmp);
+    __threadfence();
+    atomicCAS(workspace + midx, 1, 0);
+  }
 }
 
 template <typename DataT, bool Sqrt>
 void naive(cub::KeyValuePair<int, DataT> *min, DataT *x, DataT *y, int m, int n,
            int k, int *workspace, cudaStream_t stream) {
   static const dim3 TPB(32, 16, 1);
-  dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
+  dim3 nblks(ceildiv(n, (int)TPB.x), ceildiv(m, (int)TPB.y), 1);
   CUDA_CHECK(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   auto blks = ceildiv(m, 256);
   MinAndDistanceReduceOp<int, DataT> op;
   initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   CUDA_CHECK(cudaGetLastError());
-  naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>>
-    <<<nblks, TPB, 0, stream>>>(min, x, y, m, n, k, workspace);
+  naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>, 16>
+    <<<nblks, TPB, 0, stream>>>(min, x, y, m, n, k, workspace,
+                                std::numeric_limits<DataT>::max());
   CUDA_CHECK(cudaGetLastError());
 }
 
