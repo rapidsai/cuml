@@ -21,6 +21,7 @@
 #include <cuda_utils.h>
 #include <utils.h>
 #include <sstream>
+#include <string>
 #include <vector>
 
 namespace MLCommon {
@@ -29,9 +30,13 @@ namespace Bench {
 /** Main fixture to be inherited and used by all other benchmarks */
 class Fixture : public ::benchmark::Fixture {
  public:
+  Fixture(const std::string& name) : ::benchmark::Fixture() {
+    this->SetName(name.c_str());
+  }
+  Fixture() = delete;
+
   void SetUp(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocateData(state);
     allocateBuffers(state);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -39,7 +44,6 @@ class Fixture : public ::benchmark::Fixture {
   void TearDown(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     deallocateBuffers(state);
-    deallocateData(state);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaDeviceSynchronize());  // to be safe!
@@ -59,8 +63,6 @@ class Fixture : public ::benchmark::Fixture {
   // every benchmark should be overriding this
   virtual void runBenchmark(::benchmark::State& state) = 0;
   virtual void generateMetrics(::benchmark::State& state) {}
-  virtual void allocateData(const ::benchmark::State& state) {}
-  virtual void deallocateData(const ::benchmark::State& state) {}
   virtual void allocateBuffers(const ::benchmark::State& state) {}
   virtual void deallocateBuffers(const ::benchmark::State& state) {}
 

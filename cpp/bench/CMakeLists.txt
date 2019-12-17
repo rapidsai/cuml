@@ -70,9 +70,11 @@ if(BUILD_CUML_PRIMS_BENCH)
   set(CUML_PRIMS_BENCH_TARGET "prims_benchmark")
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_PRIMS_BENCH_TARGET}
+    prims/add.cu
     prims/main.cpp
     )
   target_link_libraries(${CUML_PRIMS_BENCH_TARGET} benchmarklib)
   target_include_directories(${CUML_PRIMS_BENCH_TARGET}
-    PRIVATE ${GBENCH_DIR}/include)
+    PRIVATE ${GBENCH_DIR}/include
+    src_prims)
 endif(BUILD_CUML_PRIMS_BENCH)
