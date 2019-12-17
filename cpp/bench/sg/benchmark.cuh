@@ -22,7 +22,7 @@
 #include <sstream>
 #include <vector>
 #include "dataset.cuh"
-#include "utils.h"
+#include <utils.h>
 
 namespace ML {
 namespace Bench {
