@@ -26,7 +26,7 @@ from dask.distributed import wait
 
 
 @gen.coroutine
-def extract_ddf_partitions(ddf, client=None, agg=True):
+def extract_ddf_partitions(ddf, client=None):
     """
     Given a Dask cuDF, return an OrderedDict mapping
     'worker -> [list of futures]' for each partition in ddf.
@@ -106,30 +106,4 @@ def to_dask_df(dask_cudf, client=None):
     meta = c.submit(get_meta, dfs[0]).result()
 
     return dd.from_delayed(dfs, meta=meta)
-
-
-def sparse_df_to_cp(x, rows, cols):
-
-    print(str(rows) + ", " + str(cols))
-
-    row = cp.asarray(x["row"].to_gpu_array())
-    col = cp.asarray(x["col"].to_gpu_array())
-    val = cp.asarray(x["val"].to_gpu_array())
-
-    return cp.sparse.coo_matrix((val, (row, col)), shape=(rows, cols))
-
-
-def cp_to_sparse_df(x):
-
-    print(x.shape)
-
-    cp_coo = x.tocoo()
-    print(len(cp_coo.row))
-
-    X_cudf = cudf.DataFrame()
-    X_cudf["row"] = cp_coo.row
-    X_cudf["col"] = cp_coo.col
-    X_cudf["val"] = cp_coo.data
-
-    return X_cudf
 
