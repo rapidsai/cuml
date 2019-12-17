@@ -84,7 +84,7 @@ static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
   }
   // If no difference and the pointers are different, copy in to out
   else if (d + D == 0 && d_in != d_out) {
-    MLCommon::copy(d_out, d_in, n_obs, stream);
+    MLCommon::copy(d_out, d_in, n_obs * batch_size, stream);
   }
   // Other cases: no difference and the pointers are the same, nothing to do
 
