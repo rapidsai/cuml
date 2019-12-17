@@ -60,84 +60,85 @@ struct RngBench : public Fixture {
     for (auto _ : state) {
       CudaEventTimer timer(state, true, stream);
       switch (params.type) {
-      case RNG_Normal:
-        r.normal(ptr, params.len, params.start, params.end, stream);
-        break;
-      case RNG_LogNormal:
-        r.lognormal(ptr, params.len, params.start, params.end, stream);
-        break;
-      case RNG_Uniform:
-        r.uniform(ptr, params.len, params.start, params.end, stream);
-        break;
-      case RNG_Gumbel:
-        r.gumbel(ptr, params.len, params.start, params.end, stream);
-        break;
-      case RNG_Logistic:
-        r.logistic(ptr, params.len, params.start, params.end, stream);
-        break;
-      case RNG_Exp:
-        r.exponential(ptr, params.len, params.start, stream);
-        break;
-      case RNG_Rayleigh:
-        r.rayleigh(ptr, params.len, params.start, stream);
-        break;
-      case RNG_Laplace:
-        r.laplace(ptr, params.len, params.start, params.end, stream);
-        break;
-      case RNG_Fill:
-        r.fill(ptr, params.len, params.start, stream);
-        break;
+        case RNG_Normal:
+          r.normal(ptr, params.len, params.start, params.end, stream);
+          break;
+        case RNG_LogNormal:
+          r.lognormal(ptr, params.len, params.start, params.end, stream);
+          break;
+        case RNG_Uniform:
+          r.uniform(ptr, params.len, params.start, params.end, stream);
+          break;
+        case RNG_Gumbel:
+          r.gumbel(ptr, params.len, params.start, params.end, stream);
+          break;
+        case RNG_Logistic:
+          r.logistic(ptr, params.len, params.start, params.end, stream);
+          break;
+        case RNG_Exp:
+          r.exponential(ptr, params.len, params.start, stream);
+          break;
+        case RNG_Rayleigh:
+          r.rayleigh(ptr, params.len, params.start, stream);
+          break;
+        case RNG_Laplace:
+          r.laplace(ptr, params.len, params.start, params.end, stream);
+          break;
+        case RNG_Fill:
+          r.fill(ptr, params.len, params.start, stream);
+          break;
       };
     }
   }
 
  private:
   Params<T> params;
-  T *ptr;
+  T* ptr;
 };  // struct RngBench
 
 template <typename T>
 static std::vector<Params<T>> getInputs() {
+  using namespace MLCommon::Random;
   return {
-    {1024 * 1024, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 + 2, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 2, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 2, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 + 1, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 1, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 1, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
 
-    {1024 * 1024, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenTaps, T(-1.0), T(1.0)},
+    {1024 * 1024, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {1024 * 1024 + 2, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 2, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 2, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {1024 * 1024 + 1, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 1, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 1, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
 
-    {1024 * 1024, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 2, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 1, RNG_Uniform, MLCommon::Random::GenKiss99, T(-1.0), T(1.0)},
+    {1024 * 1024, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {1024 * 1024 + 2, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 2, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 2, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {1024 * 1024 + 1, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 1, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 1, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
 
-    {1024 * 1024, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 + 2, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 2, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 2, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 + 1, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 1, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 1, RNG_Fill, MLCommon::Random::GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 + 2, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 2, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 2, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 + 1, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 1, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 1, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
   };
 }
 
