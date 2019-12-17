@@ -236,6 +236,7 @@ struct FusedL2NN {
 
   DataT *sx, *sy;
   DataT *sxNorm, *syNorm;
+  cub::KeyValuePair<IdxT, DataT>* sRed;
   int pageWr, pageRd;
 
   DataT maxVal;
@@ -271,6 +272,7 @@ struct FusedL2NN {
       sy(&(sx[P::SmemPageX])),
       sxNorm((DataT*)_smem),
       syNorm(&(sxNorm[P::Mblk])),
+      sRed((cub::KeyValuePair<IdxT, DataT>*)_smem),
       pageWr(0),
       pageRd(0),
       maxVal(_mv),
@@ -346,7 +348,7 @@ struct FusedL2NN {
     // reduce
     cub::KeyValuePair<IdxT, DataT> val[P::AccRowsPerTh];
     KVPMinReduce<IdxT, DataT> pairRedOp;
-    auto lid = threadIdx.x % WarpSize;
+    auto lid = laneId();
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       val[i] = {-1, maxVal};
@@ -365,18 +367,48 @@ struct FusedL2NN {
         val[i] = pairRedOp(tmp, val[i]);
       }
     }
-    __syncthreads();
-    //printf("here...\n");
     if (lid % P::AccThCols == 0) {
-      auto ridx = IdxT(blockIdx.x) * P::Mblk + accrowid;
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto rid = ridx + i * P::AccThRows;
+        sRed[i * P::AccThCols + accrowid] = val[i];
+      }
+    }
+    __syncthreads();
+    updateResults();
+  }
+
+  DI void updateResults() {
+    /**
+     * @todo: From Volta onwards see if "coalesced" atomicCAS approach as
+     *        written below helps improve perf
+     * <code>
+     *   auto tid = threadIdx.x;
+     *   auto rid = IdxT(blockIdx.x) * P::Mblk + tid;
+     *   if (rid < m) {
+     *     auto val = sRed[i];
+     *     while (atomicCAS(mutex + rid, 0, 1) == 1)
+     *       ;
+     *     __threadfence();
+     *     redOp(min + rid, val);
+     *     __threadfence();
+     *     atomicCAS(mutex + rid, 1, 0);
+     *   }
+     * </code>
+     */
+    // for now have first lane from each warp update a unique output row. This
+    // will resolve hang issues with pre-Volta architectures
+    auto nWarps = blockDim.x / WarpSize;
+    auto lid = laneId();
+    auto ridx = IdxT(blockIdx.x) * P::Mblk;
+    if (lid == 0) {
+      for (int i = threadIdx.x / WarpSize; i < P::Mblk; i += nWarps) {
+        auto rid = ridx + i;
         if (rid < m) {
+          auto val = sRed[i];
           while (atomicCAS(mutex + rid, 0, 1) == 1)
             ;
           __threadfence();
-          redOp(min + rid, val[i]);
+          redOp(min + rid, val);
           __threadfence();
           atomicCAS(mutex + rid, 1, 0);
         }
