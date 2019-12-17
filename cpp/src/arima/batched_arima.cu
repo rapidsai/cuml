@@ -343,9 +343,9 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
     _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, d, D, s, intercept,
                   d_mu);
 
-    batched_kalman_filter(handle, d_y_prep, n_obs - d, d_Tar, d_Tma, d_Tsar,
-                          d_Tsma, p, q, P, Q, s, batch_size, loglike, d_vs,
-                          host_loglike, false, fc_steps, d_fc);
+    batched_kalman_filter(handle, d_y_prep, n_obs - d - s * D, d_Tar, d_Tma,
+                          d_Tsar, d_Tsma, p, q, P, Q, s, batch_size, loglike,
+                          d_vs, host_loglike, false, fc_steps, d_fc);
 
     allocator->deallocate(
       d_y_prep, sizeof(double) * batch_size * (n_obs - d - s * D), stream);
