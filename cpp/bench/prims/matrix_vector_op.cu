@@ -28,8 +28,8 @@ struct Params {
 
 template <typename T>
 struct MatVecOp : public Fixture {
-  MatVecOp(const std::string& name, const Params& p) : Fixture(name),
-                                                       params(p) {}
+  MatVecOp(const std::string& name, const Params& p)
+    : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
@@ -48,9 +48,9 @@ struct MatVecOp : public Fixture {
   void runBenchmark(::benchmark::State& state) override {
     for (auto _ : state) {
       CudaEventTimer timer(state, scratchBuffer, stream);
-      MLCommon::LinAlg::matrixVectorOp(
-        out, in, vec, params.cols, params.rows, params.rowMajor,
-        params.bcastAlongRows, Sum<T>(), stream);
+      MLCommon::LinAlg::matrixVectorOp(out, in, vec, params.cols, params.rows,
+                                       params.rowMajor, params.bcastAlongRows,
+                                       Sum<T>(), stream);
     }
   }
 
@@ -61,33 +61,21 @@ struct MatVecOp : public Fixture {
 
 static std::vector<Params> getInputs() {
   return {
-  {1024, 128, true, true},
-  {1024 * 1024, 128, true, true},
-  {1024, 128 + 2, true, true},
-  {1024 * 1024, 128 + 2, true, true},
-  {1024, 128 + 1, true, true},
-  {1024 * 1024, 128 + 1, true, true},
+    {1024, 128, true, true},       {1024 * 1024, 128, true, true},
+    {1024, 128 + 2, true, true},   {1024 * 1024, 128 + 2, true, true},
+    {1024, 128 + 1, true, true},   {1024 * 1024, 128 + 1, true, true},
 
-  {1024, 128, true, false},
-  {1024 * 1024, 128, true, false},
-  {1024, 128 + 2, true, false},
-  {1024 * 1024, 128 + 2, true, false},
-  {1024, 128 + 1, true, false},
-  {1024 * 1024, 128 + 1, true, false},
+    {1024, 128, true, false},      {1024 * 1024, 128, true, false},
+    {1024, 128 + 2, true, false},  {1024 * 1024, 128 + 2, true, false},
+    {1024, 128 + 1, true, false},  {1024 * 1024, 128 + 1, true, false},
 
-  {1024, 128, false, false},
-  {1024 * 1024, 128, false, false},
-  {1024, 128 + 2, false, false},
-  {1024 * 1024, 128 + 2, false, false},
-  {1024, 128 + 1, false, false},
-  {1024 * 1024, 128 + 1, false, false},
+    {1024, 128, false, false},     {1024 * 1024, 128, false, false},
+    {1024, 128 + 2, false, false}, {1024 * 1024, 128 + 2, false, false},
+    {1024, 128 + 1, false, false}, {1024 * 1024, 128 + 1, false, false},
 
-  {1024, 128, false, true},
-  {1024 * 1024, 128, false, true},
-  {1024, 128 + 2, false, true},
-  {1024 * 1024, 128 + 2, false, true},
-  {1024, 128 + 1, false, true},
-  {1024 * 1024, 128 + 1, false, true},
+    {1024, 128, false, true},      {1024 * 1024, 128, false, true},
+    {1024, 128 + 2, false, true},  {1024 * 1024, 128 + 2, false, true},
+    {1024, 128 + 1, false, true},  {1024 * 1024, 128 + 1, false, true},
   };
 }
 
