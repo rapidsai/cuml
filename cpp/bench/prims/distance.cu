@@ -79,10 +79,13 @@ static std::vector<Params> getInputs() {
   };
 }
 
-using DistanceL2SqF = Distance<float, MLCommon::Distance::EucExpandedL2>;
-using DistanceL2SqD = Distance<double, MLCommon::Distance::EucExpandedL2>;
-PRIMS_BENCH_REGISTER(Params, DistanceL2SqF, "distance", getInputs());
-PRIMS_BENCH_REGISTER(Params, DistanceL2SqD, "distance", getInputs());
+#define DIST_BENCH_REGISTER(Name, Metric)                         \
+  using Name##F = Distance<float, Metric>;                        \
+  PRIMS_BENCH_REGISTER(Params, Name##F, "distance", getInputs()); \
+  using Name##D = Distance<double, Metric>;                       \
+  PRIMS_BENCH_REGISTER(Params, Name##D, "distance", getInputs())
+
+DIST_BENCH_REGISTER(DistanceL2Sq, MLCommon::Distance::EucExpandedL2);
 
 using DistanceL2SqrtF = Distance<float, MLCommon::Distance::EucExpandedL2Sqrt>;
 using DistanceL2SqrtD = Distance<double, MLCommon::Distance::EucExpandedL2Sqrt>;
