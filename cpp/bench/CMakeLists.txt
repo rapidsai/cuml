@@ -73,6 +73,7 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/add.cu
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
+    prims/permute.cu
     prims/reduce.cu
     prims/rng.cu
     prims/main.cpp
