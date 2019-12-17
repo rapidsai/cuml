@@ -98,6 +98,15 @@ DI void ldg(double (&x)[2], double* addr) {
 }
 
 template <typename LabelT, typename DataT>
+struct KVPMinReduce {
+  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+
+  DI KVP operator()(const KVP& a, const KVP& b) {
+    return b.value < a.value ? b : a;
+  }
+};  // KVPMinReduce
+
+template <typename LabelT, typename DataT>
 struct MinAndDistanceReduceOp {
   typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
   DI void operator()(KVP* out, const KVP& other) {
@@ -336,30 +345,28 @@ struct FusedL2NN {
     }
     // reduce
     cub::KeyValuePair<IdxT, DataT> val[P::AccRowsPerTh];
+    KVPMinReduce<IdxT, DataT> pairRedOp;
     auto lid = threadIdx.x % WarpSize;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      val[i].key = -1;
-      val[i].value = maxVal;
+      val[i] = {-1, maxVal};
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto tmpkey = acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
-        if (tmpkey < n && acc[i][j] < val[i].value) {
-          val[i].key = tmpkey;
-          val[i].value = acc[i][j];
-        }
+        cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, acc[i][j]};
+        if (tmpkey < n) val[i] = pairRedOp(tmp, val[i]);
       }
+      __syncthreads();
 #pragma unroll
       for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
         auto tmpkey = shfl(val[i].key, lid + j);
         auto tmpvalue = shfl(val[i].value, lid + j);
-        if (tmpvalue < val[i].value) {
-          val[i].key = tmpkey;
-          val[i].value = tmpvalue;
-        }
+        cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, tmpvalue};
+        val[i] = pairRedOp(tmp, val[i]);
       }
     }
     __syncthreads();
+    //printf("here...\n");
     if (lid % P::AccThCols == 0) {
       auto ridx = IdxT(blockIdx.x) * P::Mblk + accrowid;
 #pragma unroll
