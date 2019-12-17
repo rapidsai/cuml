@@ -76,7 +76,7 @@ void grow_deep_tree_regression(
   int n_nodes = 1;
   int n_nodes_nextitr = 1;
   std::vector<int> sparse_nodelist;
-  sparse_nodelist.reserve(pow(2, maxdepth));
+  sparse_nodelist.reserve(tempmem->max_nodes_per_level);
   sparse_nodelist.push_back(0);
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
