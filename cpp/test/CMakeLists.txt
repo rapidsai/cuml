@@ -204,6 +204,7 @@ if(BUILD_PRIMS_TESTS)
       prims/entropy.cu
       prims/gather.cu
       prims/gemm.cu
+      prims/gemm_layout.cu
       prims/gram.cu
       prims/grid_sync.cu
       prims/hinge.cu

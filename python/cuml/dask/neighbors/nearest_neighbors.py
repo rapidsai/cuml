@@ -40,6 +40,11 @@ class NearestNeighbors(object):
     """
     def __init__(self, client=None, streams_per_handle=0, verbose=False,
                  **kwargs):
+
+        raise NotImplementedError("Multi-GPU KNN is not available in RAPIDS "
+                                  "0.11, it will be enabled in the next "
+                                  "release. Legacy version is available in "
+                                  "0.10.")
         self.client = default_client() if client is None else client
         self.model_args = kwargs
         self.X = None
@@ -73,6 +78,7 @@ class NearestNeighbors(object):
     def _func_kneighbors(model, local_idx_parts, idx_m, n, idx_parts_to_ranks,
                          local_query_parts, query_m, query_parts_to_ranks,
                          rank, k):
+
         return model.kneighbors(
             local_idx_parts, idx_m, n, idx_parts_to_ranks,
             local_query_parts, query_m, query_parts_to_ranks,
@@ -235,9 +241,11 @@ class NearestNeighbors(object):
         comms.destroy()
 
         if _return_futures:
-            return nn_fit, out_i_futures if not return_distance else \
+            ret = nn_fit, out_i_futures if not return_distance else \
                 (nn_fit, out_d_futures, out_i_futures)
         else:
-            return to_dask_cudf(out_i_futures) \
+            ret = to_dask_cudf(out_i_futures) \
                 if not return_distance else (to_dask_cudf(out_d_futures),
                                              to_dask_cudf(out_i_futures))
+
+        return ret

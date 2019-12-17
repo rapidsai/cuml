@@ -156,6 +156,7 @@ class QN(Base):
     Output:
 
     .. code-block:: python
+
         Coefficients:
                     10.647417
                     0.3267412

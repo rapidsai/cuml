@@ -15,3 +15,4 @@
 #
 
 from cuml.datasets.blobs import blobs as make_blobs
+from cuml.datasets.regression import make_regression
