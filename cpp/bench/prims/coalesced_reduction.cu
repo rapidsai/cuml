@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <linalg/reduce.h>
 #include "benchmark.cuh"
-#include <linalg/coalesced_reduction.h>
 
 namespace MLCommon {
 namespace Bench {
@@ -23,12 +23,12 @@ namespace LinAlg {
 
 struct Params {
   int rows, cols;
+  bool alongRows;
 };  // struct Params
 
 template <typename T>
-struct CoalescedReduction : public Fixture {
-  CoalescedReduction(const std::string& name, const Params& p) : Fixture(name),
-                                                                 params(p) {}
+struct Reduce : public Fixture {
+  Reduce(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
@@ -44,31 +44,30 @@ struct CoalescedReduction : public Fixture {
   void runBenchmark(::benchmark::State& state) override {
     for (auto _ : state) {
       CudaEventTimer timer(state, true, stream);
-      MLCommon::LinAlg::coalescedReduction(dots, data, params.cols, params.rows,
-                                           T(0.f), stream);
+      MLCommon::LinAlg::reduce(dots, data, params.cols, params.rows, T(0.f),
+                               true, params.alongRows, stream);
     }
   }
 
  private:
   Params params;
   T *data, *dots;
-};  // struct CoalescedReduction
+};  // struct Reduce
 
 static std::vector<Params> getInputs() {
   return {
-    {8 * 1024, 1024},
-    {1024, 8 * 1024},
-    {8 * 1024, 8 * 1024},
-    {32 * 1024, 1024},
-    {1024, 32 * 1024},
-    {32 * 1024, 32 * 1024},
+    {8 * 1024, 1024, false},     {1024, 8 * 1024, false},
+    {8 * 1024, 8 * 1024, false}, {32 * 1024, 1024, false},
+    {1024, 32 * 1024, false},    {32 * 1024, 32 * 1024, false},
+
+    {8 * 1024, 1024, true},      {1024, 8 * 1024, true},
+    {8 * 1024, 8 * 1024, true},  {32 * 1024, 1024, true},
+    {1024, 32 * 1024, true},     {32 * 1024, 32 * 1024, true},
   };
 }
 
-PRIMS_BENCH_REGISTER(Params, CoalescedReduction<float>, "coalescedReduction",
-                     getInputs());
-PRIMS_BENCH_REGISTER(Params, CoalescedReduction<double>, "coalescedReduction",
-                     getInputs());
+PRIMS_BENCH_REGISTER(Params, Reduce<float>, "reduce", getInputs());
+PRIMS_BENCH_REGISTER(Params, Reduce<double>, "reduce", getInputs());
 
 }  // namespace LinAlg
 }  // namespace Bench
