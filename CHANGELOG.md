@@ -7,11 +7,13 @@
 - PR #1443: Added a new overloaded GEMM primitive
 - PR #1489: Enabling deep trees using Gather tree builder
 - PR #1463: Update FAISS submodule to 1.6.1
+- PR #1488: Add codeowners
 
 ## Bug Fixes
 
 - PR #1470: Documentation: add make_regression, fix ARIMA section
 - PR #1482: Updated the code to remove sklearn from the mbsgd stress test
+- PR #1491: Update dev environments for 0.12
 
 # cuML 0.11.0 (11 Dec 2019)
 
