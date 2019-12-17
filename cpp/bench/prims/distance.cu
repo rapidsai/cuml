@@ -86,34 +86,12 @@ static std::vector<Params> getInputs() {
   PRIMS_BENCH_REGISTER(Params, Name##D, "distance", getInputs())
 
 DIST_BENCH_REGISTER(DistanceL2Sq, MLCommon::Distance::EucExpandedL2);
-
-using DistanceL2SqrtF = Distance<float, MLCommon::Distance::EucExpandedL2Sqrt>;
-using DistanceL2SqrtD = Distance<double, MLCommon::Distance::EucExpandedL2Sqrt>;
-PRIMS_BENCH_REGISTER(Params, DistanceL2SqrtF, "distance", getInputs());
-PRIMS_BENCH_REGISTER(Params, DistanceL2SqrtD, "distance", getInputs());
-
-using DistanceUnexpL2SqF = Distance<float, MLCommon::Distance::EucUnexpandedL2>;
-using DistanceUnexpL2SqD =
-  Distance<double, MLCommon::Distance::EucUnexpandedL2>;
-PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqF, "distance", getInputs());
-PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqD, "distance", getInputs());
-
-using DistanceUnexpL2SqrtF =
-  Distance<float, MLCommon::Distance::EucUnexpandedL2Sqrt>;
-using DistanceUnexpL2SqrtD =
-  Distance<double, MLCommon::Distance::EucUnexpandedL2Sqrt>;
-PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqrtF, "distance", getInputs());
-PRIMS_BENCH_REGISTER(Params, DistanceUnexpL2SqrtD, "distance", getInputs());
-
-using DistanceL1F = Distance<float, MLCommon::Distance::EucUnexpandedL1>;
-using DistanceL1D = Distance<double, MLCommon::Distance::EucUnexpandedL1>;
-PRIMS_BENCH_REGISTER(Params, DistanceL1F, "distance", getInputs());
-PRIMS_BENCH_REGISTER(Params, DistanceL1D, "distance", getInputs());
-
-using DistanceCosineF = Distance<float, MLCommon::Distance::EucExpandedCosine>;
-using DistanceCosineD = Distance<double, MLCommon::Distance::EucExpandedCosine>;
-PRIMS_BENCH_REGISTER(Params, DistanceCosineF, "distance", getInputs());
-PRIMS_BENCH_REGISTER(Params, DistanceCosineD, "distance", getInputs());
+DIST_BENCH_REGISTER(DistanceL2Sqrt, MLCommon::Distance::EucExpandedL2Sqrt);
+DIST_BENCH_REGISTER(DistanceUnexpL2Sq, MLCommon::Distance::EucUnexpandedL2);
+DIST_BENCH_REGISTER(DistanceUnexpL2Sqrt,
+                    MLCommon::Distance::EucUnexpandedL2Sqrt);
+DIST_BENCH_REGISTER(DistanceL1, MLCommon::Distance::EucUnexpandedL1);
+DIST_BENCH_REGISTER(DistanceCosine, MLCommon::Distance::EucExpandedCosine);
 
 }  // namespace Distance
 }  // namespace Bench
