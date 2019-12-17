@@ -60,7 +60,7 @@ class WorkingSet {
   /** Create a working set
    * @param handle cuml handle implementation
    * @stream cuda stream for working set operations
-   * @param n_rows number of training vectors
+   * @param n_train number of training vectors
    * @param n_ws number of elements in the working set (default 1024)
    */
   WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
@@ -69,6 +69,7 @@ class WorkingSet {
       stream(stream),
       svmType(svmType),
       verbose(verbose),
+      n_rows(n_rows),
       available(handle.getDeviceAllocator(), stream),
       available_sorted(handle.getDeviceAllocator(), stream),
       cub_storage(handle.getDeviceAllocator(), stream),
@@ -83,7 +84,8 @@ class WorkingSet {
       ws_idx_save(handle.getDeviceAllocator(), stream),
       ws_priority(handle.getDeviceAllocator(), stream),
       ws_priority_sorted(handle.getDeviceAllocator(), stream) {
-    SetSize(n_rows, n_ws);
+    n_train = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
+    SetSize(n_train, n_ws);
   }
 
   ~WorkingSet() {
@@ -94,17 +96,15 @@ class WorkingSet {
   /**
    * Set the size of the working set and allocate buffers accordingly.
    *
-   * @param n_rows number of training vectors
-   * @param n_ws working set size (default min(1024, n_rows))
+   * @param n_train number of training vectors
+   * @param n_ws working set size (default min(1024, n_train))
    */
-  void SetSize(int n_rows, int n_ws = 0) {
-    if (n_ws == 0 || n_ws > n_rows) {
-      n_ws = n_rows;
+  void SetSize(int n_train, int n_ws = 0) {
+    if (n_ws == 0 || n_ws > n_train) {
+      n_ws = n_train;
     }
     n_ws = min(1024, n_ws);
     this->n_ws = n_ws;
-    this->n_rows = n_rows;
-    this->n_vec = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
     if (verbose) {
       std::cout << "Creating working set with " << n_ws << " elements\n";
     }
@@ -114,20 +114,23 @@ class WorkingSet {
   /** Return the size of the working set. */
   int GetSize() { return n_ws; }
 
-  /** Return a device pointer to the array with the working set indices */
+  /** Return a device pointer to the array with the working set indices.
+   *
+   * The returned array is owned by WorkingSet.
+   */
   int *GetIndices() { return idx.data(); }
 
   /** Get the original training vector idx.
    *
    * For SVC this is the same as GetIndices, for SVR we have duplicate set
    * of training vectors, we return the original idx, which is simply
-   * ws_idx % n_vec.
+   * ws_idx % n_rows. The returned array is owned by WorkingSet.
    *
-   * Return device pointer with values GetIndices() % n_vecs
+   * Return device pointer with values GetIndices() % n_rows
   */
   int *GetVecIndices() {
     if (svmType == EPSILON_SVR) {
-      int n = n_vec;
+      int n = n_rows;
       MLCommon::LinAlg::unaryOp(
         vec_idx.data(), idx.data(), n_ws,
         [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
@@ -154,8 +157,8 @@ class WorkingSet {
    *     practical. In B. Scholkopf, C. Burges, & A. Smola (Eds.), Advances in
    *     kernel methods: Support vector machines. Cambridge, MA: MIT Press
    *
-   * @param f optimality indicator vector, size [n_rows]
-   * @param alpha dual coefficients, size [n_rows]
+   * @param f optimality indicator vector, size [n_train]
+   * @param alpha dual coefficients, size [n_train]
    * @param y target labels (+/- 1)
    * @param C penalty parameter
    * @param n_already_selected
@@ -173,23 +176,23 @@ class WorkingSet {
 
     cub::DeviceRadixSort::SortPairs(
       (void *)cub_storage.data(), cub_bytes, f, f_sorted.data(), f_idx.data(),
-      f_idx_sorted.data(), n_rows, 0, (int)8 * sizeof(math_t), stream);
+      f_idx_sorted.data(), n_train, 0, (int)8 * sizeof(math_t), stream);
 
-    if (verbose && n_rows < 20) {
-      MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_rows,
+    if (verbose && n_train < 20) {
+      MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_train,
                                  std::cout);
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
-    set_upper<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
-      available, n_rows, alpha, y, C);
+    set_upper<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+      available, n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
       GatherAvailable(n_already_selected, n_needed / 2, true);
 
     // Select n_ws/2 elements from the lower set with the highest f values
-    set_lower<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
-      available, n_rows, alpha, y, C);
+    set_lower<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+      available, n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
       GatherAvailable(n_already_selected, n_ws - n_already_selected, false);
@@ -201,7 +204,7 @@ class WorkingSet {
         std::cout << "Warning: could not fill working set, found only "
                   << n_already_selected << " elements.\n";
       if (verbose) std::cout << "Filling up with unused elements\n";
-      CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_rows));
+      CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_train));
       n_already_selected +=
         GatherAvailable(n_already_selected, n_ws - n_already_selected, true);
     }
@@ -222,7 +225,7 @@ class WorkingSet {
   *
   */
   void Select(math_t *f, math_t *alpha, math_t *y, math_t C) {
-    if (n_ws >= n_rows) {
+    if (n_ws >= n_train) {
       // All elements are selected, we have initialized idx to cover this case
       return;
     }
@@ -268,7 +271,7 @@ class WorkingSet {
    *     based decomposition techniques for Support Vector Machines
    *     DOI: 10.1080/10556780500140714
    *
-   * @param [in] alpha device vector of dual coefficients, size [n_rows]
+   * @param [in] alpha device vector of dual coefficients, size [n_train]
    * @param [in] C penalty parameter
    * @param [in] nc number of elements to select
    */
@@ -303,15 +306,15 @@ class WorkingSet {
   cudaStream_t stream;
 
   bool firstcall = true;
-  int n_rows = 0;  ///< number of training vectors (including duplicates for SVR)
-  int n_vec = 0;  ///< number of training vectors (not including SVR duplicates)
+  int n_train = 0;  ///< number of training vectors (including duplicates for SVR)
+  int n_rows = 0;  ///< number of original training vectors (no duplicates)
   int n_ws = 0;
 
   SvmType svmType;
 
   int TPB = 256;  //!< Threads per block for workspace selection kernels
 
-  // Buffers for the domain size [n_rows]
+  // Buffers for the domain size [n_train]
   MLCommon::device_buffer<int> f_idx;  //!< Arrays used for sorting for sorting
   MLCommon::device_buffer<int> f_idx_sorted;
   //! Temporary buffer for index manipulation
@@ -337,12 +340,12 @@ class WorkingSet {
 
   void AllocateBuffers() {
     if (n_ws > 0) {
-      f_idx.resize(n_rows, stream);
-      f_idx_sorted.resize(n_rows, stream);
-      idx_tmp.resize(n_rows, stream);
-      f_sorted.resize(n_rows, stream);
-      available.resize(n_rows, stream);
-      available_sorted.resize(n_rows, stream);
+      f_idx.resize(n_train, stream);
+      f_idx_sorted.resize(n_train, stream);
+      idx_tmp.resize(n_train, stream);
+      f_sorted.resize(n_train, stream);
+      available.resize(n_train, stream);
+      available_sorted.resize(n_train, stream);
 
       idx.resize(n_ws, stream);  //allocate(idx, n_ws, stream);
       ws_idx_sorted.resize(n_ws, stream);
@@ -358,9 +361,9 @@ class WorkingSet {
       size_t cub_bytes2 = 0;
       cub::DeviceRadixSort::SortPairs(
         NULL, cub_bytes, f_idx.data(), f_idx_sorted.data(), f_sorted.data(),
-        f_sorted.data(), n_rows, 0, 8 * sizeof(int), stream);
+        f_sorted.data(), n_train, 0, 8 * sizeof(int), stream);
       cub::DeviceSelect::If(NULL, cub_bytes2, f_idx.data(), f_idx.data(),
-                            d_num_selected, n_rows, dummy_select_op, stream);
+                            d_num_selected, n_train, dummy_select_op, stream);
       cub_bytes = max(cub_bytes, cub_bytes2);
       cub_storage.resize(cub_bytes, stream);
       if (svmType == EPSILON_SVR) {
@@ -388,12 +391,12 @@ class WorkingSet {
     // First we update the mask to ignores already selected elements
     bool *available = this->available.data();
     if (n_already_selected > 0) {
-      set_unavailable<<<MLCommon::ceildiv(n_rows, TPB), TPB, 0, stream>>>(
-        available, n_rows, idx.data(), n_already_selected);
+      set_unavailable<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+        available, n_train, idx.data(), n_already_selected);
       CUDA_CHECK(cudaPeekAtLastError());
     }
-    if (verbose && n_rows < 20) {
-      MLCommon::myPrintDevVector("avail", available, n_rows, std::cout);
+    if (verbose && n_train < 20) {
+      MLCommon::myPrintDevVector("avail", available, n_train, std::cout);
     }
 
     // Map the mask to the sorted indices
@@ -402,17 +405,17 @@ class WorkingSet {
     thrust::device_ptr<int> idx_ptr(f_idx_sorted.data());
     thrust::copy(thrust::cuda::par.on(stream),
                  thrust::make_permutation_iterator(av_ptr, idx_ptr),
-                 thrust::make_permutation_iterator(av_ptr, idx_ptr + n_rows),
+                 thrust::make_permutation_iterator(av_ptr, idx_ptr + n_train),
                  av_sorted_ptr);
-    if (verbose && n_rows < 20) {
+    if (verbose && n_train < 20) {
       MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
-                                 n_rows, std::cout);
+                                 n_train, std::cout);
     }
 
     // Select the available elements
     cub::DeviceSelect::Flagged((void *)cub_storage.data(), cub_bytes,
                                f_idx_sorted.data(), available_sorted.data(),
-                               idx_tmp.data(), d_num_selected, n_rows);
+                               idx_tmp.data(), d_num_selected, n_train);
     int n_selected;
     MLCommon::updateHost(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -426,7 +429,7 @@ class WorkingSet {
       MLCommon::copy(idx.data() + n_already_selected,
                      idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
-    if (verbose && n_rows < 20) {
+    if (verbose && n_train < 20) {
       MLCommon::myPrintDevVector("selected", idx.data(),
                                  n_already_selected + n_copy, std::cout);
     }
@@ -434,7 +437,7 @@ class WorkingSet {
   }
 
   void Initialize() {
-    MLCommon::LinAlg::range(f_idx.data(), n_rows, stream);
+    MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
     MLCommon::LinAlg::range(idx.data(), n_ws, stream);
   }
 
