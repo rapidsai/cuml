@@ -30,6 +30,7 @@ import cupy as cp
                ([9, 8, 2, 1, 3, 4],
                 [8, 2, 1, 2, 2])]
 )
+@pytest.mark.skip
 def test_basic_functions(labels, cluster):
 
     client = Client(cluster)
@@ -50,16 +51,9 @@ def test_basic_functions(labels, cluster):
 
     xformed = binarizer.transform(df2)
 
-    print("xformed: " + str(xformed.compute()))
-
     assert xformed.compute().shape[1] == binarizer.classes_.shape[0]
 
     original = binarizer.inverse_transform(xformed)
-
-    print("original: " + str(original.compute()))
-
     test = cp.asarray(original.compute().to_gpu_array())
-
-    print("Test: " + str(test))
 
     assert array_equal(cp.asnumpy(test), xform_labels)
