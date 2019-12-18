@@ -67,11 +67,6 @@ class LinearRegression(object):
 
     @staticmethod
     def _func_fit(f, X, y, M, N, partsToRanks, rank):
-        if rank == 0:
-            print("X")
-            print(X)
-            print("y")
-            print(y)
         return f.fit(X, y, M, N, partsToRanks, rank)
 
     @staticmethod
