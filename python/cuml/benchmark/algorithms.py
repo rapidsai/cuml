@@ -214,7 +214,7 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            sklearn.decomposition.truncated_svd.TruncatedSVD,
+            sklearn.decomposition.TruncatedSVD,
             cuml.decomposition.tsvd.TruncatedSVD,
             shared_args=dict(n_components=10),
             name="tSVD",

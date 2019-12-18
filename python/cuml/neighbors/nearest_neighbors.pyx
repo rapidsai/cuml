@@ -92,27 +92,22 @@ class NearestNeighbors(Base):
 
       import cudf
       from cuml.neighbors import NearestNeighbors
-      import numpy as np
+      from cuml.datasets import make_blobs
 
-      np_float = np.array([
-        [1,2,3], # Point 1
-        [1,2,4], # Point 2
-        [2,2,4]  # Point 3
-      ]).astype('float32')
+      X, _ = make_blobs(n_samples=25, centers=5,
+                        n_features=10, random_state=42)
 
-      gdf_float = cudf.DataFrame()
-      gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
-      gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
-      gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
+      # build a cudf Dataframe
+      X_cudf = cudf.DataFrame.from_gpu_matrix(X)
 
-      print('n_samples = 3, n_dims = 3')
-      print(gdf_float)
+      # fit model
+      model = NearestNeighbors(n_neighbors=3)
+      model.fit(X)
 
-      nn_float = NearestNeighbors()
-      nn_float.fit(gdf_float)
       # get 3 nearest neighbors
-      distances,indices = nn_float.kneighbors(gdf_float,k=3)
+      distances, indices = model.kneighbors(X_cudf)
 
+      # print results
       print(indices)
       print(distances)
 
@@ -120,38 +115,39 @@ class NearestNeighbors(Base):
 
     .. code-block:: python
 
-      import cudf
 
-      # Both import methods supported
-      # from cuml.neighbors import NearestNeighbors
-      from cuml import NearestNeighbors
+    indices:
 
-      n_samples = 3, n_dims = 3
+             0   1   2
+        0    0  14  21
+        1    1  19   8
+        2    2   9  23
+        3    3  14  21
+        ...
 
-      dim_0 dim_1 dim_2
+        22  22  18  11
+        23  23  16   9
+        24  24  17  10
 
-      0   1.0   2.0   3.0
-      1   1.0   2.0   4.0
-      2   2.0   2.0   4.0
+    distances:
 
-      # indices:
+              0         1         2
+        0   0.0  4.883116  5.570006
+        1   0.0  3.047896  4.105496
+        2   0.0  3.558557  3.567704
+        3   0.0  3.806127  3.880100
+        ...
 
-               index_neighbor_0 index_neighbor_1 index_neighbor_2
-      0                0                1                2
-      1                1                0                2
-      2                2                1                0
-      # distances:
+        22  0.0  4.210738  4.227068
+        23  0.0  3.357889  3.404269
+        24  0.0  3.428183  3.818043
 
-               distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
-      0                 0.0                 1.0                 2.0
-      1                 0.0                 1.0                 1.0
-      2                 0.0                 1.0                 2.0
 
     Notes
     ------
 
     For an additional example see `the NearestNeighbors notebook
-    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
+    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/nearest_neighbors_demo.ipynb>`_.
 
     For additional docs, see `scikitlearn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
@@ -294,7 +290,7 @@ class NearestNeighbors(Base):
         X_m, X_ctype, N, _, dtype = \
             input_to_dev_array(X, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
-                                                 else None))
+                                                 else False))
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
@@ -335,15 +331,8 @@ class NearestNeighbors(Base):
         D_ndarr = D_ndarr.reshape((N, n_neighbors))
 
         if isinstance(X, cudf.DataFrame):
-            inds = cudf.DataFrame()
-            for i in range(0, I_ndarr.shape[1]):
-                inds[str(i)] = I_ndarr[:, i]
-
-            dists = cudf.DataFrame()
-            for i in range(0, D_ndarr.shape[1]):
-                dists[str(i)] = D_ndarr[:, i]
-
-            return dists, inds
+            inds = cudf.DataFrame.from_gpu_matrix(I_ndarr)
+            dists = cudf.DataFrame.from_gpu_matrix(D_ndarr)
 
         elif isinstance(X, np.ndarray):
             inds = np.asarray(I_ndarr)
