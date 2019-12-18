@@ -140,6 +140,7 @@ cdef class TreeliteModel():
 
 cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:
+        ALGO_AUTO,
         NAIVE,
         TREE_REORG,
         BATCH_TREE_REORG
@@ -184,7 +185,9 @@ cdef class ForestInference_impl():
         self.handle = handle
 
     def get_algo(self, algo_str):
-        algo_dict={'NAIVE': algo_t.NAIVE,
+        algo_dict={'AUTO': algo_t.ALGO_AUTO,
+                   'auto': algo_t.ALGO_AUTO,
+                   'NAIVE': algo_t.NAIVE,
                    'naive': algo_t.NAIVE,
                    'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
                    'batch_tree_reorg': algo_t.BATCH_TREE_REORG,
@@ -399,7 +402,7 @@ class ForestInference(Base):
         return self._impl.predict(X, preds)
 
     def load_from_treelite_model(self, model, output_class,
-                                 algo='TREE_REORG',
+                                 algo='AUTO',
                                  threshold=0.5,
                                  storage_type='DENSE'):
         """
@@ -415,6 +418,9 @@ class ForestInference(Base):
            If true, return a 1 or 0 depending on whether the raw prediction
            exceeds the threshold. If False, just return the raw prediction.
         algo : string name of the algo from (from algo_t enum)
+             'AUTO' or 'auto' - choose the algorithm automatically;
+                   currently 'BATCH_TREE_REORG' is used for dense storage,
+                   and 'NAIVE' for sparse storage
              'NAIVE' or 'naive' - simple inference using shared memory
              'TREE_REORG' or 'tree_reorg' - similar to naive but trees
                               rearranged to be more coalescing-friendly
@@ -429,7 +435,7 @@ class ForestInference(Base):
                                 (currently DENSE is always used)
              'DENSE' or 'dense' - create a dense forest
              'SPARSE' or 'sparse' - create a sparse forest;
-                                    requires algo='NAIVE'
+                                    requires algo='NAIVE' or algo='AUTO'
         """
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
@@ -445,7 +451,7 @@ class ForestInference(Base):
     def load_from_sklearn(skl_model,
                           output_class=False,
                           threshold=0.50,
-                          algo='TREE_REORG',
+                          algo='AUTO',
                           storage_type='DENSE',
                           handle=None):
         cuml_fm = ForestInference(handle=handle)
@@ -459,7 +465,7 @@ class ForestInference(Base):
     def load(filename,
              output_class=False,
              threshold=0.50,
-             algo='TREE_REORG',
+             algo='AUTO',
              storage_type='DENSE',
              model_type="xgboost",
              handle=None):
@@ -500,7 +506,7 @@ class ForestInference(Base):
     def load_from_randomforest(self,
                                model_handle,
                                output_class=False,
-                               algo='TREE_REORG',
+                               algo='AUTO',
                                storage_type='DENSE',
                                threshold=0.50):
 
