@@ -1,6 +1,7 @@
 # cuML 0.12.0 (Date TBD)
 
 ## New Features
+- PR #1494: bench: ml-prims benchmark
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
