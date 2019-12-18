@@ -477,7 +477,7 @@ class ARIMA(Base):
             using second-order differencing:
                     f(x+h) - f(x - h)
                 g = ----------------- + O(h^2)
-                            2 * h
+                          2 * h
         """
         p, d, q = self.order
         P, D, Q, s = self.seasonal_order
@@ -492,22 +492,16 @@ class ARIMA(Base):
         def f(x: np.ndarray) -> np.ndarray:
             """The (batched) energy functional returning the negative
             loglikelihood (foreach series)."""
+            # Recall: We maximize LL by minimizing -LL
+            n_llf = -self._loglike(x, trans=True)
+            return n_llf / (self.num_samples - 1)
 
-            # Recall: Maximimize LL means minimize negative
-            n_llf = -(ll_f(self.batch_size, self.num_samples, self.order,
-                           self.seasonal_order, self.intercept, self.d_y, x,
-                           trans=True, handle=self.handle))
-            return n_llf/(self.num_samples-1)
-
-        # optimized finite differencing gradient for batches
+        # Optimized finite differencing gradient for batches
         def gf(x):
             """The gradient of the (batched) energy functional."""
             # Recall: We maximize LL by minimizing -LL
-            n_gllf = -ll_gf(self.batch_size, self.num_samples,
-                            self.complexity, self.order, self.seasonal_order,
-                            self.intercept, self.d_y, x, h, trans=True,
-                            handle=self.handle)
-            return n_gllf/(self.num_samples-1)
+            n_gllf = -self._loglike_grad(x, h, trans=True)
+            return n_gllf / (self.num_samples - 1)
 
         x0 = pack(self.order, self.seasonal_order, self.intercept,
                   self.batch_size, self.get_params())
@@ -535,111 +529,105 @@ class ARIMA(Base):
         self.niter = niter
 
 
-# TODO: make it a method of the class and function of x and trans only!
-# (and x defaults to None where it uses current params)
-@nvtx_range_wrap
-def ll_f(batch_size, nobs, order, seasonal_order, intercept, y, x, trans=True,
-         handle=None):
-    """Computes batched loglikelihood for given parameters and series.
+    @nvtx_range_wrap
+    def _loglike(self, x, trans=True):
+        """Computes the batched loglikelihood for given parameters.
 
-    Parameters:
-    ----------
-    batch_size : int
-                  Number of series
-    nobs : int
-           Number of samples in each series (identical across series)
-    order : Tuple[int, int, int]
-            ARIMA Order (p, d, q)
-    y     : array like, shape = (n_samples, n_series)
-            Time series data
-    x     : array
-            dense parameter array, grouped by series,
-            and again by [(mu, ar, ma), (mu, ar, ma)]
-    trans : bool
-            Should the `jones_transform` be applied?
-            Note: The parameters from a `fit()` model are already transformed.
-    handle : cumlHandle (optional)
-             The cumlHandle to be used.
-    """
+        Parameters:
+        ----------
+        x     : array-like
+                dense parameter array, grouped by series
+        trans : bool
+                Should the `jones_transform` be applied?
+                Note: The parameters from a fit model are already transformed.
+        """
+        cdef vector[double] vec_loglike
+        vec_loglike.resize(self.batch_size)
 
-    cdef vector[double] vec_loglike
+        p, d, q = self.order
+        P, D, Q, s = self.seasonal_order
 
-    vec_loglike = _batched_loglike(batch_size, nobs, order, seasonal_order,
-                                   intercept, y, x, trans, handle)
+        cdef uintptr_t d_x_ptr
+        d_x_array, d_x_ptr, _, _, _ = \
+            input_to_dev_array(x, check_dtype=np.float64)
 
-    loglike = np.zeros(batch_size)
-    for i in range(batch_size):
-        loglike[i] = vec_loglike[i]
+        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-    return loglike
+        d_vs = rmm.device_array((self.num_samples - d - D * s,
+                                 self.batch_size),
+                                dtype=np.float64, order="F")
+        cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
+
+        batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
+                        <int> self.num_samples, <int> p, <int> d, <int> q,
+                        <int> P, <int> D, <int> Q, <int> s,
+                        <int> self.intercept, <double*> d_x_ptr,
+                        <double*> vec_loglike.data(), <double*> d_vs_ptr,
+                        <bool> trans, <bool> True)
+
+        return np.array(vec_loglike)
 
 
-@nvtx_range_wrap
-def ll_gf(batch_size, nobs, num_parameters, order, seasonal_order, intercept,
-          y, x, h=1e-8, trans=True, handle=None):
-    """Computes gradient (via finite differencing) of the batched
-    loglikelihood.
+    @nvtx_range_wrap
+    def _loglike_grad(self, x, h=1e-8, trans=True):
+        """Computes gradient (via finite differencing) of the batched
+        loglikelihood.
 
-    Parameters:
-    ----------
-    batch_size : int
-                  Number of series
-    nobs : int
-           Number of samples in each series (identical across series)
-    num_parameters : int
-                     The number of parameters per series
-    order : Tuple[int, int, int]
-            ARIMA Order (p, d, q)
-    y     : array like, shape = (n_samples, n_series)
-            Time series data
-    x     : array
-            dense parameter array, grouped by series, and
-            again by [(mu, ar, ma), (mu, ar, ma)]
-    h     : float
-            The finite-difference stepsize
-    trans : bool
-            Should the `jones_transform` be applied?
-            Note: The parameters from a `fit()` model are already transformed.
-    handle : cumlHandle (optional)
-             The cumlHandle to be used.
+        Parameters:
+        ----------
+        x     : array-like
+                dense parameter array, grouped by series
+        h     : float
+                The finite-difference stepsize
+        trans : bool
+                Should the `jones_transform` be applied?
+                Note: The parameters from a fit model are already transformed.
+        """
+        N = self.complexity
+        assert len(x) == N * self.batch_size
 
-    """
-    fd = np.zeros(num_parameters)
+        fd = np.zeros(N)
+        grad = np.zeros(len(x))
 
-    grad = np.zeros(len(x))
+        # Get current numpy error level and change all to 'raise'
+        err_lvl = np.seterr(all='raise')
 
-    # Get current numpy error level and change all to 'raise'
-    err_lvl = np.seterr(all='raise')
+        for i in range(N):
+            fd[i] = h
 
-    assert (len(x) / num_parameters) == float(batch_size)
-    for i in range(num_parameters):
-        fd[i] = h
+            # duplicate the perturbation across batches (they are independent)
+            fdph = np.tile(fd, self.batch_size)
 
-        # duplicate the perturbation across batches (they are independent)
-        fdph = np.tile(fd, batch_size)
+            # reset perturbation
+            fd[i] = 0.0
 
-        # reset perturbation
-        fd[i] = 0.0
+            ll_b_ph = self._loglike(x+fdph, trans=trans)
+            ll_b_mh = self._loglike(x-fdph, trans=trans)
 
-        ll_b_ph = ll_f(batch_size, nobs, order, seasonal_order, intercept, y,
-                       x+fdph, trans=trans, handle=handle)
-        ll_b_mh = ll_f(batch_size, nobs, order, seasonal_order, intercept, y,
-                       x-fdph, trans=trans, handle=handle)
+            # first derivative second order accuracy
+            grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
 
-        # first derivative second order accuracy
-        grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
+            if self.batch_size == 1:
+                grad[i] = grad_i_b
+            else:
+                assert len(grad[i::N]) == len(grad_i_b)
+                # Distribute the result to all batches
+                grad[i::N] = grad_i_b
 
-        if batch_size == 1:
-            grad[i] = grad_i_b
-        else:
-            assert len(grad[i::num_parameters]) == len(grad_i_b)
-            # Distribute the result to all batches
-            grad[i::num_parameters] = grad_i_b
+        # Reset numpy error levels
+        np.seterr(**err_lvl)
 
-    # Reset numpy error levels
-    np.seterr(**err_lvl)
+        return grad
 
-    return grad
+
+    @property
+    def llf(self):
+        """Loglikelihood of a fit model
+        """
+        x = pack(self.order, self.seasonal_order, self.intercept,
+                 self.batch_size, self.get_params())
+        return self._loglike(x, trans=False)
 
 
 # TODO: later replace with AutoARIMA
@@ -814,49 +802,3 @@ def _batch_invtrans(order, seasonal_order, intercept, nb, x, handle=None):
                             handle)
 
     return Tx
-
-
-@nvtx_range_wrap
-def _batched_loglike(batch_size, nobs, order, seasonal_order, intercept, y, x,
-                     trans=False, handle=None):
-    cdef vector[double] vec_loglike
-    cdef vector[double] vec_y_cm
-    cdef vector[double] vec_x
-
-    p, d, q = order
-    P, D, Q, s = seasonal_order
-
-    num_params = p + q + P + Q + intercept
-
-    vec_loglike.resize(batch_size)
-
-    cdef uintptr_t d_y_ptr
-    cdef uintptr_t d_x_ptr
-
-    # note: make sure you explicitly have d_y_array. Otherwise it gets garbage
-    # collected (I think).
-    d_y_array, d_y_ptr, _, _, dtype_y = \
-        input_to_dev_array(y, check_dtype=np.float64)
-    d_x_array, d_x_ptr, _, _, _ = \
-        input_to_dev_array(x, check_dtype=np.float64)
-
-    d_vs = rmm.device_array((nobs - d, batch_size),
-                            dtype=np.float64, order="F")
-    cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
-
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-
-    if dtype_y != np.float64:
-        raise \
-            ValueError("Only 64-bit floating point inputs currently supported")
-
-    batched_loglike(handle_[0], <double*> d_y_ptr, <int> batch_size,
-                    <int> nobs, <int> p, <int> d, <int> q, <int> P, <int> D,
-                    <int> Q, <int> s, <int> intercept, <double*> d_x_ptr,
-                    <double*> vec_loglike.data(), <double*> d_vs_ptr, trans,
-                    <bool> True)
-
-    return vec_loglike
