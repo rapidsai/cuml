@@ -15,8 +15,7 @@
 
 from cuml.preprocessing.label import LabelBinarizer as LB
 from dask.distributed import default_client
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
-    cp_to_sparse_df
+from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
 
 import numba.cuda
 
@@ -29,7 +28,7 @@ def cp_to_df(cp_ndarr, sparse):
     if not sparse:
         return cudf.DataFrame.from_gpu_matrix(numba_arr)
     else:
-        return cp_to_sparse_df(cp_ndarr)
+        raise ValueError("Sparse outputs are not yet supported")
 
 
 def cp_to_series(cp_ndarr):

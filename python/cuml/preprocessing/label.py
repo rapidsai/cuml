@@ -22,7 +22,8 @@ from cuml.prims.label import make_monotonic, check_labels, \
 import numba.cuda
 
 
-def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
+def label_binarize(y, classes, neg_label=0, pos_label=1,
+                   sparse_output=False):
 
     classes = cp.asarray(classes, dtype=cp.int32)
     labels = cp.asarray(y, dtype=cp.int32)
