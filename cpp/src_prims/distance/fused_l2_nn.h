@@ -523,10 +523,10 @@ __global__ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp) {
   }
 }
 
-template <typename DataT, typename OutT, typename IdxT, bool Sqrt, int VecLen,
+template <typename DataT, typename OutT, typename IdxT, int VecLen,
           typename ReduceOpT>
 void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
-                   IdxT n, IdxT k, int* workspace, ReduceOpT redOp,
+                   IdxT n, IdxT k, int* workspace, ReduceOpT redOp, bool sqrt,
                    bool initOutBuffer, cudaStream_t stream) {
   typedef typename Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
@@ -539,9 +539,15 @@ void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
       <<<nblks, Policy::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
     CUDA_CHECK(cudaGetLastError());
   }
-  fusedL2NNkernel<DataT, OutT, IdxT, Sqrt, Policy, ReduceOpT>
-    <<<grid, blk, Policy::SmemSize, stream>>>(min, x, y, xn, yn, m, n, k,
-                                              maxVal, workspace, redOp);
+  if (sqrt) {
+    fusedL2NNkernel<DataT, OutT, IdxT, true, Policy, ReduceOpT>
+      <<<grid, blk, Policy::SmemSize, stream>>>(min, x, y, xn, yn, m, n, k,
+                                                maxVal, workspace, redOp);
+  } else {
+    fusedL2NNkernel<DataT, OutT, IdxT, false, Policy, ReduceOpT>
+      <<<grid, blk, Policy::SmemSize, stream>>>(min, x, y, xn, yn, m, n, k,
+                                                maxVal, workspace, redOp);
+  }
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -556,7 +562,6 @@ void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
  *              or store only the min distances. Accordingly, one has to pass an
  *              appropriate `ReduceOpT`
  * @tparam IdxT indexing arithmetic type
- * @tparam Sqrt Whether the output `minDist` should contain L2-sqrt or not
  * @tparam ReduceOpT A struct to perform the final needed reduction operation
  *                   and also to initialize the output array elements with the
  *                   appropriate initial value needed for reduction.
@@ -569,6 +574,7 @@ void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
  * @param[in] n gemm n
  * @param[in] k gemm k
  * @param[in] workspace temporary workspace. Size = sizeof(int)*m. (on device)
+ * @param[in] sqrt Whether the output `minDist` should contain L2-sqrt or not
  * @param[in] initOutBuffer whether to initialize the output buffer before the
  *                          main kernel launch
  * @param[in] stream cuda stream
@@ -576,20 +582,20 @@ void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
           typename ReduceOpT>
 void fusedL2NN(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
-               IdxT n, IdxT k, void* workspace, ReduceOpT redOp,
+               IdxT n, IdxT k, void* workspace, ReduceOpT redOp, bool sqrt,
                bool initOutBuffer, cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 16 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, initOutBuffer,
+      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, sqrt, initOutBuffer,
       stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
     fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 8 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, initOutBuffer,
+      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, sqrt, initOutBuffer,
       stream);
   } else {
     fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 1, ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, initOutBuffer,
+      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, sqrt, initOutBuffer,
       stream);
   }
 }
