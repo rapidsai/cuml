@@ -64,7 +64,6 @@ class MultinomialNB(object):
         y_worker_parts = self.client_.sync(extract_arr_partitions, y)
 
         x_worker_parts = workers_to_parts(x_worker_parts)
-        y_worker_parts = workers_to_parts(y_worker_parts)
 
         n_features = X.shape[1]
 
@@ -75,11 +74,11 @@ class MultinomialNB(object):
 
         counts = self.client_.compute([self.client_.submit(
             MultinomialNB._fit,
-            p,
-            y_worker_parts[w],
+            wp[1],
+            y_worker_parts[idx],
             classes,
             self.kwargs,
-        ) for w, p in x_worker_parts.items()], sync=True)
+        ) for idx, wp in enumerate(x_worker_parts.items())], sync=True)
 
         self.model_ = MNB(**self.kwargs)
         self.model_.classes_ = classes
