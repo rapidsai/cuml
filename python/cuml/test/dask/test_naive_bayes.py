@@ -16,19 +16,11 @@
 
 import cupy as cp
 
-from dask.distributed import Client
+import dask
 
-import dask_cudf
+import pandas as pd
 
 from sklearn.datasets import fetch_20newsgroups
-from sklearn.feature_extraction.text import HashingVectorizer
-
-
-from cuml.dask.naive_bayes import MultinomialNB
-
-import cudf
-
-import numba.cuda
 
 
 def scipy_to_cp(sp):
@@ -51,38 +43,18 @@ def load_corpus():
                                       shuffle=True,
                                       random_state=42)
 
-    count_vect = CountVectorizer()
-    X = count_vect.fit_transform(twenty_train.data)
-    Y = cp.array(twenty_train.target)
+    X = pd.DataFrame(twenty_train.data)
+    y = pd.DataFrame(twenty_train.target)
 
-    return scipy_to_cp(X), Y
+    X = dask.dataframe.from_pandas(X, npartitions=1)
+    y = dask.dataframe.from_pandas(y, npartitions=1)
+
+    return X, y
 
 
-# def test_basic_fit_predict(cluster):
-#
-#     client = Client(cluster)
-#
-#     """
-#     Cupy Test
-#     """
-#
-#     X, y = load_corpus()
-#
-#     print("before: " + str(X.shape))
-#     print(str(y.shape))
-#
-#     hv = HashingVectorizer(alternate_sign=False,
-#                            ngram_range=(1, 2),
-#                            lowercase=True)
-#
-#     X = hv.fit_transform(X)
-#     y =
-#
-#     print("after: " + str(X_cudf.shape))
-#     print(str(y_cudf.shape))
-#
-#     X_ddf = dask_cudf.from_cudf(X_cudf, npartitions=2)
-#     y_ddf = dask_cudf.from_cudf(y_cudf, npartitions=2)
-#
-#     model = MultinomialNB(client=client)
-#     model.fit(X_ddf, y_ddf, X.shape[1])
+def test_basic_fit_predict(cluster):
+
+    X, y = load_corpus()
+
+    print("before: " + str(X.shape))
+    print(str(y.shape))
