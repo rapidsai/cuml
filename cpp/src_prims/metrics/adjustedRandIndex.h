@@ -68,7 +68,7 @@ double computeAdjustedRandIndex(
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
-  int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
+  long int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   //declaring, allocating and initializing memory for the contingency marix
   MLCommon::device_buffer<unsigned long long int> dContingencyMatrix(
@@ -103,9 +103,9 @@ double computeAdjustedRandIndex(
   MLCommon::device_buffer<unsigned long long int> d_nChooseTwoSum(allocator,
                                                                   stream, 1);
   //host variables
-  int64_t h_aCTwoSum;
-  int64_t h_bCTwoSum;
-  int64_t h_nChooseTwoSum;
+  double h_aCTwoSum;
+  double h_bCTwoSum;
+  double h_nChooseTwoSum;
 
   //initializing device memory
   CUDA_CHECK(cudaMemsetAsync(
@@ -120,10 +120,11 @@ double computeAdjustedRandIndex(
                              sizeof(unsigned long long int), stream));
 
   //calculating the sum of NijC2
-  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<int>>(
-    (int*)d_nChooseTwoSum.data(), numUniqueClasses * numUniqueClasses,
-    nCTwo<int>(), stream, (int*)dContingencyMatrix.data(),
-    (int*)dContingencyMatrix.data());
+  MLCommon::LinAlg::mapThenSumReduce<unsigned long long int, nCTwo<int>>(
+    (unsigned long long int*)d_nChooseTwoSum.data(),
+    numUniqueClasses * numUniqueClasses, nCTwo<int>(), stream,
+    (unsigned long long int*)dContingencyMatrix.data(),
+    (unsigned long long int*)dContingencyMatrix.data());
 
   //calculating the row-wise sums
   MLCommon::LinAlg::reduce<int, int, int>(
@@ -136,23 +137,26 @@ double computeAdjustedRandIndex(
     numUniqueClasses, 0, true, false, stream);
 
   //calculating the sum of number of unordered pairs for every element in a
-  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<unsigned long long int>>(
-    (int*)d_aCTwoSum.data(), numUniqueClasses, nCTwo<unsigned long long int>(),
-    stream, (int*)a.data(), (int*)a.data());
+  MLCommon::LinAlg::mapThenSumReduce<unsigned long long int, nCTwo<int>>(
+    (unsigned long long int*)d_aCTwoSum.data(), numUniqueClasses, nCTwo<int>(),
+    stream, (unsigned long long int*)a.data(),
+    (unsigned long long int*)a.data());
 
   //calculating the sum of number of unordered pairs for every element of b
-  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<unsigned long long int>>(
-    (int*)d_bCTwoSum.data(), numUniqueClasses, nCTwo<unsigned long long int>(),
-    stream, (int*)b.data(), (int*)b.data());
+  MLCommon::LinAlg::mapThenSumReduce<unsigned long long int, nCTwo<int>>(
+    (unsigned long long int*)d_bCTwoSum.data(), numUniqueClasses, nCTwo<int>(),
+    stream, (unsigned long long int*)b.data(),
+    (unsigned long long int*)b.data());
 
   //updating in the host memory
-  MLCommon::updateHost(&h_nChooseTwoSum, (int64_t*)d_nChooseTwoSum.data(), 1,
+  MLCommon::updateHost(&h_nChooseTwoSum, (double*)d_nChooseTwoSum.data(), 1,
                        stream);
-  MLCommon::updateHost(&h_aCTwoSum, (int64_t*)d_aCTwoSum.data(), 1, stream);
-  MLCommon::updateHost(&h_bCTwoSum, (int64_t*)d_bCTwoSum.data(), 1, stream);
+  MLCommon::updateHost(&h_aCTwoSum, (double*)d_aCTwoSum.data(), 1, stream);
+  MLCommon::updateHost(&h_bCTwoSum, (double*)d_bCTwoSum.data(), 1, stream);
 
   //freeing the memories in the device
   if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
+
   //calculating the ARI
   long double nChooseTwo = ((double)(size) * (double)(size - 1)) / 2;
   long double temp_var = (h_aCTwoSum) / (nChooseTwo);
