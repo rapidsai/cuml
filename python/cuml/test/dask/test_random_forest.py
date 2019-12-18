@@ -113,7 +113,7 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
 
     try:
 
-        X, y = make_regression(n_samples=40000, n_features=20,
+        X, y = make_regression(n_samples=10000, n_features=20,
                                n_informative=10, random_state=123)
 
         X = X.astype(np.float32)
@@ -123,7 +123,7 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
                                                             test_size=1000)
 
         cu_rf_params = {
-            'n_estimators': 25,
+            'n_estimators': 50,
             'max_depth': 13,
         }
 
