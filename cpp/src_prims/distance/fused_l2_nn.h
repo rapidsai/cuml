@@ -579,24 +579,23 @@ void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
  *                          main kernel launch
  * @param[in] stream cuda stream
  */
-template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
-          typename ReduceOpT>
+template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
 void fusedL2NN(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
                IdxT n, IdxT k, void* workspace, ReduceOpT redOp, bool sqrt,
                bool initOutBuffer, cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 16 / sizeof(DataT), ReduceOpT>(
+    fusedL2NNImpl<DataT, OutT, IdxT, 16 / sizeof(DataT), ReduceOpT>(
       min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, sqrt, initOutBuffer,
       stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 8 / sizeof(DataT), ReduceOpT>(
+    fusedL2NNImpl<DataT, OutT, IdxT, 8 / sizeof(DataT), ReduceOpT>(
       min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, sqrt, initOutBuffer,
       stream);
   } else {
-    fusedL2NNImpl<DataT, OutT, IdxT, Sqrt, 1, ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, sqrt, initOutBuffer,
-      stream);
+    fusedL2NNImpl<DataT, OutT, IdxT, 1, ReduceOpT>(min, x, y, xn, yn, m, n, k,
+                                                   (int*)workspace, redOp, sqrt,
+                                                   initOutBuffer, stream);
   }
 }
 
