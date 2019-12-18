@@ -16,8 +16,6 @@
 
 import cupy as cp
 
-from sklearn.metrics import accuracy_score
-
 from dask.distributed import Client
 
 import dask_cudf
@@ -29,15 +27,9 @@ from cuml.dask.naive_bayes import MultinomialNB
 
 from cuml.dask.common import cp_to_sparse_df
 
-import time
-
 import cudf
 
-import math
-
 import numba.cuda
-
-import numpy as np
 
 
 def scipy_to_cp(sp):
@@ -55,8 +47,10 @@ def load_corpus():
 
     categories = ['alt.atheism', 'soc.religion.christian',
                   'comp.graphics', 'sci.med']
-    twenty_train = fetch_20newsgroups(subset='train', categories=categories,
-                                      shuffle=True, random_state=42)
+    twenty_train = fetch_20newsgroups(subset='train',
+                                      categories=categories,
+                                      shuffle=True,
+                                      random_state=42)
 
     count_vect = CountVectorizer()
     X = count_vect.fit_transform(twenty_train.data)
@@ -89,8 +83,3 @@ def test_basic_fit_predict(cluster):
 
     model = MultinomialNB(client=client)
     model.fit(X_ddf, y_ddf, X.shape[1])
-
-
-
-
-

@@ -21,13 +21,13 @@ import math
 map_kernel = cp.RawKernel(r'''
 extern "C" __global__
 void map_label(int *x, int x_n, int *labels, int n_labels) {
-  
+
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x) 
+  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
     label_cache[i] = labels[i];
 
   __syncthreads();
@@ -51,7 +51,7 @@ void validate_kernel(int *x, int x_n, int *labels, int n_labels, int *out) {
   if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x) 
+  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
     label_cache[i] = labels[i];
 
   __syncthreads();
@@ -78,7 +78,7 @@ void inverse_map_kernel(int *labels, int n_labels, int *x, int x_n) {
   if(tid >= x_n) return;
 
   extern __shared__ int label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x) 
+  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
     label_cache[i] = labels[i];
 
   __syncthreads();
@@ -127,7 +127,8 @@ def check_labels(labels, classes):
     # TODO: Support more dtypes
     smem = 4 * int(classes.shape[0])
     validate_kernel((math.ceil(labels.shape[0] / 32),), (32, ),
-                    (labels, labels.shape[0], classes, classes.shape[0], valid),
+                    (labels, labels.shape[0], classes,
+                     classes.shape[0], valid),
                     shared_mem=smem)
 
     return valid[0] == 1
@@ -147,4 +148,3 @@ def invert_labels(labels, classes, copy=False):
                         labels, labels.shape[0]), shared_mem=smem)
 
     return labels
-
