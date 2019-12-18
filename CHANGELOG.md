@@ -8,6 +8,7 @@
 - PR #1489: Enabling deep trees using Gather tree builder
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
+- PR #1490: Use dask master instead of conda package for testing
 
 ## Bug Fixes
 
