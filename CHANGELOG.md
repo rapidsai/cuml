@@ -70,6 +70,7 @@
 - PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
+- PR #1392: Updated RF code to reduce duplication of the code
 - PR #1444: UCX listener running in its own isolated thread
 - PR #1445: Improved performance of FIL sparse trees
 - PR #1431: Updated API docs
