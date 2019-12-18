@@ -193,8 +193,6 @@ class Results {
    */
   int *GetSupportVectorIndices(const math_t *coef, int n_support) {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
-    //MLCommon::myPrintDevVector("coef", coef, n_support);
-    //MLCommon::myPrintDevVector("idx", f_idx.data(), n_rows);
     SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
     int *idx = (int *)allocator->allocate(n_support * sizeof(int), stream);
     MLCommon::copy(idx, idx_selected.data(), n_support, stream);
@@ -221,17 +219,13 @@ class Results {
     // Select f for unbound support vectors (0 < alpha < C)
     math_t C = this->C;
     auto select = [C] __device__(math_t a) -> bool { return 0 < a && a < C; };
-    MLCommon::myPrintDevVector("alpha", alpha, n_train);
-    MLCommon::myPrintDevVector("f", f, n_train);
 
     int n_free = SelectByCoef(alpha, n_train, f, select, val_selected.data());
     if (n_free > 0) {
-      MLCommon::myPrintDevVector("val_sel", val_selected.data(), n_free);
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_free, stream);
       math_t sum;
       MLCommon::updateHost(&sum, d_val_reduced.data(), 1, stream);
-      std::cout << "n_free " << n_free << ", sum " << sum << "\n";
       return -sum / n_free;
     } else {
       // All support vectors are bound. Let's define
@@ -257,7 +251,7 @@ class Results {
   const math_t *y;  //!< labels
   math_t C;         //!< penalty parameter
   SvmType svmType;  //!< SVM problem type: SVC or SVR
-  int n_train;      //!< number of training vectors (including duplicates for SVR)
+  int n_train;  //!< number of training vectors (including duplicates for SVR)
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
