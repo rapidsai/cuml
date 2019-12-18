@@ -83,15 +83,17 @@ struct FusedL2NNReduceOp {
     }
   }
 
-  DI void init(KVP *out, DataT maxVal) {}
-
   DI void operator()(DataT *out, const KVP &other) {
     if (other.value < *out) {
       *out = other.value;
     }
   }
 
-  DI void init(DataT *out, DataT maxVal) {}
+  DI void init(DataT *out, DataT maxVal) { *out = maxVal; }
+  DI void init(KVP *out, DataT maxVal) {
+    out->key = -1;
+    out->value = maxVal;
+  }
 };
 
 template <typename DataT>
@@ -328,28 +330,20 @@ void minClusterAndDistance(
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      if (metric == MLCommon::Distance::EucExpandedL2) {
+      if (metric == MLCommon::Distance::EucExpandedL2 ||
+          MLCommon::Distance::EucExpandedL2Sqrt) {
         auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+
         MLCommon::Distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
-                                      IndexT, false>(
+                                      IndexT>(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp, stream);
-
-      } else if (metric == MLCommon::Distance::EucExpandedL2Sqrt) {
-        auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
-        workspace.resize((sizeof(int)) * ns, stream);
-
-        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        MLCommon::Distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
-                                      IndexT, true>(
-          minClusterAndDistanceView.data(), datasetView.data(),
-          centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp, stream);
-
+          ns, nc, n_features, (void *)workspace.data(), redOp,
+          (metric == MLCommon::Distance::EucExpandedL2) ? false : true, false,
+          stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
         // distance for current batch
@@ -453,24 +447,18 @@ void minClusterDistance(const cumlHandle_impl &handle,
       auto centroidsView =
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
-      if (metric == MLCommon::Distance::EucExpandedL2) {
+      if (metric == MLCommon::Distance::EucExpandedL2 ||
+          metric == MLCommon::Distance::EucExpandedL2Sqrt) {
         auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT, false>(
+        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT>(
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp, stream);
-      } else if (metric == MLCommon::Distance::EucExpandedL2Sqrt) {
-        auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
-        workspace.resize((sizeof(int)) * ns, stream);
-
-        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT, true>(
-          minClusterDistanceView.data(), datasetView.data(),
-          centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp, stream);
+          ns, nc, n_features, (void *)workspace.data(), redOp,
+          (metric == MLCommon::Distance::EucExpandedL2) ? false : true, false,
+          stream);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
         // distance for current batch
