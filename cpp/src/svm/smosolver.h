@@ -152,7 +152,7 @@ class SmoSolver {
 
       n_inner_iter += host_return_buff[1];
       n_iter++;
-      if (verbose) {  //}&& n_iter % 500 == 0) {
+      if (verbose && n_iter % 500 == 0) {
         std::cout << "SMO iteration " << n_iter << ", diff " << diff << "\n";
       }
     }
@@ -184,9 +184,6 @@ class SmoSolver {
    */
   void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
                const math_t *cacheTile) {
-    //MLCommon::myPrintDevVector("Dalpha", delta_alpha, n_ws);
-    //MLCommon::myPrintDevVector("f", f, n_train);
-    //MLCommon::myPrintDevVector("cacheTile", cacheTile, n_ws * n_rows);
     math_t one =
       1;  // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
@@ -304,8 +301,7 @@ class SmoSolver {
     // f_i = epsilon - y_i, for i \in [n_rows..2*n_rows-1]
     MLCommon::LinAlg::unaryOp(
       f + n_rows, yr, n_rows,
-      [epsilon] __device__(math_t y) { return -epsilon - y; },
-      stream);
+      [epsilon] __device__(math_t y) { return -epsilon - y; }, stream);
   }
 
  private:
@@ -315,7 +311,8 @@ class SmoSolver {
   int n_rows = 0;  //!< training data number of rows
   int n_cols = 0;  //!< training data number of columns
   int n_ws = 0;    //!< size of the working set
-  int n_train = 0; //!< number of training vectors (including duplicates for SVR)
+  int n_train =
+    0;  //!< number of training vectors (including duplicates for SVR)
 
   // Buffers for the domain [n_train]
   MLCommon::device_buffer<math_t> alpha;    //!< dual coordinates
@@ -389,8 +386,6 @@ class SmoSolver {
 
   void ResizeBuffers(int n_train, int n_cols) {
     // This needs to know n_rows, therefore it can be only called during solve
-    std::cout << "Initializing SMO buffers: " << n_train << ", " << n_rows
-              << ", " << n_cols << ", " << n_ws << "\n";
     alpha.resize(n_train, stream);
     f.resize(n_train, stream);
     delta_alpha.resize(n_ws, stream);
