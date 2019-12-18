@@ -318,8 +318,6 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     """
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
-    p, d, q = order
-    P, D, Q, s = seasonal_order
 
     y = get_dataset(data, dtype)
 
@@ -379,8 +377,6 @@ def test_loglikelihood(test_case, dtype):
     """
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
-    p, d, q = order
-    P, D, Q, s = seasonal_order
 
     y = get_dataset(data, dtype)
 
@@ -400,203 +396,69 @@ def test_loglikelihood(test_case, dtype):
     ref_llf = np.array([ref_fit.llf for ref_fit in ref_fits])
 
     # Compare results
+    # TODO: use all_close
     max_err = np.absolute(cuml_llf - ref_llf).max()
     assert max_err < data.tolerance_loglike, \
         "Loglikelihood error {} > tolerance {}".format(
             max_err, data.tolerance_loglike)
 
 
-# TODO: aic / bic tests? (figure out why there is a difference)
+@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('dtype', [np.float64])
+def test_gradient(test_case, dtype):
+    """Test batched gradient implementation against scipy non-batched
+    gradient. Note: it doesn't test that the loglikelihood is correct!
+    """
+    key, data = test_case
+    order, seasonal_order, intercept = extract_order(key)
+    p, _, q = order
+    P, _, Q, _ = seasonal_order
+    N = p + P + q + Q + intercept
+    h = 1e-3
 
-# # TODO: test with seasonality
-# def test_transform():
-#     """Test the parameter transformation code."""
-#     x0 = np.array([-36.24493319, -0.76159416, -0.76159516, -167.65533746,
-#                    -0.76159416, -0.76159616])
+    y = get_dataset(data, dtype)
 
-#     # Without corrections to the MA parameters, this inverse transform will
-#     # return NaN
-#     Tx0 = arima._batch_invtrans((0, 1, 2), (0, 0, 0, 0), 1, 2, x0)
+    # Create cuML model
+    y_df = cudf.from_pandas(y)
+    cuml_model = arima.ARIMA(y_df, order, seasonal_order,
+                             fit_intercept=intercept)
 
-#     assert(not np.isnan(Tx0).any())
+    # Get an estimate of the parameters and pack them into a vector
+    cuml_model._estimate_x0()
+    x = cuml_model.pack()
 
-#     Tx0 = arima._batch_invtrans((2, 1, 0), (0, 0, 0, 0), 1, 2, x0)
+    # Compute the batched loglikelihood gradient
+    batched_grad = cuml_model._loglike_grad(x, h)
 
-#     assert(not np.isnan(Tx0).any())
+    # Iterate over the batch to compute a reference gradient
+    scipy_grad = np.zeros(N * data.batch_size)
+    for i in range(data.batch_size):
+        # Create a model with only the current series
+        model_i = arima.ARIMA(y_df[y_df.columns[i]], order, seasonal_order,
+                              fit_intercept=intercept)
 
-#     Tx0 = arima._batch_invtrans((1, 1, 1), (0, 0, 0, 0), 1, 2,
-#                                 np.array([-1.27047619e+02,
-#                                           1.90024682e-02,
-#                                           -5.88867176e-01,
-#                                           -1.20404762e+02,
-#                                           5.12333137e-05,
-#                                           -6.14485076e-01]))
-#     np.testing.assert_allclose(Tx0, np.array([-1.27047619e+02,
-#                                               3.80095119e-02,
-#                                               -1.35186024e+00,
-#                                               -1.20404762e+02,
-#                                               1.02466627e-04,
-#                                               -1.43219144e+00]))
+        def f(x):
+            return model_i._loglike(x)
 
+        scipy_grad[N * i : N * (i + 1)] = \
+            _approx_fprime_helper(x[N * i : N * (i + 1)], f, h)
 
-# def test_log_likelihood():
-#     """
-#     Test loglikelihood against reference results using reference parameters
-#     """
-#     x0 = [[-220.35376518754148,
-#            -0.2617000627224417,
-#            -2.1893003751753457],
-#           [-2.3921544864718811e+02, -1.3525124433776395e-01,
-#            -7.5978156540072991e-02,
-#            -2.4055488944465053e+00]]
-#     ref_ll = [-415.7117855771454, -415.32341960785186]
-
-#     _, y = get_data()
-
-#     for p in range(1, 3):
-#         order = (p, 1, 1)
-#         y0 = np.zeros((len(t), 1), order='F')
-#         y0[:, 0] = y[:, 0]
-#         ll = arima.ll_f(1, len(t), order, (0, 0, 0, 0), 1,
-#                         y0, np.copy(x0[p-1]), trans=True)
-#         np.testing.assert_almost_equal(ll, ref_ll[p-1])
-
-#     x = [-1.2704761899e+02, 3.8009501900e-02, -1.3518602400e+00,
-#          -1.2040476199e+02, 1.0245662700e-04, -1.4321914400e+00]
-#     ll = arima.ll_f(2, len(t), (1, 1, 1), (0, 0, 0, 0), 1, y, np.array(x))
-#     np.set_printoptions(precision=14)
-#     ll_ref = np.array([-418.2732740315433, -413.7692130741877])
-#     np.testing.assert_allclose(ll, ll_ref)
+    # Compare
+    np.testing.assert_allclose(batched_grad, scipy_grad, atol=0.001)
 
 
-# def test_gradient_ref():
-#     """Tests the gradient based on a reference output"""
-#     x = np.array([-1.2704761899e+02, 3.8009511900e-02, -1.3518602400e+00,
-#                   -1.2040476199e+02, 1.0246662700e-04, -1.4321914400e+00])
 
-#     _, y = get_data()
-#     np.set_printoptions(precision=14)
-#     g = arima.ll_gf(2, len(t), 3, (1, 1, 1), (0, 0, 0, 0), 1, y, x)
-#     g_ref = np.array([-7.16227077646181e-04, -4.09565927839139e+00,
-#                       -4.10715017551411e+00, -1.02602371043758e-03,
-#                       -4.46265460141149e+00,
-#                       -4.18378931499319e+00])
-#     np.testing.assert_allclose(g, g_ref, rtol=1e-6)
+# TODO: AIC/AICc/BIC tests?
+# Note: at the moment we have different values than statsmodels for the
+# information criteria, essentially because they have a more complex
+# calculations for the degree of freedom, we use the simple one with the
+# number of parameters to the model (p + P + q + Q + k)
 
+# TODO: test transform? How?
 
-# def test_gradient():
-#     """test gradient implementation using FD"""
-#     num_samples = 100
-#     xs = np.linspace(0, 1, num_samples)
-#     np.random.seed(12)
-#     noise = np.random.normal(scale=0.1, size=num_samples)
-#     ys = noise + 0.5*xs
-#     for num_batches in range(1, 5):
-#         ys_df = np.reshape(np.tile(np.reshape(ys,
-#                                               (num_samples, 1)),
-#                                    num_batches),
-#                            (num_batches, num_samples), order="C").T
-#         order = (1, 1, 1)
-#         mu = 0.0
-#         arparams = np.array([-0.01])
-#         maparams = np.array([-1.0])
-#         x = np.r_[mu, arparams, maparams]
-#         x = np.tile(x, num_batches)
-#         num_samples = ys_df.shape[0]
-#         num_batches = ys_df.shape[1]
-
-#         p, d, q = order
-#         num_parameters = d + p + q
-#         g = arima.ll_gf(num_batches, num_samples, num_parameters, order,
-#                         (0, 0, 0, 0), 1, ys_df, x)
-#         grad_fd = np.zeros(len(x))
-#         h = 1e-8
-#         for i in range(len(x)):
-#             def fx(xp):
-#                 return arima.ll_f(num_batches, num_samples, order,
-#                                   (0, 0, 0, 0), 1, ys_df, xp).sum()
-
-#             xph = np.copy(x)
-#             xmh = np.copy(x)
-#             xph[i] += h
-#             xmh[i] -= h
-#             f_ph = fx(xph)
-#             f_mh = fx(xmh)
-#             grad_fd[i] = (f_ph-f_mh)/(2*h)
-
-#         np.testing.assert_allclose(g, grad_fd, rtol=1e-4)
-
-#         def f(xk):
-#             return arima.ll_f(num_batches, num_samples, order, (0, 0, 0, 0),
-#                               1, ys_df, xk).sum()
-
-#         # from scipy
-#         g_sp = _approx_fprime_helper(x, f, h)
-#         np.testing.assert_allclose(g, g_sp, rtol=1e-4)
-
-
-# def test_bic():
-#     """Test "Bayesian Information Criterion" metric. BIC penalizes the
-#     log-likelihood with the number of parameters.
-
-#     """
-#     np.set_printoptions(precision=16)
-
-#     bic_reference = [[851.0904458614862, 842.6620993460326],
-#                      [854.747970752074, 846.2220267762417]]
-
-#     _, y = get_data()
-
-#     for p in range(1, 3):
-#         order = (p, 1, 1)
-
-#         batched_model = arima.ARIMA(y, order, fit_intercept=True)
-#         batched_model.fit()
-
-#         np.testing.assert_allclose(batched_model.bic,
-#                                    bic_reference[p-1], rtol=1e-4)
-
-
-# def test_grid_search(num_batches=2):
-#     """Tests grid search using random data over the default range of p,q
-#     parameters"""
-#     ns = len(t)
-#     y_b = np.zeros((ns, num_batches))
-
-#     for i in range(num_batches):
-#         y_b[:, i] = np.random.normal(size=ns, scale=2000) + data_smooth
-
-#     best_order, best_mu, best_ar, best_ma, best_ic = arima.grid_search(y_b,
-#                                                                        d=1)
-
-#     if num_batches == 2:
-#         np.testing.assert_array_equal(best_order, [(0, 1, 1), (0, 1, 1)])
-
+# TODO: do we need to test pack/unpack? It's pretty much part of the other
+# tests anyway
 
 # def demo():
 #     """Demo example from the documentation"""
-#     import matplotlib.pyplot as plt
-#     num_samples = 200
-#     xs = np.linspace(0, 1, num_samples)
-#     np.random.seed(12)
-#     noise = np.random.normal(scale=0.05, size=num_samples)
-#     noise2 = np.random.normal(scale=0.05, size=num_samples)
-#     ys1 = noise + 0.5*xs + 0.1*np.sin(xs/np.pi)
-#     ys2 = noise2 + 0.25*xs + 0.15*np.sin(0.8*xs/np.pi)
-#     ys = np.zeros((num_samples, 2))
-#     ys[:, 0] = ys1
-#     ys[:, 1] = ys2
-
-#     plt.plot(xs, ys1, xs, ys2)
-
-#     model = arima.ARIMA(ys, (1, 1, 1), fit_intercept=True)
-#     model.fit()
-
-#     d_yp = model.predict_in_sample()
-#     yp = input_to_host_array(d_yp).array
-#     d_yfc = model.forecast(50)
-#     yfc = input_to_host_array(d_yfc).array
-#     dx = xs[1] - xs[0]
-#     xfc = np.linspace(1, 1+50*dx, 50)
-#     plt.plot(xs, yp)
-#     plt.plot(xfc, yfc)
+#     # TODO

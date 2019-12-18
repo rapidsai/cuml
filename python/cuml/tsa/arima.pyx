@@ -559,7 +559,7 @@ class ARIMA(Base):
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
                         <bool> trans, <bool> True)
 
-        return np.array(vec_loglike)
+        return np.array(vec_loglike, dtype=np.float64)
 
 
     @nvtx_range_wrap
@@ -595,11 +595,11 @@ class ARIMA(Base):
             # reset perturbation
             fd[i] = 0.0
 
-            ll_b_ph = self._loglike(x+fdph, trans=trans)
-            ll_b_mh = self._loglike(x-fdph, trans=trans)
+            ll_b_ph = self._loglike(x + fdph, trans=trans)
+            ll_b_mh = self._loglike(x - fdph, trans=trans)
 
             # first derivative second order accuracy
-            grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
+            grad_i_b = (ll_b_ph - ll_b_mh) / (2 * h)
 
             if self.batch_size == 1:
                 grad[i] = grad_i_b
@@ -690,7 +690,7 @@ class ARIMA(Base):
         return (Tx)
 
 
-# TODO: later replace with AutoARIMA
+# TODO: later replace with an AutoARIMA class
 def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
     """Grid search to find optimal model order (p, q), weighing
     model complexity against likelihood.

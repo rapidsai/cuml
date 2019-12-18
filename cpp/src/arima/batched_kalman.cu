@@ -398,7 +398,6 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
     }
     CUDA_CHECK(cudaGetLastError());
   } else {
-    /// TODO: support forecasts
     _batched_kalman_loop_large_matrices(ys, nobs, T, Z, RRT, P0, alpha, r, vs,
                                         Fs, sum_logFs, fc_steps, d_fc);
   }
@@ -760,8 +759,6 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
   if (q) _transform_helper(handle, d_ma, d_Tma, q, batch_size, isInv, false);
   if (P) _transform_helper(handle, d_sar, d_Tsar, P, batch_size, isInv, true);
   if (Q) _transform_helper(handle, d_sma, d_Tsma, Q, batch_size, isInv, false);
-
-  ///TODO: tranform SAR and SMA coefficients?!
 
   ML::POP_RANGE();
 }
