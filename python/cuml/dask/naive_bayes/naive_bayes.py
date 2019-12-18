@@ -23,9 +23,8 @@ from cuml.naive_bayes import MultinomialNB as MNB
 
 import dask
 
-from cuml.dask.common import to_dask_df, extract_arr_partitions, \
-    extract_ddf_partitions, workers_to_parts, parts_to_ranks, \
-    flatten_grouped_results
+from cuml.dask.common import extract_arr_partitions, \
+    workers_to_parts
 
 from dask.distributed import default_client
 
@@ -90,11 +89,9 @@ class MultinomialNB(object):
         self.model_.class_count_ = cp.zeros(n_classes, order="F",
                                             dtype=cp.float32)
         self.model_.feature_count_ = cp.zeros((n_classes, n_features),
-                                      order="F", dtype=cp.float32)
+                                              order="F", dtype=cp.float32)
 
         for class_count_, feature_count_ in counts:
-
-            print("class_count_=%s, feature_count_=%s" % (class_count_, feature_count_))
             self.model_.class_count_ += class_count_
             self.model_.feature_count_ += feature_count_
 
@@ -117,9 +114,9 @@ class MultinomialNB(object):
 
         futures = [(wf[0],
                     self.client_.submit(MultinomialNB._get_size,
-                                  wf[1],
-                                  workers=[wf[0]],
-                                  key="%s-%s" % (key, idx)))
+                                        wf[1],
+                                        workers=[wf[0]],
+                                        key="%s-%s" % (key, idx)))
                    for idx, wf in enumerate(gpu_futures)]
 
         sizes = self.client_.compute(list(map(lambda x: x[1],
@@ -141,8 +138,8 @@ class MultinomialNB(object):
             to_concat.append(
                 dask.array.from_delayed(
                     dask.delayed(self.client_.submit(MultinomialNB._get_part,
-                                        preds[w],
-                                        final_parts[w])),
+                                 preds[w],
+                                 final_parts[w])),
                     dtype=cp.int32, shape=(size,)))
 
             final_parts[w] += 1

@@ -17,10 +17,7 @@ from tornado import gen
 from dask.distributed import default_client
 from toolz import first
 from uuid import uuid1
-import cudf
 import dask.dataframe as dd
-
-import cupy as cp
 
 from dask.distributed import wait
 
@@ -106,4 +103,3 @@ def to_dask_df(dask_cudf, client=None):
     meta = c.submit(get_meta, dfs[0]).result()
 
     return dd.from_delayed(dfs, meta=meta)
-

@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import math
 import cudf
 import cupy as cp
 
@@ -35,7 +34,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
         raise ValueError("Unseen classes encountered in input")
 
     row_ind = cp.arange(0, labels.shape[0], 1, dtype=cp.int32)
-    col_ind,_ = make_monotonic(labels, classes, copy=True)
+    col_ind, _ = make_monotonic(labels, classes, copy=True)
 
     val = cp.full(row_ind.shape[0], pos_label, dtype=cp.int32)
 

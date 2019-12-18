@@ -24,7 +24,7 @@ from cuml.prims.label import make_monotonic, check_labels, invert_labels
 """
 A simple reduction kernel that takes in a sparse (COO) array
 of features and computes the sum and sum squared for each class
-label 
+label
 """
 count_features_coo = cp.RawKernel(r'''
 extern "C" __global__
@@ -39,15 +39,12 @@ void count_features_coo(float *out,
   int i = blockIdx.x * blockDim.x + threadIdx.x;
 
   if(i >= nnz) return;
-  
+
   int row = rows[i];
   int col = cols[i];
   float val = vals[i];
-  
   if(square) val *= val;
-  
   int label = labels[row];
-  
   atomicAdd(out + ((col * n_classes) + label), val);
 }
 ''', 'count_features_coo')
@@ -59,9 +56,7 @@ void count_classes(float *out,
                     int *labels) {
 
   int row = blockIdx.x * blockDim.x + threadIdx.x;
-
   if(row >= n_rows) return;
-
   int label = labels[row];
   atomicAdd(out + label, 1);
 }
@@ -72,7 +67,7 @@ extern "C" __global__
 void count_features_dense(
                     float *out,
                     float *in,
-                    int n_rows, 
+                    int n_rows,
                     int n_cols,
                     int *labels,
                     int n_classes,
@@ -81,13 +76,13 @@ void count_features_dense(
 
   int row = blockIdx.x * blockDim.x + threadIdx.x;
   int col = blockIdx.y * blockDim.y + threadIdx.y;
-  
+
   if(row >= n_rows || col >= n_cols) return;
 
   float val = !rowMajor ? in[col * n_rows + row] : in[row * n_cols + col];
-  
+
   if(val == 0.0) return;
-  
+
   if(square) val *= val;
   int label = labels[row];
 
@@ -136,28 +131,28 @@ class GaussianNB(object):
                              order="F", dtype=cp.float64)
 
         count_features_coo((math.ceil(x_coo.nnz / 32),), (32,),
-                       (counts,
-                        x_coo.row,
-                        x_coo.col,
-                        x_coo.data,
-                        x_coo.nnz,
-                        x_coo.shape[0],
-                        x_coo.shape[1],
-                        Y, Y.shape[0],
-                        self.n_classes_,
-                        False))
+                           (counts,
+                            x_coo.row,
+                            x_coo.col,
+                            x_coo.data,
+                            x_coo.nnz,
+                            x_coo.shape[0],
+                            x_coo.shape[1],
+                            Y, Y.shape[0],
+                            self.n_classes_,
+                            False))
 
         count_features_coo((math.ceil(x_coo.nnz / 32),), (32,),
-                       (counts,
-                        x_coo.row,
-                        x_coo.col,
-                        x_coo.data,
-                        x_coo.nnz,
-                        x_coo.shape[0],
-                        x_coo.shape[1],
-                        Y, Y.shape[0],
-                        self.n_classes_,
-                        True))
+                           (counts,
+                            x_coo.row,
+                            x_coo.col,
+                            x_coo.data,
+                            x_coo.nnz,
+                            x_coo.shape[0],
+                            x_coo.shape[1],
+                            Y, Y.shape[0],
+                            self.n_classes_,
+                            True))
 
         self.theta_ += counts
         self.sigma_ += sq_counts
@@ -198,7 +193,8 @@ class MultinomialNB(object):
 
             self.n_classes_ = self.classes_.shape[0]
             self.n_features_ = X.shape[1]
-            self._init_counters(self.n_classes_, self.n_features_, dtype=X.dtype)
+            self._init_counters(self.n_classes_, self.n_features_,
+                                dtype=X.dtype)
         else:
             check_labels(Y, self.classes_)
 
@@ -223,7 +219,8 @@ class MultinomialNB(object):
         :param sample_weight:
         :return:
         """
-        return self._partial_fit(X, y, sample_weight=sample_weight, _classes=classes)
+        return self._partial_fit(X, y, sample_weight=sample_weight,
+                                 _classes=classes)
 
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     def predict(self, X):
@@ -235,8 +232,10 @@ class MultinomialNB(object):
         y_hat = invert_labels(indices, classes=self.classes_)
         return y_hat
 
-    def _init_counters(self, n_effective_classes, n_features, dtype=cp.float32):
-        self.class_count_ = cp.zeros(n_effective_classes, order="F", dtype=dtype)
+    def _init_counters(self, n_effective_classes, n_features,
+                       dtype=cp.float32):
+        self.class_count_ = cp.zeros(n_effective_classes, order="F",
+                                     dtype=dtype)
         self.feature_count_ = cp.zeros((n_effective_classes, n_features),
                                        order="F", dtype=dtype)
 
@@ -258,37 +257,35 @@ class MultinomialNB(object):
         n_cols = X.shape[1]
 
         if cp.sparse.isspmatrix(X):
-
-            print("SPARSE!")
             X = X.tocoo()
 
             count_features_coo((math.ceil(X.nnz / 32),), (32,),
-                           (counts,
-                            X.row,
-                            X.col,
-                            X.data,
-                            X.nnz,
-                            n_rows,
-                            n_cols,
-                            Y,
-                            self.n_classes_, False))
-
+                               (counts,
+                                X.row,
+                                X.col,
+                                X.data,
+                                X.nnz,
+                                n_rows,
+                                n_cols,
+                                Y,
+                                self.n_classes_, False))
 
         else:
+
             count_features_dense((math.ceil(n_rows / 32),
                                   math.ceil(n_cols / 32), 1),
                                  (32, 32, 1),
-                           (counts,
-                            X,
-                            n_rows,
-                            n_cols,
-                            Y,
-                            self.n_classes_,
-                            False,
-                            X.flags["C_CONTIGUOUS"]))
+                                 (counts,
+                                  X,
+                                  n_rows,
+                                  n_cols,
+                                  Y,
+                                  self.n_classes_,
+                                  False,
+                                  X.flags["C_CONTIGUOUS"]))
 
         count_classes((math.ceil(n_rows / 32),), (32,),
-                           (class_c, n_rows, Y))
+                      (class_c, n_rows, Y))
 
         self.feature_count_ += counts
         self.class_count_ += class_c
@@ -298,21 +295,23 @@ class MultinomialNB(object):
         if class_prior is not None:
 
             if class_prior.shape[0] != self.n_classes:
-                raise ValueError("Number of classes must match number of priors")
+                raise ValueError("Number of classes must match "
+                                 "number of priors")
 
             self.class_log_prior_ = cp.log(class_prior)
 
         elif self.fit_prior:
             log_class_count = cp.log(self.class_count_)
             self.class_log_prior_ = log_class_count - \
-                                    cp.log(self.class_count_.sum())
+                cp.log(self.class_count_.sum())
         else:
             self.class_log_prior_ = cp.full(self.n_classes_,
                                             -math.log(self.n_classes_))
 
     def _update_feature_log_prob(self, alpha):
 
-        """ apply add-lambda smoothing to raw counts and recompute log probabilities"""
+        """ apply add-lambda smoothing to raw counts and recompute
+        log probabilities"""
         smoothed_fc = self.feature_count_ + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
         self.feature_log_prob_ = (cp.log(smoothed_fc) -
