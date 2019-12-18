@@ -350,8 +350,8 @@ class ARIMA(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        x = pack(self.order, self.seasonal_order, self.intercept,
-                 self.batch_size, self.get_params())
+        # TODO: change interface to remove this useless pack/unpack
+        x = self.pack()
         cdef uintptr_t d_params_ptr
         d_params, d_params_ptr, _, _, _ = \
             input_to_dev_array(x, check_dtype=np.float64)
@@ -503,8 +503,7 @@ class ARIMA(Base):
             n_gllf = -self._loglike_grad(x, h, trans=True)
             return n_gllf / (self.num_samples - 1)
 
-        x0 = pack(self.order, self.seasonal_order, self.intercept,
-                  self.batch_size, self.get_params())
+        x0 = self.pack()
         x0 = _batch_invtrans(self.order, self.seasonal_order, self.intercept,
                              self.batch_size, x0, self.handle)
 
@@ -524,8 +523,7 @@ class ARIMA(Base):
         Tx = _batch_trans(self.order, self.seasonal_order, self.intercept,
                           self.batch_size, x, self.handle)
 
-        self.set_params(unpack(self.order, self.seasonal_order, self.intercept,
-                               self.batch_size, Tx))
+        self.unpack(Tx)
         self.niter = niter
 
 
@@ -625,9 +623,7 @@ class ARIMA(Base):
     def llf(self):
         """Loglikelihood of a fit model
         """
-        x = pack(self.order, self.seasonal_order, self.intercept,
-                 self.batch_size, self.get_params())
-        return self._loglike(x, trans=False)
+        return self._loglike(self.pack(), trans=False)
 
 
 # TODO: later replace with AutoARIMA
@@ -704,57 +700,51 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
     return (best_order, best_mu, best_ar, best_ma, best_ic)
 
 
-# TODO: integrate pack and unpack in class?
-@nvtx_range_wrap
-def unpack(order: Tuple[int, int, int],
-           seasonal_order: Tuple[int, int, int, int],
-           k: int, nb: int, x: Union[list, np.ndarray]
-           ) -> Dict[str, np.ndarray]:
-    """Unpack linearized parameter vector `x` into separarate arrays
-       Parameters: order, seasonal order, intercept, batch size, vector
-    """
-    p, _, q = order
-    P, _, Q, _ = seasonal_order
-    N = p + q + P + Q + k
+    @nvtx_range_wrap
+    def unpack(self, x: Union[list, np.ndarray]):
+        """Unpack linearized parameter vector `x` into the separate
+        parameter arrays of the model
+        """
+        p, _, q = self.order
+        P, _, Q, _ = self.seasonal_order
+        N = self.complexity
 
-    if type(x) is list or x.shape != (N, nb):
-        x_mat = np.reshape(x, (N, nb), order='F')
-    else:
-        x_mat = x
+        if type(x) is list or x.shape != (N, self.batch_size):
+            x_mat = np.reshape(x, (N, self.batch_size), order='F')
+        else:
+            x_mat = x
 
-    params = dict()
-    # Note: going through np.array to avoid getting incorrect strides when
-    # batch_size is 1
-    if k > 0: params["mu"] = np.array(x_mat[0], order='F')
-    if p > 0: params["ar"] = np.array(x_mat[k:k+p], order='F')
-    if q > 0: params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
-    if P > 0: params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
-    if Q > 0: params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
+        params = dict()
+        # Note: going through np.array to avoid getting incorrect strides when
+        # batch_size is 1
+        if k > 0: params["mu"] = np.array(x_mat[0], order='F')
+        if p > 0: params["ar"] = np.array(x_mat[k:k+p], order='F')
+        if q > 0: params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
+        if P > 0: params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
+        if Q > 0: params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
 
-    return params
+        self.set_params(params)
 
 
-@nvtx_range_wrap
-def pack(order: Tuple[int, int, int],
-         seasonal_order: Tuple[int, int, int, int],
-         k: int, nb: int, params: Mapping[str, np.ndarray]
-         ) -> np.ndarray:
-    """Pack parameters into a linearized vector `x`
-       Parameters: order, seasonal order, intercept, batch size, parameters
-    """
-    p, _, q = order
-    P, _, Q, _ = seasonal_order
-    N = p + q + P + Q + k
+    @nvtx_range_wrap
+    def pack(self) -> np.ndarray:
+        """Pack parameters of the model into a linearized vector `x`
+        """
+        p, _, q = self.order
+        P, _, Q, _ = self.seasonal_order
+        N = self.complexity
 
-    x = np.zeros((N, nb), order='F')  # 2D array for convenience
+        params = self.get_params()
 
-    if k > 0: x[0] = params["mu"]
-    if p > 0: x[k:k+p] = params["ar"]
-    if q > 0: x[k+p:k+p+q] = params["ma"]
-    if P > 0: x[k+p+q:k+p+q+P] = params["sar"]
-    if Q > 0: x[k+p+q+P:k+p+q+P+Q] = params["sma"]
+        x = np.zeros((N, nb), order='F')  # 2D array for convenience
 
-    return x.reshape(N * nb, order='F')  # return 1D shape
+        if k > 0: x[0] = params["mu"]
+        if p > 0: x[k:k+p] = params["ar"]
+        if q > 0: x[k+p:k+p+q] = params["ma"]
+        if P > 0: x[k+p+q:k+p+q+P] = params["sar"]
+        if Q > 0: x[k+p+q+P:k+p+q+P+Q] = params["sma"]
+
+        return x.reshape(N * nb, order='F')  # return 1D shape
 
 
 @nvtx_range_wrap
