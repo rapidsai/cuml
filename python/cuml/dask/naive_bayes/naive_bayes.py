@@ -121,9 +121,14 @@ class MultinomialNB(object):
         sizes = self.client_.compute(list(map(lambda x: x[1],
                                               futures)), sync=True)
 
+        models = dict([(w, self.client_.scatter(self.model_,
+                                                broadcast=True,
+                                                workers=[w]))
+                      for w, p in x_worker_parts.items()])
+
         preds = dict([(w, self.client_.submit(
             MultinomialNB._predict,
-            self.model_,
+            models[w],
             p
         )) for w, p in x_worker_parts.items()])
 
