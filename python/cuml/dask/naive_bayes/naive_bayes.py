@@ -38,11 +38,11 @@ class MultinomialNB(object):
         self.kwargs = kwargs
 
     @staticmethod
-    def _fit(X, y, classes, kwargs):
+    def _fit(Xy, classes, kwargs):
 
         model = MNB(**kwargs)
 
-        for x, y in zip(X, y):
+        for x, y in Xy:
             model.partial_fit(x, y, classes=classes)
         return model.class_count_, model.feature_count_
 
@@ -60,10 +60,10 @@ class MultinomialNB(object):
             raise ValueError("X must be chunked by row only. "
                              "Multi-dimensional chunking is not supported")
 
-        x_worker_parts = self.client_.sync(extract_arr_partitions, X)
-        y_worker_parts = self.client_.sync(extract_arr_partitions, y)
+        worker_parts = self.client_.sync(extract_arr_partitions,
+                                         [X, y])
 
-        x_worker_parts = workers_to_parts(x_worker_parts)
+        worker_parts = workers_to_parts(worker_parts)
 
         n_features = X.shape[1]
 
@@ -74,11 +74,11 @@ class MultinomialNB(object):
 
         counts = self.client_.compute([self.client_.submit(
             MultinomialNB._fit,
-            wp[1],
-            y_worker_parts[idx],
+            p,
             classes,
             self.kwargs,
-        ) for idx, wp in enumerate(x_worker_parts.items())], sync=True)
+            workers=[w]
+        ) for w, p in worker_parts.items()], sync=True)
 
         self.model_ = MNB(**self.kwargs)
         self.model_.classes_ = classes
