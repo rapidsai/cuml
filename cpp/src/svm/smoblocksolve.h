@@ -114,13 +114,13 @@ namespace SVM {
  *
  * @tparam math_t floating point data type
  * @tparam WSIZE working set size (max 1024)
- * @param [in] y_array target labels size [n_rows]
- * @param [in] n_rows number of trainig vectors
- * @param [inout] alpha dual coefficients, size [n_rows]
+ * @param [in] y_array target labels size [n_train]
+ * @param [in] n_train number of trainig vectors
+ * @param [inout] alpha dual coefficients, size [n_train]
  * @param [in] n_ws number of elements in the working set
  * @param [out] delta_alpha change in the dual coeff of vectors in the working
  *        set, size [n_ws]
- * @param [in] f_array optimality indicator vector, size [n_rows]
+ * @param [in] f_array optimality indicator vector, size [n_train]
  * @param [in] kernel kernel function calculated between the working set and all
  *   other training vectors, size [n_rows * n_ws]
  * @param [in] ws_idx indices of traning vectors in the working set, size [n_ws]
@@ -133,7 +133,7 @@ namespace SVM {
  */
 template <typename math_t, int WSIZE>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
-  math_t *y_array, int n_rows, math_t *alpha, int n_ws, math_t *delta_alpha,
+  math_t *y_array, int n_train, math_t *alpha, int n_ws, math_t *delta_alpha,
   math_t *f_array, math_t *kernel, int *ws_idx, math_t C, math_t eps,
   math_t *return_buff, int max_iter = 10000, SvmType svmType = C_SVC) {
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
@@ -160,9 +160,8 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
 
   int tid = threadIdx.x;
   int idx = ws_idx[tid];
-  int kidx =
-    (svmType == EPSILON_SVR && idx >= n_rows / 2) ? idx - n_rows / 2 : idx;
-  int n_rows_x = (svmType == EPSILON_SVR) ? n_rows / 2 : n_rows;
+  int n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
+  int kidx = (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
   // store values in registers
   math_t y = y_array[idx];
   math_t f = f_array[idx];
@@ -171,7 +170,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 
-  Kd[tid] = kernel[tid * n_rows_x + kidx];
+  Kd[tid] = kernel[tid * n_rows + kidx];
   int n_iter = 0;
 
   for (; n_iter < max_iter; n_iter++) {
@@ -186,7 +185,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     // select f_max to check stopping condition
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
     __syncthreads();  // needed because we are reusing the shared memory buffer
-    math_t Kui = kernel[u * n_rows_x + kidx];
+    math_t Kui = kernel[u * n_rows + kidx];
     math_t f_max =
       BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
 
@@ -215,7 +214,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
       l = res.key;
     }
     __syncthreads();
-    math_t Kli = kernel[l * n_rows_x + kidx];
+    math_t Kli = kernel[l * n_rows + kidx];
 
     // Update alpha
     // Let's set q = \frac{f_l - f_u}{\eta_{ul}
