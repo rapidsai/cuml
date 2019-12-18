@@ -503,9 +503,7 @@ class ARIMA(Base):
             n_gllf = -self._loglike_grad(x, h, trans=True)
             return n_gllf / (self.num_samples - 1)
 
-        x0 = self.pack()
-        x0 = _batch_invtrans(self.order, self.seasonal_order, self.intercept,
-                             self.batch_size, x0, self.handle)
+        x0 = self._batched_transform(self.pack(), True)
 
         # check initial parameter sanity
         if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
@@ -520,10 +518,7 @@ class ARIMA(Base):
             print("WARNING(`fit`): Some batch members had optimizer problems.",
                   file=sys.stderr)
 
-        Tx = _batch_trans(self.order, self.seasonal_order, self.intercept,
-                          self.batch_size, x, self.handle)
-
-        self.unpack(Tx)
+        self.unpack(self._batched_transform(x))
         self.niter = niter
 
 
@@ -626,6 +621,75 @@ class ARIMA(Base):
         return self._loglike(self.pack(), trans=False)
 
 
+    @nvtx_range_wrap
+    def unpack(self, x: Union[list, np.ndarray]):
+        """Unpack linearized parameter vector `x` into the separate
+        parameter arrays of the model
+        """
+        p, _, q = self.order
+        P, _, Q, _ = self.seasonal_order
+        k = self.intercept
+        N = self.complexity
+
+        if type(x) is list or x.shape != (N, self.batch_size):
+            x_mat = np.reshape(x, (N, self.batch_size), order='F')
+        else:
+            x_mat = x
+
+        params = dict()
+        # Note: going through np.array to avoid getting incorrect strides when
+        # batch_size is 1
+        if k > 0: params["mu"] = np.array(x_mat[0], order='F')
+        if p > 0: params["ar"] = np.array(x_mat[k:k+p], order='F')
+        if q > 0: params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
+        if P > 0: params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
+        if Q > 0: params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
+
+        self.set_params(params)
+
+
+    @nvtx_range_wrap
+    def pack(self) -> np.ndarray:
+        """Pack parameters of the model into a linearized vector `x`
+        """
+        p, _, q = self.order
+        P, _, Q, _ = self.seasonal_order
+        k = self.intercept
+        N = self.complexity
+
+        params = self.get_params()
+
+        # 2D array for convenience
+        x = np.zeros((N, self.batch_size), order='F')
+
+        if k > 0: x[0] = params["mu"]
+        if p > 0: x[k:k+p] = params["ar"]
+        if q > 0: x[k+p:k+p+q] = params["ma"]
+        if P > 0: x[k+p+q:k+p+q+P] = params["sar"]
+        if Q > 0: x[k+p+q+P:k+p+q+P+Q] = params["sma"]
+
+        return x.reshape(N * self.batch_size, order='F')  # return 1D shape
+
+
+    @nvtx_range_wrap
+    def _batched_transform(self, x, isInv = False):
+        """Applies Jones transform or inverse transform to a parameter vector
+        """
+        p, _, q = self.order
+        P, _, Q, _ = self.seasonal_order
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        Tx = np.zeros(self.batch_size * (p + q + P + Q + self.intercept))
+
+        cdef uintptr_t x_ptr = x.ctypes.data
+        cdef uintptr_t Tx_ptr = Tx.ctypes.data
+        batched_jones_transform(handle_[0], p, q, P, Q, <int> self.intercept,
+                                <int> self.batch_size, <bool> isInv,
+                                <double*>x_ptr, <double*>Tx_ptr)
+
+        return (Tx)
+
+
 # TODO: later replace with AutoARIMA
 def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
     """Grid search to find optimal model order (p, q), weighing
@@ -698,97 +762,3 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
                     best_ic[i] = ic_i
 
     return (best_order, best_mu, best_ar, best_ma, best_ic)
-
-
-    @nvtx_range_wrap
-    def unpack(self, x: Union[list, np.ndarray]):
-        """Unpack linearized parameter vector `x` into the separate
-        parameter arrays of the model
-        """
-        p, _, q = self.order
-        P, _, Q, _ = self.seasonal_order
-        N = self.complexity
-
-        if type(x) is list or x.shape != (N, self.batch_size):
-            x_mat = np.reshape(x, (N, self.batch_size), order='F')
-        else:
-            x_mat = x
-
-        params = dict()
-        # Note: going through np.array to avoid getting incorrect strides when
-        # batch_size is 1
-        if k > 0: params["mu"] = np.array(x_mat[0], order='F')
-        if p > 0: params["ar"] = np.array(x_mat[k:k+p], order='F')
-        if q > 0: params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
-        if P > 0: params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
-        if Q > 0: params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
-
-        self.set_params(params)
-
-
-    @nvtx_range_wrap
-    def pack(self) -> np.ndarray:
-        """Pack parameters of the model into a linearized vector `x`
-        """
-        p, _, q = self.order
-        P, _, Q, _ = self.seasonal_order
-        N = self.complexity
-
-        params = self.get_params()
-
-        x = np.zeros((N, nb), order='F')  # 2D array for convenience
-
-        if k > 0: x[0] = params["mu"]
-        if p > 0: x[k:k+p] = params["ar"]
-        if q > 0: x[k+p:k+p+q] = params["ma"]
-        if P > 0: x[k+p+q:k+p+q+P] = params["sar"]
-        if Q > 0: x[k+p+q+P:k+p+q+P+Q] = params["sma"]
-
-        return x.reshape(N * nb, order='F')  # return 1D shape
-
-
-@nvtx_range_wrap
-def _batched_transform(order, seasonal_order, intercept, nb, x, isInv,
-                       handle=None):
-    p, _, q = order
-    P, _, Q, _ = seasonal_order
-
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-    Tx = np.zeros(nb * (p + q + P + Q + intercept))
-
-    cdef uintptr_t x_ptr = x.ctypes.data
-    cdef uintptr_t Tx_ptr = Tx.ctypes.data
-    batched_jones_transform(handle_[0], p, q, P, Q, intercept, nb, isInv,
-                            <double*>x_ptr, <double*>Tx_ptr)
-
-    return (Tx)
-
-
-@nvtx_range_wrap
-def _batch_trans(order, seasonal_order, intercept, nb, x, handle=None):
-    """Apply the stationarity/invertibility guaranteeing transform
-    to batched-parameter vector x."""
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-
-    Tx = _batched_transform(order, seasonal_order, intercept, nb, x, False,
-                            handle)
-
-    return Tx
-
-
-@nvtx_range_wrap
-def _batch_invtrans(order, seasonal_order, intercept, nb, x, handle=None):
-    """Apply the *inverse* stationarity/invertibility guaranteeing transform to
-       batched-parameter vector x.
-    """
-
-    if handle is None:
-        handle = cuml.common.handle.Handle()
-
-    Tx = _batched_transform(order, seasonal_order, intercept, nb, x, True,
-                            handle)
-
-    return Tx
