@@ -52,9 +52,9 @@ import cuml.tsa.arima as arima
 
 # Common structure to hold the data, the reference and the testing parameters
 ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
-                                     'end', 'tolerance_integration_in',
-                                     'tolerance_integration_out',
-                                     'tolerance_sameparam_inout'])
+                                     'end', 'tolerance_integration',
+                                     'tolerance_predict',
+                                     'tolerance_loglike'])
 
 # ARIMA(2,0,0)
 test_200 = ARIMAData(
@@ -63,9 +63,9 @@ test_200 = ARIMAData(
     dataset="long_term_arrivals_by_citizenship",
     start=10,
     end=25,
-    tolerance_integration_in=0.05,
-    tolerance_integration_out=0.5,
-    tolerance_sameparam_inout=0.0001
+    tolerance_integration=0.5,
+    tolerance_predict=0.0001,
+    tolerance_loglike=0.001
 )
 
 # ARIMA(0,0,2) with intercept
@@ -75,9 +75,9 @@ test_002c = ARIMAData(
     dataset="net_migrations_auckland_by_age",
     start=15,
     end=30,
-    tolerance_integration_in=210.0,
-    tolerance_integration_out=180.0,
-    tolerance_sameparam_inout=0.0001
+    tolerance_integration=210.0,
+    tolerance_predict=0.0001,
+    tolerance_loglike=0.001
 )
 
 # ARIMA(0,1,0) with intercept
@@ -87,9 +87,9 @@ test_010c = ARIMAData(
     dataset="cattle",
     start=10,
     end=25,
-    tolerance_integration_in=0.0001,
-    tolerance_integration_out=0.0001,
-    tolerance_sameparam_inout=0.0001
+    tolerance_integration=0.0001,
+    tolerance_predict=0.0001,
+    tolerance_loglike=0.001
 )
 
 # ARIMA(1,1,0)
@@ -99,9 +99,9 @@ test_110 = ARIMAData(
     dataset="police_recorded_crime",
     start=100,
     end=150,
-    tolerance_integration_in=45.0,
-    tolerance_integration_out=45.0,
-    tolerance_sameparam_inout=0.0001
+    tolerance_integration=45.0,
+    tolerance_predict=0.0001,
+    tolerance_loglike=0.05
 )
 
 # ARIMA(0,1,1)
@@ -111,9 +111,9 @@ test_011 = ARIMAData(
     dataset="deaths_by_region",
     start=20,
     end=40,
-    tolerance_integration_in=30.0,
-    tolerance_integration_out=20.0,
-    tolerance_sameparam_inout=0.05
+    tolerance_integration=30.0,
+    tolerance_predict=0.05,
+    tolerance_loglike=0.5
 )
 
 # ARIMA(1,2,1)
@@ -123,9 +123,9 @@ test_121 = ARIMAData(
     dataset="population_estimate",
     start=100,
     end=150,
-    tolerance_integration_in=2.5,
-    tolerance_integration_out=55.0,
-    tolerance_sameparam_inout=0.05
+    tolerance_integration=55.0,
+    tolerance_predict=0.05,
+    tolerance_loglike=0.05
 )
 
 # ARIMA(1,0,1)(1,1,1)_4
@@ -135,9 +135,9 @@ test_101_111_4 = ARIMAData(
     dataset="alcohol",
     start=80,
     end=110,
-    tolerance_integration_in=0.01,
-    tolerance_integration_out=0.01,
-    tolerance_sameparam_inout=0.0001
+    tolerance_integration=0.01,
+    tolerance_predict=0.0001,
+    tolerance_loglike=0.001
 )
 
 # ARIMA(1,1,1)(2,0,0)_4
@@ -147,9 +147,9 @@ test_111_200_4 = ARIMAData(
     dataset="hourly_earnings_by_industry",
     start=115,
     end=130,
-    tolerance_integration_in=0.35,
-    tolerance_integration_out=0.7,
-    tolerance_sameparam_inout=0.0001
+    tolerance_integration=0.7,
+    tolerance_predict=0.0001,
+    tolerance_loglike=0.001
 )
 
 # ARIMA(1,1,2)(0,1,2)_4
@@ -159,9 +159,9 @@ test_112_012_4 = ARIMAData(
     dataset="passenger_movements",
     start=160,
     end=200,
-    tolerance_integration_in=0.01,
-    tolerance_integration_out=0.05,
-    tolerance_sameparam_inout=0.0001
+    tolerance_integration=0.05,
+    tolerance_predict=0.0001,
+    tolerance_loglike=0.001
 )
 
 # ARIMA(1,1,1)(1,1,1)_12
@@ -171,9 +171,9 @@ test_111_111_12 = ARIMAData(
     dataset="guest_nights_by_region",
     start=260,
     end=290,
-    tolerance_integration_in=0.05,
-    tolerance_integration_out=0.05,
-    tolerance_sameparam_inout=0.005
+    tolerance_integration=0.05,
+    tolerance_predict=0.005,
+    tolerance_loglike=0.01
 )
 
 # Dictionary matching a test case to a tuple of model parameters
@@ -271,19 +271,10 @@ def test_integration(test_case, dtype):
             data.start, data.end - 1).predicted_mean
 
     # Compare results
-    boundary = data.n_obs - data.start
-    max_err_in = (np.absolute(cuml_pred[:boundary, :]
-                              - ref_preds[:boundary, :]).max()
-                  if boundary > 0 else 0)
-    max_err_out = (np.absolute(cuml_pred[boundary:, :]
-                               - ref_preds[boundary:, :]).max()
-                   if data.end > data.n_obs else 0)
-    assert max_err_in < data.tolerance_integration_in, \
-        "In-sample prediction error {} > tolerance {}".format(
-            max_err_in, data.tolerance_integration_in)
-    assert max_err_out < data.tolerance_integration_out, \
-        "Out-of-sample prediction error {} > tolerance {}".format(
-            max_err_out, data.tolerance_integration_out)
+    max_err = np.absolute(cuml_pred - ref_preds).max()
+    assert max_err < data.tolerance_integration, \
+        "Prediction error {} > tolerance {}".format(
+            max_err, data.tolerance_integration)
 
 
 def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -354,10 +345,10 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
 
     # Compare results
-    max_err = np.absolute(cuml_pred[:, :] - ref_preds[:, :]).max()
-    assert max_err < data.tolerance_sameparam_inout, \
+    max_err = np.absolute(cuml_pred - ref_preds).max()
+    assert max_err < data.tolerance_predict, \
         "Prediction error {} > tolerance {}".format(
-            max_err, data.tolerance_sameparam_inout)
+            max_err, data.tolerance_predict)
 
 
 @pytest.mark.parametrize('test_case', test_data.items())
@@ -380,7 +371,42 @@ def test_forecast(test_case, dtype):
     _predict_common(test_case, dtype, n_obs, n_obs + 10, 10)
 
 
-# TODO: aic / bic tests against a statsmodels ARMA?
+@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('dtype', [np.float64])
+def test_loglikelihood(test_case, dtype):
+    """Test loglikelihood against statsmodels (with the same values for the
+    model parameters)
+    """
+    key, data = test_case
+    order, seasonal_order, intercept = extract_order(key)
+    p, d, q = order
+    P, D, Q, s = seasonal_order
+
+    y = get_dataset(data, dtype)
+
+    # Get fit reference model
+    ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
+
+    # Create cuML model
+    cuml_model = arima.ARIMA(cudf.from_pandas(
+        y), order, seasonal_order, fit_intercept=intercept)
+
+    # Feed the parameters to the cuML model
+    _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
+                         intercept, dtype)
+
+    # Compute loglikelihood
+    cuml_llf = cuml_model.llf
+    ref_llf = np.array([ref_fit.llf for ref_fit in ref_fits])
+
+    # Compare results
+    max_err = np.absolute(cuml_llf - ref_llf).max()
+    assert max_err < data.tolerance_loglike, \
+        "Loglikelihood error {} > tolerance {}".format(
+            max_err, data.tolerance_loglike)
+
+
+# TODO: aic / bic tests? (figure out why there is a difference)
 
 # # TODO: test with seasonality
 # def test_transform():
