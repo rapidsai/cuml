@@ -138,7 +138,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int k = params.k;
     MinAndDistanceReduceOp<int, DataT> redOp;
     fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int, Sqrt>(
-      out, x, y, xn, yn, m, n, k, (void *)workspace, redOp, stream);
+      out, x, y, xn, yn, m, n, k, (void *)workspace, redOp, true, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 };
