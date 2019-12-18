@@ -153,13 +153,27 @@ The reasons behind these deviations from the Google style guide are given in com
 ### How is the check done?
 All formatting checks are done by this python script: [run-clang-format.py](../../cpp/scripts/run-clang-format.py) which is effectively a wrapper over `clang-format`. An error is raised if the code diverges from the format suggested by clang-format. It is expected that the developers run this script to detect and fix formatting violations before creating PR.
 
+#### As part of CI
 [run-clang-format.py](../../cpp/scripts/run-clang-format.py) is executed as part of our `gpuCI/cuml/style-check` CI test. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the subsequent sub-section.
+
+#### Manually
+Developers can also manually (or setup this command as part of git pre-commit hook) run this check by executing:
+```bash
+python ./cpp/scripts/run-clang-format.py
+```
+From the root of the cuML repository.
 
 ### How to know the formatting violations?
 When there are formatting errors, [run-clang-format.py](../../cpp/scripts/run-clang-format.py) prints a `diff` command, showing where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations, but instead directly formats the code. So, the only way currently to know about formatting differences is to run the diff command as suggested by this script against each violating source file.
 
 ### How to fix the formatting violations?
 When there are formatting violations, [run-clang-format.py](../../cpp/scripts/run-clang-format.py) prints at the end, the exact command that can be run by developers to fix them. This is the easiest way to fix formatting errors. [This screencast](https://asciinema.org/a/287367) shows how developers can check for formatting violations in their branches and also how to fix those, before sending out PRs.
+
+In short, to bulk-fix all the formatting violations, execute the following command:
+```bash
+python ./cpp/scripts/run-clang-format.py -inplace
+```
+From the root of the cuML repository.
 
 ### clang-format version?
 To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by the [run-clang-format.py](../../cpp/scripts/run-clang-format.py) script itself. Refer [here](../../cpp/README.md#dependencies) for the list of build-time dependencies.
