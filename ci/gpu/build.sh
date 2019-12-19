@@ -62,11 +62,6 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "statsmodels" \
       "xgboost=0.90.rapidsdev1"
 
-
-# installing libclang separately so it doesn't get installed from conda-forge
-conda install -c rapidsai \
-      libclang=8.0.0
-
 logger "Check versions..."
 python --version
 $CC --version
