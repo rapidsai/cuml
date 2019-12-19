@@ -112,9 +112,9 @@ double computeAdjustedRandIndex(
 
   //calculating the sum of NijC2
   MLCommon::LinAlg::mapThenSumReduce<IdxType, nCTwo<IdxType>>(
-    (IdxType*)d_nChooseTwoSum.data(), numUniqueClasses * numUniqueClasses,
-    nCTwo<IdxType>(), stream, (IdxType*)dContingencyMatrix.data(),
-    (IdxType*)dContingencyMatrix.data());
+    d_nChooseTwoSum.data(), numUniqueClasses * numUniqueClasses,
+    nCTwo<IdxType>(), stream, dContingencyMatrix.data(),
+    dContingencyMatrix.data());
 
   //calculating the row-wise sums
   MLCommon::LinAlg::reduce<IdxType, IdxType, IdxType>(
