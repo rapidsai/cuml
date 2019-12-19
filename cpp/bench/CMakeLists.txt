@@ -50,7 +50,6 @@ if(BUILD_CUML_BENCH)
     ${CUML_CPP_TARGET}
     benchmarklib
     )
-
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_SG_BENCH_TARGET}
     sg/dbscan.cu
@@ -59,8 +58,6 @@ if(BUILD_CUML_BENCH)
     sg/rf_classifier.cu
     sg/rf_regressor.cu
     )
-
-  add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})
   target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
   target_include_directories(${CUML_SG_BENCH_TARGET}
     PRIVATE ${GBENCH_DIR}/include)
