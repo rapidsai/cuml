@@ -271,10 +271,8 @@ def test_integration(test_case, dtype):
             data.start, data.end - 1).predicted_mean
 
     # Compare results
-    max_err = np.absolute(cuml_pred - ref_preds).max()
-    assert max_err < data.tolerance_integration, \
-        "Prediction error {} > tolerance {}".format(
-            max_err, data.tolerance_integration)
+    np.testing.assert_allclose(
+        cuml_pred, ref_preds, atol=data.tolerance_integration)
 
 
 def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -284,32 +282,14 @@ def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
     Note: be cautious with the intercept, it is not always equivalent
     in statsmodels and cuML models (it depends on the order).
     """
-    p, _, q = order
-    P, _, Q, _ = seasonal_order
     nb = cuml_model.batch_size
-    params = dict()
-    if p:
-        params["ar"] = np.zeros((p, nb), dtype=dtype)
-    if q:
-        params["ma"] = np.zeros((q, nb), dtype=dtype)
-    if P:
-        params["sar"] = np.zeros((P, nb), dtype=dtype)
-    if Q:
-        params["sma"] = np.zeros((Q, nb), dtype=dtype)
-    if intercept:
-        params["mu"] = np.zeros(nb, dtype=dtype)
-    for i in range(nb):
-        if p:
-            params["ar"][:, i] = ref_fits[i].arparams[:]
-        if q:
-            params["ma"][:, i] = ref_fits[i].maparams[:]
-        if P:
-            params["sar"][:, i] = ref_fits[i].seasonalarparams[:]
-        if Q:
-            params["sma"][:, i] = ref_fits[i].seasonalmaparams[:]
-        if intercept:
-            params["mu"][i] = ref_fits[i].params[0]
-    cuml_model.set_params(params)
+    N = cuml_model.complexity
+    x = np.zeros(nb * N, dtype=np.float64)
+
+    for ib in range(nb):
+        x[ib*N:(ib+1)*N] = ref_fits[ib].params[:N]
+
+    cuml_model.unpack(x)
 
 
 def _predict_common(test_case, dtype, start, end, num_steps=None):
@@ -343,10 +323,8 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
 
     # Compare results
-    max_err = np.absolute(cuml_pred - ref_preds).max()
-    assert max_err < data.tolerance_predict, \
-        "Prediction error {} > tolerance {}".format(
-            max_err, data.tolerance_predict)
+    np.testing.assert_allclose(
+        cuml_pred, ref_preds, atol=data.tolerance_predict)
 
 
 @pytest.mark.parametrize('test_case', test_data.items())
@@ -396,11 +374,7 @@ def test_loglikelihood(test_case, dtype):
     ref_llf = np.array([ref_fit.llf for ref_fit in ref_fits])
 
     # Compare results
-    # TODO: use all_close
-    max_err = np.absolute(cuml_llf - ref_llf).max()
-    assert max_err < data.tolerance_loglike, \
-        "Loglikelihood error {} > tolerance {}".format(
-            max_err, data.tolerance_loglike)
+    np.testing.assert_allclose(cuml_llf, ref_llf, atol=data.tolerance_loglike)
 
 
 @pytest.mark.parametrize('test_case', test_data.items())
@@ -440,19 +414,18 @@ def test_gradient(test_case, dtype):
         def f(x):
             return model_i._loglike(x)
 
-        scipy_grad[N * i : N * (i + 1)] = \
-            _approx_fprime_helper(x[N * i : N * (i + 1)], f, h)
+        scipy_grad[N * i: N * (i + 1)] = \
+            _approx_fprime_helper(x[N * i: N * (i + 1)], f, h)
 
     # Compare
     np.testing.assert_allclose(batched_grad, scipy_grad, atol=0.001)
 
 
-
 # TODO: AIC/AICc/BIC tests?
 # Note: at the moment we have different values than statsmodels for the
 # information criteria, essentially because they have a more complex
-# calculations for the degree of freedom, we use the simple one with the
-# number of parameters to the model (p + P + q + Q + k)
+# calculation for the degree of freedom, we use the simple one with the
+# number of parameters of the model (p + P + q + Q + k)
 
 # TODO: test transform? How?
 
