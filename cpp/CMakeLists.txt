@@ -56,6 +56,8 @@ option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 
+option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
+
 option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
@@ -471,9 +473,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
 
-if(BUILD_CUML_BENCH)
-  add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
-endif(BUILD_CUML_BENCH)
+add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
