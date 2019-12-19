@@ -56,7 +56,7 @@ void grow_deep_tree_classification(
                                                      n_unique_labels, histvec,
                                                      initial_metric, tempmem);
   }
-  size_t total_nodes = pow(2, (maxdepth + 1)) - 1;
+  size_t total_nodes = pow(2, (tempmem->swap_depth + 1)) - 1;
 
   unsigned int* h_parent_hist = tempmem->h_parent_hist->data();
   unsigned int* h_child_hist = tempmem->h_child_hist->data();
