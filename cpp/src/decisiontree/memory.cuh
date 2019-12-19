@@ -80,8 +80,13 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   }
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (int)(ncols * colper);
-  size_t gather_max_nodes =
-    std::min((size_t)(nrows + 1), (size_t)(pow(2, depth) + 1));
+  size_t gather_max_nodes;
+  if (depth < 64) {
+    gather_max_nodes = std::min((size_t)(nrows + 1),
+                                (size_t)(pow((size_t)2, (size_t)depth) + 1));
+  } else {
+    gather_max_nodes = nrows + 1;
+  }
   parentsz = std::max(maxnodes, gather_max_nodes);
   childsz = std::max(2 * maxnodes, 2 * gather_max_nodes);
 
@@ -90,6 +95,8 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   //std::cout << "Parent size --> " << parentsz << std::endl;
   //std::cout << "Child size  --> " << childsz << std::endl;
   //std::cout << "Nrows size --> " << (nrows + 1) << std::endl;
+  //std::cout << "Sparse tree holder size --> " << 2 * gather_max_nodes
+  //          << std::endl;
   d_flags =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
   h_new_node_flags =
