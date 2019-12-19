@@ -99,9 +99,6 @@ test_110 = ARIMAData(
     dataset="police_recorded_crime",
     start=100,
     end=150,
-    # TODO: how can we be different with only one parameter to fit?
-    # investigate (easy to have visualization with only one param)
-    # maybe simply because amplitude of the values, maybe not
     tolerance_integration=45.0,
     tolerance_predict=0.0001,
     tolerance_loglike=0.05
@@ -198,7 +195,7 @@ test_data = {
 # TODO: test greater orders! (at least 3, 4)
 
 # Dictionary for lazy-loading of datasets
-# (name, dtype) -> dataframe
+# (name, dtype) -> (pandas dataframe, cuDF dataframe)
 lazy_data = {}
 
 # Dictionary for lazy-evaluation of reference fits
@@ -222,9 +219,11 @@ def get_dataset(data, dtype):
     """
     key = (data.dataset, np.dtype(dtype).name)
     if key not in lazy_data:
-        lazy_data[key] = pd.read_csv(
+        y = pd.read_csv(
             os.path.join(data_path, "{}.csv".format(data.dataset)),
             usecols=range(1, data.batch_size + 1), dtype=dtype)
+        y_cudf = cudf.from_pandas(y)
+        lazy_data[key] = (y, y_cudf)
     return lazy_data[key]
 
 
@@ -232,7 +231,7 @@ def get_ref_fit(data, order, seasonal_order, intercept, dtype):
     """Compute a reference fit of a dataset with the given parameters and dtype
     or return a previously computed fit
     """
-    y = get_dataset(data, dtype)
+    y, _ = get_dataset(data, dtype)
     key = order + seasonal_order + \
         (intercept, data.dataset, np.dtype(dtype).name)
     if key not in lazy_ref_fit:
@@ -258,14 +257,14 @@ def test_integration(test_case, dtype):
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
-    y = get_dataset(data, dtype)
+    y, y_cudf = get_dataset(data, dtype)
 
     # Get fit reference model
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create and fit cuML model
-    cuml_model = arima.ARIMA(cudf.from_pandas(
-        y), order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(
+        y_cudf, order, seasonal_order, fit_intercept=intercept)
     cuml_model.fit()
 
     # Predict
@@ -304,14 +303,14 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
-    y = get_dataset(data, dtype)
+    y, y_cudf = get_dataset(data, dtype)
 
     # Get fit reference model
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(cudf.from_pandas(
-        y), order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(
+        y_cudf, order, seasonal_order, fit_intercept=intercept)
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -361,14 +360,14 @@ def test_loglikelihood(test_case, dtype):
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
-    y = get_dataset(data, dtype)
+    y, y_cudf = get_dataset(data, dtype)
 
     # Get fit reference model
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(cudf.from_pandas(
-        y), order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(
+        y_cudf, order, seasonal_order, fit_intercept=intercept)
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -395,11 +394,10 @@ def test_gradient(test_case, dtype):
     N = p + P + q + Q + intercept
     h = 1e-8
 
-    y = get_dataset(data, dtype)
+    y, y_cudf = get_dataset(data, dtype)
 
     # Create cuML model
-    y_df = cudf.from_pandas(y)
-    cuml_model = arima.ARIMA(y_df, order, seasonal_order,
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
                              fit_intercept=intercept)
 
     # Get an estimate of the parameters and pack them into a vector
@@ -413,7 +411,7 @@ def test_gradient(test_case, dtype):
     scipy_grad = np.zeros(N * data.batch_size)
     for i in range(data.batch_size):
         # Create a model with only the current series
-        model_i = arima.ARIMA(y_df[y_df.columns[i]], order, seasonal_order,
+        model_i = arima.ARIMA(y_cudf[y_cudf.columns[i]], order, seasonal_order,
                               fit_intercept=intercept)
 
         def f(x):
@@ -434,11 +432,11 @@ def test_start_params(test_case, dtype):
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
 
-    y = get_dataset(data, dtype)
+    y, y_cudf = get_dataset(data, dtype)
 
     # Create models
-    cuml_model = arima.ARIMA(cudf.from_pandas(
-        y), order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(
+        y_cudf, order, seasonal_order, fit_intercept=intercept)
     ref_model = [sm.tsa.SARIMAX(y[col], order=order,
                                 seasonal_order=seasonal_order,
                                 trend='c' if intercept else 'n',
