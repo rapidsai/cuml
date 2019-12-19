@@ -420,8 +420,8 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  */
 static void _arma_least_squares(
   cumlHandle& handle, double* d_ar, double* d_ma,
-  const MLCommon::Matrix::BatchedMatrix<double>& bm_y, int p, int q,
-  int s = 1) {
+  const MLCommon::Matrix::BatchedMatrix<double>& bm_y, int p, int q, int s,
+  int k = 0, double* d_mu = nullptr) {
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
@@ -430,20 +430,21 @@ static void _arma_least_squares(
   int batch_size = bm_y.batches();
   int n_obs = bm_y.shape().first;
 
-  // Initialize params
-  if (p)
-    CUDA_CHECK(
-      cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
-  if (q)
-    CUDA_CHECK(
-      cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
-
   int ps = p * s, qs = q * s;
   int p_ar = 2 * qs;
   int r = std::max(p_ar + qs, ps);
 
-  if ((q && p_ar >= n_obs - p_ar) || p + q >= n_obs - r) {
-    // Too few observations for the estimate, keep 0
+  if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
+    // Too few observations for the estimate, fill with 0
+    if (k)
+      CUDA_CHECK(
+        cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
+    if (p)
+      CUDA_CHECK(
+        cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
+    if (q)
+      CUDA_CHECK(
+        cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
     return;
   }
 
@@ -451,9 +452,9 @@ static void _arma_least_squares(
    * side by side. The left side will be used to estimate AR, the right
    * side to estimate MA */
   MLCommon::Matrix::BatchedMatrix<double> bm_ls_ar_res(
-    n_obs - r, p + q, batch_size, cublas_handle, allocator, stream, false);
+    n_obs - r, p + q + k, batch_size, cublas_handle, allocator, stream, false);
   int ar_offset = r - ps;
-  int res_offset = (ps < p_ar + qs) ? 0 : ps - p_ar - qs;
+  int res_offset = r - p_ar - qs;
 
   // Get residuals from an AR(p_ar) model to estimate the MA parameters
   if (q) {
@@ -483,12 +484,26 @@ static void _arma_least_squares(
 
     // Lags of the residual
     MLCommon::Matrix::b_lagged_mat(bm_residual, bm_ls_ar_res, q, n_obs - r,
-                                   res_offset, (n_obs - r) * p, s);
+                                   res_offset, (n_obs - r) * (k + p), s);
+  }
+
+  // Fill the first column of the matrix with 1 if we fit an intercept
+  auto counting = thrust::make_counting_iterator(0);
+  if (k) {
+    double* d_ls_ar_res = bm_ls_ar_res.raw_data();
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       double* b_ls_ar_res =
+                         d_ls_ar_res + bid * (n_obs - r) * (p + q + k);
+                       for (int i = 0; i < n_obs - r; i++) {
+                         b_ls_ar_res[i] = 1.0;
+                       }
+                     });
   }
 
   // Lags of y
-  MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, n_obs - r, ar_offset, 0,
-                                 s);
+  MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, n_obs - r, ar_offset,
+                                 (n_obs - r) * k, s);
 
   /* Initializing the vector for the ARMA fit
    * (note: also in-place as described for AR fit) */
@@ -498,19 +513,27 @@ static void _arma_least_squares(
   // ARMA fit
   MLCommon::Matrix::b_gels(bm_ls_ar_res, bm_arma_fit);
 
-  /* Copy the results in the AR and MA parameters batched vectors
-   * Note: calling directly the kernel as there is not yet a way to wrap
-   *       existing device pointers in a batched matrix */
-  if (p) {
-    MLCommon::Matrix::batched_2dcopy_kernel<<<batch_size, p, 0, stream>>>(
-      bm_arma_fit.raw_data(), d_ar, 0, 0, n_obs - r, 1, p, 1);
-    CUDA_CHECK(cudaPeekAtLastError());
-  }
-  if (q) {
-    MLCommon::Matrix::batched_2dcopy_kernel<<<batch_size, q, 0, stream>>>(
-      bm_arma_fit.raw_data(), d_ma, p, 0, n_obs - r, 1, q, 1);
-    CUDA_CHECK(cudaPeekAtLastError());
-  }
+  // Copy the results in the parameter vectors
+  const double* d_arma_fit = bm_arma_fit.raw_data();
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     const double* b_arma_fit = d_arma_fit + bid * (n_obs - r);
+                     if (k) {
+                       d_mu[bid] = b_arma_fit[0];
+                     }
+                     if (p) {
+                       double* b_ar = d_ar + bid * p;
+                       for (int i = 0; i < p; i++) {
+                         b_ar[i] = b_arma_fit[i + k];
+                       }
+                     }
+                     if (q) {
+                       double* b_ma = d_ma + bid * q;
+                       for (int i = 0; i < q; i++) {
+                         b_ma[i] = b_arma_fit[i + p + k];
+                       }
+                     }
+                   });
 }
 
 /**
@@ -522,25 +545,15 @@ static void _arma_least_squares(
 static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
                           double* d_ma, double* d_sar, double* d_sma,
                           MLCommon::Matrix::BatchedMatrix<double>& bm_y, int p,
-                          int q, int P, int Q, int s, int intercept) {
+                          int q, int P, int Q, int s, int k) {
   auto stream = handle.getStream();
 
   int batch_size = bm_y.batches();
   int n_obs = bm_y.shape().first;
 
-  if (intercept) {
-    // Compute means and write them in mu
-    MLCommon::Stats::mean(d_mu, bm_y.raw_data(), batch_size, n_obs, false,
-                          false, stream);
-
-    // Center the series around their means in-place
-    MLCommon::LinAlg::matrixVectorOp(
-      bm_y.raw_data(), bm_y.raw_data(), d_mu, batch_size, n_obs, false, true,
-      [] __device__(double a, double b) { return a - b; }, stream);
-  }
-
   // Estimate an ARMA fit without seasonality
-  if (p + q) _arma_least_squares(handle, d_ar, d_ma, bm_y, p, q);
+  if (p + q + k)
+    _arma_least_squares(handle, d_ar, d_ma, bm_y, p, q, 1, k, d_mu);
 
   // Estimate a seasonal ARMA fit independantly
   if (P + Q) _arma_least_squares(handle, d_sar, d_sma, bm_y, P, Q, s);

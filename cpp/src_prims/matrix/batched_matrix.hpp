@@ -687,6 +687,7 @@ __global__ void lagged_mat_kernel(const T* vec, T* mat, int lags,
  * @param[in]  lagged_height  Height of the lagged matrix
  * @param[in]  vec_offset     Offset in the input vector
  * @param[in]  mat_offset     Offset in the lagged matrix
+ * @param[in]  s              Period of the lags
  */
 template <typename T>
 void b_lagged_mat(const BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat,
@@ -708,7 +709,7 @@ void b_lagged_mat(const BatchedMatrix<T>& vec, BatchedMatrix<T>& lagged_mat,
   const int TPB = lagged_height > 512 ? 256 : 128;  // quick heuristics
   lagged_mat_kernel<<<vec.batches(), TPB, 0, vec.stream()>>>(
     vec.raw_data(), lagged_mat.raw_data(), lags, lagged_height, vec_offset, len,
-    mat_offset, mat_batch_stride);
+    mat_offset, mat_batch_stride, s);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

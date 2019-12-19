@@ -99,6 +99,9 @@ test_110 = ARIMAData(
     dataset="police_recorded_crime",
     start=100,
     end=150,
+    # TODO: how can we be different with only one parameter to fit?
+    # investigate (easy to have visualization with only one param)
+    # maybe simply because amplitude of the values, maybe not
     tolerance_integration=45.0,
     tolerance_predict=0.0001,
     tolerance_loglike=0.05
@@ -191,6 +194,8 @@ test_data = {
     (1, 1, 2, 0, 1, 2, 4, 0): test_112_012_4,
     (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
 }
+
+# TODO: test greater orders! (at least 3, 4)
 
 # Dictionary for lazy-loading of datasets
 # (name, dtype) -> dataframe
@@ -419,6 +424,41 @@ def test_gradient(test_case, dtype):
 
     # Compare
     np.testing.assert_allclose(batched_grad, scipy_grad, atol=0.001)
+
+
+@pytest.mark.parametrize('test_case', test_data.items())
+@pytest.mark.parametrize('dtype', [np.float64])
+def test_start_params(test_case, dtype):
+    """Test starting parameters against statsmodels
+    """
+    key, data = test_case
+    order, seasonal_order, intercept = extract_order(key)
+
+    y = get_dataset(data, dtype)
+
+    # Create models
+    cuml_model = arima.ARIMA(cudf.from_pandas(
+        y), order, seasonal_order, fit_intercept=intercept)
+    ref_model = [sm.tsa.SARIMAX(y[col], order=order,
+                                seasonal_order=seasonal_order,
+                                trend='c' if intercept else 'n',
+                                enforce_invertibility=False,
+                                enforce_stationarity=False)
+                 for col in y.columns]
+
+    # Estimate reference starting parameters
+    N = cuml_model.complexity
+    nb = data.batch_size
+    x_ref = np.zeros(N * nb, dtype=dtype)
+    for ib in range(nb):
+        x_ref[ib*N:(ib+1)*N] = ref_model[ib].start_params[:N]
+
+    # Estimate cuML starting parameters
+    cuml_model._estimate_x0()
+    x_cuml = cuml_model.pack()
+
+    # Compare results
+    np.testing.assert_allclose(x_cuml, x_ref, atol=0.001)
 
 
 # TODO: AIC/AICc/BIC tests?
