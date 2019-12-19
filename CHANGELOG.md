@@ -8,6 +8,7 @@
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
 - PR #1490: Use dask master instead of conda package for testing
+- PR #1504: Expose the build_treelite function for python
 
 ## Bug Fixes
 
