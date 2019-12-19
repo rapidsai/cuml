@@ -57,7 +57,7 @@ void grow_deep_tree_regression(
                                              count, initial_metric, tempmem);
   }
 
-  size_t total_nodes = pow(2, (maxdepth + 1)) - 1;
+  size_t total_nodes = pow(2, (tempmem->swap_depth + 1)) - 1;
 
   std::vector<T> sparse_meanstate;
   std::vector<unsigned int> sparse_countstate;
