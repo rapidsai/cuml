@@ -71,7 +71,6 @@ def test_run_variations():
 
 
 def test_speedup_runner():
-    # Set up data that should deliver accuracy of 0.20 if all goes right
     class MockAlgo:
         def __init__(self, t):
             self.t = t
@@ -92,7 +91,7 @@ def test_speedup_runner():
 
     class SlowMockAlgo(MockAlgo):
         def __init__(self):
-            MockAlgo.__init__(self, 1)
+            MockAlgo.__init__(self, 2)
 
     pair = algorithms.AlgorithmPair(
         SlowMockAlgo,
@@ -107,7 +106,9 @@ def test_speedup_runner():
     )
     results = runner.run(pair)[0]
 
-    assert results["speedup"] == pytest.approx(10, 0.1)
+    expected_speedup = SlowMockAlgo().t / FastMockAlgo().t
+
+    assert results["speedup"] == pytest.approx(expected_speedup, 0.4)
 
 
 def test_multi_reps():
