@@ -2,15 +2,21 @@
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
+- PR #1494: bench: ml-prims benchmark
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
 - PR #1463: Update FAISS submodule to 1.6.1
+- PR #1488: Add codeowners
+- PR #1490: Use dask master instead of conda package for testing
 
 ## Bug Fixes
 
 - PR #1470: Documentation: add make_regression, fix ARIMA section
+- PR #1482: Updated the code to remove sklearn from the mbsgd stress test
+- PR #1491: Update dev environments for 0.12
+- PR #1498: Add build.sh to code owners
 
 # cuML 0.11.0 (11 Dec 2019)
 
@@ -67,6 +73,7 @@
 - PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
+- PR #1392: Updated RF code to reduce duplication of the code
 - PR #1444: UCX listener running in its own isolated thread
 - PR #1445: Improved performance of FIL sparse trees
 - PR #1431: Updated API docs
