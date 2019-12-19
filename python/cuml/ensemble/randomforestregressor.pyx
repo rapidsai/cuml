@@ -351,19 +351,21 @@ class RandomForestRegressor(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
-    def _get_model_info(self):
+    def _convert_to_treelite(self, task_category):
         cdef ModelHandle cuml_model_ptr = NULL
-
-        task_category = 1
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
-
         mod_ptr = <size_t> cuml_model_ptr
+        return mod_ptr
+
+    def _get_model_info(self):
+        task_category = 1
+        mod_ptr = self._convert_to_treelite(task_category)
         fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
@@ -455,24 +457,14 @@ class RandomForestRegressor(Base):
 
     def _predict_model_on_gpu(self, X, algo,
                               convert_dtype, task_category=1):
-
-        cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
 
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
-
         task_category = 1  # for regression
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <size_t> cuml_model_ptr
+        mod_ptr = self._convert_to_treelite(task_category)
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         fil_model = ForestInference()
         tl_to_fil_model = \
