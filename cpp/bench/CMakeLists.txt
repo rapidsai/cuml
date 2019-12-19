@@ -82,6 +82,8 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/rng.cu
     prims/main.cpp
     )
+  add_dependencies(${CUML_PRIMS_BENCH_TARGET} cub)
+  add_dependencies(${CUML_PRIMS_BENCH_TARGET} cutlass)
   target_link_libraries(${CUML_PRIMS_BENCH_TARGET} benchmarklib)
   target_include_directories(${CUML_PRIMS_BENCH_TARGET}
     PRIVATE ${GBENCH_DIR}/include
