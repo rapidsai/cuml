@@ -50,18 +50,18 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
 
     cu_mbsgd_regressor.fit(X_train, y_train)
     cu_pred = cu_mbsgd_regressor.predict(X_test).to_array()
-
-    skl_sgd_regressor = SGDRegressor(learning_rate=lrate, eta0=0.005,
-                                     max_iter=100, fit_intercept=True,
-                                     tol=0.0, penalty=penalty,
-                                     random_state=0)
-
-    skl_sgd_regressor.fit(X_train, y_train)
-    skl_pred = skl_sgd_regressor.predict(X_test)
-
     cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
-    skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
-    assert abs(cu_r2 - skl_r2) <= 0.02
+
+    if nrows < 500000:
+        skl_sgd_regressor = SGDRegressor(learning_rate=lrate, eta0=0.005,
+                                         max_iter=100, fit_intercept=True,
+                                         tol=0.0, penalty=penalty,
+                                         random_state=0)
+
+        skl_sgd_regressor.fit(X_train, y_train)
+        skl_pred = skl_sgd_regressor.predict(X_test)
+        skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
+        assert abs(cu_r2 - skl_r2) <= 0.02
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -83,15 +83,11 @@ def test_mbsgd_regressor_default(datatype, nrows,
     cu_mbsgd_regressor = cumlMBSGRegressor()
     cu_mbsgd_regressor.fit(X_train, y_train)
     cu_pred = cu_mbsgd_regressor.predict(X_test).to_array()
-
-    skl_sgd_regressor = SGDRegressor()
-    skl_sgd_regressor.fit(X_train, y_train)
-    skl_pred = skl_sgd_regressor.predict(X_test)
-
     cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
-    skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
-    try:
+
+    if nrows < 500000:
+        skl_sgd_regressor = SGDRegressor()
+        skl_sgd_regressor.fit(X_train, y_train)
+        skl_pred = skl_sgd_regressor.predict(X_test)
+        skl_r2 = r2_score(skl_pred, y_test, convert_dtype=datatype)
         assert abs(cu_r2 - skl_r2) <= 0.02
-    except AssertionError:
-        pytest.xfail("failed due to AssertionError error, "
-                     "fix will be merged soon")

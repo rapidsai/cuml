@@ -1,0 +1,19 @@
+#cpp code owners
+cpp/               @rapidsai/cuml-cpp-codeowners
+
+#python code owners
+python/cuml/       @rapidsai/cuml-python-codeowners
+
+#cmake code owners
+**/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
+**/cmake/          @rapidsai/cuml-cmake-codeowners
+python/setup.py    @rapidsai/cuml-cmake-codeowners
+build.sh           @rapidsai/cuml-cmake-codeowners
+**/build.sh        @rapidsai/cuml-cmake-codeowners
+
+#build/ops code owners
+.github/           @rapidsai/ops-codeowners
+ci/                @rapidsai/ops-codeowners
+conda/             @rapidsai/ops-codeowners
+**/Dockerfile      @rapidsai/ops-codeowners
+**/.dockerignore   @rapidsai/ops-codeowners
