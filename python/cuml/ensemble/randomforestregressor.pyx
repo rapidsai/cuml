@@ -353,8 +353,8 @@ class RandomForestRegressor(Base):
 
     def _convert_to_treelite(self, task_category):
         cdef ModelHandle cuml_model_ptr = NULL
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
