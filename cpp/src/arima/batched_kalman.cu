@@ -263,6 +263,8 @@ void _batched_kalman_loop_large_matrices(
   double* d_v_tmp1 = v_tmp1.raw_data();
   double* d_v_tmp2 = v_tmp2.raw_data();
 
+  CUDA_CHECK(cudaMemsetAsync(d_sum_logFs, 0, sizeof(double) * nb, stream));
+
   auto counting = thrust::make_counting_iterator(0);
   for (int it = 0; it < nobs; it++) {
     // 1. & 2.
@@ -403,6 +405,7 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
   }
 }  // namespace ML
 
+/// TODO: sigma2 is unused!! Figure out what to do with it
 template <int NUM_THREADS>
 __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
                                               double* d_sumLogFs, int nobs,
