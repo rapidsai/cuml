@@ -361,12 +361,12 @@ class RandomForestRegressor(Base):
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
-        return mod_ptr
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return treelite_handle
 
     def _get_model_info(self):
         task_category = 1
-        mod_ptr = self._convert_to_treelite(task_category)
-        fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
+        fit_mod_ptr = self._convert_to_treelite(task_category)
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
         return model_protobuf_bytes
@@ -464,8 +464,7 @@ class RandomForestRegressor(Base):
                                check_cols=self.n_cols)
 
         task_category = 1  # for regression
-        mod_ptr = self._convert_to_treelite(task_category)
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        treelite_handle = self._convert_to_treelite(task_category)
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,

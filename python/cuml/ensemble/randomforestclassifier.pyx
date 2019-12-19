@@ -369,7 +369,8 @@ class RandomForestClassifier(Base):
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
-        return mod_ptr
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return treelite_handle
 
     def _get_model_info(self):
         task_category = 2
@@ -491,8 +492,7 @@ class RandomForestClassifier(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        mod_ptr = self._convert_to_treelite(num_classes)
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        treelite_handle = self._convert_to_treelite(num_classes)
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
