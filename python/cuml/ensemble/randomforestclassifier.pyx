@@ -374,8 +374,7 @@ class RandomForestClassifier(Base):
 
     def _get_model_info(self):
         task_category = 2
-        mod_ptr = self._convert_to_treelite(task_category)
-        fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
+        fit_mod_ptr = self._convert_to_treelite(task_category)
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
 
