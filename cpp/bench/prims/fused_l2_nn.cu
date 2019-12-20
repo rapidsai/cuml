@@ -17,7 +17,7 @@
 #include <distance/fused_l2_nn.h>
 #include <limits>
 #include <linalg/norm.h>
-#include <rng/rng.h>
+#include <random/rng.h>
 #include "benchmark.cuh"
 
 namespace MLCommon {
@@ -78,7 +78,7 @@ struct FusedL2NN : public Fixture {
   T *x, *y, *xn, *yn;
   cub::KeyValuePair<int, T> *out;
   int* workspace;
-  MinAndDistanceReduceOp<int, T> op;
+  MLCommon::Distance::MinAndDistanceReduceOp<int, T> op;
 };  // struct FusedL2NN
 
 static std::vector<Params> getInputs() {
