@@ -172,7 +172,7 @@ class LinearRegressionMG(LinearRegression):
 
         return arr_interfaces_trans
 
-    def fit(self, X, y, M, N, partsToRanks, rnk):
+    def fit(self, input_data, M, N, partsToRanks, rnk):
         """
         Fit function for MNMG Linear Regression. 
         This not meant to be used as
@@ -185,44 +185,34 @@ class LinearRegressionMG(LinearRegression):
         """
 
         arr_interfaces = []
-        for arr in X:
+        arr_interfaces_y = []
+
+        for i in range(len(input_data)):
             X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+                input_to_dev_array(input_data[i][0], check_dtype=[np.float32, np.float64])
             arr_interfaces.append({"obj": X_m,
                                    "data": input_ptr,
                                    "shape": (n_rows, self.n_cols)})
 
-        arr_interfaces_y = []
-        for arr in y:
             y_m, input_ptr, n_rows, n_cols, self.dtype = \
-                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+                input_to_dev_array(input_data[i][1], check_dtype=[np.float32, np.float64])
             arr_interfaces_y.append({"obj": y_m,
                                    "data": input_ptr,
                                    "shape": (n_rows, n_cols)})
-
-        n_total_parts = 0
-        for idx, rankSize in enumerate(partsToRanks):
-            rank, size = rankSize
-            if rnk == rank:
-                n_total_parts = n_total_parts + 1
-
+            
+        
+        n_total_parts = len(input_data)
+        
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
             malloc(sizeof(RankSizePair**)
                    * n_total_parts)
 
-        indx = 0
-        n_part_row = 0
-
-        for idx, rankSize in enumerate(partsToRanks):
-            rank, size = rankSize
-            if rnk == rank:    
-                rankSizePair[indx] = <RankSizePair*> \
+        for i in range(len(input_data)):
+            rankSizePair[i] = <RankSizePair*> \
                     malloc(sizeof(RankSizePair))
-                rankSizePair[indx].rank = <int>rank
-                rankSizePair[indx].size = <size_t>size
-                n_part_row = n_part_row + rankSizePair[indx].size
-                indx = indx + 1
-
+            rankSizePair[i].rank = <int>rnk
+            rankSizePair[i].size = <size_t>len(input_data[i][0])
+                        
         self.coef_ = cudf.Series(zeros(self.n_cols,
                                        dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
@@ -232,11 +222,11 @@ class LinearRegressionMG(LinearRegression):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t data
         cdef uintptr_t labels
-
+        
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             labels = self._build_dataFloat(arr_interfaces_y)
-                      
+            
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -251,6 +241,7 @@ class LinearRegressionMG(LinearRegression):
                 False)
             
             self.intercept_ = c_intercept1
+            
         else:
             data = self._build_dataDouble(arr_interfaces)
             labels = self._build_dataDouble(arr_interfaces_y)
@@ -267,12 +258,13 @@ class LinearRegressionMG(LinearRegression):
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
                 False) 
-            
+
             self.intercept_ = c_intercept2
 
         self.handle.sync()
 
         del(X_m)
+        del(y_m)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
@@ -284,7 +276,7 @@ class LinearRegressionMG(LinearRegression):
         else:
             self._freeDoubleD(data, arr_interfaces)
             self._freeDoubleD(labels, arr_interfaces_y)
-
+ 
     def predict(self, X, M, N, partsToRanks, rnk):
         """
         Transform function for Linear Regression MG. This not meant to be used as
@@ -319,8 +311,6 @@ class LinearRegressionMG(LinearRegression):
                    * n_total_parts)
 
         indx = 0
-        n_part_row = 0
-
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
             if rnk == rank:
@@ -328,7 +318,6 @@ class LinearRegressionMG(LinearRegression):
                     malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
                 rankSizePair[indx].size = <size_t>size
-                n_part_row = n_part_row + rankSizePair[indx].size
                 indx = indx + 1
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
