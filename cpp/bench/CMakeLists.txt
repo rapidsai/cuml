@@ -75,6 +75,7 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/distance_exp_l2.cu
     prims/distance_l1.cu
     prims/distance_unexp_l2.cu
+    prims/fused_l2_nn.cu
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/permute.cu
