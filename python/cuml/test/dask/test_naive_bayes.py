@@ -20,7 +20,11 @@ import dask
 
 from dask.distributed import Client
 
+from sklearn.feature_extraction.text import HashingVectorizer
+
 from cuml.dask.common import extract_arr_partitions
+
+from sklearn.metrics import accuracy_score
 
 from cuml.dask.naive_bayes import MultinomialNB
 
@@ -55,8 +59,6 @@ def load_corpus(client):
                                       shuffle=True,
                                       random_state=42)
 
-    from sklearn.feature_extraction.text import HashingVectorizer
-
     hv = HashingVectorizer(alternate_sign=False, norm=None)
 
     xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
@@ -79,8 +81,6 @@ def test_basic_fit_predict(cluster):
     model.fit(X, y)
 
     y_hat = model.predict(X)
-
-    from sklearn.metrics import accuracy_score
 
     y_hat = y_hat.compute()
     y = y.compute()
