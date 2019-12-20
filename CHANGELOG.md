@@ -3,6 +3,7 @@
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
 - PR #1494: bench: ml-prims benchmark
+- PR #1514: bench: Fused L2 NN prim benchmark
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
