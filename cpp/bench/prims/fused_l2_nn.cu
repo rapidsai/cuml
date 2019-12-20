@@ -15,9 +15,9 @@
  */
 
 #include <distance/fused_l2_nn.h>
-#include <limits>
 #include <linalg/norm.h>
 #include <random/rng.h>
+#include <limits>
 #include "benchmark.cuh"
 
 namespace MLCommon {
@@ -68,7 +68,7 @@ struct FusedL2NN : public Fixture {
     for (auto _ : state) {
       CudaEventTimer timer(state, scratchBuffer, stream);
       MLCommon::Distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(
-        out, x, y, xn, yn, params.m, params.n, params.k, (void *)workspace, op,
+        out, x, y, xn, yn, params.m, params.n, params.k, (void*)workspace, op,
         params.sqrt, false, stream);
     }
   }
@@ -76,22 +76,22 @@ struct FusedL2NN : public Fixture {
  private:
   Params params;
   T *x, *y, *xn, *yn;
-  cub::KeyValuePair<int, T> *out;
+  cub::KeyValuePair<int, T>* out;
   int* workspace;
   MLCommon::Distance::MinAndDistanceReduceOp<int, T> op;
 };  // struct FusedL2NN
 
 static std::vector<Params> getInputs() {
   return {
-    {32, 16384, 16384, true},    {64, 16384, 16384, true},
-    {128, 16384, 16384, true},   {256, 16384, 16384, true},
-    {512, 16384, 16384, true},   {1024, 16384, 16384, true},
-    {16384, 32, 16384, true},    {16384, 64, 16384, true},
-    {16384, 128, 16384, true},   {16384, 256, 16384, true},
-    {16384, 512, 16384, true},   {16384, 1024, 16384, true},
-    {16384, 16384, 32, true},    {16384, 16384, 64, true},
-    {16384, 16384, 128, true},   {16384, 16384, 256, true},
-    {16384, 16384, 512, true},   {16384, 16384, 1024, true},
+    {32, 16384, 16384, true},     {64, 16384, 16384, true},
+    {128, 16384, 16384, true},    {256, 16384, 16384, true},
+    {512, 16384, 16384, true},    {1024, 16384, 16384, true},
+    {16384, 32, 16384, true},     {16384, 64, 16384, true},
+    {16384, 128, 16384, true},    {16384, 256, 16384, true},
+    {16384, 512, 16384, true},    {16384, 1024, 16384, true},
+    {16384, 16384, 32, true},     {16384, 16384, 64, true},
+    {16384, 16384, 128, true},    {16384, 16384, 256, true},
+    {16384, 16384, 512, true},    {16384, 16384, 1024, true},
     {16384, 16384, 16384, true},
 
     {32, 16384, 16384, false},    {64, 16384, 16384, false},
