@@ -91,7 +91,6 @@ def test_basic_fit_predict_sparse():
 
 
 def test_basic_fit_predict_dense():
-
     """
     Cupy Test
     """
@@ -101,7 +100,7 @@ def test_basic_fit_predict_dense():
     y = y[:5000]
 
     model = MultinomialNB()
-    model.fit(X, y)
+    model.fit(cp.asnumpy(X), y)
 
     y_hat = model.predict(X)
 

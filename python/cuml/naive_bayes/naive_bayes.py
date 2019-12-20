@@ -91,74 +91,6 @@ void count_features_dense(
 ''', 'count_features_dense')
 
 
-class GaussianNB(object):
-
-    def __init__(self, priors=None, var_smoothing=1e-9):
-        self.priors = priors
-        self.var_smoothing = var_smoothing
-
-    def fit(self, X, y, sample_weight=None):
-        """FIt Gaussian Naive Bayes according to X, y
-
-        """
-        self.epsilon_ = self.var_smoothing * cp.var(X, axis=0).max()
-
-        n_features = X.shape[1]
-        n_classes = len(self.classes_)
-
-        self.theta_ = cp.zeros((n_classes, n_features))
-        self.sigma_ = cp.zeros((n_classes, n_features))
-
-        self.class_count_ = cp.zeros(n_classes)
-
-        if self.priors is not None:
-            self.class_prior_ = self.priors
-        else:
-            self.class_prior_ = cp.zeros(n_classes, dtype=cp.float32)
-
-    def _count(self, X, Y):
-
-        """
-        :param X: cupy.sparse matrix of size (n_rows, n_features)
-        :param Y: cupy.array of monotonic class labels
-        """
-        x_coo = X.tocoo()
-
-        counts = cp.zeros((self.n_classes_, self.n_features_),
-                          order="F", dtype=cp.float64)
-
-        sq_counts = cp.zeros((self.n_classes_, self.n_features_),
-                             order="F", dtype=cp.float64)
-
-        count_features_coo((math.ceil(x_coo.nnz / 32),), (32,),
-                           (counts,
-                            x_coo.row,
-                            x_coo.col,
-                            x_coo.data,
-                            x_coo.nnz,
-                            x_coo.shape[0],
-                            x_coo.shape[1],
-                            Y, Y.shape[0],
-                            self.n_classes_,
-                            False))
-
-        count_features_coo((math.ceil(x_coo.nnz / 32),), (32,),
-                           (counts,
-                            x_coo.row,
-                            x_coo.col,
-                            x_coo.data,
-                            x_coo.nnz,
-                            x_coo.shape[0],
-                            x_coo.shape[1],
-                            Y, Y.shape[0],
-                            self.n_classes_,
-                            True))
-
-        self.theta_ += counts
-        self.sigma_ += sq_counts
-        self.class_count_ += counts.sum(axis=1).reshape(self.n_classes_)
-
-
 class MultinomialNB(object):
 
     def __init__(self, alpha=1.0, fit_prior=True, class_prior=None):
@@ -206,15 +138,24 @@ class MultinomialNB(object):
         return self
 
     def update_log_probs(self):
+        """
+        Updates the log
+        :return:
+        """
+
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
-        Incremental fit on a batch of samples
+        Performs incremental training on a batch of samples. This also
+        allows out-of-core training.
 
-        :param X:
-        :param y:
+        Parameters
+        ----------
+
+        X : training feature matrix
+        y :
         :param classes:
         :param sample_weight:
         :return:

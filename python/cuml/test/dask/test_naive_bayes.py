@@ -18,23 +18,35 @@ import cupy as cp
 
 import dask
 
-import pandas as pd
+from dask.distributed import Client
+
+from cuml.dask.common import extract_arr_partitions
+
+from cuml.dask.naive_bayes import MultinomialNB
 
 from sklearn.datasets import fetch_20newsgroups
 
 
-def scipy_to_cp(sp):
-    coo = sp.tocoo()
-    values = coo.data
+def to_dask_array(client, sp):
 
-    r = cp.asarray(coo.row)
-    c = cp.asarray(coo.col)
-    v = cp.asarray(values, dtype=cp.float32)
+    sp = sp.tocsr().astype(cp.float32)
 
-    return cp.sparse.coo_matrix((v, (r, c)))
+    arr = dask.array.from_array(sp, chunks=sp.shape, asarray=False,
+                                fancy=False).persist()
+
+    f = list(map(lambda x: x[1], client.sync(extract_arr_partitions, arr)))
+
+    def conv(x):
+        return cp.sparse.csr_matrix(x, dtype=cp.float32)
+
+    f = client.submit(conv, f[0])
+
+    return dask.array.from_delayed(f, shape=sp.shape,
+                                   meta=cp.sparse.csr_matrix(cp.zeros(1),
+                                                             dtype=cp.float32))
 
 
-def load_corpus():
+def load_corpus(client):
 
     categories = ['alt.atheism', 'soc.religion.christian',
                   'comp.graphics', 'sci.med']
@@ -43,18 +55,34 @@ def load_corpus():
                                       shuffle=True,
                                       random_state=42)
 
-    X = pd.DataFrame(twenty_train.data)
-    y = pd.DataFrame(twenty_train.target)
+    from sklearn.feature_extraction.text import HashingVectorizer
 
-    X = dask.dataframe.from_pandas(X, npartitions=1)
-    y = dask.dataframe.from_pandas(y, npartitions=1)
+    hv = HashingVectorizer(alternate_sign=False, norm=None)
+
+    xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
+    X = to_dask_array(client, xformed)
+
+    y = dask.array.from_array(twenty_train.target, asarray=False,
+                              fancy=False).astype(cp.int32)
 
     return X, y
 
 
 def test_basic_fit_predict(cluster):
 
-    X, y = load_corpus()
+    client = Client(cluster)
 
-    print("before: " + str(X.shape))
-    print(str(y.shape))
+    X, y = load_corpus(client)
+
+    model = MultinomialNB()
+
+    model.fit(X, y)
+
+    y_hat = model.predict(X)
+
+    from sklearn.metrics import accuracy_score
+
+    y_hat = y_hat.compute()
+    y = y.compute()
+
+    assert(accuracy_score(y_hat.get(), y) > .97)
