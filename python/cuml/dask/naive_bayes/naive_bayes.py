@@ -124,7 +124,7 @@ class MultinomialNB(object):
         models = dict([(w, self.client_.scatter(self.model_,
                                                 broadcast=True,
                                                 workers=[w]))
-                      for w, p in x_worker_parts.items()])
+                       for w, p in x_worker_parts.items()])
 
         preds = dict([(w, self.client_.submit(
             MultinomialNB._predict,
@@ -142,8 +142,8 @@ class MultinomialNB(object):
             to_concat.append(
                 dask.array.from_delayed(
                     dask.delayed(self.client_.submit(MultinomialNB._get_part,
-                                 preds[w],
-                                 final_parts[w])),
+                                                     preds[w],
+                                                     final_parts[w])),
                     dtype=cp.int32, shape=(size,)))
 
             final_parts[w] += 1
