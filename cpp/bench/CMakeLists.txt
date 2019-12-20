@@ -39,28 +39,53 @@ ExternalProject_Add(benchmark
   UPDATE_COMMAND    ""
 )
 
-add_dependencies(benchmark ${CUML_CPP_TARGET})
-
 add_library(benchmarklib STATIC IMPORTED)
 add_dependencies(benchmarklib benchmark)
-set_property(TARGET benchmarklib PROPERTY IMPORTED_LOCATION ${GBENCH_DIR}/lib/libbenchmark.a)
+set_property(TARGET benchmarklib PROPERTY
+  IMPORTED_LOCATION ${GBENCH_DIR}/lib/libbenchmark.a)
 
-set(CUML_SG_BENCH_TARGET "sg_benchmark")
-set(ML_BENCH_LINK_LIBRARIES
-  ${CUML_CPP_TARGET}
-  benchmarklib
-)
+if(BUILD_CUML_BENCH)
+  set(CUML_SG_BENCH_TARGET "sg_benchmark")
+  set(ML_BENCH_LINK_LIBRARIES
+    ${CUML_CPP_TARGET}
+    benchmarklib
+    )
 
-include_directories(${GBENCH_DIR}/include)
+  # (please keep the filenames in alphabetical order)
+  add_executable(${CUML_SG_BENCH_TARGET}
+    sg/dbscan.cu
+    sg/kmeans.cu
+    sg/main.cpp
+    sg/rf_classifier.cu
+    sg/rf_regressor.cu
+    )
 
-# (please keep the filenames in alphabetical order)
-add_executable(${CUML_SG_BENCH_TARGET}
-  sg/dbscan.cu
-  sg/kmeans.cu
-  sg/main.cpp
-  sg/rf_classifier.cu
-  sg/rf_regressor.cu
-  )
+  add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})
+  target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
+  target_include_directories(${CUML_SG_BENCH_TARGET}
+    PRIVATE ${GBENCH_DIR}/include)
+endif(BUILD_CUML_BENCH)
 
-add_dependencies(${CUML_SG_BENCH_TARGET} ${ClangFormat_TARGET})
-target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
+if(BUILD_CUML_PRIMS_BENCH)
+  set(CUML_PRIMS_BENCH_TARGET "prims_benchmark")
+  # (please keep the filenames in alphabetical order)
+  add_executable(${CUML_PRIMS_BENCH_TARGET}
+    prims/add.cu
+    prims/distance_cosine.cu
+    prims/distance_exp_l2.cu
+    prims/distance_l1.cu
+    prims/distance_unexp_l2.cu
+    prims/map_then_reduce.cu
+    prims/matrix_vector_op.cu
+    prims/permute.cu
+    prims/reduce.cu
+    prims/rng.cu
+    prims/main.cpp
+    )
+  add_dependencies(${CUML_PRIMS_BENCH_TARGET} cub)
+  add_dependencies(${CUML_PRIMS_BENCH_TARGET} cutlass)
+  target_link_libraries(${CUML_PRIMS_BENCH_TARGET} benchmarklib)
+  target_include_directories(${CUML_PRIMS_BENCH_TARGET}
+    PRIVATE ${GBENCH_DIR}/include
+    src_prims)
+endif(BUILD_CUML_PRIMS_BENCH)

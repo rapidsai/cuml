@@ -1,6 +1,8 @@
 # cuML 0.12.0 (Date TBD)
 
 ## New Features
+- PR #1483: prims: Fused L2 distance and nearest-neighbor prim
+- PR #1494: bench: ml-prims benchmark
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
@@ -15,6 +17,8 @@
 - PR #1482: Updated the code to remove sklearn from the mbsgd stress test
 - PR #1491: Update dev environments for 0.12
 - PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
+- PR #1498: Add build.sh to code owners
+- PR #1505: cmake: added correct dependencies for prims-bench build
 
 # cuML 0.11.0 (11 Dec 2019)
 
