@@ -24,14 +24,14 @@ namespace MLCommon {
 namespace Bench {
 namespace Distance {
 
-struct Params {
+struct FLNParams {
   int m, n, k;
   bool sqrt;
-};  // struct Params
+};  // struct FLNParams
 
 template <typename T>
 struct FusedL2NN : public Fixture {
-  FusedL2NN(const std::string& name, const Params& p)
+  FusedL2NN(const std::string& name, const FLNParams& p)
     : Fixture(name), params(p) {}
 
  protected:
@@ -74,14 +74,14 @@ struct FusedL2NN : public Fixture {
   }
 
  private:
-  Params params;
+  FLNParams params;
   T *x, *y, *xn, *yn;
   cub::KeyValuePair<int, T>* out;
   int* workspace;
   MLCommon::Distance::MinAndDistanceReduceOp<int, T> op;
 };  // struct FusedL2NN
 
-static std::vector<Params> getInputs() {
+static std::vector<FLNParams> getInputs() {
   return {
     {32, 16384, 16384, true},     {64, 16384, 16384, true},
     {128, 16384, 16384, true},    {256, 16384, 16384, true},
@@ -107,8 +107,8 @@ static std::vector<Params> getInputs() {
   };
 }
 
-PRIMS_BENCH_REGISTER(Params, FusedL2NN<float>, "fusedL2NN", getInputs());
-PRIMS_BENCH_REGISTER(Params, FusedL2NN<double>, "fusedL2NN", getInputs());
+PRIMS_BENCH_REGISTER(FLNParams, FusedL2NN<float>, "fusedL2NN", getInputs());
+PRIMS_BENCH_REGISTER(FLNParams, FusedL2NN<double>, "fusedL2NN", getInputs());
 
 }  // namespace Distance
 }  // namespace Bench
