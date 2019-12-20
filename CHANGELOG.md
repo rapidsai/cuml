@@ -16,6 +16,7 @@
 - PR #1470: Documentation: add make_regression, fix ARIMA section
 - PR #1482: Updated the code to remove sklearn from the mbsgd stress test
 - PR #1491: Update dev environments for 0.12
+- PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
 
