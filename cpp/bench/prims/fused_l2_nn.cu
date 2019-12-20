@@ -26,7 +26,6 @@ namespace Distance {
 
 struct FLNParams {
   int m, n, k;
-  bool sqrt;
 };  // struct FLNParams
 
 template <typename T>
@@ -67,9 +66,10 @@ struct FusedL2NN : public Fixture {
   void runBenchmark(::benchmark::State& state) override {
     for (auto _ : state) {
       CudaEventTimer timer(state, scratchBuffer, stream);
+      // it is enough to only benchmark the L2-squared metric
       MLCommon::Distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(
         out, x, y, xn, yn, params.m, params.n, params.k, (void*)workspace, op,
-        params.sqrt, false, stream);
+        false, false, stream);
     }
   }
 
@@ -83,27 +83,13 @@ struct FusedL2NN : public Fixture {
 
 static std::vector<FLNParams> getInputs() {
   return {
-    {32, 16384, 16384, true},     {64, 16384, 16384, true},
-    {128, 16384, 16384, true},    {256, 16384, 16384, true},
-    {512, 16384, 16384, true},    {1024, 16384, 16384, true},
-    {16384, 32, 16384, true},     {16384, 64, 16384, true},
-    {16384, 128, 16384, true},    {16384, 256, 16384, true},
-    {16384, 512, 16384, true},    {16384, 1024, 16384, true},
-    {16384, 16384, 32, true},     {16384, 16384, 64, true},
-    {16384, 16384, 128, true},    {16384, 16384, 256, true},
-    {16384, 16384, 512, true},    {16384, 16384, 1024, true},
-    {16384, 16384, 16384, true},
-
-    {32, 16384, 16384, false},    {64, 16384, 16384, false},
-    {128, 16384, 16384, false},   {256, 16384, 16384, false},
-    {512, 16384, 16384, false},   {1024, 16384, 16384, false},
-    {16384, 32, 16384, false},    {16384, 64, 16384, false},
-    {16384, 128, 16384, false},   {16384, 256, 16384, false},
-    {16384, 512, 16384, false},   {16384, 1024, 16384, false},
-    {16384, 16384, 32, false},    {16384, 16384, 64, false},
-    {16384, 16384, 128, false},   {16384, 16384, 256, false},
-    {16384, 16384, 512, false},   {16384, 16384, 1024, false},
-    {16384, 16384, 16384, false},
+    {32, 16384, 16384},    {64, 16384, 16384},  {128, 16384, 16384},
+    {256, 16384, 16384},   {512, 16384, 16384}, {1024, 16384, 16384},
+    {16384, 32, 16384},    {16384, 64, 16384},  {16384, 128, 16384},
+    {16384, 256, 16384},   {16384, 512, 16384}, {16384, 1024, 16384},
+    {16384, 16384, 32},    {16384, 16384, 64},  {16384, 16384, 128},
+    {16384, 16384, 256},   {16384, 16384, 512}, {16384, 16384, 1024},
+    {16384, 16384, 16384},
   };
 }
 
