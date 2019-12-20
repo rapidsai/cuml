@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, workers_to_parts
+from cuml.dask.common import extract_ddf_partitions, extract_colocated_ddf_partitions, workers_to_parts
 from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
@@ -66,9 +66,9 @@ class LinearRegression(object):
         return cumlLinearRegression(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_fit(f, X, y, M, N, partsToRanks, rank):
-        return f.fit(X, y, M, N, partsToRanks, rank)
-
+    def _func_fit(f, data, M, N, partsToRanks, rank):
+        return f.fit(data, M, N, partsToRanks, rank)
+        
     @staticmethod
     def _func_predict(f, df, M, N, partsToRanks, rank):
         return f.predict(df, M, N, partsToRanks, rank)
@@ -86,81 +86,54 @@ class LinearRegression(object):
         return model.transform(df)
 
     @staticmethod
+    def _func_get_size_colocated(df):
+        return df[0].shape[0]
+
+    @staticmethod
     def _func_get_size(df):
         return df.shape[0]
 
-    def fit(self, X, y):
-        """
-        Fits a multi-gpu linear regression model such that each of the
-        resulting coefficients are also distributed across the GPUs.
-        :param futures:
-        :return:
-
-        return 0
-        """
- 
-        X_futures = self.client.sync(extract_ddf_partitions, X)
-        y_futures = self.client.sync(extract_ddf_partitions, y)
-
-        X_partition_workers = [w for w, xc in X_futures]
-        y_partition_workers = [w for w, xc in y_futures]
-
-        if set(X_partition_workers) != set(y_partition_workers):
-            raise ValueError("""
-              X  and y are not partitioned on the same workers expected \n
-              Linear Regression""")
-
-        self.rnks = dict()
-        rnk_counter = 0
-        worker_to_parts = OrderedDict()
-        for w, p in X_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            if w not in self.rnks.keys():
-                self.rnks[w] = rnk_counter
-                rnk_counter = rnk_counter + 1
-            worker_to_parts[w].append(p)
-
-        worker_to_parts_y = OrderedDict()
-        for w, p in y_futures:
-            if w not in worker_to_parts_y:
-                worker_to_parts_y[w] = []
-            worker_to_parts_y[w].append(p)
-
-        workers = list(map(lambda x: x[0], X_futures))
+    def fit(self, X, y):         
+        input_futures = self.client.sync(extract_colocated_ddf_partitions, X, y, self.client)
+        workers = list(input_futures.keys())
 
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
-        key = uuid1()
-        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_get_size,
-            wf[1],
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)).result())
-            for idx, wf in enumerate(X_futures)]
-
         N = X.shape[1]
-        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
+        M = 0
+
+        self.rnks = dict()
+        partsToRanks = dict()
+        key = uuid1()
+        for w, futures in input_futures.items():
+            self.rnks[w] = worker_info[w]["r"]
+            parts = [(self.client.submit(LinearRegression._func_get_size_colocated,
+                                        future,
+                                        workers=[w],
+                                        key="%s-%s" % (key, idx)).result())
+            for idx, future in enumerate(futures)]
+            partsToRanks[worker_info[w]["r"]] = parts
+            for p in parts:
+                M = M + p
 
         key = uuid1()
-        self.linear_models = [(wf[0], self.client.submit(
+        self.linear_models = [(w, self.client.submit(
             LinearRegression._func_create_model,
             comms.sessionId,
             **self.kwargs,
-            workers=[wf[0]],
+            workers=[w],
             key="%s-%s" % (key, idx)))
-            for idx, wf in enumerate(worker_to_parts.items())]
+            for idx, w in enumerate(workers)]
 
         key = uuid1()
         linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
             LinearRegression._func_fit,
             wf[1],
-            worker_to_parts[wf[0]],
-            worker_to_parts_y[wf[0]],
-            M, N,
+            input_futures[wf[0]],
+            M, N, 
             partsToRanks,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),

@@ -14,6 +14,7 @@
 #
 
 import pytest
+from dask_cuda import LocalCUDACluster
 
 from dask.distributed import Client
 from sklearn.metrics import mean_squared_error
@@ -50,9 +51,14 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 
 
 @pytest.mark.mg
-def test_ols(cluster):
+@pytest.mark.parametrize("n_parts", [2, 23])
+def test_ols(n_parts, client=None):
 
-    client = Client(cluster)
+    owns_cluster = False
+    if client is None:
+        owns_cluster = True
+        cluster = LocalCUDACluster(threads_per_worker=1)
+        client = Client(cluster)
 
     try:
 
@@ -75,8 +81,8 @@ def test_ols(cluster):
 
         workers = client.has_what().keys()
 
-        X_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
-        y_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
+        X_df = dask_cudf.from_cudf(X_cudf, npartitions=n_parts).persist()
+        y_df = dask_cudf.from_cudf(y_cudf, npartitions=n_parts).persist()
 
         lr = cumlOLS_dask()
 
