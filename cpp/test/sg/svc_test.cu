@@ -1094,6 +1094,23 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
 }
 
 template <typename math_t>
+struct SvrInput {
+  svmParameter param;
+  KernelParams kernel;
+  int n_rows;
+  int n_cols;
+  std::vector<math_t> x;
+  std::vector<math_t> y;
+};
+
+template <typename math_t>
+std::ostream &operator<<(std::ostream &os, const SvrInput<math_t> &b) {
+  os << kernelName(b.kernel) << " " << b.n_rows << "x" << b.n_cols
+     << ", C=" << b.param.C << ", tol=" << b.param.tol;
+  return os;
+}
+
+template <typename math_t>
 class SvrTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -1147,7 +1164,6 @@ class SvrTest : public ::testing::Test {
     WorkingSet<math_t> *ws;
     ws =
       new WorkingSet<math_t>(handle.getImpl(), stream, n_rows, 20, EPSILON_SVR);
-    //ws->verbose = true;
     EXPECT_EQ(ws->GetSize(), 2 * n_rows);
 
     updateDevice(alpha, alpha_host, n_train, stream);
@@ -1197,79 +1213,74 @@ class SvrTest : public ::testing::Test {
                                 CompareApprox<math_t>(1.0e-6)));
   }
 
-  void TestSvrFit() {
-    svmParameter param{1, 0, 1, 10, 1e-3, false, 0.1, EPSILON_SVR};
-    KernelParams kernelParams{LINEAR, 3, 1, 0};
-    x_host[0] = 0;
-    x_host[1] = 1;
-    y_host[0] = 2;
-    y_host[1] = 3;
-    updateDevice(x_dev, x_host, 2, stream);
-    updateDevice(y_dev, y_host, 2, stream);
-    svrFit(handle, x_dev, 2, 1, y_dev, param, kernelParams, model);
-    smoOutput<math_t> exp{2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}};
-    checkResults(model, exp, stream);
-  }
-
-  void TestSvrFit1b() {
-    svmParameter param{1, 10, 1, 1, 1e-3, false, 0.1, EPSILON_SVR};
-    KernelParams kernelParams{LINEAR, 3, 1, 0};
-    x_host[0] = 1;
-    x_host[1] = 2;
-    y_host[0] = 2;
-    y_host[1] = 3;
-    int n_rows = 2;
-    int n_cols = 1;
-    updateDevice(x_dev, x_host, 2, stream);
-    updateDevice(y_dev, y_host, 2, stream);
-    svrFit(handle, x_dev, n_rows, n_cols, y_dev, param, kernelParams, model);
-    smoOutput<math_t> exp{2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}};
-    checkResults(model, exp, stream);
-    MLCommon::device_buffer<math_t> pred(handle.getDeviceAllocator(), stream,
-                                         2);
-    svcPredict(handle, x_dev, n_rows, n_cols, kernelParams, model, pred.data(),
-               (math_t)200.0, false);
-    math_t pred_exp[2] = {2.1, 2.9};
-    EXPECT_TRUE(devArrMatchHost(pred_exp, pred.data(), n_rows,
-                                CompareApprox<math_t>(1.0e-6)));
-  }
-
-  void TestSvrFit1c() {
-    svmParameter param{1, 0, 1, 1, 1e-3, false, 0.1, EPSILON_SVR};
-    KernelParams kernelParams{LINEAR, 3, 1, 0};
-    math_t x_host2[4] = {1, 2, 5, 5};
-    y_host[0] = 2;
-    y_host[1] = 3;
-    int n_rows = 2;
-    int n_cols = 2;
-    updateDevice(x_dev, x_host2, n_rows * n_cols, stream);
-    updateDevice(y_dev, y_host, n_rows, stream);
-    svrFit(handle, x_dev, n_rows, n_cols, y_dev, param, kernelParams, model);
-    smoOutput<math_t> exp{2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}};
-    checkResults(model, exp, stream);
-    MLCommon::device_buffer<math_t> pred(handle.getDeviceAllocator(), stream,
-                                         2);
-    svcPredict(handle, x_dev, n_rows, n_cols, kernelParams, model, pred.data(),
-               (math_t)200.0, false);
-    math_t pred_exp[2] = {2.1, 2.9};
-    EXPECT_TRUE(devArrMatchHost(pred_exp, pred.data(), n_rows,
-                                CompareApprox<math_t>(1.0e-6)));
-  }
-
   void TestSvrFitPredict() {
-    svmParameter param{1, 0, 100, 10, 1e-6, false, 0.1, EPSILON_SVR};
-    KernelParams kernelParams{LINEAR, 3, 1, 0};
-    svrFit(handle, x_dev, n_rows, n_cols, y_dev, param, kernelParams, model);
-    smoOutput<math_t> exp{
-      6,     {-1, 1, 0.45, -0.45, -1, 1},    -0.4,
-      {1.1}, {1.0, 2.0, 3.0, 5.0, 6.0, 7.0}, {0, 1, 2, 4, 5, 6}};
-    checkResults(model, exp, stream);
-    device_buffer<math_t> preds(allocator, stream, n_rows);
-    svcPredict(handle, x_dev, n_rows, n_cols, kernelParams, model, preds.data(),
-               (math_t)200.0, false);
-    math_t pred_exp[7] = {0.7, 1.8, 2.9, 4, 5.1, 6.2, 7.3};
-    EXPECT_TRUE(devArrMatchHost(pred_exp, preds.data(), n_rows,
-                                CompareApprox<math_t>(1.0e-5)));
+    std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 1, 10, 1e-3, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         2,       // n_rows
+         1,       // n_cols
+         {0, 1},  //x
+         {2, 3}   //y
+       },
+       smoOutput2<math_t>{
+         2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}, {2.1, 2.9}}},
+
+      {SvrInput<math_t>{
+         svmParameter{1, 10, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         2,       // n_rows
+         1,       // n_cols
+         {1, 2},  //x
+         {2, 3}   //y
+       },
+       smoOutput2<math_t>{
+         2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}, {2.1, 2.9}}},
+
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         2,             // n_rows
+         2,             // n_cols
+         {1, 2, 5, 5},  //x
+         {2, 3}         //y
+       },
+       smoOutput2<math_t>{
+         2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
+
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 100, 10, 1e-6, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         7,                      // n_rows
+         1,                      //n_cols
+         {1, 2, 3, 4, 5, 6, 7},  //x
+         {0, 2, 3, 4, 5, 6, 8}   //y
+       },
+       smoOutput2<math_t>{6,
+                          {-1, 1, 0.45, -0.45, -1, 1},
+                          -0.4,
+                          {1.1},
+                          {1.0, 2.0, 3.0, 5.0, 6.0, 7.0},
+                          {0, 1, 2, 4, 5, 6},
+                          {0.7, 1.8, 2.9, 4, 5.1, 6.2, 7.3}}}};
+    for (auto d : data) {
+      auto p = d.first;
+      auto exp = d.second;
+      SCOPED_TRACE(p);
+      device_buffer<math_t> x_dev(allocator, stream, p.n_rows * p.n_cols);
+      updateDevice(x_dev.data(), p.x.data(), p.n_rows * p.n_cols, stream);
+      device_buffer<math_t> y_dev(allocator, stream, p.n_rows);
+      updateDevice(y_dev.data(), p.y.data(), p.n_rows, stream);
+
+      svrFit(handle, x_dev.data(), p.n_rows, p.n_cols, y_dev.data(), p.param,
+             p.kernel, model);
+      checkResults(model, toSmoOutput(exp), stream);
+      device_buffer<math_t> preds(allocator, stream, p.n_rows);
+      svcPredict(handle, x_dev.data(), p.n_rows, p.n_cols, p.kernel, model,
+                 preds.data(), (math_t)200.0, false);
+      EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(), preds.data(),
+                                  p.n_rows, CompareApprox<math_t>(1.0e-5)));
+    }
   }
 
  protected:
@@ -1303,11 +1314,6 @@ TYPED_TEST_CASE(SvrTest, FloatTypes);
 TYPED_TEST(SvrTest, Init) { this->TestSvrInit(); }
 TYPED_TEST(SvrTest, WorkingSet) { this->TestSvrWorkingSet(); }
 TYPED_TEST(SvrTest, Results) { this->TestSvrResults(); }
-TYPED_TEST(SvrTest, Fit) { this->TestSvrFit(); }
-TYPED_TEST(SvrTest, Fit1b) { this->TestSvrFit1b(); }
-TYPED_TEST(SvrTest, Fit1c) { this->TestSvrFit1c(); }
 TYPED_TEST(SvrTest, FitPredict) { this->TestSvrFitPredict(); }
-// need to test prediction too.
-
 };  // end namespace SVM
 };  // namespace ML
