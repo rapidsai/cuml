@@ -32,11 +32,11 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-
-from cuml.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
+from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
+from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.cupy_utils import checked_cupy_unique
@@ -44,54 +44,7 @@ from cuml.utils.cupy_utils import checked_cupy_unique
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-    ctypedef void* ModelBuilderHandle
-
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
-    cdef enum CRITERION:
-        GINI,
-        ENTROPY,
-        MSE,
-        MAE,
-        CRITERION_END
-
-cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_rows_per_node
-        float min_impurity_decrease
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
-
-cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
-
-    cdef enum RF_type:
-        CLASSIFICATION,
-        REGRESSION
-
-    cdef struct RF_metrics:
-        RF_type rf_type
-        float accuracy
-        double mean_abs_error
-        double mean_squared_error
-        double median_abs_error
-
-    cdef struct RF_params:
-        int n_trees
-        bool bootstrap
-        float rows_sample
-        int seed
-        pass
-
-    cdef cppclass RandomForestMetaData[T, L]:
-        void* trees
-        RF_params rf_params
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[float, int]*,
@@ -143,18 +96,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                             int*,
                             bool) except +
 
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[float, int]*,
-                                    int,
-                                    int,
-                                    vector[unsigned char] &)
-
-    cdef void build_treelite_forest(ModelHandle*,
-                                    RandomForestMetaData[double, int]*,
-                                    int,
-                                    int,
-                                    vector[unsigned char] &)
-
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, int]*,
                           int*,
@@ -169,30 +110,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int*,
                           bool) except +
 
-    cdef void print_rf_summary(RandomForestMetaData[float, int]*) except +
-    cdef void print_rf_summary(RandomForestMetaData[double, int]*) except +
-
-    cdef void print_rf_detailed(RandomForestMetaData[float, int]*) except +
-    cdef void print_rf_detailed(RandomForestMetaData[double, int]*) except +
-
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    float,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    int,
-                                    CRITERION,
-                                    bool,
-                                    int) except +
-
-    cdef vector[unsigned char] save_model(ModelHandle)
-
 
 class RandomForestClassifier(Base):
     """
@@ -204,6 +121,15 @@ class RandomForestClassifier(Base):
     histogram-based algorithms to determine splits, rather than an exact
     count. You can tune the size of the histograms with the n_bins parameter.
 
+    **Known Limitations**: This is an early release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+       * GPU-based inference is only supported if the model was trained
+         with 32-bit (float32) datatypes. CPU-based inference may be used
+         in this case as a slower fallback.
+       * Very deep / very wide models may exhaust available GPU memory.
+         Future versions of cuML will provide an alternative algorithm to
+         reduce memory consumption.
 
     Examples
     ---------
@@ -231,8 +157,8 @@ class RandomForestClassifier(Base):
 
     Parameters
     -----------
-    n_estimators : int (default = 10)
-        Number of trees in the forest.
+    n_estimators : int (default = 100)
+        Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     handle : cuml.Handle
         If it is None, a new one is created just for this class.
     split_criterion: The criterion used to split nodes.
@@ -293,7 +219,7 @@ class RandomForestClassifier(Base):
                  'verbose', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
-    def __init__(self, n_estimators=10, max_depth=16, handle=None,
+    def __init__(self, n_estimators=100, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
