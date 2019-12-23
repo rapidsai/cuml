@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/grid_sync.h>
 #include <cuda_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <common/cumlHandle.hpp>
@@ -56,6 +57,8 @@ struct Builder {
   IdxT nHistBins;
   /** total number of prediction counts (regression only) */
   IdxT nPredCounts;
+  /** size of block-sync workspace (regression + MAE only) */
+  size_t block_sync_size;
 
   /** number of nodes created in the current batch */
   IdxT* n_nodes;
@@ -71,6 +74,8 @@ struct Builder {
   int* done_count;
   /** mutex array used for atomically updating best split */
   int* mutex;
+  /** used for syncing across blocks in a kernel (regression + MAE only) */
+  char* block_sync;
   /** number of leaves created so far */
   IdxT* n_leaves;
   /** max depth reached so far */
@@ -139,6 +144,13 @@ struct Builder {
     nPredCounts = max_batch * params.n_bins * n_col_blks;
     // x3 just to be safe since we can't strictly adhere to max_leaves
     maxNodes = params.max_leaves * 3;
+    if (isRegression() && params.split_criterion == CRITERION::MAE) {
+      dim3 grid(params.n_blks_for_rows, n_col_blks, max_batch);
+      block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
+        grid, MLCommon::SyncType::ACROSS_X, false);
+    } else {
+      block_sync_size = 0;
+    }
     d_wsize = 0;
     d_wsize += sizeof(IdxT);  // n_nodes
     if (!isRegression()) {
@@ -151,6 +163,7 @@ struct Builder {
     }
     d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
     d_wsize += sizeof(int) * max_batch;               // mutex
+    d_wsize += block_sync_size;                       // block_sync
     d_wsize += sizeof(IdxT);                          // n_leaves
     d_wsize += sizeof(IdxT);                          // n_depth
     d_wsize += sizeof(SplitT) * max_batch;            // splits
@@ -187,6 +200,8 @@ struct Builder {
     d_wspace += sizeof(int) * max_batch * n_col_blks;
     mutex = reinterpret_cast<int*>(d_wspace);
     d_wspace += sizeof(int) * max_batch;
+    block_sync = reinterpret_cast<char*>(d_wspace);
+    d_wspace += block_sync_size;
     n_leaves = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += sizeof(IdxT);
     n_depth = reinterpret_cast<IdxT*>(d_wspace);
