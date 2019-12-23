@@ -66,8 +66,6 @@ struct Builder {
   int* hist;
   /** sum of predictions (regression only) */
   DataT* pred;
-  /** sum of predictions for parent (regression only) */
-  DataT* predP;
   /** node count tracker for averaging (regression only) */
   IdxT* pred_count;
   /** threadblock arrival count */
@@ -158,7 +156,6 @@ struct Builder {
     } else {
       // x2 for left and right children
       d_wsize += 2 * nPredCounts * sizeof(DataT);  // pred
-      d_wsize += nPredCounts * sizeof(DataT);      // predP
       d_wsize += nPredCounts * sizeof(IdxT);       // pred_count
     }
     d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
@@ -191,8 +188,6 @@ struct Builder {
     } else {
       pred = reinterpret_cast<DataT*>(d_wspace);
       d_wspace += 2 * nPredCounts * sizeof(DataT);
-      predP = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += nPredCounts * sizeof(DataT);
       pred_count = reinterpret_cast<IdxT*>(d_wspace);
       d_wspace += nPredCounts * sizeof(IdxT);
     }
@@ -400,15 +395,14 @@ struct RegTraits {
     auto n_col_blks = b.params.n_blks_for_cols;
     dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
-    size_t smemSize = 4 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
+    size_t smemSize = 3 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-    CUDA_CHECK(cudaMemsetAsync(b.predP, 0, sizeof(DataT) * b.nPredCounts, s));
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.predP, b.pred_count, b.params.n_bins, b.params.max_depth,
+        b.pred, b.pred_count, b.params.n_bins, b.params.max_depth,
         b.params.min_rows_per_node, b.params.max_leaves, b.input, b.curr_nodes,
         col, b.done_count, b.mutex, b.n_leaves, b.splits, b.block_sync,
         splitType);
