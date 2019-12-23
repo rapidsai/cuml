@@ -47,7 +47,7 @@ namespace SVM {
  * Each row of the input data stores a feature vector.
  * We use the SMO method to fit the SVM.
  *
- * The output dbuffers shall be unallocated on entry.
+ * The output buffers shall be unallocated on entry.
  * Note that n_support, and b are host scalars, all other output
  * pointers are device pointers.
  *
