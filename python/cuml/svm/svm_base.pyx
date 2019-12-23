@@ -111,7 +111,7 @@ class SvmBase(Base):
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
-                 epsilon = 0.1):
+                 epsilon=0.1):
         """
         Construct an SVC classifier for training and predictions.
 
@@ -191,8 +191,7 @@ class SvmBase(Base):
         self.nochange_steps = nochange_steps
         self.verbose = verbose
         self.epsilon = epsilon
-        self.svmType = None # Child class should set self.svmType
-
+        self.svmType = None  # Child class should set self.svmType
 
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
@@ -386,7 +385,7 @@ class SvmBase(Base):
             if self._n_classes > 0:
                 self._unique_labels = device_array_from_ptr(
                     <uintptr_t>model_f.unique_labels, (self._n_classes,),
-                      self.dtype)
+                    self.dtype)
             else:
                 self._unique_labels = None
         else:
@@ -408,7 +407,7 @@ class SvmBase(Base):
             if self._n_classes > 0:
                 self._unique_labels = device_array_from_ptr(
                     <uintptr_t>model_d.unique_labels, (self._n_classes,),
-                      self.dtype)
+                    self.dtype)
             else:
                 self._unique_labels = None
 
