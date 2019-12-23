@@ -242,7 +242,6 @@ class SVC(SvmBase):
 
         return self
 
-
     def predict(self, X):
         """
         Predicts the class labels for X. The returned y values are the class
@@ -261,7 +260,7 @@ class SVC(SvmBase):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return super(SVC,self).predict(X, True)
+        return super(SVC, self).predict(X, True)
 
     def decision_function(self, X):
         """
@@ -280,4 +279,4 @@ class SVC(SvmBase):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return super(SVC,self).predict(X, False)
+        return super(SVC, self).predict(X, False)
