@@ -25,27 +25,6 @@ template <typename math_, int VecLen>
 struct IOType {};
 
 template <>
-struct IOType<bool, 1> {
-  typedef bool Type;
-};
-template <>
-struct IOType<bool, 2> {
-  typedef uint16_t Type;
-};
-template <>
-struct IOType<bool, 4> {
-  typedef uint32_t Type;
-};
-template <>
-struct IOType<bool, 8> {
-  typedef uint2 Type;
-};
-template <>
-struct IOType<bool, 16> {
-  typedef uint4 Type;
-};
-
-template <>
 struct IOType<int8_t, 1> {
   typedef int8_t Type;
 };
