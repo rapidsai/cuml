@@ -57,7 +57,9 @@ class WorkingSet {
   //!> Workspace selection strategy, note that only FIFO is tested so far
   bool FIFO_strategy = true;
 
-  /** Create a working set
+  /** 
+   * @brief Manage a working set.
+   *
    * @param handle cuml handle implementation
    * @stream cuda stream for working set operations
    * @param n_train number of training vectors
@@ -93,7 +95,7 @@ class WorkingSet {
   }
 
   /**
-   * Set the size of the working set and allocate buffers accordingly.
+   * @brief Set the size of the working set and allocate buffers accordingly.
    *
    * @param n_train number of training vectors
    * @param n_ws working set size (default min(1024, n_train))
@@ -113,19 +115,20 @@ class WorkingSet {
   /** Return the size of the working set. */
   int GetSize() { return n_ws; }
 
-  /** Return a device pointer to the array with the working set indices.
+  /** 
+   * @brief Return a device pointer to the the working set indices.
    *
    * The returned array is owned by WorkingSet.
    */
   int *GetIndices() { return idx.data(); }
 
   /**
-   * Select new elements for a working set.
+   * @brief Select new elements for a working set.
    *
    * Here we follow the working set selection strategy by Joachims [1], we
-   * select n traning instances as:
+   * select n training instances as:
    *   - select n/2 element of upper set, where f is largest
-   *   - select n/2 from lower set, wher f is smallest
+   *   - select n/2 from lower set, where f is smallest
    *
    * The difference compared to Joachims' strategy is that we can already have
    * some elements selected by a different strategy, therefore we select only
@@ -142,7 +145,7 @@ class WorkingSet {
    * @param C penalty parameter
    * @param n_already_selected
    */
-  // check if we can improve speed for SVR
+
   void SimpleSelect(math_t *f, math_t *alpha, math_t *y, math_t C,
                     int n_already_selected = 0) {
     // We are not using the topK kernel, because of the additional lower/upper
@@ -190,7 +193,7 @@ class WorkingSet {
   }
 
   /**
-  * Select working set indices.
+  * @brief Select working set indices.
   *
   * To avoid training vectors oscillating in and out of the working set, we
   * keep half of the previous working set, and fill new elements only to the
@@ -216,7 +219,7 @@ class WorkingSet {
       } else {
         // This can only happen for n_ws < 4.
         // We keep the calculation always in firstcall mode (only SimpleSelect
-        // is used, no advaced strategies because we do not have enougt elements)
+        // is used, no advanced strategies because we do not have enough elements)
         //
         // Nothing to do, firstcall is already true
       }
@@ -236,8 +239,7 @@ class WorkingSet {
   }
 
   /**
-   * Select elements from the previous working set based on their priority and
-   * dual coefficients.
+   * @brief Select elements from the previous working set based on their priority.
    *
    * We sort the old working set based on their priority in ascending order,
    * and then select nc elements from free, and then lower/upper bound vectors.
@@ -350,7 +352,7 @@ class WorkingSet {
   }
 
   /**
-   * Gather available elements from the working set.
+   * @brief Gather available elements from the working set.
    *
    * We select the first (last) n_needed element from the front (end) of
    * f_idx_sorted. We ignore the elements that are already selected, and those
@@ -418,7 +420,7 @@ class WorkingSet {
   }
 
   /**
-   * Select the first n_needed elements from ws_idx_sorted where op is true.
+   * @brief Select the first n_needed elements from ws_idx_sorted where op is true.
    *
    * The selected elements are appended to this->idx.
    *

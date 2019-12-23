@@ -144,6 +144,10 @@ class SVR(SvmBase):
             sigmoid
         tol : float (default = 1e-3)
             Tolerance for stopping criterion.
+        epsilon: float (default = 0.1)
+            epsilon parameter of the epsiron-SVR model. There is no penalty
+            associated to points that are predicted within the epsilon-tube
+            around the target values.
         cache_size : float (default = 200 MiB)
             Size of the kernel cache during training in MiB. The default is a
             conservative value, increase it to improve the training time, at
@@ -183,8 +187,8 @@ class SVR(SvmBase):
             hyperplane.
             coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
 
-        For additional docs, see `scikitlearn's SVC
-        <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
+        For additional docs, see `scikitlearn's SVR
+        <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html>`_.
         """
         super(SVR, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,

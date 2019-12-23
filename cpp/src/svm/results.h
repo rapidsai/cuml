@@ -148,7 +148,7 @@ class Results {
    * (i \in [0..n/2-1]) \f$
    *
    * @param [in] alpha device array of dual coefficients, size [n_train]
-   * @param [out] coef device array ouf SVM coefficients size [n_rows]
+   * @param [out] coef device array of SVM coefficients size [n_rows]
    */
   void CombineCoefs(const math_t *alpha, math_t *coef) {
     MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_train);
@@ -169,7 +169,7 @@ class Results {
    * @param [in] val_tmp device pointer with dual coefficients
    * @param [out] dual_coefs device pointer of non-zero dual coefficiens,
    *   unallocated on entry, on exit size [n_support]
-   * @param [out] n_support number of support vertors
+   * @param [out] n_support number of support vectors
    */
   void GetDualCoefs(const math_t *val_tmp, math_t **dual_coefs,
                     int *n_support) {
@@ -189,7 +189,7 @@ class Results {
    *
    * @param [in] coef dual coefficients, size [n_rows]
    * @param [in] n_support number of support vectors
-   * @param [out] idx indices of the suport vectors, size [n_support]
+   * @param [out] idx indices of the support vectors, size [n_support]
    */
   int *GetSupportVectorIndices(const math_t *coef, int n_support) {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };

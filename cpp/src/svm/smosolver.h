@@ -44,8 +44,8 @@ namespace ML {
 namespace SVM {
 
 /**
- * Solve the quadratic optimization problem using two level decomposition and
- * Sequential Minimal Optimization (SMO).
+ * @brief Solve the quadratic optimization problem using two level decomposition
+ * and Sequential Minimal Optimization (SMO).
  *
  * The general decomposition idea by Osuna is to choose q examples from all the
  * training examples, and solve the QP problem for this subset (discussed in
@@ -93,7 +93,7 @@ class SmoSolver {
 
 #define SMO_WS_SIZE 1024
   /**
-   * Solve the quadratic optimization problem.
+   * @brief Solve the quadratic optimization problem.
    *
    * The output arrays (dual_coefs, x_support, idx) will be allocated on the
    * device, they should be unallocated on entry.
@@ -169,7 +169,7 @@ class SmoSolver {
   }
 
   /**
-   * Update the f vector after a block solve step.
+   * @brief Update the f vector after a block solve step.
    *
    * \f[ f_i = f_i + \sum_{k\in WS} K_{i,k} * \Delta \alpha_k, \f]
    * where i = [0..n_train-1], WS is the set of workspace indices,
@@ -199,7 +199,7 @@ class SmoSolver {
     }
   }
 
-  /** Initialize the problem to solve.
+  /** @brief Initialize the problem to solve.
    *
    * Both SVC and SVR are solved as a classification problem.
    * The optimization target (W) does not appear directly in the SMO
@@ -215,6 +215,8 @@ class SmoSolver {
    *
    * @parameter [inout] y on entry class labels or target values,
    *    on exit device pointer to class labels
+   * @parameter [in] n_rows
+   * @parameter [in] n_cols
    */
   void Initialize(math_t **y, int n_rows, int n_cols) {
     this->n_rows = n_rows;
@@ -240,7 +242,7 @@ class SmoSolver {
     }
   }
 
-  /** Initialize Support Vector Classification
+  /** @brief Initialize Support Vector Classification
    *
    * We would like to maximize the following quantity
    * \f[ W(\mathbf{\alpha}) = -\mathbf{\alpha}^T \mathbf{1}
@@ -248,7 +250,7 @@ class SmoSolver {
    *
    * We initialize f as:
    * \f[ f_i = y_i \frac{\partial W(\mathbf{\alpha})}{\partial \alpha_i} =
-   *          -y_i +   y_j \alpha_j K(\mathbf{x}_i, \mathbf{x}_j)
+   *          -y_i +   y_j \alpha_j K(\mathbf{x}_i, \mathbf{x}_j) \f]
    *
    * @param [in] y device pointer of class labels size [n_rows]
    */
@@ -258,7 +260,7 @@ class SmoSolver {
   }
 
   /**
-   * Initializes the solver for epsilon-SVR.
+   * @brief Initializes the solver for epsilon-SVR.
    *
    * For regression we are optimizing the following quantity
    * \f[
@@ -269,19 +271,25 @@ class SmoSolver {
    *   (\alpha_i^+ - \alpha_i^-)(\alpha_j^+ - \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
    * \f]
    *
-   * Then f_i = y_i \frac{\partial W(\alpha}{\partial \alpha_i}
-   *          = yc_i*epsilon - yr_i
+   * Then \f$ f_i = y_i \frac{\partial W(\alpha}{\partial \alpha_i} \f$
+   *      \f$     = yc_i*epsilon - yr_i \f$
    *
    * Additionally we set class labels for the training vectors.
    *
    * References:
-   * [1] Schölkopf section 6
-   * [2] SVR as SVC
+   * [1] B. Schölkopf et. al (1998): New support vector algorithms,
+   *     NeuroCOLT2 Technical Report Series, NC2-TR-1998-031, Section 6
+   * [2] A.J. Smola, B. Schölkopf (2004): A tutorial on support vector
+   *     regression, Statistics and Computing 14, 199–222
+   * [3] Orchel M. (2011) Support Vector Regression as a Classification Problem
+   *     with a Priori Knowledge in the Form of Detractors,
+   *     Man-Machine Interactions 2. Advances in Intelligent and Soft Computing,
+   *     vol 103
    *
    * @param [in] yr device pointer with values for regression, size [n_rows]
    * @param [in] n_rows
-   * @param [out] yc device pointer to classes associated to the dual coefficients,
-   *    size [n_rows*2]
+   * @param [out] yc device pointer to classes associated to the dual
+   *     coefficients, size [n_rows*2]
    * @param [out] f device pointer f size [n_rows*2]
    */
   void SvrInit(const math_t *yr, int n_rows, math_t *yc, math_t *f) {

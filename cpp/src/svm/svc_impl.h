@@ -47,7 +47,7 @@ namespace SVM {
  * Each row of the input data stores a feature vector.
  * We use the SMO method to fit the SVM.
  *
- * The output dbuffers shall be unallocated on entry.
+ * The output device buffers shall be unallocated on entry.
  * Note that n_support, n_classes and b are host scalars, all other output
  * pointers are device pointers.
  *
@@ -56,7 +56,7 @@ namespace SVM {
  * @param [in] input device pointer for the input data in column major format.
  *   Size n_rows x n_cols.
  * @param [in] n_rows number of rows
- * @param [in] n_cols number of colums
+ * @param [in] n_cols number of columns
  * @param [in] labels device pointer for the labels. Size n_rows.
  * @param [in] param parameters for training
  * @param [in] kernel_params parameters for the kernel function
@@ -125,7 +125,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [in] input device pointer for the input data in column major format,
  *   size [n_rows x n_cols].
  * @param [in] n_rows number of rows (input vectors)
- * @param [in] n_cols number of colums (features)
+ * @param [in] n_cols number of columns (features)
  * @param [in] kernel_params parameters for the kernel function
  * @param [in] model SVM model parameters
  * @param [out] preds device pointer to store the output, size [n_rows].

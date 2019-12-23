@@ -45,7 +45,6 @@ namespace SVM {
  * @brief Fit a support vector regressor to the training data.
  *
  * Each row of the input data stores a feature vector.
- * We use the SMO method to fit the SVM.
  *
  * The output buffers shall be unallocated on entry.
  * Note that n_support, and b are host scalars, all other output
@@ -56,7 +55,7 @@ namespace SVM {
  * @param [in] X device pointer for the input data in column major format.
  *   Size n_rows x n_cols.
  * @param [in] n_rows number of rows
- * @param [in] n_cols number of colums
+ * @param [in] n_cols number of columns
  * @param [in] y device pointer for the labels. Size n_rows.
  * @param [in] param parameters for training
  * @param [in] kernel_params parameters for the kernel function

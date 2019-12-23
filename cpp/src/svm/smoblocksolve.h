@@ -28,7 +28,7 @@ namespace ML {
 namespace SVM {
 
 /**
- * Solve the optimization problem for the actual working set.
+ * @brief Solve the optimization problem for the actual working set.
  *
  * Based on Platt's SMO [1], using improvements from Keerthy and Shevade [2].
  * A concise summary of the math can be found in Appendix A1 of [3].
@@ -57,7 +57,7 @@ namespace SVM {
  *     -y_i + y_i Q_{i,j} \alpha_j.
  * \f]
 
- * The Karush-Kuhn-Tucker conditions are necesary and sufficient for optimality.
+ * The Karush-Kuhn-Tucker conditions are necessary and sufficient for optimality.
  * According to [2], the conditions simplify to
  * \f[ \beta \le f_i, \forall i \in I_\mathrm{upper}, \quad
  *     \beta \ge f_i \forall i \in I_\mathrm{lower}. \f]
@@ -101,7 +101,7 @@ namespace SVM {
  * values (WS and outside WS) f should be updated using the delta_alpha output
  * parameter.
  *
- * For SVR, we do the same steps to solve the probelm. The difference is the
+ * For SVR, we do the same steps to solve the problem. The difference is the
  * optimization objective (W), which enters only as the initial value of f:
  *
  * \f[
@@ -155,10 +155,10 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     typename BlockReduceFloat::TempStorage single;
   } temp_storage;
 
-  // From Platt [1]: "Under unusual circumtances \eta will not be positive.
+  // From Platt [1]: "Under unusual circumstances \eta will not be positive.
   // A negative \eta will occur if the kernel K does note obey Mercer's
   // condition [...]. A zero \eta can occur even with a correct kernel, if more
-  // than one training exampe has the input vector x." We set a lower limit to
+  // than one training example has the input vector x." We set a lower limit to
   // \eta, to ensure correct behavior of SMO.
   constexpr math_t ETA_EPS = 1.0e-12;  // minimum value for \eta
 
@@ -278,11 +278,11 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   alpha[idx] = a;
   if (idx < n_rows) {
     delta_alpha[k_col_idx] = (a - a_save) * y;
-    // it is actuall y * \Delta \alpha
+    // it is actually y * \Delta \alpha
     // For SVC, this is equivalent with: delta_alpha[tid] = (a - a_save) * y;
   }
   if (svmType == EPSILON_SVR) {
-    // for SVR we can have two vectors with the same kerel value, we sum up
+    // for SVR we can have two vectors with the same kernel value, we sum up
     // their change in delta_alpha
     __syncthreads();
     if (idx >= n_rows) {

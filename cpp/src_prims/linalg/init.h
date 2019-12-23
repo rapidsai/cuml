@@ -26,7 +26,7 @@ namespace LinAlg {
 namespace {
 
 /**
- * Like Python range.
+ * @brief Like Python range.
  *
  * Fills the output as out[i] = i.
  *
@@ -44,7 +44,7 @@ void range(T *out, int start, int end, cudaStream_t stream) {
 }
 
 /**
- * Like Python range.
+ * @brief Like Python range.
  *
  * Fills the output as out[i] = i.
  *
