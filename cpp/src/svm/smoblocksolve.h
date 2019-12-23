@@ -34,7 +34,7 @@ namespace SVM {
  * A concise summary of the math can be found in Appendix A1 of [3].
  * We solve the QP subproblem for the vectors in the working set (WS).
  *
- * Let us first discuss classification:
+ * Let us first discuss classification (C-SVC):
  *
  * We would like to maximize the following quantity
  * \f[ W(\mathbf{\alpha}) = -\mathbf{\alpha}^T \mathbf{1}
@@ -102,7 +102,15 @@ namespace SVM {
  * parameter.
  *
  * For SVR, we do the same steps to solve the probelm. The difference is the
- * optimization objective, which enters only as the initial value of f.
+ * optimization objective (W), which enters only as the initial value of f:
+ *
+ * \f[
+ * W(\alpha^+, \alpha^-) =
+ * \epsilon \sum_{i=1}^l (\alpha_i^+ + \alpha_i^-)
+ * - \sum_{i=1}^l yc_i (\alpha_i^+ - \alpha_i^-)
+ * + \frac{1}{2} \sum_{i,j=1}^l
+ *   (\alpha_i^+ - \alpha_i^-)(\alpha_j^+ - \alpha_j^-) K(\bm{x}_i, \bm{x}_j)
+ * \f]
  *
  * References:
  * - [1] J. C. Platt Sequential Minimal Optimization: A Fast Algorithm for
@@ -130,12 +138,15 @@ namespace SVM {
  * @param [out] return_buff, two valies are returned: duality gap and the number
  *   of iterations
  * @param [in] max_iter maximum number of iterations
+ * @param [in] svmType type of the SVM problem to solve
+ * @param [in] kColIdx column index map for the kernel tile, size [n_ws]
  */
 template <typename math_t, int WSIZE>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   math_t *y_array, int n_train, math_t *alpha, int n_ws, math_t *delta_alpha,
-  math_t *f_array, math_t *kernel, int *ws_idx, math_t C, math_t eps,
-  math_t *return_buff, int max_iter = 10000, SvmType svmType = C_SVC) {
+  math_t *f_array, const math_t *kernel, const int *ws_idx, math_t C,
+  math_t eps, math_t *return_buff, int max_iter = 10000,
+  SvmType svmType = C_SVC, const int *kColIdx = nullptr) {
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
   typedef cub::BlockReduce<Pair, WSIZE> BlockReduce;
   typedef cub::BlockReduce<math_t, WSIZE> BlockReduceFloat;
@@ -157,11 +168,23 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
 
   __shared__ math_t tmp_u, tmp_l;
   __shared__ math_t Kd[WSIZE];  // diagonal elements of the kernel matrix
+  __shared__ int k_col_idx_map[WSIZE];
+  __shared__ int k_col_idx_u, k_col_idx_l;
 
   int tid = threadIdx.x;
   int idx = ws_idx[tid];
   int n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
-  int kidx = (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
+
+  // Consult KernelCache::GetTile for the layout of the kernel matrix
+  // kernel matrix row and colums indices for workspace vector ws_idx[tid]
+  // k_row_idx \in [0..n_rows-1]
+  int k_row_idx =
+    (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
+  // k_col_idx \in [0..n_unique-1]
+  int k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
+
+  k_col_idx_map[tid] = k_col_idx;
+
   // store values in registers
   math_t y = y_array[idx];
   math_t f = f_array[idx];
@@ -170,7 +193,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 
-  Kd[tid] = kernel[tid * n_rows + kidx];
+  Kd[tid] = kernel[k_row_idx + k_col_idx * n_rows];
   int n_iter = 0;
 
   for (; n_iter < max_iter; n_iter++) {
@@ -181,11 +204,13 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     if (tid == 0) {
       f_u = res.val;
       u = res.key;
+      k_col_idx_u = k_col_idx_map[u];
     }
     // select f_max to check stopping condition
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
     __syncthreads();  // needed because we are reusing the shared memory buffer
-    math_t Kui = kernel[u * n_rows + kidx];
+                      // and also the k_col_idx_u shared value
+    math_t Kui = kernel[k_col_idx_u * n_rows + k_row_idx];
     math_t f_max =
       BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
 
@@ -212,9 +237,10 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     res = BlockReduce(temp_storage.pair).Reduce(pair, cub::Max(), n_ws);
     if (tid == 0) {
       l = res.key;
+      k_col_idx_l = k_col_idx_map[l];
     }
     __syncthreads();
-    math_t Kli = kernel[l * n_rows + kidx];
+    math_t Kli = kernel[k_col_idx_l * n_rows + k_row_idx];
 
     // Update alpha
     // Let's set q = \frac{f_l - f_u}{\eta_{ul}
@@ -240,16 +266,29 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     }
     __syncthreads();
     math_t q = min(tmp_u, tmp_l);
-    int in_u = in_upper(a, y, C);
-    int in_l = in_lower(a, y, C);
-    math_t eta_ui_dbg = max(Kd[tid] + Kd[u] - 2 * Kui, ETA_EPS);
     if (threadIdx.x == u) a += q * y;
     if (threadIdx.x == l) a -= q * y;
     f += q * (Kui - Kli);
+    if (q == 0) {
+      // Probably fp underflow
+      break;
+    }
   }
   // save results to global memory before exit
   alpha[idx] = a;
-  delta_alpha[tid] = (a - a_save) * y;  // it is actuall y * \Delta \alpha
+  if (idx < n_rows) {
+    delta_alpha[k_col_idx] = (a - a_save) * y;
+    // it is actuall y * \Delta \alpha
+    // For SVC, this is equivalent with: delta_alpha[tid] = (a - a_save) * y;
+  }
+  if (svmType == EPSILON_SVR) {
+    // for SVR we can have two vectors with the same kerel value, we sum up
+    // their change in delta_alpha
+    __syncthreads();
+    if (idx >= n_rows) {
+      delta_alpha[k_col_idx] += (a - a_save) * y;
+    }
+  }
   // f is recalculated in f_update, therefore we do not need to save that
   return_buff[1] = n_iter;
 }

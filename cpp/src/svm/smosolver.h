@@ -33,6 +33,7 @@
 #include "matrix/kernelparams.h"
 #include "smo_sets.h"
 #include "smoblocksolve.h"
+#include "utils.h"
 #include "workingset.h"
 #include "ws_util.h"
 
@@ -118,7 +119,7 @@ class SmoSolver {
     n_ws = ws.GetSize();
     Initialize(&y, n_rows, n_cols);
     KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel,
-                              cache_size);
+                              cache_size, svmType, verbose);
     // Init counters
     max_outer_iter = GetDefaultMaxIter(n_train, max_outer_iter);
     int n_iter = 0;
@@ -132,18 +133,18 @@ class SmoSolver {
         cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
       ws.Select(f.data(), alpha.data(), y, C);
 
-      math_t *cacheTile = cache.GetTile(ws.GetVecIndices());
-
+      math_t *cacheTile = cache.GetTile(ws.GetIndices());
       SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(
         y, n_train, alpha.data(), n_ws, delta_alpha.data(), f.data(), cacheTile,
-        ws.GetIndices(), C, tol, return_buff.data(), max_inner_iter, svmType);
-      // should pass GetVecIndices too, and use that for kernel lookup
+        cache.GetWsIndices(), C, tol, return_buff.data(), max_inner_iter,
+        svmType, cache.GetColIdxMap());
 
       CUDA_CHECK(cudaPeekAtLastError());
 
       MLCommon::updateHost(host_return_buff, return_buff.data(), 2, stream);
 
-      UpdateF(f.data(), n_rows, delta_alpha.data(), n_ws, cacheTile);
+      UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(),
+              cacheTile);
 
       CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -184,8 +185,8 @@ class SmoSolver {
    */
   void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
                const math_t *cacheTile) {
-    math_t one =
-      1;  // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
+    // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
+    math_t one = 1;
     CUBLAS_CHECK(MLCommon::LinAlg::cublasgemv(
       handle.getCublasHandle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
       n_rows, delta_alpha, 1, &one, f, 1, stream));
