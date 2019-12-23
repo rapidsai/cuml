@@ -156,5 +156,37 @@ DI void mseGain(DataT* spred, IdxT* scount, DataT* sbins,
   }
 }
 
+/**
+ * @brief Compute gain based on MAE
+ * @param spred left/right child sum of abs diff of prediction for all bins
+ *              (len = 2 x bins)
+ * @param spredP parent's sum of abs diff of prediction for all bins
+ *               (len = 2 x bins)
+ * @param scount left child count for all bins (len = nbins)
+ * @param sbins quantiles for the current column (len = nbins)
+ * @param sp will contain the per-thread best split so far
+ * @param col current column
+ * @param len total number of samples for the current node to be split
+ * @param nbins number of bins
+ */
+template <typename DataT, typename IdxT>
+DI void maeGain(DataT* spred, DataT* spredP, IdxT* scount, DataT* sbins,
+                Split<DataT, IdxT>& sp, IdxT col, IdxT len, IdxT nbins) {
+  auto invlen = DataT(1.0) / len;
+  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    auto nLeft = scount[i];
+    auto nRight = len - nLeft;
+    DataT gain = spredP[i];
+    if (nLeft != 0) {
+      gain -= spred[i];
+    }
+    if (nRight != 0) {
+      gain -= spred[i + nbins];
+    }
+    gain *= invlen;
+    sp.update({sbins[i], col, gain, nLeft});
+  }
+}
+
 }  // namespace DecisionTree
 }  // namespace ML

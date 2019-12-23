@@ -311,11 +311,11 @@ __global__ void computeSplitClassificationKernel(
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
-  DataT* pred, IdxT* count, IdxT nbins, IdxT max_depth, IdxT min_rows_per_node,
-  IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
-  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits, void* workspace,
-  CRITERION splitType) {
+  DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
+  IdxT max_depth, IdxT min_rows_per_node, IdxT max_leaves,
+  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
+  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
+  Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -330,6 +330,10 @@ __global__ void computeSplitRegressionKernel(
   auto* spred = reinterpret_cast<DataT*>(smem);
   auto* scount = reinterpret_cast<int*>(spred + len);
   auto* sbins = reinterpret_cast<DataT*>(scount + nbins);
+  // used only for MAE criterion
+  auto* spred2 = reinterpret_cast<DataT*>(sbins + nbins);
+  auto* spred2P = reinterpret_cast<DataT*>(spred2 + len);
+  auto* spredP = reinterpret_cast<DataT*>(spred2P + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
@@ -366,6 +370,57 @@ __global__ void computeSplitRegressionKernel(
   }
   __threadfence();  // for commit guarantee
   __syncthreads();
+  // for MAE computation, we'd need a 2nd pass over data :(
+  if (splitType == CRITERION::MAE) {
+    MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
+    gs.sync();
+    // compute the mean value
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      scount[i] = count[gcOffset + i];
+      spred2P[i] = DataT(0.0);
+    }
+    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+      spred[i] = pred[gOffset + i];
+      spred2[i] = DataT(0.0);
+    }
+    __syncthreads();
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      spredP[i] = spred[i] + spred[i + nbins];
+    }
+    __syncthreads();
+    auto invlen = DataT(1.0) / range_len;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      auto cnt_l = DataT(scount[i]);
+      auto cnt_r = DataT(range_len - scount[i]);
+      spred[i] /= cnt_l;
+      spred[i + nbins] /= cnt_r;
+      spredP[i] *= invlen;
+    }
+    __syncthreads();
+    // 2nd pass over data to compute MAE
+    for (auto i = range_start + tid; i < end; i += stride) {
+      auto row = input.rowids[i];
+      auto d = input.data[row + coloffset];
+      auto label = input.labels[row];
+      for (IdxT b = 0; b < nbins; ++b) {
+        auto isRight = d > sbins[b];  // no divergence
+        auto offset = isRight * nbins + b;
+        auto diff = label - isRight ? spred[nbins + b] : spred[b];
+        atomicAdd(spred2 + offset, MLCommon::myAbs(diff));
+        atomicAdd(spred2P + b, MLCommon::myAbs(label - spredP[b]));
+      }
+    }
+    __syncthreads();
+    // update the corresponding global location
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      atomicAdd(pred2P + gcOffset + i, spred2P[i]);
+    }
+    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+      atomicAdd(pred2 + gOffset + i, spred2[i]);
+    }
+    __threadfence();  // for commit guarantee
+    __syncthreads();
+  }
   // last threadblock will go ahead and compute the best split
   bool last = true;
   if (gridDim.x > 1) {
@@ -373,19 +428,27 @@ __global__ void computeSplitRegressionKernel(
                                 gridDim.x, blockIdx.x == 0, smem);
   }
   if (!last) return;
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    spred[i] = pred[gOffset + i];
-  }
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    scount[i] = count[gcOffset + i];
-  }
+  // last block computes the final gain
   Split<DataT, IdxT> sp;
   sp.init();
-  __syncthreads();
   if (splitType == CRITERION::MSE) {
+    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+      spred[i] = pred[gOffset + i];
+    }
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      scount[i] = count[gcOffset + i];
+    }
+    __syncthreads();
     mseGain(spred, scount, sbins, sp, col, range_len, nbins);
   } else {
-    ///@todo: support
+    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+      spred2[i] = pred2[gOffset + i];
+    }
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      spred2P[i] = pred2P[gcOffset + i];
+    }
+    __syncthreads();
+    maeGain(spred2, spred2P, scount, sbins, sp, col, range_len, nbins);
   }
   __syncthreads();
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
