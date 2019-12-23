@@ -34,7 +34,7 @@ struct svmModel {
 
   //! Support vectors in column major format. Size [n_support x n_cols].
   math_t *x_support;
-  //! Indices (from the traning set) of the support vectors, size [n_support].
+  //! Indices (from the training set) of the support vectors, size [n_support].
   int *support_idx;
 
   int n_classes;  //!< Number of classes found in the input labels

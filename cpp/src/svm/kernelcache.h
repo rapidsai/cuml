@@ -40,7 +40,7 @@ namespace {  // unnamed namespace to avoid multiple definition error
  *
  * @param [in] ws array with working set indices, size [n_ws]
  * @param [in] n_ws number of elements in the working set
- * @param [in] n_rows number of rows in th original problem.
+ * @param [in] n_rows number of rows in the original problem
  * @param [in] unique array of unique vectors in the working set
  */
 __global__ void mapColumnIndices(const int *ws, int n_ws, int n_rows,
@@ -154,12 +154,12 @@ class KernelCache {
    * The kernel matrix values are the same for x_i and x_{i+n_rows}, therefore
    * we store only kernel[row_id, col_id] for row_id \in [0..n_rows].
    *
-   * Similarily, it can happen that two elements in the working set have the
+   * Similarly, it can happen that two elements in the working set have the
    * same x vector. For example, if n_rows=10, then for ws = [5, 19, 15 0], the
    * first and third vectors are the same (x_5==x_15), therefore the
    * corresponding. columns in the kernel tile would be identical. We do not
    * store these duplicate columns for the kernel matrix. The size of the
-   * kernel matix is [n_rows * n_unique], where n_unique = 3 for our example.
+   * kernel matrix is [n_rows * n_unique], where n_unique = 3 for our example.
    *
    * We map the working set indices to unique column indices using the k_col_idx
    * array. For the above example:  k_col_idx = [0, 1, 0, 2], i.e. the third vec
@@ -217,7 +217,7 @@ class KernelCache {
 
   /** Map workspace indices to kernel matrix indices.
   *
-  * The kernel matrix will is matrix of K[i+j*n_rows] = K(x_i, x_j), where
+  * The kernel matrix is matrix of K[i+j*n_rows] = K(x_i, x_j), where
   * i \in [0..n_rows-1], and j=[0..n_unique-1]
   *
   * The SmoBlockSolver needs to know where to find the kernel values that
@@ -262,7 +262,7 @@ class KernelCache {
       return unique_idx.data();
     } else {  // EPSILON_SVR
       // return the original working set elements. These are mapped to the
-      // kernel tile colums by GetColIdxMap()
+      // kernel tile columns by GetColIdxMap()
       return ws_idx;
     }
   }

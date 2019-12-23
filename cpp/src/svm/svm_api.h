@@ -34,7 +34,7 @@ extern "C" {
  * @param [in] input device pointer for the input data in column major format.
  *   Size n_rows x n_cols.
  * @param [in] n_rows number of rows
- * @param [in] n_cols number of colums
+ * @param [in] n_cols number of columns
  * @param [in] labels device pointer for the labels. Size n_rows.
  * @param [in] C penalty term
  * @param [in] cache_size size of kernel cache in device memory (MiB)
@@ -88,7 +88,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
  * @param [in] input device pointer for the input data in column major format.
  *   Size n_rows x n_cols.
  * @param [in] n_rows number of rows
- * @param [in] n_cols number of colums
+ * @param [in] n_cols number of columns
  * @param [in] kernel type of kernel (LINEAR, POLYNOMIAL, RBF or TANH)
  * @param [in] degree of polynomial kernel (ignored by others)
  * @param [in] gamma multiplier in the RBF, POLYNOMIAL and TANH kernels
