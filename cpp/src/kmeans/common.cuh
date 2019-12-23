@@ -331,7 +331,7 @@ void minClusterAndDistance(
         centroids.template view<2>({nc, n_features}, {cIdx, 0});
 
       if (metric == MLCommon::Distance::EucExpandedL2 ||
-          MLCommon::Distance::EucExpandedL2Sqrt) {
+          metric == MLCommon::Distance::EucExpandedL2Sqrt) {
         auto centroidsNormView = centroidsNorm.template view<1>({nc}, {cIdx});
         workspace.resize((sizeof(int)) * ns, stream);
 
