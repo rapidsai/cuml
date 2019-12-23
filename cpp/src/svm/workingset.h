@@ -78,7 +78,6 @@ class WorkingSet {
       f_sorted(handle.getDeviceAllocator(), stream),
       idx_tmp(handle.getDeviceAllocator(), stream),
       idx(handle.getDeviceAllocator(), stream),
-      vec_idx(handle.getDeviceAllocator(), stream),
       ws_idx_sorted(handle.getDeviceAllocator(), stream),
       ws_idx_selected(handle.getDeviceAllocator(), stream),
       ws_idx_save(handle.getDeviceAllocator(), stream),
@@ -119,26 +118,6 @@ class WorkingSet {
    * The returned array is owned by WorkingSet.
    */
   int *GetIndices() { return idx.data(); }
-
-  /** Get the original training vector idx.
-   *
-   * For SVC this is the same as GetIndices, for SVR we have duplicate set
-   * of training vectors, we return the original idx, which is simply
-   * ws_idx % n_rows. The returned array is owned by WorkingSet.
-   *
-   * Return device pointer with values GetIndices() % n_rows
-  */
-  int *GetVecIndices() {
-    if (svmType == EPSILON_SVR) {
-      int n = n_rows;
-      MLCommon::LinAlg::unaryOp(
-        vec_idx.data(), idx.data(), n_ws,
-        [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
-      return vec_idx.data();
-    } else {
-      return idx.data();
-    }
-  }
 
   /**
    * Select new elements for a working set.
@@ -232,7 +211,7 @@ class WorkingSet {
     int nc = n_ws / 4;
     int n_selected = 0;
     if (firstcall) {
-      if (nc>=1) {
+      if (nc >= 1) {
         firstcall = false;
       } else {
         // This can only happen for n_ws < 4.
@@ -306,7 +285,8 @@ class WorkingSet {
   cudaStream_t stream;
 
   bool firstcall = true;
-  int n_train = 0;  ///< number of training vectors (including duplicates for SVR)
+  int n_train =
+    0;  ///< number of training vectors (including duplicates for SVR)
   int n_rows = 0;  ///< number of original training vectors (no duplicates)
   int n_ws = 0;
 
@@ -325,8 +305,7 @@ class WorkingSet {
   MLCommon::device_buffer<bool> available_sorted;
 
   // working set buffers size [n_ws]
-  MLCommon::device_buffer<int> idx;      //!< Indices of the worknig set
-  MLCommon::device_buffer<int> vec_idx;  //!< Training vector indices
+  MLCommon::device_buffer<int> idx;  //!< Indices of the worknig set
   MLCommon::device_buffer<int> ws_idx_sorted;
   MLCommon::device_buffer<int> ws_idx_selected;
   MLCommon::device_buffer<int> ws_idx_save;
@@ -366,9 +345,6 @@ class WorkingSet {
                             d_num_selected, n_train, dummy_select_op, stream);
       cub_bytes = max(cub_bytes, cub_bytes2);
       cub_storage.resize(cub_bytes, stream);
-      if (svmType == EPSILON_SVR) {
-        vec_idx.resize(n_ws, stream);
-      }
       Initialize();
     }
   }
