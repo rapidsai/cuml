@@ -29,6 +29,7 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.common.base import Base
+from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
@@ -249,7 +250,6 @@ class SVR(SvmBase):
 
         return self
 
-
     def predict(self, X):
         """
         Predicts the values for X.
@@ -268,3 +268,27 @@ class SVR(SvmBase):
         """
 
         return super(SVR, self).predict(X, False)
+
+    def score(self, X, y):
+        """
+        Return R^2 score of the prediction.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of target values.
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        score: float R^2 score
+        """
+
+        y_hat = self.predict(X)
+        return r2_score(y, y_hat)
