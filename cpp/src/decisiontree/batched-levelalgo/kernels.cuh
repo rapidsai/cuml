@@ -372,9 +372,10 @@ __global__ void computeSplitRegressionKernel(
   __syncthreads();
   // for MAE computation, we'd need a 2nd pass over data :(
   if (splitType == CRITERION::MAE) {
+    // wait until all blockIdx.x's are done
     MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
     gs.sync();
-    // compute the mean value
+    // now, compute the mean value to be used for MAE update
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       scount[i] = count[gcOffset + i];
       spred2P[i] = DataT(0.0);
@@ -397,7 +398,7 @@ __global__ void computeSplitRegressionKernel(
       spredP[i] *= invlen;
     }
     __syncthreads();
-    // 2nd pass over data to compute MAE
+    // 2nd pass over data to compute partial MAE's across blockIdx.x's
     for (auto i = range_start + tid; i < end; i += stride) {
       auto row = input.rowids[i];
       auto d = input.data[row + coloffset];
@@ -405,7 +406,7 @@ __global__ void computeSplitRegressionKernel(
       for (IdxT b = 0; b < nbins; ++b) {
         auto isRight = d > sbins[b];  // no divergence
         auto offset = isRight * nbins + b;
-        auto diff = label - isRight ? spred[nbins + b] : spred[b];
+        auto diff = label - (isRight ? spred[nbins + b] : spred[b]);
         atomicAdd(spred2 + offset, MLCommon::myAbs(diff));
         atomicAdd(spred2P + b, MLCommon::myAbs(label - spredP[b]));
       }
