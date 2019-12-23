@@ -314,7 +314,7 @@ __global__ void computeSplitRegressionKernel(
   DataT* pred, DataT* predP, IdxT* count, IdxT nbins, IdxT max_depth,
   IdxT min_rows_per_node, IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
   const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits,
+  int* mutex, const IdxT* n_leaves, Split<DataT, IdxT>* splits, void* workspace,
   CRITERION splitType) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;

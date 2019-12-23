@@ -410,7 +410,8 @@ struct RegTraits {
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.predP, b.pred_count, b.params.n_bins, b.params.max_depth,
         b.params.min_rows_per_node, b.params.max_leaves, b.input, b.curr_nodes,
-        col, b.done_count, b.mutex, b.n_leaves, b.splits, splitType);
+        col, b.done_count, b.mutex, b.n_leaves, b.splits, b.block_sync,
+        splitType);
   }
 
   /**
