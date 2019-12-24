@@ -71,6 +71,7 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
 		  float *intercept,
 		  bool fit_intercept,
 		  bool normalize,
+                  int algo,
 		  bool verbose) except +
 
     cdef void fit(cumlHandle& handle,
@@ -84,6 +85,7 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
 		  double *intercept,
 		  bool fit_intercept,
 		  bool normalize,
+                  int algo,
 		  bool verbose) except +
 
     cdef void predict(cumlHandle& handle,
@@ -238,6 +240,7 @@ class LinearRegressionMG(LinearRegression):
                 <float*>&c_intercept1,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
+                <int>self.algo,
                 False)
             
             self.intercept_ = c_intercept1
@@ -257,6 +260,7 @@ class LinearRegressionMG(LinearRegression):
                 <double*>&c_intercept2,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
+                <int>self.algo,
                 False) 
 
             self.intercept_ = c_intercept2
