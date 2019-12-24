@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #1411: Cython side of MNMG OLS
+
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 
