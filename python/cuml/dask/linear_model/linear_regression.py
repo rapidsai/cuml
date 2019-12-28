@@ -93,7 +93,15 @@ class LinearRegression(object):
     def _func_get_size(df):
         return df.shape[0]
 
-    def fit(self, X, y):         
+    def fit(self, X, y):        
+        """
+        Fit the model with X and y.
+
+        Parameters
+        ----------
+        X : dask cuDF input
+        y : dask cuDF input
+        """ 
         input_futures = self.client.sync(extract_colocated_ddf_partitions, X, y, self.client)
         workers = list(input_futures.keys())
 
@@ -149,6 +157,14 @@ class LinearRegression(object):
         self.coef_ = self.local_model.coef_
 
     def predict(self, X):
+        """
+        Make predictions for X and returns a y_pred.
+
+        Parameters
+        ----------
+        X : dask cuDF input
+        y_pred : dask cuDF input
+        """ 
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         worker_to_parts = OrderedDict()
