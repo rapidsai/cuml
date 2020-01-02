@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #1411: Cython side of MNMG OLS
+- PR #1526: Cython side of MNMG Coordinate Descent for Lasso and Elastic-Net
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
