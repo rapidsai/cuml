@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #1411: Cython side of MNMG OLS
+- PR #1520: Cython side of MNMG Ridge Regression
 
 ## Improvements
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
