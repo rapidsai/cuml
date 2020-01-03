@@ -50,7 +50,7 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
   } else {
     for (int i = 0; i < n_nodes; i++) {
       std::vector<unsigned int> temp(feature_selector);
-      //std::shuffle(temp.begin(), temp.end(), rng);
+      std::shuffle(temp.begin(), temp.end(), rng);
       memcpy(&h_colids[i * ncols_sampled], temp.data(),
              ncols_sampled * sizeof(unsigned int));
     }
