@@ -377,6 +377,32 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
+    def _convert_to_treelite(self, task_category, model_pbuf_bytes):
+        
+        cdef ModelHandle cuml_model_ptr = NULL
+        task_category = 2
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        build_treelite_forest(& cuml_model_ptr,
+                              rf_forest,
+                              <int> self.n_cols,
+                              <int> task_category,
+                              <vector[unsigned char] &> model_pbuf_bytes)
+        mod_ptr = <size_t> cuml_model_ptr
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return treelite_handle
+
+    ####### This will run very time the user calls predict
+    ####### call this function seperatly so that the converted model is passed in place of it being converted
+    def _convert_to_fil(treelite_handle, output_class, threshold, algo):
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(treelite_handle,
+                                             output_class=output_class,
+                                             threshold=threshold,
+                                             algo=algo)
+        return tl_to_fil_model
+
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
@@ -481,7 +507,7 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype):
+                              num_classes, convert_dtype, fil_model):
         cdef ModelHandle cuml_model_ptr = NULL
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
@@ -492,20 +518,7 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> n_cols,
-                              <int> num_classes,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <size_t> cuml_model_ptr
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo)
-        preds = tl_to_fil_model.predict(X_m)
+        preds = fil_model.predict(X_m)
         del(X_m)
         return preds
 

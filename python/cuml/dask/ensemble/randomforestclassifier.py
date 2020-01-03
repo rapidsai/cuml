@@ -17,6 +17,7 @@
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
+from cuml import ForestInference
 import cudf
 
 from dask.distributed import default_client, wait
@@ -25,7 +26,9 @@ import random
 import numpy as np
 
 from uuid import uuid1
+from itertools import chain
 
+import pdb
 
 class RandomForestClassifier:
     """
@@ -110,7 +113,7 @@ class RandomForestClassifier:
     Examples
     ---------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/random_forest_demo_mnmg.ipynb
     """
 
     def __init__(
@@ -234,6 +237,7 @@ class RandomForestClassifier:
 
         wait(rfs_wait)
         raise_exception_from_futures(rfs_wait)
+        self.concat_model_bytes = []
 
     @staticmethod
     def _func_build_rf(
@@ -278,6 +282,7 @@ class RandomForestClassifier:
 
     @staticmethod
     def _fit(model, X_df_list, y_df_list, r):
+        print("dtype of X: ", type(X_df_list))
         if len(X_df_list) != len(y_df_list):
             raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
                              len(X_df_list), len(y_df_list))
@@ -287,11 +292,120 @@ class RandomForestClassifier:
         else:
             X_df = cudf.concat(X_df_list)
             y_df = cudf.concat(y_df_list)
+        #print(model.print_summary())
         return model.fit(X_df, y_df)
 
     @staticmethod
     def _predict(model, X, r):
-        return model._predict_get_all(X)
+        #print(model.print_summary())
+        return model._predict_model_on_gpu(X).copy_to_host()
+
+    @staticmethod
+    def _print_summary(model):
+        model.print_summary()
+
+    @staticmethod
+    def _convert_to_tl(model, model_bytes):
+        return model._convert_to_treelite(task_category=1,
+                                          model_pbuf_bytes=model_bytes)
+
+    @staticmethod
+    def _get_model_info(model):
+        return model._get_model_info()
+
+    def get_model_info(self):
+        """
+        get the model information, convert it to model bytes
+        """
+        c = default_client()
+        futures = list()
+        workers = self.workers
+        worker_numb = -1
+        for n, w in enumerate(workers):
+            worker_numb = worker_numb + 1
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._get_model_info,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+
+        ### this was for concatenating the model bytes obtained when converting
+        ### cuML -> TL -> model_bytes
+
+        mod_bytes = list()
+        for d in range(len(futures)):
+            mod_bytes.append(futures[d].result())
+            print("len mod_bytes in dask : ", len(mod_bytes[d]))
+
+        self.concat_model_bytes = list(chain.from_iterable(mod_bytes))
+        print("len concat_model_bytes in dask : ", len(self.concat_model_bytes))
+
+        return self.concat_model_bytes
+
+    def print_summary(self):
+        """
+        prints the summary of the forest used to train and test the model
+        """
+        c = default_client()
+        futures = list()
+        workers = self.workers
+
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._print_summary,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+        return self
+
+    def convert_to_treelite(self):
+        """
+        prints the summary of the forest used to train and test the model
+        """
+        ### check if i can create the protobuf models and then either convert them to model bytes 
+        ### OR
+        ### create a new function to concatenate the treelite info or protobuf files together
+
+        ### check if this has to be updated for the treelite (normal FIL predict) approach as we combine 
+        ### the split worker model info.
+        ### in pickling we keep the worker cuML model info separate and then convert it to tl -> pbuf -> model bytes 
+        ### combine the model bytes info and pass it to the different workers and then split the predict data and get the results.
+        c = default_client()
+        futures = list()
+
+        concat_model_bytes = self.get_model_info()
+
+        w = [i for i in self.workers]
+        futures.append(
+            c.submit(
+                RandomForestClassifier._convert_to_tl,
+                self.rfs[w[0]],
+                concat_model_bytes,
+                workers=[w[0]],
+            )
+        )
+
+        wait(futures)
+        #print(" futures in convert_to_treelite_mnmg: ", futures)
+        raise_exception_from_futures(futures)
+
+        rslts = list()
+        for d in range(len(futures)):
+            rslts.append(futures[d].result())
+
+        print("rslts : ", rslts)
+        return rslts
+
 
     def fit(self, X, y):
         """
@@ -351,9 +465,11 @@ class RandomForestClassifier:
             """ % (str(X_partition_workers),
                    str(y_partition_workers),
                    str(self.workers)))
+        print(" self.workers in fit : ", self.workers)
 
         futures = list()
         for w, xc in X_futures.items():
+            print(" w in fit for loop : ", w)
             futures.append(
                 c.submit(
                     RandomForestClassifier._fit,
@@ -391,15 +507,31 @@ class RandomForestClassifier:
 
         if not isinstance(X, np.ndarray):
             raise ValueError("Predict inputs must be numpy arrays")
+        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
 
-        X_Scattered = c.scatter(X)
+        X_partition_workers = [w for w, xc in X_futures.items()]
+
+        if set(X_partition_workers) != set(self.workers):
+            raise ValueError("""
+              X is not partitioned on the same workers expected by RF\n
+              X workers: %s\n
+              y workers: %s\n
+              RF workers: %s
+              """)
+        #X_Scattered = c.scatter(X)
         futures = list()
+
+        concat_conv_tree = self.convert_to_treelite()
+
+        fil_model = self.convert_to_fil()
+
+        print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
         for n, w in enumerate(workers):
             futures.append(
                 c.submit(
                     RandomForestClassifier._predict,
-                    self.rfs[w],
                     X_Scattered,
+                    fil_model,
                     random.random(),
                     workers=[w],
                 )
@@ -414,30 +546,7 @@ class RandomForestClassifier:
             rslts.append(futures[d].result())
             indexes.append(0)
 
-        pred = list()
-
-        for i in range(len(X)):
-            classes = dict()
-            max_class = -1
-            max_val = 0
-
-            for d in range(len(rslts)):
-                for j in range(self.n_estimators_per_worker[d]):
-                    sub_ind = indexes[d] + j
-                    cls = rslts[d][sub_ind]
-                    if cls not in classes.keys():
-                        classes[cls] = 1
-                    else:
-                        classes[cls] = classes[cls] + 1
-
-                    if classes[cls] > max_val:
-                        max_val = classes[cls]
-                        max_class = cls
-
-                indexes[d] = indexes[d] + self.n_estimators_per_worker[d]
-
-            pred.append(max_class)
-        return pred
+        return rslts
 
     def get_params(self, deep=True):
         """
