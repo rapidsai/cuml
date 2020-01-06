@@ -351,7 +351,7 @@ void cumlStdCommunicator_impl::waitall(int count,
   while (requests.size() > 0) {
     for (std::vector<struct ucx_context *>::iterator it = requests.begin();
          it != requests.end();) {
-      ucp_worker_progress(_ucp_worker);
+      ucp_progress(_ucp_handle, _ucp_worker);
 
       auto req = *it;
       if (req->completed == 1) {
