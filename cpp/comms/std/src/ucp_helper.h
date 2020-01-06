@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <dlfcn.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 
@@ -49,6 +50,28 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag, ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
 
+  void *handle = dlopen("libucp.so", RTLD_LAZY);
+
+  if (!handle) {
+    fprintf(stderr, "Cannot open UCX library: %s\n", dlerror());
+    exit(1);
+  }
+
+  dlerror();
+
+  ucs_status_t (*send_func)(ucp_ep_h ep, const void *buffer, size_t count,
+                            ucp_datatype_t datatype, ucp_tag_t tag,
+                            ucp_send_callback_t cb) =
+    *(ucs_status_t(*)(ucp_ep_h ep, const void *buffer, size_t count,
+                      ucp_datatype_t datatype, ucp_tag_t tag,
+                      ucp_send_callback_t cb))dlsym(handle, "ucp_tag_send_nb");
+
+  char *error = dlerror();
+  if (error != NULL) {
+    fprintf(stderr, "Error loading function symbol: %s\n", error);
+    exit(1);
+  }
+
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
 
@@ -79,10 +102,34 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
 struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
-                              int size, int tag,  ucp_tag_t tag_mask, int sender_rank) {
+                              int size, int tag, ucp_tag_t tag_mask,
+                              int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
-  struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
+  void *handle = dlopen("libucp.so", RTLD_LAZY);
+
+  if (!handle) {
+    fprintf(stderr, "Cannot open UCX library: %s\n", dlerror());
+    exit(1);
+  }
+
+  dlerror();
+
+  ucs_status_t (*recv_func)(ucp_worker_h worker, void *buffer, size_t count,
+                            ucp_datatype_t datatype, ucp_tag_t tag,
+                            ucp_tag_t tag_mask, ucp_tag_recv_callback_t cb) =
+    (ucs_status_t(*)(ucp_worker_h worker, void *buffer, size_t count,
+                     ucp_datatype_t datatype, ucp_tag_t tag, ucp_tag_t tag_mask,
+                     ucp_tag_recv_callback_t cb))dlsym(handle,
+                                                       "ucp_tag_recv_nb");
+
+  char *error = dlerror();
+  if (error != NULL) {
+    fprintf(stderr, "Error loading function symbol: %s\n", error);
+    exit(1);
+  }
+
+  struct ucx_context *ucp_request = (struct ucx_context *)recv_func(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
