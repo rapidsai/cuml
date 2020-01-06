@@ -16,8 +16,6 @@
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
-from cuml.utils.cupy_utils import checked_cupy_fn
-
 from cuml.utils.numba_utils import row_matrix, zeros, device_array_from_ptr
 
 from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
