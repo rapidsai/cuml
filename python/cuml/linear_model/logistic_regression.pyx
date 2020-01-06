@@ -19,7 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import cupy
+import cupy as cp
 import pprint
 
 from cuml.solvers import QN
