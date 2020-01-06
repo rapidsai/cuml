@@ -38,6 +38,8 @@ static __thread ucs_status_t (*recv_func)(ucp_worker_h worker, void *buffer,
 
 static __thread void (*req_free_func)(void *request);
 
+static __thread void (*worker_progress_func)(ucp_worker_h worker);
+
 /**
  * @brief Asynchronous send callback sets request to completed
  */
@@ -69,31 +71,37 @@ void load_ucp_handle(void *handle) {
 
 void close_ucp_handle(void *handle) { dlclose(handle); }
 
+void assert_dlerror() {
+  char *error = dlerror();
+  ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
+}
+
 void load_send_func(void *ucp_handle) {
   send_func = (ucs_status_t(*)(
     ucp_ep_h ep, const void *buffer, size_t count, ucp_datatype_t datatype,
     ucp_tag_t tag, ucp_send_callback_t cb))dlsym(ucp_handle, "ucp_tag_send_nb");
-
-  char *error = dlerror();
-  ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
+  assert_dlerror();
 }
 
 void load_free_req_func(void *ucp_handle) {
   req_free_func =
     (void (*)(void *request))dlsym(ucp_handle, "ucp_request_free");
-
-  char *error = dlerror();
-  ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
+  assert_dlerror();
 }
+
+void load_worker_progress_func(void *ucp_handle) {
+  worker_progress_func =
+    (void (*)(ucp_worker_h worker))dlsym(ucp_handle, "ucp_worker_progress");
+  assert_dlerror();
+}
+
 
 void load_recv_func(void *ucp_handle) {
   recv_func = (ucs_status_t(*)(
     ucp_worker_h worker, void *buffer, size_t count, ucp_datatype_t datatype,
     ucp_tag_t tag, ucp_tag_t tag_mask,
     ucp_tag_recv_callback_t cb))dlsym(ucp_handle, "ucp_tag_recv_nb");
-
-  char *error = dlerror();
-  ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
+  assert_dlerror();
 }
 
 /**
@@ -102,6 +110,11 @@ void load_recv_func(void *ucp_handle) {
 void free_ucp_request(void *ucp_handle, void *request) {
   if (req_free_func == NULL) load_free_req_func(ucp_handle);
   req_free_func(request);
+}
+
+void ucp_progress(void* ucp_handle, ucp_worker_h worker) {
+  if (worker_progress_func == NULL) load_worker_progress_func(ucp_handle);
+  worker_progress_func(worker);
 }
 
 /**
@@ -114,7 +127,7 @@ struct ucx_context *ucp_isend(void *ucp_handle, ucp_ep_h ep_ptr,
 
   if (send_func == NULL) load_send_func(ucp_handle);
 
-  struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
+  struct ucx_context *ucp_request = (struct ucx_context *)send_func(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
