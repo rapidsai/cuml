@@ -18,8 +18,6 @@ import cupy as cp
 import numpy as np
 import warnings
 
-from cuml.utils.cupy_utils import test_numba_cupy_version_conflict
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 from numba import cuda
 from typing import Union
 
