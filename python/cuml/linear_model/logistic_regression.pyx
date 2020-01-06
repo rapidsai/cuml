@@ -19,13 +19,13 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import cupy
 import pprint
 
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
 from cuml.utils import input_to_dev_array
-from cuml.utils.cupy_utils import checked_cupy_unique
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
 
@@ -245,7 +245,7 @@ class LogisticRegression(Base):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
-        unique_labels = checked_cupy_unique(y_m)
+        unique_labels = cp.unique(y_m)
         num_classes = len(unique_labels)
 
         if num_classes > 2:
