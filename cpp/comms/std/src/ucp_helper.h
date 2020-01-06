@@ -36,6 +36,8 @@ static __thread ucs_status_t (*recv_func)(ucp_worker_h worker, void *buffer,
                                           ucp_tag_t tag, ucp_tag_t tag_mask,
                                           ucp_tag_recv_callback_t cb);
 
+static __thread void (*req_free_func)(void *request);
+
 /**
  * @brief Asynchronous send callback sets request to completed
  */
@@ -76,6 +78,14 @@ void load_send_func(void *ucp_handle) {
   ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
 }
 
+void load_free_req_func(void *ucp_handle) {
+  req_free_func = (void(*)(void *request))dlsym(ucp_handle, "ucp_request_free");
+
+  char *error = dlerror();
+  ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
+
+}
+
 void load_recv_func(void *ucp_handle) {
   recv_func = (ucs_status_t(*)(
     ucp_worker_h worker, void *buffer, size_t count, ucp_datatype_t datatype,
@@ -84,6 +94,14 @@ void load_recv_func(void *ucp_handle) {
 
   char *error = dlerror();
   ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
+}
+
+/**
+ * @brief Frees any memory underlying the given ucp request object
+ */
+void free_ucp_request(void *ucp_handle, void *request) {
+  if (req_free_func == NULL) load_free_req_func(ucp_handle);
+  req_free_func(request);
 }
 
 /**
