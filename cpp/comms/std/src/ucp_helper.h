@@ -73,10 +73,7 @@ void load_send_func(void *ucp_handle) {
     ucp_tag_t tag, ucp_send_callback_t cb))dlsym(ucp_handle, "ucp_tag_send_nb");
 
   char *error = dlerror();
-  if (error != NULL) {
-    fprintf(stderr, "Error loading function symbol: %s\n", error);
-    exit(1);
-  }
+  ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
 }
 
 void load_recv_func(void *ucp_handle) {
@@ -86,10 +83,7 @@ void load_recv_func(void *ucp_handle) {
     ucp_tag_recv_callback_t cb))dlsym(ucp_handle, "ucp_tag_recv_nb");
 
   char *error = dlerror();
-  if (error != NULL) {
-    fprintf(stderr, "Error loading function symbol: %s\n", error);
-    exit(1);
-  }
+  ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
 }
 
 /**
