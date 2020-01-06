@@ -95,7 +95,6 @@ void load_worker_progress_func(void *ucp_handle) {
   assert_dlerror();
 }
 
-
 void load_recv_func(void *ucp_handle) {
   recv_func = (ucs_status_t(*)(
     ucp_worker_h worker, void *buffer, size_t count, ucp_datatype_t datatype,
@@ -112,7 +111,7 @@ void free_ucp_request(void *ucp_handle, void *request) {
   req_free_func(request);
 }
 
-void ucp_progress(void* ucp_handle, ucp_worker_h worker) {
+void ucp_progress(void *ucp_handle, ucp_worker_h worker) {
   if (worker_progress_func == NULL) load_worker_progress_func(ucp_handle);
   worker_progress_func(worker);
 }
