@@ -59,8 +59,8 @@ void naiveBatchMakeSymm(Type *y, const Type *x, int batchSize, int n,
 }
 
 template <typename T>
-class BatchMakeSymmTest :
-    public ::testing::TestWithParam<BatchMakeSymmInputs<T>> {
+class BatchMakeSymmTest
+  : public ::testing::TestWithParam<BatchMakeSymmInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<BatchMakeSymmInputs<T>>::GetParam();
@@ -92,7 +92,8 @@ class BatchMakeSymmTest :
 };
 
 const std::vector<BatchMakeSymmInputs<float>> inputsf = {
-  {0.000001f, 128, 32, 1234ULL}, {0.000001f, 126, 32, 1234ULL},
+  {0.000001f, 128, 32, 1234ULL},
+  {0.000001f, 126, 32, 1234ULL},
   {0.000001f, 125, 32, 1234ULL},
 };
 typedef BatchMakeSymmTest<float> BatchMakeSymmTestF;
@@ -106,7 +107,8 @@ INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF,
 
 typedef BatchMakeSymmTest<double> BatchMakeSymmTestD;
 const std::vector<BatchMakeSymmInputs<double>> inputsd = {
-  {0.0000001, 128, 32, 1234ULL}, {0.0000001, 126, 32, 1234ULL},
+  {0.0000001, 128, 32, 1234ULL},
+  {0.0000001, 126, 32, 1234ULL},
   {0.0000001, 125, 32, 1234ULL},
 };
 TEST_P(BatchMakeSymmTestD, Result) {
