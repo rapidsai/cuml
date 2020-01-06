@@ -43,6 +43,18 @@ static void recv_handle(void *request, ucs_status_t status,
   context->completed = 1;
 }
 
+void load_ucp_handle(void *handle) {
+  handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
+  if (!handle) {
+    handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NODELETE);
+    if (!handle) {
+      fprintf(stderr, "Cannot open UCX library: %s\n", dlerror());
+      exit(1);
+    }
+  }
+  dlerror();
+}
+
 /**
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
@@ -50,14 +62,8 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag, ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
 
-  void *handle = dlopen("libucp.so", RTLD_LAZY);
-
-  if (!handle) {
-    fprintf(stderr, "Cannot open UCX library: %s\n", dlerror());
-    exit(1);
-  }
-
-  dlerror();
+  void *handle;
+  load_ucp_handle(handle);
 
   ucs_status_t (*send_func)(ucp_ep_h ep, const void *buffer, size_t count,
                             ucp_datatype_t datatype, ucp_tag_t tag,
@@ -106,14 +112,8 @@ struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
                               int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
-  void *handle = dlopen("libucp.so", RTLD_LAZY);
-
-  if (!handle) {
-    fprintf(stderr, "Cannot open UCX library: %s\n", dlerror());
-    exit(1);
-  }
-
-  dlerror();
+  void *handle;
+  load_ucp_handle(handle);
 
   ucs_status_t (*recv_func)(ucp_worker_h worker, void *buffer, size_t count,
                             ucp_datatype_t datatype, ucp_tag_t tag,
