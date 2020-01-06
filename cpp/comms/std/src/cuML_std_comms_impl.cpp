@@ -242,7 +242,9 @@ cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
   CUDA_CHECK_NO_THROW(cudaFree(_sendbuff));
   CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 
+#ifndef WITH_UCX
   close_ucp_handle(_ucp_handle);
+#endif
 }
 
 int cumlStdCommunicator_impl::getSize() const { return _size; }

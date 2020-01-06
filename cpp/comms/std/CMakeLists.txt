@@ -43,8 +43,6 @@ set(COMMS_LINK_LIBRARIES ${CUML_CPP_TARGET})
 
 # Note this option will be removed once UCX conda package is released
 if(WITH_UCX)
-	find_package(UCX)
-	set(COMMS_LINK_LIBRARIES ${COMMS_LINK_LIBRARIES} ${UCX_LIBRARIES})
 	include_directories(${UCX_INCLUDE_DIRS})
 	add_compile_definitions(WITH_UCX=1)
 endif(WITH_UCX)
