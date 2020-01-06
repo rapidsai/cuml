@@ -55,22 +55,23 @@ void load_ucp_handle(void *handle) {
   dlerror();
 }
 
+void close_ucp_handle(void *handle) { dlclose(handle); }
+
 /**
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
-struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
-                              int tag, ucp_tag_t tag_mask, int rank) {
+struct ucx_context *ucp_isend(void *ucp_handle, ucp_ep_h ep_ptr,
+                              const void *buf, int size, int tag,
+                              ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
-
-  void *handle;
-  load_ucp_handle(handle);
 
   ucs_status_t (*send_func)(ucp_ep_h ep, const void *buffer, size_t count,
                             ucp_datatype_t datatype, ucp_tag_t tag,
                             ucp_send_callback_t cb) =
     *(ucs_status_t(*)(ucp_ep_h ep, const void *buffer, size_t count,
                       ucp_datatype_t datatype, ucp_tag_t tag,
-                      ucp_send_callback_t cb))dlsym(handle, "ucp_tag_send_nb");
+                      ucp_send_callback_t cb))dlsym(ucp_handle,
+                                                    "ucp_tag_send_nb");
 
   char *error = dlerror();
   if (error != NULL) {
@@ -107,20 +108,17 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
 /**
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
-struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
-                              int size, int tag, ucp_tag_t tag_mask,
-                              int sender_rank) {
+struct ucx_context *ucp_irecv(void *ucp_handle, ucp_worker_h worker,
+                              ucp_ep_h ep_ptr, void *buf, int size, int tag,
+                              ucp_tag_t tag_mask, int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
-
-  void *handle;
-  load_ucp_handle(handle);
 
   ucs_status_t (*recv_func)(ucp_worker_h worker, void *buffer, size_t count,
                             ucp_datatype_t datatype, ucp_tag_t tag,
                             ucp_tag_t tag_mask, ucp_tag_recv_callback_t cb) =
     (ucs_status_t(*)(ucp_worker_h worker, void *buffer, size_t count,
                      ucp_datatype_t datatype, ucp_tag_t tag, ucp_tag_t tag_mask,
-                     ucp_tag_recv_callback_t cb))dlsym(handle,
+                     ucp_tag_recv_callback_t cb))dlsym(ucp_handle,
                                                        "ucp_tag_recv_nb");
 
   char *error = dlerror();
