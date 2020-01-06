@@ -26,6 +26,16 @@ static const ucp_tag_t any_rank_tag_mask = 0x0000FFFF;
 
 static const int UCP_ANY_RANK = -1;
 
+// Using statics here since the symbols should not change
+static __thread ucs_status_t (*send_func)(ucp_ep_h ep, const void *buffer,
+                                          size_t count, ucp_datatype_t datatype,
+                                          ucp_tag_t tag,
+                                          ucp_send_callback_t cb);
+static __thread ucs_status_t (*recv_func)(ucp_worker_h worker, void *buffer,
+                                          size_t count, ucp_datatype_t datatype,
+                                          ucp_tag_t tag, ucp_tag_t tag_mask,
+                                          ucp_tag_recv_callback_t cb);
+
 /**
  * @brief Asynchronous send callback sets request to completed
  */
@@ -57,6 +67,31 @@ void load_ucp_handle(void *handle) {
 
 void close_ucp_handle(void *handle) { dlclose(handle); }
 
+void load_send_func(void *ucp_handle) {
+  send_func = (ucs_status_t(*)(
+    ucp_ep_h ep, const void *buffer, size_t count, ucp_datatype_t datatype,
+    ucp_tag_t tag, ucp_send_callback_t cb))dlsym(ucp_handle, "ucp_tag_send_nb");
+
+  char *error = dlerror();
+  if (error != NULL) {
+    fprintf(stderr, "Error loading function symbol: %s\n", error);
+    exit(1);
+  }
+}
+
+void load_recv_func(void *ucp_handle) {
+  recv_func = (ucs_status_t(*)(
+    ucp_worker_h worker, void *buffer, size_t count, ucp_datatype_t datatype,
+    ucp_tag_t tag, ucp_tag_t tag_mask,
+    ucp_tag_recv_callback_t cb))dlsym(ucp_handle, "ucp_tag_recv_nb");
+
+  char *error = dlerror();
+  if (error != NULL) {
+    fprintf(stderr, "Error loading function symbol: %s\n", error);
+    exit(1);
+  }
+}
+
 /**
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
@@ -65,19 +100,7 @@ struct ucx_context *ucp_isend(void *ucp_handle, ucp_ep_h ep_ptr,
                               ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
 
-  ucs_status_t (*send_func)(ucp_ep_h ep, const void *buffer, size_t count,
-                            ucp_datatype_t datatype, ucp_tag_t tag,
-                            ucp_send_callback_t cb) =
-    *(ucs_status_t(*)(ucp_ep_h ep, const void *buffer, size_t count,
-                      ucp_datatype_t datatype, ucp_tag_t tag,
-                      ucp_send_callback_t cb))dlsym(ucp_handle,
-                                                    "ucp_tag_send_nb");
-
-  char *error = dlerror();
-  if (error != NULL) {
-    fprintf(stderr, "Error loading function symbol: %s\n", error);
-    exit(1);
-  }
+  if (send_func == NULL) load_send_func(ucp_handle);
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_send_nb(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
@@ -113,19 +136,7 @@ struct ucx_context *ucp_irecv(void *ucp_handle, ucp_worker_h worker,
                               ucp_tag_t tag_mask, int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
-  ucs_status_t (*recv_func)(ucp_worker_h worker, void *buffer, size_t count,
-                            ucp_datatype_t datatype, ucp_tag_t tag,
-                            ucp_tag_t tag_mask, ucp_tag_recv_callback_t cb) =
-    (ucs_status_t(*)(ucp_worker_h worker, void *buffer, size_t count,
-                     ucp_datatype_t datatype, ucp_tag_t tag, ucp_tag_t tag_mask,
-                     ucp_tag_recv_callback_t cb))dlsym(ucp_handle,
-                                                       "ucp_tag_recv_nb");
-
-  char *error = dlerror();
-  if (error != NULL) {
-    fprintf(stderr, "Error loading function symbol: %s\n", error);
-    exit(1);
-  }
+  if (recv_func == NULL) load_recv_func(ucp_handle);
 
   struct ucx_context *ucp_request = (struct ucx_context *)recv_func(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
