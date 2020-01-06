@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ void calEig(const cumlHandle_impl &handle, math_t *in, math_t *components,
 
   if (prms.algorithm == solver::COV_EIG_JACOBI) {
     LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components, explained_var,
-                      cusolver_handle, stream, allocator,(math_t)prms.tol,
+                      cusolver_handle, stream, allocator, (math_t)prms.tol,
                       prms.n_iterations);
   } else {
     LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
