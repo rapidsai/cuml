@@ -65,4 +65,21 @@ else
   echo -e "\n\n>>>> PASSED: #include check\n\n"
 fi
 
+# Check for a consistent code format
+# TODO: keep adding more dirs when we add more source folders in cuml
+FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
+FORMAT_RETVAL=$?
+if [ "$RETVAL" = "0" ]; then
+  RETVAL=$FORMAT_RETVAL
+fi
+
+# Output results if failure otherwise show pass
+if [ "$FORMAT_RETVAL" != "0" ]; then
+  echo -e "\n\n>>>> FAILED: clang format check; begin output\n\n"
+  echo -e "$FORMAT"
+  echo -e "\n\n>>>> FAILED: clang format check; end output\n\n"
+else
+  echo -e "\n\n>>>> PASSED: clang format check\n\n"
+fi
+
 exit $RETVAL

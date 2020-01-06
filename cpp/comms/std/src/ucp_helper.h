@@ -79,7 +79,8 @@ struct ucx_context *ucp_isend(ucp_ep_h ep_ptr, const void *buf, int size,
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
 struct ucx_context *ucp_irecv(ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
-                              int size, int tag,  ucp_tag_t tag_mask, int sender_rank) {
+                              int size, int tag, ucp_tag_t tag_mask,
+                              int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
   struct ucx_context *ucp_request = (struct ucx_context *)ucp_tag_recv_nb(
