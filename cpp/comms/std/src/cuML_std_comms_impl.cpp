@@ -356,7 +356,7 @@ void cumlStdCommunicator_impl::waitall(int count,
       auto req = *it;
       if (req->completed == 1) {
         req->completed = 0;
-        if (req->needs_release) ucp_request_free(req);
+        if (req->needs_release) free_ucp_request(_ucp_handle, req);
         it = requests.erase(it);
       } else
         ++it;
