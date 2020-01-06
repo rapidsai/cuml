@@ -216,8 +216,10 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
     _ucp_eps(eps),
     _size(size),
     _rank(rank),
-    _next_request_id(0) {
+    _next_request_id(0),
+    _ucp_handle(NULL) {
   initialize();
+  load_ucp_handle(_ucp_handle);
 }
 #endif
 
@@ -239,6 +241,8 @@ cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
 
   CUDA_CHECK_NO_THROW(cudaFree(_sendbuff));
   CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
+
+  close_ucp_handle(_ucp_handle);
 }
 
 int cumlStdCommunicator_impl::getSize() const { return _size; }
@@ -293,7 +297,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
   struct ucx_context *ucp_request =
-    ucp_isend(ep_ptr, buf, size, tag, default_tag_mask, getRank());
+    ucp_isend(_ucp_handle, ep_ptr, buf, size, tag, default_tag_mask, getRank());
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
@@ -313,11 +317,10 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   ucp_tag_t tag_mask = default_tag_mask;
 
-  if(source == CUML_ANY_SOURCE)
-    tag_mask = any_rank_tag_mask;
+  if (source == CUML_ANY_SOURCE) tag_mask = any_rank_tag_mask;
 
-  struct ucx_context *ucp_request =
-    ucp_irecv(_ucp_worker, ep_ptr, buf, size, tag, tag_mask, source);
+  struct ucx_context *ucp_request = ucp_irecv(_ucp_handle, _ucp_worker, ep_ptr,
+                                              buf, size, tag, tag_mask, source);
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
