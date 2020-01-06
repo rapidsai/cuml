@@ -68,10 +68,6 @@ pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
 logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
 
-# installing libclang separately so it doesn't get installed from conda-forge
-conda install -c rapidsai \
-      libclang
-
 logger "Check versions..."
 python --version
 $CC --version
