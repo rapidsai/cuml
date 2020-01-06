@@ -270,6 +270,17 @@ K-Means Clustering
 .. autoclass:: cuml.dask.cluster.KMeans
     :members:
 
+Nearest Neighbors
+-----------------
+
+.. autoclass:: cuml.dask.neighbors.NearestNeighbors
+    :members:
+
+Principal Component Analysis
+-----------------------------
+.. autoclass:: cuml.dask.decomposition.PCA
+    :members:
+
 Random Forest
 -------------
 
@@ -277,12 +288,6 @@ Random Forest
     :members:
 
 .. autoclass:: cuml.dask.ensemble.RandomForestRegressor
-    :members:
-
-
-Principal Component Analysis
------------------------------
-.. autoclass:: cuml.dask.decomposition.PCA
     :members:
 
 Truncated SVD
