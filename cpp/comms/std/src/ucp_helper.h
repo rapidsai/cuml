@@ -79,11 +79,11 @@ void load_send_func(void *ucp_handle) {
 }
 
 void load_free_req_func(void *ucp_handle) {
-  req_free_func = (void(*)(void *request))dlsym(ucp_handle, "ucp_request_free");
+  req_free_func =
+    (void (*)(void *request))dlsym(ucp_handle, "ucp_request_free");
 
   char *error = dlerror();
   ASSERT(error != NULL, "Error loading function symbol: %s\n", error);
-
 }
 
 void load_recv_func(void *ucp_handle) {
