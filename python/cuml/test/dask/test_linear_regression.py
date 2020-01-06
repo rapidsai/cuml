@@ -86,7 +86,10 @@ def test_ols(n_parts, client=None):
 
         lr = cumlOLS_dask()
 
-        lr.fit(X_df, y_df)
+        if n_parts > 2:
+            lr.fit(X_df, y_df, force_colocality=True)
+        else:
+            lr.fit(X_df, y_df)
 
         ret = lr.predict(X_df)
 

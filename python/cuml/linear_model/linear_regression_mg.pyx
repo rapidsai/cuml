@@ -174,7 +174,112 @@ class LinearRegressionMG(LinearRegression):
 
         return arr_interfaces_trans
 
-    def fit(self, input_data, M, N, partsToRanks, rnk):
+    def fit(self, X, y, M, N, partsToRanks, rnk):
+        arr_interfaces = []
+        for arr in X:
+            X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
+                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+            arr_interfaces.append({"obj": X_m,
+                                   "data": input_ptr,
+                                   "shape": (n_rows, self.n_cols)})
+
+        arr_interfaces_y = []
+        for arr in y:
+            y_m, input_ptr, n_rows, n_cols, self.dtype = \
+                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+            arr_interfaces_y.append({"obj": y_m,
+                                   "data": input_ptr,
+                                   "shape": (n_rows, n_cols)})
+
+        n_total_parts = 0
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            if rnk == rank:
+                n_total_parts = n_total_parts + 1
+
+        cdef RankSizePair **rankSizePair = <RankSizePair**> \
+            malloc(sizeof(RankSizePair**)
+                   * n_total_parts)
+
+        indx = 0
+        n_part_row = 0
+
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            if rnk == rank:    
+                rankSizePair[indx] = <RankSizePair*> \
+                    malloc(sizeof(RankSizePair))
+                rankSizePair[indx].rank = <int>rank
+                rankSizePair[indx].size = <size_t>size
+                n_part_row = n_part_row + rankSizePair[indx].size
+                indx = indx + 1
+
+        self.coef_ = cudf.Series(zeros(self.n_cols,
+                                       dtype=self.dtype))
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+
+        cdef float c_intercept1
+        cdef double c_intercept2
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef uintptr_t data
+        cdef uintptr_t labels
+
+        if self.dtype == np.float32:
+            data = self._build_dataFloat(arr_interfaces)
+            labels = self._build_dataFloat(arr_interfaces_y)
+                      
+            fit(handle_[0],
+                <RankSizePair**>rankSizePair,
+                <size_t> n_total_parts,
+                <floatData_t**>data,
+                <size_t>M,
+                <size_t>N,
+                <floatData_t**>labels,
+                <float*>coef_ptr,
+                <float*>&c_intercept1,
+                <bool>self.fit_intercept,
+                <bool>self.normalize,
+                <int>self.algo,
+                False)
+            
+            self.intercept_ = c_intercept1
+        else:
+            data = self._build_dataDouble(arr_interfaces)
+            labels = self._build_dataDouble(arr_interfaces_y)
+            
+            fit(handle_[0],
+                <RankSizePair**>rankSizePair,
+                <size_t> n_total_parts,
+                <doubleData_t**>data,
+                <size_t>M,
+                <size_t>N,
+                <doubleData_t**>labels,
+                <double*>coef_ptr,
+                <double*>&c_intercept2,
+                <bool>self.fit_intercept,
+                <bool>self.normalize,
+                <int>self.algo,
+                False) 
+            
+            self.intercept_ = c_intercept2
+
+        self.handle.sync()
+
+        del(X_m)
+        del(y_m)
+
+        for idx in range(n_total_parts):
+            free(<RankSizePair*>rankSizePair[idx])
+        free(<RankSizePair**>rankSizePair)
+
+        if self.dtype == np.float32:
+            self._freeFloatD(data, arr_interfaces)
+            self._freeFloatD(labels, arr_interfaces_y)
+        else:
+            self._freeDoubleD(data, arr_interfaces)
+            self._freeDoubleD(labels, arr_interfaces_y)
+
+    def fit_colocated(self, input_data, M, N, partsToRanks, rnk):
         """
         Fit function for MNMG Linear Regression. 
         This not meant to be used as
@@ -204,7 +309,6 @@ class LinearRegressionMG(LinearRegression):
             
         
         n_total_parts = len(input_data)
-        
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
             malloc(sizeof(RankSizePair**)
                    * n_total_parts)
@@ -214,7 +318,7 @@ class LinearRegressionMG(LinearRegression):
                     malloc(sizeof(RankSizePair))
             rankSizePair[i].rank = <int>rnk
             rankSizePair[i].size = <size_t>len(input_data[i][0])
-                        
+
         self.coef_ = cudf.Series(zeros(self.n_cols,
                                        dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
@@ -224,11 +328,11 @@ class LinearRegressionMG(LinearRegression):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t data
         cdef uintptr_t labels
-        
+
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             labels = self._build_dataFloat(arr_interfaces_y)
-            
+                      
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -244,7 +348,6 @@ class LinearRegressionMG(LinearRegression):
                 False)
             
             self.intercept_ = c_intercept1
-            
         else:
             data = self._build_dataDouble(arr_interfaces)
             labels = self._build_dataDouble(arr_interfaces_y)
@@ -266,9 +369,6 @@ class LinearRegressionMG(LinearRegression):
             self.intercept_ = c_intercept2
 
         self.handle.sync()
-
-        del(X_m)
-        del(y_m)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
