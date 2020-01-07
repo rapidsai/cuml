@@ -22,6 +22,7 @@
 import ctypes
 import math
 import numpy as np
+import os
 import warnings
 
 from numba import cuda
@@ -36,6 +37,7 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.fil.fil import TreeliteModel
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.cupy_utils import checked_cupy_unique
@@ -370,6 +372,20 @@ class RandomForestRegressor(Base):
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
         return model_protobuf_bytes
+
+    def convert_to_treelite_model(self):
+        """
+        converts the cuML RF model to a Treelite model
+        Returns:  Treelite model
+        """
+        task_category = 1
+        model_protobuf_bytes = self._get_model_info()
+        file_name = create_file(<vector[unsigned char] &> model_protobuf_bytes)
+        file_name = file_name.decode("utf-8")
+        treelite_model = TreeliteModel.from_filename(filename=file_name,
+                                                     model_type="protobuf")
+        os.remove(file_name)
+        return treelite_model
 
     def fit(self, X, y):
         """

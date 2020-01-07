@@ -121,7 +121,7 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model);
 
-void create_file(ModelHandle model);
+std::string create_file(std::vector<unsigned char>& data);
 
 // ----------------------------- Classification ----------------------------------- //
 
