@@ -54,9 +54,7 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 @pytest.mark.parametrize("n_parts", [2, 23])
 def test_ols(n_parts, client=None):
 
-    owns_cluster = False
     if client is None:
-        owns_cluster = True
         cluster = LocalCUDACluster(threads_per_worker=1)
         client = Client(cluster)
 
@@ -79,14 +77,15 @@ def test_ols(n_parts, client=None):
         y_cudf = y_cudf[:, 0]
         y_cudf = cudf.Series(y_cudf)
 
-        workers = client.has_what().keys()
-
         X_df = dask_cudf.from_cudf(X_cudf, npartitions=n_parts).persist()
         y_df = dask_cudf.from_cudf(y_cudf, npartitions=n_parts).persist()
 
         lr = cumlOLS_dask()
 
-        lr.fit(X_df, y_df)
+        if n_parts > 2:
+            lr.fit(X_df, y_df, force_colocality=True)
+        else:
+            lr.fit(X_df, y_df)
 
         ret = lr.predict(X_df)
 

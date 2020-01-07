@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "nvtx.hpp"
 #include <stdint.h>
 #include <stdlib.h>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include "nvtx.hpp"
 
 namespace ML {
 
@@ -148,14 +148,13 @@ void PUSH_RANGE(const char *name) {
 }
 
 #ifdef ENABLE_EMPTY_MARKER_KERNEL
-__global__ void emptyMarkerKernel() {
-}
-#endif // ENABLE_EMPTY_MARKER_KERNEL
+__global__ void emptyMarkerKernel() {}
+#endif  // ENABLE_EMPTY_MARKER_KERNEL
 
 void POP_RANGE() {
   nvtxRangePop();
 #ifdef ENABLE_EMPTY_MARKER_KERNEL
-  emptyMarkerKernel<<<1,1>>>();
+  emptyMarkerKernel<<<1, 1>>>();
 #endif
 }
 
