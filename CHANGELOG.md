@@ -22,6 +22,7 @@
 - PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
+- PR #1534: Removed TODO comment in create_ucp_listeners()
 
 # cuML 0.11.0 (11 Dec 2019)
 
