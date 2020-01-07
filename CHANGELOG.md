@@ -1,4 +1,4 @@
-# cuML 0.12.0 (Date TBD)
+# cuML 0.12.0 (Dte TBD)
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
@@ -12,6 +12,7 @@
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
 - PR #1490: Use dask master instead of conda package for testing
+- PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 
