@@ -1,20 +1,28 @@
 # cuML 0.12.0 (Date TBD)
 
 ## New Features
+- PR #1483: prims: Fused L2 distance and nearest-neighbor prim
+- PR #1494: bench: ml-prims benchmark
+- PR #1514: bench: Fused L2 NN prim benchmark
 
 ## Improvements
+- PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
 - PR #1490: Use dask master instead of conda package for testing
 - PR #1504: Expose the build_treelite function for python
+- PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
 
 ## Bug Fixes
 
 - PR #1470: Documentation: add make_regression, fix ARIMA section
 - PR #1482: Updated the code to remove sklearn from the mbsgd stress test
 - PR #1491: Update dev environments for 0.12
+- PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
+- PR #1498: Add build.sh to code owners
+- PR #1505: cmake: added correct dependencies for prims-bench build
 
 # cuML 0.11.0 (11 Dec 2019)
 
