@@ -395,7 +395,7 @@ class RandomForestClassifier(Base):
                                                      model_type="protobuf")
         os.remove(file_name)
         return treelite_model
-        
+
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
