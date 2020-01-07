@@ -17,6 +17,8 @@
 #include "arima_helpers.cuh"
 #include "batched_kalman.hpp"
 
+#include <chrono>
+
 #include <nvToolsExt.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -45,7 +47,7 @@ void nvtx_range_pop() { ML::POP_RANGE(); }
 
 //! Thread-local Matrix-Vector multiplication.
 template <int r>
-__device__ void Mv_l(double* A, double* v, double* out) {
+__device__ void Mv_l(const double* A, const double* v, double* out) {
   for (int i = 0; i < r; i++) {
     double sum = 0.0;
     for (int j = 0; j < r; j++) {
@@ -57,7 +59,7 @@ __device__ void Mv_l(double* A, double* v, double* out) {
 
 //! Thread-local Matrix-Matrix multiplication.
 template <int r>
-__device__ void MM_l(double* A, double* B, double* out) {
+__device__ void MM_l(const double* A, const double* B, double* out) {
   for (int i = 0; i < r; i++) {
     for (int j = 0; j < r; j++) {
       double sum = 0.0;
@@ -106,6 +108,8 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
   double l_tmpB[r * r];
 
   int bid = blockDim.x * blockIdx.x + threadIdx.x;
+
+  /// TODO: apply optimizations with Z in this kernel too!
 
   if (bid < batch_size) {
     constexpr int r2 = r * r;
@@ -202,17 +206,17 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
       }
     }
     sum_logFs[bid] = b_sum_logFs;
-  }
 
-  // Forecast
-  double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
-  for (int i = 0; i < fc_steps; i++) {
-    b_fc[i] = l_alpha[0];
+    // Forecast
+    double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
+    for (int i = 0; i < fc_steps; i++) {
+      b_fc[i] = l_alpha[0];
 
-    // alpha = T*alpha
-    Mv_l<r>(l_T, l_alpha, l_tmpA);
-    for (int i = 0; i < r; i++) {
-      l_alpha[i] = l_tmpA[i];
+      // alpha = T*alpha
+      Mv_l<r>(l_T, l_alpha, l_tmpA);
+      for (int i = 0; i < r; i++) {
+        l_alpha[i] = l_tmpA[i];
+      }
     }
   }
 }
@@ -251,17 +255,18 @@ void _batched_kalman_loop_large_matrices(
   int nb = T.batches();
   int r2 = r * r;
 
-  BatchedMatrix v_tmp1(r, 1, nb, cublasHandle, allocator, stream, false);
-  BatchedMatrix v_tmp2(r, 1, nb, cublasHandle, allocator, stream, false);
-  BatchedMatrix m_tmp1(r, r, nb, cublasHandle, allocator, stream, false);
-  BatchedMatrix m_tmp2(r, r, nb, cublasHandle, allocator, stream, false);
+  BatchedMatrix v_tmp(r, 1, nb, cublasHandle, allocator, stream, false);
+  BatchedMatrix m_tmp(r, r, nb, cublasHandle, allocator, stream, false);
   BatchedMatrix K(r, 1, nb, cublasHandle, allocator, stream, false);
+  BatchedMatrix TP(r, r, nb, cublasHandle, allocator, stream, false);
 
+  // Shortcuts (TODO: remove?)
   double* d_P = P.raw_data();
   double* d_alpha = alpha.raw_data();
   double* d_K = K.raw_data();
-  double* d_v_tmp1 = v_tmp1.raw_data();
-  double* d_v_tmp2 = v_tmp2.raw_data();
+  double* d_TP = TP.raw_data();
+  double* d_m_tmp = m_tmp.raw_data();
+  double* d_v_tmp = v_tmp.raw_data();
 
   CUDA_CHECK(cudaMemsetAsync(d_sum_logFs, 0, sizeof(double) * nb, stream));
 
@@ -280,46 +285,49 @@ void _batched_kalman_loop_large_matrices(
     ///TODO: optimize for Z = (1 0 ... 0)?
 
     // 3. K = 1/Fs[it] * T*P*Z'
-    // v_tmp1 = P*Z'
-    b_gemm(false, true, r, 1, r, 1.0, P, Z, 0.0, v_tmp1);
-    // v_tmp2 = T*v_tmp1
-    b_gemm(false, false, r, 1, r, 1.0, T, v_tmp1, 0.0, v_tmp2);
-    // K = 1/Fs[it] * v_tmp2
+    // TP = T*P (also used later) ; TODO: SpMM
+    b_gemm(false, false, r, r, r, 1.0, T, P, 0.0, TP);
+    // K = 1/Fs[it] * TP*Z' ; optimized for Z = (1 0 ... 0)
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
                        double _1_Fs = 1.0 / d_Fs[bid * nobs + it];
                        for (int i = 0; i < r; i++) {
-                         d_K[bid * r + i] = _1_Fs * d_v_tmp2[r * bid + i];
+                         d_K[bid * r + i] = _1_Fs * d_TP[bid * r2 + i];
                        }
                      });
 
     // 4. alpha = T*alpha + K*vs[it]
-    // v_tmp1 = T*alpha
-    b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp1);
-    // alpha = v_tmp1 + K*vs[it]
+    // v_tmp = T*alpha
+    b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp);
+    // alpha = v_tmp + K*vs[it]
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {
                        double _vs = d_vs[bid * nobs + it];
                        for (int i = 0; i < r; i++) {
                          d_alpha[bid * r + i] =
-                           d_v_tmp1[r * bid + i] + _vs * d_K[bid * r + i];
+                           d_v_tmp[bid * r + i] + _vs * d_K[bid * r + i];
                        }
                      });
 
     // 5. L = T - K * Z
-    // L = T (L is m_tmp1)
-    MLCommon::copy(m_tmp1.raw_data(), T.raw_data(), nb * r2, stream);
-    // L = - K * Z + L
-    b_gemm(false, false, r, r, 1, -1.0, K, Z, 1.0, m_tmp1);
+    // L = T (L is m_tmp)
+    MLCommon::copy(m_tmp.raw_data(), T.raw_data(), nb * r2, stream);
+    // L = L - K * Z ; optimized for Z = (1 0 ... 0):
+    // substract K to the first column of L
+    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                     [=] __device__(int bid) {
+                       for (int i = 0; i < r; i++) {
+                         d_m_tmp[bid * r2 + i] -= d_K[bid * r + i];
+                       }
+                     });
+    // b_gemm(false, false, r, r, 1, -1.0, K, Z, 1.0, m_tmp);
 
     // 6. P = T*P*L' + R*R'
-    // m_tmp2 = P*L'
-    b_gemm(false, true, r, r, r, 1.0, P, m_tmp1, 0.0, m_tmp2);
-    // m_tmp1 = T*m_tmp2
-    b_gemm(false, false, r, r, r, 1.0, T, m_tmp2, 0.0, m_tmp1);
-    // P = m_tmp1 + R*R'
+    // m_tmp = TP*L'
+    b_gemm(false, true, r, r, r, 1.0, TP, m_tmp, 0.0, m_tmp);
+    // P = m_tmp + R*R'
     MLCommon::LinAlg::binaryOp(
-      d_P, m_tmp1.raw_data(), RRT.raw_data(), r2 * nb,
+      d_P, m_tmp.raw_data(), RRT.raw_data(), r2 * nb,
       [=] __device__(double a, double b) { return a + b; }, stream);
   }
 
@@ -329,8 +337,8 @@ void _batched_kalman_loop_large_matrices(
       thrust::cuda::par.on(stream), counting, counting + nb,
       [=] __device__(int bid) { d_fc[bid * fc_steps + i] = d_alpha[bid * r]; });
 
-    b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp1);
-    MLCommon::copy(d_alpha, v_tmp1.raw_data(), r * nb, stream);
+    b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp);
+    MLCommon::copy(d_alpha, v_tmp.raw_data(), r * nb, stream);
   }
 }
 
@@ -459,6 +467,12 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
 
+  /// TODO: cleanup all the timers
+  auto t1 = std::chrono::high_resolution_clock::now();
+  auto t2 = t1;
+  auto duration =
+    std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+
   BatchedMatrix P(r, r, batch_size, handle.getImpl().getCublasHandle(),
                   handle.getDeviceAllocator(), stream, false);
   if (initP_kalman_it)
@@ -471,14 +485,32 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
     //   invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
     //   P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
     ML::PUSH_RANGE("P0: (I-TxT)");
+    t1 = std::chrono::high_resolution_clock::now();
+    auto bk = b_kron(Tb, Tb);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    t2 = std::chrono::high_resolution_clock::now();
+    duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    // std::cout << "Kronecker: " << duration / 1000000.0 << std::endl;
+
     BatchedMatrix I_m_TxT =
       BatchedMatrix::Identity(r * r, batch_size,
                               handle.getImpl().getCublasHandle(),
                               handle.getDeviceAllocator(), stream) -
-      b_kron(Tb, Tb);
+      bk;
+    /// TODO: in the seasonal case, the matrices for the Kronecker product and
+    /// the identity are very large. But the initialization with a Kalman iteration
+    /// gives bad results. Figure out a workaround!
+    /// Also the performance is awful
     ML::POP_RANGE();
     ML::PUSH_RANGE("(I-TxT)\\(R.R^T)");
+    t1 = std::chrono::high_resolution_clock::now();
     BatchedMatrix invI_m_TxT_x_RRTvec = b_solve(I_m_TxT, RRT.vec());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    t2 = std::chrono::high_resolution_clock::now();
+    duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    // std::cout << "Solve: " << duration / 1000000.0 << std::endl;
     ML::POP_RANGE();
     BatchedMatrix P0 = invI_m_TxT_x_RRTvec.mat(r, r);
     P = P0;
@@ -517,8 +549,21 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   //   loglikelihood += std::log(Fs[it]);
   // }
 
+  /// TODO: cleanup
+  MLCommon::myPrintDevMatrix("T", Tb.raw_data(), r, r);
+  // MLCommon::myPrintDevMatrix("Z", Zb.raw_data(), 1, r);
+  // MLCommon::myPrintDevMatrix("RRT", RRT.raw_data(), r, r);
+  // MLCommon::myPrintDevMatrix("P", P.raw_data(), r, r);
+  // MLCommon::myPrintDevMatrix("alpha", alpha.raw_data(), r, 1);
+
+  t1 = std::chrono::high_resolution_clock::now();
   batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs,
                       d_sumlogFs, fc_steps, d_fc);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  t2 = std::chrono::high_resolution_clock::now();
+  duration =
+    std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+  std::cout << "Kalman loop: " << duration / 1000000.0 << std::endl;
 
   // Finalize loglikelihood
   // 7. & 8.
@@ -540,6 +585,8 @@ static void init_batched_kalman_matrices(
 
   auto stream = handle.getStream();
 
+  /// TODO: remove Z completely? Would need to be added again later
+  ///       if adding e.g exonegeous variables
   cudaMemsetAsync(d_Z_b, 0.0, r * nb * sizeof(double), stream);
   cudaMemsetAsync(d_R_b, 0.0, r * nb * sizeof(double), stream);
   cudaMemsetAsync(d_T_b, 0.0, r * r * nb * sizeof(double), stream);
