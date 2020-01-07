@@ -330,7 +330,8 @@ class UMAP(Base):
         if state['X_m'] is not None:
             state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
         if state['embedding_'] is not None:
-            state['embedding_'] = cudf.DataFrame.from_gpu_matrix(self.embedding_)
+            state['embedding_'] = cudf.DataFrame.from_gpu_matrix(
+                self.embedding_)
 
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components

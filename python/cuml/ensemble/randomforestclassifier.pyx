@@ -731,7 +731,7 @@ class RandomForestClassifier(Base):
         y_m, y_ptr, n_rows, _, y_dtype = \
             input_to_dev_array(y, check_dtype=np.int32,
                                convert_to_dtype=(np.int32 if convert_dtype
-                                                else False))
+                                                 else False))
 
         preds = self.predict(X, output_class=True,
                              threshold=threshold, algo=algo,
