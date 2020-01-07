@@ -13,7 +13,9 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, extract_colocated_ddf_partitions, workers_to_parts
+from cuml.dask.common import extract_ddf_partitions
+from cuml.dask.common import extract_colocated_ddf_partitions
+from cuml.dask.common import workers_to_parts
 from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
@@ -44,7 +46,6 @@ class LinearRegression(object):
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
         normalize: boolean. For more information, see `scikitlearn's OLS
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
         """
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
@@ -56,7 +57,8 @@ class LinearRegression(object):
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
-            from cuml.linear_model.linear_regression_mg import LinearRegressionMG as cumlLinearRegression
+            from cuml.linear_model.linear_regression_mg \
+               import LinearRegressionMG as cumlLinearRegression
         except ImportError:
             raise Exception("cuML has not been built with multiGPU support "
                             "enabled. Build with the --multigpu flag to"
@@ -72,7 +74,7 @@ class LinearRegression(object):
     @staticmethod
     def _func_fit(f, X, y, M, N, partsToRanks, rank):
         return f.fit(X, y, M, N, partsToRanks, rank)
-        
+
     @staticmethod
     def _func_predict(f, df, M, N, partsToRanks, rank):
         return f.predict(df, M, N, partsToRanks, rank)
@@ -175,7 +177,8 @@ class LinearRegression(object):
         self.coef_ = self.local_model.coef_
 
     def _fit_with_colocality(self, X, y):
-        input_futures = self.client.sync(extract_colocated_ddf_partitions, X, y, self.client)
+        input_futures = self.client.sync(extract_colocated_ddf_partitions, 
+                                         X, y, self.client)
         workers = list(input_futures.keys())
 
         comms = CommsContext(comms_p2p=False)
@@ -214,7 +217,7 @@ class LinearRegression(object):
             LinearRegression._func_fit_colocated,
             wf[1],
             input_futures[wf[0]],
-            M, N, 
+            M, N,
             partsToRanks,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
@@ -252,7 +255,7 @@ class LinearRegression(object):
         ----------
         X : dask cuDF input
         y_pred : dask cuDF input
-        """ 
+        """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         worker_to_parts = OrderedDict()
@@ -300,7 +303,6 @@ class LinearRegression(object):
             completed_part_map[rank] += 1
 
         return to_dask_cudf(out_futures)
-        
+
     def get_param_names(self):
         return list(self.kwargs.keys())
-
