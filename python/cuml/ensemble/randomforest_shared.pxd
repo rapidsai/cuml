@@ -27,6 +27,7 @@ import warnings
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+from libcpp.string cimport string
 from libcpp.vector cimport vector
 
 from cuml.common.handle import Handle
@@ -120,3 +121,5 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
+
+    cdef void create_file(ModelHandle)

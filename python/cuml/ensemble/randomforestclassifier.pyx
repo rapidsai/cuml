@@ -23,6 +23,7 @@
 import ctypes
 import math
 import numpy as np
+import os
 import warnings
 
 from numba import cuda
@@ -33,6 +34,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
+from cuml.fil.fil import TreeliteModel
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
@@ -380,6 +382,29 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
+    def convert_to_treelite_model(self):
+        """
+
+        model_protobuf_bytes = self._get_model_info()
+        m_bytes = bytes(model_protobuf_bytes)
+        with open('tl_file.txt', 'wb') as filehandle:
+            filehandle.writelines(mb for mb in m_bytes)
+        treelite_model = TreeliteModel.from_filename(filename='tl_file.txt',
+                                                     model_type="protobuf")
+        os.remove("tl_file.txt")
+        return treelite_model
+        """
+        task_category = 2
+        treelite_handle = self._convert_to_treelite(task_category)
+        print("treelite_handle : ", treelite_handle)
+        create_file(<ModelHandle> treelite_handle)
+        file_name = "tl_file.txt"
+        print("name of the file returned : ", file_name)
+        treelite_model = TreeliteModel.from_filename(filename=file_name,
+                                                     model_type="protobuf")
+        #os.remove(file_name)
+        return file_name
+        
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
