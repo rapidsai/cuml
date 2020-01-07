@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "distance_common.h"
 
-#include <mpi.h>
-#include <cuml/cuml.hpp>
+namespace MLCommon {
+namespace Bench {
+namespace Distance {
 
-namespace ML {
+DIST_BENCH_REGISTER(DistanceL1, MLCommon::Distance::EucUnexpandedL1);
 
-void initialize_mpi_comms(cumlHandle& handle, MPI_Comm comm);
-
-}  // end namespace ML
+}  // namespace Distance
+}  // namespace Bench
+}  // namespace MLCommon

@@ -14,13 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <benchmark/benchmark.h>
 
-#include <mpi.h>
-#include <cuml/cuml.hpp>
-
-namespace ML {
-
-void initialize_mpi_comms(cumlHandle& handle, MPI_Comm comm);
-
-}  // end namespace ML
+BENCHMARK_MAIN();

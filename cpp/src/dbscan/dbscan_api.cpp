@@ -15,8 +15,8 @@
  */
 #include "dbscan_api.h"
 #include <cuml/cuml_api.h>
-#include "common/cumlHandle.hpp"
 #include <cuml/cluster/dbscan.hpp>
+#include "common/cumlHandle.hpp"
 
 cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
                             int n_cols, float eps, int min_pts, int *labels,
