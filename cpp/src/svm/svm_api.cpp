@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuml/svm/svm_api.h>
 #include <cuml/cuml_api.h>
+#include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svm_api.h>
+#include <cuml/svm/svc.hpp>
 #include <tuple>
 #include "common/cumlHandle.hpp"
-#include <cuml/matrix/kernelparams.h>
-#include <cuml/svm/svc.hpp>
 
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,

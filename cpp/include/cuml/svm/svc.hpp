@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/cuml.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
 

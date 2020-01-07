@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <cuda_utils.h>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
@@ -21,6 +23,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
+#include <cuml/svm/svc.hpp>
 #include <iostream>
 #include <string>
 #include <type_traits>
@@ -35,9 +38,6 @@
 #include "random/rng.h"
 #include "svm/smoblocksolve.h"
 #include "svm/smosolver.h"
-#include <cuml/svm/svc.hpp>
-#include <cuml/svm/svm_model.h>
-#include <cuml/svm/svm_parameter.h>
 #include "svm/workingset.h"
 #include "test_utils.h"
 

@@ -23,6 +23,7 @@
 #include <string>
 #include <type_traits>
 
+#include <cuml/matrix/kernelparams.h>
 #include "common/cumlHandle.hpp"
 #include "kernelcache.h"
 #include "linalg/cublas_wrappers.h"
@@ -30,7 +31,6 @@
 #include "linalg/unary_op.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
-#include <cuml/matrix/kernelparams.h>
 #include "smo_sets.h"
 #include "smoblocksolve.h"
 #include "workingset.h"

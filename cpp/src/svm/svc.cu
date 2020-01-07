@@ -16,6 +16,7 @@
 
 #include <iostream>
 
+#include <cuml/svm/svc.hpp>
 #include "common/device_buffer.hpp"
 #include "kernelcache.h"
 #include "label/classlabels.h"
@@ -23,7 +24,6 @@
 #include "linalg/unary_op.h"
 #include "matrix/kernelfactory.h"
 #include "smosolver.h"
-#include <cuml/svm/svc.hpp>
 #include "svc_impl.h"
 
 namespace ML {
