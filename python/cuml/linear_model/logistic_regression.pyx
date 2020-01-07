@@ -137,7 +137,7 @@ class LogisticRegression(Base):
 
     Attributes
     -----------
-    coef_: dev array, shape (n_classes, n_features) or (n_classes, n_features+1)
+    coef_: dev array, dim (n_classes, n_features) or (n_classes, n_features+1)
         The estimated coefficients for the linear regression model.
         Note: this includes the intercept as the last column if fit_intercept
         is True
@@ -329,7 +329,6 @@ class LogisticRegression(Base):
         """
         return accuracy_score(y, self.predict(X), handle=self.handle)
 
-
     def get_param_names(self):
         return ["C", "penalty", "tol", "fit_intercept", "max_iter",
                 "linesearch_max_iter", "l1_ratio", "solver"]
@@ -347,7 +346,8 @@ class LogisticRegression(Base):
         return state
 
     def __setstate__(self, state):
-        super(LogisticRegression, self).__init__(handle=None, verbose=state['verbose'])
+        super(LogisticRegression, self).__init__(handle=None,
+                                                 verbose=state['verbose'])
 
         if 'qn' in state:
             qn = state['qn']
