@@ -20,9 +20,10 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
+from cuml.metrics.base import RegressorMixin
+from cuml.common.base import Base
 
-
-class Lasso:
+class Lasso(Base, RegressorMixin):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the
