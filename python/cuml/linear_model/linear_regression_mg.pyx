@@ -61,61 +61,61 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
 cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
 
     cdef void fit(cumlHandle& handle,
-		  RankSizePair **rank_sizes,
-		  size_t n_parts,
-		  floatData_t **input,
-		  size_t n_rows,
-		  size_t n_cols,
-		  floatData_t **labels,
-		  float *coef,
-		  float *intercept,
-		  bool fit_intercept,
-		  bool normalize,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  floatData_t **input,
+                  size_t n_rows,
+                  size_t n_cols,
+                  floatData_t **labels,
+                  float *coef,
+                  float *intercept,
+                  bool fit_intercept,
+                  bool normalize,
                   int algo,
-		  bool verbose) except +
+                  bool verbose) except +
 
     cdef void fit(cumlHandle& handle,
-		  RankSizePair **rank_sizes,
-		  size_t n_parts,
-		  doubleData_t **input,
-		  size_t n_rows,
-		  size_t n_cols,
-		  doubleData_t **labels,
-		  double *coef,
-		  double *intercept,
-		  bool fit_intercept,
-		  bool normalize,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  doubleData_t **input,
+                  size_t n_rows,
+                  size_t n_cols,
+                  doubleData_t **labels,
+                  double *coef,
+                  double *intercept,
+                  bool fit_intercept,
+                  bool normalize,
                   int algo,
-		  bool verbose) except +
+                  bool verbose) except +
 
     cdef void predict(cumlHandle& handle,
-		RankSizePair **rank_sizes,
-		size_t n_parts,
-		floatData_t **input,
+                RankSizePair **rank_sizes,
+                size_t n_parts,
+                floatData_t **input,
                 size_t n_rows,
-		size_t n_cols,
-		float *coef,
-		float intercept,
-		floatData_t **preds,
-		bool verbose) except +
+                size_t n_cols,
+                float *coef,
+                float intercept,
+                floatData_t **preds,
+                bool verbose) except +
 
     cdef void predict(cumlHandle& handle,
-		RankSizePair **rank_sizes,
-		size_t n_parts,
-		doubleData_t **input,
+                RankSizePair **rank_sizes,
+                size_t n_parts,
+                doubleData_t **input,
                 size_t n_rows,
-		size_t n_cols,
-		double *coef,
-		double intercept,
-		doubleData_t **preds,
-		bool verbose) except +
+                size_t n_cols,
+                double *coef,
+                double intercept,
+                doubleData_t **preds,
+                bool verbose) except +
 
 
 class LinearRegressionMG(LinearRegression):
 
     def __init__(self, **kwargs):
         super(LinearRegressionMG, self).__init__(**kwargs)
-        
+
     def _build_dataFloat(self, arr_interfaces):
         cdef floatData_t **dataF = <floatData_t **> \
             malloc(sizeof(floatData_t *)
@@ -188,8 +188,8 @@ class LinearRegressionMG(LinearRegression):
             y_m, input_ptr, n_rows, n_cols, self.dtype = \
                 input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
             arr_interfaces_y.append({"obj": y_m,
-                                   "data": input_ptr,
-                                   "shape": (n_rows, n_cols)})
+                                     "data": input_ptr,
+                                     "shape": (n_rows, n_cols)})
 
         n_total_parts = 0
         for idx, rankSize in enumerate(partsToRanks):
@@ -296,13 +296,17 @@ class LinearRegressionMG(LinearRegression):
 
         for i in range(len(input_data)):
             X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(input_data[i][0], check_dtype=[np.float32, np.float64])
+                input_to_dev_array(input_data[i][0], 
+                                   check_dtype=[np.float32, np.float64])
+
             arr_interfaces.append({"obj": X_m,
                                    "data": input_ptr,
                                    "shape": (n_rows, self.n_cols)})
 
             y_m, input_ptr, n_rows, n_cols, self.dtype = \
-                input_to_dev_array(input_data[i][1], check_dtype=[np.float32, np.float64])
+                input_to_dev_array(input_data[i][1], 
+                                   check_dtype=[np.float32, np.float64])
+
             arr_interfaces_y.append({"obj": y_m,
                                    "data": input_ptr,
                                    "shape": (n_rows, n_cols)})
