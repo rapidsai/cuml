@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "svm_api.h"
+#include <cuml/svm/svm_api.h>
 #include <cuml/cuml_api.h>
 #include <tuple>
 #include "common/cumlHandle.hpp"
