@@ -308,8 +308,8 @@ class LinearRegressionMG(LinearRegression):
                                    check_dtype=[np.float32, np.float64])
 
             arr_interfaces_y.append({"obj": y_m,
-                                   "data": input_ptr,
-                                   "shape": (n_rows, n_cols)})
+                                     "data": input_ptr,
+                                     "shape": (n_rows, n_cols)})
 
         n_total_parts = len(input_data)
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
