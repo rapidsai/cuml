@@ -341,6 +341,16 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   return bytes_info;
 }
 
+void create_file(ModelHandle model) {
+  // create a temp file
+  const char* filename = "tl_model.txt";
+  // export the treelite model to protobuf nd save it in the temp file
+  TreeliteExportProtobufModel(filename, model);
+  std::string someString(filename);
+  std::cout << "filename : " << filename << std::flush << std::endl;
+  // return filename;
+}
+
 /**
  * @defgroup Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
