@@ -89,26 +89,26 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                   bool verbose) except +
 
     cdef void predict(cumlHandle& handle,
-                RankSizePair **rank_sizes,
-                size_t n_parts,
-                floatData_t **input,
-                size_t n_rows,
-                size_t n_cols,
-                float *coef,
-                float intercept,
-                floatData_t **preds,
-                bool verbose) except +
+                      RankSizePair **rank_sizes,
+                      size_t n_parts,
+                      floatData_t **input,
+                      size_t n_rows,
+                      size_t n_cols,
+                      float *coef,
+                      float intercept,
+                      floatData_t **preds,
+                      bool verbose) except +
 
     cdef void predict(cumlHandle& handle,
-                RankSizePair **rank_sizes,
-                size_t n_parts,
-                doubleData_t **input,
-                size_t n_rows,
-                size_t n_cols,
-                double *coef,
-                double intercept,
-                doubleData_t **preds,
-                bool verbose) except +
+                      RankSizePair **rank_sizes,
+                      size_t n_parts,
+                      doubleData_t **input,
+                      size_t n_rows,
+                      size_t n_cols,
+                      double *coef,
+                      double intercept,
+                      doubleData_t **preds,
+                      bool verbose) except +
 
 
 class LinearRegressionMG(LinearRegression):
@@ -296,7 +296,7 @@ class LinearRegressionMG(LinearRegression):
 
         for i in range(len(input_data)):
             X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(input_data[i][0], 
+                input_to_dev_array(input_data[i][0],
                                    check_dtype=[np.float32, np.float64])
 
             arr_interfaces.append({"obj": X_m,
@@ -304,7 +304,7 @@ class LinearRegressionMG(LinearRegression):
                                    "shape": (n_rows, self.n_cols)})
 
             y_m, input_ptr, n_rows, n_cols, self.dtype = \
-                input_to_dev_array(input_data[i][1], 
+                input_to_dev_array(input_data[i][1],
                                    check_dtype=[np.float32, np.float64])
 
             arr_interfaces_y.append({"obj": y_m,
@@ -318,7 +318,7 @@ class LinearRegressionMG(LinearRegression):
 
         for i in range(len(input_data)):
             rankSizePair[i] = <RankSizePair*> \
-                    malloc(sizeof(RankSizePair))
+                malloc(sizeof(RankSizePair))
             rankSizePair[i].rank = <int>rnk
             rankSizePair[i].size = <size_t>len(input_data[i][0])
 
@@ -386,7 +386,8 @@ class LinearRegressionMG(LinearRegression):
 
     def predict(self, X, M, N, partsToRanks, rnk):
         """
-        Transform function for Linear Regression MG. This not meant to be used as
+        Transform function for Linear Regression MG.
+        This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions
         :param M: total number of rows
@@ -437,9 +438,9 @@ class LinearRegressionMG(LinearRegression):
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             arr_interfaces_pred = self._build_predData(partsToRanks,
-                                                        rnk,
-                                                        1,
-                                                        np.float32)
+                                                       rnk,
+                                                       1,
+                                                       np.float32)
             pred_data = self._build_dataFloat(arr_interfaces_pred)
 
             predict(handle_[0],
@@ -456,9 +457,9 @@ class LinearRegressionMG(LinearRegression):
         else:
             data = self._build_dataDouble(arr_interfaces)
             arr_interfaces_pred = self._build_predData(partsToRanks,
-                                                        rnk,
-                                                        1,
-                                                        np.float64)
+                                                       rnk,
+                                                       1,
+                                                       np.float64)
             pred_data = self._build_dataDouble(arr_interfaces_pred)
 
             predict(handle_[0],
@@ -492,4 +493,3 @@ class LinearRegressionMG(LinearRegression):
             self._freeDoubleD(data, arr_interfaces)
 
         return pred_cudf
-    
