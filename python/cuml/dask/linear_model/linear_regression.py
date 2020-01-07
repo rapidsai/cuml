@@ -91,7 +91,7 @@ class LinearRegression(object):
         return model.transform(df)
 
     @staticmethod
-    def _func_get_size_colocated(df):
+    def _func_get_size_cl(df):
         return df[0].shape[0]
 
     @staticmethod
@@ -193,8 +193,7 @@ class LinearRegression(object):
         key = uuid1()
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
-            parts = \
-                [(self.client.submit(LinearRegression._func_get_size_colocated,
+            parts = [(self.client.submit(LinearRegression._func_get_size_cl,
                                      future,
                                      workers=[w],
                                      key="%s-%s" % (key, idx)).result())
