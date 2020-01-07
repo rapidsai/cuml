@@ -35,7 +35,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.cupy_utils import checked_cupy_unique
 from cuml.utils.import_utils import has_cupy
-
+from cuml.metrics import accuracy_score
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -419,7 +419,6 @@ class QN(Base):
         return cudf.Series(preds)
 
     def score(self, X, y):
-        from cuml.metrics import accuracy_score
         return accuracy_score(y, self.predict(X))
 
     def __getattr__(self, attr):
@@ -427,7 +426,7 @@ class QN(Base):
             if self.fit_intercept:
                 return self.coef_[-1]
             else:
-                return rmm.to_device(np.zeros(1))
+                return rmm.to_device(zeros(1))
         else:
             raise AttributeError(attr)
 

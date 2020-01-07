@@ -28,13 +28,16 @@ from sklearn.model_selection import train_test_split
 
 
 regression_models = {
-    "LinearRegression": lambda: cuml.LinearRegression(),
-    "LogisticRegression": lambda: cuml.LogisticRegression(),
-    "LogisticRegressionNoInt": lambda: cuml.LogisticRegression(
-        fit_intercept=False),
-    "Lasso": lambda: cuml.Lasso(),
-    "Ridge": lambda: cuml.Ridge(),
-    "ElasticNet": lambda: cuml.ElasticNet()
+    "LinearRegression": lambda fit_intercept=True: cuml.LinearRegression(
+        fit_intercept=fit_intercept),
+    "LogisticRegression": lambda fit_intercept=True: cuml.LogisticRegression(
+        fit_intercept=fit_intercept),
+    "Lasso": lambda fit_intercept=True: cuml.Lasso(
+        fit_intercept=fit_intercept),
+    "Ridge": lambda fit_intercept=True: cuml.Ridge(
+        fit_intercept=fit_intercept),
+    "ElasticNet": lambda fit_intercept=True: cuml.ElasticNet(
+        fit_intercept=fit_intercept)
 }
 
 solver_models = {
@@ -157,14 +160,15 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, key):
 @pytest.mark.parametrize('keys', regression_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                          stress_param([500000, 1000, 500])])
-def test_regressor_pickle(tmpdir, datatype, keys, data_size):
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
     result = {}
 
     def create_mod():
         nrows, ncols, n_info = data_size
         X_train, y_train, X_test = make_dataset(datatype, nrows,
                                                 ncols, n_info)
-        model = regression_models[keys]()
+        model = regression_models[keys](fit_intercept=fit_intercept)
         model.fit(X_train, y_train)
         result["regressor"] = model.predict(X_test)
         return model, X_test
@@ -304,8 +308,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
-    if model_name in decomposition_models_xfail.keys() or \
-       model_name in ["PCA", "UMAP"]:
+    if model_name in decomposition_models_xfail.keys():
         pytest.xfail()
 
     # Pickling should work even if fit has not been called
