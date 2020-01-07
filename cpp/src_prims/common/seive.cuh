@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <vector>
 #include <cuda_utils.h>
+#include <vector>
 
 // Taken from:
 //  https://github.com/teju85/programming/blob/master/euler/include/seive.h
@@ -62,7 +62,7 @@ class Seive {
     auto size = ceildiv<unsigned>(N, sizeof(unsigned) * 8);
     seive.resize(size);
     // assume all to be primes initially
-    for(auto& itr : seive) {
+    for (auto& itr : seive) {
       itr = 0xffffffffu;
     }
     unsigned cid = 0;
@@ -83,12 +83,10 @@ class Seive {
     }
   }
 
-  unsigned getId(unsigned num) const {
-    return (num >> 1);
-  }
+  unsigned getId(unsigned num) const { return (num >> 1); }
 
   unsigned getNum(unsigned id) const {
-    if(id == 0) {
+    if (id == 0) {
       return 2;
     }
     return ((id << 1) + 1);
@@ -112,13 +110,13 @@ class Seive {
     auto bshft = 15u, b = 1u << bshft;
     do {
       unsigned temp = ((g << 1) + b) << bshft--;
-      if(val >= temp) {
+      if (val >= temp) {
         g += b;
         val -= temp;
       }
     } while (b >>= 1);
     return g;
-}
+  }
 
   /** find all primes till this number */
   unsigned N;

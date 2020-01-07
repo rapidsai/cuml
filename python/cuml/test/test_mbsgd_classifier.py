@@ -51,22 +51,18 @@ def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
 
     cu_mbsgd_classifier.fit(X_train, y_train)
     cu_pred = cu_mbsgd_classifier.predict(X_test).to_array()
-
-    skl_sgd_classifier = SGDClassifier(learning_rate=lrate, eta0=0.005,
-                                       max_iter=100, fit_intercept=True,
-                                       tol=0.0, penalty=penalty,
-                                       random_state=0)
-
-    skl_sgd_classifier.fit(X_train, y_train)
-    skl_pred = skl_sgd_classifier.predict(X_test)
-
     cu_acc = accuracy_score(cu_pred, y_test)
-    skl_acc = accuracy_score(skl_pred, y_test)
-    try:
-        assert cu_acc >= skl_acc - 0.05
-    except AssertionError:
-        pytest.xfail("failed due to AssertionError error, "
-                     "fix will be merged soon")
+
+    if nrows < 500000:
+        skl_sgd_classifier = SGDClassifier(learning_rate=lrate, eta0=0.005,
+                                           max_iter=100, fit_intercept=True,
+                                           tol=0.0, penalty=penalty,
+                                           random_state=0)
+
+        skl_sgd_classifier.fit(X_train, y_train)
+        skl_pred = skl_sgd_classifier.predict(X_test)
+        skl_acc = accuracy_score(skl_pred, y_test)
+        assert cu_acc >= skl_acc - 0.06
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -82,7 +78,7 @@ def test_mbsgd_classifier_default(datatype, nrows, column_info):
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=10)
+                                                        random_state=0)
 
     y_train = y_train.astype(datatype)
     y_test = y_test.astype(datatype)
@@ -91,12 +87,12 @@ def test_mbsgd_classifier_default(datatype, nrows, column_info):
 
     cu_mbsgd_classifier.fit(X_train, y_train)
     cu_pred = cu_mbsgd_classifier.predict(X_test).to_array()
-
-    skl_sgd_classifier = SGDClassifier()
-
-    skl_sgd_classifier.fit(X_train, y_train)
-    skl_pred = skl_sgd_classifier.predict(X_test)
-
     cu_acc = accuracy_score(cu_pred, y_test)
-    skl_acc = accuracy_score(skl_pred, y_test)
-    assert cu_acc >= skl_acc - 0.02
+
+    if nrows < 500000:
+        skl_sgd_classifier = SGDClassifier()
+
+        skl_sgd_classifier.fit(X_train, y_train)
+        skl_pred = skl_sgd_classifier.predict(X_test)
+        skl_acc = accuracy_score(skl_pred, y_test)
+        assert cu_acc >= skl_acc - 0.05

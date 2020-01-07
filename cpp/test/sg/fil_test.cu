@@ -497,6 +497,8 @@ std::vector<FilTestParams> predict_dense_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
    fil::algo_t::TREE_REORG, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f},
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -528,6 +530,9 @@ std::vector<FilTestParams> predict_sparse_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
    fil::algo_t::NAIVE, 42, 2e-3f},
+  {20000, 50, 0.05, 8, 50, 0.05,
+   fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f},
 };
 
 TEST_P(PredictSparseFilTest, Predict) { compare(); }
@@ -601,6 +606,8 @@ std::vector<FilTestParams> import_dense_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
    fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLE},
 };
 
 TEST_P(TreeliteDenseFilTest, Import) { compare(); }
@@ -630,6 +637,8 @@ std::vector<FilTestParams> import_sparse_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
    fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGE},
+  {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT},
 };
 
 TEST_P(TreeliteSparseFilTest, Import) { compare(); }

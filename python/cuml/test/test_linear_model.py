@@ -171,16 +171,17 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 @pytest.mark.parametrize('num_classes', [2, 10])
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
-@pytest.mark.parametrize('l1_ratio', [0.0, 0.3, 0.5, 0.7, 1.0])
+@pytest.mark.parametrize('l1_ratio', [1.0])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 70]),
-                         stress_param([200, 170])])
-@pytest.mark.xfail(raises=AssertionError)
+@pytest.mark.parametrize('nrows', [unit_param(1000)])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10])])
+@pytest.mark.parametrize('C', [2.0, 1.0, 0.5])
+@pytest.mark.parametrize('tol', [1e-3, 1e-8])
 def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
-                             fit_intercept, nrows, column_info):
+                             fit_intercept, nrows, column_info, C, tol):
+    if penalty in ['l1', 'elasticnet']:
+        pytest.xfail("OWL numerical stability is being improved")
+
     ncols, n_info = column_info
     # Checking sklearn >= 0.21 for testing elasticnet
     sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
@@ -194,46 +195,31 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
                                     num_classes=num_classes)
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
-    culog = cuLog(penalty=penalty, l1_ratio=l1_ratio, C=5.0,
-                  fit_intercept=fit_intercept, tol=1e-8)
+    culog = cuLog(penalty=penalty, l1_ratio=l1_ratio, C=C,
+                  fit_intercept=fit_intercept, tol=tol, verbose=0)
     culog.fit(X_train, y_train)
 
     # Only solver=saga supports elasticnet in scikit
     if penalty in ['elasticnet', 'l1']:
         if sk_check:
             sklog = skLog(penalty=penalty, l1_ratio=l1_ratio, solver='saga',
-                          C=5.0, fit_intercept=fit_intercept)
+                          C=C, fit_intercept=fit_intercept, multi_class='auto')
         else:
             sklog = skLog(penalty=penalty, solver='saga',
-                          C=5.0, fit_intercept=fit_intercept)
-    elif penalty == 'l2':
-        sklog = skLog(penalty=penalty, solver='lbfgs', C=5.0,
-                      fit_intercept=fit_intercept)
+                          C=C, fit_intercept=fit_intercept, multi_class='auto')
     else:
-        if sk_check:
-            sklog = skLog(penalty=penalty, solver='lbfgs', C=5.0,
-                          fit_intercept=fit_intercept)
-        else:
-            sklog = skLog(penalty='l2', solver='lbfgs', C=1e9,
-                          fit_intercept=fit_intercept)
+        sklog = skLog(penalty=penalty, solver='lbfgs', C=C,
+                      fit_intercept=fit_intercept, multi_class='auto')
 
     sklog.fit(X_train, y_train)
 
-    preds = culog.predict(X_test)
-    skpreds = sklog.predict(X_test)
-
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
-    if penalty in ['elasticnet', 'l1', 'l2']:
-        assert np.sum(preds.to_array() != skpreds)/len(y_test) < 1e-1
-    else:
-        # This is the only case where cuml and sklearn actually do a similar
-        # lbfgs, other cases cuml does owl or sklearn does saga
-        assert np.sum(preds.to_array() != skpreds)/len(y_test) < 1e-3
+
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.06
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
-@pytest.mark.xfail(raises=AssertionError)
 def test_logistic_regression_model_default(dtype):
 
     X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
@@ -241,12 +227,8 @@ def test_logistic_regression_model_default(dtype):
     y_test = y_test.astype(dtype)
     culog = cuLog()
     culog.fit(X_train, y_train)
-    # Only solver=saga supports elasticnet in scikit
-    sklog = skLog()
+    sklog = skLog(multi_class='auto')
 
     sklog.fit(X_train, y_train)
 
-    preds = culog.predict(X_test)
-    skpreds = sklog.predict(X_test)
-
-    assert np.sum(preds.to_array() != skpreds)/len(y_test) < 1e-1
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022

@@ -19,6 +19,7 @@
 #include <cuda_runtime.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <memory>
+#include <vector>
 
 namespace ML {
 
@@ -96,6 +97,10 @@ class cumlHandle {
   */
   int getNumInternalStreams();
 
+  /**
+   * @brief API to get the internal streams as a vector.
+   * @return vector of internal streams in the handle
+   */
   std::vector<cudaStream_t> cumlHandle::getInternalStreams() const;
 
   /**
