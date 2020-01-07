@@ -57,6 +57,7 @@ def extract_ddf_partitions(ddf, client=None, agg=True):
     yield wait(worker_to_parts)
     raise gen.Return(worker_to_parts)
 
+
 @gen.coroutine
 def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
     """
@@ -83,7 +84,7 @@ def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
         label_parts = label_parts.flatten().tolist()
 
     parts = list(map(delayed, zip(data_parts, label_parts)))
-    parts = client.compute(parts) 
+    parts = client.compute(parts)
     yield wait(parts)
 
     key_to_part_dict = dict([(part.key, part) for part in parts])
@@ -96,6 +97,7 @@ def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
         worker_map[first(workers)].append(key_to_part_dict[key])
 
     return worker_map
+
 
 def get_meta(df):
     """

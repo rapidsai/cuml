@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 from cuml.benchmark import datagen, algorithms
-from cuml.benchmark.runners import AccuracyComparisonRunner, run_variations
+from cuml.benchmark.runners import AccuracyComparisonRunner, \
+    SpeedupComparisonRunner, run_variations
 
 import numpy as np
 import cudf
@@ -21,6 +22,8 @@ import pytest
 from numba import cuda
 from sklearn import metrics
 import pandas as pd
+
+import time
 
 
 @pytest.mark.parametrize('dataset', ['blobs', 'regression', 'classification'])
@@ -65,6 +68,47 @@ def test_run_variations():
     assert res.shape[0] == 4
     assert (res.n_samples == 100).sum() == 2
     assert (res.n_features == 20).sum() == 2
+
+
+def test_speedup_runner():
+    class MockAlgo:
+        def __init__(self, t):
+            self.t = t
+
+        def fit(self, X, y):
+            time.sleep(self.t)
+            return
+
+        def predict(self, X):
+            nr = X.shape[0]
+            res = np.zeros(nr)
+            res[0:int(nr / 5.0)] = 1.0
+            return res
+
+    class FastMockAlgo(MockAlgo):
+        def __init__(self):
+            MockAlgo.__init__(self, 0.1)
+
+    class SlowMockAlgo(MockAlgo):
+        def __init__(self):
+            MockAlgo.__init__(self, 2)
+
+    pair = algorithms.AlgorithmPair(
+        SlowMockAlgo,
+        FastMockAlgo,
+        shared_args={},
+        name="Mock",
+        accuracy_function=metrics.accuracy_score,
+    )
+
+    runner = SpeedupComparisonRunner(
+        [20], [5], dataset_name='zeros'
+    )
+    results = runner.run(pair)[0]
+
+    expected_speedup = SlowMockAlgo().t / FastMockAlgo().t
+
+    assert results["speedup"] == pytest.approx(expected_speedup, 0.4)
 
 
 def test_multi_reps():
