@@ -20,7 +20,7 @@ namespace MLCommon {
 namespace LinAlg {
 
 namespace {
-  /**
+/**
    * Like Python range.
    *
    * Fills the output as out[i] = i.

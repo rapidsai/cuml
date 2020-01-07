@@ -105,7 +105,6 @@ if(BUILD_CUML_TESTS)
       sg/umap_test.cu
       )
 
-    add_dependencies(ml ${ClangFormat_TARGET})
     add_dependencies(ml cub)
     add_dependencies(ml cutlass)
 
@@ -140,7 +139,6 @@ if(BUILD_CUML_MG_TESTS)
       mg/test_ml_mg_utils.cu
       )
 
-    add_dependencies(ml_mg ${ClangFormat_TARGET})
     add_dependencies(ml_mg cub)
     add_dependencies(ml_mg cutlass)
 
@@ -202,6 +200,7 @@ if(BUILD_PRIMS_TESTS)
       prims/eltwise.cu
       prims/eltwise2d.cu
       prims/entropy.cu
+      prims/fused_l2_nn.cu
       prims/gather.cu
       prims/gemm.cu
       prims/gemm_layout.cu
@@ -266,7 +265,6 @@ if(BUILD_PRIMS_TESTS)
       prims/weighted_mean.cu
       )
 
-    add_dependencies(prims ${ClangFormat_TARGET})
     add_dependencies(prims cub)
     add_dependencies(prims cutlass)
 
