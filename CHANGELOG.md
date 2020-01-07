@@ -6,6 +6,7 @@
 - PR #1514: bench: Fused L2 NN prim benchmark
 
 ## Improvements
+- PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
 - PR #1489: Enabling deep trees using Gather tree builder

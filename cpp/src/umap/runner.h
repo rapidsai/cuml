@@ -53,7 +53,6 @@ template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
                                const T *embeddings, int embeddings_n,
                                int n_components, T *result, int n_neighbors) {
-
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   int i =
@@ -100,8 +99,8 @@ void _fit(const cumlHandle &handle,
   MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params, d_alloc,
-                stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
+                d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   COO<T> rgraph_coo(d_alloc, stream);
@@ -157,8 +156,8 @@ void _fit(const cumlHandle &handle,
   MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params, d_alloc,
-                stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
+                d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -243,7 +242,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
    * Perform kNN of X
    */
   MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream,
-                                            n * params->n_neighbors);
+                                               n * params->n_neighbors);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream,
                                        n * params->n_neighbors);
 
