@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #include "linalg/unary_op.h"
 #include "matrix/kernelfactory.h"
 #include "smosolver.h"
-#include "svc.hpp"
+#include <cuml/svm/svc.hpp>
 #include "svc_impl.h"
 
 namespace ML {

@@ -35,9 +35,9 @@
 #include "random/rng.h"
 #include "svm/smoblocksolve.h"
 #include "svm/smosolver.h"
-#include "svm/svc.hpp"
-#include "svm/svm_model.h"
-#include "svm/svm_parameter.h"
+#include <cuml/svm/svc.hpp>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include "svm/workingset.h"
 #include "test_utils.h"
 
