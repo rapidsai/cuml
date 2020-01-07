@@ -54,7 +54,6 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 @pytest.mark.parametrize("n_parts", [2, 23])
 def test_ols(n_parts, client=None):
 
-    owns_cluster = False
     if client is None:
         cluster = LocalCUDACluster(threads_per_worker=1)
         client = Client(cluster)
