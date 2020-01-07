@@ -67,7 +67,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef cppclass CppSVC "ML::SVM::SVC" [math_t]:
         # The CppSVC class manages the memory of the parameters that are found
