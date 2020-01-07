@@ -15,6 +15,7 @@
  */
 
 #include <cuda_utils.h>
+#include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
@@ -23,7 +24,6 @@
 #include "common/host_buffer.hpp"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
-#include <cuml/matrix/kernelparams.h>
 #include "test_utils.h"
 
 namespace MLCommon {

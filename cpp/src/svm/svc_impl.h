@@ -23,6 +23,8 @@
 #include <iostream>
 
 #include <cublas_v2.h>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -35,8 +37,6 @@
 #include "matrix/kernelfactory.h"
 #include "matrix/matrix.h"
 #include "smosolver.h"
-#include <cuml/svm/svm_model.h>
-#include <cuml/svm/svm_parameter.h>
 
 namespace ML {
 namespace SVM {

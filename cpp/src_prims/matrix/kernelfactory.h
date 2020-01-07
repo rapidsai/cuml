@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <cuml/matrix/kernelparams.h>
 #include "grammatrix.h"
 #include "kernelmatrices.h"
-#include <cuml/matrix/kernelparams.h>
 #include "utils.h"
 
 namespace MLCommon {
