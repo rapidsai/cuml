@@ -29,6 +29,9 @@ from sklearn.model_selection import train_test_split
 
 regression_models = {
     "LinearRegression": lambda: cuml.LinearRegression(),
+    "LogisticRegression": lambda: cuml.LogisticRegression(),
+    "LogisticRegressionNoInt": lambda: cuml.LogisticRegression(
+        fit_intercept=False),
     "Lasso": lambda: cuml.Lasso(),
     "Ridge": lambda: cuml.Ridge(),
     "ElasticNet": lambda: cuml.ElasticNet()
@@ -36,7 +39,8 @@ regression_models = {
 
 solver_models = {
     "CD": lambda: cuml.CD(),
-    "SGD": lambda: cuml.SGD(eta0=0.005)
+    "SGD": lambda: cuml.SGD(eta0=0.005),
+    "QN": lambda: cuml.QN(loss="softmax")
 }
 
 cluster_models = {
@@ -65,17 +69,23 @@ umap_model = {
     "UMAP": lambda: cuml.UMAP()
 }
 
-rf_classification_model = {
-    "rfc": lambda: cuml.RandomForestClassifier()
-}
-
-rf_regression_model = {
+rf_models = {
+    "rfc": lambda: cuml.RandomForestClassifier(),
     "rfr": lambda: cuml.RandomForestRegressor()
 }
 
+all_models = {**regression_models,
+              **solver_models,
+              **cluster_models,
+              **decomposition_models,
+              **decomposition_models_xfail,
+              **neighbor_models,
+              **dbscan_model,
+              **umap_model,
+              **rf_models}
+
 
 def pickle_save_load(tmpdir, func_create_model, func_assert):
-
     model, X_test = func_create_model()
     pickle_file = tmpdir.join('cu_model.pickle')
 
@@ -113,46 +123,32 @@ def make_dataset(datatype, nrows, ncols, n_info):
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('keys', rf_regression_model.keys())
+@pytest.mark.parametrize('key', rf_models.keys())
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
 @pytest.mark.parametrize('n_info', [unit_param(7)])
-def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, keys):
+def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, key):
     result = {}
 
     def create_mod():
-        X_train, y_train, X_test = make_dataset(datatype, nrows,
-                                                ncols, n_info)
-        model = rf_regression_model[keys]()
+        if key == 'rfr':
+            X_train, y_train, X_test = make_dataset(datatype,
+                                                    nrows,
+                                                    ncols,
+                                                    n_info)
+        else:
+            X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                                   nrows,
+                                                                   ncols,
+                                                                   n_info)
+
+        model = rf_models[key]()
         model.fit(X_train, y_train)
-        result["rf_reg"] = model.predict(X_test)
+        result["rf_res"] = model.predict(X_test)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
-        assert array_equal(result["rf_reg"], pickled_model.predict(X_test))
-
-    pickle_save_load(tmpdir, create_mod, assert_model)
-
-
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('keys', rf_classification_model.keys())
-@pytest.mark.parametrize('nrows', [unit_param(500)])
-@pytest.mark.parametrize('ncols', [unit_param(16)])
-@pytest.mark.parametrize('n_info', [unit_param(7)])
-def test_rf_classification_pickle(tmpdir, datatype, keys,
-                                  nrows, ncols, n_info):
-    result = {}
-
-    def create_mod():
-        X_train, y_train, X_test = make_classification_dataset(datatype, nrows,
-                                                               ncols, n_info)
-        model = rf_classification_model[keys]()
-        model.fit(X_train, y_train)
-        result["rf_class"] = model.predict(X_test)
-        return model, X_test
-
-    def assert_model(pickled_model, X_test):
-        assert array_equal(result["rf_class"], pickled_model.predict(X_test))
+        assert array_equal(result["rf_res"], pickled_model.predict(X_test))
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -301,6 +297,22 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
                            pickled_model.transform(X_test))
 
     pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('model_name',
+                         all_models.keys())
+def test_unfit_pickle(model_name):
+    # Any model xfailed in this test cannot be used for hyperparameter sweeps
+    # with dask or sklearn
+    if model_name in decomposition_models_xfail.keys() or \
+       model_name in ["PCA", "UMAP"]:
+        pytest.xfail()
+
+    # Pickling should work even if fit has not been called
+    mod = all_models[model_name]()
+    mod_pickled_bytes = pickle.dumps(mod)
+    mod_unpickled = pickle.loads(mod_pickled_bytes)
+    assert mod_unpickled is not None
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])

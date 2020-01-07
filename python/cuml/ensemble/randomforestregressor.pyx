@@ -269,6 +269,7 @@ class RandomForestRegressor(Base):
         self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
+        self.dtype = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
@@ -291,7 +292,9 @@ class RandomForestRegressor(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self.model_pbuf_bytes = self._get_model_info()
+        if self.n_cols:
+            # only if model has been fit previously
+            self.model_pbuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*>params_t
@@ -454,7 +457,7 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo,
-                              convert_dtype, task_category=1):
+                              convert_dtype=False, task_category=1):
 
         cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, _ = \
@@ -583,7 +586,7 @@ class RandomForestRegressor(Base):
 
         return preds
 
-    def score(self, X, y, algo='BATCH_TREE_REORG'):
+    def score(self, X, y, algo='BATCH_TREE_REORG', convert_dtype=True):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
@@ -602,6 +605,8 @@ class RandomForestRegressor(Base):
             coalescing-friendly
             'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
             multiple rows per thread block
+        convert_dtype : boolean, default=True
+            whether to convert input data to correct dtype automatically
         Returns
         ----------
         mean_square_error : float or
@@ -610,10 +615,12 @@ class RandomForestRegressor(Base):
         """
         cdef uintptr_t X_ptr, y_ptr
         y_m, y_ptr, n_rows, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else False))
 
-        preds = self._predict_model_on_gpu(X, output_class=False,
-                                           algo=algo)
+        preds = self._predict_model_on_gpu(X, algo=algo,
+                                           convert_dtype=convert_dtype)
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
