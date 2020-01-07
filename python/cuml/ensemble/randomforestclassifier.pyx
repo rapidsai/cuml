@@ -304,7 +304,7 @@ class RandomForestClassifier(Base):
         state = self.__dict__.copy()
         del state['handle']
         if self.n_cols:
-            # only if model has been fit previouslyo
+            # only if model has been fit previously
             self.model_pbuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
