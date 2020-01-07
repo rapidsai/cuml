@@ -189,8 +189,7 @@ void convert_scatter_to_gather(const unsigned int *flagsptr,
                              tempmem->stream));
 
   int nthreads = 128;
-  int nblocks = (int)(n_rows / nthreads);
-  if (n_rows % nthreads != 0) nblocks++;
+  int nblocks = MLCommon::ceildiv(n_rows, nthreads);
   fill_counts<<<nblocks, nthreads, 0, tempmem->stream>>>(flagsptr, sample_cnt,
                                                          n_rows, nodecount);
 
@@ -282,8 +281,7 @@ void make_split_gather(const T *data, unsigned int *nodestart,
   CUDA_CHECK(cudaMemsetAsync(flagsptr, LEAF, nrows * sizeof(unsigned int),
                              tempmem->stream));
   int nthreads = 128;
-  int nblocks = (int)(nrows / nthreads);
-  if (nrows % nthreads != 0) nblocks++;
+  int nblocks = MLCommon::ceildiv(nrows, nthreads);
   split_nodes_compute_counts_kernel<<<n_nodes, 64, sizeof(SparseTreeNode<T, L>),
                                       tempmem->stream>>>(
     data, d_sparsenodes, nodestart, samplelist, nrows, nodelist, new_nodelist,

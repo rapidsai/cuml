@@ -26,7 +26,7 @@ struct TemporaryMemory {
   //depth algorithm changer
   const int swap_depth = 14;
   static const int gather_threads = 256;
-  size_t parentsz, childsz;
+  size_t parentsz, childsz, gather_max_nodes;
   //Allocators parsed from CUML handle
   std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
   std::shared_ptr<MLCommon::hostAllocator> host_allocator;
@@ -121,6 +121,6 @@ struct TemporaryMemory {
                          bool col_shuffle);
 
   void LevelMemCleaner();
-  void print_info();
+  void print_info(int depth, int nrows, int ncols, float colper);
 };
 #include "memory.cuh"
