@@ -35,7 +35,7 @@ cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
         void setStream(cuml.common.cuda._Stream s) except +
         void setDeviceAllocator(shared_ptr[deviceAllocator] a) except +
         cuml.common.cuda._Stream getStream() except +
-        int getNumInternalStreams() except +
-        vector[cuml.common.cuda._Stream] getInternalStreams()
+        int getNumWorkerStreams() except +
+        vector[cuml.common.cuda._Stream] getWorkerStreams()
         void waitOnUserStream()
-        void waitOnInternalStreams()
+        void waitOnWorkerStreams()

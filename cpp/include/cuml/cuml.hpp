@@ -38,7 +38,7 @@ class cumlHandle {
  public:
   /**
      * @brief construct a cumlHandle with default paramters.
-     * @param n_streams number of internal streams to be setup
+     * @param n_streams number of worker streams to be setup
      *
      * The default paramters are 
      *   - stream: default or NULL stream
@@ -95,13 +95,20 @@ class cumlHandle {
   * @brief API to query Num of work streams set during handle creation.
   * @returns num of streams in the handle.
   */
-  int getNumInternalStreams();
+  int getNumWorkerStreams();
 
   /**
-   * @brief API to get the internal streams as a vector.
-   * @return vector of internal streams in the handle
+   * @brief API to get the worker streams as a vector.
+   * @return vector of worker streams in the handle
    */
-  std::vector<cudaStream_t> cumlHandle::getInternalStreams() const;
+  std::vector<cudaStream_t> getWorkerStreams() const;
+
+  /**
+   * @brief API to get a specific worker streams by index.
+   * @return worker stream corresponding to index in the handle
+   */
+  std::vector<cudaStream_t> getWorkerStream(int sid) const;
+
 
   /**
      * @brief for internal use only.
@@ -113,10 +120,10 @@ class cumlHandle {
   cumlHandle_impl& getImpl();
 
   /** for internal use only */
-  static int getDefaultNumInternalStreams();
+  static int getDefaultNumWorkerStreams();
 
  private:
-  static constexpr int _default_num_internal_streams = 0;
+  static constexpr int _default_num_worker_streams = 0;
   std::unique_ptr<cumlHandle_impl> _impl;
 };
 

@@ -105,11 +105,11 @@ cdef class Handle:
     def getHandle(self):
         return self.h
 
-    def getNumInternalStreams(self):
+    def getNumWorkerStreams(self):
         cdef cumlHandle* h_ = <cumlHandle*>self.h
-        return h_.getNumInternalStreams()
+        return h_.getNumWorkerStreams()
 
-    def getInternalStreamsAsHandles():
+    def getWorkerStreamsAsHandles():
         """
         Returns the internal streams as new single-stream handles
         that can be used to parallelize a set of tasks.
@@ -121,7 +121,7 @@ cdef class Handle:
             import cuml
             handle = cuml.Handle()
 
-            handles = handle.getInternalStreamsAsHandles()
+            handles = handle.getWorkerStreamsAsHandles()
 
             n_int_handles = len(handles)
 
@@ -136,13 +136,13 @@ cdef class Handle:
                 )
 
             # Wait until all parallel streams complete
-            handle.waitOnInternalStreams()
+            handle.waitOnWorkerStreams()
 
         :return:
         """
         cdef cumlHandle* h_ = <cumlHandle*>self.h
 
-        cdef vector[_Stream] int_streams = h_.getInternalStreams()
+        cdef vector[_Stream] int_streams = h_.getWorkerStreams()
         handles = []
 
         cdef cumlHandle *new_handle
@@ -155,6 +155,6 @@ cdef class Handle:
         cdef cumlHandle * h_ = < cumlHandle * > self.h
         h_.waitOnUserStream()
 
-    def waitOnInternalStreams():
+    def waitOnWorkerStreams():
         cdef cumlHandle * h_ = < cumlHandle * > self.h
-        h_.waitOnInternalStreams()
+        h_.waitOnWorkerStreams()

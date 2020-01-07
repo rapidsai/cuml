@@ -35,8 +35,7 @@ class Fixture : public ::benchmark::Fixture {
 
   void SetUp(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new cumlHandle(NumStreams));
-    handle->setStream(stream);
+    handle.reset(new cumlHandle(stream, NumStreams));
     allocateData(state);
     allocateBuffers(state);
     CUDA_CHECK(cudaStreamSynchronize(stream));
