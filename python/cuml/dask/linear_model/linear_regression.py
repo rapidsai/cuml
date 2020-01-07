@@ -15,7 +15,6 @@
 
 from cuml.dask.common import extract_ddf_partitions
 from cuml.dask.common import extract_colocated_ddf_partitions
-from cuml.dask.common import workers_to_parts
 from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
@@ -177,7 +176,7 @@ class LinearRegression(object):
         self.coef_ = self.local_model.coef_
 
     def _fit_with_colocality(self, X, y):
-        input_futures = self.client.sync(extract_colocated_ddf_partitions, 
+        input_futures = self.client.sync(extract_colocated_ddf_partitions,
                                          X, y, self.client)
         workers = list(input_futures.keys())
 
@@ -194,10 +193,11 @@ class LinearRegression(object):
         key = uuid1()
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
-            parts = [(self.client.submit(LinearRegression._func_get_size_colocated,
-                                        future,
-                                        workers=[w],
-                                        key="%s-%s" % (key, idx)).result())
+            parts = \
+                [(self.client.submit(LinearRegression._func_get_size_colocated,
+                                     future,
+                                     workers=[w],
+                                     key="%s-%s" % (key, idx)).result())
             for idx, future in enumerate(futures)]
             partsToRanks[worker_info[w]["r"]] = parts
             for p in parts:
@@ -240,7 +240,7 @@ class LinearRegression(object):
         ----------
         X : dask cuDF input
         y : dask cuDF input
-        """ 
+        """
 
         if force_colocality:
             self._fit_with_colocality(X, y)
