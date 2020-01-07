@@ -193,11 +193,13 @@ class LinearRegression(object):
         key = uuid1()
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
-            parts = [(self.client.submit(LinearRegression._func_get_size_cl,
-                                     future,
-                                     workers=[w],
-                                     key="%s-%s" % (key, idx)).result())
-            for idx, future in enumerate(futures)]
+            parts = [(self.client.submit(
+                LinearRegression._func_get_size_cl,
+                future,
+                workers=[w],
+                key="%s-%s" % (key, idx)).result())
+                for idx, future in enumerate(futures)]
+
             partsToRanks[worker_info[w]["r"]] = parts
             for p in parts:
                 M = M + p
