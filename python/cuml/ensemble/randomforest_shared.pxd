@@ -122,4 +122,4 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef vector[unsigned char] save_model(ModelHandle)
 
-    cdef void create_file(ModelHandle)
+    cdef string create_file(vector[unsigned char] &)

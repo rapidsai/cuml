@@ -384,26 +384,17 @@ class RandomForestClassifier(Base):
 
     def convert_to_treelite_model(self):
         """
-
-        model_protobuf_bytes = self._get_model_info()
-        m_bytes = bytes(model_protobuf_bytes)
-        with open('tl_file.txt', 'wb') as filehandle:
-            filehandle.writelines(mb for mb in m_bytes)
-        treelite_model = TreeliteModel.from_filename(filename='tl_file.txt',
-                                                     model_type="protobuf")
-        os.remove("tl_file.txt")
-        return treelite_model
+        converts the cuML RF model to a Treelite model
+        Returns:  Treelite model
         """
         task_category = 2
-        treelite_handle = self._convert_to_treelite(task_category)
-        print("treelite_handle : ", treelite_handle)
-        create_file(<ModelHandle> treelite_handle)
-        file_name = "tl_file.txt"
-        print("name of the file returned : ", file_name)
+        model_pbuf_bytes = self._get_model_info()
+        file_name = create_file(<vector[unsigned char] &> model_pbuf_bytes)
+        file_name = file_name.decode("utf-8")
         treelite_model = TreeliteModel.from_filename(filename=file_name,
                                                      model_type="protobuf")
-        #os.remove(file_name)
-        return file_name
+        os.remove(file_name)
+        return treelite_model
         
     def fit(self, X, y):
         """

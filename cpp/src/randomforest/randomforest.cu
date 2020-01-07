@@ -341,14 +341,14 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   return bytes_info;
 }
 
-void create_file(ModelHandle model) {
+std::string create_file(std::vector<unsigned char>& data) {
   // create a temp file
-  const char* filename = "tl_model.txt";
-  // export the treelite model to protobuf nd save it in the temp file
-  TreeliteExportProtobufModel(filename, model);
+  const char* filename = "tl_file.txt";
+  // write the model bytes into the temp file
+  std::ofstream file(filename, std::ios::binary);
+  file.write((char*)&data[0], data.size());
   std::string someString(filename);
-  std::cout << "filename : " << filename << std::flush << std::endl;
-  // return filename;
+  return filename;
 }
 
 /**
