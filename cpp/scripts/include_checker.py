@@ -33,19 +33,19 @@ def parse_args():
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
     args = argparser.parse_args()
-    args.regexCompiled = re.compile(args.regex)
+    args.regex_compiled = re.compile(args.regex)
     return args
 
 
 def list_all_source_file(file_regex, srcdirs):
-    allFiles = []
+    all_files = []
     for srcdir in srcdirs:
         for root, dirs, files in os.walk(srcdir):
             for f in files:
                 if re.search(file_regex, f):
                     src = os.path.join(root, f)
-                    allFiles.append(src)
-    return allFiles
+                    all_files.append(src)
+    return all_files
 
 
 def check_includes_in(src):
@@ -56,27 +56,29 @@ def check_includes_in(src):
         if match is None:
             continue
         val = match.group(1)
-        incFile = val[1:-1]  # strip out " or <
-        if val[0] == "\"" and not os.path.exists(os.path.join(dir, incFile)):
-            errs.append("Line:%d use #include <...>" % line_number)
-        elif val[0] == "<" and os.path.exists(os.path.join(dir, incFile)):
-            errs.append("Line:%d use #include \"...\"" % line_number)
+        inc_file = val[1:-1]  # strip out " or <
+        full_path = os.path.join(dir, inc_file)
+        line_num = line_number + 1
+        if val[0] == "\"" and not os.path.exists(full_path):
+            errs.append("Line:%d use #include <...>" % line_num)
+        elif val[0] == "<" and os.path.exists(full_path):
+            errs.append("Line:%d use #include \"...\"" % line_num)
     return errs
 
 
 def main():
     args = parse_args()
-    allFiles = list_all_source_file(args.regexCompiled, args.dirs)
-    allErrs = {}
-    for f in allFiles:
+    all_files = list_all_source_file(args.regex_compiled, args.dirs)
+    all_errs = {}
+    for f in all_files:
         errs = check_includes_in(f)
         if len(errs) > 0:
-            allErrs[f] = errs
-    if len(allErrs) == 0:
+            all_errs[f] = errs
+    if len(all_errs) == 0:
         print("include-check PASSED")
     else:
         print("include-check FAILED! See below for errors...")
-        for f, errs in allErrs.items():
+        for f, errs in all_errs.items():
             print("File: %s" % f)
             for e in errs:
                 print("  %s" % e)

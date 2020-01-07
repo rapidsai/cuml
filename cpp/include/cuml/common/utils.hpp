@@ -16,10 +16,9 @@
 
 #pragma once
 
-
-#include <cstdio>
 #include <cuda_runtime.h>
 #include <execinfo.h>
+#include <cstdio>
 #include <sstream>
 #include <stdexcept>
 #include <string>
