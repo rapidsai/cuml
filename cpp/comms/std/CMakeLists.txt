@@ -44,9 +44,8 @@ set(COMMS_LINK_LIBRARIES ${CUML_CPP_TARGET})
 # Note this option will be removed once UCX conda package is released
 if(WITH_UCX)
     # dlopen is used to dynamically load the needed ucp symbols at runtime. 
-    # Calling find_package here just allows an error to be thrown at build 
-    # time if it's not available.
-	find_package(UCX)
+    # Only the UCX include directories are needed for compiling
+  	find_package(UCX)
 	include_directories(${UCX_INCLUDE_DIRS})
 	add_compile_definitions(WITH_UCX=1)
 endif(WITH_UCX)
