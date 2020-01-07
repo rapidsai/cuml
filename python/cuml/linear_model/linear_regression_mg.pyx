@@ -206,7 +206,7 @@ class LinearRegressionMG(LinearRegression):
 
         for idx, rankSize in enumerate(partsToRanks):
             rank, size = rankSize
-            if rnk == rank:    
+            if rnk == rank:
                 rankSizePair[indx] = <RankSizePair*> \
                     malloc(sizeof(RankSizePair))
                 rankSizePair[indx].rank = <int>rank
@@ -227,7 +227,7 @@ class LinearRegressionMG(LinearRegression):
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             labels = self._build_dataFloat(arr_interfaces_y)
-                      
+
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -241,12 +241,12 @@ class LinearRegressionMG(LinearRegression):
                 <bool>self.normalize,
                 <int>self.algo,
                 False)
-            
+
             self.intercept_ = c_intercept1
         else:
             data = self._build_dataDouble(arr_interfaces)
             labels = self._build_dataDouble(arr_interfaces_y)
-            
+
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -259,8 +259,8 @@ class LinearRegressionMG(LinearRegression):
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
                 <int>self.algo,
-                False) 
-            
+                False)
+
             self.intercept_ = c_intercept2
 
         self.handle.sync()
@@ -281,7 +281,7 @@ class LinearRegressionMG(LinearRegression):
 
     def fit_colocated(self, input_data, M, N, partsToRanks, rnk):
         """
-        Fit function for MNMG Linear Regression. 
+        Fit function for MNMG Linear Regression.
         This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions
@@ -306,8 +306,7 @@ class LinearRegressionMG(LinearRegression):
             arr_interfaces_y.append({"obj": y_m,
                                    "data": input_ptr,
                                    "shape": (n_rows, n_cols)})
-            
-        
+
         n_total_parts = len(input_data)
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
             malloc(sizeof(RankSizePair**)
@@ -332,7 +331,7 @@ class LinearRegressionMG(LinearRegression):
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             labels = self._build_dataFloat(arr_interfaces_y)
-                      
+
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -346,12 +345,12 @@ class LinearRegressionMG(LinearRegression):
                 <bool>self.normalize,
                 <int>self.algo,
                 False)
-            
+
             self.intercept_ = c_intercept1
         else:
             data = self._build_dataDouble(arr_interfaces)
             labels = self._build_dataDouble(arr_interfaces_y)
-            
+
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -364,7 +363,7 @@ class LinearRegressionMG(LinearRegression):
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
                 <int>self.algo,
-                False) 
+                False)
 
             self.intercept_ = c_intercept2
 
@@ -380,7 +379,7 @@ class LinearRegressionMG(LinearRegression):
         else:
             self._freeDoubleD(data, arr_interfaces)
             self._freeDoubleD(labels, arr_interfaces_y)
- 
+
     def predict(self, X, M, N, partsToRanks, rnk):
         """
         Transform function for Linear Regression MG. This not meant to be used as
