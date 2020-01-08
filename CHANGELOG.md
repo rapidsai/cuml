@@ -25,6 +25,7 @@
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
 - PR #1534: Removed TODO comment in create_ucp_listeners()
+- PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 
 # cuML 0.11.0 (11 Dec 2019)
 
