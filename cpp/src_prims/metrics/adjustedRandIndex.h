@@ -30,6 +30,7 @@
 #include "metrics/contingencyMatrix.h"
 
 namespace MLCommon {
+namespace Metrics {
 
 /**
 * @brief Lambda to calculate the number of unordered pairs in a given input
@@ -43,8 +44,6 @@ template <typename Type, typename IdxType = int>
 struct nCTwo {
   HDI Type operator()(Type in, IdxType i = 0) { return (in * (in - 1)) / 2; }
 };
-
-namespace Metrics {
 
 /**
 * @brief Function to calculate Adjusted RandIndex as described
