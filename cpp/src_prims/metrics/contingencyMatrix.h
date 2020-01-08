@@ -140,34 +140,30 @@ void contingencyMatrixWSort(const T *groundTruth, const T *predictedLabel,
                       stream);
 }
 
-inline ContingencyMatrixImplType getImplVersion(int outDimN) {
+template <typename OutT = int>
+ContingencyMatrixImplType getImplVersion(OutT outDimN) {
   int currDevice = 0;
   int l2CacheSize = 0;
   int maxSmemPerBlock = 0;
-  int maxBlocksResidentPerSM =
-    16;  // no way to query this from CUDA APIs, value for CC 7.0, 3.0
-
+  // no way to query this from CUDA APIs, value for CC 7.0, 3.0
+  int maxBlocksResidentPerSM = 16;
   CUDA_CHECK(cudaGetDevice(&currDevice));
   CUDA_CHECK(
     cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, currDevice));
   CUDA_CHECK(cudaDeviceGetAttribute(
     &maxSmemPerBlock, cudaDevAttrMaxSharedMemoryPerBlock, currDevice));
-
   ContingencyMatrixImplType implVersion = IMPL_NONE;
-
   // keeping 8 block per SM to get good utilization
   // can go higher but reduced L1 size degrades perf
   int upperLimitSmemAtomics = std::floor(
-    std::sqrt(maxSmemPerBlock / (sizeof(int) * (maxBlocksResidentPerSM / 2))));
-  int upperLimitL2Atomics = std::floor(std::sqrt(l2CacheSize / sizeof(int)));
-
+    std::sqrt(maxSmemPerBlock / (sizeof(OutT) * (maxBlocksResidentPerSM / 2))));
+  int upperLimitL2Atomics = std::floor(std::sqrt(l2CacheSize / sizeof(OutT)));
   if (outDimN <= upperLimitSmemAtomics)
     implVersion = SMEM_ATOMICS;
   else if (outDimN <= upperLimitL2Atomics)
     implVersion = GLOBAL_ATOMICS;
   else
     implVersion = SORT_AND_GATOMICS;
-
   return implVersion;
 }
 
@@ -193,15 +189,17 @@ void getInputClassCardinality(const T *groundTruth, const int nSamples,
 
 /**
  * @brief Calculate workspace size for running contingency matrix calculations
+ * @tparam T label type
+ * @tparam OutT output matrix type
  * @param nSamples: number of elements in input array
  * @param groundTruth: device 1-d array for ground truth (num of rows)
  * @param stream: cuda stream for execution
  * @param minLabel: Optional, min value in input array
  * @param maxLabel: Optional, max value in input array
  */
-template <typename T>
+template <typename T, typename OutT = int>
 size_t getContingencyMatrixWorkspaceSize(
-  const int nSamples, const T *groundTruth, cudaStream_t stream,
+  int nSamples, const T *groundTruth, cudaStream_t stream,
   T minLabel = std::numeric_limits<T>::max(),
   T maxLabel = std::numeric_limits<T>::max()) {
   size_t workspaceSize = 0;
@@ -215,21 +213,17 @@ size_t getContingencyMatrixWorkspaceSize(
     minLabel = *min_max.first;
     maxLabel = *min_max.second;
   }
-
-  int outDimN = int(maxLabel - minLabel + T(1));
-  ContingencyMatrixImplType implVersion = getImplVersion(outDimN);
-
+  auto outDimN = OutT(maxLabel - minLabel + 1);
+  ContingencyMatrixImplType implVersion = getImplVersion<OutT>(outDimN);
   if (implVersion == SORT_AND_GATOMICS) {
     void *pWorkspaceCub = nullptr;
     size_t tmpStorageBytes = 0;
     // bunch of no-op pointers to get workspace size
     T *pTmpKey, *pTmpValue, *pTmpKeyOut, *pTmpValueOut;
-
     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(pWorkspaceCub, tmpStorageBytes,
                                                pTmpKey, pTmpValue, pTmpKeyOut,
                                                pTmpValueOut, nSamples));
-
-    size_t tmpStagingMemorySize = alignTo(nSamples * sizeof(T), (size_t)256);
+    auto tmpStagingMemorySize = alignTo<size_t>(nSamples * sizeof(T), 256);
     tmpStagingMemorySize *= 2;
     workspaceSize = tmpStagingMemorySize + tmpStorageBytes;
   }
@@ -242,6 +236,7 @@ size_t getContingencyMatrixWorkspaceSize(
  *        and allocate memory for output. Similarly workspace requirements
  *        should be checked using function getContingencyMatrixWorkspaceSize
  * @tparam T label type
+ * @tparam OutT output matrix type
  * @param groundTruth: device 1-d array for ground truth (num of rows)
  * @param predictedLabel: device 1-d array for prediction (num of columns)
  * @param nSamples: number of elements in input array
@@ -252,9 +247,9 @@ size_t getContingencyMatrixWorkspaceSize(
  * @param minLabel: Optional, min value in input ground truth array
  * @param maxLabel: Optional, max value in input ground truth array
  */
-template <typename T>
+template <typename T, typename OutT = int>
 void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
-                       const int nSamples, int *outMat, cudaStream_t stream,
+                       int nSamples, OutT *outMat, cudaStream_t stream,
                        void *workspace = nullptr, size_t workspaceSize = 0,
                        T minLabel = std::numeric_limits<T>::max(),
                        T maxLabel = std::numeric_limits<T>::max()) {
@@ -286,7 +281,7 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
   cudaMemsetAsync((void *)outMat, 0, sizeof(int) * outDimM_N * outDimM_N,
                   stream);
 
-  ContingencyMatrixImplType implVersion = getImplVersion(outDimM_N);
+  ContingencyMatrixImplType implVersion = getImplVersion<OutT>(outDimM_N);
 
   switch (implVersion) {
     case SMEM_ATOMICS:
