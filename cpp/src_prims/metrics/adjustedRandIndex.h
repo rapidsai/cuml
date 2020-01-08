@@ -41,7 +41,7 @@ namespace MLCommon {
 */
 template <typename Type, typename IdxType = int>
 struct nCTwo {
-  HDI Type operator()(Type in, IdxType i = 0) { return ((in) * (in - 1)) / 2; }
+  HDI Type operator()(Type in, IdxType i = 0) { return (in * (in - 1)) / 2; }
 };
 
 namespace Metrics {
