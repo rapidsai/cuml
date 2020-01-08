@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, extract_colocated_ddf_partitions, workers_to_parts
+from cuml.dask.common import extract_ddf_partitions
+from cuml.dask.common import extract_colocated_ddf_partitions
 from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
@@ -60,7 +61,7 @@ class Ridge(object):
     @staticmethod
     def _func_fit(f, data, M, N, partsToRanks, rank):
         return f.fit(data, M, N, partsToRanks, rank)
-        
+
     @staticmethod
     def _func_predict(f, df, M, N, partsToRanks, rank):
         return f.predict(df, M, N, partsToRanks, rank)
@@ -86,7 +87,8 @@ class Ridge(object):
         return df.shape[0]
 
     def fit(self, X, y):         
-        input_futures = self.client.sync(extract_colocated_ddf_partitions, X, y, self.client)
+        input_futures = self.client.sync(extract_colocated_ddf_partitions, 
+                                         X, y, self.client)
         workers = list(input_futures.keys())
 
         comms = CommsContext(comms_p2p=False)
@@ -102,11 +104,13 @@ class Ridge(object):
         key = uuid1()
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
-            parts = [(self.client.submit(Ridge._func_get_size_colocated,
-                                        future,
-                                        workers=[w],
-                                        key="%s-%s" % (key, idx)).result())
-            for idx, future in enumerate(futures)]
+            parts = [(self.client.submit(
+                Ridge._func_get_size_colocated,
+                future,
+                workers=[w],
+                key="%s-%s" % (key, idx)).result())
+                for idx, future in enumerate(futures)]
+
             partsToRanks[worker_info[w]["r"]] = parts
             for p in parts:
                 M = M + p
@@ -139,6 +143,7 @@ class Ridge(object):
 
         self.local_model = self.linear_models[0][1].result()
         self.coef_ = self.local_model.coef_
+        self.intercept_ = self.local_model.intercept_
 
     def predict(self, X):
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
@@ -188,7 +193,6 @@ class Ridge(object):
             completed_part_map[rank] += 1
 
         return to_dask_cudf(out_futures)
-        
+
     def get_param_names(self):
         return list(self.kwargs.keys())
-

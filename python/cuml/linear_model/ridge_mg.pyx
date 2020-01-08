@@ -61,58 +61,58 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
 cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
 
     cdef void fit(cumlHandle& handle,
-		  RankSizePair **rank_sizes,
-		  size_t n_parts,
-		  floatData_t **input,
-		  size_t n_rows,
-		  size_t n_cols,
-		  floatData_t **labels,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  floatData_t **input,
+                  size_t n_rows,
+                  size_t n_cols,
+                  floatData_t **labels,
                   float *alpha,
                   int n_alpha,
-		  float *coef,
-		  float *intercept,
-		  bool fit_intercept,
-		  bool normalize,
+                  float *coef,
+                  float *intercept,
+                  bool fit_intercept,
+                  bool normalize,
                   int algo,
-		  bool verbose) except +
+                  bool verbose) except +
 
     cdef void fit(cumlHandle& handle,
-		  RankSizePair **rank_sizes,
-		  size_t n_parts,
-		  doubleData_t **input,
-		  size_t n_rows,
-		  size_t n_cols,
-		  doubleData_t **labels,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  doubleData_t **input,
+                  size_t n_rows,
+                  size_t n_cols,
+                  doubleData_t **labels,
                   double *alpha,
                   int n_alpha,
-		  double *coef,
-		  double *intercept,
-		  bool fit_intercept,
-		  bool normalize,
+                  double *coef,
+                  double *intercept,
+                  bool fit_intercept,
+                  bool normalize,
                   int algo,
-		  bool verbose) except +
+                  bool verbose) except +
 
     cdef void predict(cumlHandle& handle,
-		RankSizePair **rank_sizes,
-		size_t n_parts,
-		floatData_t **input,
-                size_t n_rows,
-		size_t n_cols,
-		float *coef,
-		float intercept,
-		floatData_t **preds,
-		bool verbose) except +
+                      RankSizePair **rank_sizes,
+                      size_t n_parts,
+                      floatData_t **input,
+                      size_t n_rows,
+                      size_t n_cols,
+                      float *coef,
+                      float intercept,
+                      floatData_t **preds,
+                      bool verbose) except +
 
     cdef void predict(cumlHandle& handle,
-		RankSizePair **rank_sizes,
-		size_t n_parts,
-		doubleData_t **input,
-                size_t n_rows,
-		size_t n_cols,
-		double *coef,
-		double intercept,
-		doubleData_t **preds,
-		bool verbose) except +
+                      RankSizePair **rank_sizes,
+                      size_t n_parts,
+                      doubleData_t **input,
+                      size_t n_rows,
+                      size_t n_cols,
+                      double *coef,
+                      double intercept,
+                      doubleData_t **preds,
+                      bool verbose) except +
 
 
 class RidgeMG(Ridge):
@@ -203,8 +203,8 @@ class RidgeMG(Ridge):
             y_m, input_ptr, n_rows, n_cols, self.dtype = \
                 input_to_dev_array(input_data[i][1], check_dtype=[np.float32, np.float64])
             arr_interfaces_y.append({"obj": y_m,
-                                   "data": input_ptr,
-                                   "shape": (n_rows, n_cols)})
+                                     "data": input_ptr,
+                                     "shape": (n_rows, n_cols)})
             
         
         n_total_parts = len(input_data)
@@ -348,9 +348,9 @@ class RidgeMG(Ridge):
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             arr_interfaces_pred = self._build_predData(partsToRanks,
-                                                        rnk,
-                                                        1,
-                                                        np.float32)
+                                                       rnk,
+                                                       1,
+                                                       np.float32)
             pred_data = self._build_dataFloat(arr_interfaces_pred)
 
             predict(handle_[0],
@@ -367,9 +367,9 @@ class RidgeMG(Ridge):
         else:
             data = self._build_dataDouble(arr_interfaces)
             arr_interfaces_pred = self._build_predData(partsToRanks,
-                                                        rnk,
-                                                        1,
-                                                        np.float64)
+                                                       rnk,
+                                                       1,
+                                                       np.float64)
             pred_data = self._build_dataDouble(arr_interfaces_pred)
 
             predict(handle_[0],
@@ -403,4 +403,3 @@ class RidgeMG(Ridge):
             self._freeDoubleD(data, arr_interfaces)
 
         return pred_cudf
-    
