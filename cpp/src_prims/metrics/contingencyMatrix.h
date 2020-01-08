@@ -41,7 +41,7 @@ __global__ void devConstructContingencyMatrix(
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
     auto outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
-    myAtomicAdd(outMat + outputIdx, 1);
+    myAtomicAdd(outMat + outputIdx, OutT(1));
   }
 }
 
@@ -62,7 +62,8 @@ template <typename T, typename OutT = int>
 __global__ void devConstructContingencyMatrixSmem(
   const T *groundTruth, const T *predicted, int nSamples, OutT *outMat,
   int outIdxOffset, int outMatWidth) {
-  extern __shared__ OutT sMemMatrix[];
+  extern __shared__ char smem[];
+  auto *sMemMatrix = reinterpret_cast<OutT*>(smem);
   for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
        smemIdx += blockDim.x) {
     sMemMatrix[smemIdx] = 0;
@@ -73,7 +74,7 @@ __global__ void devConstructContingencyMatrixSmem(
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
     auto outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
-    myAtomicAdd(sMemMatrix + outputIdx, 1);
+    myAtomicAdd(sMemMatrix + outputIdx, OutT(1));
   }
   __syncthreads();
   for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
