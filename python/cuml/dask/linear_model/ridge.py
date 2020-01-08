@@ -59,8 +59,12 @@ class Ridge(object):
         return cumlRidge(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_fit(f, data, M, N, partsToRanks, rank):
-        return f.fit(data, M, N, partsToRanks, rank)
+    def _func_fit_colocated(f, data, M, N, partsToRanks, rank):
+        return f.fit_colocated(data, M, N, partsToRanks, rank)
+
+    @staticmethod
+    def _func_fit(f, X, y, M, N, partsToRanks, rank):
+        return f.fit(X, y, M, N, partsToRanks, rank)
 
     @staticmethod
     def _func_predict(f, df, M, N, partsToRanks, rank):
@@ -79,14 +83,92 @@ class Ridge(object):
         return model.transform(df)
 
     @staticmethod
-    def _func_get_size_colocated(df):
+    def _func_get_size_cl(df):
         return df[0].shape[0]
 
     @staticmethod
     def _func_get_size(df):
         return df.shape[0]
 
-    def fit(self, X, y):
+    def _fit(self, X, y):
+        X_futures = self.client.sync(extract_ddf_partitions, X)
+        y_futures = self.client.sync(extract_ddf_partitions, y)
+
+        X_partition_workers = [w for w, xc in X_futures]
+        y_partition_workers = [w for w, xc in y_futures]
+
+        if set(X_partition_workers) != set(y_partition_workers):
+            raise ValueError("""
+              X  and y are not partitioned on the same workers expected \n
+              Linear Regression""")
+
+        self.rnks = dict()
+        rnk_counter = 0
+        worker_to_parts = OrderedDict()
+        for w, p in X_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            if w not in self.rnks.keys():
+                self.rnks[w] = rnk_counter
+                rnk_counter = rnk_counter + 1
+            worker_to_parts[w].append(p)
+
+        worker_to_parts_y = OrderedDict()
+        for w, p in y_futures:
+            if w not in worker_to_parts_y:
+                worker_to_parts_y[w] = []
+            worker_to_parts_y[w].append(p)
+
+        workers = list(map(lambda x: x[0], X_futures))
+
+        comms = CommsContext(comms_p2p=False)
+        comms.init(workers=workers)
+
+        worker_info = comms.worker_info(comms.worker_addresses)
+
+        key = uuid1()
+        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+            Ridge._func_get_size,
+            wf[1],
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)).result())
+            for idx, wf in enumerate(X_futures)]
+
+        N = X.shape[1]
+        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
+
+        key = uuid1()
+        self.linear_models = [(wf[0], self.client.submit(
+            Ridge._func_create_model,
+            comms.sessionId,
+            **self.kwargs,
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)))
+            for idx, wf in enumerate(worker_to_parts.items())]
+
+        key = uuid1()
+        linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
+            Ridge._func_fit,
+            wf[1],
+            worker_to_parts[wf[0]],
+            worker_to_parts_y[wf[0]],
+            M, N,
+            partsToRanks,
+            worker_info[wf[0]]["r"],
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]]))
+            for idx, wf in enumerate(self.linear_models)])
+
+        wait(list(linear_fit.values()))
+        raise_exception_from_futures(list(linear_fit.values()))
+
+        comms.destroy()
+
+        self.local_model = self.linear_models[0][1].result()
+        self.coef_ = self.local_model.coef_
+        self.intercept_ = self.local_model.intercept_
+
+    def _fit_with_colocality(self, X, y):
         input_futures = self.client.sync(extract_colocated_ddf_partitions,
                                          X, y, self.client)
         workers = list(input_futures.keys())
@@ -105,7 +187,7 @@ class Ridge(object):
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
             parts = [(self.client.submit(
-                Ridge._func_get_size_colocated,
+                Ridge._func_get_size_cl,
                 future,
                 workers=[w],
                 key="%s-%s" % (key, idx)).result())
@@ -126,7 +208,7 @@ class Ridge(object):
 
         key = uuid1()
         linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
-            Ridge._func_fit,
+            Ridge._func_fit_colocated,
             wf[1],
             input_futures[wf[0]],
             M, N,
@@ -144,6 +226,21 @@ class Ridge(object):
         self.local_model = self.linear_models[0][1].result()
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
+
+    def fit(self, X, y, force_colocality=False):
+        """
+        Fit the model with X and y.
+
+        Parameters
+        ----------
+        X : dask cuDF input
+        y : dask cuDF input
+        """
+
+        if force_colocality:
+            self._fit_with_colocality(X, y)
+        else:
+            self._fit(X, y)
 
     def predict(self, X):
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
