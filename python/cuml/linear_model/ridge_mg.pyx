@@ -119,7 +119,7 @@ class RidgeMG(Ridge):
 
     def __init__(self, **kwargs):
         super(RidgeMG, self).__init__(**kwargs)
-        
+
     def _build_dataFloat(self, arr_interfaces):
         cdef floatData_t **dataF = <floatData_t **> \
             malloc(sizeof(floatData_t *)
@@ -180,7 +180,7 @@ class RidgeMG(Ridge):
 
     def fit(self, input_data, M, N, partsToRanks, rnk):
         """
-        Fit function for MNMG Ridge Regression. 
+        Fit function for MNMG Ridge Regression.
         This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions
@@ -195,20 +195,22 @@ class RidgeMG(Ridge):
 
         for i in range(len(input_data)):
             X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(input_data[i][0], check_dtype=[np.float32, np.float64])
+                input_to_dev_array(input_data[i][0],
+                                   check_dtype=[np.float32, np.float64])
+
             arr_interfaces.append({"obj": X_m,
                                    "data": input_ptr,
                                    "shape": (n_rows, self.n_cols)})
 
             y_m, input_ptr, n_rows, n_cols, self.dtype = \
-                input_to_dev_array(input_data[i][1], check_dtype=[np.float32, np.float64])
+                input_to_dev_array(input_data[i][1],
+                                   check_dtype=[np.float32, np.float64])
+
             arr_interfaces_y.append({"obj": y_m,
                                      "data": input_ptr,
                                      "shape": (n_rows, n_cols)})
-            
-        
+
         n_total_parts = len(input_data)
-        
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
             malloc(sizeof(RankSizePair**)
                    * n_total_parts)
@@ -297,7 +299,8 @@ class RidgeMG(Ridge):
  
     def predict(self, X, M, N, partsToRanks, rnk):
         """
-        Transform function for Ridge Regression MG. This not meant to be used as
+        Transform function for Ridge Regression MG. 
+        This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions
         :param M: total number of rows
