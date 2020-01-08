@@ -64,16 +64,12 @@ double computeAdjustedRandIndex(
   const T* firstClusterArray, const T* secondClusterArray, const int size,
   const T lowerLabelRange, const T upperLabelRange,
   std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
-  //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
-
-  int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-
-  //declaring, allocating and initializing memory for the contingency marix
-  MLCommon::device_buffer<int> dContingencyMatrix(
+  auto numUniqueClasses = IdxType(upperLabelRange - lowerLabelRange + 1);
+  MLCommon::device_buffer<IdxType> dContingencyMatrix(
     allocator, stream, numUniqueClasses * numUniqueClasses);
   CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0,
-                             numUniqueClasses * numUniqueClasses * sizeof(int),
+                             numUniqueClasses * numUniqueClasses * sizeof(IdxType),
                              stream));
 
   //workspace allocation
