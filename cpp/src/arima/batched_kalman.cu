@@ -17,6 +17,7 @@
 #include "arima_helpers.cuh"
 #include "batched_kalman.hpp"
 
+#include <algorithm>
 #include <chrono>
 
 #include <nvToolsExt.h>
@@ -24,6 +25,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <cub/cub.cuh>
 
+#include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
 
 #include "common/nvtx.hpp"
@@ -31,12 +33,14 @@
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "matrix/batched_matrix.hpp"
+#include "sparse/batched_csr.h"
 #include "timeSeries/jones_transform.h"
 #include "utils.h"
 
 using MLCommon::Matrix::b_gemm;
 using MLCommon::Matrix::b_kron;
 using MLCommon::Matrix::b_solve;
+using SparseMatrix = MLCommon::Sparse::BatchedCSR<double>;
 using BatchedMatrix = MLCommon::Matrix::BatchedMatrix<double>;
 
 namespace ML {
@@ -343,14 +347,118 @@ void _batched_kalman_loop_large_matrices(
 }
 
 /**
+ * @todo: docs (use large_matrices docs above)
+ */
+void _batched_kalman_loop_sparse(
+  const double* d_ys, int nobs, const BatchedMatrix& T, const BatchedMatrix& Z,
+  const BatchedMatrix& RRT, BatchedMatrix& P, BatchedMatrix& alpha,
+  const std::vector<bool>& T_mask, int r, double* d_vs, double* d_Fs,
+  double* d_sum_logFs, int fc_steps = 0, double* d_fc = nullptr) {
+  auto stream = T.stream();
+  auto allocator = T.allocator();
+  auto cublasHandle = T.cublasHandle();
+  int nb = T.batches();
+  int r2 = r * r;
+
+  // Create sparse matrix for T
+  SparseMatrix T_sparse(T, T_mask);
+
+  BatchedMatrix v_tmp(r, 1, nb, cublasHandle, allocator, stream, false);
+  BatchedMatrix m_tmp(r, r, nb, cublasHandle, allocator, stream, false);
+  BatchedMatrix K(r, 1, nb, cublasHandle, allocator, stream, false);
+  BatchedMatrix TP(r, r, nb, cublasHandle, allocator, stream, false);
+
+  // Shortcuts (TODO: remove?)
+  double* d_P = P.raw_data();
+  double* d_alpha = alpha.raw_data();
+  double* d_K = K.raw_data();
+  double* d_TP = TP.raw_data();
+  double* d_m_tmp = m_tmp.raw_data();
+  double* d_v_tmp = v_tmp.raw_data();
+
+  CUDA_CHECK(cudaMemsetAsync(d_sum_logFs, 0, sizeof(double) * nb, stream));
+
+  auto counting = thrust::make_counting_iterator(0);
+  for (int it = 0; it < nobs; it++) {
+    // 1. & 2.
+    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                     [=] __device__(int bid) {
+                       d_vs[bid * nobs + it] =
+                         d_ys[bid * nobs + it] - d_alpha[bid * r];
+                       double l_P = d_P[bid * r2];
+                       d_Fs[bid * nobs + it] = l_P;
+                       d_sum_logFs[bid] += log(l_P);
+                     });
+
+    // 3. K = 1/Fs[it] * T*P*Z'
+    // TP = T*P (also used later)
+    MLCommon::Sparse::b_spmm(1.0, T_sparse, P, 0.0, TP);
+    // b_gemm(false, false, r, r, r, 1.0, T, P, 0.0, TP); // dense
+    // K = 1/Fs[it] * TP*Z' ; optimized for Z = (1 0 ... 0)
+    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                     [=] __device__(int bid) {
+                       double _1_Fs = 1.0 / d_Fs[bid * nobs + it];
+                       for (int i = 0; i < r; i++) {
+                         d_K[bid * r + i] = _1_Fs * d_TP[bid * r2 + i];
+                       }
+                     });
+
+    // 4. alpha = T*alpha + K*vs[it]
+    // v_tmp = T*alpha
+    MLCommon::Sparse::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
+    // alpha = v_tmp + K*vs[it]
+    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                     [=] __device__(int bid) {
+                       double _vs = d_vs[bid * nobs + it];
+                       for (int i = 0; i < r; i++) {
+                         d_alpha[bid * r + i] =
+                           d_v_tmp[bid * r + i] + _vs * d_K[bid * r + i];
+                       }
+                     });
+
+    // 5. L = T - K * Z
+    // L = T (L is m_tmp)
+    MLCommon::copy(m_tmp.raw_data(), T.raw_data(), nb * r2, stream);
+    // L = L - K * Z ; optimized for Z = (1 0 ... 0):
+    // substract K to the first column of L
+    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                     [=] __device__(int bid) {
+                       for (int i = 0; i < r; i++) {
+                         d_m_tmp[bid * r2 + i] -= d_K[bid * r + i];
+                       }
+                     });
+    // b_gemm(false, false, r, r, 1, -1.0, K, Z, 1.0, m_tmp); // generic
+
+    // 6. P = T*P*L' + R*R'
+    // m_tmp = TP*L'
+    b_gemm(false, true, r, r, r, 1.0, TP, m_tmp, 0.0, m_tmp);
+    // P = m_tmp + R*R'
+    MLCommon::LinAlg::binaryOp(
+      d_P, m_tmp.raw_data(), RRT.raw_data(), r2 * nb,
+      [=] __device__(double a, double b) { return a + b; }, stream);
+  }
+
+  // Forecast
+  for (int i = 0; i < fc_steps; i++) {
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + nb,
+      [=] __device__(int bid) { d_fc[bid * fc_steps + i] = d_alpha[bid * r]; });
+
+    b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp);
+    MLCommon::copy(d_alpha, v_tmp.raw_data(), r * nb, stream);
+  }
+}
+
+/**
  * Wrapper around multiple functions that can execute the Kalman loop in
  * difference cases (for performance)
  */
 void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
                          const BatchedMatrix& Z, const BatchedMatrix& RRT,
-                         BatchedMatrix& P0, BatchedMatrix& alpha, int r,
-                         double* vs, double* Fs, double* sum_logFs,
-                         int fc_steps = 0, double* d_fc = nullptr) {
+                         BatchedMatrix& P0, BatchedMatrix& alpha,
+                         std::vector<bool>& T_mask, int r, double* vs,
+                         double* Fs, double* sum_logFs, int fc_steps = 0,
+                         double* d_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
   dim3 numThreadsPerBlock(32, 1);
@@ -408,8 +516,10 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
     }
     CUDA_CHECK(cudaGetLastError());
   } else {
-    _batched_kalman_loop_large_matrices(ys, nobs, T, Z, RRT, P0, alpha, r, vs,
-                                        Fs, sum_logFs, fc_steps, d_fc);
+    // _batched_kalman_loop_large_matrices(ys, nobs, T, Z, RRT, P0, alpha, r, vs,
+    //                                     Fs, sum_logFs, fc_steps, d_fc);
+    _batched_kalman_loop_sparse(ys, nobs, T, Z, RRT, P0, alpha, T_mask, r, vs,
+                                Fs, sum_logFs, fc_steps, d_fc);
   }
 }  // namespace ML
 
@@ -458,8 +568,9 @@ void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs,
 // Internal Kalman filter implementation that assumes data exists on GPU.
 void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                             const BatchedMatrix& Zb, const BatchedMatrix& Tb,
-                            const BatchedMatrix& Rb, int r, double* d_vs,
-                            double* d_Fs, double* d_loglike, double* d_sigma2,
+                            const BatchedMatrix& Rb, std::vector<bool>& T_mask,
+                            int r, double* d_vs, double* d_Fs,
+                            double* d_loglike, double* d_sigma2,
                             bool initP_kalman_it = false, int fc_steps = 0,
                             double* d_fc = nullptr) {
   const size_t batch_size = Zb.batches();
@@ -550,14 +661,14 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   // }
 
   /// TODO: cleanup
-  MLCommon::myPrintDevMatrix("T", Tb.raw_data(), r, r);
+  // MLCommon::myPrintDevMatrix("T", Tb.raw_data(), r, r * batch_size);
   // MLCommon::myPrintDevMatrix("Z", Zb.raw_data(), 1, r);
   // MLCommon::myPrintDevMatrix("RRT", RRT.raw_data(), r, r);
   // MLCommon::myPrintDevMatrix("P", P.raw_data(), r, r);
   // MLCommon::myPrintDevMatrix("alpha", alpha.raw_data(), r, 1);
 
   t1 = std::chrono::high_resolution_clock::now();
-  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs,
+  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, T_mask, r, d_vs, d_Fs,
                       d_sumlogFs, fc_steps, d_fc);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   t2 = std::chrono::high_resolution_clock::now();
@@ -580,7 +691,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 static void init_batched_kalman_matrices(
   cumlHandle& handle, const double* d_ar, const double* d_ma,
   const double* d_sar, const double* d_sma, int nb, int p, int q, int P, int Q,
-  int s, int r, double* d_Z_b, double* d_R_b, double* d_T_b) {
+  int s, int r, double* d_Z_b, double* d_R_b, double* d_T_b,
+  std::vector<bool>& T_mask) {
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.getStream();
@@ -627,6 +739,21 @@ static void init_batched_kalman_matrices(
         batch_T[(i + 1) * r + i] = 1.0;
       }
     });
+
+  // Create mask for sparse matrices
+  if (r > 8) {
+    T_mask.resize(r * r, false);
+    for (int iP = 0; iP < P + 1; iP++) {
+      for (int ip = 0; ip < p + 1; ip++) {
+        int i = iP * s + ip - 1;
+        if (i >= 0) T_mask[i] = true;
+      }
+    }
+    for (int i = 0; i < r - 1; i++) {
+      T_mask[(i + 1) * r + i] = true;
+    }
+  }
+
   ML::POP_RANGE();
 }  // namespace ML
 
@@ -651,9 +778,10 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   BatchedMatrix Tb(r, r, batch_size, cublasHandle, allocator, stream, false);
   BatchedMatrix Rb(r, 1, batch_size, cublasHandle, allocator, stream, false);
 
+  std::vector<bool> T_mask;
   init_batched_kalman_matrices(handle, d_ar, d_ma, d_sar, d_sma, batch_size, p,
                                q, P, Q, s, r, Zb.raw_data(), Rb.raw_data(),
-                               Tb.raw_data());
+                               Tb.raw_data(), T_mask);
 
   ////////////////////////////////////////////////////////////
   // Computation
@@ -672,7 +800,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
     d_loglike = loglike;
   }
 
-  _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs,
+  _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, T_mask, r, d_vs, d_Fs,
                          d_loglike, d_sigma2, initP_kalman_it, fc_steps, d_fc);
 
   if (host_loglike) {
