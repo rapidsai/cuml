@@ -1,4 +1,4 @@
-# cuML 0.12.0 (Date TBD)
+# cuML 0.12.0 (Dte TBD)
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
@@ -13,7 +13,9 @@
 - PR #1488: Add codeowners
 - PR #1490: Use dask master instead of conda package for testing
 - PR #1375: Naive Bayes & Distributed Naive Bayes
+- PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
+- PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 
 ## Bug Fixes
 
@@ -23,6 +25,7 @@
 - PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
+- PR #1534: Removed TODO comment in create_ucp_listeners()
 
 # cuML 0.11.0 (11 Dec 2019)
 
