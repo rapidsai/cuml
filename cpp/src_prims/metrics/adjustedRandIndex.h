@@ -33,16 +33,15 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
-* @brief Lambda to calculate the number of unordered pairs in a given input
-*
-* @tparam Type: Data type of the input 
-* @tparam IdxType : type of the indexing
-* @param in: the input to the functional mapping
-* @param i: the indexing(not used in this case)
-*/
-template <typename Type, typename IdxType = int>
+ * @brief Lambda to calculate the number of unordered pairs in a given input
+ *
+ * @tparam Type: Data type of the input 
+ * @param in: the input to the functional mapping
+ * @param i: the indexing(not used in this case)
+ */
+template <typename Type>
 struct nCTwo {
-  HDI Type operator()(Type in, IdxType i = 0) { return (in * (in - 1)) / 2; }
+  HDI Type operator()(Type in, int i = 0) { return (in * (in - 1)) / 2; }
 };
 
 /**
@@ -67,18 +66,17 @@ double computeAdjustedRandIndex(
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   auto nUniqClasses = MathT(upperLabelRange - lowerLabelRange + 1);
   device_buffer<MathT> dContingencyMatrix(allocator, stream,
-                                            nUniqClasses * nUniqClasses);
+                                          nUniqClasses * nUniqClasses);
   CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0,
                              nUniqClasses * nUniqClasses * sizeof(MathT),
                              stream));
   char* pWorkspace = nullptr;
-  auto workspaceSz = Metrics::getContingencyMatrixWorkspaceSize(
+  auto workspaceSz = getContingencyMatrixWorkspaceSize<T, MathT>(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
   if (workspaceSz != 0) allocate(pWorkspace, workspaceSz);
-  Metrics::contingencyMatrix(
-    firstClusterArray, secondClusterArray, (int)size,
-    (int*)dContingencyMatrix.data(), stream, (void*)pWorkspace, workspaceSz,
-    lowerLabelRange, upperLabelRange);
+  contingencyMatrix<T, MathT>(
+    firstClusterArray, secondClusterArray, size, dContingencyMatrix.data(),
+    stream, pWorkspace, workspaceSz, lowerLabelRange, upperLabelRange);
   device_buffer<MathT> a(allocator, stream, nUniqClasses);
   device_buffer<MathT> b(allocator, stream, nUniqClasses);
   device_buffer<MathT> d_aCTwoSum(allocator, stream, 1);
@@ -94,24 +92,24 @@ double computeAdjustedRandIndex(
   CUDA_CHECK(
     cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
   //calculating the sum of NijC2
-  LinAlg::mapThenSumReduce<int, nCTwo<int>>(
-    d_nChooseTwoSum.data(), nUniqClasses * nUniqClasses, nCTwo<int>(),
-    stream, dContingencyMatrix.data(), dContingencyMatrix.data());
+  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+    d_nChooseTwoSum.data(), nUniqClasses * nUniqClasses, nCTwo<MathT>(), stream,
+    dContingencyMatrix.data(), dContingencyMatrix.data());
   //calculating the row-wise sums
-  LinAlg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
-                                          nUniqClasses, nUniqClasses, 0,
-                                          true, true, stream);
+  LinAlg::reduce<MathT, MathT>(a.data(), dContingencyMatrix.data(),
+                               nUniqClasses, nUniqClasses, 0, true, true,
+                               stream);
   //calculating the column-wise sums
-  LinAlg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
-                                          nUniqClasses, nUniqClasses, 0,
-                                          true, false, stream);
+  LinAlg::reduce<MathT, MathT>(b.data(), dContingencyMatrix.data(),
+                               nUniqClasses, nUniqClasses, 0, true, false,
+                               stream);
   //calculating the sum of number of unordered pairs for every element in a
-  LinAlg::mapThenSumReduce<int, nCTwo<int>>(
-    d_aCTwoSum.data(), nUniqClasses, nCTwo<int>(), stream, a.data(),
+  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+    d_aCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, a.data(),
     a.data());
   //calculating the sum of number of unordered pairs for every element of b
-  LinAlg::mapThenSumReduce<int, nCTwo<int>>(
-    d_bCTwoSum.data(), nUniqClasses, nCTwo<int>(), stream, b.data(),
+  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
+    d_bCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, b.data(),
     b.data());
   //updating in the host memory
   updateHost(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
