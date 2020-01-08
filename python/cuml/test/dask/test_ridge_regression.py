@@ -54,9 +54,7 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 @pytest.mark.parametrize("n_parts", [2, 23])
 def test_ols(n_parts, client=None):
 
-    owns_cluster = False
     if client is None:
-        owns_cluster = True
         cluster = LocalCUDACluster(threads_per_worker=1)
         client = Client(cluster)
 
@@ -79,8 +77,6 @@ def test_ols(n_parts, client=None):
         y_cudf = y_cudf[:, 0]
         y_cudf = cudf.Series(y_cudf)
 
-        workers = client.has_what().keys()
-
         X_df = dask_cudf.from_cudf(X_cudf, npartitions=n_parts).persist()
         y_df = dask_cudf.from_cudf(y_cudf, npartitions=n_parts).persist()
 
@@ -89,6 +85,10 @@ def test_ols(n_parts, client=None):
         lr.fit(X_df, y_df)
 
         ret = lr.predict(X_df)
+
+        error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
+
+        assert(error_cuml < 1e-1)
 
     finally:
         client.close()

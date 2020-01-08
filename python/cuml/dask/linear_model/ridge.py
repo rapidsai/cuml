@@ -86,8 +86,8 @@ class Ridge(object):
     def _func_get_size(df):
         return df.shape[0]
 
-    def fit(self, X, y):         
-        input_futures = self.client.sync(extract_colocated_ddf_partitions, 
+    def fit(self, X, y):
+        input_futures = self.client.sync(extract_colocated_ddf_partitions,
                                          X, y, self.client)
         workers = list(input_futures.keys())
 
@@ -129,7 +129,7 @@ class Ridge(object):
             Ridge._func_fit,
             wf[1],
             input_futures[wf[0]],
-            M, N, 
+            M, N,
             partsToRanks,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
