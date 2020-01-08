@@ -144,5 +144,12 @@ TEST_P(ARI_ii, Result) {
 }
 INSTANTIATE_TEST_CASE_P(AdjustedRandIndex, ARI_ii, ::testing::ValuesIn(inputs));
 
+typedef AdjustedRandIndexTest<int, unsigned long long> ARI_il;
+TEST_P(ARI_il, Result) {
+  ASSERT_NEAR(computedAdjustedRandIndex, truthAdjustedRandIndex,
+              params.tolerance);
+}
+INSTANTIATE_TEST_CASE_P(AdjustedRandIndex, ARI_il, ::testing::ValuesIn(inputs));
+
 }  //end namespace Metrics
 }  //end namespace MLCommon

@@ -188,6 +188,15 @@ struct IOType<uint64_t, 2> {
 };
 
 template <>
+struct IOType<unsigned long long, 1> {
+  typedef unsigned long long Type;
+};
+template <>
+struct IOType<unsigned long long, 2> {
+  typedef uint4 Type;
+};
+
+template <>
 struct IOType<double, 1> {
   typedef double Type;
 };
