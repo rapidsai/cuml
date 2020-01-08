@@ -217,10 +217,10 @@ class RidgeMG(Ridge):
 
         for i in range(len(input_data)):
             rankSizePair[i] = <RankSizePair*> \
-                    malloc(sizeof(RankSizePair))
+                malloc(sizeof(RankSizePair))
             rankSizePair[i].rank = <int>rnk
             rankSizePair[i].size = <size_t>len(input_data[i][0])
-                        
+
         self.coef_ = cudf.Series(zeros(self.n_cols,
                                        dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
@@ -232,8 +232,8 @@ class RidgeMG(Ridge):
         cdef uintptr_t labels
         cdef float c_alpha1
         cdef double c_alpha2
-
-        self.n_alpha = 1 # Only one alpha is supported.
+        # Only one alpha is supported.
+        self.n_alpha = 1
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
@@ -255,14 +255,14 @@ class RidgeMG(Ridge):
                 <bool>self.normalize,
                 <int>self.algo,
                 False)
-            
+
             self.intercept_ = c_intercept1
-            
+
         else:
             data = self._build_dataDouble(arr_interfaces)
             labels = self._build_dataDouble(arr_interfaces_y)
             c_alpha2 = self.alpha
-            
+
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
                 <size_t> n_total_parts,
@@ -277,7 +277,7 @@ class RidgeMG(Ridge):
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
                 <int>self.algo,
-                False) 
+                False)
 
             self.intercept_ = c_intercept2
 
@@ -296,10 +296,10 @@ class RidgeMG(Ridge):
         else:
             self._freeDoubleD(data, arr_interfaces)
             self._freeDoubleD(labels, arr_interfaces_y)
- 
+
     def predict(self, X, M, N, partsToRanks, rnk):
         """
-        Transform function for Ridge Regression MG. 
+        Transform function for Ridge Regression MG.
         This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions
