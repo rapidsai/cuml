@@ -264,7 +264,6 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
   // range to a monotonically increasing one  //
   // this also serves as way to measure co-occurence/joint counts for NLP tasks which
   // can be used to then compute pointwise mutual information and mutual information
-
   if (minLabel == std::numeric_limits<T>::max() ||
       maxLabel == std::numeric_limits<T>::max()) {
     thrust::device_ptr<const T> dTrueLabel =
@@ -274,21 +273,16 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
     minLabel = *min_max.first;
     maxLabel = *min_max.second;
   }
-
-  int outDimM_N = (int)(maxLabel - minLabel + T(1));
-
-  //memset outMat to zero before atomic increments
-  cudaMemsetAsync((void *)outMat, 0, sizeof(int) * outDimM_N * outDimM_N,
-                  stream);
-
+  auto outDimM_N = OutT(maxLabel - minLabel + 1);
+  CUDA_CHECK(cudaMemsetAsync(outMat, 0, sizeof(OutT) * outDimM_N * outDimM_N,
+                             stream));
   ContingencyMatrixImplType implVersion = getImplVersion<OutT>(outDimM_N);
-
   switch (implVersion) {
     case SMEM_ATOMICS:
       // smem atomics and then single global mem atomics only works
       // when all label count can fit in smem for a block
-      // helps when GLOBAL_ATOMICS performance blocked by atomic update serialization
-      // -when very less labels ~10 labels
+      // helps when GLOBAL_ATOMICS performance blocked by atomic update
+      // serialization -when very less labels ~10 labels
       computeCMatWSmemAtomics(groundTruth, predictedLabel, nSamples, outMat,
                               minLabel, outDimM_N, stream);
       break;
@@ -297,7 +291,8 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
       computeCMatWAtomics(groundTruth, predictedLabel, nSamples, outMat,
                           minLabel, outDimM_N, stream);
       break;
-      // more L2 thrashing if atomic OPs land in completely different mem segment - when more labels
+      // more L2 thrashing if atomic OPs land in completely different mem
+      // segment - when more labels
     case SORT_AND_GATOMICS:
       contingencyMatrixWSort(groundTruth, predictedLabel, nSamples, outMat,
                              minLabel, maxLabel, workspace, workspaceSize,
@@ -305,5 +300,6 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
       break;
   }
 }
+
 };  // namespace Metrics
 };  // namespace MLCommon
