@@ -35,7 +35,7 @@ namespace MLCommon {
 * @brief Lambda to calculate the number of unordered pairs in a given input
 *
 * @tparam Type: Data type of the input 
-* @tparam IdxType : type of the indexing (by default int)
+* @tparam IdxType : type of the indexing
 * @param in: the input to the functional mapping
 * @param i: the indexing(not used in this case)
 */
@@ -47,18 +47,20 @@ struct nCTwo {
 namespace Metrics {
 
 /**
-* @brief Function to calculate Adjusted RandIndex
-* <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a> 
-* @param firstClusterArray: the array of classes of type T
-* @param secondClusterArray: the array of classes of type T
+* @brief Function to calculate Adjusted RandIndex as described
+*        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
+* @tparam T data-type for input label arrays
+* @tparam IdxType integral data-type used for computing n-choose-r
+* @param firstClusterArray: the array of classes
+* @param secondClusterArray: the array of classes
 * @param size: the size of the data points of type int
 * @param numUniqueClasses: number of Unique classes used for clustering
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation
 * @param stream: the cudaStream object
 */
-template <typename T>
+template <typename T, typename IdxType = int>
 double computeAdjustedRandIndex(
   const T* firstClusterArray, const T* secondClusterArray, const int size,
   const T lowerLabelRange, const T upperLabelRange,
