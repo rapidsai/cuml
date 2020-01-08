@@ -174,6 +174,7 @@ class LinearRegression(object):
 
         self.local_model = self.linear_models[0][1].result()
         self.coef_ = self.local_model.coef_
+        self.intercept_ = self.local_model.intercept_
 
     def _fit_with_colocality(self, X, y):
         input_futures = self.client.sync(extract_colocated_ddf_partitions,
@@ -232,6 +233,7 @@ class LinearRegression(object):
 
         self.local_model = self.linear_models[0][1].result()
         self.coef_ = self.local_model.coef_
+        self.intercept_ = self.local_model.intercept_
 
     def fit(self, X, y, force_colocality=False):
         """
