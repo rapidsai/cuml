@@ -32,112 +32,89 @@ typedef enum {
   SORT_AND_GATOMICS
 } ContingencyMatrixImplType;
 
-template <typename T>
-__global__ void devConstructContingencyMatrix(const T *groundTruth,
-                                              const T *predicted,
-                                              const int nSamples, int *outMat,
-                                              int outIdxOffset,
-                                              int outMatWidth) {
-  int elementId = threadIdx.x + blockDim.x * blockIdx.x;
+template <typename T, typename OutT = int>
+__global__ void devConstructContingencyMatrix(
+  const T *groundTruth, const T *predicted, int nSamples, OutT *outMat,
+  int outIdxOffset, int outMatWidth) {
+  auto elementId = threadIdx.x + blockDim.x * blockIdx.x;
   if (elementId < nSamples) {
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
-
-    int outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
-    myAtomicAdd(&outMat[outputIdx], 1);
+    auto outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
+    myAtomicAdd(outMat + outputIdx, 1);
   }
 }
 
-template <typename T>
-__global__ void devConstructContingencyMatrixSmem(const T *groundTruth,
-                                                  const T *predicted,
-                                                  const int nSamples,
-                                                  int *outMat, int outIdxOffset,
-                                                  int outMatWidth) {
-  extern __shared__ int sMemMatrix[];  // init smem to zero
+template <typename T, typename OutT = int>
+void computeCMatWAtomics(
+  const T *groundTruth, const T *predictedLabel, int nSamples, OutT *outMat,
+  int outIdxOffset, int outDimN, cudaStream_t stream) {
+  CUDA_CHECK(cudaFuncSetCacheConfig(devConstructContingencyMatrix<T, OutT>,
+                                    cudaFuncCachePreferL1));
+  static const int block = 128;
+  auto grid = ceildiv(nSamples, block);
+  devConstructContingencyMatrix<T, OutT><<<grid, block, 0, stream>>>(
+    groundTruth, predictedLabel, nSamples, outMat, outIdxOffset, outDimN);
+  CUDA_CHECK(cudaGetLastError());
+}
 
-  // get linear smem ids form threadIdx's to smem to set to zero
-  // set to zero
-  for (int smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
+template <typename T, typename OutT = int>
+__global__ void devConstructContingencyMatrixSmem(
+  const T *groundTruth, const T *predicted, int nSamples, OutT *outMat,
+  int outIdxOffset, int outMatWidth) {
+  extern __shared__ OutT sMemMatrix[];
+  for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
        smemIdx += blockDim.x) {
     sMemMatrix[smemIdx] = 0;
   }
   __syncthreads();
-
-  int elementId = threadIdx.x + blockDim.x * blockIdx.x;
+  auto elementId = threadIdx.x + blockDim.x * blockIdx.x;
   if (elementId < nSamples) {
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
-
-    int outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
-    myAtomicAdd(&sMemMatrix[outputIdx], 1);
+    auto outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
+    myAtomicAdd(sMemMatrix + outputIdx, 1);
   }
   __syncthreads();
-
-  // upstream atomic updates to global matrix
-  for (int smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
+  for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
        smemIdx += blockDim.x) {
-    myAtomicAdd(&outMat[smemIdx], sMemMatrix[smemIdx]);
+    myAtomicAdd(outMat + smemIdx, sMemMatrix[smemIdx]);
   }
 }
 
-// helper functions to launch kernel for global atomic add
-template <typename T>
-cudaError_t computeCMatWAtomics(const T *groundTruth, const T *predictedLabel,
-                                const int nSamples, int *outMat,
-                                int outIdxOffset, int outDimN,
-                                cudaStream_t stream) {
-  CUDA_CHECK(cudaFuncSetCacheConfig(devConstructContingencyMatrix<T>,
-                                    cudaFuncCachePreferL1));
-  dim3 block(128, 1, 1);
-  dim3 grid((nSamples + block.x - 1) / block.x);
-
-  // launch kernel - global atomic ops per groundTruth - predictedValue pair
-  devConstructContingencyMatrix<<<grid, block, 0, stream>>>(
-    groundTruth, predictedLabel, nSamples, outMat, outIdxOffset, outDimN);
-
-  return cudaGetLastError();
+template <typename T, typename OutT = int>
+void computeCMatWSmemAtomics(const T *groundTruth, const T *predictedLabel,
+                             int nSamples, OutT *outMat, int outIdxOffset,
+                             int outDimN, cudaStream_t stream) {
+  static const int block = 128;
+  auto grid = ceildiv(nSamples, block);
+  size_t smemSizePerBlock = outDimN * outDimN * sizeof(OutT);
+  devConstructContingencyMatrixSmem<T, OutT>
+    <<<grid, block, smemSizePerBlock, stream>>>(
+      groundTruth, predictedLabel, nSamples, outMat, outIdxOffset, outDimN);
+  CUDA_CHECK(cudaGetLastError());
 }
 
-// helper function to launch share memory atomic add kernel
-template <typename T>
-cudaError_t computeCMatWSmemAtomics(const T *groundTruth,
-                                    const T *predictedLabel, const int nSamples,
-                                    int *outMat, int outIdxOffset, int outDimN,
-                                    cudaStream_t stream) {
-  dim3 block(128, 1, 1);
-  dim3 grid((nSamples + block.x - 1) / block.x);
-  size_t smemSizePerBlock = outDimN * outDimN * sizeof(int);
-
-  devConstructContingencyMatrixSmem<<<grid, block, smemSizePerBlock, stream>>>(
-    groundTruth, predictedLabel, nSamples, outMat, outIdxOffset, outDimN);
-
-  return cudaGetLastError();
-}
-
-// helper function to sort and global atomic update
-template <typename T>
+template <typename T, typename OutT = int>
 void contingencyMatrixWSort(const T *groundTruth, const T *predictedLabel,
-                            const int nSamples, int *outMat, T minLabel,
-                            T maxLabel, void *workspace, size_t workspaceSize,
+                            int nSamples, OutT *outMat, T minLabel, T maxLabel,
+                            void *workspace, size_t workspaceSize,
                             cudaStream_t stream) {
   T *outKeys = reinterpret_cast<T *>(workspace);
-  size_t alignedBufferSz = alignTo((size_t)nSamples * sizeof(T), (size_t)256);
+  auto alignedBufferSz = alignTo<size_t>(nSamples * sizeof(T), 256);
   T *outValue = reinterpret_cast<T *>((size_t)workspace + alignedBufferSz);
-
   void *pWorkspaceCub =
     reinterpret_cast<void *>((size_t)workspace + 2 * alignedBufferSz);
   int bitsToSort = int(std::ceil(std::log2f((float)maxLabel)));
-
-  // we dont really need perfect sorting, should get by with some sort of binning-reordering operation
-  // future work - explore "efficient" custom binning kernels vs cub sort
+  // we dont really need perfect sorting, should get by with some sort of
+  // binning-reordering operation
+  ///@todo: future work - explore "efficient" custom binning kernels vs cub sort
   CUDA_CHECK(cub::DeviceRadixSort::SortPairs(
     pWorkspaceCub, workspaceSize, groundTruth, outKeys, predictedLabel,
     outValue, nSamples, 0, bitsToSort, stream));
-  int outDimM_N = (int)(maxLabel - minLabel + T(1));
-
-  computeCMatWAtomics(outKeys, outValue, nSamples, outMat, minLabel, outDimM_N,
-                      stream);
+  auto outDimM_N = int(maxLabel - minLabel + 1);
+  computeCMatWAtomics<T, OutT>(outKeys, outValue, nSamples, outMat, minLabel,
+                               outDimM_N, stream);
 }
 
 template <typename OutT = int>
@@ -275,20 +252,20 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
       // when all label count can fit in smem for a block
       // helps when GLOBAL_ATOMICS performance blocked by atomic update
       // serialization -when very less labels ~10 labels
-      computeCMatWSmemAtomics(groundTruth, predictedLabel, nSamples, outMat,
-                              minLabel, outDimM_N, stream);
+      computeCMatWSmemAtomics<T, OutT>(groundTruth, predictedLabel, nSamples,
+                                       outMat, minLabel, outDimM_N, stream);
       break;
     case GLOBAL_ATOMICS:
       // launch kernel - global atomic ops per (groundTruth,predictedValue) pair
-      computeCMatWAtomics(groundTruth, predictedLabel, nSamples, outMat,
-                          minLabel, outDimM_N, stream);
+      computeCMatWAtomics<T, OutT>(groundTruth, predictedLabel, nSamples,
+                                   outMat, minLabel, outDimM_N, stream);
       break;
       // more L2 thrashing if atomic OPs land in completely different mem
       // segment - when more labels
     case SORT_AND_GATOMICS:
-      contingencyMatrixWSort(groundTruth, predictedLabel, nSamples, outMat,
-                             minLabel, maxLabel, workspace, workspaceSize,
-                             stream);
+      contingencyMatrixWSort<T, OutT>(groundTruth, predictedLabel, nSamples,
+                                      outMat, minLabel, maxLabel, workspace,
+                                      workspaceSize, stream);
       break;
   }
 }
