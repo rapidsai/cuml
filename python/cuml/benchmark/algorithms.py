@@ -25,6 +25,7 @@ import cuml.metrics
 import cuml.decomposition
 from cuml.utils.import_utils import has_umap
 import numpy as np
+import tempfile
 
 from cuml.benchmark.bench_helper_funcs import (
     fit,
@@ -110,6 +111,7 @@ class AlgorithmPair:
         self.cpu_data_prep_hook = cpu_data_prep_hook
         self.cuml_data_prep_hook = cuml_data_prep_hook
         self.accuracy_function = accuracy_function
+        self.tmpdir = tempfile.mkdtemp()
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
@@ -159,7 +161,7 @@ class AlgorithmPair:
             all_args = {**all_args, **override_args}
             return {
                 "cpu_setup_result": self.setup_cpu_func(
-                    self.cpu_class, data, all_args
+                    self.cpu_class, data, all_args, self.tmpdir
                 )
             }
         else:
@@ -171,7 +173,7 @@ class AlgorithmPair:
             all_args = {**all_args, **override_args}
             return {
                 "cuml_setup_result": self.setup_cuml_func(
-                    self.cuml_class, data, all_args
+                    self.cuml_class, data, all_args, self.tmpdir
                 )
             }
         else:
@@ -326,7 +328,7 @@ def all_algorithms():
             shared_args=dict(num_rounds=10, max_depth=10),
             cuml_args=dict(
                 fil_algo="BATCH_TREE_REORG",
-                output_class=True,
+                output_class=False,
                 threshold=0.5,
                 storage_type="AUTO",
             ),
