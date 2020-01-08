@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,6 @@ class AdjustedRandIndexTest
   cudaStream_t stream;
 };
 
-//setting test parameter values
 const std::vector<AdjustedRandIndexParam> inputs = {
   {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
   {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
