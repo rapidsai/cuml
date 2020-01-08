@@ -103,12 +103,11 @@ class AdjustedRandIndexTest
       truthAdjustedRandIndex = 0;
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(firstClusterArray, nElements, true);
-    MLCommon::allocate(secondClusterArray, nElements, true);
-    MLCommon::updateDevice(firstClusterArray, &arr1[0], nElements, stream);
-    MLCommon::updateDevice(secondClusterArray, &arr2[0], nElements, stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+    allocate(firstClusterArray, nElements, true);
+    allocate(secondClusterArray, nElements, true);
+    updateDevice(firstClusterArray, &arr1[0], nElements, stream);
+    updateDevice(secondClusterArray, &arr2[0], nElements, stream);
+    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
     computedAdjustedRandIndex = computeAdjustedRandIndex<T, MathT>(
       firstClusterArray, secondClusterArray, nElements, lowerLabelRange,
       upperLabelRange, allocator, stream);
