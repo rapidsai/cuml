@@ -206,12 +206,8 @@ size_t getContingencyMatrixWorkspaceSize(
   // below is a redundant computation - can be avoided
   if (minLabel == std::numeric_limits<T>::max() ||
       maxLabel == std::numeric_limits<T>::max()) {
-    thrust::device_ptr<const T> dTrueLabel =
-      thrust::device_pointer_cast(groundTruth);
-    auto min_max = thrust::minmax_element(thrust::cuda::par.on(stream),
-                                          dTrueLabel, dTrueLabel + nSamples);
-    minLabel = *min_max.first;
-    maxLabel = *min_max.second;
+    getInputClassCardinality<T>(groundTruth, nSamples, stream, minLabel,
+                                maxLabel);
   }
   auto outDimN = OutT(maxLabel - minLabel + 1);
   ContingencyMatrixImplType implVersion = getImplVersion<OutT>(outDimN);
@@ -266,12 +262,8 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
   // can be used to then compute pointwise mutual information and mutual information
   if (minLabel == std::numeric_limits<T>::max() ||
       maxLabel == std::numeric_limits<T>::max()) {
-    thrust::device_ptr<const T> dTrueLabel =
-      thrust::device_pointer_cast(groundTruth);
-    auto min_max = thrust::minmax_element(thrust::cuda::par.on(stream),
-                                          dTrueLabel, dTrueLabel + nSamples);
-    minLabel = *min_max.first;
-    maxLabel = *min_max.second;
+    getInputClassCardinality<T>(groundTruth, nSamples, stream, minLabel,
+                                maxLabel);
   }
   auto outDimM_N = OutT(maxLabel - minLabel + 1);
   CUDA_CHECK(cudaMemsetAsync(outMat, 0, sizeof(OutT) * outDimM_N * outDimM_N,
