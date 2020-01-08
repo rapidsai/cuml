@@ -33,9 +33,10 @@ typedef enum {
 } ContingencyMatrixImplType;
 
 template <typename T, typename OutT = int>
-__global__ void devConstructContingencyMatrix(
-  const T *groundTruth, const T *predicted, int nSamples, OutT *outMat,
-  int outIdxOffset, int outMatWidth) {
+__global__ void devConstructContingencyMatrix(const T *groundTruth,
+                                              const T *predicted, int nSamples,
+                                              OutT *outMat, int outIdxOffset,
+                                              int outMatWidth) {
   auto elementId = threadIdx.x + blockDim.x * blockIdx.x;
   if (elementId < nSamples) {
     T gt = groundTruth[elementId];
@@ -46,9 +47,9 @@ __global__ void devConstructContingencyMatrix(
 }
 
 template <typename T, typename OutT = int>
-void computeCMatWAtomics(
-  const T *groundTruth, const T *predictedLabel, int nSamples, OutT *outMat,
-  int outIdxOffset, int outDimN, cudaStream_t stream) {
+void computeCMatWAtomics(const T *groundTruth, const T *predictedLabel,
+                         int nSamples, OutT *outMat, int outIdxOffset,
+                         int outDimN, cudaStream_t stream) {
   CUDA_CHECK(cudaFuncSetCacheConfig(devConstructContingencyMatrix<T, OutT>,
                                     cudaFuncCachePreferL1));
   static const int block = 128;
@@ -59,11 +60,13 @@ void computeCMatWAtomics(
 }
 
 template <typename T, typename OutT = int>
-__global__ void devConstructContingencyMatrixSmem(
-  const T *groundTruth, const T *predicted, int nSamples, OutT *outMat,
-  int outIdxOffset, int outMatWidth) {
+__global__ void devConstructContingencyMatrixSmem(const T *groundTruth,
+                                                  const T *predicted,
+                                                  int nSamples, OutT *outMat,
+                                                  int outIdxOffset,
+                                                  int outMatWidth) {
   extern __shared__ char smem[];
-  auto *sMemMatrix = reinterpret_cast<OutT*>(smem);
+  auto *sMemMatrix = reinterpret_cast<OutT *>(smem);
   for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth;
        smemIdx += blockDim.x) {
     sMemMatrix[smemIdx] = 0;
@@ -244,8 +247,8 @@ void contingencyMatrix(const T *groundTruth, const T *predictedLabel,
                                 maxLabel);
   }
   auto outDimM_N = OutT(maxLabel - minLabel + 1);
-  CUDA_CHECK(cudaMemsetAsync(outMat, 0, sizeof(OutT) * outDimM_N * outDimM_N,
-                             stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(outMat, 0, sizeof(OutT) * outDimM_N * outDimM_N, stream));
   ContingencyMatrixImplType implVersion = getImplVersion<OutT>(outDimM_N);
   switch (implVersion) {
     case SMEM_ATOMICS:
