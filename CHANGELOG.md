@@ -15,6 +15,7 @@
 - PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
+- PR #1541: Updates for libcudf++ Python refactor
 
 ## Bug Fixes
 

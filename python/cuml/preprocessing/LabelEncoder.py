@@ -177,7 +177,8 @@ class LabelEncoder(object):
         self._check_is_fitted()
         y = _enforce_str(y)
         encoded = cudf.Series(
-            nvcategory.from_strings(y._data[list(y._data.keys())[0]]._nvstrings)
+            nvcategory.from_strings(
+                y._data[list(y._data.keys())[0]]._nvstrings)
             .set_keys(self._cats.keys())
             .values()
         )
