@@ -61,8 +61,8 @@ struct nCTwo {
 */
 template <typename T, typename IdxType = int>
 double computeAdjustedRandIndex(
-  const T* firstClusterArray, const T* secondClusterArray, const int size,
-  const T lowerLabelRange, const T upperLabelRange,
+  const T* firstClusterArray, const T* secondClusterArray, int size,
+  T lowerLabelRange, T upperLabelRange,
   std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   auto nUniqClasses = IdxType(upperLabelRange - lowerLabelRange + 1);
