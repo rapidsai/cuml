@@ -59,10 +59,11 @@ struct nCTwo {
 * @param stream: the cudaStream object
 */
 template <typename T, typename MathT = int>
-double computeAdjustedRandIndex(
-  const T* firstClusterArray, const T* secondClusterArray, int size,
-  T lowerLabelRange, T upperLabelRange,
-  std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+double computeAdjustedRandIndex(const T* firstClusterArray,
+                                const T* secondClusterArray, int size,
+                                T lowerLabelRange, T upperLabelRange,
+                                std::shared_ptr<deviceAllocator> allocator,
+                                cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   auto nUniqClasses = MathT(upperLabelRange - lowerLabelRange + 1);
   device_buffer<MathT> dContingencyMatrix(allocator, stream,
@@ -74,9 +75,9 @@ double computeAdjustedRandIndex(
   auto workspaceSz = getContingencyMatrixWorkspaceSize<T, MathT>(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
   if (workspaceSz != 0) allocate(pWorkspace, workspaceSz);
-  contingencyMatrix<T, MathT>(
-    firstClusterArray, secondClusterArray, size, dContingencyMatrix.data(),
-    stream, pWorkspace, workspaceSz, lowerLabelRange, upperLabelRange);
+  contingencyMatrix<T, MathT>(firstClusterArray, secondClusterArray, size,
+                              dContingencyMatrix.data(), stream, pWorkspace,
+                              workspaceSz, lowerLabelRange, upperLabelRange);
   device_buffer<MathT> a(allocator, stream, nUniqClasses);
   device_buffer<MathT> b(allocator, stream, nUniqClasses);
   device_buffer<MathT> d_aCTwoSum(allocator, stream, 1);
@@ -89,8 +90,7 @@ double computeAdjustedRandIndex(
     cudaMemsetAsync(b.data(), 0, nUniqClasses * sizeof(MathT), stream));
   CUDA_CHECK(cudaMemsetAsync(d_aCTwoSum.data(), 0, sizeof(MathT), stream));
   CUDA_CHECK(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(MathT), stream));
-  CUDA_CHECK(
-    cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
+  CUDA_CHECK(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
   //calculating the sum of NijC2
   LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
     d_nChooseTwoSum.data(), nUniqClasses * nUniqClasses, nCTwo<MathT>(), stream,
@@ -104,13 +104,13 @@ double computeAdjustedRandIndex(
                                nUniqClasses, nUniqClasses, 0, true, false,
                                stream);
   //calculating the sum of number of unordered pairs for every element in a
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
-    d_aCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, a.data(),
-    a.data());
+  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_aCTwoSum.data(), nUniqClasses,
+                                                nCTwo<MathT>(), stream,
+                                                a.data(), a.data());
   //calculating the sum of number of unordered pairs for every element of b
-  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(
-    d_bCTwoSum.data(), nUniqClasses, nCTwo<MathT>(), stream, b.data(),
-    b.data());
+  LinAlg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_bCTwoSum.data(), nUniqClasses,
+                                                nCTwo<MathT>(), stream,
+                                                b.data(), b.data());
   //updating in the host memory
   updateHost(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
   updateHost(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);
