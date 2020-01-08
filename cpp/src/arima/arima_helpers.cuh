@@ -27,8 +27,8 @@ namespace ML {
  * TODO: quick docs (auxiliary function)
  */
 template <bool isAr>
-static inline __device__ double _param_to_poly(const double* param, int lags,
-                                              int idx) {
+static inline __host__ __device__ double _param_to_poly(const double* param,
+                                                        int lags, int idx) {
   if (idx > lags) {
     return 0.0;
   } else if (idx) {
@@ -41,10 +41,9 @@ static inline __device__ double _param_to_poly(const double* param, int lags,
  * TODO: docs
  */
 template <bool isAr>
-static inline __device__ double reduced_polynomial(int bid, const double* param,
-                                                   int lags,
-                                                   const double* sparam,
-                                                   int slags, int s, int idx) {
+static inline __host__ __device__ double reduced_polynomial(
+  int bid, const double* param, int lags, const double* sparam, int slags,
+  int s, int idx) {
   int idx1 = s ? idx / s : 0;
   int idx0 = idx - s * idx1;
   double coef0 = _param_to_poly<isAr>(param + bid * lags, lags, idx0);

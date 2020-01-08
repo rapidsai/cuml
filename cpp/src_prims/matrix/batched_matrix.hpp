@@ -17,31 +17,26 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
 
-#include <linalg/binary_op.h>
-#include <linalg/cublas_wrappers.h>
-#include <memory>
-
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <common/cumlHandle.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
+
+#include <linalg/binary_op.h>
+#include <linalg/cublas_wrappers.h>
 
 namespace MLCommon {
 namespace Matrix {
 
 /**
- * @brief An allocation function for `BatchedMatrixMemory`.
- * 
- * @note Written as a free function because I had trouble getting the
- *       __device__ lambda to compile as a member function of the
- *       `BatchedMatrixMemory` struct.
+ * @brief An allocation function for `BatchedMatrix`.
  * 
  * @param[in]  shape        Shape of each matrix (rows, columns)
  * @param[in]  batch_size   Number of matrices in the batch
@@ -337,7 +332,7 @@ class BatchedMatrix {
     return I;
   }
 
- private:
+ protected:
   //! Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
   std::pair<int, int> m_shape;
 

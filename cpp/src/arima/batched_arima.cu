@@ -28,6 +28,7 @@
 #include "batched_arima.hpp"
 #include "batched_kalman.hpp"
 
+#include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
 
 #include <linalg/binary_op.h>
@@ -437,8 +438,7 @@ static void _arma_least_squares(
   if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
     // Too few observations for the estimate, fill with 0
     if (k)
-      CUDA_CHECK(
-        cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
+      CUDA_CHECK(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
     if (p)
       CUDA_CHECK(
         cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
