@@ -18,38 +18,42 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
+#include <cuda_utils.h>
 #include <utils.h>
-#include <cuml/cuml.hpp>
 #include <sstream>
+#include <string>
 #include <vector>
-#include "dataset.cuh"
 
-namespace ML {
+namespace MLCommon {
 namespace Bench {
 
-/** Main fixture to be inherited and used by all algos in cuML benchmark */
+/** Main fixture to be inherited and used by all other benchmarks */
 class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const DatasetParams p) : ::benchmark::Fixture(), params(p) {}
+  Fixture(const std::string& name) : ::benchmark::Fixture() {
+    this->SetName(name.c_str());
+  }
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new cumlHandle(NumStreams));
-    handle->setStream(stream);
-    allocateData(state);
     allocateBuffers(state);
+    int devId = 0;
+    CUDA_CHECK(cudaGetDevice(&devId));
+    int l2CacheSize = 0;
+    CUDA_CHECK(
+      cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
+    if (l2CacheSize > 0) allocate(scratchBuffer, l2CacheSize);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     deallocateBuffers(state);
-    deallocateData(state);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaDeviceSynchronize());  // to be safe!
-    handle.reset();
+    CUDA_CHECK(cudaFree(scratchBuffer));
   }
 
   // to keep compiler happy
@@ -66,8 +70,6 @@ class Fixture : public ::benchmark::Fixture {
   // every benchmark should be overriding this
   virtual void runBenchmark(::benchmark::State& state) = 0;
   virtual void generateMetrics(::benchmark::State& state) {}
-  virtual void allocateData(const ::benchmark::State& state) {}
-  virtual void deallocateData(const ::benchmark::State& state) {}
   virtual void allocateBuffers(const ::benchmark::State& state) {}
   virtual void deallocateBuffers(const ::benchmark::State& state) {}
 
@@ -76,67 +78,9 @@ class Fixture : public ::benchmark::Fixture {
     generateMetrics(state);
   }
 
-  DatasetParams params;
-  std::unique_ptr<cumlHandle> handle;
   cudaStream_t stream;
-
-  ///@todo: ideally, this should be determined at runtime based on the inputs
-  ///       passed to the fixture. That will require a whole lot of plumbing of
-  ///       interfaces. Thus, as a quick workaround, defining this static var.
-  static const int NumStreams = 16;
-};  // end class Fixture
-
-/**
- * Fixture to be used for benchmarking classification algorithms when the input
- * suffices to be generated via `make_blobs`.
- */
-template <typename D, typename L = int>
-class BlobsFixture : public Fixture {
- public:
-  BlobsFixture(const DatasetParams p, const BlobsParams b)
-    : Fixture(p), bParams(b) {}
-  BlobsFixture() = delete;
-
- protected:
-  void allocateData(const ::benchmark::State& state) override {
-    data.allocate(*handle, params);
-    data.blobs(*handle, params, bParams);
-  }
-
-  void deallocateData(const ::benchmark::State& state) override {
-    data.deallocate(*handle, params);
-  }
-
-  /** parameters passed to `make_blobs` */
-  BlobsParams bParams;
-  Dataset<D, L> data;
-};  // end class BlobFixture
-
-/**
- * Fixture to be used for benchmarking regression algorithms when the input
- * suffices to be generated via `make_regression`.
- */
-template <typename D>
-class RegressionFixture : public Fixture {
- public:
-  RegressionFixture(const DatasetParams p, const RegressionParams r)
-    : Fixture(p), rParams(r) {}
-  RegressionFixture() = delete;
-
- protected:
-  void allocateData(const ::benchmark::State& state) override {
-    data.allocate(*handle, params);
-    data.regression(*handle, params, rParams);
-  }
-
-  void deallocateData(const ::benchmark::State& state) override {
-    data.deallocate(*handle, params);
-  }
-
-  /** parameters passed to `make_regression` */
-  RegressionParams rParams;
-  Dataset<D, D> data;
-};  // end class RegressionFixture
+  char* scratchBuffer;  // mostly used to force explicit L2 flushes
+};                      // end class Fixture
 
 /**
  * RAII way of timing cuda calls. This has been shamelessly copied from the
@@ -147,28 +91,25 @@ struct CudaEventTimer {
   /**
    * @brief This ctor clears the L2 cache by cudaMemset'ing a buffer of the size
    *        of L2 and then starts the timer.
-   * @param h cuml handle
    * @param st the benchmark::State whose timer we are going to update.
-   * @param flushL2 whether or not to flush the L2 cache before every iteration.
+   * @param ptr flush the L2 cache by writing to this buffer before every
+   *            iteration. It is the responsibility of the caller to manage this
+   *            buffer. Pass a `nullptr` if L2 flush is not needed.
    * @param s The CUDA stream we are measuring time on.
    */
-  CudaEventTimer(const cumlHandle& h, ::benchmark::State& st, bool flushL2,
-                 cudaStream_t s)
-    : handle(h), state(&st), stream(s) {
+  CudaEventTimer(::benchmark::State& st, char* ptr, cudaStream_t s)
+    : state(&st), stream(s) {
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
     // flush L2?
-    if (flushL2) {
+    if (ptr != nullptr) {
       int devId = 0;
       CUDA_CHECK(cudaGetDevice(&devId));
       int l2CacheSize = 0;
       CUDA_CHECK(
         cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
       if (l2CacheSize > 0) {
-        auto allocator = handle.getDeviceAllocator();
-        auto* buffer = (int*)allocator->allocate(l2CacheSize, stream);
-        CUDA_CHECK(cudaMemsetAsync(buffer, 0, l2CacheSize, stream));
-        allocator->deallocate(buffer, l2CacheSize, stream);
+        CUDA_CHECK(cudaMemsetAsync(ptr, sizeof(char) * l2CacheSize, 0, s));
         CUDA_CHECK(cudaStreamSynchronize(stream));
       }
     }
@@ -194,7 +135,6 @@ struct CudaEventTimer {
  private:
   cudaEvent_t start;
   cudaEvent_t stop;
-  const cumlHandle& handle;
   ::benchmark::State* state;
   cudaStream_t stream;
 };  // end namespace CudaEventTimer
@@ -220,25 +160,24 @@ struct Registrar {
 };  // end namespace internal
 
 /**
- * This is the entry point macro for all cuML benchmarks. This needs to be
+ * This is the entry point macro for all ml-prims benchmarks. This needs to be
  * called for the set of benchmarks to be registered so that the main harness
  * inside google bench can find these benchmarks and run them.
  * @param ParamsClass a struct which contains all the parameters needed to
- *                    generate a dataset and run the underlying ML training algo
- *                    on it. Ideally, one such struct is needed for every source
- * @param BaseClass the child class of `ML::Bench::Fixture` which contains the
+ *                    generate inputs and run the underlying prim on it.
+ *                    Ideally, one such struct is needed for every ml-prim.
+ * @param TestClass child class of `MLCommon::Bench::Fixture` which contains the
  *                  logic to generate the dataset and run training on it for a
  *                  given algo. Ideally, once such struct is needed for every
  *                  algo to be benchmarked
- * @param BaseName a unique string to identify these tests at the end of run
- * @param params list of params upon which to benchmark the algo. It can be a
+ * @param TestName a unique string to identify these tests at the end of run
+ * @param params list of params upon which to benchmark the prim. It can be a
  *               statically populated vector or from the result of calling a
  *               function
- * @note See at the end of kmeans.cu for a real use-case example.
  */
-#define CUML_BENCH_REGISTER(ParamsClass, BaseClass, BaseName, params)        \
-  static internal::Registrar<ParamsClass, BaseClass> BENCHMARK_PRIVATE_NAME( \
-    registrar)(params, #BaseClass "/" BaseName)
+#define PRIMS_BENCH_REGISTER(ParamsClass, TestClass, TestName, params)       \
+  static internal::Registrar<ParamsClass, TestClass> BENCHMARK_PRIVATE_NAME( \
+    registrar)(params, #TestClass "/" TestName)
 
 }  // end namespace Bench
-}  // end namespace ML
+}  // end namespace MLCommon

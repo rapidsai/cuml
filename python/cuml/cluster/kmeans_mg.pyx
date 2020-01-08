@@ -54,7 +54,8 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
         int seed,
         int metric,
         double oversampling_factor,
-        int batch_size,
+        int batch_samples,
+        int batch_centroids,
         bool inertia_check
 
 cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
