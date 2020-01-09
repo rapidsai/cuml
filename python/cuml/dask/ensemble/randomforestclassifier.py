@@ -296,18 +296,67 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, r):
+    def _predict(model, X_df_list, treelite_handle):
         #print(model.print_summary())
-        return model._predict_model_on_gpu(X).copy_to_host()
+        import pdb
+        print("length of X_df_list is : ", len(X_df_list))
+        #pdb.set_trace()
+        if len(X_df_list) == 1:
+            X_df = X_df_list[0]
+        else:
+            X_df = cudf.concat(X_df_list)
+        #pdb.set_trace()
+
+        return model.predict(X_df, treelite_handle=treelite_handle) #.copy_to_host()
 
     @staticmethod
     def _print_summary(model):
         model.print_summary()
 
     @staticmethod
-    def _convert_to_tl(model, model_bytes):
+    def _convert_to_tl(model, model_info):
+        #print("model info inside _convert_to_tl : ", model_info)
         return model._convert_to_treelite(task_category=1,
-                                          model_pbuf_bytes=model_bytes)
+                                          model_info=model_info)
+
+    @staticmethod
+    def _convert_to_fil(model, tl_model_ptr): #, threshold, algo):
+        output_class = True
+        print("treelite_handle in convert_to_fil : ", tl_model_ptr)
+        print("type treelite_handle in convert_to_fil : ", type(tl_model_ptr))
+        temp = int(46535674226)
+        print("temp is : ", temp)
+        return model._convert_to_fil(tl_handle=tl_model_ptr)
+        """
+        ,
+                                     output_class=True,
+                                     threshold=0.5,
+                                     algo='BATCH_TREE_REORG'
+        """
+
+    def convert_to_fil(self, tl_ptr):
+        """
+        get the model information, convert it to model bytes
+        """
+        c = default_client()
+        futures = list()
+        workers = self.workers
+        w = [i for i in self.workers]
+
+        futures.append(
+            c.submit(
+                RandomForestClassifier._convert_to_fil,
+                self.rfs[w[0]],
+                tl_ptr,
+                workers=[w[0]],
+            )
+        )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+
+        print("len of futures : ", len(futures))
+        return futures[0]
 
     @staticmethod
     def _get_model_info(model):
@@ -320,9 +369,7 @@ class RandomForestClassifier:
         c = default_client()
         futures = list()
         workers = self.workers
-        worker_numb = -1
         for n, w in enumerate(workers):
-            worker_numb = worker_numb + 1
             futures.append(
                 c.submit(
                     RandomForestClassifier._get_model_info,
@@ -336,16 +383,13 @@ class RandomForestClassifier:
 
         ### this was for concatenating the model bytes obtained when converting
         ### cuML -> TL -> model_bytes
-
+        print("len of futures : ", len(futures))
         mod_bytes = list()
-        for d in range(len(futures)):
-            mod_bytes.append(futures[d].result())
-            print("len mod_bytes in dask : ", len(mod_bytes[d]))
+        mod_bytes.append(futures[0].result())
 
-        self.concat_model_bytes = list(chain.from_iterable(mod_bytes))
-        print("len concat_model_bytes in dask : ", len(self.concat_model_bytes))
+        #self.concat_model_bytes = list(chain.from_iterable(mod_bytes))
 
-        return self.concat_model_bytes
+        return mod_bytes #self.concat_model_bytes
 
     def print_summary(self):
         """
@@ -383,18 +427,24 @@ class RandomForestClassifier:
         c = default_client()
         futures = list()
 
-        concat_model_bytes = self.get_model_info()
+        model_info = self.get_meta_data()
+        #import pdb
+        #pdb.set_trace()
+        #concat_model_bytes, half_mod_bytes = self.get_model_info()
 
-        w = [i for i in self.workers]
-        futures.append(
-            c.submit(
-                RandomForestClassifier._convert_to_tl,
-                self.rfs[w[0]],
-                concat_model_bytes,
-                workers=[w[0]],
+        #print(" model info obtained : ", model_info)
+
+        for n, w in enumerate(self.workers): 
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._convert_to_tl,
+                    self.rfs[w], #[w[0]],
+                    model_info,
+                    workers=[w],
+                )
             )
-        )
 
+        
         wait(futures)
         #print(" futures in convert_to_treelite_mnmg: ", futures)
         raise_exception_from_futures(futures)
@@ -405,7 +455,56 @@ class RandomForestClassifier:
 
         print("rslts : ", rslts)
         return rslts
+        """
+        conv_fil = []
+        conv_fil.append(
+            c.submit(
+                RandomForestClassifier._convert_to_fil,
+                self.rfs[w[0]],
+                rslts[0],
+                workers=[w[0]],
+            )
+        )
 
+        wait(conv_fil)
+        #print(" futures in convert_to_treelite_mnmg: ", futures)
+        raise_exception_from_futures(conv_fil)
+
+        fil_model = list()
+        for d in range(len(conv_fil)):
+            fil_model.append(conv_fil[d].result())
+
+        """
+        #fil_model = self.convert_to_fil(rslts[0])
+
+        #return fil_model
+
+    def _get_meta_data(model):
+    	return model.get_meta_data()
+
+    
+    def get_meta_data(self):
+        c = default_client()
+        futures = list()
+        workers = self.workers
+
+        for n, w in enumerate(workers):
+                    futures.append(
+                c.submit(
+                    RandomForestClassifier._get_meta_data,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+
+        raw_rf_data = list()
+        for d in range(len(futures)):
+            raw_rf_data.append(futures[d].result())
+
+        return raw_rf_data
 
     def fit(self, X, y):
         """
@@ -470,6 +569,8 @@ class RandomForestClassifier:
         futures = list()
         for w, xc in X_futures.items():
             print(" w in fit for loop : ", w)
+            print(" xc in fit for loop : ", xc)
+            print(" type of xc in fit loop ", type(xc))
             futures.append(
                 c.submit(
                     RandomForestClassifier._fit,
@@ -503,10 +604,21 @@ class RandomForestClassifier:
 
         """
         c = default_client()
-        workers = self.workers
+        # workers = self.workers
+        # X_Scattered = c.scatter(X)
 
-        if not isinstance(X, np.ndarray):
-            raise ValueError("Predict inputs must be numpy arrays")
+        treelite_handle = self.convert_to_treelite()
+
+        #fil_model = self.convert_to_fil()
+
+        ## Either I need to change the RFC._predict to use FIL class and
+        ## FIL predict directly
+
+        ## OR
+        ## convert the model everytime before using the predict
+        ## as we are unable to obtain the FIL model by using '.result()' 
+        ## and fix the pickling issue caused during predict
+
         X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
 
         X_partition_workers = [w for w, xc in X_futures.items()]
@@ -518,22 +630,41 @@ class RandomForestClassifier:
               y workers: %s\n
               RF workers: %s
               """)
-        #X_Scattered = c.scatter(X)
+
+        print("X_futures.items() in predict : ", X_futures.items())
+
+        import pdb
+        #pdb.set_trace()
+        w = [i for i in X_futures.keys()]
+        #pdb.set_trace()
+
+        xc = X_futures[w[0]]
+
         futures = list()
 
-        concat_conv_tree = self.convert_to_treelite()
-
-        fil_model = self.convert_to_fil()
-
-        print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
-        for n, w in enumerate(workers):
+        #pdb.set_trace()
+        #print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
+        """
+        for w, xc in X_futures.items():
             futures.append(
                 c.submit(
                     RandomForestClassifier._predict,
-                    X_Scattered,
+                    xc,
                     fil_model,
                     random.random(),
                     workers=[w],
+                )
+            )
+        """
+
+        futures.append(
+            c.submit(
+                RandomForestClassifier._predict,
+                self.rfs[w[0]],
+                xc,
+                treelite_handle[0],
+                #random.random(),
+                workers=[w[0]],
                 )
             )
 

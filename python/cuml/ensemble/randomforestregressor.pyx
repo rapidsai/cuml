@@ -355,8 +355,8 @@ class RandomForestRegressor(Base):
         cdef ModelHandle cuml_model_ptr = NULL
 
         task_category = 1
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        cdef vector[RandomForestMetaData[float, float]] rf_forest = \
+            <vector[RandomForestMetaData[float, float]]><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
@@ -463,8 +463,8 @@ class RandomForestRegressor(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        cdef vector[RandomForestMetaData[float, float]] rf_forest = \
+            <vector[RandomForestMetaData[float, float]]><size_t> self.rf_forest
 
         task_category = 1  # for regression
         build_treelite_forest(& cuml_model_ptr,

@@ -17,6 +17,7 @@
 #pragma once
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
+#include <list>
 #include <map>
 
 namespace ML {
@@ -104,6 +105,10 @@ struct RandomForestMetaData {
   //TODO can add prepare, train time, if needed
 };
 
+typedef std::vector<RandomForestMetaData<float, int>> RFC_info_float;
+typedef std::vector<RandomForestMetaData<double, int>> RFC_info_double;
+typedef std::vector<RandomForestMetaData<float, float>> RFR_info_float;
+
 template <class T, class L>
 void null_trees_ptr(RandomForestMetaData<T, L>*& forest);
 
@@ -115,7 +120,7 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
-                           const RandomForestMetaData<T, L>* forest,
+                           std::vector<RandomForestMetaData<T, L>>& forest,
                            int num_features, int task_category,
                            std::vector<unsigned char>& data);
 

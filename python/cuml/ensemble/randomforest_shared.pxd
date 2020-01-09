@@ -89,11 +89,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         void* trees
         RF_params rf_params
 
+    
+    #cdef vector[RandomForestMetaData[float, int]] RFC_info_float
+    #cdef vector[RandomForestMetaData[double, int]] RFC_info_double
     #
     # Treelite handling
     #
     cdef void build_treelite_forest[T, L](ModelHandle*,
-                                          RandomForestMetaData[T, L]*,
+                                          vector[RandomForestMetaData[T, L]] &,
                                           int,
                                           int,
                                           vector[unsigned char] &) except +

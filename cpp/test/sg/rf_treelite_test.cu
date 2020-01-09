@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/**
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <sys/stat.h>
@@ -460,3 +460,4 @@ TEST_P(RfRegressorTreeliteTestF, Convert_Reg) { testRegressor(); }
 INSTANTIATE_TEST_CASE_P(RfRegressorTreeliteTests, RfRegressorTreeliteTestF,
                         ::testing::ValuesIn(inputsf2_reg));
 }  // end namespace ML
+**/

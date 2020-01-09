@@ -359,13 +359,25 @@ class RandomForestClassifier(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
+    def get_meta_data(self):
+
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+
+        print("######################################")
+        print(self.rf_forest)
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+        return self.rf_forest
+
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        cdef vector[RandomForestMetaData[float, int]] rf_forest = \
+            <vector[RandomForestMetaData[float, int]]><size_t> self.rf_forest
+
         build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
+                              <vector[RandomForestMetaData[float, int]] &> self.rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
@@ -377,30 +389,41 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
-    def _convert_to_treelite(self, task_category, model_pbuf_bytes):
+    def _convert_to_treelite(self, task_category, model_info):
         
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 2
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        print("model infor in pyx file : ", model_info)
+        print(" type of model_info : ", type(model_info))
+        print(" type of model info [0] : ", type(model_info[0]))
+        cdef vector[RandomForestMetaData[float, int]] rf_forest = \
+            <vector[RandomForestMetaData[float, int]]><size_t> model_info
+        print(" self.n_cols : ", self.n_cols)
         build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
+                              <vector[RandomForestMetaData[float, int]] &> model_info,
                               <int> self.n_cols,
                               <int> task_category,
-                              <vector[unsigned char] &> model_pbuf_bytes)
+                              <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         return treelite_handle
 
     ####### This will run very time the user calls predict
     ####### call this function seperatly so that the converted model is passed in place of it being converted
-    def _convert_to_fil(treelite_handle, output_class, threshold, algo):
+    ######### we might need to pass self in as well as dask might be passing the self info
+    def _convert_to_fil(self, tl_handle, output_class=True, threshold=0.5, algo='BATCH_TREE_REORG'):
+        print("inside the function in Cython file")
+        print("treelite_handle passed from dask in con to fil is : ", tl_handle)
+
+        ##print("self.treelite_handle in con to fil is : ", self.treelite_handle)
         fil_model = ForestInference()
+        print("created a FIL model")
         tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
+            fil_model.load_from_randomforest(model_handle=tl_handle,
                                              output_class=output_class,
                                              threshold=threshold,
                                              algo=algo)
+        print("converted the model to FIL")
         return tl_to_fil_model
 
     def fit(self, X, y):
@@ -452,6 +475,12 @@ class RandomForestClassifier(Base):
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
+
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(" self.rf_forest in gpu ", self.rf_forest)
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -506,21 +535,25 @@ class RandomForestClassifier(Base):
         return self
 
     def _predict_model_on_gpu(self, X, output_class,
-                              threshold, algo,
-                              num_classes, convert_dtype, fil_model):
-        cdef ModelHandle cuml_model_ptr = NULL
-        X_m, _, n_rows, n_cols, X_type = \
+                              threshold, algo, treelite_handle,
+                              num_classes, convert_dtype):
+        import pdb
+        #pdb.set_trace()
+        X_m, _, _, _, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
+        #pdb.set_trace()
 
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        #fil_model = self._convert_to_fil(tl_handle=treelite_handle)
+        print(" print the FIL model : ", treelite_handle)
+        #print()
+        #preds = treelite_handle.predict(X_m)
+        #pdb.set_trace()
 
-        preds = fil_model.predict(X_m)
         del(X_m)
-        return preds
+        #return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         cdef uintptr_t X_ptr
@@ -573,7 +606,7 @@ class RandomForestClassifier(Base):
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
-                algo='BATCH_TREE_REORG',
+                algo='BATCH_TREE_REORG', treelite_handle=None,
                 num_classes=2, convert_dtype=True):
         """
         Predicts the labels for X.
@@ -632,7 +665,7 @@ class RandomForestClassifier(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, output_class,
-                                               threshold, algo,
+                                               threshold, algo, treelite_handle,
                                                num_classes, convert_dtype)
 
         return preds
