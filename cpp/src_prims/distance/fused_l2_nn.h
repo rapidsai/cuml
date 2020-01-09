@@ -21,6 +21,16 @@
 #include <cub/cub.cuh>
 #include <limits>
 
+#ifndef ENABLE_MEMCPY_ASYNC
+#if __CUDA_ARCH__ >= 800
+#define ENABLE_MEMCPY_ASYNC 1
+#endif
+#endif
+
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#include <cuda_pipeline.h>
+#endif
+
 namespace MLCommon {
 namespace Distance {
 
@@ -247,6 +257,10 @@ struct FusedL2NN {
 
   ReduceOpT redOp;
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  nvcuda::experimental::pipeline pipe;
+#endif
+
   static const DataT Zero = (DataT)0;
   static const DataT Two = (DataT)2.0;
 
@@ -436,17 +450,9 @@ struct FusedL2NN {
     }
   }
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#else  // ENABLE_MEMCPY_ASYNC
   DI void ldgXY(IdxT kidx) {
-    ldgX(kidx);
-    ldgY(kidx);
-  }
-
-  DI void stsXY() {
-    stsX(sx + pageWr * P::SmemPage);
-    stsY(sy + pageWr * P::SmemPage);
-  }
-
-  DI void ldgX(IdxT kidx) {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
@@ -458,18 +464,6 @@ struct FusedL2NN {
         }
       }
     }
-  }
-
-  DI void stsX(DataT* smem) {
-    auto* saddr = smem + srowid * P::SmemStride + scolid;
-#pragma unroll
-    for (int i = 0; i < P::LdgPerThX; ++i) {
-      sts(saddr + i * P::LdgRowsX * P::SmemStride, ldgDataX[i]);
-    }
-  }
-
-  DI void ldgY(IdxT kidx) {
-    auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
         ldg(ldgDataY[i], y + i * P::LdgRowsY * k + koffset);
@@ -482,13 +476,20 @@ struct FusedL2NN {
     }
   }
 
-  DI void stsY(DataT* smem) {
-    auto* saddr = smem + srowid * P::SmemStride + scolid;
+  DI void stsXY() {
+    auto offset = pageWr * P::SmemPage + srowid * P::SmemStride + scolid;
+    auto* saddrx = sx + offset;
+#pragma unroll
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      sts(saddrx + i * P::LdgRowsX * P::SmemStride, ldgDataX[i]);
+    }
+    auto* saddry = sy + offset;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
-      sts(saddr + i * P::LdgRowsY * P::SmemStride, ldgDataY[i]);
+      sts(saddry + i * P::LdgRowsY * P::SmemStride, ldgDataY[i]);
     }
   }
+#endif  // ENABLE_MEMCPY_ASYNC
 
   DI void ldsXY(int kidx) {
     ldsX(kidx, sx + pageRd * P::SmemPage);
