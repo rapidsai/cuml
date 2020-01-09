@@ -435,12 +435,13 @@ struct FusedL2NN {
   }
 
   DI void ldgsts(IdxT kidx) {
-    ldgstsX(kidx, sx + pageWr * P::SmemPage);
-    ldgstsY(kidx, sy + pageWr * P::SmemPage);
+    ldgX(kidx);
+    ldgY(kidx);
+    stsX(sx + pageWr * P::SmemPage);
+    stsY(sy + pageWr * P::SmemPage);
   }
 
-  DI void ldgstsX(IdxT kidx, DataT* smem) {
-    // LDG
+  DI void ldgX(IdxT kidx) {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
@@ -452,7 +453,9 @@ struct FusedL2NN {
         }
       }
     }
-    // STS
+  }
+
+  DI void stsX(DataT* smem) {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThX; ++i) {
@@ -460,8 +463,7 @@ struct FusedL2NN {
     }
   }
 
-  DI void ldgstsY(IdxT kidx, DataT* smem) {
-    // LDG
+  DI void ldgY(IdxT kidx) {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
@@ -473,7 +475,9 @@ struct FusedL2NN {
         }
       }
     }
-    // STS
+  }
+
+  DI void stsY(DataT* smem) {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
