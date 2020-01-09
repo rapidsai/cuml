@@ -348,8 +348,9 @@ class UMAP(Base):
         return state
 
     def __del__(self):
-        cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
-        del umap_params
+        if hasattr(self, 'umap_params'):
+            cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
+            free(umap_params)
 
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
