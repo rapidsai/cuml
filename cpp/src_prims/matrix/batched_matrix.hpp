@@ -72,7 +72,7 @@ std::pair<T*, T**> BMM_Allocate(std::pair<int, int> shape, int batch_size,
 }
 
 /**
- * @brief Kernel to creates an identity matrix
+ * @brief Kernel to create an identity matrix
  * 
  * @note The block id is the batch id, and the thread id is the starting
  *       row/column for this thread (then looping to cover all the diagonal)
