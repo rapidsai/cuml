@@ -349,7 +349,8 @@ class UMAP(Base):
 
     def __del__(self):
         if hasattr(self, 'umap_params'):
-            cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
+            cdef UMAPParams* umap_params = \
+                    <UMAPParams*><size_t>self.umap_params
             free(umap_params)
 
     def __setstate__(self, state):
