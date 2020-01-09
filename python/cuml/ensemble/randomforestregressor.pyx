@@ -379,12 +379,8 @@ class RandomForestRegressor(Base):
         Returns:  Treelite model
         """
         task_category = 1
-        model_protobuf_bytes = self._get_model_info()
-        file_name = create_file(<vector[unsigned char] &> model_protobuf_bytes)
-        file_name = file_name.decode("utf-8")
-        treelite_model = TreeliteModel.from_filename(filename=file_name,
-                                                     model_type="protobuf")
-        os.remove(file_name)
+        treelite_handle = self._convert_to_treelite(task_category)
+        treelite_model = TreeliteModel.from_model_handle(treelite_handle)
         return treelite_model
 
     def fit(self, X, y):
