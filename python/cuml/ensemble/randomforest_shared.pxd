@@ -27,7 +27,6 @@ import warnings
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from libcpp.string cimport string
 from libcpp.vector cimport vector
 
 from cuml.common.handle import Handle
