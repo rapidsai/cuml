@@ -243,6 +243,7 @@ struct FusedL2NN {
 
   DataT acc[P::AccRowsPerTh][P::AccColsPerTh];
   DataT regx[P::AccRowsPerTh][P::Veclen], regy[P::AccColsPerTh][P::Veclen];
+  DataT ldgDataX[P::LdgPerThX][P::Veclen], ldgDataY[P::LdgPerThY][P::Veclen];
 
   ReduceOpT redOp;
 
@@ -439,16 +440,15 @@ struct FusedL2NN {
   }
 
   DI void ldgstsX(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
     // LDG
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        ldg(data[i], x + i * P::LdgRowsX * k + koffset);
+        ldg(ldgDataX[i], x + i * P::LdgRowsX * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
+          ldgDataX[i][j] = Zero;
         }
       }
     }
@@ -456,21 +456,20 @@ struct FusedL2NN {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThX; ++i) {
-      sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
+      sts(saddr + i * P::LdgRowsX * P::SmemStride, ldgDataX[i]);
     }
   }
 
   DI void ldgstsY(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
     // LDG
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        ldg(data[i], y + i * P::LdgRowsY * k + koffset);
+        ldg(ldgDataY[i], y + i * P::LdgRowsY * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
+          ldgDataY[i][j] = Zero;
         }
       }
     }
@@ -478,7 +477,7 @@ struct FusedL2NN {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
-      sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
+      sts(saddr + i * P::LdgRowsY * P::SmemStride, ldgDataY[i]);
     }
   }
 
