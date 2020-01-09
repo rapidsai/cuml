@@ -52,7 +52,8 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2, 23])
-def test_ols(n_parts, client=None):
+@pytest.mark.parametrize("fit_intercept", [False, True])
+def test_ridge(n_parts, fit_intercept, client=None):
 
     if client is None:
         cluster = LocalCUDACluster(threads_per_worker=1)
@@ -80,7 +81,7 @@ def test_ols(n_parts, client=None):
         X_df = dask_cudf.from_cudf(X_cudf, npartitions=n_parts).persist()
         y_df = dask_cudf.from_cudf(y_cudf, npartitions=n_parts).persist()
 
-        lr = cumlRidge_dask(alpha=0.5)
+        lr = cumlRidge_dask(alpha=0.5, fit_intercept=fit_intercept)
 
         lr.fit(X_df, y_df)
 
