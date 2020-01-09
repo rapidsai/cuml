@@ -436,11 +436,6 @@ struct FusedL2NN {
     }
   }
 
-  DI void ldgsts(IdxT kidx) {
-    ldgXY(kidx);
-    stsXY();
-  }
-
   DI void ldgXY(IdxT kidx) {
     ldgX(kidx);
     ldgY(kidx);
