@@ -313,8 +313,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   ucp_tag_t tag_mask = default_tag_mask;
 
-  if(source == CUML_ANY_SOURCE)
-    tag_mask = any_rank_tag_mask;
+  if (source == CUML_ANY_SOURCE) tag_mask = any_rank_tag_mask;
 
   struct ucx_context *ucp_request =
     ucp_irecv(_ucp_worker, ep_ptr, buf, size, tag, tag_mask, source);

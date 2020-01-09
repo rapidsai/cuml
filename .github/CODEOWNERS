@@ -8,9 +8,11 @@ python/cuml/       @rapidsai/cuml-python-codeowners
 **/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
 **/cmake/          @rapidsai/cuml-cmake-codeowners
 python/setup.py    @rapidsai/cuml-cmake-codeowners
+build.sh           @rapidsai/cuml-cmake-codeowners
+**/build.sh        @rapidsai/cuml-cmake-codeowners
 
 #build/ops code owners
-.github/           @rapidsai/ops-codeowners 
+.github/           @rapidsai/ops-codeowners
 ci/                @rapidsai/ops-codeowners
 conda/             @rapidsai/ops-codeowners
 **/Dockerfile      @rapidsai/ops-codeowners

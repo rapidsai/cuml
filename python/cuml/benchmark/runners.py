@@ -91,7 +91,7 @@ class SpeedupComparisonRunner:
         cu_elapsed = np.min(cuml_timer.timings)
 
         if run_cpu and algo_pair.cpu_class is not None:
-            setup_overrides = algo_pair.set_up_cpu(data, **param_overrides)
+            setup_overrides = algo_pair.setup_cpu(data, **param_overrides)
 
             cpu_timer = BenchmarkTimer(self.n_reps)
             for rep in cpu_timer.benchmark_runs():
