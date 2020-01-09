@@ -137,6 +137,12 @@ cdef class TreeliteModel():
         model.set_handle(handle)
         return model
 
+    @staticmethod
+    def from_model_handle(treelite_handle):
+        cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
+        model = TreeliteModel()
+        model.set_handle(handle)
+        return model
 
 cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:

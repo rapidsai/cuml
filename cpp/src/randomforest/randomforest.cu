@@ -341,16 +341,6 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   return bytes_info;
 }
 
-std::string create_file(std::vector<unsigned char>& data) {
-  // create a temp file
-  const char* filename = "tl_file.txt";
-  // write the model bytes into the temp file
-  std::ofstream file(filename, std::ios::binary);
-  file.write((char*)&data[0], data.size());
-  std::string someString(filename);
-  return filename;
-}
-
 /**
  * @defgroup Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
