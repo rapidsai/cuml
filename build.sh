@@ -133,7 +133,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || ha
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DBUILD_CUML_STD_COMMS=ON \
-          -DWITH_UCX=OFF \
+          -DWITH_UCX=ON \
           -DBUILD_CUML_MPI_COMMS=OFF \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
