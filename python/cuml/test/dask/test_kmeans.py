@@ -114,7 +114,6 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
         client.close()
 
 
-
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(5e3), quality_param(1e5),
                                    stress_param(1e6)])
