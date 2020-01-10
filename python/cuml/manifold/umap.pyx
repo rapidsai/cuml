@@ -325,7 +325,8 @@ class UMAP(Base):
         if hasattr(self, "X_m"):
             # fit has not yet been called
             state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-            state['embedding_'] = cudf.DataFrame.from_gpu_matrix(self.embedding_)
+            state['embedding_'] = \
+                cudf.DataFrame.from_gpu_matrix(self.embedding_)
 
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components
