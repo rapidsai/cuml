@@ -31,6 +31,8 @@
 
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
+#include <linalg/unary_op.h>
+
 
 namespace MLCommon {
 namespace LinAlg {
@@ -502,6 +504,28 @@ void b_gels(const BatchedMatrix<T>& A, BatchedMatrix<T>& C) {
 }
 
 /**
+ * @brief A utility method to implement a unary operation on a batched matrix
+ * 
+ * @param[in]  A          Batched matrix A
+ * @param[in]  unary_op   The unary operation applied on the elements of A
+ * @return A batched matrix, the result of unary_op A
+ */
+template <typename T, typename F>
+BatchedMatrix<T> b_op_A(const BatchedMatrix<T>& A, F unary_op) {
+  auto batch_size = A.batches();
+  int m = A.shape().first;
+  int n = A.shape().second;
+
+  BatchedMatrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(),
+                     A.stream());
+
+  LinAlg::unaryOp(C.raw_data(), A.raw_data(), m * n * batch_size, unary_op,
+                  A.stream());
+
+  return C;
+}
+
+/**
  * @brief A utility method to implement pointwise operations between elements
  *        of two batched matrices.
  * 
@@ -570,6 +594,17 @@ template <typename T>
 BatchedMatrix<T> operator-(const BatchedMatrix<T>& A,
                            const BatchedMatrix<T>& B) {
   return b_aA_op_B(A, B, [] __device__(T a, T b) { return a - b; });
+}
+
+/**
+ * @brief Unary substraction
+ * 
+ * @param[in]  A  Batched matrix A
+ * @return -A
+ */
+template <typename T>
+BatchedMatrix<T> operator-(const BatchedMatrix<T>& A) {
+  return b_op_A(A, [] __device__(T a) { return -a; });
 }
 
 /**

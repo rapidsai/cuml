@@ -446,12 +446,6 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
 
-  /// TODO: cleanup all the timers
-  auto t1 = std::chrono::high_resolution_clock::now();
-  auto t2 = t1;
-  auto duration =
-    std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-
   BatchedMatrix P(r, r, batch_size, handle.getImpl().getCublasHandle(),
                   handle.getDeviceAllocator(), stream, false);
   if (initP_kalman_it)
@@ -460,36 +454,29 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
         Tb * b_gemm(Zb, b_gemm(Zb, Tb, false, true), true, false) + RRT;
   else {
     // # (Durbin Koopman "Time Series Analysis" pg 138)
-    // NumPy version
-    //   invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
-    //   P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
-    ML::PUSH_RANGE("P0: (I-TxT)");
-    t1 = std::chrono::high_resolution_clock::now();
-    auto bk = b_kron(Tb, Tb);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    t2 = std::chrono::high_resolution_clock::now();
-    duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-    std::cout << "Kronecker: " << duration / 1000000.0 << std::endl;
 
-    BatchedMatrix I_m_TxT =
-      BatchedMatrix::Identity(r * r, batch_size,
-                              handle.getImpl().getCublasHandle(),
-                              handle.getDeviceAllocator(), stream) -
-      bk;
-    /// TODO: in the seasonal case, the matrices for the Kronecker product and
-    /// the identity are very large. But the initialization with a Kalman iteration
-    /// gives bad results. Figure out a workaround!
-    /// Also the performance is awful
+    /* Note: in the seasonal case, the matrices for the Kronecker product and
+     * the identity are very large, which creates memory and performance issues
+     * But the initialization with a Kalman iteration gives bad results...
+     * TODO: figure out a workaround
+     */
+    ML::PUSH_RANGE("P0: (I-TxT)");
+    BatchedMatrix I_m_TxT = b_kron(-Tb, Tb);
+    // Note: avoiding the creation of an identity matrix to save memory;
+    // also -TxT = (-T)xT
+    double* d_I_m_TxT = I_m_TxT.raw_data();
+    int r2 = r * r;
+    auto counting = thrust::make_counting_iterator(0);
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       double* b_I_m_TxT = d_I_m_TxT + ib * r2 * r2;
+                       for (int i = 0; i < r * r; i++) {
+                         b_I_m_TxT[(r2 + 1) * i] += 1.0;
+                       }
+                     });
     ML::POP_RANGE();
-    ML::PUSH_RANGE("(I-TxT)\\(R.R^T)");
-    t1 = std::chrono::high_resolution_clock::now();
+    ML::PUSH_RANGE("P0: (I-TxT)\\(R.R^T)");
     BatchedMatrix invI_m_TxT_x_RRTvec = b_solve(I_m_TxT, RRT.vec());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    t2 = std::chrono::high_resolution_clock::now();
-    duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-    std::cout << "Solve: " << duration / 1000000.0 << std::endl;
     ML::POP_RANGE();
     BatchedMatrix P0 = invI_m_TxT_x_RRTvec.mat(r, r);
     P = P0;
@@ -506,49 +493,14 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   d_sumlogFs = (double*)handle.getDeviceAllocator()->allocate(
     sizeof(double) * batch_size, stream);
 
-  // Reference implementation
-  // For it = 1:nobs
-  //  // 1.
-  //   vs[it] = ys[it] - alpha(0,0);
-  //  // 2.
-  //   Fs[it] = P(0,0);
-
-  //   if(Fs[it] < 0) {
-  //     std::cout << "P=" << P << "\n";
-  //     throw std::runtime_error("ERROR: F < 0");
-  //   }
-  //   3.
-  //   MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
-  //   4.
-  //   alpha = T*alpha + K*vs[it];
-  //   5.
-  //   MatrixT L = T - K*Z;
-  //   6.
-  //   P = T * P * L.transpose() + R * R.transpose();
-  //   loglikelihood += std::log(Fs[it]);
-  // }
-
-  /// TODO: cleanup
-  // MLCommon::myPrintDevMatrix("T", Tb.raw_data(), r, r * batch_size);
-  // MLCommon::myPrintDevMatrix("Z", Zb.raw_data(), 1, r);
-  // MLCommon::myPrintDevMatrix("RRT", RRT.raw_data(), r, r);
-  // MLCommon::myPrintDevMatrix("P", P.raw_data(), r, r);
-  // MLCommon::myPrintDevMatrix("alpha", alpha.raw_data(), r, 1);
-
-  t1 = std::chrono::high_resolution_clock::now();
   batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, T_mask, r, d_vs, d_Fs,
                       d_sumlogFs, fc_steps, d_fc);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  t2 = std::chrono::high_resolution_clock::now();
-  duration =
-    std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-  std::cout << "Kalman loop: " << duration / 1000000.0 << std::endl;
 
   // Finalize loglikelihood
   // 7. & 8.
-  // double sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
-  // double loglike = -.5 * (loglikelihood + nobs * std::log(sigma2));
-  // loglike -= nobs / 2. * (std::log(2 * M_PI) + 1);
+  // sigma2 = mean(vs^2 / Fs)
+  // loglike = -0.5 * (sumlogFs + nobs * log(sigma2))
+  // loglike -= nobs / 2.0 * (log(2 * pi) + 1)
 
   batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, batch_size, d_sigma2,
                          d_loglike, stream);
