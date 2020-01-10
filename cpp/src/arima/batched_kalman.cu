@@ -62,13 +62,15 @@ __device__ void Mv_l(const double* A, const double* v, double* out) {
 }
 
 //! Thread-local Matrix-Matrix multiplication.
-template <int r>
+template <int r, bool aT = false, bool bT = false>
 __device__ void MM_l(const double* A, const double* B, double* out) {
   for (int i = 0; i < r; i++) {
     for (int j = 0; j < r; j++) {
       double sum = 0.0;
       for (int k = 0; k < r; k++) {
-        sum += A[i + k * r] * B[k + j * r];
+        double Aik = aT ? A[k + i * r] : A[i + k * r];
+        double Bkj = bT ? B[j + k * r] : B[k + j * r];
+        sum += Aik * Bkj;
       }
       out[i + j * r] = sum;
     }
@@ -113,8 +115,6 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
   double l_TP[r2];
 
   int bid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  /// TODO: apply optimizations with Z in this kernel too!
 
   if (bid < batch_size) {
     // load GM into registers
@@ -175,18 +175,11 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
       }
 
       // 6. P = T*P*L' + R*R'
-      /// TODO: thread-local MM with transpose
-      // P = L'
-      for (int j = 0; j < r; j++) {
-        for (int i = 0; i < r; i++) {
-          l_P[j + i * r] = l_tmp[j * r + i];
-        }
-      }
-      // tmp = TP*P
-      MM_l<r>(l_TP, l_P, l_tmp);
-      // P = tmp + RRT
+      // P = TP*L'
+      MM_l<r, false, true>(l_TP, l_tmp, l_P);
+      // P = P + RRT
       for (int i = 0; i < r * r; i++) {
-        l_P[i] = l_tmp[i] + l_RRT[i];
+        l_P[i] += l_RRT[i];
       }
     }
     sum_logFs[bid] = b_sum_logFs;
