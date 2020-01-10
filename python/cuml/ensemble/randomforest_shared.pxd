@@ -142,5 +142,5 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
-    cdef vector[ModelHandle] save_model(ModelHandle*,
-                                        vector[unsigned char] &)
+    cdef vector[ModelHandle] tl_mod_handle(ModelHandle*,
+                                           vector[unsigned char] &)
