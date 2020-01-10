@@ -1,4 +1,4 @@
-# cuML 0.12.0 (Dte TBD)
+# cuML 0.12.0 (Date TBD)
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
@@ -16,6 +16,8 @@
 - PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
+- PR #1545: Add conda environment version updates to ci script
+- PR #1541: Updates for libcudf++ Python refactor
 
 ## Bug Fixes
 
@@ -26,6 +28,7 @@
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
 - PR #1534: Removed TODO comment in create_ucp_listeners()
+- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures. 
 
 # cuML 0.11.0 (11 Dec 2019)
 
