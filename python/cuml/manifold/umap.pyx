@@ -322,8 +322,11 @@ class UMAP(Base):
         cdef size_t params_t = <size_t>self.umap_params
         cdef UMAPParams* umap_params = <UMAPParams*>params_t
 
-        state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-        state['embedding_'] = cudf.DataFrame.from_gpu_matrix(self.embedding_)
+        if hasattr(self, "X_m"):
+            # fit has not yet been called
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+            state['embedding_'] = \
+                cudf.DataFrame.from_gpu_matrix(self.embedding_)
 
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components
@@ -356,8 +359,10 @@ class UMAP(Base):
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
-        state['X_m'] = row_matrix(state['X_m'])
-        state["embedding_"] = row_matrix(state["embedding_"])
+        if "X_m" in state:
+            # fit has not yet been called
+            state['X_m'] = row_matrix(state['X_m'])
+            state["embedding_"] = row_matrix(state["embedding_"])
 
         cdef UMAPParams *umap_params = new UMAPParams()
 
