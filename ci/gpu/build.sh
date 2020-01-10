@@ -84,7 +84,7 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 logger "Build libcuml, cuml, prims and bench targets..."
-$WORKSPACE/build.sh clean libcuml cuml prims bench -v
+$WORKSPACE/build.sh clean libcuml cuml -v
 
 logger "Resetting LD_LIBRARY_PATH..."
 
@@ -125,7 +125,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s --ignore=cuml/test/test_umap.py
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s cuml/test/test_umap.py cuml/test/dask/
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
