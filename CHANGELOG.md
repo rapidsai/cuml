@@ -27,6 +27,7 @@
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
 - PR #1534: Removed TODO comment in create_ucp_listeners()
+- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures. 
 
 # cuML 0.11.0 (11 Dec 2019)
 
