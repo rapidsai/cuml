@@ -30,7 +30,7 @@
 
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
-#include "linalg/batched/batched_matrix.hpp"
+#include "linalg/batched/batched_matrix.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "sparse/batched/csr.h"

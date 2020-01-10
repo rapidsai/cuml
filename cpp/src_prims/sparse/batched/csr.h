@@ -21,7 +21,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include "linalg/batched/batched_matrix.hpp"
+#include "linalg/batched/batched_matrix.h"
 
 /// TODO: write tests for the batched sparse matrices
 
@@ -141,14 +141,6 @@ class BatchedCSR {
     m_row_index = std::shared_ptr<int>(row_index, deallocate_row);
   }
 
-  /// TODO: remove
-  void debug_print() const {
-    MLCommon::myPrintDevVector("values", m_values.get(), m_batch_size * m_nnz);
-    MLCommon::myPrintDevVector("col_index", m_col_index.get(), m_nnz);
-    MLCommon::myPrintDevVector("row_index", m_row_index.get(),
-                               m_shape.first + 1);
-  }
-
   //! Return batch size
   size_t batches() const { return m_batch_size; }
 
@@ -255,8 +247,6 @@ void b_spmv(T alpha, const BatchedCSR<T>& A,
 
 /**
  * @todo docs
- *       improve performance! Not always faster than dense!
- * @note One thread per batch (this is intended for very large batches)
  */
 template <typename T>
 __global__ void batched_spmm_kernel(T alpha, const int* A_col_index,
