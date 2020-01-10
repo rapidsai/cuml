@@ -273,7 +273,7 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
   }
 }
 
-std::vector<ModelHandle*>* tl_mod_handle(
+std::vector<ModelHandle*> tl_mod_handle(
   ModelHandle* model, std::vector<std::vector<unsigned char>>& data) {
   std::vector<ModelHandle*> mod_handles;
   for (int i = 0; i < data.size(); i++) {
@@ -285,7 +285,7 @@ std::vector<ModelHandle*>* tl_mod_handle(
     TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
     mod_handles[i] = model;
   }
-  return &mod_handles;
+  return mod_handles;
 }
 
 template <class T, class L>

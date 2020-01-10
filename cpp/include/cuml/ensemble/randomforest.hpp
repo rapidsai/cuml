@@ -131,7 +131,7 @@ void build_treelite_forest(
 
 std::vector<unsigned char> save_model(ModelHandle model);
 
-std::vector<ModelHandle*>* tl_mod_handle(
+std::vector<ModelHandle*> tl_mod_handle(
   ModelHandle* model, std::vector<std::vector<unsigned char>>& data);
 
 // ----------------------------- Classification ----------------------------------- //
