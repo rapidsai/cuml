@@ -36,7 +36,7 @@
 #include <linalg/matrix_vector_op.h>
 #include <metrics/batched/information_criterion.h>
 #include <stats/mean.h>
-#include <linalg/batched/batched_matrix.hpp>
+#include <linalg/batched/batched_matrix.h>
 #include "cuda_utils.h"
 #include "utils.h"
 

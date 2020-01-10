@@ -18,7 +18,7 @@
 
 namespace MLCommon {
 namespace LinAlg {
-namespace Batched {
+namespace Naive {
 
 /**
  * @brief CPU sequential version of the Kronecker product
@@ -161,6 +161,6 @@ void naiveDiff(DataT *out, const DataT *in, int len) {
   }
 }
 
-}  // namespace Batched
+}  // namespace Naive
 }  // namespace LinAlg
 }  // namespace MLCommon

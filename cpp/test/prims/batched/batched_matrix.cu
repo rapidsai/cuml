@@ -23,7 +23,7 @@
 
 #include "add.h"
 #include "batched_matrix.h"
-#include "linalg/batched/batched_matrix.hpp"
+#include "linalg/batched/batched_matrix.h"
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -47,7 +47,7 @@ enum BatchedMatrixOperation {
 template <typename T>
 struct BatchedMatrixInputs {
   BatchedMatrixOperation operation;
-  int n_batches;
+  int batch_size;
   int m;  // Usually the dimensions of A and/or Z
   int n;
   int p;  // Usually the dimensions of B or other parameters
@@ -132,9 +132,9 @@ class BatchedMatrixTest
     std::vector<T> A;
     std::vector<T> B;
     std::vector<T> Z;
-    if (use_A) A.resize(params.n_batches * params.m * params.n);
-    if (use_B) B.resize(params.n_batches * params.p * params.q);
-    if (use_Z) Z.resize(params.n_batches * r);
+    if (use_A) A.resize(params.batch_size * params.m * params.n);
+    if (use_B) B.resize(params.batch_size * params.p * params.q);
+    if (use_Z) Z.resize(params.batch_size * r);
 
     // Generate random data
     std::random_device rd;
@@ -150,12 +150,12 @@ class BatchedMatrixTest
     auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
 
     // Created batched matrices
-    BatchedMatrix<T> AbM(params.m, params.n, params.n_batches, handle,
+    BatchedMatrix<T> AbM(params.m, params.n, params.batch_size, handle,
                          allocator, stream);
-    BatchedMatrix<T> BbM(params.p, params.q, params.n_batches, handle,
+    BatchedMatrix<T> BbM(params.p, params.q, params.batch_size, handle,
                          allocator, stream);
-    BatchedMatrix<T> ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.n_batches, handle,
-                         allocator, stream);
+    BatchedMatrix<T> ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.batch_size,
+                         handle, allocator, stream);
 
     // Copy the data to the device
     if (use_A) updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
@@ -204,69 +204,70 @@ class BatchedMatrixTest
     }
 
     // Compute the expected results
-    res_h.resize(params.n_batches * m_r * n_r);
+    res_h.resize(params.batch_size * m_r * n_r);
     switch (params.operation) {
       case AB_op:
-        for (int bid = 0; bid < params.n_batches; bid++) {
-          naiveMatMul(res_h.data() + bid * m_r * n_r,
-                      A.data() + bid * params.m * params.n,
-                      B.data() + bid * params.p * params.q, params.m, params.n,
-                      params.q);
+        for (int bid = 0; bid < params.batch_size; bid++) {
+          Naive::naiveMatMul(res_h.data() + bid * m_r * n_r,
+                             A.data() + bid * params.m * params.n,
+                             B.data() + bid * params.p * params.q, params.m,
+                             params.n, params.q);
         }
         break;
       case ApB_op:
-        naiveAdd(res_h.data(), A.data(), B.data(), A.size());
+        Naive::naiveAdd(res_h.data(), A.data(), B.data(), A.size());
         break;
       case AmB_op:
-        naiveAdd(res_h.data(), A.data(), B.data(), A.size(), T(-1.0));
+        Naive::naiveAdd(res_h.data(), A.data(), B.data(), A.size(), T(-1.0));
         break;
       case AkB_op:
-        for (int bid = 0; bid < params.n_batches; bid++) {
-          naiveKronecker(res_h.data() + bid * m_r * n_r,
-                         A.data() + bid * params.m * params.n,
-                         B.data() + bid * params.p * params.q, params.m,
-                         params.n, params.p, params.q);
+        for (int bid = 0; bid < params.batch_size; bid++) {
+          Naive::naiveKronecker(res_h.data() + bid * m_r * n_r,
+                                A.data() + bid * params.m * params.n,
+                                B.data() + bid * params.p * params.q, params.m,
+                                params.n, params.p, params.q);
         }
         break;
       case AZT_op:
-        for (int bid = 0; bid < params.n_batches; bid++) {
-          naiveMatMul(res_h.data() + bid * m_r * n_r,
-                      A.data() + bid * params.m * params.n, Z.data() + bid * r,
-                      params.m, params.n, 1);
+        for (int bid = 0; bid < params.batch_size; bid++) {
+          Naive::naiveMatMul(res_h.data() + bid * m_r * n_r,
+                             A.data() + bid * params.m * params.n,
+                             Z.data() + bid * r, params.m, params.n, 1);
         }
         break;
       case ZA_op:
-        for (int bid = 0; bid < params.n_batches; bid++) {
-          naiveMatMul(res_h.data() + bid * m_r * n_r, Z.data() + bid * r,
-                      A.data() + bid * params.m * params.n, 1, params.m,
-                      params.n);
+        for (int bid = 0; bid < params.batch_size; bid++) {
+          Naive::naiveMatMul(res_h.data() + bid * m_r * n_r, Z.data() + bid * r,
+                             A.data() + bid * params.m * params.n, 1, params.m,
+                             params.n);
         }
         break;
       case AsolveZ_op:
         // Simply copy Z in the result
-        memcpy(res_h.data(), Z.data(), r * params.n_batches * sizeof(T));
+        memcpy(res_h.data(), Z.data(), r * params.batch_size * sizeof(T));
         break;
       case LaggedZ_op:
-        for (int bid = 0; bid < params.n_batches; bid++) {
-          naiveLaggedMat(res_h.data() + bid * m_r * n_r,
-                         Z.data() + bid * params.m, params.m, params.n);
+        for (int bid = 0; bid < params.batch_size; bid++) {
+          Naive::naiveLaggedMat(res_h.data() + bid * m_r * n_r,
+                                Z.data() + bid * params.m, params.m, params.n);
         }
         break;
       case CopyA_op:
         memcpy(res_h.data(), A.data(),
-               params.m * params.n * params.n_batches * sizeof(T));
+               params.m * params.n * params.batch_size * sizeof(T));
         break;
       case CopyA2D_op:
-        for (int bid = 0; bid < params.n_batches; bid++) {
-          naive2DCopy(res_h.data() + bid * m_r * n_r,
-                      A.data() + bid * params.m * params.n, params.s, params.t,
-                      params.m, m_r, n_r);
+        for (int bid = 0; bid < params.batch_size; bid++) {
+          Naive::naive2DCopy(res_h.data() + bid * m_r * n_r,
+                             A.data() + bid * params.m * params.n, params.s,
+                             params.t, params.m, m_r, n_r);
         }
         break;
       case DiffA_op:
         int len = params.m * params.n;
-        for (int bid = 0; bid < params.n_batches; bid++) {
-          naiveDiff(res_h.data() + bid * (len - 1), A.data() + bid * len, len);
+        for (int bid = 0; bid < params.batch_size; bid++) {
+          Naive::naiveDiff(res_h.data() + bid * (len - 1), A.data() + bid * len,
+                           len);
         }
         break;
     }
@@ -288,7 +289,7 @@ class BatchedMatrixTest
   cudaStream_t stream;
 };
 
-// Test parameters (op, n_batches, m, n, p, q, tolerance)
+// Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)
 const std::vector<BatchedMatrixInputs<double>> inputsd = {
   {AB_op, 7, 15, 37, 37, 11, 0, 0, 1e-6},
   {AZT_op, 5, 33, 65, 1, 1, 0, 0, 1e-6},
@@ -307,7 +308,7 @@ const std::vector<BatchedMatrixInputs<double>> inputsd = {
   {DiffA_op, 5, 11, 1, 1, 1, 0, 0, 1e-6},
   {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-6}};
 
-// Test parameters (op, n_batches, m, n, p, q, tolerance)
+// Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)
 const std::vector<BatchedMatrixInputs<float>> inputsf = {
   {AB_op, 7, 15, 37, 37, 11, 0, 0, 1e-2},
   {AZT_op, 5, 33, 65, 1, 1, 0, 0, 1e-2},
