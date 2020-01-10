@@ -260,7 +260,7 @@ class KMeans(object):
             key="%s-%s" % (key, idx)).result()
                   for idx, wf in enumerate(worker_to_parts.items())]
 
-        return np.sum(scores)
+        return -1 * np.sum(np.array(scores)*-1)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
