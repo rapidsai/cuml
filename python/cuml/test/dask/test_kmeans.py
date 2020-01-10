@@ -176,9 +176,9 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
             dist = np.sqrt(np.sum((x - y)**2))
             expected_score += dist**2
 
-        assert actual_score + SCORE_EPS >= \
-               (-1*expected_score) >= \
-               actual_score - SCORE_EPS
+        assert actual_score + SCORE_EPS \
+            >= (-1*expected_score) \
+            >= actual_score - SCORE_EPS
 
     finally:
         client.close()
