@@ -32,10 +32,9 @@ def row_matrix(df):
 
     """
 
-    cols = [df._cols[k] for k in df._cols]
-    ncols = len(cols)
-    nrows = len(df)
-    dtype = cols[0].dtype
+    ncols = df.shape[1]
+    nrows = df.shape[0]
+    dtype = df.dtypes[0]
 
     col_major = df.as_gpu_matrix(order='F')
 

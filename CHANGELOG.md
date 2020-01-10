@@ -16,6 +16,7 @@
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
 - PR #1532: Update CuPy to >= 6.6 and allow 7.0
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
+- PR #1541: Updates for libcudf++ Python refactor
 
 ## Bug Fixes
 
