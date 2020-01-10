@@ -386,12 +386,16 @@ class UMAP(Base):
     @staticmethod
     def _prep_output(X, embedding):
         if isinstance(X, cudf.DataFrame):
+            print("::::::::::UMAP._prep_output df")
             return cudf.DataFrame.from_gpu_matrix(embedding)
         elif isinstance(X, np.ndarray):
+            print("::::::::::UMAP._prep_output np")
             return np.asarray(embedding)
         elif isinstance(X, cuda.DeviceNDArray):
+            print("::::::::::UMAP._prep_output numba")
             return embedding
         elif isinstance(X, cupy.ndarray):
+            print("::::::::::UMAP._prep_output cupy")
             return cupy.array(embedding)
 
     def fit(self, X, y=None, convert_dtype=True):
@@ -516,6 +520,9 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
         """
+
+        print("::::::::::UMAP.transform a")
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -525,6 +532,8 @@ class UMAP(Base):
                                convert_to_dtype=(np.float32 if convert_dtype
                                                  else None))
 
+        print("::::::::::UMAP.transform b", X_m)
+
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
@@ -533,11 +542,15 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
+        print("::::::::::UMAP.transform c")
+
         if self.hash_input and joblib.hash(X_m.copy_to_host()) == \
                 self.input_hash:
             ret = UMAP._prep_output(X, self.embedding_)
             del X_m
             return ret
+
+        print("::::::::::UMAP.transform c")
 
         cdef UMAPParams * umap_params = \
             <UMAPParams*> <size_t> self.umap_params
@@ -546,12 +559,16 @@ class UMAP(Base):
                                         order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
+        print("::::::::::UMAP.transform d", embedding)
+
         cdef cumlHandle *handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.X_m.device_ctypes_pointer.value
 
         cdef uintptr_t embed_ptr = self.embedding_.device_ctypes_pointer.value
+
+        print("::::::::::UMAP.transform e")
 
         transform(handle_[0],
                   <float*>x_ptr,
@@ -564,6 +581,8 @@ class UMAP(Base):
                   <UMAPParams*> umap_params,
                   <float*> xformed_ptr)
         self.handle.sync()
+
+        print("::::::::::UMAP.transform f")
 
         ret = UMAP._prep_output(X, embedding)
         del X_m
