@@ -361,7 +361,7 @@ class RandomForestClassifier(Base):
 
     def get_meta_data(self):
 
-        cdef RandomForestMetaData[float, int] *rf_forest = \
+        cdef RandomForestMetaData[float, int]* rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
         print("######################################")
@@ -373,11 +373,11 @@ class RandomForestClassifier(Base):
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
-        cdef vector[RandomForestMetaData[float, int]] rf_forest = \
-            <vector[RandomForestMetaData[float, int]]><size_t> self.rf_forest
+        cdef vector[RandomForestMetaData[float, int]]* rf_forest = \
+            <vector[RandomForestMetaData[float, int]]*><size_t> self.rf_forest
 
         build_treelite_forest(& cuml_model_ptr,
-                              <vector[RandomForestMetaData[float, int]] &> self.rf_forest,
+                              <vector[RandomForestMetaData[float, int]]*> rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
@@ -396,11 +396,12 @@ class RandomForestClassifier(Base):
         print("model infor in pyx file : ", model_info)
         print(" type of model_info : ", type(model_info))
         print(" type of model info [0] : ", type(model_info[0]))
-        cdef vector[RandomForestMetaData[float, int]] rf_forest = \
-            <vector[RandomForestMetaData[float, int]]><size_t> model_info
+        temp = [1231453, 5673456, 8642674]
+        cdef vector[RandomForestMetaData[float, int]]* rf_forest = \
+            <vector[RandomForestMetaData[float, int]]*><size_t> model_info
         print(" self.n_cols : ", self.n_cols)
         build_treelite_forest(& cuml_model_ptr,
-                              <vector[RandomForestMetaData[float, int]] &> model_info,
+                              <vector[RandomForestMetaData[float, int]]*> rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
@@ -408,23 +409,11 @@ class RandomForestClassifier(Base):
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         return treelite_handle
 
-    ####### This will run very time the user calls predict
-    ####### call this function seperatly so that the converted model is passed in place of it being converted
-    ######### we might need to pass self in as well as dask might be passing the self info
-    def _convert_to_fil(self, tl_handle, output_class=True, threshold=0.5, algo='BATCH_TREE_REORG'):
-        print("inside the function in Cython file")
-        print("treelite_handle passed from dask in con to fil is : ", tl_handle)
-
-        ##print("self.treelite_handle in con to fil is : ", self.treelite_handle)
-        fil_model = ForestInference()
-        print("created a FIL model")
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(model_handle=tl_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo)
-        print("converted the model to FIL")
-        return tl_to_fil_model
+    def _tl_model_handles(self, model_bytes):
+        cdef ModelHandle cuml_model_ptr = NULL
+        mod_handles = tl_mod_bytes(& cuml_model_ptr,
+                                   <vector[unsigned char] &> model_bytes)
+        return mod_handles 
 
     def fit(self, X, y):
         """
@@ -534,6 +523,9 @@ class RandomForestClassifier(Base):
         del(y_m)
         return self
 
+    ####### This will run very time the user calls predict
+    ####### call this function seperatly so that the converted model is passed in place of it being converted
+    ######### we might need to pass self in as well as dask might be passing the self info
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo, treelite_handle,
                               num_classes, convert_dtype):

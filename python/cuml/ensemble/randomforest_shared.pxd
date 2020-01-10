@@ -53,6 +53,14 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
+cdef extern from "cuml/tree/flatnode.h" namespace "ML":
+    cdef cppclass SparseTreeNode[T, L]:
+        L prediction
+        int colid
+        T quesval
+        T best_metric_val
+        int left_child_id
+
 cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
     cdef struct DecisionTreeParams:
         int max_depth
@@ -64,6 +72,14 @@ cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
         bool bootstrap_features
         bool quantile_per_tree
         CRITERION split_criterion
+
+    cdef cppclass TreeMetaDataNode[T, L]:
+        int treeid
+        int depth_counter
+        int leaf_counter
+        double prepare_time
+        double train_time
+        vector[SparseTreeNode[T, L]] sparsetree
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -89,14 +105,17 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         void* trees
         RF_params rf_params
 
-    
+    cdef cppclass struct RF_info[T, L]:
+        struct RandomForestMetaData<T, L> rfmd
+        ML::DecisionTree::TreeMetaDataNode<T, L> dtmd
+
     #cdef vector[RandomForestMetaData[float, int]] RFC_info_float
     #cdef vector[RandomForestMetaData[double, int]] RFC_info_double
     #
     # Treelite handling
     #
     cdef void build_treelite_forest[T, L](ModelHandle*,
-                                          vector[RandomForestMetaData[T, L]] &,
+                                          vector[RandomForestMetaData[T, L]] *,
                                           int,
                                           int,
                                           vector[unsigned char] &) except +
@@ -123,3 +142,5 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
+    cdef vector[ModelHandle] save_model(ModelHandle*,
+                                        vector[unsigned char] &)

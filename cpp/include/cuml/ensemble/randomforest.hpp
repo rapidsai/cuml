@@ -105,6 +105,12 @@ struct RandomForestMetaData {
   //TODO can add prepare, train time, if needed
 };
 
+template <class T, class L>
+struct RF_info {
+  RandomForestMetaData<T, L> rfmd;
+  DecisionTree::TreeMetaDataNode<T, L> dtmd;
+};
+
 typedef std::vector<RandomForestMetaData<float, int>> RFC_info_float;
 typedef std::vector<RandomForestMetaData<double, int>> RFC_info_double;
 typedef std::vector<RandomForestMetaData<float, float>> RFR_info_float;
@@ -119,12 +125,14 @@ template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-void build_treelite_forest(ModelHandle* model,
-                           std::vector<RandomForestMetaData<T, L>>& forest,
-                           int num_features, int task_category,
-                           std::vector<unsigned char>& data);
+void build_treelite_forest(
+  ModelHandle* model, const std::vector<RandomForestMetaData<T, L>>* forest,
+  int num_features, int task_category, std::vector<unsigned char>& data);
 
 std::vector<unsigned char> save_model(ModelHandle model);
+
+std::vector<ModelHandle*> tl_mod_bytes(ModelHandle* model,
+                                       std::vector<unsigned char>& data);
 
 // ----------------------------- Classification ----------------------------------- //
 
