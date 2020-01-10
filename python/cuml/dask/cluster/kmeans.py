@@ -257,9 +257,8 @@ class KMeans(object):
             self.local_model,
             wf[1],
             workers=[wf[0]],
-            key="%-%s" % (key, idx)).result()
+            key="%s-%s" % (key, idx)).result()
                   for idx, wf in enumerate(worker_to_parts.items())]
-        self.raise_exception_from_futures(scores)
 
         return np.sum(scores)
 
