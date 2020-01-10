@@ -412,8 +412,9 @@ class RandomForestClassifier(Base):
     def _tl_model_handles(self, model_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
         mod_handles = tl_mod_handle(& cuml_model_ptr,
-                                   <vector[unsigned char] &> model_bytes)
-        return mod_handles 
+                                   <vector[vector[unsigned char]] &> model_bytes)
+        mod_handles_list = <size_t> mod_handles
+        return mod_handles_list 
 
     def fit(self, X, y):
         """

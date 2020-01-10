@@ -105,10 +105,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         void* trees
         RF_params rf_params
 
-    cdef cppclass struct RF_info[T, L]:
-        struct RandomForestMetaData<T, L> rfmd
-        ML::DecisionTree::TreeMetaDataNode<T, L> dtmd
-
     #cdef vector[RandomForestMetaData[float, int]] RFC_info_float
     #cdef vector[RandomForestMetaData[double, int]] RFC_info_double
     #
@@ -143,4 +139,4 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef vector[unsigned char] save_model(ModelHandle)
     cdef vector[ModelHandle] tl_mod_handle(ModelHandle*,
-                                           vector[unsigned char] &)
+                                           vector[vector[unsigned char]] &)

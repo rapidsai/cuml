@@ -33,27 +33,6 @@ using namespace MLCommon;
 using namespace std;
 namespace tl = treelite;
 
-template <class T, class L>
-RF_info<T, L> obtin_rf_meta_data(const RandomForestMetaData<T, L>* forest) {
-  RandomForestMetaData<T, L> rfmd_info;
-  std::vector<DecisionTree::TreeMetaDataNode<T, L>> dtmd_info;
-  for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    rfmd_info.rf_params = *forest->rf_params;
-    DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
-    // dtmd_info[i] = *tree_ptr;
-    std::cout << "tree info : " << rfmd_info.trees[i] << std::flush
-              << std::endl;
-    std::cout << "dtmd_info[i]->treeid : " << dtmd_info[i]->treeid << std::flush
-              << std::endl;
-    dtmd_info[i]->treeid = tree_ptr->treeid;
-    dtmd_info[i]->depth_counter = tree_ptr->depth_counter;
-    dtmd_info[i]->leaf_counter = tree_ptr->leaf_counter;
-    dtmd_info[i]->prepare_time = tree_ptr->prepare_time;
-    dtmd_info[i]->train_time = tree_ptr->train_time;
-    dtmd_info[i]->sparsetree = tree_ptr->sparsetree;
-  }
-}
-
 /**
  * @brief Set RF_metrics.
  * @param[in] rf_type: Random Forest type: classification or regression
@@ -294,18 +273,19 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
   }
 }
 
-std::vector<ModelHandle*> tl_mod_handle(
+std::vector<ModelHandle*>* tl_mod_handle(
   ModelHandle* model, std::vector<std::vector<unsigned char>>& data) {
-  const vector<ModelHandle*> mod_handles;
+  std::vector<ModelHandle*> mod_handles;
   for (int i = 0; i < data.size(); i++) {
-    std::vector<unsigned char>* mod_bytes = &data[i];
+    std::vector<unsigned char> mod_bytes = data[i];
+    std::cout << mod_bytes.size() << std::flush << std::endl;
     const char* filename = std::tmpnam(nullptr);
     std::ofstream file(filename, std::ios::binary);
     file.write((char*)&mod_bytes[0], mod_bytes.size());
     TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
     mod_handles[i] = model;
   }
-  return mod_handles;
+  return &mod_handles;
 }
 
 template <class T, class L>
@@ -397,48 +377,6 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   return bytes_info;
 }
 
-template <class T, class L>
-void convert_bytes_to_tl(ModelHandle* model, int num_features,
-                         int task_category, std::vector<unsigned char>& data) {
-  const char* filename = std::tmpnam(nullptr);
-  // write the model bytes into the temp file
-  std::ofstream file(filename, std::ios::binary);
-  file.write((char*)&data[0], data.size());
-  // read the file as a protobuf model
-  TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
-  // Non-zero value here for random forest models.
-  // The value should be set to 0 if the model is gradient boosted trees.
-  int random_forest_flag = 1;
-  ModelBuilderHandle model_builder;
-  // num_output_group is 1 for binary classification and regression
-  // num_output_group is #class for multiclass classification which is the same as task_category
-  int num_output_group = task_category > 2 ? task_category : 1;
-
-  // or we can obtain the values from the models read as pbf
-  TREELITE_CHECK(TreeliteCreateModelBuilder(
-    num_features, num_output_group, random_forest_flag, &model_builder));
-
-  if (task_category > 2) {
-    // Multi-class classification
-    TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
-      model_builder, "pred_transform", "max_index"));
-  }
-
-  size_t numb_trees_per_worker;
-  TREELITE_CHECK(TreeliteQueryNumTree(*model, &numb_trees_per_worker));
-  for (int i = 0; i < numb_trees_per_worker; i++) {
-    TreeBuilderHandle tree_builder;
-    TREELITE_CHECK(TreeliteCreateTreeBuilder(&tree_builder));
-    if (tree_ptr->sparsetree.size() != 0) {
-      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
-                                              num_output_group);
-
-      // The third argument -1 means append to the end of the tree list.
-      TREELITE_CHECK(
-        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
-    }
-  }
-}
 /**
  * @defgroup Random Forest Classification - Fit function
  * @brief Build (i.e., fit, train) random forest classifier for input data.
@@ -765,9 +703,4 @@ template void build_treelite_forest<float, float>(
   const std::vector<RandomForestMetaData<double, double>> forest,
   int num_features, int task_category, std::vector<unsigned char>& data);
 **/
-
-template RF_info<float, int> obtin_rf_meta_data<float, int>(
-  const RandomForestMetaData<float, int>* forest);
-template RF_info<float, float> obtin_rf_meta_data<float, float>(
-  const RandomForestMetaData<float, float>* forest);
 }  // End namespace ML
