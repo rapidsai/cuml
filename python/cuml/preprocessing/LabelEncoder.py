@@ -34,6 +34,10 @@ def _enforce_npint32(y: cudf.Series) -> cudf.Series:
     return y
 
 
+def _get_nvstring_from_series(y: cudf.Series):
+    return y._data[list(y._data.keys())[0]]._nvstrings
+
+
 class LabelEncoder(object):
     """
     An nvcategory based implementation of ordinal label encoding
@@ -140,7 +144,7 @@ class LabelEncoder(object):
 
         y = _enforce_str(y)
 
-        nvs = y._data[list(y._data.keys())[0]]._nvstrings
+        nvs = _get_nvstring_from_series(y)
 
         if nvs is not None:
             self._cats = nvcategory.from_strings(nvs)
@@ -177,8 +181,7 @@ class LabelEncoder(object):
         self._check_is_fitted()
         y = _enforce_str(y)
         encoded = cudf.Series(
-            nvcategory.from_strings(
-                y._data[list(y._data.keys())[0]]._nvstrings)
+            nvcategory.from_strings(_get_nvstring_from_series(y))
             .set_keys(self._cats.keys())
             .values()
         )
@@ -201,7 +204,7 @@ class LabelEncoder(object):
 
         # Bottleneck is here, despite everything being done on the device
 
-        nvs = y._data[list(y._data.keys())[0]]._nvstrings
+        nvs = _get_nvstring_from_series(y)
 
         if nvs is not None:
             self._cats = nvcategory.from_strings(nvs)
