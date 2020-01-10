@@ -391,7 +391,6 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
   }
 }
 
-/// TODO: sigma2 is unused!! Figure out what to do with it
 template <int NUM_THREADS>
 __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
                                               double* d_sumLogFs, int nobs,
@@ -417,7 +416,7 @@ __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
   }
   if (tid == 0) {
     bid_sigma2 /= nobs;
-    sigma2[bid] = bid_sigma2;
+    sigma2[bid] = bid_sigma2; // Note: the sigma2 array isn't really used yet
     loglike[bid] = -.5 * (d_sumLogFs[bid] + nobs * log(bid_sigma2)) -
                    nobs / 2. * (log(2 * M_PI) + 1);
   }

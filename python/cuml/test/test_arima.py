@@ -193,6 +193,7 @@ test_data = {
 }
 
 # TODO: test greater orders! (at least 3, 4)
+# TODO: test greater seasonal periods! (52)
 
 # Dictionary for lazy-loading of datasets
 # (name, dtype) -> (pandas dataframe, cuDF dataframe)
@@ -213,7 +214,6 @@ data_path = os.path.join(os.path.dirname(
     os.path.abspath(__file__)), 'ts_datasets')
 
 
-# TODO: store both pandas and cuDF dataframes?
 def get_dataset(data, dtype):
     """Load a dataset with a given dtype or return a previously loaded dataset
     """
@@ -464,12 +464,3 @@ def test_start_params(test_case, dtype):
 # information criteria, essentially because they have a more complex
 # calculation for the degree of freedom, we use the simple one with the
 # number of parameters of the model (p + P + q + Q + k)
-
-# TODO: test transform? How?
-
-# TODO: do we need to test pack/unpack? It's pretty much part of the other
-# tests anyway
-
-# def demo():
-#     """Demo example from the documentation"""
-#     # TODO
