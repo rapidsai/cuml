@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,18 +30,18 @@
 
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
+#include "linalg/batched/batched_matrix.hpp"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
-#include "matrix/batched_matrix.hpp"
-#include "sparse/batched_csr.h"
+#include "sparse/batched/csr.h"
 #include "timeSeries/jones_transform.h"
 #include "utils.h"
 
-using MLCommon::Matrix::b_gemm;
-using MLCommon::Matrix::b_kron;
-using MLCommon::Matrix::b_solve;
-using SparseMatrix = MLCommon::Sparse::BatchedCSR<double>;
-using BatchedMatrix = MLCommon::Matrix::BatchedMatrix<double>;
+using MLCommon::LinAlg::Batched::b_gemm;
+using MLCommon::LinAlg::Batched::b_kron;
+using MLCommon::LinAlg::Batched::b_solve;
+using SparseMatrix = MLCommon::Sparse::Batched::BatchedCSR<double>;
+using BatchedMatrix = MLCommon::LinAlg::Batched::BatchedMatrix<double>;
 
 namespace ML {
 
@@ -269,7 +269,7 @@ void _batched_kalman_loop_large(const double* d_ys, int nobs,
 
     // 3. K = 1/Fs[it] * T*P*Z'
     // TP = T*P (also used later)
-    MLCommon::Sparse::b_spmm(1.0, T_sparse, P, 0.0, TP);
+    MLCommon::Sparse::Batched::b_spmm(1.0, T_sparse, P, 0.0, TP);
     // b_gemm(false, false, r, r, r, 1.0, T, P, 0.0, TP); // dense
     // K = 1/Fs[it] * TP*Z' ; optimized for Z = (1 0 ... 0)
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
@@ -282,7 +282,7 @@ void _batched_kalman_loop_large(const double* d_ys, int nobs,
 
     // 4. alpha = T*alpha + K*vs[it]
     // v_tmp = T*alpha
-    MLCommon::Sparse::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
+    MLCommon::Sparse::Batched::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
     // alpha = v_tmp + K*vs[it]
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {

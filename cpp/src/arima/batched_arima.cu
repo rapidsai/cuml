@@ -36,7 +36,7 @@
 #include <linalg/matrix_vector_op.h>
 #include <metrics/batched/information_criterion.h>
 #include <stats/mean.h>
-#include <matrix/batched_matrix.hpp>
+#include <linalg/batched/batched_matrix.hpp>
 #include "cuda_utils.h"
 #include "utils.h"
 
@@ -69,8 +69,9 @@ static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
   if (d + D == 1) {
     int period = d ? 1 : s;
     int tpb = (n_obs - period) > 512 ? 256 : 128;  // quick heuristics
-    MLCommon::Matrix::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
-      d_in, d_out, n_obs, period);
+    MLCommon::LinAlg::Batched::
+      batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(d_in, d_out, n_obs,
+                                                          period);
     CUDA_CHECK(cudaPeekAtLastError());
   }
   // Two differences (simple or seasonal or both)
@@ -78,7 +79,7 @@ static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
     int period1 = d ? 1 : s;
     int period2 = d == 2 ? 1 : s;
     int tpb = (n_obs - period1 - period2) > 512 ? 256 : 128;
-    MLCommon::Matrix::
+    MLCommon::LinAlg::Batched::
       batched_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
         d_in, d_out, n_obs, period1, period2);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -421,8 +422,8 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  */
 static void _arma_least_squares(
   cumlHandle& handle, double* d_ar, double* d_ma,
-  const MLCommon::Matrix::BatchedMatrix<double>& bm_y, int p, int q, int s,
-  int k = 0, double* d_mu = nullptr) {
+  const MLCommon::LinAlg::Batched::BatchedMatrix<double>& bm_y, int p, int q,
+  int s, int k = 0, double* d_mu = nullptr) {
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
@@ -451,7 +452,7 @@ static void _arma_least_squares(
   /* Matrix formed by lag matrices of y and the residuals respectively,
    * side by side. The left side will be used to estimate AR, the right
    * side to estimate MA */
-  MLCommon::Matrix::BatchedMatrix<double> bm_ls_ar_res(
+  MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_ls_ar_res(
     n_obs - r, p + q + k, batch_size, cublas_handle, allocator, stream, false);
   int ar_offset = r - ps;
   int res_offset = r - p_ar - qs;
@@ -460,31 +461,32 @@ static void _arma_least_squares(
   if (q) {
     // Create lagged y
     int ls_height = n_obs - p_ar;
-    MLCommon::Matrix::BatchedMatrix<double> bm_ls =
-      MLCommon::Matrix::b_lagged_mat(bm_y, p_ar);
+    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_ls =
+      MLCommon::LinAlg::Batched::b_lagged_mat(bm_y, p_ar);
 
     /* Matrix for the initial AR fit, initialized by copy of y
      * (note: this is because gels works in-place ; the matrix has larger
      *  dimensions than the actual AR fit) */
-    MLCommon::Matrix::BatchedMatrix<double> bm_ar_fit =
-      MLCommon::Matrix::b_2dcopy(bm_y, p_ar, 0, ls_height, 1);
+    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_ar_fit =
+      MLCommon::LinAlg::Batched::b_2dcopy(bm_y, p_ar, 0, ls_height, 1);
 
     // Residual, initialized as offset y to avoid one kernel call
-    MLCommon::Matrix::BatchedMatrix<double> bm_residual(
+    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_residual(
       ls_height, 1, batch_size, cublas_handle, allocator, stream, false);
     MLCommon::copy(bm_residual.raw_data(), bm_ar_fit.raw_data(),
                    ls_height * batch_size, stream);
 
     // Initial AR fit
-    MLCommon::Matrix::b_gels(bm_ls, bm_ar_fit);
+    MLCommon::LinAlg::Batched::b_gels(bm_ls, bm_ar_fit);
 
     // Compute residual (technically a gemv)
-    MLCommon::Matrix::b_gemm(false, false, ls_height, 1, p_ar, -1.0, bm_ls,
-                             bm_ar_fit, 1.0, bm_residual);
+    MLCommon::LinAlg::Batched::b_gemm(false, false, ls_height, 1, p_ar, -1.0,
+                                      bm_ls, bm_ar_fit, 1.0, bm_residual);
 
     // Lags of the residual
-    MLCommon::Matrix::b_lagged_mat(bm_residual, bm_ls_ar_res, q, n_obs - r,
-                                   res_offset, (n_obs - r) * (k + p), s);
+    MLCommon::LinAlg::Batched::b_lagged_mat(bm_residual, bm_ls_ar_res, q,
+                                            n_obs - r, res_offset,
+                                            (n_obs - r) * (k + p), s);
   }
 
   // Fill the first column of the matrix with 1 if we fit an intercept
@@ -502,16 +504,16 @@ static void _arma_least_squares(
   }
 
   // Lags of y
-  MLCommon::Matrix::b_lagged_mat(bm_y, bm_ls_ar_res, p, n_obs - r, ar_offset,
-                                 (n_obs - r) * k, s);
+  MLCommon::LinAlg::Batched::b_lagged_mat(bm_y, bm_ls_ar_res, p, n_obs - r,
+                                          ar_offset, (n_obs - r) * k, s);
 
   /* Initializing the vector for the ARMA fit
    * (note: also in-place as described for AR fit) */
-  MLCommon::Matrix::BatchedMatrix<double> bm_arma_fit =
-    MLCommon::Matrix::b_2dcopy(bm_y, r, 0, n_obs - r, 1);
+  MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_arma_fit =
+    MLCommon::LinAlg::Batched::b_2dcopy(bm_y, r, 0, n_obs - r, 1);
 
   // ARMA fit
-  MLCommon::Matrix::b_gels(bm_ls_ar_res, bm_arma_fit);
+  MLCommon::LinAlg::Batched::b_gels(bm_ls_ar_res, bm_arma_fit);
 
   // Copy the results in the parameter vectors
   const double* d_arma_fit = bm_arma_fit.raw_data();
@@ -542,10 +544,10 @@ static void _arma_least_squares(
  *
  * @note: bm_y can be mutated! estimate_x0 has already created a copy.
  */
-static void _start_params(cumlHandle& handle, double* d_mu, double* d_ar,
-                          double* d_ma, double* d_sar, double* d_sma,
-                          MLCommon::Matrix::BatchedMatrix<double>& bm_y, int p,
-                          int q, int P, int Q, int s, int k) {
+static void _start_params(
+  cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma, double* d_sar,
+  double* d_sma, MLCommon::LinAlg::Batched::BatchedMatrix<double>& bm_y, int p,
+  int q, int P, int Q, int s, int k) {
   auto stream = handle.getStream();
 
   int batch_size = bm_y.batches();
@@ -570,7 +572,7 @@ void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
   auto allocator = handle_impl.getDeviceAllocator();
 
   // Difference if necessary, copy otherwise
-  MLCommon::Matrix::BatchedMatrix<double> bm_yd(
+  MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_yd(
     n_obs - d - s * D, 1, batch_size, cublas_handle, allocator, stream, false);
   _prepare_data(handle, bm_yd.raw_data(), d_y, batch_size, n_obs, d, D, s);
   // Note: mu is not known yet! We just want to difference the data
