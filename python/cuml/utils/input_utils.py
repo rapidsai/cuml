@@ -141,7 +141,10 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             X_m = X.to_gpu_array()
         else:
             if X.null_count == 0:
-                X_m = X._column._data.mem
+                # using __cuda_array_interface__ support of cudf.Series for
+                # this temporarily while switching from rmm device_array to
+                # rmm deviceBuffer https://github.com/rapidsai/cuml/issues/1379
+                X_m = cuda.as_cuda_array(X._column)
             else:
                 raise ValueError("Error: cuDF Series has missing/null values")
 
