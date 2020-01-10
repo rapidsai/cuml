@@ -103,6 +103,7 @@ def pickle_save_load(tmpdir, func_create_model, func_assert):
 
     with open(pickle_file, 'rb') as pf:
         cu_after_pickle_model = pickle.load(pf)
+
     func_assert(cu_after_pickle_model, X_test)
 
 
@@ -152,6 +153,8 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, key):
 
     def assert_model(pickled_model, X_test):
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
+        # Confirm no crash from score
+        pickled_model.score(X_test, np.zeros(X_test.shape[0]))
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
