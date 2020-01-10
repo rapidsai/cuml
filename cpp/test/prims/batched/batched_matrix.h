@@ -17,7 +17,8 @@
 #pragma once
 
 namespace MLCommon {
-namespace Matrix {
+namespace LinAlg {
+namespace Batched {
 
 /**
  * @brief CPU sequential version of the Kronecker product
@@ -160,5 +161,6 @@ void naiveDiff(DataT *out, const DataT *in, int len) {
   }
 }
 
-}  // namespace Matrix
+}  // namespace Batched
+}  // namespace LinAlg
 }  // namespace MLCommon

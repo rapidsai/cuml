@@ -21,12 +21,13 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include "matrix/batched_matrix.hpp"
+#include "linalg/batched/batched_matrix.hpp"
 
 /// TODO: write tests for the batched sparse matrices
 
 namespace MLCommon {
 namespace Sparse {
+namespace Batched {
 
 /**
  * @todo docs
@@ -71,7 +72,7 @@ class BatchedCSR {
    *                    the batch so we shouldn't rely on a single matrix to
    *                    get the mask
    */
-  BatchedCSR(const Matrix::BatchedMatrix<T>& dense,
+  BatchedCSR(const LinAlg::Batched::BatchedMatrix<T>& dense,
              const std::vector<bool>& mask)
     : m_batch_size(dense.batches()),
       m_allocator(dense.allocator()),
@@ -227,8 +228,9 @@ __global__ void batched_spmv_kernel(T alpha, const int* A_col_index,
  *       be exactly the dimensions of the problem
  */
 template <typename T>
-void b_spmv(T alpha, const BatchedCSR<T>& A, const Matrix::BatchedMatrix<T>& x,
-            T beta, Matrix::BatchedMatrix<T>& y) {
+void b_spmv(T alpha, const BatchedCSR<T>& A,
+            const LinAlg::Batched::BatchedMatrix<T>& x, T beta,
+            LinAlg::Batched::BatchedMatrix<T>& y) {
   int m = A.shape().first;
   int n = A.shape().second;
   // A few checks
@@ -288,8 +290,9 @@ __global__ void batched_spmm_kernel(T alpha, const int* A_col_index,
  *       Also currently no support for leading dim different than the dimensions
  */
 template <typename T>
-void b_spmm(T alpha, const BatchedCSR<T>& A, const Matrix::BatchedMatrix<T>& B,
-            T beta, Matrix::BatchedMatrix<T>& C) {
+void b_spmm(T alpha, const BatchedCSR<T>& A,
+            const LinAlg::Batched::BatchedMatrix<T>& B, T beta,
+            LinAlg::Batched::BatchedMatrix<T>& C) {
   int m = A.shape().first;
   int n = B.shape().second;
   int k = A.shape().second;
@@ -309,5 +312,6 @@ void b_spmm(T alpha, const BatchedCSR<T>& A, const Matrix::BatchedMatrix<T>& B,
     beta, C.raw_data(), m, k, n, nb, cols_per_bid);
 }
 
-};  // namespace Sparse
-};  // namespace MLCommon
+}  // namespace Batched
+}  // namespace Sparse
+}  // namespace MLCommon

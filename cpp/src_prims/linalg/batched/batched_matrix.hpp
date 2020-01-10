@@ -33,7 +33,8 @@
 #include <linalg/cublas_wrappers.h>
 
 namespace MLCommon {
-namespace Matrix {
+namespace LinAlg {
+namespace Batched {
 
 /**
  * @brief An allocation function for `BatchedMatrix`.
@@ -821,5 +822,6 @@ BatchedMatrix<T> b_2dcopy(const BatchedMatrix<T>& in, int starting_row,
   return out;
 }
 
-}  // namespace Matrix
+}  // namespace Batched
+}  // namespace LinAlg
 }  // namespace MLCommon

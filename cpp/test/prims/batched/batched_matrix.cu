@@ -23,11 +23,12 @@
 
 #include "add.h"
 #include "batched_matrix.h"
-#include "matrix/batched_matrix.hpp"
+#include "linalg/batched/batched_matrix.hpp"
 #include "test_utils.h"
 
 namespace MLCommon {
-namespace Matrix {
+namespace LinAlg {
+namespace Batched {
 
 enum BatchedMatrixOperation {
   AB_op,
@@ -341,5 +342,6 @@ INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD,
 INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestF,
                         ::testing::ValuesIn(inputsf));
 
-}  // namespace Matrix
+}  // namespace Batched
+}  // namespace LinAlg
 }  // namespace MLCommon

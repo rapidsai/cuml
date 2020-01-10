@@ -21,6 +21,9 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+/// TODO: ArimaOrder structure
+///       ArimaParams structure?
+
 namespace ML {
 
 /**
