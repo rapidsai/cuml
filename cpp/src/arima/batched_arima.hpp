@@ -147,7 +147,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  * @param[in]  Q           Number of seasonal MA parameters
  * @param[in]  s           Seasonal period
  * @param[in]  intercept   Whether the model fits an intercept (constant term)
- * @param[in]  d_mu        mu if d != 0. Shape: (d, batch_size) (device)
+ * @param[in]  d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
  * @param[in]  d_sar       Seasonal AR parameters.
@@ -212,7 +212,7 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  * @param[in]  Q           Number of seasonal MA parameters
  * @param[in]  s           Seasonal period
  * @param[in]  intercept   Whether the model fits an intercept (constant term)
- * @param[in]  d_mu        mu if d != 0. Shape: (d, batch_size) (device)
+ * @param[in]  d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
  * @param[in]  d_sar       Seasonal AR parameters.
@@ -235,7 +235,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
  *
  * @param[in]  handle      cuML handle
- * @param[out] d_mu        mu if d != 0. Shape: (d, batch_size) (device)
+ * @param[out] d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
  * @param[out] d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[out] d_ma        MA parameters. Shape: (q, batch_size) (device)
  * @param[out] d_sar       Seasonal AR parameters.

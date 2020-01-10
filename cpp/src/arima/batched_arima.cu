@@ -184,20 +184,6 @@ static void _finalize_forecast(cumlHandle& handle, double* d_fc,
   }
 }
 
-/// TODO: remove one of the two residual() versions
-
-void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
-              int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              const double* d_params, double* d_vs, bool trans, int fc_steps,
-              double* d_fc) {
-  ML::PUSH_RANGE(__func__);
-  std::vector<double> loglike = std::vector<double>(batch_size);
-  batched_loglike(handle, d_y, batch_size, n_obs, p, d, q, P, D, Q, s,
-                  intercept, d_params, loglike.data(), d_vs, trans, true,
-                  fc_steps, d_fc);
-  ML::POP_RANGE();
-}
-
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
               const double* d_mu, const double* d_ar, const double* d_ma,
@@ -211,7 +197,6 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ML::POP_RANGE();
 }
 
-/// TODO: see if simplifications can be made because of the recent changes
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, int p, int d, int q, int P, int D, int Q,
              int s, int intercept, const double* d_params, double* d_vs,

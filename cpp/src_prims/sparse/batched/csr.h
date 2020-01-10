@@ -23,17 +23,25 @@
 
 #include "linalg/batched/batched_matrix.h"
 
-/// TODO: write tests for the batched sparse matrices
-
 namespace MLCommon {
 namespace Sparse {
 namespace Batched {
 
 /**
- * @todo docs
- * @note the construction could coalesce writes to values if we stored
- *        a mix of COO and CSR, but the performance gain is not significant
- *        enough to justify complexifying the class.
+ * Kernel to construct batched CSR sparse matrices from batched dense matrices
+ * 
+ * @note The construction could coalesce writes to the values array if we
+ *       stored a mix of COO and CSR, but the performance gain is not
+ *       significant enough to justify complexifying the class.
+ * 
+ * @param[in]  dense      Batched dense matrices. Size: m * n * batch_size
+ * @param[in]  col_index  CSR column index.       Size: nnz
+ * @param[in]  row_index  CSR row index.          Size: m + 1
+ * @param[out] values     CSR values array.       Size: nnz * batch_size
+ * @param[in]  batch_size Number of matrices in the batch
+ * @param[in]  m          Number of rows per matrix
+ * @param[in]  n          Number of columns per matrix
+ * @param[in]  nnz        Number of non-zero elements in each matrix
  */
 template <typename T>
 static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
@@ -56,7 +64,7 @@ static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
 /**
  * @brief The BatchedCSR class provides storage and a few operations for
  *        a batch of matrices in Compressed Sparse Row representation, that
- *        share a common structure but different values.
+ *        share a common structure (index arrays) but different values.
  */
 template <typename T>
 class BatchedCSR {
@@ -186,11 +194,23 @@ class BatchedCSR {
 };
 
 /**
- * @todo docs
+ * Kernel to compute a batched SpMV: alpha*A*x + beta*y
+ * (where A is a sparse matrix, x and y dense vectors)
+ * 
  * @note One thread per batch (this is intended for very large batches)
- *       An alternative would be to have threads per row and batch but this
- *       would lead to divergence as rows don't have the same number of
- *       non-zero elements
+ *       Rows don't have the same number of non-zero elements, so an approach
+ *       to parallelize on the rows would lead to divergence
+ * 
+ * @param[in]     alpha        Scalar alpha
+ * @param[in]     A_col_index  CSR column index of batched matrix A
+ * @param[in]     A_row_index  CSR row index of batched matrix A
+ * @param[in]     A_values     Values of the non-zero elements of A
+ * @param[in]     x            Dense vector x
+ * @param[in]     beta         Scalar beta
+ * @param[in,out] y            Dense vector y
+ * @param[in]     m            Number of rows of A
+ * @param[in]     n            Number of columns of A
+ * @param[in]     batch_size   Number of individual matrices in the batch
  */
 template <typename T>
 __global__ void batched_spmv_kernel(T alpha, const int* A_col_index,
@@ -214,10 +234,18 @@ __global__ void batched_spmv_kernel(T alpha, const int* A_col_index,
 }
 
 /**
- * @todo docs
+ * Compute a batched SpMV: alpha*A*x + beta*y
+ * (where A is a sparse matrix, x and y dense vectors)
+ * 
  * @note Not supporting transpose yet for simplicity as it isn't needed
  *       Also currently the strides between batched vectors are assumed to
  *       be exactly the dimensions of the problem
+ * 
+ * @param[in]     alpha  Scalar alpha
+ * @param[in]     A      Batched sparse matrix (CSR)
+ * @param[in]     x      Batched dense vector x
+ * @param[in]     beta   Scalar beta
+ * @param[in,out] y      Batched dense vector y
  */
 template <typename T>
 void b_spmv(T alpha, const BatchedCSR<T>& A,
@@ -246,21 +274,38 @@ void b_spmv(T alpha, const BatchedCSR<T>& A,
 }
 
 /**
- * @todo docs
+ * Kernel to compute a batched SpMM: alpha*A*B + beta*C
+ * (where A is a sparse matrix, B and C dense matrices)
+ * 
+ * @note Parallelized over the batch and the columns of individual matrices
+ * 
+ * @param[in]     alpha           Scalar alpha
+ * @param[in]     A_col_index     CSR column index of batched matrix A
+ * @param[in]     A_row_index     CSR row index of batched matrix A
+ * @param[in]     A_values        Values of the non-zero elements of A
+ * @param[in]     B               Dense matrix B
+ * @param[in]     beta            Scalar beta
+ * @param[in,out] C               Dense matrix C
+ * @param[in]     m               Number of rows of A and C
+ * @param[in]     k               Number of columns of A, rows of B
+ * @param[in]     n               Number of columns of B and C
+ * @param[in]     batch_size      Number of individual matrices in the batch
+ * @param[in]     threads_per_bid Number of threads per batch index
  */
 template <typename T>
 __global__ void batched_spmm_kernel(T alpha, const int* A_col_index,
                                     const int* A_row_index, const T* A_values,
                                     const T* B, T beta, T* C, int m, int k,
-                                    int n, int batch_size, int cols_per_bid) {
+                                    int n, int batch_size,
+                                    int threads_per_bid) {
   int thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int bid = thread_idx / cols_per_bid;
+  int bid = thread_idx / threads_per_bid;
 
   if (bid < batch_size) {
     int nnz = A_row_index[m];
     const T* b_A_values = A_values + bid * nnz;
     const T* b_B = B + bid * k * n;
-    for (int j = thread_idx % cols_per_bid; j < n; j += cols_per_bid) {
+    for (int j = thread_idx % threads_per_bid; j < n; j += threads_per_bid) {
       for (int i = 0; i < m; i++) {
         T acc = 0.0;
         for (int idx = A_row_index[i]; idx < A_row_index[i + 1]; idx++) {
@@ -273,11 +318,18 @@ __global__ void batched_spmm_kernel(T alpha, const int* A_col_index,
     }
   }
 }
-
 /**
- * @todo docs
+ * Compute a batched SpMM: alpha*A*B + beta*C
+ * (where A is a sparse matrix, B and C dense matrices)
+ * 
  * @note Not supporting transpose yet for simplicity as it isn't needed
- *       Also currently no support for leading dim different than the dimensions
+ *       Also not supporting leading dim different than the problem dimensions
+ * 
+ * @param[in]     alpha  Scalar alpha
+ * @param[in]     A      Batched sparse matrix (CSR)
+ * @param[in]     B      Batched dense matrix B
+ * @param[in]     beta   Scalar beta
+ * @param[in,out] C      Batched dense matrix C
  */
 template <typename T>
 void b_spmm(T alpha, const BatchedCSR<T>& A,
@@ -296,10 +348,11 @@ void b_spmm(T alpha, const BatchedCSR<T>& A,
 
   // Execute the kernel
   constexpr int TPB = 256;
-  int cols_per_bid = nb <= 1024 ? 8 : (nb <= 2048 ? 4 : (nb <= 4096 ? 2 : 1));
+  int threads_per_bid =
+    nb <= 1024 ? 8 : (nb <= 2048 ? 4 : (nb <= 4096 ? 2 : 1));
   batched_spmm_kernel<<<MLCommon::ceildiv<int>(nb, TPB), TPB, 0, A.stream()>>>(
     alpha, A.get_col_index(), A.get_row_index(), A.get_values(), B.raw_data(),
-    beta, C.raw_data(), m, k, n, nb, cols_per_bid);
+    beta, C.raw_data(), m, k, n, nb, threads_per_bid);
 }
 
 }  // namespace Batched

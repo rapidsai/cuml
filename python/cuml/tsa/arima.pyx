@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,95 +81,100 @@ cdef extern from "arima/batched_kalman.hpp" namespace "ML":
 
 class ARIMA(Base):
     r"""Implements a batched ARIMA model for in- and out-of-sample
-    time-series prediction.
+    time-series prediction, with support for seasonality (SARIMA)
 
-    The ARIMA model consists of three model parameter classes:
-    "AutoRegressive", "Integrated", and "Moving Average" to fit to a given
-    time-series input. The library provides both in-sample prediction, and out
-    of sample forecasting.
+    ARIMA stands for Auto-Regressive Integrated Moving Average.
+    See https://en.wikipedia.org/wiki/Autoregressive_integrated_moving_average
 
-    TODO: update for seasonality
-
-    The Batched ARIMA model fits the following to each given time-series input:
-    if d=1:
-      \delta \tilde{y}_{t} = \mu + \sum_{i=1}^{p} \phi_i \delta y_{t-i}
-                                    + \sum_{i=1}^{q} \theta_i (y_{t-i} -
-                                                               \tilde{y}_{t-i})
-
-    Note all fitted parameters, \mu, \phi_i, \theta_i and
-    the model order (p, d, q).
-
-    **Limitations**: The library assumes collections (i.e., batches) of
-      time-series data of the same length with no missing values.
+    This class can fit an ARIMA(p,d,q) or ARIMA(p,d,q)(P,D,Q)_s model to a
+    batch of time series of the same length with no missing values.
+    The implementation is designed to give the best performance when using
+    large batches of time series.
 
     Examples
     ---------
     .. code-block:: python
 
         import numpy as np
-        from cuml.tsa.arima import fit
-        import matplotlib.pyplot as plt
+        from cuml.tsa import arima
 
-        # create sample data
-        num_samples = 200
-        xs = np.linspace(0, 1, num_samples)
+        # Create seasonal data with a trend, a seasonal pattern and noise
+        n_obs = 100
         np.random.seed(12)
-        noise = np.random.normal(scale=0.05, size=num_samples)
-        noise2 = np.random.normal(scale=0.05, size=num_samples)
-        ys1 = noise + 0.5*xs + 0.1*np.sin(xs/np.pi)
-        ys2 = noise2 + 0.25*xs + 0.15*np.sin(0.8*xs/np.pi)
-        ys = np.zeros((num_samples, 2))
-        ys[:, 0] = ys1
-        ys[:, 1] = ys2
+        x = np.linspace(0, 1, n_obs)
+        pattern = np.array([[0.05, 0.0], [0.07, 0.03],
+                            [-0.03, 0.05], [0.02, 0.025]])
+        noise = np.random.normal(scale=0.01, size=(n_obs, 2))
+        y = np.column_stack((0.5*x, -0.25*x)) + noise + np.tile(pattern, (25, 1))
 
-        plt.plot(xs, ys1, xs, ys2)
-
-        # fit a model
-        model = arima.ARIMA(ys, (1,1,1), fit_intercept=True)
+        # Fit a seasonal ARIMA model
+        model = arima.ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
         model.fit()
 
-        # predict and forecast using fitted model
-        d_yp = model.predict_in_sample()
-        yp = cuml.utils.input_to_host_array(d_yp)
-        d_yfc = model.forecast(50)
-        yfc = cuml.utils.input_to_host_array(d_yfc)
-        dx = xs[1] - xs[0]
-        xfc = np.linspace(1, 1+50*dx, 50)
-        plt.plot(xs, yp, xfc, yfc)
+        # Forecast
+        fc = model.forecast(10).copy_to_host()
+        print(fc)
 
-        TODO: this is outdated
+    Output:
+
+    .. code-block:: python
+
+        [[ 0.55204599 -0.25681163]
+         [ 0.57430705 -0.2262438 ]
+         [ 0.48120315 -0.20583011]
+         [ 0.535594   -0.24060046]
+         [ 0.57207541 -0.26695497]
+         [ 0.59433647 -0.23638713]
+         [ 0.50123257 -0.21597344]
+         [ 0.55562342 -0.25074379]
+         [ 0.59210483 -0.27709831]
+         [ 0.61436589 -0.24653047]]
 
     Parameters
     ----------
-    y : array-like (device or host)
-        The time series series data. If given as `ndarray`, assumed to have
-        each time series in columns.
-        Acceptable formats: cuDF DataFrame, cuDF
-        Series, NumPy ndarray, Numba device ndarray, cuda array interface
-        compliant array like CuPy.
+    y : dataframe or array-like (device or host)
+        The time series data, assumed to have each time series in columns.
+        Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
+        Numba device ndarray, cuda array interface compliant array like CuPy.
     order : Tuple[int, int, int]
         The ARIMA order (p, d, q) of the model
-    TODO: update docs with seasonal parameters
+    seasonal_order: Tuple[int, int, int, int]
+        The seasonal ARIMA order (P, D, Q, s) of the model
     fit_intercept : bool or int
         Whether to include a constant trend mu in the model
-        Leave to None for automatic selection based on d and D
-    TODO: note about the handle
+        Leave to None for automatic selection based on the model order
+    handle: cuml.Handle
+        If it is None, a new one is created just for this instance
 
     Attributes
     ----------
-    TODO: fill this section
+    order : Tuple[int, int, int]
+        The ARIMA order (p, d, q) of the model
+    seasonal_order: Tuple[int, int, int, int]
+        The seasonal ARIMA order (P, D, Q, s) of the model
+    intercept : bool or int
+        Whether the model includes a constant trend mu
+    d_y: device array
+        Time series data on device
+    num_samples: int
+        Number of observations
+    batch_size: int
+        Number of time series in the batch
+    dtype: numpy.dtype
+        Floating-point type of the data and parameters
+    niter: numpy.ndarray
+        After fitting, contains the number of iterations before convergence
+        for each time series.
 
     References
     ----------
-    The library is heavily influenced by the Python library `statsmodels`,
-    particularly the `statsmodels.tsa.arima_model.ARIMA` model and
-    corresponding code:
-    www.statsmodels.org/stable/generated/statsmodels.tsa.arima_model.ARIMA
-
+    This class is heavily influenced by the Python library `statsmodels`,
+    particularly `statsmodels.tsa.statespace.sarimax.SARIMAX`.
+    See https://www.statsmodels.org/stable/statespace.html
+    
     Additionally the following book is a useful reference:
     "Time Series Analysis by State Space Methods",
-    J. Durbin, S.J. Koopman, 2nd Edition.
-
+    J. Durbin, S.J. Koopman, 2nd Edition (2012).
     """
 
     def __init__(self,
@@ -184,7 +189,6 @@ class ARIMA(Base):
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
         P, D, Q, s = seasonal_order
-        # TODO: check that period is > p and q
         if P + D + Q > 0 and s < 2:
             raise ValueError("ERROR: Invalid period for seasonal ARIMA: {}"
                              .format(s))
@@ -193,6 +197,8 @@ class ARIMA(Base):
                              " {}".format(s))
         if d + D > 2:
             raise ValueError("ERROR: Invalid order. Required: d+D <= 2")
+        if s != 0 and (p >= s or q >= s):
+            raise ValueError("ERROR: Invalid order. Required: s > p, s > q")
 
         self.order = order
         self.seasonal_order = seasonal_order
@@ -202,12 +208,13 @@ class ARIMA(Base):
         self.intercept = int(fit_intercept)
 
         # Get device array. Float64 only for now.
-        self.d_y, _, self.num_samples, self.batch_size, self.dtype \
+        self.d_y, _, self.n_obs, self.batch_size, self.dtype \
             = input_to_dev_array(y, check_dtype=np.float64)
 
-        # TODO: check that number of observations ok with orders
+        if self.n_obs < d + s * D + 1:
+            raise ValueError("ERROR: Number of observations too small for the"
+                             " given order")
 
-        self.yp = None
         self.niter = None  # number of iterations used during fit
 
     def __str__(self):
@@ -260,7 +267,7 @@ class ARIMA(Base):
             raise NotImplementedError("IC type '{}' unknown". format(ic_type))
 
         information_criterion(handle_[0], <double*> d_y_ptr,
-                              <int> self.batch_size, <int> self.num_samples,
+                              <int> self.batch_size, <int> self.n_obs,
                               <int> p, <int> d, <int> q, <int> P, <int> D,
                               <int> Q, <int> s, <int> self.intercept,
                               <double*> d_mu_ptr, <double*> d_ar_ptr,
@@ -293,8 +300,18 @@ class ARIMA(Base):
         return p + P + q + Q + self.intercept
 
     def get_params(self) -> Dict[str, np.ndarray]:
-        """TODO: docs
+        """Get the parameters of the model
+
+        Returns:
+        --------
+        params: Dict[str, np.ndarray]
+            A dictionary of parameter names and associated arrays
+            The key names are a subset of {"mu", "ar", "ma", "sar", "sma"}
+            The shape of the arrays are (batch_size,) for mu parameters and
+            (n, batch_size) for any other type, where n is the corresponding
+            number of parameters of this type.
         """
+        # TODO: prevent call on unfit model
         params = dict()
         names = ["mu", "ar", "ma", "sar", "sma"]
         criteria = [self.intercept, self.order[0], self.order[2],
@@ -305,7 +322,16 @@ class ARIMA(Base):
         return params
 
     def set_params(self, params: Mapping[str, object]):
-        """TODO: docs
+        """Set the parameters of the model
+
+        Parameters:
+        --------
+        params: Mapping[str, np.ndarray]
+            A mapping (e.g dictionary) of parameter names and associated arrays
+            The key names are a subset of {"mu", "ar", "ma", "sar", "sma"}
+            The shape of the arrays are (batch_size,) for mu parameters and
+            (n, batch_size) for any other type, where n is the corresponding
+            number of parameters of this type.
         """
         for param_name in ["mu", "ar", "ma", "sar", "sma"]:
             if param_name in params:
@@ -316,11 +342,17 @@ class ARIMA(Base):
     def predict(self, start=0, end=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
-        TODO: docs
+        Parameters:
+        -----------
+        start: int
+            Index where to start the predictions (0 <= start <= num_samples)
+        end:
+            Index where to end the predictions, excluded (end > start)
 
         Returns:
         --------
-        y_p : array-like, (device), shape = (n_samples, n_series)
+        y_p : array-like (device)
+            Predictions. Shape = (end - start, batch_size)
 
         Example:
         --------
@@ -337,16 +369,18 @@ class ARIMA(Base):
 
         if start < 0:
             raise ValueError("ERROR(`predict`): start < 0")
-        elif start > self.num_samples:
+        elif start > self.n_obs:
             raise ValueError("ERROR(`predict`): There can't be a gap between"
                              " the data and the prediction")
+        elif end <= start:
+            raise ValueError("ERROR(`predict`): end <= start")
         elif start < d + D * s:
             print("WARNING(`predict`): predictions before {} are undefined,"
                   " will be padded with NaN".format(d + D * s),
                   file=sys.stderr)
 
         if end is None:
-            end = self.num_samples
+            end = self.n_obs
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -362,7 +396,7 @@ class ARIMA(Base):
         # pointers
         cdef uintptr_t d_vs_ptr
         cdef uintptr_t d_y_p_ptr
-        d_vs = rmm.device_array((self.num_samples - d - D * s,
+        d_vs = rmm.device_array((self.n_obs - d - D * s,
                                  self.batch_size), dtype=np.float64, order="F")
         d_y_p = rmm.device_array((predict_size, self.batch_size),
                                  dtype=np.float64, order="F")
@@ -372,13 +406,12 @@ class ARIMA(Base):
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
-                    <int> self.num_samples, <int> start, <int> end,
+                    <int> self.n_obs, <int> start, <int> end,
                     <int> p, <int> d, <int> q,
                     <int> P, <int> D, <int> Q, <int> s,
                     <int> self.intercept, <double*>d_params_ptr,
                     <double*>d_vs_ptr, <double*>d_y_p_ptr)
 
-        self.yp = d_y_p
         return d_y_p
 
     @nvtx_range_wrap
@@ -388,12 +421,12 @@ class ARIMA(Base):
         Parameters:
         ----------
         nsteps : int
-                 The number of steps to forecast beyond end of `fit()` signal
+            The number of steps to forecast beyond end of the given series
 
         Returns:
         --------
-        y_fc : array-like, shape = (nsteps, n_series)
-               Forecast, one for each series.
+        y_fc : array-like
+               Forecasts. Shape = (nsteps, batch_size)
 
         Example:
         --------
@@ -403,14 +436,15 @@ class ARIMA(Base):
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
-            d_y_fc = model.forecast(10).copy_to_host()
+            y_fc = model.forecast(10).copy_to_host()
         """
 
-        return self.predict(self.num_samples, self.num_samples + nsteps)
+        return self.predict(self.n_obs, self.n_obs + nsteps)
 
     @nvtx_range_wrap
     def _estimate_x0(self):
-        """TODO: docs"""
+        """Internal method. Estimate initial parameters of the model.
+        """
         p, d, q = self.order
         P, D, Q, s = self.seasonal_order
 
@@ -443,7 +477,7 @@ class ARIMA(Base):
         estimate_x0(handle_[0], <double*> d_mu_ptr, <double*> d_ar_ptr,
                     <double*> d_ma_ptr, <double*> d_sar_ptr,
                     <double*> d_sma_ptr, <double*> d_y_ptr,
-                    <int> self.batch_size, <int> self.num_samples,
+                    <int> self.batch_size, <int> self.n_obs,
                     <int> p, <int> d, <int> q, <int> P, <int> D, <int> Q,
                     <int> s, <int> self.intercept)
 
@@ -460,24 +494,32 @@ class ARIMA(Base):
     def fit(self,
             start_params: Optional[Mapping[str, object]]=None,
             opt_disp: int=-1,
-            h: float=1e-9):
-        """Fits the ARIMA model to each time-series for the given initial
-        parameter estimates.
+            h: float=1e-9,
+            maxiter=1000):
+        """Fit the ARIMA model to each time series.
 
         Parameters
         ----------
-        start_params : TODO: docs
+        start_params : Mapping[str, object] (optional)
+            A mapping (e.g dictionary) of parameter names and associated arrays
+            The key names are a subset of {"mu", "ar", "ma", "sar", "sma"}
+            The shape of the arrays are (batch_size,) for mu parameters and
+            (n, batch_size) for any other type, where n is the corresponding
+            number of parameters of this type.
+            Pass None for automatic estimation (recommended)
         opt_disp : int
-                Fit diagnostic level (for L-BFGS solver):
-                * `-1` for no output,
-                * `0<n<100` for output every `n` steps
-                * `n>100` for more detailed output
+            Fit diagnostic level (for L-BFGS solver):
+             * `-1` for no output (default)
+             * `0<n<100` for output every `n` steps
+             * `n>100` for more detailed output
         h : float
             Finite-differencing step size. The gradient is computed
             using second-order differencing:
                     f(x+h) - f(x - h)
                 g = ----------------- + O(h^2)
                           2 * h
+        maxiter : int
+            Maximum number of iterations of L-BFGS-B
         """
         p, d, q = self.order
         P, D, Q, s = self.seasonal_order
@@ -491,17 +533,17 @@ class ARIMA(Base):
 
         def f(x: np.ndarray) -> np.ndarray:
             """The (batched) energy functional returning the negative
-            loglikelihood (foreach series)."""
+            log-likelihood (foreach series)."""
             # Recall: We maximize LL by minimizing -LL
             n_llf = -self._loglike(x, trans=True)
-            return n_llf / (self.num_samples - 1)
+            return n_llf / (self.n_obs - 1)
 
         # Optimized finite differencing gradient for batches
         def gf(x):
             """The gradient of the (batched) energy functional."""
             # Recall: We maximize LL by minimizing -LL
             n_gllf = -self._loglike_grad(x, h, trans=True)
-            return n_gllf / (self.num_samples - 1)
+            return n_gllf / (self.n_obs - 1)
 
         x0 = self._batched_transform(self.pack(), True)
 
@@ -511,7 +553,8 @@ class ARIMA(Base):
 
         # Optimize parameters by minimizing log likelihood.
         x, niter, flags = batched_fmin_lbfgs_b(f, x0, self.batch_size, gf,
-                                               iprint=opt_disp, factr=1000)
+                                               iprint=opt_disp, factr=1000,
+                                               maxiter=maxiter)
 
         # Handle non-zero flags with Warning
         if (flags != 0).any():
@@ -524,15 +567,20 @@ class ARIMA(Base):
 
     @nvtx_range_wrap
     def _loglike(self, x, trans=True):
-        """Computes the batched loglikelihood for given parameters.
+        """Compute the batched log-likelihood for the given parameters.
 
         Parameters:
         ----------
-        x     : array-like
-                dense parameter array, grouped by series
+        x : array-like
+            Packed parameter array, grouped by series
         trans : bool
-                Should the `jones_transform` be applied?
-                Note: The parameters from a fit model are already transformed.
+            Should the Jones' transform be applied?
+            Note: The parameters from a fit model are already transformed.
+
+        Returns:
+        --------
+        loglike : numpy.ndarray
+            Batched log-likelihood. Shape: (batch_size,)
         """
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
@@ -547,13 +595,13 @@ class ARIMA(Base):
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        d_vs = rmm.device_array((self.num_samples - d - D * s,
+        d_vs = rmm.device_array((self.n_obs - d - D * s,
                                  self.batch_size),
                                 dtype=np.float64, order="F")
         cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
 
         batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
-                        <int> self.num_samples, <int> p, <int> d, <int> q,
+                        <int> self.n_obs, <int> p, <int> d, <int> q,
                         <int> P, <int> D, <int> Q, <int> s,
                         <int> self.intercept, <double*> d_x_ptr,
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
@@ -564,18 +612,25 @@ class ARIMA(Base):
 
     @nvtx_range_wrap
     def _loglike_grad(self, x, h=1e-8, trans=True):
-        """Computes gradient (via finite differencing) of the batched
-        loglikelihood.
+        """Compute the gradient (via finite differencing) of the batched
+        log-likelihood.
 
         Parameters:
         ----------
-        x     : array-like
-                dense parameter array, grouped by series
-        h     : float
-                The finite-difference stepsize
+        x : array-like
+            Packed parameter array, grouped by series.
+            Shape: (n_params * batch_size,)
+        h : float
+            The finite-difference stepsize
         trans : bool
-                Should the `jones_transform` be applied?
-                Note: The parameters from a fit model are already transformed.
+            Should the Jones' transform be applied?
+            Note: The parameters from a fit model are already transformed.
+
+        Returns:
+        --------
+        grad : numpy.ndarray
+            Batched log-likelihood gradient. Shape: (n_params * batch_size,)
+            where n_params is the complexity of the model
         """
         N = self.complexity
         assert len(x) == N * self.batch_size
@@ -616,7 +671,7 @@ class ARIMA(Base):
 
     @property
     def llf(self):
-        """Loglikelihood of a fit model
+        """Log-likelihood of a fit model. Shape: (batch_size,)
         """
         return self._loglike(self.pack(), trans=False)
 
@@ -625,6 +680,12 @@ class ARIMA(Base):
     def unpack(self, x: Union[list, np.ndarray]):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
+
+        Parameters:
+        -----------
+        x : array-like
+            Packed parameter array, grouped by series.
+            Shape: (n_params * batch_size,)
         """
         p, _, q = self.order
         P, _, Q, _ = self.seasonal_order
@@ -651,6 +712,12 @@ class ARIMA(Base):
     @nvtx_range_wrap
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
+
+        Returns:
+        -----------
+        x : array-like
+            Packed parameter array, grouped by series.
+            Shape: (n_params * batch_size,)
         """
         p, _, q = self.order
         P, _, Q, _ = self.seasonal_order
@@ -674,6 +741,18 @@ class ARIMA(Base):
     @nvtx_range_wrap
     def _batched_transform(self, x, isInv = False):
         """Applies Jones transform or inverse transform to a parameter vector
+
+        Parameters:
+        -----------
+        x : array-like
+            Packed parameter array, grouped by series.
+            Shape: (n_params * batch_size,)
+
+        Returns:
+        -----------
+        Tx : array-like
+            Packed transformed parameter array, grouped by series.
+            Shape: (n_params * batch_size,)
         """
         p, _, q = self.order
         P, _, Q, _ = self.seasonal_order
@@ -691,7 +770,7 @@ class ARIMA(Base):
 
 
 # TODO: later replace with an AutoARIMA class
-def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
+def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=None):
     """Grid search to find optimal model order (p, q), weighing
     model complexity against likelihood.
     Optimality is based on minimizing BIC or AIC, which
@@ -699,22 +778,30 @@ def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=True):
     complexity might yield a lower negative LL, but at higher `bic` due to
     complexity term.
 
-    Parameters:
+    Deprecation warning:
+    --------------------
+    This function will be removed and replaced with an auto-ARIMA class with
+    more functionality, support for seasonality, and a more efficient search
+    algorithm.
 
+    Parameters:
+    -----------
     y_b : array-like shape = (n_samples, n_series)
-          The batched time-series data.
+        The batched time-series data.
     d : int
         Trend (d>0) or not (d==0)
     max_p : int
-            Maximum `p` in search
+        Maximum `p` in search
     max_q : int
-            Maximum `q` in search
+        Maximum `q` in search
     method : str
-             Complexity method to use ("bic" or "aic")
-    fit_intercept: TODO: copy description from __init__
+        Complexity method to use ("bic" or "aic")
+    fit_intercept : bool or int
+        Whether to include a constant trend mu in the model
+        Leave to None for automatic selection based on the model order
 
     Returns:
-
+    --------
     Tuple of "best" order, mu, ar, and ma parameters with the
     corresponding IC for each series.
 

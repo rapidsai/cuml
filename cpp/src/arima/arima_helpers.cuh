@@ -21,13 +21,17 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-/// TODO: ArimaOrder structure
-///       ArimaParams structure?
-
 namespace ML {
 
 /**
- * TODO: quick docs (auxiliary function)
+ * Auxiliary function of reduced_polynomial. Computes a coefficient of an (S)AR
+ * or (S)MA polynomial based on the values of the corresponding parameters
+ *
+ * @tparam     isAr    Is this an AR (true) or MA (false) polynomial?
+ * @param[in]  param   Parameter array
+ * @param[in]  lags    Number of parameters
+ * @param[in]  idx     Which coefficient to compute
+ * @return             The value of the coefficient
  */
 template <bool isAr>
 static inline __host__ __device__ double _param_to_poly(const double* param,
@@ -41,7 +45,18 @@ static inline __host__ __device__ double _param_to_poly(const double* param,
 }
 
 /**
- * TODO: docs
+ * Helper function to compute the reduced AR or MA polynomial based on the
+ * AR and SAR or MA and SMA parameters
+ *
+ * @tparam     isAr    Is this an AR (true) or MA (false) polynomial?
+ * @param[in]  bid     Batch id
+ * @param[in]  param   Non-seasonal parameters
+ * @param[in]  lags    Number of non-seasonal parameters
+ * @param[in]  sparam  Seasonal parameters
+ * @param[in]  slags   Number of seasonal parameters
+ * @param[in]  s       Seasonal period
+ * @param[in]  idx     Which coefficient to compute
+ * @return             The value of the coefficient
  */
 template <bool isAr>
 static inline __host__ __device__ double reduced_polynomial(
@@ -119,7 +134,24 @@ static void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
 }
 
 /**
- * TODO: docs
+ * Helper function to pack the separate parameter arrays into a unique
+ * parameter vector
+ *
+ * @param[in]  batch_size  Batch size
+ * @param[in]  p           Number of AR parameters
+ * @param[in]  q           Number of MA parameters
+ * @param[in]  P           Number of seasonal AR parameters
+ * @param[in]  Q           Number of seasonal MA parameters
+ * @param[in]  k           Whether the model fits an intercept (constant term)
+ * @param[in]  d_mu        mu if d != 0. Shape: (d, batch_size) (device)
+ * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
+ * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
+ * @param[in]  d_sar       Seasonal AR parameters.
+ *                         Shape: (P, batch_size) (device)
+ * @param[in]  d_sma       Seasonal MA parameters.
+ *                         Shape: (Q, batch_size) (device)
+ * @param[out] d_params    Output parameter vector
+ * @param[in]  stream      CUDA stream
  */
 static void pack(int batch_size, int p, int q, int P, int Q, int k,
                  const double* d_mu, const double* d_ar, const double* d_ma,
@@ -153,8 +185,8 @@ static void pack(int batch_size, int p, int q, int P, int Q, int k,
 }
 
 /**
- * Turns linear array of parameters into arrays of mu, ar, and ma parameters.
- * (using device arrays)
+ * Helper function to unpack a linear array of parameters into separate arrays
+ * of parameters.
  * 
  * @param[in]  d_params   Linear array of all parameters grouped by batch
  *                        [mu, ar, ma] (device)
