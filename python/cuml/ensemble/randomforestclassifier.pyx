@@ -787,6 +787,8 @@ class RandomForestClassifier(Base):
 
         params = dict()
         for key in RandomForestClassifier.variables:
+            if key in ['handle']:
+                continue
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params

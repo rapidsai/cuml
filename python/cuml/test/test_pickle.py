@@ -20,7 +20,7 @@ import pytest
 
 from cuml.test.utils import array_equal, unit_param, stress_param
 from cuml.test.test_svm import compare_svm
-
+from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification,\
     make_regression
 from sklearn.manifold.t_sne import trustworthiness
@@ -320,6 +320,13 @@ def test_unfit_pickle(model_name):
     mod_unpickled = pickle.loads(mod_pickled_bytes)
     assert mod_unpickled is not None
 
+@pytest.mark.parametrize('model_name',
+                         all_models.keys())
+def test_unfit_clone(model_name):
+    # Cloning runs into many of the same problems as pickling
+    mod = all_models[model_name]()
+    clone(mod)
+    # TODO: check parameters exactly?
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', neighbor_models.keys())
@@ -461,3 +468,5 @@ def test_svm_pickle(tmpdir, datatype):
     def assert_model(pickled_model, data):
         compare_svm(result["model"], pickled_model, data[0], data[1], cmp_sv=0,
                     dcoef_tol=0)
+
+
