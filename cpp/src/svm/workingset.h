@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ class WorkingSet {
   //!> Workspace selection strategy, note that only FIFO is tested so far
   bool FIFO_strategy = true;
 
-  /** 
+  /**
    * @brief Manage a working set.
    *
    * @param handle cuml handle implementation
@@ -115,7 +115,7 @@ class WorkingSet {
   /** Return the size of the working set. */
   int GetSize() { return n_ws; }
 
-  /** 
+  /**
    * @brief Return a device pointer to the the working set indices.
    *
    * The returned array is owned by WorkingSet.
