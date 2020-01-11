@@ -23,11 +23,11 @@
 #include "cache/cache_util.h"
 #include "common/cumlHandle.hpp"
 #include "common/host_buffer.hpp"
+#include "cuml/svm/svm_parameter.h"
 #include "linalg/init.h"
 #include "matrix/grammatrix.h"
 #include "matrix/matrix.h"
 #include "ml_utils.h"
-#include "svm_parameter.h"
 
 namespace ML {
 namespace SVM {
