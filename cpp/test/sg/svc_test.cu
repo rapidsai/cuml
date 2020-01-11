@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <cuda_utils.h>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
@@ -21,6 +23,8 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
+#include <cuml/svm/svc.hpp>
+#include <cuml/svm/svr.hpp>
 #include <iostream>
 #include <string>
 #include <type_traits>
@@ -35,10 +39,6 @@
 #include "random/rng.h"
 #include "svm/smoblocksolve.h"
 #include "svm/smosolver.h"
-#include "svm/svc.hpp"
-#include "svm/svm_model.h"
-#include "svm/svm_parameter.h"
-#include "svm/svr_impl.h"
 #include "svm/workingset.h"
 #include "test_utils.h"
 

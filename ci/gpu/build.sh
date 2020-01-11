@@ -58,6 +58,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "distributed>=2.8.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
+      "ucx-py=0.12*" \
       "statsmodels" \
       "xgboost=0.90.rapidsdev1"
 
@@ -66,10 +67,6 @@ logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-d
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
 logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
-
-# installing libclang separately so it doesn't get installed from conda-forge
-conda install -c rapidsai \
-      libclang
 
 logger "Check versions..."
 python --version

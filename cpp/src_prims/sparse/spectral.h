@@ -128,7 +128,6 @@ void fit_clusters(T *X, int m, int n, int n_neighbors, int n_clusters,
 
   fit_clusters(knn_indices.data(), knn_dists.data(), m, n_neighbors, n_clusters,
                eigen_tol, out, d_alloc, stream);
-
 }
 
 template <typename T>
@@ -233,7 +232,6 @@ void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
 
   fit_embedding(knn_indices.data(), knn_dists.data(), m, n_neighbors,
                 n_components, out, d_alloc, stream);
-
 }
 }  // namespace Spectral
 }  // namespace MLCommon
