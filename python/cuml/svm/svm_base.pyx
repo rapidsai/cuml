@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
 from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
 
-cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
+cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
 
@@ -45,7 +45,7 @@ cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
         double gamma
         double coef0
 
-cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
     enum SvmType:
         C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
 
@@ -60,7 +60,7 @@ cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "svm/svm_model.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
     cdef cppclass svmModel[math_t]:
         # parameters of a fitted model
         int n_support
@@ -72,7 +72,7 @@ cdef extern from "svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svcFit[math_t](const cumlHandle &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
