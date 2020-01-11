@@ -27,6 +27,8 @@
 #include <thrust/iterator/counting_iterator.h>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
+#include "cuml/svm/svm_model.h"
+#include "cuml/svm/svm_parameter.h"
 #include "kernelcache.h"
 #include "label/classlabels.h"
 #include "linalg/cublas_wrappers.h"
@@ -35,8 +37,6 @@
 #include "matrix/matrix.h"
 #include "smosolver.h"
 #include "svc_impl.h"
-#include "svm_model.h"
-#include "svm_parameter.h"
 
 namespace ML {
 namespace SVM {

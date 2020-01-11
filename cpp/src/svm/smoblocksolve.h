@@ -20,10 +20,11 @@
 
 #include <cuda_utils.h>
 #include <stdlib.h>
+#include "cuml/svm/svm_parameter.h"
 #include "ml_utils.h"
 #include "selection/kselection.h"
 #include "smo_sets.h"
-#include "svm_parameter.h"
+
 namespace ML {
 namespace SVM {
 

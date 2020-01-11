@@ -23,12 +23,12 @@
 #include <cub/cub.cuh>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
+#include "cuml/svm/svm_parameter.h"
 #include "linalg/add.h"
 #include "linalg/init.h"
 #include "linalg/unary_op.h"
 #include "ml_utils.h"
 #include "smo_sets.h"
-#include "svm_parameter.h"
 #include "ws_util.h"
 
 namespace ML {
