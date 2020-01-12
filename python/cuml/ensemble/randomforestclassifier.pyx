@@ -373,11 +373,11 @@ class RandomForestClassifier(Base):
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
-        cdef vector[RandomForestMetaData[float, int]]* rf_forest = \
-            <vector[RandomForestMetaData[float, int]]*><size_t> self.rf_forest
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
         build_treelite_forest(& cuml_model_ptr,
-                              <vector[RandomForestMetaData[float, int]]*> rf_forest,
+                              <RandomForestMetaData[float, int]*> rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
@@ -389,19 +389,15 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
-    def _convert_to_treelite(self, task_category, model_info):
+    def _convert_to_treelite(self, task_category):
         
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 2
-        print("model infor in pyx file : ", model_info)
-        print(" type of model_info : ", type(model_info))
-        print(" type of model info [0] : ", type(model_info[0]))
-        temp = [1231453, 5673456, 8642674]
-        cdef vector[RandomForestMetaData[float, int]]* rf_forest = \
-            <vector[RandomForestMetaData[float, int]]*><size_t> model_info
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         print(" self.n_cols : ", self.n_cols)
         build_treelite_forest(& cuml_model_ptr,
-                              <vector[RandomForestMetaData[float, int]]*> rf_forest,
+                              <RandomForestMetaData[float, int]*> rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
@@ -410,12 +406,25 @@ class RandomForestClassifier(Base):
         return treelite_handle
 
     def _tl_model_handles(self, model_bytes):
-        cdef ModelHandle cuml_model_ptr = NULL
+        #cdef ModelHandle cuml_model_ptr = NULL
+        """
+        #cdef vector[ModelHandle*] model_handles_list;
         mod_handles = tl_mod_handle(& cuml_model_ptr,
-                                   <vector[vector[unsigned char]] &> model_bytes)
-        mod_handles_list = <size_t> mod_handles
-        return mod_handles_list 
+                                    <vector[vector[char]] &> model_bytes)
+        #                            & model_handles_list)
+        mod_handles_pointer = <size_t> mod_handles
+        return mod_handles_pointer 
 
+        """
+        cdef ModelHandle cuml_model_ptr = NULL
+        #cdef vector[ModelHandle*]* model_handles_list = NULL;
+        cdef vector[vector[char]] *pointer_model_bytes = \
+            <vector[vector[char]]*><size_t> model_bytes
+        mod_handles = tl_mod_handle(& cuml_model_ptr,
+                                    <vector[vector[char]] *> pointer_model_bytes)
+        mod_handles_list_python = <size_t> mod_handles
+        return mod_handles_list_python 
+        
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data

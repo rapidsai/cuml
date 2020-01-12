@@ -389,7 +389,20 @@ class RandomForestClassifier:
         c = default_client()
         futures = list()
 
-        model_bytes = self.get_model_info()
+        #model_bytes = self.get_model_info()
+
+        #model_bytes = self.get_model_info()
+        mod_bytes = list()
+        for w in self.workers:
+            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+
+        print("####################################")
+        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+        #print(mod_bytes[0].model_pbuf_bytes)
+        print("shape of model bytes : ", np.shape(mod_bytes))
+        print("####################################")
+        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+
 
         w = [i for i in self.workers]
 
@@ -397,10 +410,11 @@ class RandomForestClassifier:
             c.submit(
                 RandomForestClassifier._tl_model_handles,
                 self.rfs[w[0]], #[w[0]],
-                model_bytes,
+                mod_bytes,
                 workers=[w[0]],
             )
         )
+
 
         wait(futures)
         raise_exception_from_futures(futures)
@@ -411,7 +425,9 @@ class RandomForestClassifier:
 
         print("mod_handles : ", mod_handles)
         return mod_handles
-
+        """
+        return mod_bytes
+        """
     def fit(self, X, y):
         """
         Fit the input data with a Random Forest classifier

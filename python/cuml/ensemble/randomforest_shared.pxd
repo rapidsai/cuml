@@ -111,7 +111,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     # Treelite handling
     #
     cdef void build_treelite_forest[T, L](ModelHandle*,
-                                          vector[RandomForestMetaData[T, L]] *,
+                                          RandomForestMetaData[T, L]*,
                                           int,
                                           int,
                                           vector[unsigned char] &) except +
@@ -138,5 +138,5 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
-    cdef vector[ModelHandle*] tl_mod_handle(ModelHandle*,
-                                           vector[vector[unsigned char]] &)
+    cdef vector[ModelHandle]* tl_mod_handle(ModelHandle*,
+                                            vector[vector[char]] *)
