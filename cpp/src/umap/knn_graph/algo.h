@@ -53,7 +53,6 @@ void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
   MLCommon::Selection::brute_force_knn(ptrs, sizes, d, X_query, x_q_n,
                                        knn_indices, knn_dists, n_neighbors,
                                        d_alloc, stream);
-
 }
 }  // namespace Algo
 }  // namespace kNNGraph

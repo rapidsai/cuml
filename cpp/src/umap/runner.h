@@ -238,13 +238,11 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  if(params->verbose) {
+  if (params->verbose) {
     std::cout << "Running transform" << std::endl;
   }
 
-
-
-  if(params->verbose) {
+  if (params->verbose) {
     std::cout << "Building KNN Graph" << std::endl;
   }
 
@@ -263,10 +261,9 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   float adjusted_local_connectivity =
     max(0.0, params->local_connectivity - 1.0);
 
-  if(params->verbose) {
+  if (params->verbose) {
     std::cout << "Smoothing KNN distances" << std::endl;
   }
-
 
   /**
    * Perform smooth_knn_dist
@@ -291,11 +288,9 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
 
-
-  if(params->verbose) {
+  if (params->verbose) {
     std::cout << "Executing fuzzy simplicial set" << std::endl;
   }
-
 
   /**
    * Allocate workspace for fuzzy simplicial set.
@@ -321,7 +316,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   CUDA_CHECK(
     cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(T), stream));
 
-  if(params->verbose) {
+  if (params->verbose) {
     std::cout << "Performing L1 normalization" << std::endl;
   }
 
@@ -379,7 +374,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, d_alloc,
                                                stream);
 
-  if(params->verbose) {
+  if (params->verbose) {
     std::cout << "Computing # of epochs for training each sample" << std::endl;
   }
 
@@ -388,7 +383,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   SimplSetEmbedImpl::make_epochs_per_sample(
     comp_coo.vals(), comp_coo.nnz, n_epochs, epochs_per_sample.data(), stream);
 
-  if(params->verbose) {
+  if (params->verbose) {
     std::cout << "Performing optimization" << std::endl;
   }
 
