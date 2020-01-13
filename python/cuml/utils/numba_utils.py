@@ -14,8 +14,6 @@
 #
 
 import cupy as cp
-import math
-import numba
 import numpy as np
 import rmm
 
@@ -31,10 +29,6 @@ def row_matrix(df):
         transpose (and to copy `row_major` to the device if necessary).
 
     """
-
-    ncols = df.shape[1]
-    nrows = df.shape[0]
-    dtype = df.dtypes[0]
 
     col_major = df.as_gpu_matrix(order='F')
 
