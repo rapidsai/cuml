@@ -486,10 +486,10 @@ def compare_svr(svr1, svr2, X_test, y_test, tol=1e-3):
     {'kernel': 'poly', 'C': 1, 'gamma': 1},
 ])
 @pytest.mark.parametrize('dataset', ['reg1', 'reg2', 'Friedman'])
-@pytest.mark.parametrize('n_rows', [3, unit_param(100), quality_param(1000),
-                                    stress_param(5000)])
-@pytest.mark.parametrize('n_cols', [5, unit_param(100), quality_param(1000),
-                         stress_param(1000)])
+@pytest.mark.parametrize('n_rows', [unit_param(3), unit_param(100),
+                                    quality_param(1000), stress_param(5000)])
+@pytest.mark.parametrize('n_cols', [unit_param(5), unit_param(100),
+                                    quality_param(1000), stress_param(1000)])
 def test_svr_skl_cmp(params, dataset, n_rows, n_cols):
     """ Compare to Sklearn SVR """
     if (dataset == 'Friedman' and n_cols < 5):
