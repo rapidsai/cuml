@@ -17,6 +17,7 @@
 import cuml.utils.numba_utils
 
 import cudf
+import cupy as cp
 import numpy as np
 import warnings
 
@@ -225,11 +226,7 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             warnings.warn("Expected " + order_to_str(order) + " major order, "
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
-            X_m = cuml.utils.numba_utils.gpu_major_converter(X_m,
-                                                             n_rows,
-                                                             n_cols,
-                                                             dtype,
-                                                             to_order=order)
+            X_m = cuda.as_cuda_array(cp.array(X_m, copy=False, order=order))
 
     X_ptr = get_dev_array_ptr(X_m)
 
