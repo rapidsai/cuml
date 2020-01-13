@@ -47,9 +47,7 @@ namespace SVM {
  * Each row of the input data stores a feature vector.
  * We use the SMO method to fit the SVM.
  *
- * The output device buffers shall be unallocated on entry.
- * Note that n_support, n_classes and b are host scalars, all other output
- * pointers are device pointers.
+ * The output device buffers in the model struct shall be unallocated on entry.
  *
  * @tparam math_t floating point type
  * @param [in] handle the cuML handle
