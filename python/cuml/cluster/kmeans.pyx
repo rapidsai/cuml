@@ -479,6 +479,7 @@ class KMeans(Base):
         self.handle.sync()
         del(X_m)
         del(clust_mat)
+
         return self.labels_, inertia
 
     def predict(self, X, convert_dtype=False):
