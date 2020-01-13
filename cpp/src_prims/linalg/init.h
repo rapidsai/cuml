@@ -35,7 +35,7 @@ namespace {
  * \param [in] end of range (exclusive)
  * \param [in] stream cuda stream
  */
-template <typename T, int TPB = 256>
+template <typename T>
 void range(T *out, int start, int end, cudaStream_t stream) {
   thrust::counting_iterator<int> first(start);
   thrust::counting_iterator<int> last = first + (end - start);
