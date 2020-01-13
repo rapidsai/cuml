@@ -56,7 +56,8 @@ def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
 def test_ridge(n_parts, fit_intercept, client=None):
 
     if client is None:
-        cluster = LocalCUDACluster(threads_per_worker=1)
+        cluster = LocalCUDACluster()
+        yield cluster
         client = Client(cluster)
 
     try:
