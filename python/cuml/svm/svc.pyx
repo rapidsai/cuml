@@ -36,7 +36,7 @@ from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
 from cuml.svm.svm_base import SVMBase
 
-cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
+cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
@@ -49,7 +49,7 @@ cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
         double gamma
         double coef0
 
-cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
     enum SvmType:
         C_SVC,
         NU_SVC,
@@ -67,7 +67,7 @@ cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "svm/svm_model.h" namespace "ML::SVM":
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
     cdef cppclass svmModel[math_t]:
         # parameters of a fitted model
         int n_support
@@ -79,7 +79,7 @@ cdef extern from "svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svcFit[math_t](const cumlHandle &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
