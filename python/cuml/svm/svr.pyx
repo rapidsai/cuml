@@ -35,7 +35,7 @@ from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
-from cuml.svm.svm_base import SvmBase
+from cuml.svm.svm_base import SVMBase
 
 cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -99,7 +99,7 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
                              svmModel[math_t] &model) except+
 
 
-class SVR(SvmBase):
+class SVR(SVMBase):
     """
     SVR (Epsilon Support Vector Regression)
 
