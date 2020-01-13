@@ -182,6 +182,10 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                                 ModelHandle,
                                 treelite_params_t*)
 
+    cdef void from_multi_treelites(const cumlHandle&, forest_t* ,
+                                   ModelHandle, ModelHandle,
+                                   const treelite_params_t*)
+
 cdef class ForestInference_impl():
 
     cpdef object handle
@@ -216,6 +220,37 @@ cdef class ForestInference_impl():
             raise ValueError(' Wrong sparsity selected please refer'
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
+
+    def predict_mnmg(self, X,
+                     fil_handle, preds=None):
+
+        cdef uintptr_t X_ptr
+        X_m, X_ptr, n_rows, _, X_dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32)
+
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+
+        if preds is None:
+            preds = rmm.device_array(n_rows, dtype=np.float32)
+        elif (not isinstance(preds, cudf.Series) and
+              not rmm.is_cuda_array(preds)):
+            raise ValueError("Invalid type for output preds,"
+                             " need GPU array")
+
+        cdef uintptr_t preds_ptr
+        preds_m, preds_ptr, _, _, _ = input_to_dev_array(
+            preds,
+            check_dtype=np.float32)
+        #cdef uintptr_t fil_handle_ptr = <uintptr_t> fil_handle
+        predict(handle_[0],
+                <forest_t>fil_handle,
+                <float*> preds_ptr,
+                <float*> X_ptr,
+                <size_t> n_rows)
+        self.handle.sync()
+        # synchronous w/o a stream
+        return preds
 
     def predict(self, X, preds=None):
         """
@@ -277,6 +312,38 @@ cdef class ForestInference_impl():
                       &self.forest_data,
                       <ModelHandle> model_ptr,
                       &treelite_params)
+        return self
+
+    def load_from_multi_treelites(self, tl_model_handles,
+                                  bool output_class,
+                                  str algo,
+                                  float threshold,
+                                  str storage_type):
+        print("in the cython class function")
+        cdef treelite_params_t treelite_params
+
+        treelite_params.output_class = output_class
+        print("output class done")
+        treelite_params.threshold = threshold
+        print(" threshold done")
+        treelite_params.algo = self.get_algo(algo)
+        print("algo done")
+        treelite_params.storage_type = self.get_storage_type(storage_type)
+        print("storage done")
+
+        print(" tl_model_handles : ", tl_model_handles)
+        self.forest_data = NULL
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef uintptr_t model_ptr = <uintptr_t>tl_model_handles[0]
+        cdef uintptr_t model_ptr_1 = <uintptr_t>tl_model_handles[1]
+
+        print("calling the c++ function for fil")
+        from_multi_treelites(handle_[0],
+                             &self.forest_data,
+                             <ModelHandle> model_ptr,
+                             <ModelHandle> model_ptr_1,
+                             &treelite_params)
         return self
 
     def load_from_treelite_model(self,
@@ -519,3 +586,12 @@ class ForestInference(Base):
 
         return self._impl.load_from_randomforest(model_handle, output_class,
                                                  algo, threshold, storage_type)
+
+    def load_from_multi_treelites(self, tl_model_handles,
+                                  output_class=False,
+                                  algo='AUTO',
+                                  storage_type='DENSE',
+                                  threshold=0.50):
+
+        return self._impl.load_from_multi_treelites(tl_model_handles, output_class,
+                                                    algo, threshold, storage_type)    

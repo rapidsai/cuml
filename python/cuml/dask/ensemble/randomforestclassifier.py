@@ -294,18 +294,18 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X_df_list, treelite_handle):
+    def _predict(model, X, treelite_handle):
         #print(model.print_summary())
-        import pdb
-        print("length of X_df_list is : ", len(X_df_list))
+        #import pdb
+        #print("length of X_df_list is : ", len(X_df_list))
         #pdb.set_trace()
-        if len(X_df_list) == 1:
-            X_df = X_df_list[0]
-        else:
-            X_df = cudf.concat(X_df_list)
+        #if len(X_df_list) == 1:
+        #    X_df = X_df_list[0]
+        #else:
+        #    X_df = cudf.concat(X_df_list)
         #pdb.set_trace()
 
-        return model.predict(X_df, treelite_handle=treelite_handle) #.copy_to_host()
+        return model._predict_mnmg_on_fil(X, treelite_handle=treelite_handle) #.copy_to_host()
 
     @staticmethod
     def _print_summary(model):
@@ -511,6 +511,7 @@ class RandomForestClassifier:
         wait(futures)
         raise_exception_from_futures(futures)            
         """
+        print("length of fil_info : ", len(fil_info))
         return mod_handles
 
     """
@@ -623,12 +624,12 @@ class RandomForestClassifier:
 
         """
         c = default_client()
-        # workers = self.workers
-        # X_Scattered = c.scatter(X)
+        workers = self.workers
+        #X_Scattered = c.scatter(X)
 
         #treelite_handle = self.convert_to_treelite()
 
-        fil_model = self.convert_to_fil()
+        tl_model_handle = self.convert_to_treelite()
 
         ## Either I need to change the RFC._predict to use FIL class and
         ## FIL predict directly
@@ -638,55 +639,57 @@ class RandomForestClassifier:
         ## as we are unable to obtain the FIL model by using '.result()' 
         ## and fix the pickling issue caused during predict
 
-        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
+        
+        #X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
 
-        X_partition_workers = [w for w, xc in X_futures.items()]
+        #X_partition_workers = [w for w, xc in X_futures.items()]
+        
+        #if set(X_partition_workers) != set(self.workers):
+        #    raise ValueError("""
+        #      X is not partitioned on the same workers expected by RF\n
+        #      X workers: %s\n
+        #      y workers: %s\n
+        #      RF workers: %s
+        #      """)
 
-        if set(X_partition_workers) != set(self.workers):
-            raise ValueError("""
-              X is not partitioned on the same workers expected by RF\n
-              X workers: %s\n
-              y workers: %s\n
-              RF workers: %s
-              """)
-
-        print("X_futures.items() in predict : ", X_futures.items())
+        #print("X_futures.items() in predict : ", X_futures.items())
 
         import pdb
         #pdb.set_trace()
-        w = [i for i in X_futures.keys()]
+        worker_numb = [i for i in workers]
         #pdb.set_trace()
 
-        xc = X_futures[w[0]]
+        #xc = X_futures[w[0]]
 
         futures = list()
 
         #pdb.set_trace()
         #print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
-        """
-        for w, xc in X_futures.items():
+        
+        for n, w in enumerate(workers):
             futures.append(
                 c.submit(
                     RandomForestClassifier._predict,
-                    xc,
-                    fil_model,
-                    random.random(),
-                    workers=[w],
+                    self.rfs[worker_numb[0]],
+                    X,
+                    tl_model_handle,
+                    #random.random(),
+                    workers=[worker_numb[0]],
                 )
             )
         """
-
+        print("fil_model_handle in dask : ", fil_model_handle)
         futures.append(
             c.submit(
                 RandomForestClassifier._predict,
                 self.rfs[w[0]],
                 xc,
-                treelite_handle[0],
+                fil_model_handle,
                 #random.random(),
                 workers=[w[0]],
                 )
             )
-
+        """
         wait(futures)
         raise_exception_from_futures(futures)
 

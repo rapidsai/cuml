@@ -361,6 +361,39 @@ void build_fil_model(const cumlHandle& handle, fil::forest_t* pforest,
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
   fil::from_multi_treelites(handle, pforest, model, model_2, tl_params);
+
+}
+
+/**
+void build_fil_model(const cumlHandle& handle, fil::forest_t* pforest,
+                     ModelHandle model, ModelHandle model_2,
+                     const fil::treelite_params_t* tl_params, float* preds,
+                     const float* data, size_t num_rows) {
+  size_t check_feats;
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  TREELITE_CHECK(TreeliteQueryNumFeature(model, &check_feats));
+  std::cout << "check_num_features : " << check_feats << std::flush << std::endl;
+  size_t check_trees;
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  TREELITE_CHECK(TreeliteQueryNumTree(model, &check_trees));
+  std::cout << "check_num_trees : " << check_trees << std::flush << std::endl;
+  fil::from_treelite(handle, pforest, model, tl_params);
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  fil::from_treelite(handle, pforest, model_2, tl_params);
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  fil::from_multi_treelites(handle, pforest, model, model_2, tl_params);
+
+  fil::predict(handle, *pforest, preds, data, num_rows);
+
+}
+**/
+
+void predict_mnmg(const cumlHandle& handle, fil::forest_t forest, float* preds,
+                  const float* data, size_t num_rows){
+  std::cout << " inside the mnmg fil predict in C++ " << std::flush << std::endl;
+  fil::predict(handle, forest, preds, data, num_rows);
 }
 
 std::vector<unsigned char> save_model(ModelHandle model) {

@@ -129,6 +129,15 @@ void build_fil_model(const cumlHandle& handle, fil::forest_t* pforest,
                      ModelHandle model, ModelHandle model_2,
                      const fil::treelite_params_t* tl_params);
 
+/**
+void build_fil_model(const cumlHandle& handle, fil::forest_t* pforest,
+                     ModelHandle model, ModelHandle model_2,
+                     const fil::treelite_params_t* tl_params, float* preds,
+                     const float* data, size_t num_rows);
+**/
+
+void predict_mnmg(const cumlHandle& handle, fil::forest_t forest, float* preds,
+                  const float* data, size_t num_rows);
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;

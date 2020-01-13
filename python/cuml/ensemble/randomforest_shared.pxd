@@ -154,4 +154,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                               forest_t*,
                               ModelHandle,
                               ModelHandle, 
-                              const treelite_params_t*);
+                              const treelite_params_t*)
+
+    cdef void predict_mnmg(const cumlHandle&,
+                           forest_t,
+                           float*, 
+                           const float*,
+                           size_t num_rows)

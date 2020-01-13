@@ -459,9 +459,50 @@ class RandomForestClassifier(Base):
                         <ModelHandle> model_ptr_0,
                         <ModelHandle> model_ptr_1,
                         &treelite_params)
-        
+
         return <size_t> forest_info
         
+    def _predict_mnmg_on_fil(self, X, treelite_handle,
+                             preds=None, convert_dtype=True):
+        output_class=True
+        threshold=0.5,
+        algo='AUTO'
+        storage_type='DENSE'
+        cdef uintptr_t X_ptr
+        X_m, X_ptr, n_rows, _, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
+
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+        #cdef forest_t fil_handle = <forest_t><size_t> fil_mod_handle
+        #cdef uintptr_t fil_ptr = <uintptr_t> treelite_handle
+        cdef uintptr_t preds_ptr
+        if preds is None:
+            preds = rmm.device_array(n_rows, dtype=np.float32)
+        elif (not isinstance(preds, cudf.Series) and
+              not rmm.is_cuda_array(preds)):
+            raise ValueError("Invalid type for output preds,"
+                             " need GPU array")
+
+        fil_model = ForestInference()
+        print(" calling the multi create function")
+        tl_to_fil_model = \
+            fil_model.load_from_multi_treelites(tl_model_handles=treelite_handle,
+                                                output_class=output_class,
+                                                threshold=0.5,
+                                                algo=algo)
+        print(" created the FIL model")
+        preds = tl_to_fil_model.predict(X_m)
+
+        self.handle.sync()
+
+        #preds = fil_model.predict_mnmg(X_m, fil_mod_handle)
+        del(X_m)
+        return preds
+
         """
         cdef ModelHandle cuml_model_ptr = NULL
         #cdef vector[ModelHandle*]* model_handles_list = NULL;
