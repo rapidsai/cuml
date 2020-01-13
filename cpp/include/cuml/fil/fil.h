@@ -187,6 +187,10 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params);
 
+
+void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
+                          ModelHandle model, ModelHandle model_2,
+                          const treelite_params_t* tl_params);
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function

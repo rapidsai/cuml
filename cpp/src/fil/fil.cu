@@ -293,6 +293,7 @@ int tree_root(const tl::Tree& tree) {
       root = i;
     }
   }
+  std::cout << "root val : " << root << std::flush << std::endl;
   ASSERT(root != -1, "a tree must have a root");
   return root;
 }
@@ -447,6 +448,44 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   params->depth = depth;
 }
 
+void tl2fil_common_multi(forest_params_t* params, const tl::Model& model,
+                         const tl::Model& model_2,
+                         const treelite_params_t* tl_params) {
+  // fill in forest-indendent params
+  params->algo = tl_params->algo;
+  params->threshold = tl_params->threshold;
+
+  // fill in forest-dependent params
+  params->num_cols = model.num_feature;
+  ASSERT(model.num_output_group == 1 && model_2.num_output_group == 1, 
+         "multi-class classification not supported");
+  const tl::ModelParam& param = model.param;
+  ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
+  params->global_bias = param.global_bias;
+  params->output = output_t::RAW;
+  if (tl_params->output_class) {
+    params->output = output_t(params->output | output_t::THRESHOLD);
+  }
+  // "random forest" in treelite means tree output averaging
+  if (model.random_forest_flag && model_2.random_forest_flag) {
+    params->output = output_t(params->output | output_t::AVG);
+  }
+  if (param.pred_transform == "sigmoid") {
+    params->output = output_t(params->output | output_t::SIGMOID);
+  } else if (param.pred_transform != "identity") {
+    ASSERT(false, "%s: unsupported treelite prediction transform",
+           param.pred_transform.c_str());
+  }
+  params->num_trees = model.trees.size() + model_2.trees.size();
+
+  int depth = 0;
+  for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
+  std::cout << "depth after mod 1 : " << depth << std::flush << std::endl;
+  for (const auto& tree : model_2.trees) depth = std::max(depth, max_depth(tree));
+  std::cout << "depth after mod 2 : " << depth << std::flush << std::endl;
+  params->depth = depth;
+}
+
 // uses treelite model with additional tl_params to initialize FIL params
 // and dense nodes (stored in *pnodes)
 void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
@@ -459,6 +498,44 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
   for (int i = 0; i < model.trees.size(); ++i) {
     tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
   }
+}
+
+void tl2fil_dense_multi(std::vector<dense_node_t>* pnodes, forest_params_t* params,
+                        const tl::Model& model, const tl::Model& model_2,
+                        const treelite_params_t* tl_params) {
+  tl2fil_common_multi(params, model, model_2, tl_params);
+  // convert the nodes
+  int num_nodes = forest_num_nodes(params->num_trees, params->depth);
+  std::cout << "num_nodes : " << num_nodes << std::flush << std::endl;
+  pnodes->resize(num_nodes, dense_node_t{0, 0});
+  std::cout << "num_trees : " << model.trees.size() << std::flush << std::endl;
+
+  for (int i = 0; i < model.trees.size(); ++i) {
+    std::cout << "value of i : " << i << std::flush << std::endl;
+    //std::cout << model.trees[i] << std::flush << std::endl;
+    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i]);
+  }
+  std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" << std::flush << std::endl;
+
+  //tl2fil_common(params, model_2, tl_params);
+  // convert the nodes
+  //int num_nodes_2 = forest_num_nodes(params->num_trees, params->depth);
+  //std::cout << "num_nodes_2 : " << num_nodes_2 << std::flush << std::endl;
+  std::cout << "i condi is : " << model_2.trees.size()+model.trees.size()
+            << std::flush << std::endl;
+  std::cout << "j's condi is : " << model_2.trees.size() << std::flush
+            << std::endl;
+  //pnodes->resize(num_nodes_2, dense_node_t{0, 0});
+  for (int i = model.trees.size(), j = 0;
+       i < model_2.trees.size()+model.trees.size() && j < model_2.trees.size();
+       ++i, j++) {
+    std::cout << "value of i : " << i << std::flush << std::endl;
+    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model_2.trees[j]);
+  }
+  std::cout << "tl2fil_dense_multi is done " << std::flush << std::endl;
+  std::cout << "num_trees overall : " << params->num_trees << std::flush
+            << std::endl;
+
 }
 
 // uses treelite model with additional tl_params to initialize FIL params,
@@ -491,6 +568,31 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
   f->init(h, trees, nodes, params);
   *pf = f;
 }
+
+void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
+                          ModelHandle model, ModelHandle model_2,
+                          const treelite_params_t* tl_params) {
+    storage_type_t storage_type = tl_params->storage_type;
+  // build dense trees by default
+  if (storage_type == storage_type_t::AUTO) {
+    storage_type = storage_type_t::DENSE;
+  }
+
+  switch (storage_type) {
+    case storage_type_t::DENSE: {
+      forest_params_t params;
+      std::vector<dense_node_t> nodes;
+      tl2fil_dense_multi(&nodes, &params, *(tl::Model*)model,
+                         *(tl::Model*)model_2, tl_params);
+      init_dense(handle, pforest, nodes.data(), &params);
+      // sync is necessary as nodes is used in init_dense(),
+      // but destructed at the end of this function
+      CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      break;
+    }
+  }
+}
+
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {

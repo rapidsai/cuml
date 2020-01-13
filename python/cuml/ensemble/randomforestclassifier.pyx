@@ -37,6 +37,7 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.fil.fil import *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.cupy_utils import checked_cupy_unique
@@ -394,6 +395,73 @@ class RandomForestClassifier(Base):
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
 
         return model_protobuf_bytes
+
+    def get_algo(self, algo_str):
+        algo_dict={'AUTO': algo_t.ALGO_AUTO,
+                   'auto': algo_t.ALGO_AUTO,
+                   'NAIVE': algo_t.NAIVE,
+                   'naive': algo_t.NAIVE,
+                   'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
+                   'batch_tree_reorg': algo_t.BATCH_TREE_REORG,
+                   'TREE_REORG': algo_t.TREE_REORG,
+                   'tree_reorg': algo_t.TREE_REORG}
+        if algo_str not in algo_dict.keys():
+            raise Exception(' Wrong algorithm selected please refer'
+                            ' to the documentation')
+        return algo_dict[algo_str]
+
+    def get_storage_type(self, storage_type_str):
+        storage_type_dict={'AUTO': storage_type_t.AUTO,
+                           'auto': storage_type_t.AUTO,
+                           'DENSE': storage_type_t.DENSE,
+                           'dense': storage_type_t.DENSE,
+                           'SPARSE': storage_type_t.SPARSE,
+                           'sparse': storage_type_t.SPARSE}
+        if storage_type_str not in storage_type_dict.keys():
+            raise ValueError(' Wrong sparsity selected please refer'
+                             ' to the documentation')
+        return storage_type_dict[storage_type_str]
+
+    def _build_fil_model(self, model_handle):
+        output_class=True
+        threshold=0.5,
+        algo='AUTO'
+        storage_type='DENSE'
+        print("inside the pyx file for fil")
+        cdef treelite_params_t treelite_params
+        print("create tl params")
+        treelite_params.output_class = output_class
+        print("output class done")
+        treelite_params.threshold = 0.5
+        print("threshold done")
+        treelite_params.algo = self.get_algo(algo)
+        print("algo done")
+        treelite_params.storage_type = self.get_storage_type(storage_type)
+        print("done with tl params")
+        #self.forest_data = NULL
+        cdef forest_t forest_info = NULL
+        print("done with forest info ")
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()  
+        #cdef vector[uintptr_t] model_ptr_vector
+        model_ptr_vector = []
+        cdef uintptr_t model_ptr
+        for i in range(len(model_handle)):
+            model_ptr = <uintptr_t>model_handle[i]
+            model_ptr_vector.append(<size_t>model_ptr)
+
+        cdef uintptr_t model_ptr_0 = <uintptr_t>model_handle[0]
+        cdef uintptr_t model_ptr_1 = <uintptr_t>model_handle[1]
+        #cdef vector[ModelHandle] mod_handle_ptr = <vector[ModelHandle]><size_t>model_handle
+        print("calling the c++ function for fil")
+        build_fil_model(handle_[0],
+                        &forest_info,
+                        <ModelHandle> model_ptr_0,
+                        <ModelHandle> model_ptr_1,
+                        &treelite_params)
+        
+        return <size_t> forest_info
+        
         """
         cdef ModelHandle cuml_model_ptr = NULL
         #cdef vector[ModelHandle*]* model_handles_list = NULL;

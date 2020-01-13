@@ -321,6 +321,11 @@ class RandomForestClassifier:
         return model._get_model_info()
 
     @staticmethod
+    def _build_fil_model(model, model_handle):
+        print("model handels in dask func : ", model_handle)
+        return model._build_fil_model(model_handle=model_handle)
+
+    @staticmethod
     def _read_mod_handles(model, mod_handles):
         return model._read_mod_handles(mod_handles=mod_handles)
 
@@ -391,9 +396,6 @@ class RandomForestClassifier:
         c = default_client()
         futures = list()
 
-        #model_bytes = self.get_model_info()
-
-        #model_bytes = self.get_model_info()
         mod_bytes = list()
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
@@ -407,33 +409,7 @@ class RandomForestClassifier:
 
 
         worker_numb = [i for i in self.workers]
-        """
-        for n in range(len(worker_numb)):
-            futures.append(
-                c.submit(
-                    RandomForestClassifier._tl_model_handles,
-                    self.rfs[worker_numb[0]], #[w[0]],
-                    mod_bytes[n],
-                    workers=[worker_numb[0]],
-                )
-            )
 
-        wait(futures)
-        raise_exception_from_futures(futures)
-
-        byte_pointers = list()
-        for d in range(len(futures)):
-            byte_pointers.append(futures[d].result())
-
-        print("####################################")
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-        print(" byte_pointers after collected from C++ in .py : ", byte_pointers)
-        ### convert the mod bytes info to pointers using w[0]
-        ### and then pass the vector of pointers 
-        print("####################################")
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-        """
-        #w = [i for i in self.workers]
         futures.append(
             c.submit(
                 RandomForestClassifier._tl_model_handles,
@@ -506,21 +482,38 @@ class RandomForestClassifier:
 
         for i in range(len(mod_bytes_check)):
             print("shape of mod_bytes_check : ", np.shape(mod_bytes_check[i]))
-        
-        """
-        return mod_bytes
-        
-        from cuml import ForestInference
-        fil_model = ForestInference()
-        print("created the FIL model")
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(mod_handles[-1],
-                                             output_class=True,
-                                             threshold=0.5,
-                                             algo='BATCH_TREE_REORG')
-        """
-        return futures[0].result()
 
+        print("mod_handles : ", mod_handles)
+        fil_info = list()
+        #for i in range(len(mod_handles)):
+        fil_info.append(
+            c.submit(
+                RandomForestClassifier._build_fil_model,
+                self.rfs[worker_numb[0]], #[w[0]],
+                mod_handles,
+                workers=[worker_numb[0]],
+            )
+        )
+        wait(fil_info)
+        raise_exception_from_futures(fil_info)  
+
+        """
+        futures = list()
+        for i in range(len(mod_handles)):
+            futures.append(
+                c.submit(
+                    RandomForestClassifier.obtain_fil_model,
+                    self.rfs[worker_numb[0]], #[w[0]],
+                    mod_handles[i],
+                    workers=[worker_numb[0]],
+            )
+        )
+        wait(futures)
+        raise_exception_from_futures(futures)            
+        """
+        return mod_handles
+
+    """
     def obtain_fil_model(self, mod_handles):
         c = default_client()
         futures = list()
@@ -528,7 +521,9 @@ class RandomForestClassifier:
         from cuml import ForestInference
         fil = ForestInference()
 
-        fil.load_from_randomforest(model_handle=val[0], output_class=True)
+        mod = fil.load_from_randomforest(model_handle=mod_handles, output_class=True)
+        retur                                                          n mod
+    """
 
     def fit(self, X, y):
         """

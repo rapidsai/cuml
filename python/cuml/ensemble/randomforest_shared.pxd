@@ -45,6 +45,32 @@ cdef extern from "treelite/c_api.h":
                                          ModelHandle model)
     cdef const char* TreeliteGetLastError()
 
+cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
+    cdef enum algo_t:
+        ALGO_AUTO,
+        NAIVE,
+        TREE_REORG,
+        BATCH_TREE_REORG
+
+    cdef enum storage_type_t:
+        AUTO,
+        DENSE,
+        SPARSE
+
+    cdef enum output_t:
+        pass
+
+    cdef struct treelite_params_t:
+        algo_t algo
+        bool output_class
+        float threshold
+        storage_type_t storage_type
+
+    cdef struct forest:
+        pass
+
+    ctypedef forest* forest_t
+
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef enum CRITERION:
         GINI,
@@ -123,3 +149,9 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef ModelHandle tl_mod_handle(ModelHandle*,
                                    vector[unsigned char]&)
+
+    cdef void build_fil_model(const cumlHandle&,
+                              forest_t*,
+                              ModelHandle,
+                              ModelHandle, 
+                              const treelite_params_t*);

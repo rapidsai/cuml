@@ -16,6 +16,7 @@
 
 #pragma once
 #include <cuml/ensemble/treelite_defs.hpp>
+#include <cuml/fil/fil.h>
 #include <cuml/tree/decisiontree.hpp>
 #include <map>
 
@@ -123,6 +124,10 @@ std::vector<unsigned char> save_model(ModelHandle model);
 
 ModelHandle tl_mod_handle(ModelHandle* model,
                           std::vector<unsigned char>& data);
+
+void build_fil_model(const cumlHandle& handle, fil::forest_t* pforest,
+                     ModelHandle model, ModelHandle model_2,
+                     const fil::treelite_params_t* tl_params);
 
 // ----------------------------- Classification ----------------------------------- //
 
