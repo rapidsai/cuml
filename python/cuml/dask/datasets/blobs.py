@@ -121,7 +121,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                                     size=(centers, ncols)).astype(np.float32)
 
     if verbose:
-        print("Generating %d samples acgraross %d partitions on "
+        print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
               (math.ceil(nrows/len(workers)), n_parts, len(workers), nrows))
 
