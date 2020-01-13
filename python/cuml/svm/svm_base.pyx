@@ -37,7 +37,10 @@ from sklearn.exceptions import NotFittedError
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
-        LINEAR, POLYNOMIAL, RBF, TANH
+        LINEAR,
+        POLYNOMIAL,
+        RBF,
+        TANH
 
     cdef struct KernelParams:
         KernelType kernel
@@ -47,7 +50,10 @@ cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
 
 cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
     enum SvmType:
-        C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
+        C_SVC,
+        NU_SVC,
+        EPSILON_SVR,
+        NU_SVR
 
     cdef struct svmParameter:
         # parameters for trainig
@@ -89,7 +95,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SvmBase(Base):
+class SVMBase(Base):
     """
     Base class for Support Vector Machines
 
@@ -178,7 +184,7 @@ class SvmBase(Base):
         For additional docs, see `scikitlearn's SVC
         <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
         """
-        super(SvmBase, self).__init__(handle=handle, verbose=verbose)
+        super(SVMBase, self).__init__(handle=handle, verbose=verbose)
         # Input parameters for training
         self.tol = tol
         self.C = C
@@ -541,7 +547,7 @@ class SvmBase(Base):
         return state
 
     def __setstate__(self, state):
-        super(SvmBase, self).__init__(handle=None, verbose=state['verbose'])
+        super(SVMBase, self).__init__(handle=None, verbose=state['verbose'])
 
         state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
         state['support_'] = state['support_'].to_gpu_array()

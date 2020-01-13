@@ -34,11 +34,14 @@ from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
 from sklearn.exceptions import NotFittedError
-from cuml.svm.svm_base import SvmBase
+from cuml.svm.svm_base import SVMBase
 
 cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
-        LINEAR, POLYNOMIAL, RBF, TANH
+        LINEAR,
+        POLYNOMIAL,
+        RBF,
+        TANH
 
     cdef struct KernelParams:
         KernelType kernel
@@ -48,7 +51,10 @@ cdef extern from "matrix/kernelparams.h" namespace "MLCommon::Matrix":
 
 cdef extern from "svm/svm_parameter.h" namespace "ML::SVM":
     enum SvmType:
-        C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
+        C_SVC,
+        NU_SVC,
+        EPSILON_SVR,
+        NU_SVR
 
     cdef struct svmParameter:
         # parameters for trainig
@@ -90,7 +96,7 @@ cdef extern from "svm/svc.hpp" namespace "ML::SVM":
                                      svmModel[math_t] &m) except +
 
 
-class SVC(SvmBase):
+class SVC(SVMBase):
     """
     SVC (C-Support Vector Classification)
 
@@ -136,7 +142,7 @@ class SVC(SvmBase):
             sigmoid
         tol : float (default = 1e-3)
             Tolerance for stopping criterion.
-        cache_size : float (default = 200 MiB)
+        cache_size : float (default = 200.0)
             Size of the kernel cache during training in MiB. The default is a
             conservative value, increase it to improve the training time, at
             the cost of higher memory footprint. After training the kernel
@@ -159,18 +165,18 @@ class SVC(SvmBase):
         n_support_ : int
             The total number of support vectors. Note: this will change in the
             future to represent number support vectors for each class (like
-            in Sklearn, see Issue #956)
-        support_ : int, shape = [n_support]
+            in Sklearn, see https://github.com/rapidsai/cuml/issues/956 )
+        support_ : int, shape = (n_support)
             Device array of suppurt vector indices
-        support_vectors_ : float, shape [n_support, n_cols]
+        support_vectors_ : float, shape (n_support, n_cols)
             Device array of support vectors
-        dual_coef_ : float, shape = [1, n_support]
+        dual_coef_ : float, shape = (1, n_support)
             Device array of coefficients for support vectors
         intercept_ : int
             The constant in the decision function
         fit_status_ : int
             0 if SVM is correctly fitted
-        coef_ : float, shape [1, n_cols]
+        coef_ : float, shape (1, n_cols)
             Only available for linear kernels. It is the normal of the
             hyperplane.
             coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
