@@ -222,6 +222,7 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
       preds, y.data(), n_rows, [b] __device__(math_t y) { return y + b; },
       stream);
   }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   delete kernel;
 }
 

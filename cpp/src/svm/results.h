@@ -109,6 +109,8 @@ class Results {
       *idx = GetSupportVectorIndices(val_tmp.data(), *n_support);
       *x_support = CollectSupportVectors(*idx, *n_support);
       *b = CalcB(alpha, f);
+      // Make sure that all pending GPU calculations finished before we return
+      CUDA_CHECK(cudaStreamSynchronize(stream));
     } else {
       *dual_coefs = nullptr;
       *idx = nullptr;
