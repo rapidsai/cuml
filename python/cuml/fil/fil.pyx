@@ -138,7 +138,7 @@ cdef class TreeliteModel():
         return model
 
     @staticmethod
-    def from_model_handle(treelite_handle):
+    def from_treelite_model_handle(treelite_handle):
         cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
         model = TreeliteModel()
         model.set_handle(handle)
