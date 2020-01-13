@@ -121,6 +121,9 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model);
 
+ModelHandle tl_mod_handle(ModelHandle* model,
+                          std::vector<unsigned char>& data);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;

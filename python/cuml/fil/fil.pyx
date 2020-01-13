@@ -104,6 +104,13 @@ cdef class TreeliteModel():
         return out
 
     @staticmethod
+    def from_tl_handle(model_handle):
+        cdef ModelHandle handle = <ModelHandle><size_t> model_handle
+        model = TreeliteModel()
+        model.set_handle(handle)
+        return model
+
+    @staticmethod
     def from_filename(filename, model_type="xgboost"):
         """
         Returns a TreeliteModel object loaded from `filename`
