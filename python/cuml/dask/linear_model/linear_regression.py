@@ -31,21 +31,37 @@ from uuid import uuid1
 
 class LinearRegression(object):
     """
-    Model-Parallel Multi-GPU Linear Regression Model. Single Process Multi GPU
-    supported currently
+    LinearRegression is a simple machine learning model where the response y is
+    modelled by a linear combination of the predictors in X.
+
+    cuML's dask LinearRegression (multi-node multi-gpu) expects dask cuDF
+    DataFrame and provides an algorithms, Eig, to fit a linear model.
+    SVD algorithm which is more stable than Eig will be provided in the
+    next versions.
+
+    Parameters
+    -----------
+    algorithm : 'eig'
+        Eig uses a eigendecomposition of the covariance matrix, and is much
+        faster.
+        SVD is slower, but guaranteed to be stable.
+    fit_intercept : boolean (default = True)
+        If True, LinearRegression tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
+    normalize : boolean (default = False)
+        If True, the predictors in X will be normalized by dividing by it's
+        L2 norm.
+        If False, no scaling will be done.
+
+    Attributes
+    -----------
+    coef_ : array, shape (n_features)
+        The estimated coefficients for the linear regression model.
+    intercept_ : array
+        The independent term. If fit_intercept_ is False, will be 0.
     """
 
     def __init__(self, client=None, **kwargs):
-        """
-        Initializes the linear regression class.
-
-        Parameters
-        ----------
-        fit_intercept: boolean. For more information, see `scikitlearn's OLS
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-        normalize: boolean. For more information, see `scikitlearn's OLS
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-        """
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
         self.coef_ = None
