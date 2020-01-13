@@ -21,9 +21,7 @@ from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
 from sklearn.datasets import make_regression
 import pandas as pd
-import gzip
 import numpy as np
-import os
 import dask_cudf
 import cudf
 
@@ -66,7 +64,7 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_ridge(nrows, ncols, n_parts, fit_intercept, 
+def test_ridge(nrows, ncols, n_parts, fit_intercept,
                normalize, datatype, client=None):
 
     if client is None:
