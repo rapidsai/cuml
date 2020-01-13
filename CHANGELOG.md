@@ -11,6 +11,7 @@
 - PR #1443: Added a new overloaded GEMM primitive
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
+- PR #1432: Row-major (C-style) GPU arrays for benchmarks
 - PR #1490: Use dask master instead of conda package for testing
 - PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
@@ -19,7 +20,6 @@
 - PR #1541: Updates for libcudf++ Python refactor
 
 ## Bug Fixes
-
 - PR #1470: Documentation: add make_regression, fix ARIMA section
 - PR #1482: Updated the code to remove sklearn from the mbsgd stress test
 - PR #1491: Update dev environments for 0.12
