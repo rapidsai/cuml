@@ -303,7 +303,7 @@ class RandomForestClassifier(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self.model_pbuf_bytes = self._get_model_info()
+        self.model_pbuf_bytes = self._get_protobuf_bytes()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*>params_t
@@ -373,8 +373,8 @@ class RandomForestClassifier(Base):
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         return treelite_handle
 
-    def _get_model_info(self):
-        task_category = 2
+    def _get_protobuf_bytes(self):
+        task_category = CLASSIFICATION_MODEL
         fit_mod_ptr = self._convert_to_treelite(task_category)
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
@@ -386,10 +386,22 @@ class RandomForestClassifier(Base):
         converts the cuML RF model to a Treelite model
         Returns:  Treelite model
         """
-        task_category = 2
+        task_category = CLASSIFICATION_MODEL
         treelite_handle = self._convert_to_treelite(task_category)
         treelite_model = TreeliteModel.from_model_handle(treelite_handle)
         return treelite_model
+
+    def convert_to_fil_model(self, output_class=True,
+                             threshold=0.5, algo='BATCH_TREE_REORG',
+                             task_category=CLASSIFICATION_MODEL):
+        treelite_handle = self._convert_to_treelite(task_category)
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(treelite_handle,
+                                             output_class=output_class,
+                                             threshold=threshold,
+                                             algo=algo)
+        return tl_to_fil_model
 
     def fit(self, X, y):
         """
@@ -502,13 +514,9 @@ class RandomForestClassifier(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        treelite_handle = self._convert_to_treelite(num_classes)
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo)
+        tl_to_fil_model = self.convert_to_fil_model(output_class,
+                                                    threshold, algo,
+                                                    num_classes)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
         return preds

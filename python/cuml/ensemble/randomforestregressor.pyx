@@ -292,7 +292,7 @@ class RandomForestRegressor(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self.model_pbuf_bytes = self._get_model_info()
+        self.model_pbuf_bytes = self._get_protobuf_bytes()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*>params_t
@@ -365,8 +365,8 @@ class RandomForestRegressor(Base):
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         return treelite_handle
 
-    def _get_model_info(self):
-        task_category = 1
+    def _get_protobuf_bytes(self):
+        task_category = REGRESSION_MODEL
         fit_mod_ptr = self._convert_to_treelite(task_category)
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
@@ -377,10 +377,21 @@ class RandomForestRegressor(Base):
         converts the cuML RF model to a Treelite model
         Returns:  Treelite model
         """
-        task_category = 1
+        task_category = REGRESSION_MODEL
         treelite_handle = self._convert_to_treelite(task_category)
         treelite_model = TreeliteModel.from_model_handle(treelite_handle)
         return treelite_model
+
+    def convert_to_fil_model(self, output_class=False,
+                             algo='BATCH_TREE_REORG',
+                             task_category=REGRESSION_MODEL):
+        treelite_handle = self._convert_to_treelite(task_category)
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(treelite_handle,
+                                             output_class=output_class,
+                                             algo=algo)
+        return tl_to_fil_model
 
     def fit(self, X, y):
         """
@@ -467,20 +478,16 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo,
-                              convert_dtype, task_category=1):
+                              convert_dtype, task_category=REGRESSION_MODEL):
         X_m, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
 
-        task_category = 1  # for regression
-        treelite_handle = self._convert_to_treelite(task_category)
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=False,
-                                             algo=algo)
+        task_category = REGRESSION_MODEL  # for regression
+        tl_to_fil_model = self.convert_to_fil_model(output_class=False,
+                                                    algo=algo)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
         return preds
