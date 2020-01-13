@@ -356,3 +356,98 @@ def test_rf_regression_float64(datatype, column_info, nrows):
         fil_preds = cuml_model.predict(X_test, predict_model="GPU")
         fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
         assert fil_r2 >= (cu_r2 - 0.02)
+
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('datatype', [np.float32])
+def test_fil_and_treelite_models_classification(datatype, nrows, column_info):
+    use_handle = True
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    numb_treees = 40
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(n_bins=16, split_algo=0, split_criterion=0,
+                       min_rows_per_node=2, seed=123, n_streams=1,
+                       n_estimators=numb_treees, handle=handle, max_leaves=-1,
+                       max_depth=16)
+    cuml_model.fit(X_train, y_train)
+    fil_preds = cuml_model.predict(X_test,
+                                   predict_model="GPU",
+                                   output_class=True,
+                                   threshold=0.5,
+                                   algo='BATCH_TREE_REORG')
+    fil_acc = accuracy_score(y_test, fil_preds)
+
+    fil_model = cuml_model.convert_to_fil_model()
+    fil_model_preds = fil_model.predict(X_test)
+    fil_model_acc = accuracy_score(y_test, fil_model_preds)
+    assert fil_acc == fil_model_acc
+
+    tl_model = cuml_model.convert_to_treelite_model()
+
+    assert numb_treees == tl_model.num_trees()
+    assert ncols == tl_model.num_features()
+
+
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('datatype', [np.float32])
+def test_fil_and_treelite_models_regression(datatype, nrows, column_info):
+    use_handle = True
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info,
+                           random_state=123)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    numb_treees = 40
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfr(n_bins=16, split_algo=0, split_criterion=0,
+                       min_rows_per_node=2, seed=123, n_streams=1,
+                       n_estimators=numb_treees, handle=handle, max_leaves=-1,
+                       max_depth=16)
+    cuml_model.fit(X_train, y_train)
+    fil_preds = cuml_model.predict(X_test,
+                                   predict_model="GPU",
+                                   output_class=True,
+                                   threshold=0.5,
+                                   algo='BATCH_TREE_REORG')
+    fil_acc = r2_score(y_test, fil_preds, convert_dtype=datatype)
+
+    fil_model = cuml_model.convert_to_fil_model()
+    fil_model_preds = fil_model.predict(X_test)
+    fil_model_r2 = r2_score(y_test, fil_model_preds, convert_dtype=datatype)
+    assert fil_acc == fil_model_acc
+
+    tl_model = cuml_model.convert_to_treelite_model()
+
+    assert numb_treees == tl_model.num_trees()
+    assert ncols == tl_model.num_features()    
+
+
+
+
+
+
