@@ -41,7 +41,10 @@ namespace {  // unnamed namespace to avoid multiple definition error
  * @param [in] ws array with working set indices, size [n_ws]
  * @param [in] n_ws number of elements in the working set
  * @param [in] n_rows number of rows in the original problem
- * @param [in] unique array of unique vectors in the working set
+ * @param [in] unique array with indices of unique vectors in the working set,
+ *     size [n_unique]
+ * @param [in] n_unique number of elements in the unique array
+ * @param [out] out array with workspace idx to column idx mapping, size [n_ws]
  */
 __global__ void mapColumnIndices(const int *ws, int n_ws, int n_rows,
                                  const int *unique, int n_unique, int *out) {
