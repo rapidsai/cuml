@@ -425,7 +425,7 @@ def test_tsne_pickle(tmpdir):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_svm_pickle(tmpdir, datatype):
+def test_svc_pickle(tmpdir, datatype):
     result = {}
 
     def create_mod():
@@ -443,3 +443,26 @@ def test_svm_pickle(tmpdir, datatype):
     def assert_model(pickled_model, data):
         compare_svm(result["model"], pickled_model, data[0], data[1], cmp_sv=0,
                     dcoef_tol=0)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
+    result = {}
+
+    def create_mod():
+        X_train, y_train, X_test = make_dataset(datatype, nrows,
+                                                ncols, n_info)
+        model = cuml.svm.SVR()
+        model.fit(X_train, y_train)
+        result["svr"] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        assert array_equal(result["svr"], pickled_model.predict(X_test))
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
