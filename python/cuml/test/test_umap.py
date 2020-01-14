@@ -43,7 +43,7 @@ dataset_names = ['iris', 'digits', 'wine', 'blobs']
 def test_blobs_cluster(nrows, n_feats):
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0)
-    embedding = cuUMAP(verbose=True).fit_transform(data, convert_dtype=True)
+    embedding = cuUMAP(verbose=False).fit_transform(data, convert_dtype=True)
 
     if nrows < 500000:
         score = adjusted_rand_score(labels,
@@ -64,7 +64,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
                               centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=True)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -87,7 +87,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=True).fit_transform(data, iris.target,
+                       verbose=False).fit_transform(data, iris.target,
                                                    convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
@@ -99,7 +99,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     target = iris.target.copy()
     target[25:75] = -1
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=True).fit_transform(data, target,
+                       verbose=False).fit_transform(data, target,
                                                    convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, 10)
@@ -110,7 +110,7 @@ def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       verbose=True).fit_transform(data, convert_dtype=True)
+                       verbose=False).fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
 
     # We are doing a spectral embedding but not a
@@ -129,7 +129,7 @@ def test_umap_transform_on_iris():
 
     print("::::::::Pytest a")
 
-    fitter = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=True)
+    fitter = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
     print("::::::::Pytest cuUMAP created")
     fitter.fit(data, convert_dtype=True)
     print("::::::::Pytest cuUMAP fit")
@@ -167,7 +167,7 @@ def test_umap_fit_transform_trust(name):
                                   centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=True)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
@@ -200,7 +200,7 @@ def test_umap_data_formats(input_type, should_downcast,
         X, y = datasets.make_blobs(n_samples=n_samples,
                                    n_features=n_feats, random_state=0)
 
-    umap = cuUMAP(n_neighbors=3, n_components=2, verbose=True)
+    umap = cuUMAP(n_neighbors=3, n_components=2, verbose=False)
 
     embeds = umap.fit_transform(X)
     assert type(embeds) == np.ndarray
@@ -215,7 +215,7 @@ def test_umap_fit_transform_score_default():
                               centers=10, random_state=42)
 
     model = umap.UMAP()
-    cuml_model = cuUMAP(verbose=True)
+    cuml_model = cuUMAP(verbose=False)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -241,7 +241,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     First test the default option does not hash the input
     """
 
-    cuml_model = cuUMAP(verbose=True)
+    cuml_model = cuUMAP(verbose=False)
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
@@ -252,7 +252,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     Next, test explicitly enabling feature hashes the input
     """
 
-    cuml_model = cuUMAP(hash_input=True, verbose=True)
+    cuml_model = cuUMAP(hash_input=True, verbose=False)
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
