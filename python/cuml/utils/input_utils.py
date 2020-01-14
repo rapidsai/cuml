@@ -19,17 +19,12 @@ import cuml.utils.numba_utils
 import cudf
 import cupy as cp
 import numpy as np
+import rmm
 import warnings
-
-from cuml.utils.import_utils import has_cupy
-from cuml.utils.cupy_utils import test_numba_cupy_version_conflict
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
 from collections import namedtuple
 from collections.abc import Collection
 from numba import cuda
-
-import rmm
 
 
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
@@ -242,9 +237,6 @@ def convert_dtype(X, to_dtype=np.float32):
     Todo: support other dtypes if needed.
     """
 
-    # Using cuDF for converting numba and device array interface inputs
-    # if CuPy not installed, temporary while CuPy conda package
-    # causes nccl conflicts
     if isinstance(X, np.ndarray):
         dtype = X.dtype
         if dtype != to_dtype:
@@ -258,25 +250,9 @@ def convert_dtype(X, to_dtype=np.float32):
         return X.astype(to_dtype)
 
     elif cuda.is_cuda_array(X):
-        if has_cupy():
-            import cupy as cp
-
-            if test_numba_cupy_version_conflict(X):
-                X = PatchedNumbaDeviceArray(X)
-
-            X_m = cp.asarray(X)
-            X_m = X_m.astype(to_dtype)
-            return cuda.as_cuda_array(X_m)
-        else:
-            warnings.warn("Using cuDF for dtype conversion, install"
-                          "CuPy for faster data conversion.")
-            if (len(X.shape) == 1):
-                return cudf.Series(X).astype(to_dtype).to_gpu_array()
-            else:
-                X_df = cudf.DataFrame()
-                X = X_df.from_gpu_matrix(X)
-                X = convert_dtype(X, to_dtype=to_dtype)
-                return X.as_gpu_matrix()
+        X_m = cp.asarray(X)
+        X_m = X_m.astype(to_dtype)
+        return cuda.as_cuda_array(X_m)
 
     else:
         raise TypeError("Received unsupported input type " % type(X))
