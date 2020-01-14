@@ -207,13 +207,17 @@ def _convert_to_gpuarray(data, order='F'):
     elif isinstance(data, tuple):
         return tuple([_convert_to_gpuarray(d, order=order) for d in data])
     elif isinstance(data, pd.DataFrame):
-        gdf = cudf.DataFrame.from_pandas(data)
-        return gdf.as_gpu_matrix(order=order)
+        return _convert_to_gpuarray(cudf.DataFrame.from_pandas(data),
+                                    order=order)
     elif isinstance(data, pd.Series):
         gs = cudf.Series.from_pandas(data)
         return cuda.as_cuda_array(gs)
     else:
         return input_utils.input_to_dev_array(data, order=order)[0]
+
+
+def _convert_to_gpuarray_c(data):
+    return _convert_to_gpuarray(data, order='C')
 
 
 _data_generators = {
@@ -228,6 +232,7 @@ _data_converters = {
     'cudf': _convert_to_cudf,
     'pandas': _convert_to_pandas,
     'gpuarray': _convert_to_gpuarray,
+    'gpuarray-c': _convert_to_gpuarray_c,
 }
 
 
