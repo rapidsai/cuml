@@ -108,7 +108,7 @@ void count_features_dense_{dtype_str}(
 
   if(row >= n_rows || col >= n_cols) return;
 
-  {dtype_str} val = !rowMajor ? 
+  {dtype_str} val = !rowMajor ?
         in[col * n_rows + row] : in[row * n_cols + col];
 
   if(val == 0.0) return;
