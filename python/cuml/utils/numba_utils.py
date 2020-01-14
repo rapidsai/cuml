@@ -55,10 +55,10 @@ def _rmm_cupy6_array_like(ary, order):
                         order=order).nbytes
     memptr = cp.cuda.MemoryPointer(rmm.rmm.RMMCuPyMemory(nbytes), 0)
     arr = cp.ndarray(ary.shape,
-                       dtype=ary.dtype,
-                       memptr=memptr,
-                       strides=ary.strides,
-                       order=order)
+                     dtype=ary.dtype,
+                     memptr=memptr,
+                     strides=ary.strides,
+                     order=order)
     return arr
 
 
