@@ -80,6 +80,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  *                          Shape: (P, batch_size) (device)
  * @param[in]  d_sma        Seasonal MA parameters.
  *                          Shape: (Q, batch_size) (device)
+ * @param[in]  d_sigma2     Variance parameter. Shape: (batch_size,) (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
  *                          shape = (nobs, batch_size) (device)
@@ -92,9 +93,10 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, int p, int d, int q, int P, int D, int Q, int s,
                      int intercept, const double* d_mu, const double* d_ar,
                      const double* d_ma, const double* d_sar,
-                     const double* d_sma, double* loglike, double* d_vs,
-                     bool trans = true, bool host_loglike = true,
-                     int fc_steps = 0, double* d_fc = nullptr);
+                     const double* d_sma, const double* d_sigma2,
+                     double* loglike, double* d_vs, bool trans = true,
+                     bool host_loglike = true, int fc_steps = 0,
+                     double* d_fc = nullptr);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -154,6 +156,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  *                         Shape: (P, batch_size) (device)
  * @param[in]  d_sma       Seasonal MA parameters.
  *                         Shape: (Q, batch_size) (device)
+ * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
  * @param[out] d_vs        Residual output (device)
  * @param[in]  trans       Run `jones_transform` on params.
  * @param[in]  fc_steps    Number of steps to forecast
@@ -162,38 +165,8 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
 void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
               int p, int d, int q, int P, int D, int Q, int s, int intercept,
               const double* d_mu, const double* d_ar, const double* d_sar,
-              const double* d_sma, double* d_vs, bool trans, int fc_steps = 0,
-              double* d_fc = nullptr);
-
-/**
- * Residual of in-sample prediction of a time-series given all the model
- * parameters.
- *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Batched Time series to predict.
- *                         Shape: (num_samples, batch size) (device)
- * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
- *                         (all series must be identical)
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference order
- * @param[in]  q           Number of MA parameters
- * @param[in]  P           Number of seasonal AR parameters
- * @param[in]  D           Seasonal difference order
- * @param[in]  Q           Number of seasonal MA parameters
- * @param[in]  s           Seasonal period
- * @param[in]  intercept   Whether the model fits an intercept (constant term)
- * @param[in]  d_params    Zipped trend, AR, and MA parameters
- *                         [mu, ar, ma] x batches (device)
- * @param[out] d_vs        Residual output (device)
- * @param[in]  trans       Run `jones_transform` on params.
- * @param[in]  fc_steps    Number of steps to forecast
- * @param[in]  d_fc        Array to store the forecast
- */
-void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-              int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              const double* d_params, double* d_vs, bool trans,
-              int fc_steps = 0, double* d_fc = nullptr);
+              const double* d_sma, const double* d_sigma2, double* d_vs,
+              bool trans, int fc_steps = 0, double* d_fc = nullptr);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
@@ -212,13 +185,14 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  * @param[in]  Q           Number of seasonal MA parameters
  * @param[in]  s           Seasonal period
  * @param[in]  intercept   Whether the model fits an intercept (constant term)
- * @param[in]  d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
+ * @param[in]  d_mu        mu if intercept != 0. Shape: (batch_size,) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
  * @param[in]  d_sar       Seasonal AR parameters.
  *                         Shape: (P, batch_size) (device)
  * @param[in]  d_sma       Seasonal MA parameters.
  *                         Shape: (Q, batch_size) (device)
+ * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
  * @param[out] ic          Array where to write the information criteria
  *                         Shape: (batch_size) (host)
  * @param[in]  ic_type     Type of information criterion wanted.
@@ -229,19 +203,21 @@ void information_criterion(cumlHandle& handle, const double* d_y,
                            int D, int Q, int s, int intercept,
                            const double* d_mu, const double* d_ar,
                            const double* d_ma, const double* d_sar,
-                           const double* d_sma, double* ic, int ic_type);
+                           const double* d_sma, const double* d_sigma2,
+                           double* ic, int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
  *
  * @param[in]  handle      cuML handle
- * @param[out] d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
+ * @param[out] d_mu        mu if intercept != 0. Shape: (batch_size,) (device)
  * @param[out] d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[out] d_ma        MA parameters. Shape: (q, batch_size) (device)
  * @param[out] d_sar       Seasonal AR parameters.
  *                         Shape: (P, batch_size) (device)
  * @param[out] d_sma       Seasonal MA parameters.
  *                         Shape: (Q, batch_size) (device)
+ * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
  * @param[in]  d_y         Series to fit: shape = (nobs, batch_size) and
  *                         expects column major data layout. (device)
  * @param[in]  batch_size  Total number of batched time series
@@ -257,8 +233,8 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  * @param[in]  intercept   Whether the model fits an intercept (constant term)
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
-                 double* d_sar, double* d_sma, const double* d_y,
-                 int batch_size, int nobs, int p, int d, int q, int P, int D,
-                 int Q, int s, int intercept);
+                 double* d_sar, double* d_sma, double* d_sigma2,
+                 const double* d_y, int batch_size, int nobs, int p, int d,
+                 int q, int P, int D, int Q, int s, int intercept);
 
 }  // namespace ML

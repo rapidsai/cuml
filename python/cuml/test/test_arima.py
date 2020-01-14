@@ -391,7 +391,7 @@ def test_gradient(test_case, dtype):
     order, seasonal_order, intercept = extract_order(key)
     p, _, q = order
     P, _, Q, _ = seasonal_order
-    N = p + P + q + Q + intercept
+    N = p + P + q + Q + intercept + 1
     h = 1e-8
 
     y, y_cudf = get_dataset(data, dtype)

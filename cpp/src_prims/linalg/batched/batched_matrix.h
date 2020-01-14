@@ -231,7 +231,7 @@ class BatchedMatrix {
    */
   BatchedMatrix<T> deepcopy() const {
     BatchedMatrix<T> out(m_shape.first, m_shape.second, m_batch_size,
-                         m_cublasHandle, m_allocator, m_stream);
+                         m_cublasHandle, m_allocator, m_stream, false);
     copy(out[0], m_A_dense.get(), m_batch_size * m_shape.first * m_shape.second,
          m_stream);
     return out;
