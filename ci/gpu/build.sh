@@ -84,7 +84,7 @@ export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 logger "Build libcuml, cuml, prims and bench targets..."
-$WORKSPACE/build.sh clean libcuml cuml -v
+$WORKSPACE/build.sh clean libcuml cuml prims bench -v
 
 logger "Resetting LD_LIBRARY_PATH..."
 
