@@ -343,11 +343,6 @@ ModelHandle tl_mod_handle(ModelHandle* model,
   return *model;
  }
 
-void predict_mnmg(const cumlHandle& handle, fil::forest_t forest, float* preds,
-                  const float* data, size_t num_rows){
-  std::cout << " inside the mnmg fil predict in C++ " << std::flush << std::endl;
-  fil::predict(handle, forest, preds, data, num_rows);
-}
 
 std::vector<unsigned char> save_model(ModelHandle model) {
   // create a temp file
