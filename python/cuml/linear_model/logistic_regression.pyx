@@ -26,7 +26,6 @@ from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
 from cuml.utils import input_to_dev_array
-from cuml.utils.cupy_utils import checked_cupy_unique
 import rmm
 import numpy as np
 

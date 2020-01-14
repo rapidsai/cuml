@@ -328,6 +328,7 @@ def test_unfit_clone(model_name):
     clone(mod)
     # TODO: check parameters exactly?
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', neighbor_models.keys())
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
@@ -468,5 +469,3 @@ def test_svm_pickle(tmpdir, datatype):
     def assert_model(pickled_model, data):
         compare_svm(result["model"], pickled_model, data[0], data[1], cmp_sv=0,
                     dcoef_tol=0)
-
-
