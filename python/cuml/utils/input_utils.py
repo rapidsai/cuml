@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -221,11 +221,7 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             warnings.warn("Expected " + order_to_str(order) + " major order, "
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
-            X_m = cuml.utils.numba_utils.gpu_major_converter(X_m,
-                                                             n_rows,
-                                                             n_cols,
-                                                             dtype,
-                                                             to_order=order)
+            X_m = cuda.as_cuda_array(cp.array(X_m, copy=False, order=order))
 
     X_ptr = get_dev_array_ptr(X_m)
 
