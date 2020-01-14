@@ -62,7 +62,6 @@ def test_kmeans_sklearn_comparison(name, nrows):
         # since we are comparing 2 we just need to compare that both clusters
         # have approximately the same number of points.
         calculation = (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred)
-        print(cuml_kmeans.score(X), kmeans.score(X))
         score_test = (cuml_kmeans.score(X) - kmeans.score(X)) < 2e-3
         if name == 'noisy_circles':
             assert (calculation < 4e-3) and score_test
