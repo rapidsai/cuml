@@ -1,4 +1,5 @@
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,9 +33,32 @@ def row_matrix(df):
 
     col_major = df.as_gpu_matrix(order='F')
 
-    row_major = cuda.as_cuda_array(cp.array(col_major, order='C'))
+    # using_allocator was introduced in CuPy 7. Once 7+ is required,
+    # this check can be removed alongside the alternative code path.
+    if check_min_cupy_version("7.0"):
+        with cupy.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
+            row_major = cuda.as_cuda_array(cp.array(col_major, order='C'))
+
+    else:
+        temp_row_major = cp.array(col_major, order='C')
+        row_major = _rmm_cupy6_array_like(temp_row_major, order='C')
+        cp.copyto(row_major, temp_row_major)
 
     return row_major
+
+
+def _rmm_cupy6_array_like(ary, order):
+    nbytes = numpy.ndarray(ary.shape,
+                           dtype=ary.dtype,
+                           strides=ary.strides,
+                           order=order).nbytes
+    memptr = cupy.cuda.MemoryPointer(rmm.rmm.RMMCuPyMemory(nbytes), 0)
+    arr = cupy.ndarray(ary.shape,
+                       dtype=ary.dtype,
+                       memptr=memptr,
+                       strides=ary.strides,
+                       order=order)
+    return arr
 
 
 @cuda.jit
