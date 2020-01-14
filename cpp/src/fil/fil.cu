@@ -595,8 +595,8 @@ void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
     case storage_type_t::DENSE: {
       forest_params_t params;
       std::vector<dense_node_t> nodes;
-      tl2fil_dense_multi(&nodes, &params, *(tl::Model*)model,
-                         *(tl::Model*)model_2, tl_params);
+      tl2fil_dense_multi(&nodes, &params, *(tl::Model*)model_vector[0],
+                         *(tl::Model*)model_vector[1], tl_params);
       init_dense(handle, pforest, nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function

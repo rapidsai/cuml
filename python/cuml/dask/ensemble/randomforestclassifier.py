@@ -409,7 +409,7 @@ class RandomForestClassifier:
 
 
         worker_numb = [i for i in self.workers]
-
+        """
         futures.append(
             c.submit(
                 RandomForestClassifier._tl_model_handles,
@@ -496,8 +496,80 @@ class RandomForestClassifier:
         )
         wait(fil_info)
         raise_exception_from_futures(fil_info)  
-
         """
+    
+        check_handles = list()
+        for n in range(len(self.workers)):
+            check_handles.append(
+                c.submit(
+                    RandomForestClassifier._tl_model_handles,
+                    self.rfs[worker_numb[0]],
+                    mod_bytes[n],
+                    workers=[worker_numb[0]],
+                )
+            )
+
+        wait(check_handles)
+        raise_exception_from_futures(check_handles)
+        
+        list_mod_handles = list()
+        for d in range(len(check_handles)):
+            list_mod_handles.append(check_handles[d].result())
+
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        print("list of mod handles obtained from using a for loop")
+        print(" : ", list_mod_handles)
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        
+        check_bytes = list()
+        for n in range(len(self.workers)):
+            check_bytes.append(
+                c.submit(
+                    RandomForestClassifier._read_mod_handles,
+                    self.rfs[worker_numb[0]],
+                    list_mod_handles[n],
+                    workers=[worker_numb[0]],
+                )
+            )
+
+        wait(check_bytes)
+        raise_exception_from_futures(check_bytes)
+
+        answers = list()
+        for d in range(len(check_bytes)):
+            answers.append(check_bytes[d].result())
+
+
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        print("list of mod handles obtained from using a for loop")
+        for i in range(len(answers)):
+            print("shape of mod_bytes_check : ", np.shape(answers[i]))
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+
+        
+        print("mod_handles : ", list_mod_handles)
+        
+        fil_info = list()
+        #for i in range(len(mod_handles)):
+        fil_info.append(
+            c.submit(
+                RandomForestClassifier._build_fil_model,
+                self.rfs[worker_numb[0]], #[w[0]],
+                list_mod_handles,
+                workers=[worker_numb[0]],
+            )
+        )
+        wait(fil_info)
+        raise_exception_from_futures(fil_info)  
+    
+        """
+        check_bytes = []
+        model = self.rfs[worker_numb[0]].result()
+        for n in range(len(self.workers)):
+            calc_value = self._read_mod_handles(self.rfs[worker_numb[0]].result(),
+                                                list_mod_handles[n])
+            check_bytes.append(calc_value)
+        
         futures = list()
         for i in range(len(mod_handles)):
             futures.append(
@@ -512,7 +584,7 @@ class RandomForestClassifier:
         raise_exception_from_futures(futures)            
         """
         print("length of fil_info : ", len(fil_info))
-        return mod_handles
+        return list_mod_handles
 
     """
     def obtain_fil_model(self, mod_handles):
