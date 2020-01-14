@@ -34,7 +34,8 @@ def test_data_generators(dataset):
     assert data[0].shape[0] == 100
 
 
-@pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'pandas', 'gpuarray'])
+@pytest.mark.parametrize('input_type',
+                         ['numpy', 'cudf', 'pandas', 'gpuarray', 'gpuarray-c'])
 def test_data_generator_types(input_type):
     X, *_ = datagen.gen_data('blobs', input_type, n_samples=100, n_features=10)
     if input_type == 'numpy':
@@ -44,6 +45,8 @@ def test_data_generator_types(input_type):
     elif input_type == 'pandas':
         assert isinstance(X, pd.DataFrame)
     elif input_type == 'gpuarray':
+        assert cuda.is_cuda_array(X)
+    elif input_type == 'gpuarray-c':
         assert cuda.is_cuda_array(X)
     else:
         assert False
