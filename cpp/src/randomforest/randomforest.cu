@@ -360,7 +360,7 @@ void build_fil_model(const cumlHandle& handle, fil::forest_t* pforest,
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
   std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
-  fil::from_multi_treelites(handle, pforest, model, model_2, tl_params);
+  //fil::from_multi_treelites(handle, pforest, model, model_2, tl_params);
 
 }
 

@@ -25,7 +25,7 @@
 #include <cmath>
 #include <limits>
 #include <utility>
-
+#include <vector>
 #include <cuml/fil/fil.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
@@ -571,9 +571,22 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 
 void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
                           ModelHandle model, ModelHandle model_2,
+                          std::vector<ModelHandle*> model_vector,
                           const treelite_params_t* tl_params) {
     storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
+
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+  std::cout << model_vector[0] << std::flush << std::endl;
+  //std::cout << model_vector->at(1) << std::flush << std::endl;
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+  std::cout << "model direct : " << model << std::flush << std::endl;
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+  std::cout << "model 2 direct : " << model_2 << std::flush << std::endl;
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+
   if (storage_type == storage_type_t::AUTO) {
     storage_type = storage_type_t::DENSE;
   }
@@ -588,6 +601,8 @@ void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+      std::cout << "num_trees overall in main : " << params.num_trees 
+                << std::flush << std::endl;
       break;
     }
   }

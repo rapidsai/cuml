@@ -31,6 +31,8 @@ import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+from libcpp.vector cimport vector
+from cython.operator cimport dereference as deref
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -184,6 +186,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
 
     cdef void from_multi_treelites(const cumlHandle&, forest_t* ,
                                    ModelHandle, ModelHandle,
+                                   vector[ModelHandle*],
                                    const treelite_params_t*)
 
 cdef class ForestInference_impl():
@@ -337,12 +340,26 @@ cdef class ForestInference_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>tl_model_handles[0]
         cdef uintptr_t model_ptr_1 = <uintptr_t>tl_model_handles[1]
+        print(" trying to get the information")
+
+        cdef vector[ModelHandle*] *mod_handle_vec \
+            = new vector[ModelHandle*]()
+        cdef uintptr_t mod_ptr
+        cdef uintptr_t check
+        for i in tl_model_handles:
+            check = <uintptr_t>i
+            print(" model handles: ", i)
+            #mod_ptr = get_dev_array_ptr(i)
+            print("value of mod_ptr : ", check)
+            mod_handle_vec.push_back((
+                <ModelHandle*> check))
 
         print("calling the c++ function for fil")
         from_multi_treelites(handle_[0],
                              &self.forest_data,
                              <ModelHandle> model_ptr,
                              <ModelHandle> model_ptr_1,
+                             deref(mod_handle_vec),
                              &treelite_params)
         return self
 

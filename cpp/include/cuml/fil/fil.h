@@ -20,6 +20,7 @@
 
 #include <cuml/cuml.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
+#include <vector>
 
 namespace ML {
 namespace fil {
@@ -190,6 +191,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
 
 void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
                           ModelHandle model, ModelHandle model_2,
+                          std::vector<ModelHandle*> model_vector,
                           const treelite_params_t* tl_params);
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
