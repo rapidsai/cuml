@@ -125,8 +125,6 @@ std::vector<unsigned char> save_model(ModelHandle model);
 ModelHandle tl_mod_handle(ModelHandle* model,
                           std::vector<unsigned char>& data);
 
-void predict_mnmg(const cumlHandle& handle, fil::forest_t forest, float* preds,
-                  const float* data, size_t num_rows);
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
