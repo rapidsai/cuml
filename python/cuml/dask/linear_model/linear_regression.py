@@ -34,10 +34,17 @@ class LinearRegression(object):
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
 
-    cuML's dask LinearRegression (multi-node multi-gpu) expects dask cuDF
+    cuML's dask Linear Regression (multi-node multi-gpu) expects dask cuDF
     DataFrame and provides an algorithms, Eig, to fit a linear model.
-    SVD algorithm which is more stable than Eig will be provided in the
-    next versions.
+    And provides an eigendecomposition-based algorithm to fit a linear model.
+    (SVD, which is more stable than eig, will be added in an upcoming version.)
+    Eig algorithm is usually preferred when the X is a tall and skinny matrix.
+    As the number of features in X increases, the accuracy of Eig algorithm
+    drops.
+
+    This is an experimental implementation of dask Linear Regresion. It supports
+    input X that has more than one column. Single column input X will be supported
+    after SVD algorithm is added in an upcoming version.
 
     Parameters
     -----------
@@ -46,16 +53,17 @@ class LinearRegression(object):
         faster.
         SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
-        If True, LinearRegression tries to correct for the global mean of y.
+        LinearRegression adds an additional term c to correct for the global
+        mean of y, modeling the reponse as "x * beta + c".
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by it's
+        If True, the predictors in X will be normalized by dividing by its
         L2 norm.
         If False, no scaling will be done.
 
     Attributes
     -----------
-    coef_ : array, shape (n_features)
+    coef_ : cuDF series, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
@@ -83,16 +91,16 @@ class LinearRegression(object):
         return cumlLinearRegression(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_fit_colocated(f, data, M, N, partsToRanks, rank):
-        return f.fit_colocated(data, M, N, partsToRanks, rank)
+    def _func_fit_colocated(f, data, n_rows, n_cols, partsToSizes, rank):
+        return f.fit_colocated(data, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
-    def _func_fit(f, X, y, M, N, partsToRanks, rank):
-        return f.fit(X, y, M, N, partsToRanks, rank)
+    def _func_fit(f, X, y, n_rows, n_cols, partsToSizes, rank):
+        return f.fit(X, y, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
-    def _func_predict(f, df, M, N, partsToRanks, rank):
-        return f.predict(df, M, N, partsToRanks, rank)
+    def _func_predict(f, df, n_rows, n_cols, partsToSizes, rank):
+        return f.predict(df, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
     def _func_get_first(f):
@@ -123,7 +131,7 @@ class LinearRegression(object):
 
         if set(X_partition_workers) != set(y_partition_workers):
             raise ValueError("""
-              X  and y are not partitioned on the same workers expected \n
+              X  and y are not partitioned on the same workers expected \n_cols
               Linear Regression""")
 
         self.rnks = dict()
@@ -137,6 +145,7 @@ class LinearRegression(object):
                 rnk_counter = rnk_counter + 1
             worker_to_parts[w].append(p)
 
+        # Future TODO: add a DefaultOrderedDict to utils
         worker_to_parts_y = OrderedDict()
         for w, p in y_futures:
             if w not in worker_to_parts_y:
@@ -151,15 +160,15 @@ class LinearRegression(object):
         worker_info = comms.worker_info(comms.worker_addresses)
 
         key = uuid1()
-        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+        partsToSizes = [(worker_info[wf[0]]["r"], self.client.submit(
             LinearRegression._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
             for idx, wf in enumerate(X_futures)]
 
-        N = X.shape[1]
-        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
+        n_cols = X.shape[1]
+        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
         self.linear_models = [(wf[0], self.client.submit(
@@ -176,8 +185,8 @@ class LinearRegression(object):
             wf[1],
             worker_to_parts[wf[0]],
             worker_to_parts_y[wf[0]],
-            M, N,
-            partsToRanks,
+            n_rows, n_cols,
+            partsToSizes,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
@@ -202,11 +211,11 @@ class LinearRegression(object):
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
-        N = X.shape[1]
-        M = 0
+        n_cols = X.shape[1]
+        n_rows = 0
 
         self.rnks = dict()
-        partsToRanks = dict()
+        partsToSizes = dict()
         key = uuid1()
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
@@ -217,9 +226,9 @@ class LinearRegression(object):
                 key="%s-%s" % (key, idx)).result())
                 for idx, future in enumerate(futures)]
 
-            partsToRanks[worker_info[w]["r"]] = parts
+            partsToSizes[worker_info[w]["r"]] = parts
             for p in parts:
-                M = M + p
+                n_rows = n_rows + p
 
         key = uuid1()
         self.linear_models = [(w, self.client.submit(
@@ -235,8 +244,8 @@ class LinearRegression(object):
             LinearRegression._func_fit_colocated,
             wf[1],
             input_futures[wf[0]],
-            M, N,
-            partsToRanks,
+            n_rows, n_cols,
+            partsToSizes,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
@@ -253,12 +262,36 @@ class LinearRegression(object):
 
     def fit(self, X, y, force_colocality=False):
         """
-        Fit the model with X and y.
+        Fit the model with X and y. If force_colocality is set to True,
+        the partitions of X and y will be re-distributed to force the
+        co-locality.
+
+        In some cases, data samples and their labels can be distributed
+        into different workers by dask. In that case, force_colocality
+        param can be set to True to re-arrange the data.
+
+        Usually, you will not need to force co-locality if you pass the
+        X and y as follows;
+
+        fit(X["all_the_columns_but_labels"], X["labels"])
+
+        You might want to force co-locality if you pass the X and y as
+        follows;
+
+        fit(X, y)
+
+        because dask might have distributed the partitions of X and y
+        into different workers.
 
         Parameters
         ----------
-        X : dask cuDF input
-        y : dask cuDF input
+        X : dask cuDF dataframe (n_rows, n_features)
+            Features for regression
+        y : dask cuDF (n_rows, 1)
+            Labels (outcome values)
+        force_colocality: boolean (True: re-distributes the partitions
+                          of X and y to force the co-locality of
+                          the partitions)
         """
 
         if force_colocality:
@@ -272,8 +305,11 @@ class LinearRegression(object):
 
         Parameters
         ----------
-        X : dask cuDF input
-        y_pred : dask cuDF input
+        X : dask cuDF dataframe (n_rows, n_features)
+
+        Returns
+        -------
+        y : dask cuDF (n_rows, 1)
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
@@ -284,23 +320,23 @@ class LinearRegression(object):
             worker_to_parts[w].append(p)
 
         key = uuid1()
-        partsToRanks = [(self.rnks[wf[0]], self.client.submit(
+        partsToSizes = [(self.rnks[wf[0]], self.client.submit(
             LinearRegression._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
             for idx, wf in enumerate(gpu_futures)]
 
-        N = X.shape[1]
-        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
+        n_cols = X.shape[1]
+        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
         linear_pred = dict([(self.rnks[wf[0]], self.client.submit(
             LinearRegression._func_predict,
             wf[1],
             worker_to_parts[wf[0]],
-            M, N,
-            partsToRanks,
+            n_rows, n_cols,
+            partsToSizes,
             self.rnks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
@@ -311,7 +347,7 @@ class LinearRegression(object):
 
         out_futures = []
         completed_part_map = {}
-        for rank, size in partsToRanks:
+        for rank, size in partsToSizes:
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
 
