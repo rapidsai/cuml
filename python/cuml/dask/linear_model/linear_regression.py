@@ -42,9 +42,9 @@ class LinearRegression(object):
     As the number of features in X increases, the accuracy of Eig algorithm
     drops.
 
-    This is an experimental implementation of dask Linear Regresion. It supports
-    input X that has more than one column. Single column input X will be supported
-    after SVD algorithm is added in an upcoming version.
+    This is an experimental implementation of dask Linear Regresion. It
+    supports input X that has more than one column. Single column input
+    X will be supported after SVD algorithm is added in an upcoming version.
 
     Parameters
     -----------
