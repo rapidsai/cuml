@@ -106,16 +106,16 @@ class Ridge(object):
         return cumlRidge(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_fit_colocated(f, data, M, N, partsToRanks, rank):
-        return f.fit_colocated(data, M, N, partsToRanks, rank)
+    def _func_fit_colocated(f, data, M, N, partsToSizes, rank):
+        return f.fit_colocated(data, M, N, partsToSizes, rank)
 
     @staticmethod
-    def _func_fit(f, X, y, M, N, partsToRanks, rank):
-        return f.fit(X, y, M, N, partsToRanks, rank)
+    def _func_fit(f, X, y, M, N, partsToSizes, rank):
+        return f.fit(X, y, M, N, partsToSizes, rank)
 
     @staticmethod
-    def _func_predict(f, df, M, N, partsToRanks, rank):
-        return f.predict(df, M, N, partsToRanks, rank)
+    def _func_predict(f, df, M, N, partsToSizes, rank):
+        return f.predict(df, M, N, partsToSizes, rank)
 
     @staticmethod
     def _func_get_first(f):
@@ -174,7 +174,7 @@ class Ridge(object):
         worker_info = comms.worker_info(comms.worker_addresses)
 
         key = uuid1()
-        partsToRanks = [(worker_info[wf[0]]["r"], self.client.submit(
+        partsToSizes = [(worker_info[wf[0]]["r"], self.client.submit(
             Ridge._func_get_size,
             wf[1],
             workers=[wf[0]],
@@ -182,7 +182,7 @@ class Ridge(object):
             for idx, wf in enumerate(X_futures)]
 
         N = X.shape[1]
-        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
+        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
         self.linear_models = [(wf[0], self.client.submit(
@@ -200,7 +200,7 @@ class Ridge(object):
             worker_to_parts[wf[0]],
             worker_to_parts_y[wf[0]],
             M, N,
-            partsToRanks,
+            partsToSizes,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
@@ -229,7 +229,7 @@ class Ridge(object):
         M = 0
 
         self.rnks = dict()
-        partsToRanks = dict()
+        partsToSizes = dict()
         key = uuid1()
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
@@ -240,7 +240,7 @@ class Ridge(object):
                 key="%s-%s" % (key, idx)).result())
                 for idx, future in enumerate(futures)]
 
-            partsToRanks[worker_info[w]["r"]] = parts
+            partsToSizes[worker_info[w]["r"]] = parts
             for p in parts:
                 M = M + p
 
@@ -259,7 +259,7 @@ class Ridge(object):
             wf[1],
             input_futures[wf[0]],
             M, N,
-            partsToRanks,
+            partsToSizes,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
@@ -299,7 +299,7 @@ class Ridge(object):
             worker_to_parts[w].append(p)
 
         key = uuid1()
-        partsToRanks = [(self.rnks[wf[0]], self.client.submit(
+        partsToSizes = [(self.rnks[wf[0]], self.client.submit(
             Ridge._func_get_size,
             wf[1],
             workers=[wf[0]],
@@ -307,7 +307,7 @@ class Ridge(object):
             for idx, wf in enumerate(gpu_futures)]
 
         N = X.shape[1]
-        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToRanks))
+        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
         linear_pred = dict([(self.rnks[wf[0]], self.client.submit(
@@ -315,7 +315,7 @@ class Ridge(object):
             wf[1],
             worker_to_parts[wf[0]],
             M, N,
-            partsToRanks,
+            partsToSizes,
             self.rnks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
@@ -326,7 +326,7 @@ class Ridge(object):
 
         out_futures = []
         completed_part_map = {}
-        for rank, size in partsToRanks:
+        for rank, size in partsToSizes:
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
 
