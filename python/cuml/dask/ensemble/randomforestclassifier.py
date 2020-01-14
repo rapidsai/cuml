@@ -28,6 +28,7 @@ from uuid import uuid1
 
 
 class RandomForestClassifier:
+
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -110,7 +111,7 @@ class RandomForestClassifier:
     Examples
     ---------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/random_forest_demo_mnmg.ipynb
     """
 
     def __init__(
@@ -234,6 +235,7 @@ class RandomForestClassifier:
 
         wait(rfs_wait)
         raise_exception_from_futures(rfs_wait)
+        self.concat_model_bytes = []
 
     @staticmethod
     def _func_build_rf(
@@ -278,6 +280,7 @@ class RandomForestClassifier:
 
     @staticmethod
     def _fit(model, X_df_list, y_df_list, r):
+        print("dtype of X: ", type(X_df_list))
         if len(X_df_list) != len(y_df_list):
             raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
                              len(X_df_list), len(y_df_list))
@@ -292,6 +295,98 @@ class RandomForestClassifier:
     @staticmethod
     def _predict(model, X, r):
         return model._predict_get_all(X)
+
+    @staticmethod
+    def _print_summary(model):
+        model.print_summary()
+
+    @staticmethod
+    def _tl_model_handles(model, model_bytes):
+        return model._tl_model_handles(model_bytes=model_bytes)
+
+    @staticmethod
+    def _build_fil_model(model, model_handle):
+        print("model handels in dask func : ", model_handle)
+        return model._build_fil_model(model_handle=model_handle)
+
+    @staticmethod
+    def _read_mod_handles(model, mod_handles):
+        return model._read_mod_handles(mod_handles=mod_handles)
+
+    def print_summary(self):
+        """
+        prints the summary of the forest used to train and test the model
+        """
+        c = default_client()
+        futures = list()
+        workers = self.workers
+
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._print_summary,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+        return self
+
+    def convert_to_treelite(self):
+        """
+        prints the summary of the forest used to train and test the model
+        """
+        c = default_client()
+
+        mod_bytes = list()
+        for w in self.workers:
+            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+
+        worker_numb = [i for i in self.workers]
+
+        mod_handles = list()
+        for n in range(len(self.workers)):
+            mod_handles.append(
+                c.submit(
+                    RandomForestClassifier._tl_model_handles,
+                    self.rfs[worker_numb[0]],
+                    mod_bytes[n],
+                    workers=[worker_numb[0]],
+                )
+            )
+
+        wait(mod_handles)
+        raise_exception_from_futures(mod_handles)
+
+        list_mod_handles = list()
+        for d in range(len(mod_handles)):
+            list_mod_handles.append(mod_handles[d].result())
+
+        check_bytes = list()
+        for n in range(len(self.workers)):
+            check_bytes.append(
+                c.submit(
+                    RandomForestClassifier._read_mod_handles,
+                    self.rfs[worker_numb[0]],
+                    list_mod_handles[n],
+                    workers=[worker_numb[0]],
+                )
+            )
+
+        wait(check_bytes)
+        raise_exception_from_futures(check_bytes)
+
+        check_mod_bytes = list()
+        for d in range(len(check_bytes)):
+            check_mod_bytes.append(check_bytes[d].result())
+
+        size_of_mod_bytes_read = []
+        for i in range(len(check_mod_bytes)):
+            size_of_mod_bytes_read.append(np.shape(check_mod_bytes[i]))
+
+        return list_mod_handles, size_of_mod_bytes_read
 
     def fit(self, X, y):
         """
@@ -351,9 +446,13 @@ class RandomForestClassifier:
             """ % (str(X_partition_workers),
                    str(y_partition_workers),
                    str(self.workers)))
+        print(" self.workers in fit : ", self.workers)
 
         futures = list()
         for w, xc in X_futures.items():
+            print(" w in fit for loop : ", w)
+            print(" xc in fit for loop : ", xc)
+            print(" type of xc in fit loop ", type(xc))
             futures.append(
                 c.submit(
                     RandomForestClassifier._fit,
@@ -373,18 +472,15 @@ class RandomForestClassifier:
     def predict(self, X):
         """
         Predicts the labels for X.
-
         Parameters
         ----------
         X : np.array
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Features of examples to predict.
-
         Returns
         ----------
         y: np.array
            Dense vector (int) of shape (n_samples, 1)
-
         """
         c = default_client()
         workers = self.workers
