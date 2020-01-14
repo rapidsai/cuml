@@ -18,6 +18,7 @@ import cupy as cp
 import numpy as np
 import rmm
 
+from cuml.utils.import_utils import check_min_cupy_version
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 
@@ -36,24 +37,24 @@ def row_matrix(df):
     # using_allocator was introduced in CuPy 7. Once 7+ is required,
     # this check can be removed alongside the alternative code path.
     if check_min_cupy_version("7.0"):
-        with cupy.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
-            row_major = cuda.as_cuda_array(cp.array(col_major, order='C'))
+        with cp.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
+            row_major = cp.array(col_major, order='C')
 
     else:
         temp_row_major = cp.array(col_major, order='C')
         row_major = _rmm_cupy6_array_like(temp_row_major, order='C')
         cp.copyto(row_major, temp_row_major)
 
-    return row_major
+    return cuda.as_cuda_array(row_major)
 
 
 def _rmm_cupy6_array_like(ary, order):
-    nbytes = numpy.ndarray(ary.shape,
-                           dtype=ary.dtype,
-                           strides=ary.strides,
-                           order=order).nbytes
-    memptr = cupy.cuda.MemoryPointer(rmm.rmm.RMMCuPyMemory(nbytes), 0)
-    arr = cupy.ndarray(ary.shape,
+    nbytes = np.ndarray(ary.shape,
+                        dtype=ary.dtype,
+                        strides=ary.strides,
+                        order=order).nbytes
+    memptr = cp.cuda.MemoryPointer(rmm.rmm.RMMCuPyMemory(nbytes), 0)
+    arr = cp.ndarray(ary.shape,
                        dtype=ary.dtype,
                        memptr=memptr,
                        strides=ary.strides,
