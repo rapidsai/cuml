@@ -121,27 +121,18 @@ def test_umap_trustworthiness_on_iris():
 
 def test_umap_transform_on_iris():
 
-    print("::::::::Pytest a")
     iris = datasets.load_iris()
     iris_selection = np.random.RandomState(42).choice(
         [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
-    print("::::::::Pytest a")
-
     fitter = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
-    print("::::::::Pytest cuUMAP created")
     fitter.fit(data, convert_dtype=True)
-    print("::::::::Pytest cuUMAP fit")
     new_data = iris.data[~iris_selection]
-    print("::::::::Pytest iris.data[~iris_selection]")
     embedding = fitter.transform(new_data, convert_dtype=True)
-    print("::::::::embedding", embedding)
-    print("::::::::Pytest data transformed")
 
     trust = trustworthiness(new_data, embedding, 10)
 
-    print("::::::::::: trust calculated", trust)
     assert trust >= 0.89
 
 
