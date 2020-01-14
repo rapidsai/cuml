@@ -19,7 +19,7 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
-- PR #1531: Improve pickling and scoring suppport for many models to support hyperopt
+- PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
