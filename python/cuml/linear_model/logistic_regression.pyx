@@ -19,6 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import cupy as cp
 import pprint
 
 from cuml.solvers import QN
@@ -250,7 +251,7 @@ class LogisticRegression(Base):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
-        unique_labels = checked_cupy_unique(y_m)
+        unique_labels = cp.unique(y_m)
         num_classes = len(unique_labels)
 
         if num_classes > 2:
