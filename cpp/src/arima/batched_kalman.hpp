@@ -38,6 +38,7 @@ namespace ML {
  *                             with total length `P * batch_size` (device)
  * @param[in]  d_sma           Seasonal MA parameters, in groups of size `Q`
  *                             with total length `Q * batch_size` (device)
+ * @param[in]  d_sigma2        Variance parameter. Shape: (batch_size,) (device)
  * @param[in]  p               Number of AR parameters
  * @param[in]  q               Number of MA parameters
  * @param[in]  P               Number of seasonal AR parameters
@@ -57,9 +58,9 @@ namespace ML {
  */
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            const double* d_ar, const double* d_ma,
-                           const double* d_sar, const double* d_sma, int p,
-                           int q, int P, int Q, int s, int batch_size,
-                           double* loglike, double* d_vs,
+                           const double* d_sar, const double* d_sma,
+                           const double* d_sigma2, int p, int q, int P, int Q,
+                           int s, int batch_size, double* loglike, double* d_vs,
                            bool host_loglike = true,
                            bool initP_kalman_it = false, int fc_steps = 0,
                            double* d_fc = nullptr);

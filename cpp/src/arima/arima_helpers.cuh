@@ -84,6 +84,9 @@ static inline __host__ __device__ double reduced_polynomial(
  * @param[out]  d_ma       MA parameters to allocate (device)
  * @param[out]  d_sar      Seasonal AR parameters to allocate (device)
  * @param[out]  d_sma      Seasonal MA parameters to allocate (device)
+ * @param[in]   d_sigma2   Variance parameters to allocate (device)
+ *                         Ignored if tr == true
+ * @param[in]   tr         Whether these are the transformed parameters
  * @param[in]   k          Whether to fit an intercept
  * @param[out]  d_mu       Intercept parameters to allocate (device)
  */
@@ -91,7 +94,8 @@ template <typename AllocatorT>
 static void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
                             int q, int P, int Q, int batch_size, double** d_ar,
                             double** d_ma, double** d_sar, double** d_sma,
-                            int k = 0, double** d_mu = nullptr) {
+                            double** d_sigma2, bool tr = false, int k = 0,
+                            double** d_mu = nullptr) {
   if (k) *d_mu = (double*)alloc->allocate(batch_size * sizeof(double), stream);
   if (p)
     *d_ar = (double*)alloc->allocate(p * batch_size * sizeof(double), stream);
@@ -101,6 +105,8 @@ static void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
     *d_sar = (double*)alloc->allocate(P * batch_size * sizeof(double), stream);
   if (Q)
     *d_sma = (double*)alloc->allocate(Q * batch_size * sizeof(double), stream);
+  if (!tr)
+    *d_sigma2 = (double*)alloc->allocate(batch_size * sizeof(double), stream);
 }
 
 /**
@@ -118,6 +124,9 @@ static void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * @param[out]  d_ma       MA parameters to deallocate (device)
  * @param[out]  d_sar      Seasonal AR parameters to deallocate (device)
  * @param[out]  d_sma      Seasonal MA parameters to deallocate (device)
+ * @param[out]  d_sigma2   Variance parameters to deallocate (device)
+ *                         Ignored if tr == true
+ * @param[in]   tr         Whether these are the transformed parameters
  * @param[in]   k          Whether to fit an intercept
  * @param[out]  d_mu       Intercept parameters to deallocate (device)
  */
@@ -125,12 +134,14 @@ template <typename AllocatorT>
 static void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
                               int q, int P, int Q, int batch_size, double* d_ar,
                               double* d_ma, double* d_sar, double* d_sma,
-                              int k = 0, double* d_mu = nullptr) {
+                              double* d_sigma2, bool tr = false, int k = 0,
+                              double* d_mu = nullptr) {
   if (k) alloc->deallocate(d_mu, batch_size * sizeof(double), stream);
   if (p) alloc->deallocate(d_ar, p * batch_size * sizeof(double), stream);
   if (q) alloc->deallocate(d_ma, q * batch_size * sizeof(double), stream);
   if (P) alloc->deallocate(d_sar, P * batch_size * sizeof(double), stream);
   if (Q) alloc->deallocate(d_sma, Q * batch_size * sizeof(double), stream);
+  if (!tr) alloc->deallocate(d_sigma2, batch_size * sizeof(double), stream);
 }
 
 /**
@@ -143,21 +154,23 @@ static void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * @param[in]  P           Number of seasonal AR parameters
  * @param[in]  Q           Number of seasonal MA parameters
  * @param[in]  k           Whether the model fits an intercept (constant term)
- * @param[in]  d_mu        mu if d != 0. Shape: (d, batch_size) (device)
+ * @param[in]  d_mu        mu if intercept != 0. Shape: (batch_size,) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
  * @param[in]  d_sar       Seasonal AR parameters.
  *                         Shape: (P, batch_size) (device)
  * @param[in]  d_sma       Seasonal MA parameters.
  *                         Shape: (Q, batch_size) (device)
+ * @param[in]  d_sigma2    Variance parameters. Shape: (batch_size,) (device)
  * @param[out] d_params    Output parameter vector
  * @param[in]  stream      CUDA stream
  */
 static void pack(int batch_size, int p, int q, int P, int Q, int k,
                  const double* d_mu, const double* d_ar, const double* d_ma,
-                 const double* d_sar, const double* d_sma, double* d_params,
+                 const double* d_sar, const double* d_sma,
+                 const double* d_sigma2, double* d_params,
                  cudaStream_t stream) {
-  int N = (p + q + P + Q + k);
+  int N = p + q + P + Q + k + 1;
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
@@ -181,20 +194,24 @@ static void pack(int batch_size, int p, int q, int P, int Q, int k,
                      for (int iQ = 0; iQ < Q; iQ++) {
                        param[iQ] = d_sma[Q * bid + iQ];
                      }
+                     param += Q;
+                     *param = d_sigma2[bid];
                    });
 }
 
+/// TODO: add shape info like in pack
 /**
  * Helper function to unpack a linear array of parameters into separate arrays
  * of parameters.
  * 
  * @param[in]  d_params   Linear array of all parameters grouped by batch
  *                        [mu, ar, ma] (device)
- * @param[out] d_mu       Trend parameter (device)
+ * @param[out] d_mu       mu if intercept != 0. (device)
  * @param[out] d_ar       AR parameters (device)
  * @param[out] d_ma       MA parameters (device)
  * @param[out] d_sar      Seasonal AR parameters (device)
  * @param[out] d_sma      Seasonal MA parameters (device)
+ * @param[out] d_sigma2   Variance parameters. Shape: (batch_size,) (device)
  * @param[in]  batch_size Number of time series analyzed.
  * @param[in]  p          Number of AR parameters
  * @param[in]  q          Number of MA parameters
@@ -204,9 +221,10 @@ static void pack(int batch_size, int p, int q, int P, int Q, int k,
  * @param[in]  stream     CUDA stream
  */
 static void unpack(const double* d_params, double* d_mu, double* d_ar,
-                   double* d_ma, double* d_sar, double* d_sma, int batch_size,
-                   int p, int q, int P, int Q, int k, cudaStream_t stream) {
-  int N = (p + q + P + Q + k);
+                   double* d_ma, double* d_sar, double* d_sma, double* d_sigma2,
+                   int batch_size, int p, int q, int P, int Q, int k,
+                   cudaStream_t stream) {
+  int N = p + q + P + Q + k + 1;
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
@@ -230,6 +248,8 @@ static void unpack(const double* d_params, double* d_mu, double* d_ar,
                      for (int iQ = 0; iQ < Q; iQ++) {
                        d_sma[Q * bid + iQ] = param[iQ];
                      }
+                     param += Q;
+                     d_sigma2[bid] = *param;
                    });
 }
 

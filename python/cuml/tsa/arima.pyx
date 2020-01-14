@@ -63,13 +63,14 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
         int d, int q, int P, int D, int Q, int s, int intercept,
         const double* d_mu, const double* d_ar, const double* d_ma,
-        const double* d_sar, const double* d_sma, double* ic, int ic_type)
+        const double* d_sar, const double* d_sma, const double* d_sigma2,
+        double* ic, int ic_type)
 
     void estimate_x0 (
         cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
-        double* d_sar, double* d_sma, const double* d_y, int batch_size,
-        int nobs, int p, int d, int q, int P, int D, int Q, int s,
-        int intercept)
+        double* d_sar, double* d_sma, double* d_sigma2, const double* d_y,
+        int batch_size, int nobs, int p, int d, int q, int P, int D, int Q,
+        int s, int intercept)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
@@ -199,6 +200,10 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. Required: d+D <= 2")
         if s != 0 and (p >= s or q >= s):
             raise ValueError("ERROR: Invalid order. Required: s > p, s > q")
+        if p + q + P + Q + fit_intercept == 0:
+            raise ValueError("ERROR: Invalid order. At least one parameter"
+                             " among p, q, P, Q and fit_intercept must be"
+                             " non-zero")
 
         self.order = order
         self.seasonal_order = seasonal_order
@@ -239,6 +244,7 @@ class ARIMA(Base):
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if self.intercept:
             d_mu, d_mu_ptr, _, _, _ = \
                 input_to_dev_array(self.mu, check_dtype=np.float64)
@@ -254,6 +260,8 @@ class ARIMA(Base):
         if Q:
             d_sma, d_sma_ptr, _, _, _ = \
                 input_to_dev_array(self.sma, check_dtype=np.float64)
+        d_sigma2, d_sigma2_ptr, _, _, _ = \
+            input_to_dev_array(self.sigma2, check_dtype=np.float64)
 
         cdef vector[double] ic
         ic.resize(self.batch_size)
@@ -272,8 +280,8 @@ class ARIMA(Base):
                               <int> Q, <int> s, <int> self.intercept,
                               <double*> d_mu_ptr, <double*> d_ar_ptr,
                               <double*> d_ma_ptr, <double*> d_sar_ptr,
-                              <double*> d_sma_ptr, <double*> ic.data(),
-                              <int> ic_type_id)
+                              <double*> d_sma_ptr, <double*> d_sigma2_ptr,
+                              <double*> ic.data(), <int> ic_type_id)
 
         return ic
 
@@ -297,7 +305,9 @@ class ARIMA(Base):
         """Model complexity (number of parameters)"""
         p, _, q = self.order
         P, _, Q, s = self.seasonal_order
-        return p + P + q + Q + self.intercept
+        return p + P + q + Q + self.intercept + 1
+
+    # TODO: update all docs for sigma2
 
     def get_params(self) -> Dict[str, np.ndarray]:
         """Get the parameters of the model
@@ -311,11 +321,11 @@ class ARIMA(Base):
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
-        # TODO: prevent call on unfit model
         params = dict()
-        names = ["mu", "ar", "ma", "sar", "sma"]
+        names = ["mu", "ar", "ma", "sar", "sma", "sigma2"]
         criteria = [self.intercept, self.order[0], self.order[2],
-                    self.seasonal_order[0], self.seasonal_order[2]]
+                    self.seasonal_order[0], self.seasonal_order[2],
+                    True]
         for i in range(len(names)):
             if criteria[i] > 0:
                 params[names[i]] = getattr(self, names[i])
@@ -333,7 +343,7 @@ class ARIMA(Base):
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
-        for param_name in ["mu", "ar", "ma", "sar", "sma"]:
+        for param_name in ["mu", "ar", "ma", "sar", "sma", "sigma2"]:
             if param_name in params:
                 array, _, _, _, _ = input_to_host_array(params[param_name])
                 setattr(self, param_name, array)
@@ -457,6 +467,7 @@ class ARIMA(Base):
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if self.intercept:
             d_mu = zeros(self.batch_size, dtype=self.dtype)
             d_mu_ptr = get_dev_array_ptr(d_mu)
@@ -472,12 +483,14 @@ class ARIMA(Base):
         if Q:
             d_sma = zeros((Q, self.batch_size), dtype=self.dtype, order='F')
             d_sma_ptr = get_dev_array_ptr(d_sma)
+        d_sigma2 = zeros(self.batch_size, dtype=self.dtype)
+        d_sigma2_ptr = get_dev_array_ptr(d_sigma2)
 
         # Call C++ function
         estimate_x0(handle_[0], <double*> d_mu_ptr, <double*> d_ar_ptr,
                     <double*> d_ma_ptr, <double*> d_sar_ptr,
-                    <double*> d_sma_ptr, <double*> d_y_ptr,
-                    <int> self.batch_size, <int> self.n_obs,
+                    <double*> d_sma_ptr, <double*> d_sigma2_ptr,
+                    <double*> d_y_ptr, <int> self.batch_size, <int> self.n_obs,
                     <int> p, <int> d, <int> q, <int> P, <int> D, <int> Q,
                     <int> s, <int> self.intercept)
 
@@ -487,9 +500,9 @@ class ARIMA(Base):
         if q: params["ma"] = d_ma.copy_to_host()
         if P: params["sar"] = d_sar.copy_to_host()
         if Q: params["sma"] = d_sma.copy_to_host()
+        params["sigma2"] = d_sigma2.copy_to_host()
         self.set_params(params)
 
-# TODO: maxiter argument
     @nvtx_range_wrap
     def fit(self,
             start_params: Optional[Mapping[str, object]]=None,
@@ -705,6 +718,7 @@ class ARIMA(Base):
         if q > 0: params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
         if P > 0: params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
         if Q > 0: params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
+        params["sigma2"] = np.array(x_mat[k+p+q+P+Q], order='F')
 
         self.set_params(params)
 
@@ -734,6 +748,7 @@ class ARIMA(Base):
         if q > 0: x[k+p:k+p+q] = params["ma"]
         if P > 0: x[k+p+q:k+p+q+P] = params["sar"]
         if Q > 0: x[k+p+q+P:k+p+q+P+Q] = params["sma"]
+        x[k+p+q+P+Q] = params["sigma2"]
 
         return x.reshape(N * self.batch_size, order='F')  # return 1D shape
 
@@ -758,7 +773,7 @@ class ARIMA(Base):
         P, _, Q, _ = self.seasonal_order
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        Tx = np.zeros(self.batch_size * (p + q + P + Q + self.intercept))
+        Tx = np.zeros(self.batch_size * (p + q + P + Q + self.intercept + 1))
 
         cdef uintptr_t x_ptr = x.ctypes.data
         cdef uintptr_t Tx_ptr = Tx.ctypes.data
