@@ -19,8 +19,6 @@ import numpy as np
 import pytest
 import rmm
 
-from cuml.utils.cupy_utils import test_numba_cupy_version_conflict as tnc
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 from cuml.preprocessing.model_selection import train_test_split
 from numba import cuda
 
@@ -183,12 +181,6 @@ def test_array_split(type, test_size, train_size, shuffle):
         assert y_train == y[0:train_size]
         assert X_test == X[-1 * test_size:]
         assert y_test == y[-1 * test_size:]
-
-        if tnc(X_train):
-            X_train = PatchedNumbaDeviceArray(X_train)
-            X_test = PatchedNumbaDeviceArray(X_test)
-            y_train = PatchedNumbaDeviceArray(y_train)
-            y_test = PatchedNumbaDeviceArray(y_test)
 
         X_rec = cp.sort(cp.concatenate(X_train, X_test))
         y_rec = cp.sort(cp.concatenate(y_train, y_test))
