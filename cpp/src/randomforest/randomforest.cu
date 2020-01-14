@@ -203,7 +203,7 @@ void validity_check(const RF_params rf_params) {
   ASSERT((rf_params.rows_sample > 0) && (rf_params.rows_sample <= 1.0),
          "rows_sample value %f outside permitted (0, 1] range",
          rf_params.rows_sample);
-  // DecisionTree::validity_check(rf_params.tree_params);
+  DecisionTree::validity_check(rf_params.tree_params);
 }
 
 /**
