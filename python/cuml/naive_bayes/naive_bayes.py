@@ -17,20 +17,37 @@
 
 import math
 
+import numpy as np
 import cupy as cp
 import cupy.prof
+
 from cuml.prims.label import make_monotonic, check_labels, invert_labels
 
-"""
-A simple reduction kernel that takes in a sparse (COO) array
-of features and computes the sum and sum squared for each class
-label
-"""
-count_features_coo = cp.RawKernel(r'''
+
+def memoize(f):
+    memo = {}
+
+    def helper(x):
+        if x not in memo:
+            memo[x] = f(x)
+        return memo[x]
+    return helper
+
+
+@memoize
+def count_features_coo_factory(dtype_str):
+    """
+    A simple reduction kernel that takes in a sparse (COO) array
+    of features and computes the sum and sum squared for each class
+    label
+    """
+
+    # TODO: Find better way to cache memoize this.
+    kernel_str = r'''
 extern "C" __global__
-void count_features_coo(float *out,
+void count_features_coo_{dtype_str}({dtype_str} *out,
                     int *rows, int *cols,
-                    float *vals, int nnz,
+                    {dtype_str} *vals, int nnz,
                     int n_rows, int n_cols,
                     int *labels,
                     int n_classes,
@@ -42,16 +59,23 @@ void count_features_coo(float *out,
 
   int row = rows[i];
   int col = cols[i];
-  float val = vals[i];
+  {dtype_str} val = vals[i];
   if(square) val *= val;
   int label = labels[row];
   atomicAdd(out + ((col * n_classes) + label), val);
-}
-''', 'count_features_coo')
+}'''.replace("{dtype_str}", dtype_str)
 
-count_classes = cp.RawKernel(r'''
+    print(str(kernel_str))
+
+    return cp.RawKernel(kernel_str, f'count_features_coo_{dtype_str}')
+
+
+@memoize
+def count_classes_factory(dtype_str):
+
+    kernel_str = r'''
 extern "C" __global__
-void count_classes(float *out,
+void count_classes_{dtype_str}({dtype_str} *out,
                     int n_rows,
                     int *labels) {
 
@@ -60,13 +84,18 @@ void count_classes(float *out,
   int label = labels[row];
   atomicAdd(out + label, 1);
 }
-''', 'count_classes')
+'''.replace("{dtype_str}", dtype_str)
 
-count_features_dense = cp.RawKernel(r'''
+    return cp.RawKernel(kernel_str, f'count_classes_{dtype_str}')
+
+
+def count_features_dense_factory(dtype_str):
+
+    kernel_str = r'''
 extern "C" __global__
-void count_features_dense(
-                    float *out,
-                    float *in,
+void count_features_dense_{dtype_str}(
+                    {dtype_str} *out,
+                    {dtype_str} *in,
                     int n_rows,
                     int n_cols,
                     int *labels,
@@ -79,7 +108,8 @@ void count_features_dense(
 
   if(row >= n_rows || col >= n_cols) return;
 
-  float val = !rowMajor ? in[col * n_rows + row] : in[row * n_cols + col];
+  {dtype_str} val = !rowMajor ? 
+        in[col * n_rows + row] : in[row * n_cols + col];
 
   if(val == 0.0) return;
 
@@ -88,7 +118,9 @@ void count_features_dense(
 
   atomicAdd(out + ((col * n_classes) + label), val);
 }
-''', 'count_features_dense')
+'''.replace("{dtype_str}", dtype_str)
+
+    return cp.RawKernel(kernel_str, f'count_features_dense_{dtype_str}')
 
 
 class MultinomialNB(object):
@@ -112,6 +144,12 @@ class MultinomialNB(object):
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
+
+        if isinstance(X, np.ndarray):
+            X = cp.asarray(X, X.dtype)
+
+        if isinstance(y, np.ndarray):
+            y = cp.asarray(y, y.dtype)
 
         Y, label_classes = make_monotonic(y, copy=True)
 
@@ -168,8 +206,6 @@ class MultinomialNB(object):
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1)
 
-        print(str(self.classes_))
-
         y_hat = invert_labels(indices, classes=self.classes_)
         return y_hat
 
@@ -197,9 +233,12 @@ class MultinomialNB(object):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
+        dtype_str = "float" if X.dtype == cp.float32 else "double"
+
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
 
+            count_features_coo = count_features_coo_factory(dtype_str)
             count_features_coo((math.ceil(X.nnz / 32),), (32,),
                                (counts,
                                 X.row,
@@ -213,6 +252,7 @@ class MultinomialNB(object):
 
         else:
 
+            count_features_dense = count_features_dense_factory(dtype_str)
             count_features_dense((math.ceil(n_rows / 32),
                                   math.ceil(n_cols / 32), 1),
                                  (32, 32, 1),
@@ -225,6 +265,7 @@ class MultinomialNB(object):
                                   False,
                                   X.flags["C_CONTIGUOUS"]))
 
+        count_classes = count_classes_factory(dtype_str)
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 
