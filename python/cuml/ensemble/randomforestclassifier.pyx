@@ -21,7 +21,6 @@
 # cython: language_level = 3
 
 import ctypes
-import cupy as cp
 import math
 import numpy as np
 import warnings
@@ -38,8 +37,10 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.fil.fil import *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.cupy_utils import checked_cupy_unique
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -377,6 +378,51 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
+    def _tl_model_handles(self, model_bytes):
+        cdef ModelHandle cuml_model_ptr = NULL
+        mod_had_val = tl_mod_handle(& cuml_model_ptr,
+                                    <vector[unsigned char] &> model_bytes)
+        mod_handle = <size_t> cuml_model_ptr
+
+        print(" mod_handles in pyx _tl_model_handles : ",
+              ctypes.c_void_p(mod_handle).value)
+
+        return ctypes.c_void_p(mod_handle).value
+
+    def _read_mod_handles(self, mod_handles):
+
+        print(" mod_handles in pyx : ", mod_handles)
+        cdef uintptr_t model_ptr = <uintptr_t> mod_handles
+        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
+
+        return model_protobuf_bytes
+
+    def get_algo(self, algo_str):
+        algo_dict={'AUTO': algo_t.ALGO_AUTO,
+                   'auto': algo_t.ALGO_AUTO,
+                   'NAIVE': algo_t.NAIVE,
+                   'naive': algo_t.NAIVE,
+                   'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
+                   'batch_tree_reorg': algo_t.BATCH_TREE_REORG,
+                   'TREE_REORG': algo_t.TREE_REORG,
+                   'tree_reorg': algo_t.TREE_REORG}
+        if algo_str not in algo_dict.keys():
+            raise Exception(' Wrong algorithm selected please refer'
+                            ' to the documentation')
+        return algo_dict[algo_str]
+
+    def get_storage_type(self, storage_type_str):
+        storage_type_dict={'AUTO': storage_type_t.AUTO,
+                           'auto': storage_type_t.AUTO,
+                           'DENSE': storage_type_t.DENSE,
+                           'dense': storage_type_t.DENSE,
+                           'SPARSE': storage_type_t.SPARSE,
+                           'sparse': storage_type_t.SPARSE}
+        if storage_type_str not in storage_type_dict.keys():
+            raise ValueError(' Wrong sparsity selected please refer'
+                             ' to the documentation')
+        return storage_type_dict[storage_type_str]
+
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
@@ -409,7 +455,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = cp.unique(y_m)
+        unique_labels = checked_cupy_unique(y_m)
         num_unique_labels = len(unique_labels)
 
         for i in range(num_unique_labels):

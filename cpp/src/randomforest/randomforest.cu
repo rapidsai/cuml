@@ -21,6 +21,7 @@
 #include <treelite/tree.h>
 #include <cstdio>
 #include <cuml/ensemble/randomforest.hpp>
+#include <cuml/fil/fil.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -31,6 +32,7 @@ namespace ML {
 
 using namespace MLCommon;
 using namespace std;
+using namespace fil;
 namespace tl = treelite;
 
 /**
@@ -326,9 +328,34 @@ void build_treelite_forest(ModelHandle* model,
   }
 }
 
+
+ModelHandle tl_mod_handle(ModelHandle* model,
+                          std::vector<unsigned char>& data) {
+
+  std::cout << "inside the C++ code" << std::flush << std::endl;
+  std::cout << data.size() << std::flush << std::endl;
+  const char* filename = std::tmpnam(nullptr);
+  std::ofstream file(filename, std::ios::binary);
+  file.write((char*)&data[0], data.size());
+  TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
+
+  //TREELITE_CHECK(TreeliteExportProtobufModel(filename, *model));
+  return *model;
+ }
+
+void predict_mnmg(const cumlHandle& handle, fil::forest_t forest, float* preds,
+                  const float* data, size_t num_rows){
+  std::cout << " inside the mnmg fil predict in C++ " << std::flush << std::endl;
+  fil::predict(handle, forest, preds, data, num_rows);
+}
+
 std::vector<unsigned char> save_model(ModelHandle model) {
   // create a temp file
   const char* filename = std::tmpnam(nullptr);
+  size_t check_trees;
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  TREELITE_CHECK(TreeliteQueryNumTree(model, &check_trees));
+  std::cout << "check_num_trees : " << check_trees << std::flush << std::endl;
   // export the treelite model to protobuf nd save it in the temp file
   TreeliteExportProtobufModel(filename, model);
   // read from the temp file and obtain the model bytes
@@ -340,6 +367,8 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   infile.read((char*)&bytes_info[0], bytes_info.size());
   return bytes_info;
 }
+
+
 
 /**
  * @defgroup Random Forest Classification - Fit function
@@ -421,7 +450,6 @@ void predict(const cumlHandle& user_handle,
                          forest, verbose);
 }
 /** @} */
-
 /**
  * @defgroup Random Forest Classification - Predict function
  * @brief Predict target feature for input data; n-ary classification for
