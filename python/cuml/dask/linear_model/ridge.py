@@ -37,9 +37,17 @@ class Ridge(object):
     predictors in X. It can reduce the variance of the predictors, and improves
     the conditioning of the problem.
 
-    cuML's dask Ridge takes dask cuDF (X and y) as input and calculates
-    the coefficients. It provides one algorithms, Eig, to fit a linear model.
-    SVD option will be provided in the next versions.
+    cuML's dask Ridge (multi-node multi-gpu) expects dask cuDF
+    DataFrame and provides an algorithms, Eig, to fit a linear model.
+    And provides an eigendecomposition-based algorithm to fit a linear model.
+    (SVD, which is more stable than eig, will be added in an upcoming version)
+    Eig algorithm is usually preferred when the X is a tall and skinny matrix.
+    As the number of features in X increases, the accuracy of Eig algorithm
+    drops.
+
+    This is an experimental implementation of dask Ridge Regresion. It
+    supports input X that has more than one column. Single column input
+    X will be supported after SVD algorithm is added in an upcoming version.
 
     Parameters
     -----------
@@ -50,7 +58,8 @@ class Ridge(object):
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
     fit_intercept : boolean (default = True)
-        If True, Ridge tries to correct for the global mean of y.
+        If True, Ridge adds an additional term c to correct for the global
+        mean of y, modeling the reponse as "x * beta + c".
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         If True, the predictors in X will be normalized by dividing by it's L2
@@ -63,23 +72,6 @@ class Ridge(object):
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-
-    Notes
-    ------
-    Ridge provides L2 regularization. This means that the coefficients can
-    shrink to become very small, but not zero. This can cause issues of
-    interpretability on the coefficients.
-    Consider using Lasso, or thresholding small coefficients to zero.
-
-    **Applications of Ridge**
-
-        Ridge Regression is used in the same way as LinearRegression, but does
-        not suffer from multicollinearity issues.  Ridge is used in insurance
-        premium prediction, stock market analysis and much more.
-
-
-    For additional docs, see `scikitlearn's Ridge
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb>`_.
     """
 
     def __init__(self, client=None, **kwargs):
@@ -106,16 +98,16 @@ class Ridge(object):
         return cumlRidge(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_fit_colocated(f, data, M, N, partsToSizes, rank):
-        return f.fit_colocated(data, M, N, partsToSizes, rank)
+    def _func_fit_colocated(f, data, n_rows, n_cols, partsToSizes, rank):
+        return f.fit_colocated(data, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
-    def _func_fit(f, X, y, M, N, partsToSizes, rank):
-        return f.fit(X, y, M, N, partsToSizes, rank)
+    def _func_fit(f, X, y, n_rows, n_cols, partsToSizes, rank):
+        return f.fit(X, y, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
-    def _func_predict(f, df, M, N, partsToSizes, rank):
-        return f.predict(df, M, N, partsToSizes, rank)
+    def _func_predict(f, df, n_rows, n_cols, partsToSizes, rank):
+        return f.predict(df, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
     def _func_get_first(f):
@@ -146,7 +138,7 @@ class Ridge(object):
 
         if set(X_partition_workers) != set(y_partition_workers):
             raise ValueError("""
-              X  and y are not partitioned on the same workers expected \n
+              X  and y are not partitioned on the same workers expected \n_cols
               Linear Regression""")
 
         self.rnks = dict()
@@ -181,8 +173,8 @@ class Ridge(object):
             key="%s-%s" % (key, idx)).result())
             for idx, wf in enumerate(X_futures)]
 
-        N = X.shape[1]
-        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
+        n_cols = X.shape[1]
+        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
         self.linear_models = [(wf[0], self.client.submit(
@@ -199,7 +191,7 @@ class Ridge(object):
             wf[1],
             worker_to_parts[wf[0]],
             worker_to_parts_y[wf[0]],
-            M, N,
+            n_rows, n_cols,
             partsToSizes,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
@@ -225,8 +217,8 @@ class Ridge(object):
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
-        N = X.shape[1]
-        M = 0
+        n_cols = X.shape[1]
+        n_rows = 0
 
         self.rnks = dict()
         partsToSizes = dict()
@@ -242,7 +234,7 @@ class Ridge(object):
 
             partsToSizes[worker_info[w]["r"]] = parts
             for p in parts:
-                M = M + p
+                n_rows = n_rows + p
 
         key = uuid1()
         self.linear_models = [(w, self.client.submit(
@@ -258,7 +250,7 @@ class Ridge(object):
             Ridge._func_fit_colocated,
             wf[1],
             input_futures[wf[0]],
-            M, N,
+            n_rows, n_cols,
             partsToSizes,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
@@ -276,12 +268,36 @@ class Ridge(object):
 
     def fit(self, X, y, force_colocality=False):
         """
-        Fit the model with X and y.
+        Fit the model with X and y. If force_colocality is set to True,
+        the partitions of X and y will be re-distributed to force the
+        co-locality.
+
+        In some cases, data samples and their labels can be distributed
+        into different workers by dask. In that case, force_colocality
+        param can be set to True to re-arrange the data.
+
+        Usually, you will not need to force co-locality if you pass the
+        X and y as follows;
+
+        fit(X["all_the_columns_but_labels"], X["labels"])
+
+        You might want to force co-locality if you pass the X and y as
+        follows;
+
+        fit(X, y)
+
+        because dask might have distributed the partitions of X and y
+        into different workers.
 
         Parameters
         ----------
-        X : dask cuDF input
-        y : dask cuDF input
+        X : dask cuDF dataframe (n_rows, n_features)
+            Features for regression
+        y : dask cuDF (n_rows, 1)
+            Labels (outcome values)
+        force_colocality: boolean (True: re-distributes the partitions
+                          of X and y to force the co-locality of
+                          the partitions)
         """
 
         if force_colocality:
@@ -290,6 +306,17 @@ class Ridge(object):
             self._fit(X, y)
 
     def predict(self, X):
+        """
+        Make predictions for X and returns a y_pred.
+
+        Parameters
+        ----------
+        X : dask cuDF dataframe (n_rows, n_features)
+
+        Returns
+        -------
+        y : dask cuDF (n_rows, 1)
+        """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
         worker_to_parts = OrderedDict()
@@ -306,15 +333,15 @@ class Ridge(object):
             key="%s-%s" % (key, idx)).result())
             for idx, wf in enumerate(gpu_futures)]
 
-        N = X.shape[1]
-        M = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
+        n_cols = X.shape[1]
+        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
         linear_pred = dict([(self.rnks[wf[0]], self.client.submit(
             Ridge._func_predict,
             wf[1],
             worker_to_parts[wf[0]],
-            M, N,
+            n_rows, n_cols,
             partsToSizes,
             self.rnks[wf[0]],
             key="%s-%s" % (key, idx),
