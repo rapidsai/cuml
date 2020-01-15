@@ -410,7 +410,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = rmm_cupy_ary(cp.unique, y_m))
+        unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
 
         for i in range(num_unique_labels):

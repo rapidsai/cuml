@@ -274,7 +274,7 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        self.num_classes = len(rmm_cupy_ary(cp.unique, y_m))) - 1
+        self.num_classes = len(rmm_cupy_ary(cp.unique, y_m)) - 1
 
         self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self.num_classes > 2:
