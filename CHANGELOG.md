@@ -35,6 +35,7 @@
 - PR #1534: Removed TODO comment in create_ucp_listeners()
 - PR #1548: Fixing umap extra unary op in knn graph
 - PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
+- PR #1557: Increasing threshold for kmeans score 
 
 # cuML 0.11.0 (11 Dec 2019)
 
