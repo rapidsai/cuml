@@ -5,6 +5,8 @@
 - PR #1494: bench: ml-prims benchmark
 - PR #1514: bench: Fused L2 NN prim benchmark
 
+- PR #1411: Cython side of MNMG OLS
+
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
