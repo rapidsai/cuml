@@ -134,7 +134,7 @@ class SVR(SVMBase):
             'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
         degree : int (default=3)
             Degree of polynomial kernel function.
-        gamma : float or string (default = 'auto')
+        gamma : float or string (default = 'scale')
             Coefficient for rbf, poly, and sigmoid kernels. You can specify the
             numeric value, or use one of the following options:
             - 'auto': gamma will be set to 1 / n_features

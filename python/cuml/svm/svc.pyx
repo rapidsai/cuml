@@ -116,7 +116,7 @@ class SVC(SVMBase):
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
-                 gamma='auto', coef0=0.0, tol=1e-3, cache_size=200.0,
+                 gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
                  max_iter=-1, nochange_steps=1000, verbose=False):
         """
         Construct an SVC classifier for training and predictions.
@@ -132,7 +132,7 @@ class SVC(SVMBase):
             'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
         degree : int (default=3)
             Degree of polynomial kernel function.
-        gamma : float or string (default = 'auto')
+        gamma : float or string (default = 'scale')
             Coefficient for rbf, poly, and sigmoid kernels. You can specify the
             numeric value, or use one of the following options:
             - 'auto': gamma will be set to 1 / n_features
