@@ -399,3 +399,13 @@ class LinearRegression(Base):
         if 'algorithm' in params.keys():
             self.algo = self._get_algorithm_int(self.algorithm)
         return self
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        return state
+
+    def __setstate__(self, state):
+        super(LinearRegression, self).__init__(handle=None)
+        self.__dict__.update(state)
