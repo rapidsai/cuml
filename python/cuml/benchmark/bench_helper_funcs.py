@@ -18,6 +18,8 @@ import cuml
 from cuml.utils import input_utils
 import numpy as np
 import pandas as pd
+import pickle as pickle
+import sklearn.ensemble as ensemble
 import cudf
 from numba import cuda
 from cuml.benchmark import datagen
@@ -89,6 +91,60 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
                   output_class=arg["output_class"],
                   threshold=arg["threshold"],
                   storage_type=arg["storage_type"])
+
+
+def _build_fil_skl_classifier(m, data, arg={}, tmpdir=None):
+    """Setup function for FIL SKLearn classification benchmarking"""
+
+    train_data, train_label = _training_data_to_numpy(data[0], data[1])
+
+    
+
+    params = {
+        "n_estimators": 10,
+        #    "max_depth": 16,
+        "max_leaf_nodes": 2**10,
+        "max_features": "sqrt",
+        "n_jobs": -1,
+        "random_state": 42,
+    }
+    params.update(arg)
+    
+    # remove keyword arguments not understood by SKLearn
+    params.pop("fil_algo", None)
+    params.pop("output_class", None)
+    params.pop("threshold", None)
+    params.pop("storage_type", None)
+    
+    max_leaf_nodes = arg["max_leaf_nodes"]
+    n_estimators = arg["n_estimators"]
+    n_feature = data[0].shape[1]
+    train_size = data[0].shape[0]
+    model_name = f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_{train_size}.model.pkl"
+    model_path = os.path.join(tmpdir, model_name)
+    skl_model = ensemble.RandomForestClassifier(**params)
+    skl_model.fit(train_data, train_label)
+    #pickle.dump(skl_model, open(model_path, "w"))
+
+    return m.load_from_sklearn(skl_model, algo=arg["fil_algo"],
+                               output_class=arg["output_class"],
+                               threshold=arg["threshold"],
+                               storage_type=arg["storage_type"])
+
+
+def _build_cpu_skl_classifier(m, data, arg={}, tmpdir=None):
+    """Setup function for CPU SKLearn classification benchmarking"""
+
+    max_leaf_nodes = arg["max_leaf_nodes"]
+    n_estimators = arg["n_estimators"]
+    n_feature = data[0].shape[1]
+    train_size = data[0].shape[0]
+    model_name = f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_{train_size}.model.pkl"
+    model_path = os.path.join(tmpdir, model_name)
+
+    skl_model = None
+    #skl_model = pickle.load(open(model_path))
+    return skl_model
 
 
 def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
