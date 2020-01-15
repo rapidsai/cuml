@@ -56,6 +56,9 @@ class MultinomialNB(object):
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
 
+        if not isinstance(y, dask.array.core.Array):
+            raise ValueError("Only dask.Array is supported for y")
+
         if len(X.chunks[1]) != 1:
             raise ValueError("X must be chunked by row only. "
                              "Multi-dimensional chunking is not supported")
