@@ -136,7 +136,7 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
   unsigned int *d_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
 
-  if (split_algo == 0) {
+  if (split_algo == ML::SPLIT_ALGO::HIST) {
     get_minmax(data, flags, tempmem->d_colids->data(), d_colstart, nrows, Ncols,
                ncols_sampled, n_nodes, tempmem->max_nodes_minmax,
                tempmem->d_globalminmax->data(), tempmem->h_globalminmax->data(),
@@ -469,7 +469,7 @@ void best_split_gather_regression(
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
   const int TPB = TemporaryMemory<T, T>::gather_threads;
   if (split_cr == ML::CRITERION::MSE) {
-    if (split_algo == 0) {
+    if (split_algo == ML::SPLIT_ALGO::HIST) {
       using E = typename MLCommon::Stats::encode_traits<T>::E;
       T init_val = std::numeric_limits<T>::max();
       size_t shmemsz = nbins * sizeof(int) + nbins * sizeof(T);
