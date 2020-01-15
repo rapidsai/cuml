@@ -119,6 +119,11 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
             and input_type != 'numpy':
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
 
+    if dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
+        if input_type == 'dataframe':
+            pytest.xfail("unsigned int types not yet supported by \
+                         cuDF")
+
     input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
 
     if input_type == 'cupy' and input_data is None:
