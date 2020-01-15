@@ -151,10 +151,10 @@ void predictGetAll(const cumlHandle& user_handle,
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
-                 int n_rows, int* predictions, bool verbose = false);
+                 int n_rows, const int* predictions, bool verbose = false);
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
-                 int n_rows, int* predictions, bool verbose = false);
+                 int n_rows, const int* predictions, bool verbose = false);
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
@@ -184,8 +184,8 @@ void predict(const cumlHandle& user_handle,
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,
-                 int n_rows, float* predictions, bool verbose = false);
+                 int n_rows, const float* predictions, bool verbose = false);
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorD* forest, const double* ref_labels,
-                 int n_rows, double* predictions, bool verbose = false);
+                 int n_rows, const double* predictions, bool verbose = false);
 };  // namespace ML

@@ -26,10 +26,12 @@ from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
 from cuml.utils import input_to_dev_array
+import rmm
+import numpy as np
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
 
-supported_solvers = ['qn', 'lbfgs', 'owl']
+supported_solvers = ['qn']
 
 
 class LogisticRegression(Base):
@@ -135,8 +137,10 @@ class LogisticRegression(Base):
 
     Attributes
     -----------
-    coef_: device array, shape (n_classes, n_features)
+    coef_: dev array, dim (n_classes, n_features) or (n_classes, n_features+1)
         The estimated coefficients for the linear regression model.
+        Note: this includes the intercept as the last column if fit_intercept
+        is True
     intercept_: device array (n_classes, 1)
         The independent term. If fit_intercept_ is False, will be 0.
 
@@ -167,8 +171,9 @@ class LogisticRegression(Base):
             raise ValueError("`penalty` " + str(penalty) + "not supported.")
 
         if solver not in supported_solvers:
-            raise ValueError("Only quasi-newton `qn` (lbfgs and owl) solvers "
-                             " supported.")
+            raise ValueError("Only quasi-newton `qn` solver is "
+                             " supported, not %s" % solver)
+        self.solver = solver
 
         self.C = C
         self.penalty = penalty
@@ -323,3 +328,38 @@ class LogisticRegression(Base):
             ndarray, cuda array interface compliant array like CuPy
         """
         return accuracy_score(y, self.predict(X), handle=self.handle)
+
+    def get_param_names(self):
+        return ["C", "penalty", "tol", "fit_intercept", "max_iter",
+                "linesearch_max_iter", "l1_ratio", "solver"]
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        if 'handle' in state:
+            del state['handle']
+
+        if 'coef_' in state:
+            del state['coef_']
+        if 'intercept_' in state:
+            del state['intercept_']
+        return state
+
+    def __setstate__(self, state):
+        super(LogisticRegression, self).__init__(handle=None,
+                                                 verbose=state['verbose'])
+
+        if 'qn' in state:
+            qn = state['qn']
+            if qn.coef_ is not None:
+                if qn.fit_intercept:
+                    state['coef_'] = qn.coef_[0:-1]
+                    state['intercept_'] = qn.coef_[-1]
+                else:
+                    state['coef_'] = qn.coef_
+                    n_classes = qn.coef_.shape[1]
+                    state['intercept_'] = rmm.to_device(np.zeros(
+                        n_classes,
+                        dtype=qn.coef_.dtype))
+
+        self.__dict__.update(state)
