@@ -18,7 +18,6 @@
 #include "batched_kalman.hpp"
 
 #include <algorithm>
-#include <chrono>
 
 #include <nvToolsExt.h>
 #include <thrust/for_each.h>
@@ -219,18 +218,15 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
 void _batched_kalman_loop_large(const double* d_ys, int nobs,
                                 const BatchedMatrix& T, const BatchedMatrix& Z,
                                 const BatchedMatrix& RRT, BatchedMatrix& P,
-                                BatchedMatrix& alpha,
-                                const std::vector<bool>& T_mask, int r,
-                                double* d_vs, double* d_Fs, double* d_sum_logFs,
-                                int fc_steps = 0, double* d_fc = nullptr) {
+                                BatchedMatrix& alpha, SparseMatrix& T_sparse,
+                                int r, double* d_vs, double* d_Fs,
+                                double* d_sum_logFs, int fc_steps = 0,
+                                double* d_fc = nullptr) {
   auto stream = T.stream();
   auto allocator = T.allocator();
   auto cublasHandle = T.cublasHandle();
   int nb = T.batches();
   int r2 = r * r;
-
-  // Create sparse matrix for T
-  SparseMatrix T_sparse(T, T_mask);
 
   // Temporary matrices and vectors
   BatchedMatrix v_tmp(r, 1, nb, cublasHandle, allocator, stream, false);
@@ -326,8 +322,8 @@ void _batched_kalman_loop_large(const double* d_ys, int nobs,
 void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
                          const BatchedMatrix& Z, const BatchedMatrix& RRT,
                          BatchedMatrix& P0, BatchedMatrix& alpha,
-                         std::vector<bool>& T_mask, int r, double* vs,
-                         double* Fs, double* sum_logFs, int fc_steps = 0,
+                         SparseMatrix& T_sparse, int r, double* vs, double* Fs,
+                         double* sum_logFs, int fc_steps = 0,
                          double* d_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
@@ -386,7 +382,7 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
     }
     CUDA_CHECK(cudaGetLastError());
   } else {
-    _batched_kalman_loop_large(ys, nobs, T, Z, RRT, P0, alpha, T_mask, r, vs,
+    _batched_kalman_loop_large(ys, nobs, T, Z, RRT, P0, alpha, T_sparse, r, vs,
                                Fs, sum_logFs, fc_steps, d_fc);
   }
 }
@@ -438,12 +434,13 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                             double* d_loglike, const double* d_sigma2,
                             bool initP_kalman_it = false, int fc_steps = 0,
                             double* d_fc = nullptr) {
+  /// TODO: renove initP_kalman_it parameter
+
   const size_t batch_size = Zb.batches();
   auto stream = handle.getStream();
   auto cublasHandle = handle.getImpl().getCublasHandle();
   auto allocator = handle.getDeviceAllocator();
 
-  int r2 = r * r;
   auto counting = thrust::make_counting_iterator(0);
 
   BatchedMatrix RQb(r, 1, batch_size, cublasHandle, allocator, stream, true);
@@ -458,68 +455,17 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                    });
   BatchedMatrix RRT = b_gemm(RQb, Rb, false, true);
 
+  /// TODO: create only when needed
+  SparseMatrix T_sparse = SparseMatrix::from_dense(Tb, T_mask);
+
+  // Durbin Koopman "Time Series Analysis" pg 138
+  ML::PUSH_RANGE("Init P");
+  // Use the dense version for small matrices, the sparse version otherwise
   BatchedMatrix P =
-    BatchedMatrix::Identity(r, batch_size, cublasHandle, allocator, stream);
-  double* d_P = P.raw_data();
-  double* d_T = Tb.raw_data();
-  int initP_niter = 10;
-  if (initP_kalman_it) {
-    /// TODO: remove if we don't manage to make it pass the tests
-    /// TODO: if we keep this, we can have a kernel for r<=8 cases
-    BatchedMatrix ZtZ = b_gemm(Zb, Zb, true, false);  // Can be hardcoded
-    BatchedMatrix tmp1(r, r, batch_size, cublasHandle, allocator, stream, true);
-    BatchedMatrix tmp2(r, r, batch_size, cublasHandle, allocator, stream, true);
-    double* d_tmp2 = tmp2.raw_data();
-    for (int it = 0; it < initP_niter; it++) {
-      // tmp1 = T*P
-      b_gemm(false, false, r, r, r, 1.0, Tb, P, 0.0, tmp1);
-      // tmp2 = tmp1*ZtZ = T*P*Z'*Z
-      b_gemm(false, false, r, r, r, 1.0, tmp1, ZtZ, 0.0, tmp2);
-      // tmp2 =  T-tmp2/P00 = T-T*P*Z'*Z/P00
-      thrust::for_each(thrust::cuda::par.on(stream), counting,
-                       counting + batch_size, [=] __device__(int bid) {
-                         double P00 = d_P[bid * r2];
-                         for (int i = 0; i < r2; i++) {
-                           d_tmp2[bid * r2 + i] =
-                             d_T[bid * r2 + i] - d_tmp2[bid * r2 + i] / P00;
-                         }
-                       });
-      // P = RRT
-      MLCommon::copy(d_P, RRT.raw_data(), r2 * batch_size, stream);
-      // P = tmp1*tmp2'+P = T*P*(T-T*P*Z'*Z/P00)'+RR'
-      b_gemm(false, true, r, r, r, 1.0, tmp1, tmp2, 1.0, P);
-    }
-  } else {
-    // # (Durbin Koopman "Time Series Analysis" pg 138)
-
-    /* Note: in the seasonal case, the matrices for the Kronecker product and
-     * the identity are very large, which creates memory and performance issues
-     * But the initialization with a Kalman iteration gives bad results...
-     * TODO: figure out a workaround
-     */
-    ML::PUSH_RANGE("P0: (I-TxT)");
-    BatchedMatrix I_m_TxT = b_kron(-Tb, Tb);
-    // Note: avoiding the creation of an identity matrix to save memory;
-    // also -TxT = (-T)xT
-    double* d_I_m_TxT = I_m_TxT.raw_data();
-    int r2 = r * r;
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int ib) {
-                       double* b_I_m_TxT = d_I_m_TxT + ib * r2 * r2;
-                       for (int i = 0; i < r * r; i++) {
-                         b_I_m_TxT[(r2 + 1) * i] += 1.0;
-                       }
-                     });
-    ML::POP_RANGE();
-    ML::PUSH_RANGE("P0: (I-TxT)\\(R.R^T)");
-    BatchedMatrix invI_m_TxT_x_RRTvec = b_solve(I_m_TxT, RRT.vec());
-    ML::POP_RANGE();
-    BatchedMatrix P0 = invI_m_TxT_x_RRTvec.mat(r, r);
-    P = P0;
-  }
-
-  // MLCommon::myPrintDevMatrix("P0", P.raw_data(), r, r);
+    (r <= 8 && batch_size <= 1024)
+      ? MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT)
+      : MLCommon::Sparse::Batched::b_lyapunov(T_sparse, T_mask, RRT);
+  ML::POP_RANGE();
 
   // init alpha to zero
   BatchedMatrix alpha(r, 1, batch_size, handle.getImpl().getCublasHandle(),
@@ -532,10 +478,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   d_sumlogFs = (double*)handle.getDeviceAllocator()->allocate(
     sizeof(double) * batch_size, stream);
 
-  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, T_mask, r, d_vs, d_Fs,
-                      d_sumlogFs, fc_steps, d_fc);
-
-  // MLCommon::myPrintDevMatrix("Pf", P.raw_data(), r, r);
+  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, T_sparse, r, d_vs,
+                      d_Fs, d_sumlogFs, fc_steps, d_fc);
 
   // Finalize loglikelihood
   batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, batch_size, d_loglike,
@@ -596,18 +540,15 @@ static void init_batched_kalman_matrices(
       }
     });
 
-  // Create mask for sparse matrices
-  if (r > 8) {
-    T_mask.resize(r * r, false);
-    for (int iP = 0; iP < P + 1; iP++) {
-      for (int ip = 0; ip < p + 1; ip++) {
-        int i = iP * s + ip - 1;
-        if (i >= 0) T_mask[i] = true;
-      }
+  T_mask.resize(r * r, false);
+  for (int iP = 0; iP < P + 1; iP++) {
+    for (int ip = 0; ip < p + 1; ip++) {
+      int i = iP * s + ip - 1;
+      if (i >= 0) T_mask[i] = true;
     }
-    for (int i = 0; i < r - 1; i++) {
-      T_mask[(i + 1) * r + i] = true;
-    }
+  }
+  for (int i = 0; i < r - 1; i++) {
+    T_mask[(i + 1) * r + i] = true;
   }
 
   ML::POP_RANGE();

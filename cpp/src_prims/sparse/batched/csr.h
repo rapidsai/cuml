@@ -15,13 +15,20 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <vector>
+
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
 #include "linalg/batched/batched_matrix.h"
+#include "linalg/cusolver_wrappers.h"
+#include "matrix/matrix.h"
 
 namespace MLCommon {
 namespace Sparse {
@@ -62,6 +69,36 @@ static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
 }
 
 /**
+ * Kernel to construct batched dense matrices from batched CSR sparse matrices
+ * 
+ * @param[out] dense      Batched dense matrices. Size: m * n * batch_size
+ * @param[in]  col_index  CSR column index.       Size: nnz
+ * @param[in]  row_index  CSR row index.          Size: m + 1
+ * @param[in]  values     CSR values array.       Size: nnz * batch_size
+ * @param[in]  batch_size Number of matrices in the batch
+ * @param[in]  m          Number of rows per matrix
+ * @param[in]  n          Number of columns per matrix
+ * @param[in]  nnz        Number of non-zero elements in each matrix
+ */
+template <typename T>
+static __global__ void csr_to_dense_kernel(T* dense, const int* col_index,
+                                           const int* row_index,
+                                           const T* values, int batch_size,
+                                           int m, int n, int nnz) {
+  int bid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (bid < batch_size) {
+    int stride = m * n;
+    for (int i = 0; i < m; i++) {
+      for (int idx = row_index[i]; idx < row_index[i + 1]; idx++) {
+        int j = col_index[idx];
+        dense[bid * stride + j * m + i] = values[bid * nnz + idx];
+      }
+    }
+  }
+}
+
+/**
  * @brief The BatchedCSR class provides storage and a few operations for
  *        a batch of matrices in Compressed Sparse Row representation, that
  *        share a common structure (index arrays) but different values.
@@ -70,38 +107,25 @@ template <typename T>
 class BatchedCSR {
  public:
   /**
-   * @brief Constructor from dense batched matrix and mask
+   * @brief Constructor that leaves the matrix uninitialized
    * 
-   * @param[in]  dense  Dense batched matrix
-   * @param[in]  mask   Col-major host device matrix containing a mask of the
-   *                    non-zero values common to all matrices in the batch.
-   *                    Note: the point of using a mask is that some values
-   *                    might be zero in a few matrices but not generally in
-   *                    the batch so we shouldn't rely on a single matrix to
-   *                    get the mask
+   * @param[in] m            Number of rows per matrix
+   * @param[in] n            Number of columns per matrix
+   * @param[in] nnz          Number of non-zero elements per matrix
+   * @param[in] batch_size   Number of matrices in the batch
+   * @param[in] cublasHandle cuBLAS handle
+   * @param[in] allocator    Device memory allocator
+   * @param[in] stream       CUDA stream
    */
-  BatchedCSR(const LinAlg::Batched::BatchedMatrix<T>& dense,
-             const std::vector<bool>& mask)
-    : m_batch_size(dense.batches()),
-      m_allocator(dense.allocator()),
-      m_stream(dense.stream()),
-      m_shape(dense.shape()) {
-    // Create the index arrays from the mask
-    std::vector<int> h_col_index;
-    std::vector<int> h_row_index = std::vector<int>(m_shape.first + 1);
-    int k = 0;
-    for (int i = 0; i < m_shape.first; i++) {
-      h_row_index[i] = k;
-      for (int j = 0; j < m_shape.second; j++) {
-        if (mask[j * m_shape.first + i]) {
-          h_col_index.push_back(j);
-          k++;
-        }
-      }
-    }
-    h_row_index[m_shape.first] = k;
-    m_nnz = k;
-
+  BatchedCSR(int m, int n, int nnz, int batch_size, cublasHandle_t cublasHandle,
+             std::shared_ptr<ML::deviceAllocator> allocator,
+             cudaStream_t stream)
+    : m_batch_size(batch_size),
+      m_allocator(allocator),
+      m_cublasHandle(cublasHandle),
+      m_stream(stream),
+      m_shape(std::pair<int, int>(m, n)),
+      m_nnz(nnz) {
     // Allocate the values
     T* values =
       (T*)m_allocator->allocate(sizeof(T) * m_nnz * m_batch_size, m_stream);
@@ -110,26 +134,10 @@ class BatchedCSR {
     int* row_index =
       (int*)m_allocator->allocate(sizeof(int) * (m_shape.first + 1), m_stream);
 
-    // Copy the host index arrays to the device
-    MLCommon::copy(col_index, h_col_index.data(), m_nnz, m_stream);
-    MLCommon::copy(row_index, h_row_index.data(), m_shape.first + 1, m_stream);
-
-    // Copy the data from the dense matrix to its sparse representation
-    constexpr int TPB = 256;
-    dense_to_csr_kernel<<<MLCommon::ceildiv<int>(m_batch_size, TPB), TPB, 0,
-                          m_stream>>>(dense.raw_data(), col_index, row_index,
-                                      values, m_batch_size, m_shape.first,
-                                      m_shape.second, m_nnz);
-    CUDA_CHECK(cudaPeekAtLastError());
-
     /* Take these references to extract them from member-storage for the
      * lambda below. There are better C++14 ways to do this, but I'll keep
      * it C++11 for now. */
     auto& shape = m_shape;
-    auto& batch_size = m_batch_size;
-    auto& nnz = m_nnz;
-    auto& allocator = m_allocator;
-    auto& stream = m_stream;
 
     /* Note: we create these "free" functions with explicit copies to ensure
      * that the deallocate function gets called with the correct values. */
@@ -149,8 +157,87 @@ class BatchedCSR {
     m_row_index = std::shared_ptr<int>(row_index, deallocate_row);
   }
 
+  /**
+   * @brief Construct from a dense batched matrix and its mask
+   * 
+   * @param[in]  dense  Dense batched matrix
+   * @param[in]  mask   Col-major host device matrix containing a mask of the
+   *                    non-zero values common to all matrices in the batch.
+   *                    Note: the point of using a mask is that some values
+   *                    might be zero in a few matrices but not generally in
+   *                    the batch so we shouldn't rely on a single matrix to
+   *                    get the mask
+   * @return Batched CSR matrix
+   */
+  static BatchedCSR<T> from_dense(
+    const LinAlg::Batched::BatchedMatrix<T>& dense,
+    const std::vector<bool>& mask) {
+    std::pair<int, int> shape = dense.shape();
+
+    // Create the index arrays from the mask
+    std::vector<int> h_col_index;
+    std::vector<int> h_row_index = std::vector<int>(shape.first + 1);
+    int nnz = 0;
+    for (int i = 0; i < shape.first; i++) {
+      h_row_index[i] = nnz;
+      for (int j = 0; j < shape.second; j++) {
+        if (mask[j * shape.first + i]) {
+          h_col_index.push_back(j);
+          nnz++;
+        }
+      }
+    }
+    h_row_index[shape.first] = nnz;
+
+    BatchedCSR<T> out =
+      BatchedCSR<T>(shape.first, shape.second, nnz, dense.batches(),
+                    dense.cublasHandle(), dense.allocator(), dense.stream());
+
+    // Copy the host index arrays to the device
+    MLCommon::copy(out.get_col_index(), h_col_index.data(), nnz, out.stream());
+    MLCommon::copy(out.get_row_index(), h_row_index.data(), shape.first + 1,
+                   out.stream());
+
+    // Copy the data from the dense matrix to its sparse representation
+    constexpr int TPB = 256;
+    dense_to_csr_kernel<<<MLCommon::ceildiv<int>(out.batches(), TPB), TPB, 0,
+                          out.stream()>>>(
+      dense.raw_data(), out.get_col_index(), out.get_row_index(),
+      out.get_values(), out.batches(), shape.first, shape.second, nnz);
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    return out;
+  }
+
+  /**
+   * @brief Construct a dense batched matrix
+   * 
+   * @return BatchedMatrix representing the same data as this object
+   */
+  LinAlg::Batched::BatchedMatrix<T> to_dense() {
+    LinAlg::Batched::BatchedMatrix<T> dense(m_shape.first, m_shape.second,
+                                            m_batch_size, m_cublasHandle,
+                                            m_allocator, m_stream, true);
+
+    // Copy the data from the sparse to the dense representation
+    constexpr int TPB = 256;
+    csr_to_dense_kernel<<<MLCommon::ceildiv<int>(m_batch_size, TPB), TPB, 0,
+                          m_stream>>>(
+      dense.raw_data(), m_col_index.get(), m_row_index.get(), m_values.get(),
+      m_batch_size, m_shape.first, m_shape.second, m_nnz);
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    return dense;
+  }
+
   //! Return batch size
   size_t batches() const { return m_batch_size; }
+
+  //! Return number of non-zero elements
+  size_t nnz() const { return m_nnz; }
+
+  //! Return cublas handle
+  cublasHandle_t cublasHandle() const { return m_cublasHandle; }
 
   //! Return allocator
   std::shared_ptr<deviceAllocator> allocator() const { return m_allocator; }
@@ -190,6 +277,7 @@ class BatchedCSR {
   size_t m_batch_size;
 
   std::shared_ptr<ML::deviceAllocator> m_allocator;
+  cublasHandle_t m_cublasHandle;
   cudaStream_t m_stream;
 };
 
@@ -353,6 +441,194 @@ void b_spmm(T alpha, const BatchedCSR<T>& A,
   batched_spmm_kernel<<<MLCommon::ceildiv<int>(nb, TPB), TPB, 0, A.stream()>>>(
     alpha, A.get_col_index(), A.get_row_index(), A.get_values(), B.raw_data(),
     beta, C.raw_data(), m, k, n, nb, threads_per_bid);
+}
+
+/**
+ * @brief Solve discrete Lyapunov equation A*X*A' - X + Q = 0
+ * @todo: docs
+ */
+template <typename T>
+LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
+  const BatchedCSR<T>& A, const std::vector<bool>& A_mask,
+  const LinAlg::Batched::BatchedMatrix<T>& Q) {
+  int n = A.shape().first;
+  int n2 = n * n;
+  int A_nnz = A.nnz();
+  int batch_size = A.batches();
+  auto stream = A.stream();
+  auto allocator = A.allocator();
+  auto counting = thrust::make_counting_iterator(0);
+
+  //
+  // Construct sparse matrix I-AxA
+  //
+
+  // Note: if the substraction cancels elements, they are still considered
+  // as non-zero, but it shouldn't be an issue
+
+  // Copy the index arrays of A to the host
+  std::vector<int> h_A_col_index = std::vector<int>(A_nnz);
+  std::vector<int> h_A_row_index = std::vector<int>(n + 1);
+  copy(h_A_col_index.data(), A.get_col_index(), A_nnz, stream);
+  copy(h_A_row_index.data(), A.get_row_index(), n + 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  // Compute the index arrays of AxA
+  std::vector<int> h_AxA_col_index;
+  std::vector<int> h_AxA_row_index = std::vector<int>(n2 + 1);
+  int nnz = 0;
+  {
+    int i_p = -1, j_p = -1;
+    for (int i1 = 0; i1 < n; i1++) {
+      for (int i2 = 0; i2 < n; i2++) {
+        for (int idx1 = h_A_row_index[i1]; idx1 < h_A_row_index[i1 + 1];
+             idx1++) {
+          int j1 = h_A_col_index[idx1];
+          for (int idx2 = h_A_row_index[i2]; idx2 < h_A_row_index[i2 + 1];
+               idx2++) {
+            int j2 = h_A_col_index[idx2];
+            // Compute the next non-zero element
+            int i = i1 * n + i2;
+            int j = j1 * n + j2;
+            // Fill all the diagonal elements in-between
+            for (int k = (j_p >= i_p ? i_p + 1 : i_p);
+                 k <= (j <= i ? i - 1 : i); k++) {
+              h_AxA_col_index.push_back(k);
+              h_AxA_row_index[k + 1] = ++nnz;
+            }
+            // Add the current index
+            h_AxA_col_index.push_back(j);
+            h_AxA_row_index[i + 1] = ++nnz;
+            // Remember the current index in the next iteration
+            i_p = i;
+            j_p = j;
+          }
+        }
+      }
+    }
+    // Fill diagonal elements after the last element of AxA
+    for (int k = (j_p >= i_p ? i_p + 1 : i_p); k < n2; k++) {
+      h_AxA_col_index.push_back(k);
+      h_AxA_row_index[k + 1] = ++nnz;
+    }
+  }
+
+  // Create the uninitialized batched CSR matrix
+  BatchedCSR<T> I_m_AxA(n2, n2, nnz, batch_size, A.cublasHandle(), allocator,
+                        stream);
+
+  // Copy the host index arrays to the device arrays
+  copy(I_m_AxA.get_col_index(), h_AxA_col_index.data(), nnz, stream);
+  copy(I_m_AxA.get_row_index(), h_AxA_row_index.data(), n2 + 1, stream);
+
+  // Compute values of I-AxA
+  const double* d_A_values = A.get_values();
+  const int* d_A_col_index = A.get_col_index();
+  const int* d_A_row_index = A.get_row_index();
+  double* d_values = I_m_AxA.get_values();
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     const double* b_A_values = d_A_values + A_nnz * bid;
+                     double* b_values = d_values + nnz * bid;
+                     int i_p = -1, j_p = -1;
+                     int i_nnz = 0;
+                     for (int i1 = 0; i1 < n; i1++) {
+                       for (int i2 = 0; i2 < n; i2++) {
+                         for (int idx1 = d_A_row_index[i1];
+                              idx1 < d_A_row_index[i1 + 1]; idx1++) {
+                           int j1 = d_A_col_index[idx1];
+                           double value1 = b_A_values[idx1];
+                           for (int idx2 = d_A_row_index[i2];
+                                idx2 < d_A_row_index[i2 + 1]; idx2++) {
+                             int j2 = d_A_col_index[idx2];
+                             double value2 = b_A_values[idx2];
+                             // Compute the next non-zero element
+                             int i = i1 * n + i2;
+                             int j = j1 * n + j2;
+                             // Fill all the diagonal elements in-between
+                             for (int k = (j_p >= i_p ? i_p + 1 : i_p);
+                                  k <= (j <= i ? i - 1 : i); k++) {
+                               b_values[i_nnz++] = 1.0;
+                             }
+                             // Set the current element
+                             b_values[i_nnz++] =
+                               (i == j ? 1.0 : 0.0) - value1 * value2;
+                             // Remember the current index in the next iteration
+                             i_p = i;
+                             j_p = j;
+                           }
+                         }
+                       }
+                     }
+                     // Fill diagonal elements after the last element of AxA
+                     for (int k = (j_p >= i_p ? i_p + 1 : i_p); k < n2; k++) {
+                       b_values[i_nnz++] = 1.0;
+                     }
+                   });
+
+  //
+  // Solve (I - TxT) vec(X) = vec(Q)
+  //
+
+  /// TODO: integrate cuSOLVER sparse handle in cuML handle
+  cusolverSpHandle_t cusolverSpHandle;
+  cusolverSpCreate(&cusolverSpHandle);
+
+  csrqrInfo_t info = NULL;
+  cusparseMatDescr_t descr = NULL;
+
+  // Create cuSPARSE matrix descriptor
+  cusparseCreateMatDescr(&descr);
+  cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO);
+  cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL);
+
+  // Create empty info structure
+  CUSOLVER_CHECK(cusolverSpCreateCsrqrInfo(&info));
+
+  // Symbolic analysis
+  CUSOLVER_CHECK(cusolverSpXcsrqrAnalysisBatched(
+    cusolverSpHandle, n2, n2, nnz, descr, I_m_AxA.get_row_index(),
+    I_m_AxA.get_col_index(), info));
+
+  // Sometimes not all the batch can be computed at once. So we divide
+  // it into smaller batches and perform multiple cuSOLVER calls
+  int group_size = 2 * batch_size;
+  size_t internalDataInBytes, workspaceInBytes;
+  size_t mem_free, mem_total;
+  do {
+    group_size = (group_size - 1) / 2 + 1;
+    CUDA_CHECK(cudaMemGetInfo(&mem_free, &mem_total));
+    CUSOLVER_CHECK(LinAlg::cusolverSpcsrqrBufferInfoBatched(
+      cusolverSpHandle, n2, n2, nnz, descr, I_m_AxA.get_values(),
+      I_m_AxA.get_row_index(), I_m_AxA.get_col_index(), group_size, info,
+      &internalDataInBytes, &workspaceInBytes));
+  } while (group_size > 1 && internalDataInBytes > mem_free / 2);
+
+  // Allocate working space
+  void* pBuffer = allocator->allocate(workspaceInBytes, stream);
+
+  // Create output matrix
+  LinAlg::Batched::BatchedMatrix<T> X(n, n, batch_size, A.cublasHandle(),
+                                      allocator, stream, false);
+
+  // Then loop over the groups and solve
+  for (int start_id = 0; start_id < batch_size; start_id += group_size) {
+    int actual_group_size = std::min(batch_size - start_id, group_size);
+    CUSOLVER_CHECK(LinAlg::cusolverSpcsrqrsvBatched(
+      cusolverSpHandle, n2, n2, nnz, descr,
+      I_m_AxA.get_values() + nnz * start_id, I_m_AxA.get_row_index(),
+      I_m_AxA.get_col_index(), Q.raw_data() + n2 * start_id,
+      X.raw_data() + n2 * start_id, actual_group_size, info, pBuffer, stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
+  allocator->deallocate(pBuffer, workspaceInBytes, stream);
+
+  /// TODO: remove
+  CUSOLVER_CHECK(cusolverSpDestroy(cusolverSpHandle));
+
+  CUSOLVER_CHECK(cusolverSpDestroyCsrqrInfo(info));
+
+  return X;
 }
 
 }  // namespace Batched
