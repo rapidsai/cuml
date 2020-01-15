@@ -51,7 +51,8 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
         int seed,
         int metric,
         double oversampling_factor,
-        int batch_size,
+        int batch_samples,
+        int batch_centroids,
         bool inertia_check
 
     cdef void fit_predict(cumlHandle& handle,
@@ -295,7 +296,7 @@ class KMeans(Base):
         params.verbose = <int>self.verbose
         params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
-        params.batch_size=<int>self.max_samples_per_batch
+        params.batch_samples=<int>self.max_samples_per_batch
         params.oversampling_factor=<double>self.oversampling_factor
         self._params = params
 
@@ -478,6 +479,7 @@ class KMeans(Base):
         self.handle.sync()
         del(X_m)
         del(clust_mat)
+
         return self.labels_, inertia
 
     def predict(self, X, convert_dtype=False):

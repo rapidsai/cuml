@@ -16,5 +16,4 @@
 
 include_directories(${CUDA_INCLUDE_DIRS})
 add_executable(kmeans_example kmeans_example.cpp)
-add_dependencies(kmeans_example ${ClangFormat_TARGET})
 target_link_libraries(kmeans_example cuml++)
