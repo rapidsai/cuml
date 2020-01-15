@@ -159,12 +159,12 @@ def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
 def test_score(nrows, ncols, nclusters):
 
     X, y = make_blobs(nrows, ncols, nclusters,
-                           cluster_std=0.01,
-                           random_state=10)
+                      cluster_std=0.01,
+                      random_state=10)
 
     cuml_kmeans = cuml.KMeans(verbose=1, init="k-means||",
-                           n_clusters=nclusters,
-                           random_state=10)
+                              n_clusters=nclusters,
+                              random_state=10)
 
     cuml_kmeans.fit(X)
 
