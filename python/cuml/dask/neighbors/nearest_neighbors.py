@@ -40,11 +40,6 @@ class NearestNeighbors(object):
     """
     def __init__(self, client=None, streams_per_handle=0, verbose=False,
                  **kwargs):
-
-        raise NotImplementedError("Multi-GPU KNN is not available in RAPIDS "
-                                  "0.11, it will be enabled in the next "
-                                  "release. Legacy version is available in "
-                                  "0.10.")
         self.client = default_client() if client is None else client
         self.model_args = kwargs
         self.X = None
