@@ -37,18 +37,18 @@ def count_features_coo_kernel(float_dtype, int_dtype):
     label
     """
 
-    kernel_str=r'''({0} *out,
+    kernel_str = r'''({0} *out,
                     int *rows, int *cols,
                     {0} *vals, int nnz,
                     int n_rows, int n_cols,
                     {1} *labels,
                     int n_classes,
                     bool square) {
-    
+
       int i = blockIdx.x * blockDim.x + threadIdx.x;
-    
+
       if(i >= nnz) return;
-    
+
       int row = rows[i];
       int col = cols[i];
       {0} val = vals[i];
@@ -65,7 +65,7 @@ def count_features_coo_kernel(float_dtype, int_dtype):
 def count_classes_kernel(float_dtype, int_dtype):
     kernel_str = r'''
     ({0} *out, int n_rows, {1} *labels) {
-    
+
       int row = blockIdx.x * blockDim.x + threadIdx.x;
       if(row >= n_rows) return;
       {1} label = labels[row];
@@ -88,20 +88,20 @@ def count_features_dense_kernel(float_dtype, int_dtype):
      int n_classes,
      bool square,
      bool rowMajor) {
-    
+
       int row = blockIdx.x * blockDim.x + threadIdx.x;
       int col = blockIdx.y * blockDim.y + threadIdx.y;
-    
+
       if(row >= n_rows || col >= n_cols) return;
-    
+
       {0} val = !rowMajor ?
             in[col * n_rows + row] : in[row * n_cols + col];
-    
+
       if(val == 0.0) return;
-    
+
       if(square) val *= val;
       {1} label = labels[row];
-    
+
       atomicAdd(out + ((col * n_classes) + label), val);
     }'''
 
