@@ -338,53 +338,25 @@ class RandomForestClassifier:
         """
         prints the summary of the forest used to train and test the model
         """
-        c = default_client()
-
-        mod_bytes = list()
+        mod_bytes = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
         worker_numb = [i for i in self.workers]
 
-        mod_handles = list()
+        list_mod_handles = []
+        model = self.rfs[worker_numb[0]].result()
         for n in range(len(self.workers)):
-            mod_handles.append(
-                c.submit(
-                    RandomForestClassifier._tl_model_handles,
-                    self.rfs[worker_numb[0]],
-                    mod_bytes[n],
-                    workers=[worker_numb[0]],
-                )
-            )
+            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        wait(mod_handles)
-        raise_exception_from_futures(mod_handles)
-
-        list_mod_handles = list()
-        for d in range(len(mod_handles)):
-            list_mod_handles.append(mod_handles[d].result())
-
-        check_bytes = list()
+        check_model_bytes = []
         for n in range(len(self.workers)):
-            check_bytes.append(
-                c.submit(
-                    RandomForestClassifier._read_mod_handles,
-                    self.rfs[worker_numb[0]],
-                    list_mod_handles[n],
-                    workers=[worker_numb[0]],
-                )
-            )
-
-        wait(check_bytes)
-        raise_exception_from_futures(check_bytes)
-
-        check_mod_bytes = list()
-        for d in range(len(check_bytes)):
-            check_mod_bytes.append(check_bytes[d].result())
+            calc_value = model._read_mod_handles(list_mod_handles[n])
+            check_model_bytes.append(calc_value)
 
         size_of_mod_bytes_read = []
-        for i in range(len(check_mod_bytes)):
-            size_of_mod_bytes_read.append(np.shape(check_mod_bytes[i]))
+        for i in range(len(check_model_bytes)):
+            size_of_mod_bytes_read.append(np.shape(check_model_bytes[i]))
 
         return list_mod_handles, size_of_mod_bytes_read
 
