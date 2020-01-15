@@ -20,15 +20,17 @@
 #
 # This test file contains some unit tests and an integration test.
 #
-# The integration test has wider tolerance marging because the optimization
-# algorithm may fit the model with different parameters than the reference
-# implementation. These margins have been found empirically when creating the
-# datasets. They will help to identify regressions but might have to be
-# changed, e.g if there are changes in the optimization algorithm.
+# The integration test has a wider tolerance margin, set separately for each
+# dataset. These margins have been found empirically when creating the
+# datasets. They will help to identify regressions.
 #
 # The units tests use some ground truth (e.g the parameters found by the
 # reference implementation) to test a unique piece of code. The error margin
 # is then very small.
+#
+# Note: when using an intercept, in certain cases our model and the reference
+# will converge to slightly different parameters. It is not an issue, but these
+# cases need to be removed for the tests
 
 import pytest
 
@@ -52,9 +54,7 @@ import cuml.tsa.arima as arima
 
 # Common structure to hold the data, the reference and the testing parameters
 ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
-                                     'end', 'tolerance_integration',
-                                     'tolerance_predict',
-                                     'tolerance_loglike'])
+                                     'end', 'tolerance_integration'])
 
 # ARIMA(2,0,0)
 test_200 = ARIMAData(
@@ -63,21 +63,17 @@ test_200 = ARIMAData(
     dataset="long_term_arrivals_by_citizenship",
     start=10,
     end=25,
-    tolerance_integration=0.5,
-    tolerance_predict=0.0001,
-    tolerance_loglike=0.001
+    tolerance_integration=0.001
 )
 
 # ARIMA(0,0,2) with intercept
 test_002c = ARIMAData(
-    batch_size=10,
+    batch_size=7,
     n_obs=20,
     dataset="net_migrations_auckland_by_age",
     start=15,
     end=30,
-    tolerance_integration=210.0,
-    tolerance_predict=0.0001,
-    tolerance_loglike=0.001
+    tolerance_integration=0.001
 )
 
 # ARIMA(0,1,0) with intercept
@@ -87,9 +83,7 @@ test_010c = ARIMAData(
     dataset="cattle",
     start=10,
     end=25,
-    tolerance_integration=0.0001,
-    tolerance_predict=0.0001,
-    tolerance_loglike=0.001
+    tolerance_integration=0.001
 )
 
 # ARIMA(1,1,0)
@@ -99,9 +93,7 @@ test_110 = ARIMAData(
     dataset="police_recorded_crime",
     start=100,
     end=150,
-    tolerance_integration=45.0,
-    tolerance_predict=0.0001,
-    tolerance_loglike=0.05
+    tolerance_integration=0.001
 )
 
 # ARIMA(0,1,1)
@@ -111,9 +103,7 @@ test_011 = ARIMAData(
     dataset="deaths_by_region",
     start=20,
     end=40,
-    tolerance_integration=30.0,
-    tolerance_predict=0.05,
-    tolerance_loglike=0.5
+    tolerance_integration=0.005
 )
 
 # ARIMA(1,2,1)
@@ -123,9 +113,7 @@ test_121 = ARIMAData(
     dataset="population_estimate",
     start=100,
     end=150,
-    tolerance_integration=55.0,
-    tolerance_predict=0.05,
-    tolerance_loglike=0.05
+    tolerance_integration=0.05
 )
 
 # ARIMA(1,0,1)(1,1,1)_4
@@ -135,9 +123,7 @@ test_101_111_4 = ARIMAData(
     dataset="alcohol",
     start=80,
     end=110,
-    tolerance_integration=0.01,
-    tolerance_predict=0.0001,
-    tolerance_loglike=0.001
+    tolerance_integration=0.005
 )
 
 # ARIMA(1,1,1)(2,0,0)_4
@@ -147,9 +133,7 @@ test_111_200_4 = ARIMAData(
     dataset="hourly_earnings_by_industry",
     start=115,
     end=130,
-    tolerance_integration=0.7,
-    tolerance_predict=0.0001,
-    tolerance_loglike=0.001
+    tolerance_integration=0.05
 )
 
 # ARIMA(1,1,2)(0,1,2)_4
@@ -159,9 +143,7 @@ test_112_012_4 = ARIMAData(
     dataset="passenger_movements",
     start=160,
     end=200,
-    tolerance_integration=0.05,
-    tolerance_predict=0.0001,
-    tolerance_loglike=0.001
+    tolerance_integration=0.001
 )
 
 # ARIMA(1,1,1)(1,1,1)_12
@@ -171,9 +153,7 @@ test_111_111_12 = ARIMAData(
     dataset="guest_nights_by_region",
     start=260,
     end=290,
-    tolerance_integration=0.05,
-    tolerance_predict=0.005,
-    tolerance_loglike=0.01
+    tolerance_integration=0.001
 )
 
 # Dictionary matching a test case to a tuple of model parameters
@@ -275,8 +255,9 @@ def test_integration(test_case, dtype):
             data.start, data.end - 1).predicted_mean
 
     # Compare results
-    np.testing.assert_allclose(
-        cuml_pred, ref_preds, atol=data.tolerance_integration)
+    np.testing.assert_allclose(cuml_pred, ref_preds,
+                               rtol=data.tolerance_integration,
+                               atol=data.tolerance_integration)
 
 
 def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -327,8 +308,7 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
 
     # Compare results
-    np.testing.assert_allclose(
-        cuml_pred, ref_preds, atol=data.tolerance_predict)
+    np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
 
 
 @pytest.mark.parametrize('test_case', test_data.items())
@@ -378,7 +358,7 @@ def test_loglikelihood(test_case, dtype):
     ref_llf = np.array([ref_fit.llf for ref_fit in ref_fits])
 
     # Compare results
-    np.testing.assert_allclose(cuml_llf, ref_llf, atol=data.tolerance_loglike)
+    np.testing.assert_allclose(cuml_llf, ref_llf, rtol=0.01, atol=0.01)
 
 
 @pytest.mark.parametrize('test_case', test_data.items())
@@ -421,7 +401,7 @@ def test_gradient(test_case, dtype):
             _approx_fprime_helper(x[N * i: N * (i + 1)], f, h)
 
     # Compare
-    np.testing.assert_allclose(batched_grad, scipy_grad, atol=0.001)
+    np.testing.assert_allclose(batched_grad, scipy_grad, rtol=0.001, atol=0.01)
 
 
 @pytest.mark.parametrize('test_case', test_data.items())
@@ -456,7 +436,7 @@ def test_start_params(test_case, dtype):
     x_cuml = cuml_model.pack()
 
     # Compare results
-    np.testing.assert_allclose(x_cuml, x_ref, atol=0.001)
+    np.testing.assert_allclose(x_cuml, x_ref, rtol=0.001, atol=0.01)
 
 
 # TODO: AIC/AICc/BIC tests?
