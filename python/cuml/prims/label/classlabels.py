@@ -148,9 +148,9 @@ def check_labels(labels, classes):
     smem = labels.dtype.itemsize * int(classes.shape[0])
     validate = validate_kernel(labels.dtype)
     validate((math.ceil(labels.shape[0] / 32),), (32, ),
-                    (labels, labels.shape[0], classes,
-                     classes.shape[0], valid),
-                    shared_mem=smem)
+             (labels, labels.shape[0], classes,
+             classes.shape[0], valid),
+             shared_mem=smem)
 
     return valid[0] == 1
 
