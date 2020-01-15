@@ -38,6 +38,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cython.operator cimport dereference as deref
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -371,6 +372,31 @@ class RandomForestRegressor(Base):
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
         return model_protobuf_bytes
 
+    def _tl_model_handles(self, model_bytes):
+        cdef ModelHandle cuml_model_ptr = NULL
+        mod_had_val = tl_mod_handle(& cuml_model_ptr,
+                                    <vector[unsigned char] &> model_bytes)
+        mod_handle = <size_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_handle).value
+
+    def concatenate_treelite_bytes(self, treelite_handle):
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef vector[ModelHandle*] *mod_handle_vec \
+            = new vector[ModelHandle*]()
+        cdef uintptr_t mod_ptr
+        for i in treelite_handle:
+            mod_ptr = <uintptr_t>i
+            mod_handle_vec.push_back((
+                <ModelHandle*> mod_ptr))
+
+        concat_mod_bytes = \
+            concatenate_trees(handle_[0],
+                              deref(mod_handle_vec))
+
+        return concat_mod_bytes
+
     def fit(self, X, y):
         """
         Perform Random Forest Regression on the input data
@@ -455,10 +481,12 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def _predict_model_on_gpu(self, X, algo,
-                              convert_dtype=False, task_category=1):
+    def _predict_model_on_gpu(self, X, algo, convert_dtype=False,
+                              task_category=1, concat_mod_bytes=[]):
 
         cdef ModelHandle cuml_model_ptr
+        if len(concat_mod_bytes) != 0:
+            self.model_pbuf_bytes = concat_mod_bytes
         X_m, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
@@ -483,7 +511,7 @@ class RandomForestRegressor(Base):
                                              algo=algo)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
-        return preds
+        return preds.copy_to_host()
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         cdef uintptr_t X_ptr
@@ -538,7 +566,8 @@ class RandomForestRegressor(Base):
         return preds
 
     def predict(self, X, predict_model="GPU",
-                algo='BATCH_TREE_REORG', convert_dtype=True):
+                algo='BATCH_TREE_REORG', convert_dtype=True,
+                concat_mod_bytes=[]):
         """
         Predicts the labels for X.
         Parameters
@@ -581,7 +610,8 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               task_category=1)
+                                               task_category=1,
+                                               concat_mod_bytes=[])
 
         return preds
 

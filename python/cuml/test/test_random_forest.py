@@ -257,7 +257,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_orig = cu_class.predict(X_test,
-                                          predict_model="GPU").copy_to_host()
+                                          predict_model="GPU")
         cu_preds_orig = cu_class.predict(X_test,
                                          predict_model="CPU")
         cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
@@ -270,7 +270,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_rerun = cu_class2.predict(X_test,
-                                            predict_model="GPU").copy_to_host()
+                                            predict_model="GPU")
         cu_preds_rerun = cu_class2.predict(X_test, predict_model="CPU")
         cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
         fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
