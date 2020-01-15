@@ -4,8 +4,9 @@
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
 - PR #1494: bench: ml-prims benchmark
 - PR #1514: bench: Fused L2 NN prim benchmark
+- PR #1411: Cython side of MNMG OLS
 - PR #1516: Suppor Vector Regression (epsilon-SVR)
--
+ 
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
@@ -20,6 +21,7 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
+- PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM
 
 ## Bug Fixes
@@ -30,6 +32,7 @@
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
 - PR #1534: Removed TODO comment in create_ucp_listeners()
+- PR #1548: Fixing umap extra unary op in knn graph
 - PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
 
 # cuML 0.11.0 (11 Dec 2019)

@@ -14,77 +14,83 @@
 #
 
 import pytest
+from dask_cuda import LocalCUDACluster
 
 from dask.distributed import Client
+from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
+from sklearn.datasets import make_regression
 import pandas as pd
-import gzip
 import numpy as np
-import os
+import dask_cudf
+import cudf
 
 pytestmark = pytest.mark.mg
 
 
-def load_data(nrows, ncols, cached='data/mortgage.npy.gz'):
-    # Loading into pandas to not create any clusters before LocalCUDACluster
-    if os.path.exists(cached):
-        print('use mortgage data')
-        with gzip.open(cached) as f:
-            X = np.load(f)
-        # the 4th column is 'adj_remaining_months_to_maturity'
-        # used as the label
-        X = X[:, [i for i in range(X.shape[1]) if i != 4]]
-        y = X[:, 4:5]
-        rindices = np.random.randint(0, X.shape[0]-1, nrows)
-        X = X[rindices, :ncols]
-        y = y[rindices]
-    else:
-        print('use random data')
-        X = np.random.rand(nrows, ncols)
-        y = np.random.rand(nrows, 1)
+def _prep_training_data(c, X_train, y_train, partitions_per_worker):
+    workers = c.has_what().keys()
+    n_partitions = partitions_per_worker * len(workers)
+    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
 
-    df_X = pd.DataFrame({'fea%d' % i: X[:, i] for i in range(X.shape[1])})
-    df_y = pd.DataFrame({'fea%d' % i: y[:, i] for i in range(y.shape[1])})
+    y_cudf = np.array(pd.DataFrame(y_train).values)
+    y_cudf = y_cudf[:, 0]
+    y_cudf = cudf.Series(y_cudf)
+    y_train_df = \
+        dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
 
-    return df_X, df_y
+    X_train_df, \
+        y_train_df = dask_utils.persist_across_workers(c,
+                                                       [X_train_df,
+                                                        y_train_df],
+                                                       workers=workers)
+    return X_train_df, y_train_df
 
 
-@pytest.mark.skip(reason="Test should be run only with libcuML.so")
-def test_ols(cluster):
+def make_regression_dataset(datatype, nrows, ncols, n_info):
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=5, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
 
-    client = Client(cluster)
+    return X, y
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [1e4])
+@pytest.mark.parametrize("ncols", [10])
+@pytest.mark.parametrize("n_parts", [2, 23])
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("normalize", [False])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+def test_ols(nrows, ncols, n_parts, fit_intercept,
+             normalize, datatype, client=None):
+
+    if client is None:
+        cluster = LocalCUDACluster()
+        client = Client(cluster)
 
     try:
-
-        import dask_cudf
-
-        import cudf
-        import numpy as np
-
         from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
-        nrows = 2**8
-        ncols = 399
+        n_info = 5
+        nrows = np.int(nrows)
+        ncols = np.int(ncols)
+        X, y = make_regression_dataset(datatype, nrows, ncols, n_info)
 
-        X, y = load_data(nrows, ncols)
+        X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-        X_cudf = cudf.DataFrame.from_pandas(X)
-        y_cudf = np.array(y.as_matrix())
-        y_cudf = y_cudf[:, 0]
-        y_cudf = cudf.Series(y_cudf)
+        lr = cumlOLS_dask(fit_intercept=fit_intercept, normalize=normalize)
 
-        workers = client.has_what().keys()
-
-        X_df = dask_cudf.from_cudf(X_cudf, npartitions=len(workers)).persist()
-        y_df = dask_cudf.from_cudf(y_cudf, npartitions=len(workers)).persist()
-
-        lr = cumlOLS_dask()
-
-        lr.fit(X_df, y_df)
+        if n_parts > 2:
+            lr.fit(X_df, y_df, force_colocality=True)
+        else:
+            lr.fit(X_df, y_df)
 
         ret = lr.predict(X_df)
 
-        error_cuml = mean_squared_error(y, ret.compute().to_array())
+        error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
         assert(error_cuml < 1e-6)
 
