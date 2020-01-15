@@ -21,106 +21,93 @@ import numpy as np
 import cupy as cp
 import cupy.prof
 
-from cuml.prims.label import make_monotonic, check_labels, invert_labels
+import warnings
+
+from cuml.utils import cuda_kernel_factory
+
+from cuml.prims.label import make_monotonic
+from cuml.prims.label import check_labels
+from cuml.prims.label import invert_labels
 
 
-def memoize(f):
-    memo = {}
-
-    def helper(x):
-        if x not in memo:
-            memo[x] = f(x)
-        return memo[x]
-    return helper
-
-
-@memoize
-def count_features_coo_factory(dtype_str):
+def count_features_coo_kernel(float_dtype, int_dtype):
     """
     A simple reduction kernel that takes in a sparse (COO) array
     of features and computes the sum and sum squared for each class
     label
     """
 
-    # TODO: Find better way to cache memoize this.
-    kernel_str = r'''
-extern "C" __global__
-void count_features_coo_{dtype_str}({dtype_str} *out,
+    kernel_str=r'''({0} *out,
                     int *rows, int *cols,
-                    {dtype_str} *vals, int nnz,
+                    {0} *vals, int nnz,
                     int n_rows, int n_cols,
-                    int *labels,
+                    {1} *labels,
                     int n_classes,
                     bool square) {
+    
+      int i = blockIdx.x * blockDim.x + threadIdx.x;
+    
+      if(i >= nnz) return;
+    
+      int row = rows[i];
+      int col = cols[i];
+      {0} val = vals[i];
+      if(square) val *= val;
+      {1} label = labels[row];
+      atomicAdd(out + ((col * n_classes) + label), val);
+    }'''
 
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if(i >= nnz) return;
-
-  int row = rows[i];
-  int col = cols[i];
-  {dtype_str} val = vals[i];
-  if(square) val *= val;
-  int label = labels[row];
-  atomicAdd(out + ((col * n_classes) + label), val);
-}'''.replace("{dtype_str}", dtype_str)
-
-    print(str(kernel_str))
-
-    return cp.RawKernel(kernel_str, f'count_features_coo_{dtype_str}')
+    return cuda_kernel_factory(kernel_str,
+                               (float_dtype, int_dtype),
+                               "count_features_coo")
 
 
-@memoize
-def count_classes_factory(dtype_str):
+def count_classes_kernel(float_dtype, int_dtype):
+    kernel_str = r'''
+    ({0} *out, int n_rows, {1} *labels) {
+    
+      int row = blockIdx.x * blockDim.x + threadIdx.x;
+      if(row >= n_rows) return;
+      {1} label = labels[row];
+      atomicAdd(out + label, 1);
+    }'''
+
+    return cuda_kernel_factory(kernel_str,
+                               (float_dtype, int_dtype),
+                               "count_classes")
+
+
+def count_features_dense_kernel(float_dtype, int_dtype):
 
     kernel_str = r'''
-extern "C" __global__
-void count_classes_{dtype_str}({dtype_str} *out,
-                    int n_rows,
-                    int *labels) {
+    ({0} *out,
+     {0} *in,
+     int n_rows,
+     int n_cols,
+     {1} *labels,
+     int n_classes,
+     bool square,
+     bool rowMajor) {
+    
+      int row = blockIdx.x * blockDim.x + threadIdx.x;
+      int col = blockIdx.y * blockDim.y + threadIdx.y;
+    
+      if(row >= n_rows || col >= n_cols) return;
+    
+      {0} val = !rowMajor ?
+            in[col * n_rows + row] : in[row * n_cols + col];
+    
+      if(val == 0.0) return;
+    
+      if(square) val *= val;
+      {1} label = labels[row];
+    
+      atomicAdd(out + ((col * n_classes) + label), val);
+    }'''
 
-  int row = blockIdx.x * blockDim.x + threadIdx.x;
-  if(row >= n_rows) return;
-  int label = labels[row];
-  atomicAdd(out + label, 1);
-}
-'''.replace("{dtype_str}", dtype_str)
-
-    return cp.RawKernel(kernel_str, f'count_classes_{dtype_str}')
-
-
-def count_features_dense_factory(dtype_str):
-
-    kernel_str = r'''
-extern "C" __global__
-void count_features_dense_{dtype_str}(
-                    {dtype_str} *out,
-                    {dtype_str} *in,
-                    int n_rows,
-                    int n_cols,
-                    int *labels,
-                    int n_classes,
-                    bool square,
-                    bool rowMajor) {
-
-  int row = blockIdx.x * blockDim.x + threadIdx.x;
-  int col = blockIdx.y * blockDim.y + threadIdx.y;
-
-  if(row >= n_rows || col >= n_cols) return;
-
-  {dtype_str} val = !rowMajor ?
-        in[col * n_rows + row] : in[row * n_cols + col];
-
-  if(val == 0.0) return;
-
-  if(square) val *= val;
-  int label = labels[row];
-
-  atomicAdd(out + ((col * n_classes) + label), val);
-}
-'''.replace("{dtype_str}", dtype_str)
-
-    return cp.RawKernel(kernel_str, f'count_features_dense_{dtype_str}')
+    return cuda_kernel_factory(kernel_str,
+                               (float_dtype, int_dtype,),
+                               "count_features_dense")
 
 
 class MultinomialNB(object):
@@ -164,7 +151,7 @@ class MultinomialNB(object):
             self.n_classes_ = self.classes_.shape[0]
             self.n_features_ = X.shape[1]
             self._init_counters(self.n_classes_, self.n_features_,
-                                dtype=X.dtype)
+                                X.dtype)
         else:
             check_labels(Y, self.classes_)
 
@@ -204,13 +191,12 @@ class MultinomialNB(object):
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     def predict(self, X):
         jll = self._joint_log_likelihood(X)
-        indices = cp.argmax(jll, axis=1)
+        indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
         return y_hat
 
-    def _init_counters(self, n_effective_classes, n_features,
-                       dtype=cp.float32):
+    def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes, order="F",
                                      dtype=dtype)
         self.feature_count_ = cp.zeros((n_effective_classes, n_features),
@@ -225,6 +211,10 @@ class MultinomialNB(object):
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
 
+        if Y.dtype != self.classes_.dtype:
+            warnings.warn("Y dtype does not match classes_ dtype. Y will be "
+                          "converted, which will increase memory consumption")
+
         counts = cp.zeros((self.n_classes_, self.n_features_),
                           order="F", dtype=X.dtype)
 
@@ -233,12 +223,13 @@ class MultinomialNB(object):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
-        dtype_str = "float" if X.dtype == cp.float32 else "double"
+        labels_dtype = self.classes_.dtype
 
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
 
-            count_features_coo = count_features_coo_factory(dtype_str)
+            count_features_coo = count_features_coo_kernel(X.dtype,
+                                                           labels_dtype)
             count_features_coo((math.ceil(X.nnz / 32),), (32,),
                                (counts,
                                 X.row,
@@ -252,7 +243,8 @@ class MultinomialNB(object):
 
         else:
 
-            count_features_dense = count_features_dense_factory(dtype_str)
+            count_features_dense = count_features_dense_kernel(X.dtype,
+                                                               labels_dtype)
             count_features_dense((math.ceil(n_rows / 32),
                                   math.ceil(n_cols / 32), 1),
                                  (32, 32, 1),
@@ -265,7 +257,7 @@ class MultinomialNB(object):
                                   False,
                                   X.flags["C_CONTIGUOUS"]))
 
-        count_classes = count_classes_factory(dtype_str)
+        count_classes = count_classes_kernel(X.dtype, labels_dtype)
         count_classes((math.ceil(n_rows / 32),), (32,),
                       (class_c, n_rows, Y))
 

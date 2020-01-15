@@ -23,3 +23,6 @@ from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 from cuml.utils.import_utils import has_cupy, has_dask, \
     check_min_numba_version, check_min_cupy_version
+
+from cuml.utils.kernel_utils import get_dtype_str
+from cuml.utils.kernel_utils import cuda_kernel_factory

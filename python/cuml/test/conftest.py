@@ -1,5 +1,22 @@
 import pytest
 
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import CountVectorizer
+
+import cupy as cp
+
+
+@pytest.fixture(scope="module")
+def nlp_20news():
+    twenty_train = fetch_20newsgroups(subset='train',
+                                      shuffle=True, random_state=42)
+
+    count_vect = CountVectorizer()
+    X = count_vect.fit_transform(twenty_train.data)
+    Y = cp.array(twenty_train.target)
+
+    return X, Y
+
 
 def pytest_addoption(parser):
     parser.addoption("--run_stress", action="store_true",
