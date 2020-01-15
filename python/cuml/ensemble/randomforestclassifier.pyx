@@ -383,6 +383,7 @@ class RandomForestClassifier(Base):
         mod_had_val = tl_mod_handle(& cuml_model_ptr,
                                     <vector[unsigned char] &> model_bytes)
         mod_handle = <size_t> cuml_model_ptr
+
         print(" mod_handles in pyx _tl_model_handles : ", ctypes.c_void_p(mod_handle).value)
 
         return ctypes.c_void_p(mod_handle).value #, <size_t> mod_had_val
@@ -393,7 +394,8 @@ class RandomForestClassifier(Base):
         print(" mod_handles in pyx : ", mod_handles)
         cdef uintptr_t model_ptr = <uintptr_t> mod_handles
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
-
+        print(" through the pyx file")
+        print(" shape of model proto bytes : ", np.shape(model_protobuf_bytes))
         return model_protobuf_bytes
 
     def get_algo(self, algo_str):
@@ -422,6 +424,7 @@ class RandomForestClassifier(Base):
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
+    """
     def _build_fil_model(self, model_handle):
         output_class=True
         threshold=0.5,
@@ -461,7 +464,8 @@ class RandomForestClassifier(Base):
                         &treelite_params)
 
         return <size_t> forest_info
-        
+        """
+
     def _predict_mnmg_on_fil(self, X, treelite_handle,
                              preds=None, convert_dtype=True):
         output_class=True
@@ -489,12 +493,24 @@ class RandomForestClassifier(Base):
 
         fil_model = ForestInference()
         print(" calling the multi create function")
-        tl_to_fil_model = \
+        tl_model = \
             fil_model.load_from_multi_treelites(tl_model_handles=treelite_handle,
                                                 output_class=output_class,
                                                 threshold=0.5,
                                                 algo=algo)
         print(" created the FIL model")
+        cdef uintptr_t concat_tl_handle = <uintptr_t> tl_model
+
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(concat_tl_handle,
+                                             output_class=output_class,
+                                             threshold=0.5,
+                                             algo=algo)
+        preds = tl_to_fil_model.predict(X_m)
+        #mod_bytes = self._read_mod_handles(concat_tl_handle)
+
+        return preds
+        """
         preds = tl_to_fil_model.predict(X_m)
 
         self.handle.sync()
@@ -502,8 +518,7 @@ class RandomForestClassifier(Base):
         #preds = fil_model.predict_mnmg(X_m, fil_mod_handle)
         del(X_m)
         return preds
-
-        """
+         
         cdef ModelHandle cuml_model_ptr = NULL
         #cdef vector[ModelHandle*]* model_handles_list = NULL;
         cdef vector[BytesInfo] *pointer_model_bytes = \

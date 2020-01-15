@@ -393,198 +393,27 @@ class RandomForestClassifier:
         ### the split worker model info.
         ### in pickling we keep the worker cuML model info separate and then convert it to tl -> pbuf -> model bytes 
         ### combine the model bytes info and pass it to the different workers and then split the predict data and get the results.
-        c = default_client()
-        futures = list()
-
-        mod_bytes = list()
+        mod_bytes = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
-        print("####################################")
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-        #print(mod_bytes[0].model_pbuf_bytes)
-        print("shape of model bytes : ", np.shape(mod_bytes[0]))
-        print("####################################")
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-
-
         worker_numb = [i for i in self.workers]
-        """
-        futures.append(
-            c.submit(
-                RandomForestClassifier._tl_model_handles,
-                self.rfs[worker_numb[0]], #[w[0]],
-                mod_bytes[0],
-                workers=[worker_numb[0]],
-            )
-        )
-        print("shape of mod_bytes : ", np.shape(mod_bytes[0]))
 
-        wait(futures)
-        raise_exception_from_futures(futures)
-
-        mod_handles = list()
-        for d in range(len(futures)):
-            mod_handles.append(futures[d].result())
-            print(futures[d].result())
-        mod_bytes_2 = list()
-        mod_bytes_2.append(
-            c.submit(
-                RandomForestClassifier._tl_model_handles,
-                self.rfs[worker_numb[0]], #[w[0]],
-                mod_bytes[1],
-                workers=[worker_numb[0]],
-            )
-        )
-        print("shape of mod_bytes : ", np.shape(mod_bytes[1]))
-
-        wait(mod_bytes_2)
-        raise_exception_from_futures(mod_bytes_2)
-
-        mod_handles.append(mod_bytes_2[0].result())
-
-        print("mod_handles : ", mod_handles)
-        
-        #return mod_handles
-        futures = list()
-
-        futures.append(
-            c.submit(
-                RandomForestClassifier._read_mod_handles,
-                self.rfs[worker_numb[0]], #[w[0]],
-                mod_handles[0],
-                workers=[worker_numb[0]],
-            )
-        )
-        
-        wait(futures)
-        raise_exception_from_futures(futures)
-
-        mod_bytes_check = list()
-        for d in range(len(futures)):
-            mod_bytes_check.append(futures[d].result())
-
-        mod_handle_2 = list()
-        mod_handle_2.append(
-            c.submit(
-                RandomForestClassifier._read_mod_handles,
-                self.rfs[worker_numb[0]], #[w[0]],
-                mod_handles[1],
-                workers=[worker_numb[0]],
-            )
-        )
-
-        wait(mod_handle_2)
-        raise_exception_from_futures(mod_handle_2)
-
-        for d in range(len(mod_handle_2)):
-            mod_bytes_check.append(mod_handle_2[d].result())
-
-        for i in range(len(mod_bytes_check)):
-            print("shape of mod_bytes_check : ", np.shape(mod_bytes_check[i]))
-
-        print("mod_handles : ", mod_handles)
-        fil_info = list()
-        #for i in range(len(mod_handles)):
-        fil_info.append(
-            c.submit(
-                RandomForestClassifier._build_fil_model,
-                self.rfs[worker_numb[0]], #[w[0]],
-                mod_handles,
-                workers=[worker_numb[0]],
-            )
-        )
-        wait(fil_info)
-        raise_exception_from_futures(fil_info)  
-        """
-    
-        check_handles = list()
-        for n in range(len(self.workers)):
-            check_handles.append(
-                c.submit(
-                    RandomForestClassifier._tl_model_handles,
-                    self.rfs[worker_numb[0]],
-                    mod_bytes[n],
-                    workers=[worker_numb[0]],
-                )
-            )
-
-        wait(check_handles)
-        raise_exception_from_futures(check_handles)
-        
-        list_mod_handles = list()
-        for d in range(len(check_handles)):
-            list_mod_handles.append(check_handles[d].result())
-
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        print("list of mod handles obtained from using a for loop")
-        print(" : ", list_mod_handles)
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        
-        check_bytes = list()
-        for n in range(len(self.workers)):
-            check_bytes.append(
-                c.submit(
-                    RandomForestClassifier._read_mod_handles,
-                    self.rfs[worker_numb[0]],
-                    list_mod_handles[n],
-                    workers=[worker_numb[0]],
-                )
-            )
-
-        wait(check_bytes)
-        raise_exception_from_futures(check_bytes)
-
-        answers = list()
-        for d in range(len(check_bytes)):
-            answers.append(check_bytes[d].result())
-
-
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        print("list of mod handles obtained from using a for loop")
-        for i in range(len(answers)):
-            print("shape of mod_bytes_check : ", np.shape(answers[i]))
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-
-        
-        print("mod_handles : ", list_mod_handles)
-        
-        fil_info = list()
-        #for i in range(len(mod_handles)):
-        fil_info.append(
-            c.submit(
-                RandomForestClassifier._build_fil_model,
-                self.rfs[worker_numb[0]], #[w[0]],
-                list_mod_handles,
-                workers=[worker_numb[0]],
-            )
-        )
-        wait(fil_info)
-        raise_exception_from_futures(fil_info)  
-    
-        """
-        check_bytes = []
+        list_mod_handles = []
         model = self.rfs[worker_numb[0]].result()
         for n in range(len(self.workers)):
-            calc_value = self._read_mod_handles(self.rfs[worker_numb[0]].result(),
-                                                list_mod_handles[n])
-            check_bytes.append(calc_value)
-        
-        futures = list()
-        for i in range(len(mod_handles)):
-            futures.append(
-                c.submit(
-                    RandomForestClassifier.obtain_fil_model,
-                    self.rfs[worker_numb[0]], #[w[0]],
-                    mod_handles[i],
-                    workers=[worker_numb[0]],
-            )
-        )
-        wait(futures)
-        raise_exception_from_futures(futures)            
-        """
-        print("length of fil_info : ", len(fil_info))
-        return list_mod_handles
+            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+
+        check_model_bytes = []
+        for n in range(len(self.workers)):
+            calc_value = model._read_mod_handles(list_mod_handles[n])
+            check_model_bytes.append(calc_value)
+
+        size_of_mod_bytes_read = []
+        for i in range(len(check_model_bytes)):
+            size_of_mod_bytes_read.append(np.shape(check_model_bytes[i]))
+
+        return list_mod_handles, size_of_mod_bytes_read
 
     """
     def obtain_fil_model(self, mod_handles):
@@ -701,8 +530,13 @@ class RandomForestClassifier:
 
         #treelite_handle = self.convert_to_treelite()
 
-        tl_model_handle = self.convert_to_treelite()
+        tl_model_handle, size_of_bytes = self.convert_to_treelite()
 
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
+        print(" the handles obtained from the previous function : ")
+        print(tl_model_handle)
         ## Either I need to change the RFC._predict to use FIL class and
         ## FIL predict directly
 
@@ -733,12 +567,18 @@ class RandomForestClassifier:
 
         #xc = X_futures[w[0]]
 
-        futures = list()
-
         #pdb.set_trace()
         #print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
-        
-        for n, w in enumerate(workers):
+        model = self.rfs[worker_numb[0]].result()
+        fil_model = []
+        for n in range(1):
+            calc_value = model._predict_mnmg_on_fil(X,
+                                                    treelite_handle=tl_model_handle)
+            fil_model.append(calc_value)
+
+        """
+
+        for n in range(len(workers)):
             futures.append(
                 c.submit(
                     RandomForestClassifier._predict,
@@ -749,8 +589,7 @@ class RandomForestClassifier:
                     workers=[worker_numb[0]],
                 )
             )
-        """
-        print("fil_model_handle in dask : ", fil_model_handle)
+                print("fil_model_handle in dask : ", fil_model_handle)
         futures.append(
             c.submit(
                 RandomForestClassifier._predict,
@@ -761,10 +600,10 @@ class RandomForestClassifier:
                 workers=[w[0]],
                 )
             )
-        """
+        
         wait(futures)
         raise_exception_from_futures(futures)
-
+        
         indexes = list()
         rslts = list()
         for d in range(len(futures)):
@@ -772,6 +611,8 @@ class RandomForestClassifier:
             indexes.append(0)
 
         return rslts
+        """
+        return fil_model
 
     def get_params(self, deep=True):
         """

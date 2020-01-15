@@ -579,18 +579,29 @@ void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
   std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
   std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
   std::cout << model_vector[0] << std::flush << std::endl;
+  tl::Model& model_info = *(tl::Model*)model;
+  tl::Model& model_info_new = model_info;
   //std::cout << model_vector->at(1) << std::flush << std::endl;
   std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
-  std::cout << "model direct : " << model << std::flush << std::endl;
+  std::cout << "model_info direct : " << (model_info).trees.size()
+            << std::flush << std::endl;
+  std::cout << "model_info_new direct : " << (model_info_new).trees.size()
+            << std::flush << std::endl;
   std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
   std::cout << "model 2 direct : " << model_2 << std::flush << std::endl;
   std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
   std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
 
+  //(model_info_new.trees).push_back(std::move(model_info.trees[0]));
+  std::cout << "model_info_new direct : " << (model_info_new).trees.size()
+            << std::flush << std::endl;
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+  std::cout << "$$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
   if (storage_type == storage_type_t::AUTO) {
     storage_type = storage_type_t::DENSE;
   }
-
+  model = model_vector[0];
+  model_2 = model_vector[1];
   switch (storage_type) {
     case storage_type_t::DENSE: {
       forest_params_t params;
@@ -608,6 +619,36 @@ void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
   }
 }
 
+ModelHandle* concatenate_trees(const cumlHandle& handle,
+                               std::vector<ModelHandle *> treelite_handles) {
+  size_t numb_trees_per_handle;
+  int all_model_params = 0;
+  //int random_forest_flag;
+  for (int i = 0; i < treelite_handles.size(); i++) {
+    TreeliteQueryNumTree(treelite_handles[i], &numb_trees_per_handle);
+    all_model_params = all_model_params + numb_trees_per_handle;
+  }
+  std::cout << "total num of trees : " << all_model_params << std::flush
+            << std::endl;
+  ModelBuilderHandle model_builder;
+  tl::Model& output_model = *(tl::Model*)treelite_handles[0] ;
+  std::cout << " output_model num trees : " << output_model.trees.size()
+            << std::flush << std::endl;
+  for (int tl_num = 1; tl_num < treelite_handles.size(); tl_num++){
+    tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
+    //tl::Model model = tl::Model &treelite_handles[tl_num];
+    for (int i = 0; i < model.trees.size(); i ++) {
+      (output_model.trees).push_back(std::move(model.trees[i]));
+      //(model_info_new.trees).push_back(std::move(model_info.trees[0]));
+    }
+  }
+  TreeliteExportProtobufModel("temp_file.txt", treelite_handles[0]);
+  std::cout << " output_model num trees : " << output_model.trees.size()
+            << std::flush << std::endl;
+  std::cout << "#########################################" << std::flush
+            << std::endl;
+  return treelite_handles[0];
+}
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {

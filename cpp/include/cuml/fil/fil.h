@@ -193,6 +193,9 @@ void from_multi_treelites(const cumlHandle& handle, forest_t* pforest,
                           ModelHandle model, ModelHandle model_2,
                           std::vector<ModelHandle*> model_vector,
                           const treelite_params_t* tl_params);
+
+ModelHandle* concatenate_trees(const cumlHandle& handle,
+                               const std::vector<ModelHandle *> treelite_handles);
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function

@@ -189,6 +189,9 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                                    vector[ModelHandle*],
                                    const treelite_params_t*)
 
+    cdef ModelHandle* concatenate_trees(const cumlHandle&,
+                                        const vector[ModelHandle *])
+
 cdef class ForestInference_impl():
 
     cpdef object handle
@@ -323,6 +326,27 @@ cdef class ForestInference_impl():
                                   float threshold,
                                   str storage_type):
         print("in the cython class function")
+        #cdef ModelHandle output_ptr = NULL
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef vector[ModelHandle*] *mod_handle_vec \
+            = new vector[ModelHandle*]()
+        cdef uintptr_t mod_ptr
+        cdef uintptr_t check
+        for i in tl_model_handles:
+            check = <uintptr_t>i
+            print(" model handles: ", i)
+            #mod_ptr = get_dev_array_ptr(i)
+            print("value of mod_ptr : ", check)
+            mod_handle_vec.push_back((
+                <ModelHandle*> check))
+
+        print("calling the c++ function for fil")
+        output_ptr = concatenate_trees(handle_[0],
+                                       deref(mod_handle_vec))
+
+        return <size_t> output_ptr
+        """
         cdef treelite_params_t treelite_params
 
         treelite_params.output_class = output_class
@@ -355,13 +379,18 @@ cdef class ForestInference_impl():
                 <ModelHandle*> check))
 
         print("calling the c++ function for fil")
+
+
         from_multi_treelites(handle_[0],
                              &self.forest_data,
                              <ModelHandle> model_ptr,
                              <ModelHandle> model_ptr_1,
                              deref(mod_handle_vec),
                              &treelite_params)
+
         return self
+        """
+
 
     def load_from_treelite_model(self,
                                  TreeliteModel model,
