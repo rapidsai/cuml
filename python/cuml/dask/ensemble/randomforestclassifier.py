@@ -290,8 +290,75 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, r):
-        return model._predict_get_all(X)
+    def _predict(model, X, concat_mod_bytes):
+        return model.predict(X, concat_mod_bytes=concat_mod_bytes)
+
+    @staticmethod
+    def _tl_model_handles(model, model_bytes):
+        #print("model info inside _convert_to_tl : ", model_info)
+        return model._tl_model_handles(model_bytes=model_bytes)
+
+    @staticmethod
+    def _read_mod_handles(model, mod_handles):
+        return model._read_mod_handles(mod_handles=mod_handles)
+
+    def print_summary(self):
+        """
+        prints the summary of the forest used to train and test the model
+        """
+        c = default_client()
+        futures = list()
+        workers = self.workers
+
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._print_summary,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+        return self
+
+    def convert_to_treelite(self):
+        """
+        prints the summary of the forest used to train and test the model
+        """
+        ### check if i can create the protobuf models and then either convert them to model bytes 
+        ### OR
+        ### create a new function to concatenate the treelite info or protobuf files together
+
+        ### check if this has to be updated for the treelite (normal FIL predict) approach as we combine 
+        ### the split worker model info.
+        ### in pickling we keep the worker cuML model info separate and then convert it to tl -> pbuf -> model bytes 
+        ### combine the model bytes info and pass it to the different workers and then split the predict data and get the results.
+        mod_bytes = []
+        for w in self.workers:
+            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+
+        worker_numb = [i for i in self.workers]
+
+        list_mod_handles = []
+        model = self.rfs[worker_numb[0]].result()
+        for n in range(len(self.workers)):
+            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+
+        concat_mod_bytes = model.concatenate_treelite_bytes(treelite_handle=list_mod_handles)
+
+        """
+        check_model_bytes = []
+        for n in range(len(self.workers)):
+            calc_value = model._read_mod_handles(list_mod_handles[n])
+            check_model_bytes.append(calc_value)
+
+        size_of_mod_bytes_read = []
+        for i in range(len(check_model_bytes)):
+            size_of_mod_bytes_read.append(np.shape(check_model_bytes[i]))
+        """
+        return concat_mod_bytes #, size_of_mod_bytes_read
 
     def fit(self, X, y):
         """
@@ -388,56 +455,50 @@ class RandomForestClassifier:
         """
         c = default_client()
         workers = self.workers
-
-        if not isinstance(X, np.ndarray):
-            raise ValueError("Predict inputs must be numpy arrays")
+        worker_numb = [i for i in workers]
 
         X_Scattered = c.scatter(X)
+
+        #treelite_handle = self.convert_to_treelite()
+
+        #tl_model_handle, size_of_bytes = self.convert_to_treelite()
+
+        concat_mod_bytes = self.convert_to_treelite()
+
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
+        print(" the handles obtained from the previous function : ")
+        #print(tl_model_handle)
+
+        #pdb.set_trace()
+
+        #xc = X_futures[w[0]]
+
+        #pdb.set_trace()
+        #print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
+        #model = self.rfs[worker_numb[0]].result()
         futures = list()
-        for n, w in enumerate(workers):
+
+        for n, w in enumerate(self.workers):
             futures.append(
                 c.submit(
                     RandomForestClassifier._predict,
                     self.rfs[w],
                     X_Scattered,
-                    random.random(),
-                    workers=[w],
-                )
-            )
+                    concat_mod_bytes,
+                    workers=[w]))
 
-        wait(futures)
-        raise_exception_from_futures(futures)
-
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("obtained predicted results")
         indexes = list()
-        rslts = list()
+        preds = list()
         for d in range(len(futures)):
-            rslts.append(futures[d].result())
+            preds.append(futures[d].result().copy_to_host())
             indexes.append(0)
 
-        pred = list()
-
-        for i in range(len(X)):
-            classes = dict()
-            max_class = -1
-            max_val = 0
-
-            for d in range(len(rslts)):
-                for j in range(self.n_estimators_per_worker[d]):
-                    sub_ind = indexes[d] + j
-                    cls = rslts[d][sub_ind]
-                    if cls not in classes.keys():
-                        classes[cls] = 1
-                    else:
-                        classes[cls] = classes[cls] + 1
-
-                    if classes[cls] > max_val:
-                        max_val = classes[cls]
-                        max_class = cls
-
-                indexes[d] = indexes[d] + self.n_estimators_per_worker[d]
-
-            pred.append(max_class)
-        return pred
+        return preds
 
     def get_params(self, deep=True):
         """
