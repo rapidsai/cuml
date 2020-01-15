@@ -459,7 +459,7 @@ void predictGetAll(const cumlHandle& user_handle,
 
 /**
  * @defgroup Random Forest Classification - Score function
- * @brief Predict target feature for input data and validate against ref_labels.
+ * @brief Compare predicted features validate against ref_labels.
  * @param[in] user_handle: cumlHandle.
  * @param[in] forest: CPU pointer to RandomForestMetaData object.
  *   The user should have previously called fit to build the random forest.
@@ -467,30 +467,24 @@ void predictGetAll(const cumlHandle& user_handle,
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  * @return RF_metrics struct with classification score (i.e., accuracy)
  * @{
  */
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
-                 int n_rows, int* predictions, bool verbose) {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfClassifier<float>> rf_classifier =
-    std::make_shared<rfClassifier<float>>(forest->rf_params);
-  RF_metrics classification_score =
-    rf_classifier->score(user_handle, ref_labels, n_rows, predictions, verbose);
+                 int n_rows, const int* predictions, bool verbose) {
+  RF_metrics classification_score = rfClassifier<float>::score(
+    user_handle, ref_labels, n_rows, predictions, verbose);
   return classification_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
-                 int n_rows, int* predictions, bool verbose) {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfClassifier<double>> rf_classifier =
-    std::make_shared<rfClassifier<double>>(forest->rf_params);
-  RF_metrics classification_score =
-    rf_classifier->score(user_handle, ref_labels, n_rows, predictions, verbose);
+                 int n_rows, const int* predictions, bool verbose) {
+  RF_metrics classification_score = rfClassifier<double>::score(
+    user_handle, ref_labels, n_rows, predictions, verbose);
   return classification_score;
 }
 
@@ -598,7 +592,7 @@ void predict(const cumlHandle& user_handle,
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  * @return RF_metrics struct with regression score (i.e., mean absolute error,
  *   mean squared error, median absolute error)
@@ -606,23 +600,18 @@ void predict(const cumlHandle& user_handle,
  */
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,
-                 int n_rows, float* predictions, bool verbose) {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfRegressor<float>> rf_regressor =
-    std::make_shared<rfRegressor<float>>(forest->rf_params);
-  RF_metrics regression_score =
-    rf_regressor->score(user_handle, ref_labels, n_rows, predictions, verbose);
+                 int n_rows, const float* predictions, bool verbose) {
+  RF_metrics regression_score = rfRegressor<float>::score(
+    user_handle, ref_labels, n_rows, predictions, verbose);
+
   return regression_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorD* forest, const double* ref_labels,
-                 int n_rows, double* predictions, bool verbose) {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfRegressor<double>> rf_regressor =
-    std::make_shared<rfRegressor<double>>(forest->rf_params);
-  RF_metrics regression_score =
-    rf_regressor->score(user_handle, ref_labels, n_rows, predictions, verbose);
+                 int n_rows, const double* predictions, bool verbose) {
+  RF_metrics regression_score = rfRegressor<double>::score(
+    user_handle, ref_labels, n_rows, predictions, verbose);
   return regression_score;
 }
 /** @} */

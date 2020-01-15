@@ -35,7 +35,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.import_utils import has_cupy
-
+from cuml.metrics import accuracy_score
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -228,6 +228,7 @@ class QN(Base):
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
+        self.coef_ = None
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -290,7 +291,6 @@ class QN(Base):
             coef_size = (self.n_cols, self.num_classes)
 
         self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
-
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
 
         cdef float objective32
@@ -418,9 +418,41 @@ class QN(Base):
 
         return cudf.Series(preds)
 
+    def score(self, X, y):
+        return accuracy_score(y, self.predict(X))
+
     def __getattr__(self, attr):
-        if self.fit_intercept:
-            if attr == 'coef_':
-                return self.coef_[0:-1]
-            if attr == 'intercept_':
+        if attr == 'intercept_':
+            if self.fit_intercept:
                 return self.coef_[-1]
+            else:
+                return rmm.to_device(zeros(1))
+        else:
+            raise AttributeError(attr)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        if 'handle' in state:
+            del state['handle']
+        if 'coef_' in state:
+            if state['coef_'] is not None:
+                state['coef_'] = cudf.Series(state['coef_'].ravel())
+        return state
+
+    def __setstate__(self, state):
+        super(QN, self).__init__(handle=None, verbose=state['verbose'])
+
+        if 'coef_' in state and state['coef_'] is not None:
+            if 'fit_intercept' in state and state['fit_intercept']:
+                coef_size = (state['n_cols'] + 1, state['num_classes'])
+            else:
+                coef_size = (state['n_cols'], state['num_classes'])
+            state['coef_'] = state['coef_'].to_gpu_array().reshape(coef_size)
+
+        self.__dict__.update(state)
+
+    def get_param_names(self):
+        return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
+                'verbose']
