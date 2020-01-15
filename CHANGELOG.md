@@ -19,6 +19,7 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
+- PR #1555: FIL-SKL, an SKLearn-based benchmark for FIL
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
