@@ -14,17 +14,26 @@
 - PR #1443: Added a new overloaded GEMM primitive
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
+- PR #1432: Row-major (C-style) GPU arrays for benchmarks
 - PR #1490: Use dask master instead of conda package for testing
+- PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
+- PR #1532: Update CuPy to >= 6.6 and allow 7.0
+- PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
+- PR #1545: Add conda environment version updates to ci script
+- PR #1541: Updates for libcudf++ Python refactor
+- PR #1551: Change custom kernel to cupy for col/row order transform
 
 ## Bug Fixes
-
 - PR #1470: Documentation: add make_regression, fix ARIMA section
 - PR #1482: Updated the code to remove sklearn from the mbsgd stress test
 - PR #1491: Update dev environments for 0.12
 - PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
 - PR #1498: Add build.sh to code owners
 - PR #1505: cmake: added correct dependencies for prims-bench build
+- PR #1534: Removed TODO comment in create_ucp_listeners()
+- PR #1548: Fixing umap extra unary op in knn graph
+- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
 
 # cuML 0.11.0 (11 Dec 2019)
 
