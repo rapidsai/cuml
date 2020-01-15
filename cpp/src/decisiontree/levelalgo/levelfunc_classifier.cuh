@@ -183,12 +183,8 @@ void grow_deep_tree_classification(
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
-  //print_convertor(d_nodecount, d_nodestart, d_samplelist, n_nodes, tempmem);
   for (int depth = tempmem->swap_depth; (depth < maxdepth) && (n_nodes != 0);
        depth++) {
-    //std::cout << "at depth --> " << depth_cnt << "nodes --> " << n_nodes
-    //          << std::endl;
-
     depth_cnt = depth + 1;
     //Algorithm starts here
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
@@ -211,7 +207,6 @@ void grow_deep_tree_classification(
     MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
                          tempmem->stream);
     //Update nodelist and split nodes
-    //print_nodes(h_sparsenodes, (float*)nullptr, d_nodelist, n_nodes, tempmem);
 
     make_split_gather(data, d_nodestart, d_samplelist, n_nodes, nrows,
                       d_nodelist, d_new_nodelist, d_nodecount, d_counter,
@@ -222,12 +217,9 @@ void grow_deep_tree_classification(
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);
-    //print_convertor(d_nodecount, d_nodestart, d_samplelist, h_counter[0],
-    //                tempmem);
     lastsize = 2 * n_nodes;
     n_nodes = h_counter[0];
   }
-  //printf("No of nodes %d and last size %d\n", n_nodes, lastsize);
   if (n_nodes != 0) {
     if (split_cr == ML::CRITERION::GINI) {
       make_leaf_gather_classification<T, GiniDevFunctor>(
