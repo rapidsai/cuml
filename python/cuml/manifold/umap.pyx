@@ -364,9 +364,9 @@ class UMAP(Base):
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
-        if "X_m" in state:
+        if "X_m" in state and state["X_m"] is not None:
             # fit has not yet been called
-            state['X_m'] = row_matrix(state['X_m'])
+            state["X_m"] = row_matrix(state["X_m"])
             state["embedding_"] = row_matrix(state["embedding_"])
 
         cdef UMAPParams *umap_params = new UMAPParams()
