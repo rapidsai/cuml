@@ -34,8 +34,6 @@ import scipy.sparse
 @pytest.mark.parametrize("sparse_output", [True, False])
 def test_basic_functions(labels, dtype, sparse_output):
 
-    # @todo: Test sparse output, test different inputs
-
     fit_labels, xform_labels = labels
 
     skl_bin = skLB(sparse_output=sparse_output)
@@ -60,7 +58,8 @@ def test_basic_functions(labels, dtype, sparse_output):
 
         array_equal(skl_csr.data, cuml_csr.data.get())
 
-        xformed = xformed.todense().astype(dtype)
+        # #todo: Support sparse inputs
+        # xformed = xformed.todense().astype(dtype)
 
     assert xformed.shape[1] == binarizer.classes_.shape[0]
 

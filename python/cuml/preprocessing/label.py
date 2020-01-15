@@ -105,8 +105,12 @@ class LabelBinarizer(object):
         :param threshold:
         :return:
         """
-        y_mapped = cp.argmax(
-            cp.asarray(y, dtype=y.dtype), axis=1).astype(y.dtype)
+
+        if cp.sparse.isspmatrix(y):
+            y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
+        else:
+            y_mapped = cp.argmax(
+                cp.asarray(y, dtype=y.dtype), axis=1).astype(y.dtype)
 
         return invert_labels(y_mapped, self.classes_)
 
