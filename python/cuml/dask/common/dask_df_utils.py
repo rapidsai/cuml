@@ -62,14 +62,12 @@ def extract_ddf_partitions(ddf, client=None, agg=True):
 def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
     """
     Given Dask cuDF input X and y, return an OrderedDict mapping
-    'worker -> [list of futures]' with the enforced co-locality
-     for each partition in ddf.
+    'worker -> [list of futures] of X and y' with the enforced
+     co-locality for each partition in ddf.
 
-    :param X_ddf: Dask.dataframe split dataframe partitions into a list of
-               futures.
-    :param y_ddf: Dask.dataframe split dataframe partitions into a list of
-               futures.
-    :param client: dask.distributed.Client Optional client to use
+    :param X_ddf: Dask.dataframe
+    :param y_ddf: Dask.dataframe
+    :param client: dask.distributed.Client
     """
     client = default_client() if client is None else client
     data_parts = X_ddf.to_delayed()
