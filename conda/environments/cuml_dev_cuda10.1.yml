@@ -8,8 +8,8 @@ dependencies:
 - cudatoolkit=10.1
 - libclang=8.0.0
 - cmake=3.14.5
-- numba=0.45*
-- cupy>=6.5, <7.0
+- numba>=0.46
+- cupy>=6.6.0,<8.0.0a0
 - cudf=0.12*
 - rmm=0.12*
 - cython>=0.29,<0.30
@@ -21,6 +21,7 @@ dependencies:
 - distributed=2.8*
 - dask-cuda=0.12*
 - dask-cudf=0.12*
+- ucx-py=0.12*
 - nccl>=2.4
 - libcumlprims=0.12*
 - statsmodels
