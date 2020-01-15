@@ -19,7 +19,7 @@ from cuml.utils import input_utils
 import numpy as np
 import pandas as pd
 import pickle as pickle
-import sklearn.ensemble as ensemble
+import sklearn.ensemble as skl_ensemble
 import cudf
 from numba import cuda
 from cuml.benchmark import datagen
@@ -61,7 +61,7 @@ def _training_data_to_numpy(X, y):
     return X_np, y_np
 
 
-def _build_fil_classifier(m, data, arg={}, tmpdir=None):
+def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
     from cuml.utils.import_utils import has_xgboost
     if has_xgboost():
@@ -77,9 +77,9 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
         "silent": 1, "eval_metric": "error",
         "objective": "binary:logistic", "tree_method": "gpu_hist",
     }
-    params.update(arg)
-    max_depth = arg["max_depth"]
-    num_rounds = arg["num_rounds"]
+    params.update(args)
+    max_depth = args["max_depth"]
+    num_rounds = args["num_rounds"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
@@ -87,18 +87,16 @@ def _build_fil_classifier(m, data, arg={}, tmpdir=None):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
 
-    return m.load(model_path, algo=arg["fil_algo"],
-                  output_class=arg["output_class"],
-                  threshold=arg["threshold"],
-                  storage_type=arg["storage_type"])
+    return m.load(model_path, algo=args["fil_algo"],
+                  output_class=args["output_class"],
+                  threshold=args["threshold"],
+                  storage_type=args["storage_type"])
 
 
-def _build_fil_skl_classifier(m, data, arg={}, tmpdir=None):
-    """Setup function for FIL SKLearn classification benchmarking"""
+def _build_fil_skl_classifier(m, data, args, tmpdir):
+    """Trains an SKLearn classifier and returns a FIL version of it"""
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
-
-    
 
     params = {
         "n_estimators": 10,
@@ -108,46 +106,43 @@ def _build_fil_skl_classifier(m, data, arg={}, tmpdir=None):
         "n_jobs": -1,
         "random_state": 42,
     }
-    params.update(arg)
+    params.update(args)
     
     # remove keyword arguments not understood by SKLearn
-    params.pop("fil_algo", None)
-    params.pop("output_class", None)
-    params.pop("threshold", None)
-    params.pop("storage_type", None)
+    for param_name in ["fil_algo", "output_class", "threshold", "storage_type"]:
+        params.pop(param_name, None)
     
-    max_leaf_nodes = arg["max_leaf_nodes"]
-    n_estimators = arg["n_estimators"]
+    max_leaf_nodes = args["max_leaf_nodes"]
+    n_estimators = args["n_estimators"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
     model_name = f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_{train_size}.model.pkl"
     model_path = os.path.join(tmpdir, model_name)
-    skl_model = ensemble.RandomForestClassifier(**params)
+    skl_model = skl_ensemble.RandomForestClassifier(**params)
     skl_model.fit(train_data, train_label)
     pickle.dump(skl_model, open(model_path, "wb"))
 
-    return m.load_from_sklearn(skl_model, algo=arg["fil_algo"],
-                               output_class=arg["output_class"],
-                               threshold=arg["threshold"],
-                               storage_type=arg["storage_type"])
+    return m.load_from_sklearn(skl_model, algo=args["fil_algo"],
+                               output_class=args["output_class"],
+                               threshold=args["threshold"],
+                               storage_type=args["storage_type"])
 
 
-def _build_cpu_skl_classifier(m, data, arg={}, tmpdir=None):
-    """Setup function for CPU SKLearn classification benchmarking"""
+def _build_cpu_skl_classifier(m, data, args, tmpdir):
+    """Loads the SKLearn classifier and returns it"""
 
-    max_leaf_nodes = arg["max_leaf_nodes"]
-    n_estimators = arg["n_estimators"]
+    max_leaf_nodes = args["max_leaf_nodes"]
+    n_estimators = args["n_estimators"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
     model_name = f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_{train_size}.model.pkl"
     model_path = os.path.join(tmpdir, model_name)
 
-    skl_model = None
     skl_model = pickle.load(open(model_path, "rb"))
     return skl_model
 
 
-def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
+def _build_treelite_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
     from cuml.utils.import_utils import has_treelite, has_xgboost
     if has_treelite():
@@ -160,8 +155,8 @@ def _build_treelite_classifier(m, data, arg={}, tmpdir=None):
     else:
         raise ImportError("No XGBoost package found")
 
-    max_depth = arg["max_depth"]
-    num_rounds = arg["num_rounds"]
+    max_depth = args["max_depth"]
+    num_rounds = args["num_rounds"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
