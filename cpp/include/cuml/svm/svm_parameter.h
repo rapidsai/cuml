@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 
 namespace ML {
 namespace SVM {
+
+enum SvmType { C_SVC, NU_SVC, EPSILON_SVR, NU_SVR };
 
 /**
  * Numerical input parameters for an SVM.
@@ -37,7 +39,9 @@ struct svmParameter {
   int max_iter;
   int nochange_steps;  //<! Number of steps to continue with non-changing diff
   double tol;          //!< Tolerance used to stop fitting.
-  int verbose;         //!< Print information about traning
+  int verbose;         //!< Print information about training
+  double epsilon;      //!< epsilon parameter for epsilon-SVR
+  SvmType svmType;
 };
 
 };  // namespace SVM

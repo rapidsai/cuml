@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ struct svmModel {
 
   //! Support vectors in column major format. Size [n_support x n_cols].
   math_t *x_support;
-  //! Indices (from the traning set) of the support vectors, size [n_support].
+  //! Indices (from the training set) of the support vectors, size [n_support].
   int *support_idx;
 
   int n_classes;  //!< Number of classes found in the input labels
