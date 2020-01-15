@@ -343,39 +343,21 @@ std::vector<unsigned char> save_model(ModelHandle model) {
 
 ModelHandle tl_mod_handle(ModelHandle* model,
                           std::vector<unsigned char>& data) {
-
-  std::cout << "inside the C++ code" << std::flush << std::endl;
-  std::cout << data.size() << std::flush << std::endl;
   const char* filename = std::tmpnam(nullptr);
   std::ofstream file(filename, std::ios::binary);
   file.write((char*)&data[0], data.size());
   TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
 
-  //TREELITE_CHECK(TreeliteExportProtobufModel(filename, *model));
   return *model;
  }
 
 std::vector<unsigned char> concatenate_trees(const cumlHandle& handle,
                                              std::vector<ModelHandle *> treelite_handles) {
-  size_t numb_trees_per_handle;
-  int all_model_params = 0;
-  //int random_forest_flag;
-  for (int i = 0; i < treelite_handles.size(); i++) {
-    TreeliteQueryNumTree(treelite_handles[i], &numb_trees_per_handle);
-    all_model_params = all_model_params + numb_trees_per_handle;
-  }
-  std::cout << "total num of trees : " << all_model_params << std::flush
-            << std::endl;
-  ModelBuilderHandle model_builder;
   tl::Model& output_model = *(tl::Model*)treelite_handles[0];
-  std::cout << " output_model num trees : " << output_model.trees.size()
-            << std::flush << std::endl;
   for (int tl_num = 1; tl_num < treelite_handles.size(); tl_num++){
     tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
-    //tl::Model model = tl::Model &treelite_handles[tl_num];
     for (int i = 0; i < model.trees.size(); i ++) {
       (output_model.trees).push_back(std::move(model.trees[i]));
-      //(model_info_new.trees).push_back(std::move(model_info.trees[0]));
     }
   }
 

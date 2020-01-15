@@ -295,12 +295,7 @@ class RandomForestClassifier:
 
     @staticmethod
     def _tl_model_handles(model, model_bytes):
-        #print("model info inside _convert_to_tl : ", model_info)
         return model._tl_model_handles(model_bytes=model_bytes)
-
-    @staticmethod
-    def _read_mod_handles(model, mod_handles):
-        return model._read_mod_handles(mod_handles=mod_handles)
 
     def print_summary(self):
         """
@@ -323,18 +318,13 @@ class RandomForestClassifier:
         raise_exception_from_futures(futures)
         return self
 
-    def convert_to_treelite(self):
+    def concat_treelite_models(self):
         """
-        prints the summary of the forest used to train and test the model
+        Convert the cuML Random Forest model present in different workers to
+        the treelite format and then concatenate the different treelite models
+        to create a single model. The concatenated model is then converted to
+        model bytes format. 
         """
-        ### check if i can create the protobuf models and then either convert them to model bytes 
-        ### OR
-        ### create a new function to concatenate the treelite info or protobuf files together
-
-        ### check if this has to be updated for the treelite (normal FIL predict) approach as we combine 
-        ### the split worker model info.
-        ### in pickling we keep the worker cuML model info separate and then convert it to tl -> pbuf -> model bytes 
-        ### combine the model bytes info and pass it to the different workers and then split the predict data and get the results.
         mod_bytes = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
@@ -348,17 +338,7 @@ class RandomForestClassifier:
 
         concat_mod_bytes = model.concatenate_treelite_bytes(treelite_handle=list_mod_handles)
 
-        """
-        check_model_bytes = []
-        for n in range(len(self.workers)):
-            calc_value = model._read_mod_handles(list_mod_handles[n])
-            check_model_bytes.append(calc_value)
-
-        size_of_mod_bytes_read = []
-        for i in range(len(check_model_bytes)):
-            size_of_mod_bytes_read.append(np.shape(check_model_bytes[i]))
-        """
-        return concat_mod_bytes #, size_of_mod_bytes_read
+        return concat_mod_bytes
 
     def fit(self, X, y):
         """
@@ -454,31 +434,12 @@ class RandomForestClassifier:
 
         """
         c = default_client()
+        futures = list()
         workers = self.workers
-        worker_numb = [i for i in workers]
-
         X_Scattered = c.scatter(X)
 
-        #treelite_handle = self.convert_to_treelite()
+        concat_mod_bytes = self.concat_treelite_models()
 
-        #tl_model_handle, size_of_bytes = self.convert_to_treelite()
-
-        concat_mod_bytes = self.convert_to_treelite()
-
-        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-
-        print(" the handles obtained from the previous function : ")
-        #print(tl_model_handle)
-
-        #pdb.set_trace()
-
-        #xc = X_futures[w[0]]
-
-        #pdb.set_trace()
-        #print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
-        #model = self.rfs[worker_numb[0]].result()
-        futures = list()
 
         for n, w in enumerate(self.workers):
             futures.append(
@@ -489,14 +450,9 @@ class RandomForestClassifier:
                     concat_mod_bytes,
                     workers=[w]))
 
-        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-        print("obtained predicted results")
-        indexes = list()
         preds = list()
         for d in range(len(futures)):
             preds.append(futures[d].result().copy_to_host())
-            indexes.append(0)
 
         return preds
 

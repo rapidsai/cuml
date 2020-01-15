@@ -126,6 +126,7 @@ ModelHandle tl_mod_handle(ModelHandle* model,
 
 std::vector<unsigned char> concatenate_trees(const cumlHandle& handle,
                                              std::vector<ModelHandle *> treelite_handles);
+
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
