@@ -57,18 +57,17 @@ def extract_ddf_partitions(ddf, client=None, agg=True):
     yield wait(worker_to_parts)
     raise gen.Return(worker_to_parts)
 
+
 @gen.coroutine
 def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
     """
     Given Dask cuDF input X and y, return an OrderedDict mapping
-    'worker -> [list of futures]' with the enforced co-locality
-     for each partition in ddf.
+    'worker -> [list of futures] of X and y' with the enforced
+     co-locality for each partition in ddf.
 
-    :param X_ddf: Dask.dataframe split dataframe partitions into a list of
-               futures.
-    :param y_ddf: Dask.dataframe split dataframe partitions into a list of
-               futures.
-    :param client: dask.distributed.Client Optional client to use
+    :param X_ddf: Dask.dataframe
+    :param y_ddf: Dask.dataframe
+    :param client: dask.distributed.Client
     """
     client = default_client() if client is None else client
     data_parts = X_ddf.to_delayed()
@@ -83,7 +82,7 @@ def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
         label_parts = label_parts.flatten().tolist()
 
     parts = list(map(delayed, zip(data_parts, label_parts)))
-    parts = client.compute(parts) 
+    parts = client.compute(parts)
     yield wait(parts)
 
     key_to_part_dict = dict([(part.key, part) for part in parts])
@@ -96,6 +95,7 @@ def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
         worker_map[first(workers)].append(key_to_part_dict[key])
 
     return worker_map
+
 
 def get_meta(df):
     """

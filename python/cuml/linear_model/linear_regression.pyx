@@ -404,21 +404,8 @@ class LinearRegression(Base):
         state = self.__dict__.copy()
 
         del state['handle']
-        if "coef_" in state:
-            state['coef_'] = state['coef_']
-
-        if self.intercept_ is not None:
-            state['intercept_'] = self.intercept_
-
         return state
 
     def __setstate__(self, state):
         super(LinearRegression, self).__init__(handle=None)
-
-        if "coef_" in state:
-            state['coef_'] = state['coef_']
-
-        if "intercept_" in state:
-            state['intercept_'] = state['intercept_']
-
         self.__dict__.update(state)
