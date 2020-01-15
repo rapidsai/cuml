@@ -22,6 +22,7 @@
 
 import ctypes
 import cupy as cp
+import dask
 import math
 import numpy as np
 import warnings
@@ -295,6 +296,7 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <size_t> rf_forest64
+        self.multi_class = 0
     """
     TODO:
         Add the preprocess and postprocess functions
@@ -442,6 +444,9 @@ class RandomForestClassifier(Base):
         unique_labels = cp.unique(y_m)
         num_unique_labels = len(unique_labels)
 
+        if num_unique_labels > 2:
+          self.multi_class = 1
+
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
@@ -540,7 +545,7 @@ class RandomForestClassifier(Base):
                                              algo=algo)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
-        return preds
+        return preds.copy_to_host()
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         cdef uintptr_t X_ptr
