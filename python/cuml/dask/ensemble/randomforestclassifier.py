@@ -15,11 +15,13 @@
 #
 
 from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
+    raise_exception_from_futures, workers_to_parts, to_dask_cudf
 from cuml.ensemble import RandomForestClassifier as cuRFC
 import cudf
+from collections import OrderedDict
 
 from dask.distributed import default_client, wait
+from itertools import chain 
 import math
 import random
 import numpy as np
@@ -171,7 +173,7 @@ class RandomForestClassifier:
 
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
-
+        self.multi_class = 0
         c = default_client()
         if workers is None:
             workers = c.has_what().keys()  # Default to all workers
@@ -290,8 +292,16 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, concat_mod_bytes):
-        return model.predict(X, concat_mod_bytes=concat_mod_bytes)
+    def _predict_gpu(model, X_test, concat_mod_bytes, r):
+        if len(X_test) == 1:
+            X_test_df = X_test[0]
+        else:
+            X_test_df = cudf.concat(X_test)
+        return model.predict(X_test_df, concat_mod_bytes=concat_mod_bytes)
+
+    @staticmethod
+    def _predict_cpu(model, X, r):
+        return model._predict_get_all(X)
 
     @staticmethod
     def _tl_model_handles(model, model_bytes):
@@ -433,28 +443,109 @@ class RandomForestClassifier:
            Dense vector (int) of shape (n_samples, 1)
 
         """
+        for w in self.workers:
+            if self.rfs[w].result().multi_class == 1:
+                self.multi_class = 1
+
+        if self.multi_class == 1 :
+            preds = self.predict_using_cpu(X)
+
+        else:
+            preds = self.predict_using_fil(X)
+        
+        return preds
+
+
+    def predict_using_fil(self, X):
         c = default_client()
-        futures = list()
+        preds = []
         workers = self.workers
-        X_Scattered = c.scatter(X)
+        gpu_futures = c.sync(extract_ddf_partitions, X)
+        worker_to_parts = workers_to_parts(gpu_futures)
 
         concat_mod_bytes = self.concat_treelite_models()
 
+        for idx, wf in enumerate(worker_to_parts.items()):
+            preds.append(
+                c.submit(
+                    RandomForestClassifier._predict_gpu,
+                    self.rfs[wf[0]],
+                    wf[1],
+                    concat_mod_bytes,
+                    random.random(),
+                    workers=[wf[0]]))
 
-        for n, w in enumerate(self.workers):
+        wait(preds)
+        raise_exception_from_futures(preds)
+        collected_preds = c.gather(preds)
+
+        return list(chain.from_iterable(collected_preds))
+
+    def predict_using_cpu(self, X):
+        """
+        Predicts the labels for X.
+        Parameters
+        ----------
+        X : np.array
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Features of examples to predict.
+        Returns
+        ----------
+        y: np.array
+           Dense vector (int) of shape (n_samples, 1)
+        """
+        c = default_client()
+        workers = self.workers
+
+        if not isinstance(X, np.ndarray):
+            raise ValueError("Predict inputs must be numpy arrays")
+
+        X_Scattered = c.scatter(X)
+        futures = list()
+        for n, w in enumerate(workers):
             futures.append(
                 c.submit(
-                    RandomForestClassifier._predict,
+                    RandomForestClassifier._predict_cpu,
                     self.rfs[w],
                     X_Scattered,
-                    concat_mod_bytes,
-                    workers=[w]))
+                    random.random(),
+                    workers=[w],
+                )
+            )
 
-        preds = list()
+        wait(futures)
+        raise_exception_from_futures(futures)
+
+        indexes = list()
+        rslts = list()
         for d in range(len(futures)):
-            preds.append(futures[d].result().copy_to_host())
+            rslts.append(futures[d].result())
+            indexes.append(0)
 
-        return preds
+        pred = list()
+
+        for i in range(len(X)):
+            classes = dict()
+            max_class = -1
+            max_val = 0
+
+            for d in range(len(rslts)):
+                for j in range(self.n_estimators_per_worker[d]):
+                    sub_ind = indexes[d] + j
+                    cls = rslts[d][sub_ind]
+                    if cls not in classes.keys():
+                        classes[cls] = 1
+                    else:
+                        classes[cls] = classes[cls] + 1
+
+                    if classes[cls] > max_val:
+                        max_val = classes[cls]
+                        max_class = cls
+
+                indexes[d] = indexes[d] + self.n_estimators_per_worker[d]
+
+            pred.append(max_class)
+        return pred
 
     def get_params(self, deep=True):
         """
