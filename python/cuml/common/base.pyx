@@ -145,8 +145,8 @@ class Base:
     def __getstate__(self):
         state = self.__dict__.copy()
         # Remove the unpicklable handle.
-        # todo: look into/enable pickling handle if necessary
-        del state['handle']
+        if 'handle' in state:
+            del state['handle']
         return state
 
     def __setstate__(self, state):

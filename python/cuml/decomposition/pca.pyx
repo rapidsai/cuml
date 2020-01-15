@@ -293,6 +293,8 @@ class PCA(Base):
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
         # attributes
         self.components_ = None
+        self.components_ary = None
+        self.trans_input_ = None
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
         self.singular_values_ = None
@@ -619,7 +621,7 @@ class PCA(Base):
 
         del state['handle']
         del state['c_algorithm']
-        if "trans_input_" in state:
+        if "trans_input_" in state and state["trans_input_"] is not None:
             state['trans_input_'] = cudf.Series(state['trans_input_'])
 
         if self.components_ary is not None:
@@ -630,10 +632,10 @@ class PCA(Base):
     def __setstate__(self, state):
         super(PCA, self).__init__(handle=None, verbose=state['verbose'])
 
-        if "trans_input_" in state:
+        if "trans_input_" in state and state["trans_input_"] is not None:
             state['trans_input_'] = state['trans_input_'].to_gpu_array()
 
-        if "components_ary" in state:
+        if "components_ary" in state and state["components_ary"] is not None:
             state['components_ary'] = state['components_ary'].to_gpu_array()
 
         self.__dict__.update(state)

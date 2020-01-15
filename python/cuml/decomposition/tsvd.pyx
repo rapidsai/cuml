@@ -520,10 +520,10 @@ class TruncatedSVD(Base):
         super(TruncatedSVD, self).__init__(handle=None,
                                            verbose=state['verbose'])
 
-        if "trans_input_" in state:
+        if "trans_input_" in state and state["trans_input_"] is not None:
             state['trans_input_'] = state['trans_input_'].to_gpu_array()
 
-        if "components_ary" in state:
+        if "components_ary" in state and state["components_ary"] is not None:
             state['components_ary'] = state['components_ary'].to_gpu_array()
 
         self.__dict__.update(state)
