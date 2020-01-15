@@ -246,7 +246,7 @@ class LogisticRegression(Base):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
-        unique_labels = rmm_cupy_ary(cp.unique, y_m))
+        unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_classes = len(unique_labels)
 
         if num_classes > 2:
