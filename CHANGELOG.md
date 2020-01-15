@@ -4,6 +4,7 @@
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
 - PR #1494: bench: ml-prims benchmark
 - PR #1514: bench: Fused L2 NN prim benchmark
+- PR #1554: obtain the ModelHandles for all treelite models in MNMG RF
 
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs

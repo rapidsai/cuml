@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/fil/fil.h>
+#include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <map>
 
@@ -122,8 +122,7 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model);
 
-ModelHandle tl_mod_handle(ModelHandle* model,
-                          std::vector<unsigned char>& data);
+ModelHandle tl_mod_handle(ModelHandle* model, std::vector<unsigned char>& data);
 
 // ----------------------------- Classification ----------------------------------- //
 
