@@ -24,6 +24,7 @@ import warnings
 
 from collections import namedtuple
 from collections.abc import Collection
+from cuml.utils.cupy_utils import rmm_cupy_ary
 from numba import cuda
 
 
@@ -221,7 +222,8 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             warnings.warn("Expected " + order_to_str(order) + " major order, "
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
-            X_m = cuda.as_cuda_array(cp.array(X_m, copy=False, order=order))
+            X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
+            X_m = cuda.as_cuda_array(X_m)
 
     X_ptr = get_dev_array_ptr(X_m)
 

@@ -21,23 +21,37 @@ import rmm
 from cuml.utils.import_utils import check_min_cupy_version
 
 
-def rmm_cupy_ary(fn, ary, order='F'):
-    """Compute the C (row major) version gpu matrix of df
+def rmm_cupy_ary(cupy_fn, *args, **kwargs):
+    """
 
-    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
-        If already on the device, its stream will be used to perform the
-        transpose (and to copy `row_major` to the device if necessary).
+    Function to call CuPy functions with RMM memory management
+
+
+    Parameters
+    ----------
+    cupy_fn : cupy function,
+        CuPy function to execute, for example cp.array
+    *args :
+        Non keyword arguments to pass to the CuPy function
+    **kwargs :
+        Keyword named arguments to pass to the CuPy function
+
+
+    Note: this function should be used if the result of cupy_fn creates
+    a new array. Functions to create a new CuPy array by reference to
+    existing device array (through __cuda_array_interface__) can be used
+    directly.
 
     """
 
     # using_allocator was introduced in CuPy 7. Once 7+ is required,
-    # this check can be removed alongside the alternative code path.
+    # this check can be removed alongside the else code path.
     if check_min_cupy_version("7.0"):
         with cp.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
-            result = fn(ary, order=order)
+            result = cupy_fn(*args, **kwargs)
 
     else:
-        temp_res = fn(ary, order=order)
+        temp_res = cupy_fn(*args, **kwargs)
         result = \
             _rmm_cupy6_array_like(temp_row_major,
                                   order=_strides_to_order(temp_res.strides))
