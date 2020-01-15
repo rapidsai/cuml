@@ -53,18 +53,6 @@ def load_corpus():
     return X, Y
 
 
-def load_corpus_cpu():
-
-    twenty_train = fetch_20newsgroups(subset='train',
-                                      shuffle=True, random_state=42)
-
-    count_vect = CountVectorizer()
-    X = count_vect.fit_transform(twenty_train.data)
-    Y = twenty_train.target
-
-    return X, Y
-
-
 def test_basic_fit_predict_sparse():
     """
     Cupy Test
