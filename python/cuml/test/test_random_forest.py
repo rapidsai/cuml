@@ -448,15 +448,9 @@ def test_fil_and_treelite_models_regression(datatype, nrows, column_info):
     fil_model = cuml_model.convert_to_fil_model()
     fil_model_preds = fil_model.predict(X_test)
     fil_model_r2 = r2_score(y_test, fil_model_preds, convert_dtype=datatype)
-    assert fil_acc == fil_model_acc
+    assert fil_acc == fil_model_r2
 
     tl_model = cuml_model.convert_to_treelite_model()
 
     assert numb_treees == tl_model.num_trees()
-    assert ncols == tl_model.num_features()    
-
-
-
-
-
-
+    assert ncols == tl_model.num_features()
