@@ -6,6 +6,7 @@
 - PR #1514: bench: Fused L2 NN prim benchmark
 
 - PR #1411: Cython side of MNMG OLS
+- PR #1520: Cython side of MNMG Ridge Regression
 
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
