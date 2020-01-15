@@ -17,6 +17,7 @@
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
+from itertools import chain 
 import cudf
 import numpy as np
 
@@ -291,8 +292,60 @@ class RandomForestRegressor:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, r):
-        return model.predict(X).copy_to_host()
+    def _predict(model, X_test, concat_mod_bytes, r):
+        if len(X_test) == 1:
+            X_test_df = X_test[0]
+        else:
+            X_test_df = cudf.concat(X_test)
+        return model.predict(X_test_df, concat_mod_bytes=concat_mod_bytes)
+
+
+    @staticmethod
+    def _tl_model_handles(model, model_bytes):
+        return model._tl_model_handles(model_bytes=model_bytes)
+
+    def print_summary(self):
+        """
+        prints the summary of the forest used to train and test the model
+        """
+        c = default_client()
+        futures = list()
+        workers = self.workers
+
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestRegressor._print_summary,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+        return self
+
+    def concat_treelite_models(self):
+        """
+        Convert the cuML Random Forest model present in different workers to
+        the treelite format and then concatenate the different treelite models
+        to create a single model. The concatenated model is then converted to
+        model bytes format. 
+        """
+        mod_bytes = []
+        for w in self.workers:
+            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+
+        worker_numb = [i for i in self.workers]
+
+        list_mod_handles = []
+        model = self.rfs[worker_numb[0]].result()
+        for n in range(len(self.workers)):
+            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+
+        concat_mod_bytes = model.concatenate_treelite_bytes(treelite_handle=list_mod_handles)
+
+        return concat_mod_bytes
 
     def fit(self, X, y):
         """
@@ -380,44 +433,28 @@ class RandomForestRegressor:
 
         """
         c = default_client()
+        preds = []
         workers = self.workers
+        gpu_futures = c.sync(extract_ddf_partitions, X)
+        worker_to_parts = workers_to_parts(gpu_futures)
 
-        if not isinstance(X, np.ndarray):
-            raise ValueError("Predict inputs must be numpy arrays")
+        concat_mod_bytes = self.concat_treelite_models()
 
-        X_Scattered = c.scatter(X)
-
-        futures = list()
-        for n, w in enumerate(workers):
-            futures.append(
+        for idx, wf in enumerate(worker_to_parts.items()):
+            preds.append(
                 c.submit(
                     RandomForestRegressor._predict,
-                    self.rfs[w],
-                    X_Scattered,
+                    self.rfs[wf[0]],
+                    wf[1],
+                    concat_mod_bytes,
                     random.random(),
-                    workers=[w],
-                )
-            )
+                    workers=[wf[0]]))
 
-        wait(futures)
-        raise_exception_from_futures(futures)
+        wait(preds)
+        raise_exception_from_futures(preds)
+        collected_preds = c.gather(preds)
 
-        indexes = list()
-        rslts = list()
-        for d in range(len(futures)):
-            rslts.append(futures[d].result())
-            indexes.append(0)
-
-        pred = list()
-
-        for i in range(len(X)):
-            pred_per_worker = 0.0
-            for d in range(len(rslts)):
-                pred_per_worker = pred_per_worker + rslts[d][i]
-
-            pred.append(pred_per_worker / len(rslts))
-
-        return pred
+        return list(chain.from_iterable(collected_preds))
 
     def get_params(self, deep=True):
         """
