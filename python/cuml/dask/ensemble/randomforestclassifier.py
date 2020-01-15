@@ -294,7 +294,7 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, treelite_handle):
+    def _predict(model, X, concat_mod_bytes):
         #print(model.print_summary())
         #import pdb
         #print("length of X_df_list is : ", len(X_df_list))
@@ -305,7 +305,7 @@ class RandomForestClassifier:
         #    X_df = cudf.concat(X_df_list)
         #pdb.set_trace()
 
-        return model._predict_mnmg_on_fil(X, treelite_handle=treelite_handle) #.copy_to_host()
+        return model.predict(X, concat_mod_bytes=concat_mod_bytes) #.copy_to_host()
 
     @staticmethod
     def _print_summary(model):
@@ -526,7 +526,7 @@ class RandomForestClassifier:
         """
         c = default_client()
         workers = self.workers
-        #X_Scattered = c.scatter(X)
+        X_Scattered = c.scatter(X)
 
         #treelite_handle = self.convert_to_treelite()
 
@@ -570,12 +570,69 @@ class RandomForestClassifier:
         #pdb.set_trace()
         #print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
         model = self.rfs[worker_numb[0]].result()
-        fil_model = []
+        futures = list()
         for n in range(1):
-            calc_value = model._predict_mnmg_on_fil(X,
-                                                    treelite_handle=tl_model_handle)
-            fil_model.append(calc_value)
+            concat_mod_bytes = model.concatenate_treelite_bytes(X, treelite_handle=tl_model_handle)
+            #fil_model.append(calc_value)
 
+        for n, w in enumerate(self.workers):
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._predict,
+                    self.rfs[w],
+                    X_Scattered,
+                    concat_mod_bytes,
+                    workers=[w]))
+
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("obtained predicted results")
+        indexes = list()
+        preds = list()
+        for d in range(len(futures)):
+            preds.append(futures[d].result().copy_to_host())
+            indexes.append(0)
+
+        return preds
+
+        """
+        worker_numb = [i for i in workers]
+        #pdb.set_trace()
+
+        #xc = X_futures[w[0]]
+
+        #pdb.set_trace()
+        #print(" the handle value of concat_conv_tree in MNMG file predict: ", concat_conv_tree)
+        model = self.rfs[worker_numb[0]].result()
+        futures = list()
+        concat_tl_handle = model._concatenate_treelite(treelite_handle=tl_model_handle)
+        #fil_model.append(calc_value)
+
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._predict,
+                    self.rfs[worker_numb[0]],
+                    X_Scattered,
+                    concat_tl_handle,
+                    workers=[worker_numb[0]],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
+        indexes = list()
+        preds = list()
+        for d in range(len(futures)):
+            rslts.append(futures[d].result())
+            indexes.append(0)
+
+        return preds
+        """
         """
 
         for n in range(len(workers)):
@@ -612,7 +669,7 @@ class RandomForestClassifier:
 
         return rslts
         """
-        return fil_model
+        #return fil_model
 
     def get_params(self, deep=True):
         """

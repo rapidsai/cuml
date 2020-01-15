@@ -293,7 +293,6 @@ int tree_root(const tl::Tree& tree) {
       root = i;
     }
   }
-  std::cout << "root val : " << root << std::flush << std::endl;
   ASSERT(root != -1, "a tree must have a root");
   return root;
 }

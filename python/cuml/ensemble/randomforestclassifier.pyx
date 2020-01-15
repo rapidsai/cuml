@@ -466,8 +466,8 @@ class RandomForestClassifier(Base):
         return <size_t> forest_info
         """
 
-    def _predict_mnmg_on_fil(self, X, treelite_handle,
-                             preds=None, convert_dtype=True):
+    def concatenate_treelite_bytes(self, X, treelite_handle,
+                                   preds=None, convert_dtype=True):
         output_class=True
         threshold=0.5,
         algo='AUTO'
@@ -499,17 +499,41 @@ class RandomForestClassifier(Base):
                                                 threshold=0.5,
                                                 algo=algo)
         print(" created the FIL model")
+        print("############################################")
+        print("tl_model handle : ", tl_model)
         cdef uintptr_t concat_tl_handle = <uintptr_t> tl_model
+        concat_mod_bytes = save_model(<ModelHandle> concat_tl_handle)
 
+        return concat_mod_bytes
+
+        """
         tl_to_fil_model = \
             fil_model.load_from_randomforest(concat_tl_handle,
                                              output_class=output_class,
                                              threshold=0.5,
                                              algo=algo)
-        preds = tl_to_fil_model.predict(X_m)
+
+        return tl_to_fil_model
+        """
+
+
+    def predict_mnmg(self, X, fil_model):
+
+        cdef uintptr_t X_ptr
+        X_m, X_ptr, n_rows, _, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
+
+        print("##############################################")
+        print(" FIL model : ", fil_model)
+        preds = fil_model.predict(X_m)
         #mod_bytes = self._read_mod_handles(concat_tl_handle)
 
         return preds
+
+
         """
         preds = tl_to_fil_model.predict(X_m)
 
@@ -633,7 +657,7 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype):
+                              num_classes, convert_dtype, concat_mod_bytes=[]):
         cdef ModelHandle cuml_model_ptr = NULL
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
@@ -648,7 +672,7 @@ class RandomForestClassifier(Base):
                               rf_forest,
                               <int> n_cols,
                               <int> num_classes,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
+                              <vector[unsigned char] &> concat_mod_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
         fil_model = ForestInference()
@@ -713,7 +737,7 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
-                num_classes=2, convert_dtype=True):
+                num_classes=2, convert_dtype=True, concat_mod_bytes=[]):
         """
         Predicts the labels for X.
 
@@ -772,7 +796,7 @@ class RandomForestClassifier(Base):
         else:
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
-                                               num_classes, convert_dtype)
+                                               num_classes, convert_dtype, concat_mod_bytes)
 
         return preds
 
