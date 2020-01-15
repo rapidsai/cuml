@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <cuda_utils.h>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
@@ -21,6 +23,8 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
+#include <cuml/svm/svc.hpp>
+#include <cuml/svm/svr.hpp>
 #include <iostream>
 #include <string>
 #include <type_traits>
@@ -35,9 +39,6 @@
 #include "random/rng.h"
 #include "svm/smoblocksolve.h"
 #include "svm/smosolver.h"
-#include "svm/svc.hpp"
-#include "svm/svm_model.h"
-#include "svm/svm_parameter.h"
 #include "svm/workingset.h"
 #include "test_utils.h"
 
@@ -128,7 +129,7 @@ class KernelCacheTest : public ::testing::Test {
     allocate(x_dev, n_rows * n_cols);
     updateDevice(x_dev, x_host, n_rows * n_cols, stream);
 
-    allocate(ws_idx_dev, n_ws);
+    allocate(ws_idx_dev, 2 * n_ws);
     updateDevice(ws_idx_dev, ws_idx_host, n_ws, stream);
   }
 
@@ -170,6 +171,27 @@ class KernelCacheTest : public ::testing::Test {
         break;
     }
   }
+
+  void check(const math_t *tile_dev, int n_ws, int n_rows, const int *ws_idx,
+             const int *kColIdx) {
+    host_buffer<int> ws_idx_h(handle.getHostAllocator(), stream, n_ws);
+    updateHost(ws_idx_h.data(), ws_idx, n_ws, stream);
+    host_buffer<int> kidx_h(handle.getHostAllocator(), stream, n_ws);
+    updateHost(kidx_h.data(), kColIdx, n_ws, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    // Note: kernel cache can permute the working set, so we have to look
+    // up which rows we compare
+    for (int i = 0; i < n_ws; i++) {
+      SCOPED_TRACE(i);
+      int widx = ws_idx_h[i] % n_rows;
+      int kidx = kidx_h[i];
+      const math_t *cache_row = tile_dev + kidx * n_rows;
+      const math_t *row_exp = tile_host_all + widx * n_rows;
+      EXPECT_TRUE(devArrMatchHost(row_exp, cache_row, n_rows,
+                                  CompareApprox<math_t>(1e-6f)));
+    }
+  }
+
   cumlHandle handle;
   cublasHandle_t cublas_handle;
   cudaStream_t stream;
@@ -185,6 +207,8 @@ class KernelCacheTest : public ::testing::Test {
   int ws_idx_host[4] = {0, 1, 3};
   math_t tile_host_expected[12] = {26, 32, 38, 44, 32, 40,
                                    48, 56, 44, 56, 68, 80};
+  math_t tile_host_all[16] = {26, 32, 38, 44, 32, 40, 48, 56,
+                              38, 48, 58, 68, 44, 56, 68, 80};
 };
 
 TYPED_TEST_CASE_P(KernelCacheTest);
@@ -195,13 +219,15 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
     Matrix::KernelParams{Matrix::POLYNOMIAL, 2, 1.3, 1},
     Matrix::KernelParams{Matrix::TANH, 2, 0.5, 2.4},
     Matrix::KernelParams{Matrix::RBF, 2, 0.5, 0}};
+  float cache_size = 0;
+
   for (auto params : param_vec) {
     Matrix::GramMatrixBase<TypeParam> *kernel =
       Matrix::KernelFactory<TypeParam>::create(
         params, this->handle.getImpl().getCublasHandle());
     KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
-                                 this->n_rows, this->n_cols, this->n_ws,
-                                 kernel);
+                                 this->n_rows, this->n_cols, this->n_ws, kernel,
+                                 cache_size, C_SVC, false);
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
@@ -212,7 +238,51 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
   }
 }
 
-REGISTER_TYPED_TEST_CASE_P(KernelCacheTest, EvalTest);
+TYPED_TEST_P(KernelCacheTest, CacheEvalTest) {
+  Matrix::KernelParams param{Matrix::LINEAR, 3, 1, 0};
+  float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
+
+  Matrix::GramMatrixBase<TypeParam> *kernel =
+    Matrix::KernelFactory<TypeParam>::create(
+      param, this->handle.getImpl().getCublasHandle());
+  KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
+                               this->n_rows, this->n_cols, this->n_ws, kernel,
+                               cache_size, C_SVC, false);
+  for (int i = 0; i < 2; i++) {
+    // We calculate cache tile multiple times to see if cache lookup works
+    TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
+    this->check(tile_dev, this->n_ws, this->n_rows, cache.GetWsIndices(),
+                cache.GetColIdxMap());
+  }
+  delete kernel;
+}
+
+TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
+  Matrix::KernelParams param{Matrix::LINEAR, 3, 1, 0};
+  float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
+
+  this->n_ws = 6;
+  int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
+  updateDevice(this->ws_idx_dev, ws_idx_svr, 6, this->stream);
+
+  Matrix::GramMatrixBase<TypeParam> *kernel =
+    Matrix::KernelFactory<TypeParam>::create(
+      param, this->handle.getImpl().getCublasHandle());
+  KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
+                               this->n_rows, this->n_cols, this->n_ws, kernel,
+                               cache_size, EPSILON_SVR, false);
+
+  for (int i = 0; i < 2; i++) {
+    // We calculate cache tile multiple times to see if cache lookup works
+    TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
+    this->check(tile_dev, this->n_ws, this->n_rows, cache.GetWsIndices(),
+                cache.GetColIdxMap());
+  }
+  delete kernel;
+}
+
+REGISTER_TYPED_TEST_CASE_P(KernelCacheTest, EvalTest, CacheEvalTest,
+                           SvrEvalTest);
 INSTANTIATE_TYPED_TEST_CASE_P(My, KernelCacheTest, FloatTypes);
 
 template <typename math_t>
@@ -237,7 +307,7 @@ class GetResultsTest : public ::testing::Test {
     updateDevice(alpha_dev.data(), alpha_host, n_rows, stream);
 
     Results<math_t> res(handle.getImpl(), x_dev.data(), y_dev.data(), n_rows,
-                        n_cols, C);
+                        n_cols, C, C_SVC);
     res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx,
             &x_support, &b);
 
@@ -294,6 +364,19 @@ TYPED_TEST_CASE(GetResultsTest, FloatTypes);
 
 TYPED_TEST(GetResultsTest, Results) { this->TestResults(); }
 
+svmParameter getDefaultSvmParameter() {
+  svmParameter param;
+  param.C = 1;
+  param.tol = 0.001;
+  param.cache_size = 200;
+  param.max_iter = -1;
+  param.nochange_steps = 1000;
+  param.verbose = false;
+  param.epsilon = 0.1;
+  param.svmType = C_SVC;
+  return param;
+}
+
 template <typename math_t>
 class SmoUpdateTest : public ::testing::Test {
  protected:
@@ -307,7 +390,8 @@ class SmoUpdateTest : public ::testing::Test {
     updateDevice(delta_alpha_dev, delta_alpha_host, n_ws, stream);
   }
   void RunTest() {
-    SmoSolver<float> smo(handle.getImpl(), 1, 0.001, nullptr);
+    svmParameter param = getDefaultSvmParameter();
+    SmoSolver<float> smo(handle.getImpl(), param, nullptr);
     smo.UpdateF(f_dev, n_rows, delta_alpha_dev, n_ws, kernel_dev);
 
     float f_host_expected[] = {0.1f, 7.4505806e-9f, 0.3f, 0.2f, 0.5f, 0.4f};
@@ -474,6 +558,79 @@ struct svmTol {
 };
 
 template <typename math_t>
+void checkResults(svmModel<math_t> model, smoOutput<math_t> expected,
+                  cudaStream_t stream,
+                  svmTol<math_t> tol = svmTol<math_t>{0.001, 0.99999, -1}) {
+  math_t *dcoef_exp =
+    expected.dual_coefs.size() > 0 ? expected.dual_coefs.data() : nullptr;
+  math_t *w_exp = expected.w.size() > 0 ? expected.w.data() : nullptr;
+  math_t *x_support_exp =
+    expected.x_support.size() > 0 ? expected.x_support.data() : nullptr;
+  int *idx_exp = expected.idx.size() > 0 ? expected.idx.data() : nullptr;
+
+  math_t ay_tol = 1e-5;
+
+  if (tol.n_sv == -1) {
+    tol.n_sv = expected.n_support * 0.01;
+    if (expected.n_support > 10 && tol.n_sv < 3) tol.n_sv = 3;
+  }
+  EXPECT_LE(abs(model.n_support - expected.n_support), tol.n_sv);
+  if (dcoef_exp) {
+    EXPECT_TRUE(devArrMatchHost(dcoef_exp, model.dual_coefs, model.n_support,
+                                CompareApprox<math_t>(1e-3f)));
+  }
+  math_t *dual_coefs_host = new math_t[model.n_support];
+  updateHost(dual_coefs_host, model.dual_coefs, model.n_support, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  math_t ay = 0;
+  for (int i = 0; i < model.n_support; i++) {
+    ay += dual_coefs_host[i];
+  }
+  // Test if \sum \alpha_i y_i = 0
+  EXPECT_LT(abs(ay), ay_tol);
+
+  if (x_support_exp) {
+    EXPECT_TRUE(devArrMatchHost(x_support_exp, model.x_support,
+                                model.n_support * model.n_cols,
+                                CompareApprox<math_t>(1e-6f)));
+  }
+
+  if (idx_exp) {
+    EXPECT_TRUE(devArrMatchHost(idx_exp, model.support_idx, model.n_support,
+                                Compare<int>()));
+  }
+
+  math_t *x_support_host = new math_t[model.n_support * model.n_cols];
+  updateHost(x_support_host, model.x_support, model.n_support * model.n_cols,
+             stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  if (w_exp) {
+    std::vector<math_t> w(model.n_cols, 0);
+    for (int i = 0; i < model.n_support; i++) {
+      for (int j = 0; j < model.n_cols; j++)
+        w[j] += x_support_host[i + model.n_support * j] * dual_coefs_host[i];
+    }
+    // Calculate the cosine similarity between w and w_exp
+    math_t abs_w = 0;
+    math_t abs_w_exp = 0;
+    math_t cs = 0;
+    for (int i = 0; i < model.n_cols; i++) {
+      abs_w += w[i] * w[i];
+      abs_w_exp += w_exp[i] * w_exp[i];
+      cs += w[i] * w_exp[i];
+    }
+    cs /= sqrt(abs_w * abs_w_exp);
+    EXPECT_GT(cs, tol.cs);
+  }
+
+  EXPECT_LT(abs(model.b - expected.b), tol.b);
+
+  delete[] dual_coefs_host;
+  delete[] x_support_host;
+}
+
+template <typename math_t>
 class SmoSolverTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -496,6 +653,8 @@ class SmoSolverTest : public ::testing::Test {
     updateDevice(y_dev, y_host, n_rows, stream);
     updateDevice(f_dev, f_host, n_rows, stream);
     updateDevice(kernel_dev, kernel_host, n_ws * n_rows, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(delta_alpha_dev, 0, n_ws * sizeof(math_t), stream));
 
     kernel = new Matrix::GramMatrixBase<math_t>(cublas_handle);
   }
@@ -569,85 +728,39 @@ class SmoSolverTest : public ::testing::Test {
     //EXPECT_FLOAT_EQ(w[1],  2.0);
   }
 
+  void svrBlockSolveTest() {
+    int n_ws = 4;
+    int n_rows = 2;
+    // int n_cols = 1;
+    // math_t x[2] = {1, 2};
+    // yr = {2, 3}
+    math_t f[4] = {-1.9, -2.9, -2.1 - 3.1};
+    math_t kernel[4] = {1, 2, 2, 4};
+    // ws_idx is defined as {0, 1, 2, 3}
+    int kColIdx[4] = {0, 1, 0, 1};
+    device_buffer<int> kColIdx_dev(handle.getDeviceAllocator(), stream, 4);
+    updateDevice(f_dev, f, 4, stream);
+    updateDevice(kernel_dev, kernel, 4, stream);
+    updateDevice(kColIdx_dev.data(), kColIdx, 4, stream);
+    SmoBlockSolve<math_t, 1024><<<1, n_ws, 0, stream>>>(
+      y_dev, 2 * n_rows, alpha_dev, n_ws, delta_alpha_dev, f_dev, kernel_dev,
+      ws_idx_dev, 1.0, 1e-3, return_buff_dev, 10, EPSILON_SVR,
+      kColIdx_dev.data());
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    math_t return_buff[2];
+    updateHost(return_buff, return_buff_dev, 2, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    EXPECT_LT(return_buff[1], 10) << return_buff[1];
+
+    math_t alpha_exp[] = {0, 0.8, 0.8, 0};
+    devArrMatch(alpha_exp, alpha_dev, 4, CompareApprox<math_t>(1e-6));
+
+    math_t dalpha_exp[] = {-0.8, 0.8};
+    devArrMatch(dalpha_exp, delta_alpha_dev, 2, CompareApprox<math_t>(1e-6));
+  }
+
  protected:
-  void checkResults(int n_coefs_exp, math_t *dual_coefs_exp, math_t b_exp,
-                    math_t *w_exp, math_t *x_support_exp, int *idx_exp,
-                    int n_coefs, int n_cols, math_t *dual_coefs_d = nullptr,
-                    math_t b = 0, math_t *x_support_d = nullptr,
-                    int *idx_d = nullptr, math_t b_tol = 0.001,
-                    math_t cs_tol = 0.99999, int n_sv_diff = -1,
-                    math_t ay_tol = 1e-5f) {
-    if (n_sv_diff == -1) {
-      n_sv_diff = n_coefs_exp * 0.01;
-      if (n_coefs_exp > 10 && n_sv_diff < 3) n_sv_diff = 3;
-    }
-    EXPECT_LE(abs(n_coefs - n_coefs_exp), n_sv_diff);
-    if (dual_coefs_exp) {
-      EXPECT_TRUE(devArrMatchHost(dual_coefs_exp, dual_coefs_d, n_coefs,
-                                  CompareApprox<math_t>(1e-3f)));
-    }
-    math_t *dual_coefs_host = new math_t[n_coefs];
-    updateHost(dual_coefs_host, dual_coefs_d, n_coefs, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    math_t ay = 0;
-    for (int i = 0; i < n_coefs; i++) {
-      ay += dual_coefs_host[i];
-    }
-    // Test if \sum \alpha_i y_i = 0
-    EXPECT_LT(abs(ay), ay_tol);
-
-    if (x_support_exp) {
-      EXPECT_TRUE(devArrMatchHost(x_support_exp, x_support_d, n_coefs * n_cols,
-                                  CompareApprox<math_t>(1e-6f)));
-    }
-
-    if (idx_exp) {
-      EXPECT_TRUE(devArrMatchHost(idx_exp, idx_d, n_coefs, Compare<int>()));
-    }
-
-    math_t *x_support_host = new math_t[n_coefs * n_cols];
-    updateHost(x_support_host, x_support_d, n_coefs * n_cols, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    if (w_exp) {
-      std::vector<math_t> w(n_cols, 0);
-      for (int i = 0; i < n_coefs; i++) {
-        for (int j = 0; j < n_cols; j++)
-          w[j] += x_support_host[i + n_coefs * j] * dual_coefs_host[i];
-      }
-      // Calculate the cosine similarity between w and w_exp
-      math_t abs_w = 0;
-      math_t abs_w_exp = 0;
-      math_t cs = 0;
-      for (int i = 0; i < n_cols; i++) {
-        abs_w += w[i] * w[i];
-        abs_w_exp += w_exp[i] * w_exp[i];
-        cs += w[i] * w_exp[i];
-      }
-      cs /= sqrt(abs_w * abs_w_exp);
-      EXPECT_GT(cs, cs_tol);
-    }
-
-    EXPECT_LT(abs(b - b_exp), b_tol);
-
-    delete[] dual_coefs_host;
-    delete[] x_support_host;
-  }
-
-  void checkResults(svmModel<math_t> model, smoOutput<math_t> expected,
-                    svmTol<math_t> tol = svmTol<math_t>{0.001, 0.99999, -1}) {
-    math_t *dcoef_exp =
-      expected.dual_coefs.size() > 0 ? expected.dual_coefs.data() : nullptr;
-    math_t *w_exp = expected.w.size() > 0 ? expected.w.data() : nullptr;
-    math_t *x_sv_exp =
-      expected.x_support.size() > 0 ? expected.x_support.data() : nullptr;
-    int *idx_exp = expected.idx.size() > 0 ? expected.idx.data() : nullptr;
-
-    checkResults(expected.n_support, dcoef_exp, expected.b, w_exp, x_sv_exp,
-                 idx_exp, model.n_support, model.n_cols, model.dual_coefs,
-                 model.b, model.x_support, model.support_idx, tol.b, tol.cs,
-                 tol.n_sv);
-  }
   cumlHandle handle;
   cudaStream_t stream;
   Matrix::GramMatrixBase<math_t> *kernel;
@@ -686,6 +799,7 @@ class SmoSolverTest : public ::testing::Test {
 TYPED_TEST_CASE(SmoSolverTest, FloatTypes);
 
 TYPED_TEST(SmoSolverTest, BlockSolveTest) { this->blockSolveTest(); }
+TYPED_TEST(SmoSolverTest, SvrBlockSolveTest) { this->svrBlockSolveTest(); }
 
 std::string kernelName(KernelParams k) {
   std::vector<std::string> names{"linear", "poly", "rbf", "tanh"};
@@ -721,15 +835,19 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest) {
     auto p = d.first;
     auto exp = d.second;
     SCOPED_TRACE(p);
+    svmParameter param = getDefaultSvmParameter();
+    param.C = p.C;
+    param.tol = p.tol;
+    //param.max_iter = p.max_iter;
     GramMatrixBase<TypeParam> *kernel = KernelFactory<TypeParam>::create(
       p.kernel_params, this->handle.getImpl().getCublasHandle());
-    SmoSolver<TypeParam> smo(this->handle.getImpl(), p.C, p.tol, kernel);
+    SmoSolver<TypeParam> smo(this->handle.getImpl(), param, kernel);
     svmModel<TypeParam> model{0,       this->n_cols, 0, nullptr,
                               nullptr, nullptr,      0, nullptr};
     smo.Solve(this->x_dev, this->n_rows, this->n_cols, this->y_dev,
               &model.dual_coefs, &model.n_support, &model.x_support,
               &model.support_idx, &model.b, p.max_iter, p.max_inner_iter);
-    this->checkResults(model, exp);
+    checkResults(model, exp, this->stream);
     svmFreeBuffers(this->handle, model);
   }
 }
@@ -784,7 +902,7 @@ TYPED_TEST(SmoSolverTest, SvcTest) {
     SCOPED_TRACE(kernelName(p.kernel_params));
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
     svc.fit(p.x_dev, p.n_rows, p.n_cols, p.y_dev);
-    this->checkResults(svc.model, toSmoOutput(exp));
+    checkResults(svc.model, toSmoOutput(exp), this->stream);
     device_buffer<TypeParam> y_pred(this->handle.getDeviceAllocator(),
                                     this->stream, p.n_rows);
     if (p.predict) {
@@ -888,7 +1006,8 @@ TYPED_TEST(SmoSolverTest, BlobPredict) {
     make_blobs(x.data(), y.data(), p.n_rows, p.n_cols, 2, allocator,
                this->handle.getImpl().getCublasHandle(), this->stream,
                centers.data());
-    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
+    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, -1, 50,
+                       false);
     svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
 
     // Create a different dataset for prediction
@@ -974,5 +1093,227 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
   EXPECT_EQ(delta, 0);
 }
 
+template <typename math_t>
+struct SvrInput {
+  svmParameter param;
+  KernelParams kernel;
+  int n_rows;
+  int n_cols;
+  std::vector<math_t> x;
+  std::vector<math_t> y;
+};
+
+template <typename math_t>
+std::ostream &operator<<(std::ostream &os, const SvrInput<math_t> &b) {
+  os << kernelName(b.kernel) << " " << b.n_rows << "x" << b.n_cols
+     << ", C=" << b.param.C << ", tol=" << b.param.tol;
+  return os;
+}
+
+template <typename math_t>
+class SvrTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    handle.setStream(stream);
+    allocator = handle.getDeviceAllocator();
+    allocate(x_dev, n_rows * n_cols);
+    allocate(y_dev, n_rows);
+    allocate(y_pred, n_rows);
+
+    allocate(yc, n_train);
+    allocate(f, n_train);
+    allocate(alpha, n_train);
+
+    updateDevice(x_dev, x_host, n_rows * n_cols, stream);
+    updateDevice(y_dev, y_host, n_rows, stream);
+
+    model.n_support = 0;
+    model.dual_coefs = nullptr;
+    model.x_support = nullptr;
+    model.support_idx = nullptr;
+    model.n_classes = 0;
+    model.unique_labels = nullptr;
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaFree(x_dev));
+    CUDA_CHECK(cudaFree(y_dev));
+    CUDA_CHECK(cudaFree(y_pred));
+    CUDA_CHECK(cudaFree(yc));
+    CUDA_CHECK(cudaFree(f));
+    CUDA_CHECK(cudaFree(alpha));
+    svmFreeBuffers(handle, model);
+  }
+
+ public:
+  void TestSvrInit() {
+    svmParameter param = getDefaultSvmParameter();
+    param.svmType = EPSILON_SVR;
+    SmoSolver<math_t> smo(handle.getImpl(), param, nullptr);
+    smo.SvrInit(y_dev, n_rows, yc, f);
+
+    EXPECT_TRUE(
+      devArrMatchHost(yc_exp, yc, n_train, CompareApprox<math_t>(1.0e-9)));
+    EXPECT_TRUE(devArrMatchHost(f_exp, f, n_train, Compare<math_t>()));
+  }
+
+  void TestSvrWorkingSet() {
+    math_t C = 1;
+    WorkingSet<math_t> *ws;
+    ws =
+      new WorkingSet<math_t>(handle.getImpl(), stream, n_rows, 20, EPSILON_SVR);
+    EXPECT_EQ(ws->GetSize(), 2 * n_rows);
+
+    updateDevice(alpha, alpha_host, n_train, stream);
+    updateDevice(f, f_exp, n_train, stream);
+    updateDevice(yc, yc_exp, n_train, stream);
+
+    ws->Select(f, alpha, yc, C);
+    int exp_idx[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
+    ASSERT_TRUE(devArrMatchHost(exp_idx, ws->GetIndices(), ws->GetSize(),
+                                Compare<int>()));
+
+    delete ws;
+
+    ws =
+      new WorkingSet<math_t>(handle.getImpl(), stream, n_rows, 10, EPSILON_SVR);
+    //ws->verbose = true;
+    EXPECT_EQ(ws->GetSize(), 10);
+    ws->Select(f, alpha, yc, C);
+    int exp_idx2[] = {6, 12, 5, 11, 3, 9, 8, 1, 7, 0};
+    ASSERT_TRUE(devArrMatchHost(exp_idx2, ws->GetIndices(), ws->GetSize(),
+                                Compare<int>()));
+    delete ws;
+  }
+
+  void TestSvrResults() {
+    updateDevice(yc, yc_exp, n_train, stream);
+    Results<math_t> res(handle.getImpl(), x_dev, yc, n_rows, n_cols,
+                        (math_t)0.001, EPSILON_SVR);
+    model.n_cols = n_cols;
+    updateDevice(alpha, alpha_host, n_train, stream);
+    updateDevice(f, f_exp, n_train, stream);
+
+    res.Get(alpha, f, &model.dual_coefs, &model.n_support, &model.support_idx,
+            &model.x_support, &model.b);
+    ASSERT_EQ(model.n_support, 5);
+    math_t dc_exp[] = {0.1, 0.3, -0.4, 0.9, -0.9};
+    EXPECT_TRUE(devArrMatchHost(dc_exp, model.dual_coefs, model.n_support,
+                                CompareApprox<math_t>(1.0e-6)));
+
+    math_t x_exp[] = {1, 2, 3, 5, 6};
+    EXPECT_TRUE(devArrMatchHost(x_exp, model.x_support,
+                                model.n_support * n_cols,
+                                CompareApprox<math_t>(1.0e-6)));
+
+    int idx_exp[] = {0, 1, 2, 4, 5};
+    EXPECT_TRUE(devArrMatchHost(idx_exp, model.support_idx, model.n_support,
+                                CompareApprox<math_t>(1.0e-6)));
+  }
+
+  void TestSvrFitPredict() {
+    std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 1, 10, 1e-3, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         2,       // n_rows
+         1,       // n_cols
+         {0, 1},  //x
+         {2, 3}   //y
+       },
+       smoOutput2<math_t>{
+         2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}, {2.1, 2.9}}},
+
+      {SvrInput<math_t>{
+         svmParameter{1, 10, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         2,       // n_rows
+         1,       // n_cols
+         {1, 2},  //x
+         {2, 3}   //y
+       },
+       smoOutput2<math_t>{
+         2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}, {2.1, 2.9}}},
+
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         2,             // n_rows
+         2,             // n_cols
+         {1, 2, 5, 5},  //x
+         {2, 3}         //y
+       },
+       smoOutput2<math_t>{
+         2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
+
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 100, 10, 1e-6, false, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         7,                      // n_rows
+         1,                      //n_cols
+         {1, 2, 3, 4, 5, 6, 7},  //x
+         {0, 2, 3, 4, 5, 6, 8}   //y
+       },
+       smoOutput2<math_t>{6,
+                          {-1, 1, 0.45, -0.45, -1, 1},
+                          -0.4,
+                          {1.1},
+                          {1.0, 2.0, 3.0, 5.0, 6.0, 7.0},
+                          {0, 1, 2, 4, 5, 6},
+                          {0.7, 1.8, 2.9, 4, 5.1, 6.2, 7.3}}}};
+    for (auto d : data) {
+      auto p = d.first;
+      auto exp = d.second;
+      SCOPED_TRACE(p);
+      device_buffer<math_t> x_dev(allocator, stream, p.n_rows * p.n_cols);
+      updateDevice(x_dev.data(), p.x.data(), p.n_rows * p.n_cols, stream);
+      device_buffer<math_t> y_dev(allocator, stream, p.n_rows);
+      updateDevice(y_dev.data(), p.y.data(), p.n_rows, stream);
+
+      svrFit(handle, x_dev.data(), p.n_rows, p.n_cols, y_dev.data(), p.param,
+             p.kernel, model);
+      checkResults(model, toSmoOutput(exp), stream);
+      device_buffer<math_t> preds(allocator, stream, p.n_rows);
+      svcPredict(handle, x_dev.data(), p.n_rows, p.n_cols, p.kernel, model,
+                 preds.data(), (math_t)200.0, false);
+      EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(), preds.data(),
+                                  p.n_rows, CompareApprox<math_t>(1.0e-5)));
+    }
+  }
+
+ protected:
+  cumlHandle handle;
+  cudaStream_t stream;
+  std::shared_ptr<deviceAllocator> allocator;
+  int n_rows = 7;
+  int n_train = 2 * n_rows;
+  const int n_cols = 1;
+
+  svmModel<math_t> model;
+  math_t *x_dev;
+  math_t *y_dev;
+  math_t *y_pred;
+  math_t *yc;
+  math_t *f;
+  math_t *alpha;
+
+  math_t x_host[7] = {1, 2, 3, 4, 5, 6, 7};
+  math_t y_host[7] = {0, 2, 3, 4, 5, 6, 8};
+  math_t yc_exp[14] = {1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1};
+  math_t f_exp[14] = {0.1,  -1.9, -2.9, -3.9, -4.9, -5.9, -7.9,
+                      -0.1, -2.1, -3.1, -4.1, -5.1, -6.1, -8.1};
+  math_t alpha_host[14] = {0.2, 0.3, 0,   0, 1,   0.1, 0,
+                           0.1, 0,   0.4, 0, 0.1, 1,   0};
+};
+
+typedef ::testing::Types<float> OnlyFp32;
+TYPED_TEST_CASE(SvrTest, FloatTypes);
+
+TYPED_TEST(SvrTest, Init) { this->TestSvrInit(); }
+TYPED_TEST(SvrTest, WorkingSet) { this->TestSvrWorkingSet(); }
+TYPED_TEST(SvrTest, Results) { this->TestSvrResults(); }
+TYPED_TEST(SvrTest, FitPredict) { this->TestSvrFitPredict(); }
 };  // end namespace SVM
-};  // end namespace ML
+};  // namespace ML

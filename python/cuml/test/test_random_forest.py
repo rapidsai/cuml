@@ -171,6 +171,9 @@ def test_rf_classification_default(datatype, column_info, nrows):
     fil_acc = accuracy_score(y_test, fil_preds)
     cu_acc = accuracy_score(y_test, cu_preds)
 
+    score_acc = cuml_model.score(X_test, y_test)
+    assert cu_acc == pytest.approx(score_acc)
+
     # sklearn random forest classification model
     # initialization, fit and predict
     if nrows < 500000:
@@ -210,6 +213,11 @@ def test_rf_regression_default(datatype, column_info, nrows):
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
 
+    # score function should be equivalent
+    score_mse = cuml_model.score(X_test, y_test)
+    manual_mse = ((fil_preds - y_test)**2).mean()
+    assert manual_mse == pytest.approx(score_mse)
+
     # Initialize, fit and predict using
     # sklearn's random forest regression model
     if nrows < 500000:
@@ -220,6 +228,7 @@ def test_rf_regression_default(datatype, column_info, nrows):
         # XXX Accuracy gap exists with default parameters, requires
         # further investigation for next release
         assert fil_r2 >= (sk_r2 - 0.08)
+
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
