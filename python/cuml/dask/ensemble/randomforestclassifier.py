@@ -280,7 +280,6 @@ class RandomForestClassifier:
 
     @staticmethod
     def _fit(model, X_df_list, y_df_list, r):
-        print("dtype of X: ", type(X_df_list))
         if len(X_df_list) != len(y_df_list):
             raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
                              len(X_df_list), len(y_df_list))
@@ -418,13 +417,9 @@ class RandomForestClassifier:
             """ % (str(X_partition_workers),
                    str(y_partition_workers),
                    str(self.workers)))
-        print(" self.workers in fit : ", self.workers)
 
         futures = list()
         for w, xc in X_futures.items():
-            print(" w in fit for loop : ", w)
-            print(" xc in fit for loop : ", xc)
-            print(" type of xc in fit loop ", type(xc))
             futures.append(
                 c.submit(
                     RandomForestClassifier._fit,

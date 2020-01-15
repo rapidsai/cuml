@@ -37,7 +37,6 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.fil.fil import *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cuml.utils.cupy_utils import checked_cupy_unique
@@ -396,32 +395,6 @@ class RandomForestClassifier(Base):
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
 
         return model_protobuf_bytes
-
-    def get_algo(self, algo_str):
-        algo_dict={'AUTO': algo_t.ALGO_AUTO,
-                   'auto': algo_t.ALGO_AUTO,
-                   'NAIVE': algo_t.NAIVE,
-                   'naive': algo_t.NAIVE,
-                   'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
-                   'batch_tree_reorg': algo_t.BATCH_TREE_REORG,
-                   'TREE_REORG': algo_t.TREE_REORG,
-                   'tree_reorg': algo_t.TREE_REORG}
-        if algo_str not in algo_dict.keys():
-            raise Exception(' Wrong algorithm selected please refer'
-                            ' to the documentation')
-        return algo_dict[algo_str]
-
-    def get_storage_type(self, storage_type_str):
-        storage_type_dict={'AUTO': storage_type_t.AUTO,
-                           'auto': storage_type_t.AUTO,
-                           'DENSE': storage_type_t.DENSE,
-                           'dense': storage_type_t.DENSE,
-                           'SPARSE': storage_type_t.SPARSE,
-                           'sparse': storage_type_t.SPARSE}
-        if storage_type_str not in storage_type_dict.keys():
-            raise ValueError(' Wrong sparsity selected please refer'
-                             ' to the documentation')
-        return storage_type_dict[storage_type_str]
 
     def fit(self, X, y):
         """
