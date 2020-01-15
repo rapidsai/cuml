@@ -132,6 +132,7 @@ def test_umap_transform_on_iris():
     embedding = fitter.transform(new_data, convert_dtype=True)
 
     trust = trustworthiness(new_data, embedding, 10)
+
     assert trust >= 0.89
 
 
@@ -205,7 +206,7 @@ def test_umap_fit_transform_score_default():
                               centers=10, random_state=42)
 
     model = umap.UMAP()
-    cuml_model = cuUMAP()
+    cuml_model = cuUMAP(verbose=False)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -231,7 +232,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     First test the default option does not hash the input
     """
 
-    cuml_model = cuUMAP()
+    cuml_model = cuUMAP(verbose=False)
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
@@ -242,7 +243,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     Next, test explicitly enabling feature hashes the input
     """
 
-    cuml_model = cuUMAP(hash_input=True)
+    cuml_model = cuUMAP(hash_input=True, verbose=False)
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
