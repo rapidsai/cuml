@@ -124,7 +124,7 @@ def _build_fil_skl_classifier(m, data, arg={}, tmpdir=None):
     model_path = os.path.join(tmpdir, model_name)
     skl_model = ensemble.RandomForestClassifier(**params)
     skl_model.fit(train_data, train_label)
-    #pickle.dump(skl_model, open(model_path, "w"))
+    pickle.dump(skl_model, open(model_path, "wb"))
 
     return m.load_from_sklearn(skl_model, algo=arg["fil_algo"],
                                output_class=arg["output_class"],
@@ -143,7 +143,7 @@ def _build_cpu_skl_classifier(m, data, arg={}, tmpdir=None):
     model_path = os.path.join(tmpdir, model_name)
 
     skl_model = None
-    #skl_model = pickle.load(open(model_path))
+    skl_model = pickle.load(open(model_path, "rb"))
     return skl_model
 
 
