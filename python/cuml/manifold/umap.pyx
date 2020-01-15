@@ -327,7 +327,7 @@ class UMAP(Base):
         cdef size_t params_t = <size_t>self.umap_params
         cdef UMAPParams* umap_params = <UMAPParams*>params_t
 
-        if hasattr(self, "X_m"):
+        if hasattr(self, "X_m") and self.X_m is not None:
             # fit has not yet been called
             state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
             state['embedding_'] = \
