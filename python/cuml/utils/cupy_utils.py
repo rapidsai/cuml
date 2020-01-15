@@ -21,7 +21,7 @@ import rmm
 from cuml.utils.import_utils import check_min_cupy_version
 
 
-def rmm_cupy_ary(fn, **args):
+def rmm_cupy_ary(fn, ary, order='F'):
     """Compute the C (row major) version gpu matrix of df
 
     :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
@@ -34,16 +34,16 @@ def rmm_cupy_ary(fn, **args):
     # this check can be removed alongside the alternative code path.
     if check_min_cupy_version("7.0"):
         with cp.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
-            result = fn(**args)
+            result = fn(ary, order=order)
 
     else:
-        temp_res = fn(args)
+        temp_res = fn(ary, order=order)
         result = \
             _rmm_cupy6_array_like(temp_row_major,
                                   order=_strides_to_order(temp_res.strides))
         cp.copyto(result, temp_res)
 
-    return cuda.as_cuda_array(row_major)
+    return result
 
 
 def _rmm_cupy6_array_like(ary, order):

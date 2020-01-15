@@ -35,17 +35,7 @@ def row_matrix(df):
 
     col_major = df.as_gpu_matrix(order='F')
 
-    # using_allocator was introduced in CuPy 7. Once 7+ is required,
-    # this check can be removed alongside the alternative code path.
-    # if check_min_cupy_version("7.0"):
-    #     with cp.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
-    #         row_major = cp.array(col_major, order='C')
-
-    # else:
-    #     temp_row_major = cp.array(col_major, order='C')
-    #     row_major = _rmm_cupy6_array_like(temp_row_major, order='C')
-    #     cp.copyto(row_major, temp_row_major)
-
+    args = (col_major)
     row_major = rmm_cupy_ary(cp.array, col_major, order='C')
 
     return cuda.as_cuda_array(row_major)
