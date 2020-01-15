@@ -31,8 +31,10 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     ----------
     cupy_fn : cupy function,
         CuPy function to execute, for example cp.array
+
     *args :
         Non keyword arguments to pass to the CuPy function
+
     **kwargs :
         Keyword named arguments to pass to the CuPy function
 
@@ -41,6 +43,18 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     a new array. Functions to create a new CuPy array by reference to
     existing device array (through __cuda_array_interface__) can be used
     directly.
+
+    Examples
+    ---------
+
+    .. code-block:: python
+
+        from cuml.utils.cupy_utils import rmm_cupy_ary
+        import cupy as cp
+
+        # Get a new array filled with 0, column major
+        a = rmm_cupy_ary(cp.zeros, 5, order='F')
+
 
     """
 
