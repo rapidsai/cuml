@@ -40,6 +40,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cuml.utils.cupy_utils import rmm_cupy_ary
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -409,7 +410,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = cp.unique(y_m)
+        unique_labels = rmm_cupy_ary(cp.unique, y_m))
         num_unique_labels = len(unique_labels)
 
         for i in range(num_unique_labels):
