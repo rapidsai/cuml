@@ -391,7 +391,8 @@ class RandomForestClassifier(Base):
         """
         task_category = CLASSIFICATION_MODEL
         treelite_handle = self._convert_to_treelite(task_category)
-        treelite_model = TreeliteModel.from_treelite_model_handle(treelite_handle)
+        treelite_model = \
+            TreeliteModel.from_treelite_model_handle(treelite_handle)
         return treelite_model
 
     def convert_to_fil_model(self, output_class=True,
