@@ -526,6 +526,7 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
         """
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
