@@ -16,8 +16,12 @@ import pytest
 from cuml.preprocessing import LabelBinarizer
 from cuml.test.utils import array_equal
 
+from sklearn.preprocessing import LabelBinarizer as skLB
+
 import numpy as np
 import cupy as cp
+
+import scipy.sparse
 
 
 @pytest.mark.parametrize(
@@ -26,23 +30,41 @@ import cupy as cp
                ([9, 8, 2, 1, 3, 4],
                 [8, 2, 1, 2, 2])]
 )
-def test_basic_functions(labels):
+@pytest.mark.parametrize("dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("sparse_output", [True, False])
+def test_basic_functions(labels, dtype, sparse_output):
 
     # @todo: Test sparse output, test different inputs
 
     fit_labels, xform_labels = labels
 
-    binarizer = LabelBinarizer()
+    skl_bin = skLB(sparse_output=sparse_output)
+    skl_bin.fit(fit_labels)
+
+    fit_labels = cp.asarray(fit_labels, dtype=dtype)
+    xform_labels = cp.asarray(xform_labels, dtype=dtype)
+
+    binarizer = LabelBinarizer(sparse_output=sparse_output)
     binarizer.fit(fit_labels)
 
-    assert array_equal(cp.asnumpy(binarizer.classes_),
-                       np.unique(cp.asnumpy(fit_labels)))
+    assert array_equal(binarizer.classes_.get(),
+                       np.unique(fit_labels.get()))
 
     xformed = binarizer.transform(xform_labels)
+
+    if sparse_output:
+        skl_bin_xformed = skl_bin.transform(xform_labels.get())
+
+        skl_csr = scipy.sparse.coo_matrix(skl_bin_xformed).tocsr()
+        cuml_csr = xformed
+
+        array_equal(skl_csr.data, cuml_csr.data.get())
+
+        xformed = xformed.todense().astype(dtype)
 
     assert xformed.shape[1] == binarizer.classes_.shape[0]
 
     original = binarizer.inverse_transform(xformed)
 
-    assert array_equal(cp.asnumpy(original),
-                       xform_labels)
+    assert array_equal(original.get(),
+                       xform_labels.get())
