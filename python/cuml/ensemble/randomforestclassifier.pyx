@@ -33,6 +33,8 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cython.operator cimport dereference as deref
+
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle import Handle
@@ -380,6 +382,37 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
+    def _tl_model_handles(self, model_bytes):
+        cdef ModelHandle cuml_model_ptr = NULL
+        mod_had_val = tl_mod_handle(& cuml_model_ptr,
+                                    <vector[unsigned char] &> model_bytes)
+        mod_handle = <size_t> cuml_model_ptr
+
+        print(" mod_handles in pyx _tl_model_handles : ", ctypes.c_void_p(mod_handle).value)
+
+        return ctypes.c_void_p(mod_handle).value
+
+    def concatenate_treelite_bytes(self, treelite_handle):
+
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef vector[ModelHandle*] *mod_handle_vec \
+            = new vector[ModelHandle*]()
+        cdef uintptr_t mod_ptr
+        for i in treelite_handle:
+            mod_ptr = <uintptr_t>i
+            print(" model handles: ", i)
+            #mod_ptr = get_dev_array_ptr(i)
+            print("value of mod_ptr : ", mod_ptr)
+            mod_handle_vec.push_back((
+                <ModelHandle*> mod_ptr))
+        print(" calling the multi create function")
+        concat_mod_bytes = \
+            concatenate_trees(handle_[0],
+                              deref(mod_handle_vec))
+
+        return concat_mod_bytes
+
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
@@ -484,8 +517,12 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype):
+                              num_classes, convert_dtype, concat_mod_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
+        if len(concat_mod_bytes) != 0:
+            print(" copying concat bytes to self.mod_bytes")
+            self.model_pbuf_bytes = concat_mod_bytes
+
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
@@ -564,7 +601,8 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
-                num_classes=2, convert_dtype=True):
+                num_classes=2, convert_dtype=True,
+                concat_mod_bytes=[]):
         """
         Predicts the labels for X.
 
@@ -623,7 +661,8 @@ class RandomForestClassifier(Base):
         else:
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
-                                               num_classes, convert_dtype)
+                                               num_classes, convert_dtype,
+                                               concat_mod_bytes)
 
         return preds
 
