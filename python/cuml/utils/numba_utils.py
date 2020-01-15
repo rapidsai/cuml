@@ -19,7 +19,6 @@ import numpy as np
 import rmm
 
 from cuml.utils.cupy_utils import rmm_cupy_ary
-from cuml.utils.import_utils import check_min_cupy_version
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 
@@ -35,7 +34,6 @@ def row_matrix(df):
 
     col_major = df.as_gpu_matrix(order='F')
 
-    args = (col_major)
     row_major = rmm_cupy_ary(cp.array, col_major, order='C')
 
     return cuda.as_cuda_array(row_major)
