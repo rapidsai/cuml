@@ -16,11 +16,9 @@
 
 import cupy as cp
 
+import pytest
+
 from sklearn.metrics import accuracy_score
-
-from sklearn.datasets import fetch_20newsgroups
-from sklearn.feature_extraction.text import CountVectorizer
-
 from cuml.naive_bayes import MultinomialNB
 
 import math
@@ -28,37 +26,28 @@ import math
 import numpy as np
 
 
-def scipy_to_cp(sp):
+def scipy_to_cp(sp, dtype):
     coo = sp.tocoo()
     values = coo.data
 
     r = cp.asarray(coo.row)
     c = cp.asarray(coo.col)
-    v = cp.asarray(values, dtype=cp.float32)
+    v = cp.asarray(values, dtype=dtype)
 
     return cp.sparse.coo_matrix((v, (r, c)))
 
 
-def load_corpus():
-
-    twenty_train = fetch_20newsgroups(subset='train',
-                                      shuffle=True, random_state=42)
-
-    count_vect = CountVectorizer()
-    X = count_vect.fit_transform(twenty_train.data)
-    Y = cp.array(twenty_train.target)
-
-    X = scipy_to_cp(X)
-
-    return X, Y
-
-
-def test_basic_fit_predict_sparse():
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
     """
     Cupy Test
     """
 
-    X, y = load_corpus()
+    X, y = nlp_20news
+
+    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    y = y.astype(y_dtype)
 
     # Priming it seems to lower the end-to-end runtime
     model = MultinomialNB()
@@ -78,11 +67,16 @@ def test_basic_fit_predict_sparse():
     assert accuracy_score(y, y_hat) >= 0.924
 
 
-def test_basic_fit_predict_dense():
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
     """
     Cupy Test
     """
-    X, y = load_corpus()
+    X, y = nlp_20news
+
+    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    y = y.astype(y_dtype)
 
     X = X.tocsr()[0:5000].todense()
     y = y[:5000]
@@ -98,10 +92,16 @@ def test_basic_fit_predict_dense():
     accuracy_score(y, y_hat) >= 0.911
 
 
-def test_partial_fit():
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
 
-    X, y = load_corpus()
+    X, y = nlp_20news
+
+    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    y = y.astype(y_dtype)
+
     X = X.tocsr()
 
     model = MultinomialNB()
