@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
@@ -32,7 +33,6 @@
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/unary_op.h>
-
 
 namespace MLCommon {
 namespace LinAlg {
@@ -314,6 +314,37 @@ class BatchedMatrix {
   }
 
   /**
+  * @brief Compute the inverse of the batched matrix
+  * 
+  * @return Batched inverse matrix
+  */
+  BatchedMatrix<T> inv() const {
+    int n = m_shape.first;
+
+    int* P =
+      (int*)m_allocator->allocate(sizeof(int) * n * m_batch_size, m_stream);
+    int* info =
+      (int*)m_allocator->allocate(sizeof(int) * m_batch_size, m_stream);
+
+    // A copy of A is necessary as the cublas operations write in A
+    BatchedMatrix<T> Acopy = this->deepcopy();
+
+    BatchedMatrix<T> Ainv(n, n, m_batch_size, m_cublasHandle, m_allocator,
+                          m_stream);
+
+    CUBLAS_CHECK(LinAlg::cublasgetrfBatched(m_cublasHandle, n, Acopy.data(), n,
+                                            P, info, m_batch_size, m_stream));
+    CUBLAS_CHECK(LinAlg::cublasgetriBatched(m_cublasHandle, n, Acopy.data(), n,
+                                            P, Ainv.data(), n, info,
+                                            m_batch_size, m_stream));
+
+    m_allocator->deallocate(P, sizeof(int) * n * m_batch_size, m_stream);
+    m_allocator->deallocate(info, sizeof(int) * m_batch_size, m_stream);
+
+    return Ainv;
+  }
+
+  /**
    * @brief Initialize a batched identity matrix.
    * 
    * @param[in]  m            Number of rows/columns of matrix
@@ -498,9 +529,9 @@ void b_gels(const BatchedMatrix<T>& A, BatchedMatrix<T>& C) {
   BatchedMatrix<T> Acopy = A.deepcopy();
 
   int info;
-  CUBLAS_CHECK(MLCommon::LinAlg::cublasgelsBatched(
+  CUBLAS_CHECK(LinAlg::cublasgelsBatched(
     A.cublasHandle(), CUBLAS_OP_N, m, n, nrhs, Acopy.data(), m, C.data(), m,
-    &info, nullptr, A.batches()));
+    &info, nullptr, A.batches(), A.stream()));
 }
 
 /**
@@ -616,31 +647,7 @@ BatchedMatrix<T> operator-(const BatchedMatrix<T>& A) {
  */
 template <typename T>
 BatchedMatrix<T> b_solve(const BatchedMatrix<T>& A, const BatchedMatrix<T>& b) {
-  auto batch_size = A.batches();
-  const auto& handle = A.cublasHandle();
-
-  int n = A.shape().first;
-  auto allocator = A.allocator();
-  int* P = (int*)allocator->allocate(sizeof(int) * n * batch_size, A.stream());
-  int* info = (int*)allocator->allocate(sizeof(int) * batch_size, A.stream());
-
-  // A copy of A is necessary as the cublas operations write in A
-  BatchedMatrix<T> Acopy = A.deepcopy();
-
-  BatchedMatrix<T> Ainv(n, n, batch_size, A.cublasHandle(), A.allocator(),
-                        A.stream());
-
-  CUBLAS_CHECK(LinAlg::cublasgetrfBatched(handle, n, Acopy.data(), n, P, info,
-                                          batch_size, A.stream()));
-  CUBLAS_CHECK(LinAlg::cublasgetriBatched(handle, n, Acopy.data(), n, P,
-                                          Ainv.data(), n, info, batch_size,
-                                          A.stream()));
-
-  BatchedMatrix<T> x = Ainv * b;
-
-  allocator->deallocate(P, sizeof(int) * n * batch_size, A.stream());
-  allocator->deallocate(info, sizeof(int) * batch_size, A.stream());
-
+  BatchedMatrix<T> x = A.inv() * b;
   return x;
 }
 
@@ -855,6 +862,33 @@ BatchedMatrix<T> b_2dcopy(const BatchedMatrix<T>& in, int starting_row,
   b_2dcopy(in, out, starting_row, starting_col, rows, cols);
 
   return out;
+}
+
+/**
+ * @brief Solve discrete Lyapunov equation A*X*A' - X + Q = 0
+ * @todo: docs
+ */
+template <typename T>
+BatchedMatrix<T> b_lyapunov(BatchedMatrix<T> A, BatchedMatrix<T> Q) {
+  int batch_size = A.batches();
+  int n = A.shape().first;
+  int n2 = n * n;
+
+  BatchedMatrix<T> I_m_AxA = b_kron(-A, A);
+  // Note: avoiding the creation of an identity matrix to save memory;
+  // also -AxA = (-A)xa
+  double* d_I_m_AxA = I_m_AxA.raw_data();
+  auto counting = thrust::make_counting_iterator(0);
+  thrust::for_each(thrust::cuda::par.on(A.stream()), counting,
+                   counting + batch_size, [=] __device__(int ib) {
+                     double* b_I_m_AxA = d_I_m_AxA + ib * n2 * n2;
+                     for (int i = 0; i < n * n; i++) {
+                       b_I_m_AxA[(n2 + 1) * i] += 1.0;
+                     }
+                   });
+  BatchedMatrix<T> invI_m_AxA_x_Qvec = b_solve(I_m_AxA, Q.vec());
+  BatchedMatrix<T> X = invI_m_AxA_x_Qvec.mat(n, n);
+  return X;
 }
 
 }  // namespace Batched

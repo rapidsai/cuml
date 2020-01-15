@@ -111,7 +111,7 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
     updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
 
     // Create sparse matrix A from the dense A and the mask
-    BatchedCSR<T> AbS(AbM, mask);
+    BatchedCSR<T> AbS = BatchedCSR<T>::from_dense(AbM, mask);
 
     // Create matrix that will hold the results
     res_bM = new LinAlg::Batched::BatchedMatrix<T>(m_r, n_r, params.batch_size,

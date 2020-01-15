@@ -170,48 +170,6 @@ void myPrintDevVector(const char* variableName, const T* devMem,
   myPrintDevVector(variableName, devMem, componentsCount, std::cout);
   std::cout.flush();
 }
-
-template <class T, class OutStream>
-void myPrintHostMatrix(const char* variableName, const T* hostMem, size_t m,
-                       size_t n, OutStream& out, bool colMajor = true) {
-  out << variableName << "=[";
-  for (size_t i = 0; i < m; ++i) {
-    out << "[";
-    for (size_t j = 0; j < n; ++j) {
-      if (j != 0) out << ",";
-      if (colMajor)
-        out << hostMem[j * m + i];
-      else
-        out << hostMem[i * n + j];
-    }
-    out << "]\n";
-  }
-  out << "];\n";
-}
-
-template <class T>
-void myPrintHostMatrix(const char* variableName, const T* hostMem, size_t m,
-                       size_t n, bool colMajor = true) {
-  myPrintHostMatrix(variableName, hostMem, m, n, std::cout, colMajor);
-  std::cout.flush();
-}
-
-template <class T, class OutStream>
-void myPrintDevMatrix(const char* variableName, const T* devMem, size_t m,
-                      size_t n, OutStream& out, bool colMajor = true) {
-  T* hostMem = new T[m * n];
-  CUDA_CHECK(
-    cudaMemcpy(hostMem, devMem, m * n * sizeof(T), cudaMemcpyDeviceToHost));
-  myPrintHostMatrix(variableName, hostMem, m, n, out, colMajor);
-  delete[] hostMem;
-}
-
-template <class T>
-void myPrintDevMatrix(const char* variableName, const T* devMem, size_t m,
-                      size_t n, bool colMajor = true) {
-  myPrintDevMatrix(variableName, devMem, m, n, std::cout, colMajor);
-  std::cout.flush();
-}
 /** @} */
 
 };  // end namespace MLCommon

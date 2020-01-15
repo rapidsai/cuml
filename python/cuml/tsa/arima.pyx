@@ -92,6 +92,8 @@ class ARIMA(Base):
     The implementation is designed to give the best performance when using
     large batches of time series.
 
+    TODO: add complexity and memory info
+
     Examples
     ---------
     .. code-block:: python
