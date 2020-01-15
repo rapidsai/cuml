@@ -58,14 +58,14 @@ class LabelBinarizer(object):
 
     @staticmethod
     def _func_xform(model, y):
-        xform_in = cp.asarray(y.to_gpu_array(), dtype=cp.int32)
+        xform_in = cp.asarray(y.to_gpu_array(), dtype=y.dtype)
 
         xformed = model.transform(xform_in)
         return cp_to_df(xformed, model.sparse_output)
 
     @staticmethod
     def _func_inv_xform(model, y, threshold):
-        inv_xform_in = cp.asarray(y.to_gpu_matrix(), dtype=cp.int32)
+        inv_xform_in = cp.asarray(y.to_gpu_matrix(), dtype=y.dtype)
         return cp_to_series(model.inverse_transform(inv_xform_in, threshold))
 
     def fit(self, y):
@@ -91,7 +91,7 @@ class LabelBinarizer(object):
         classes = self.client_.compute(unique, True)
         classes = cudf.concat(classes).unique().to_gpu_array()
 
-        self.classes_ = cp.asarray(classes, dtype=cp.int32)
+        self.classes_ = cp.asarray(classes, dtype=y.dtype)
 
         self.model = LB(**self.kwargs).fit(self.classes_)
 

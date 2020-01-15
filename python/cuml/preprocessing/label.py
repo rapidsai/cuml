@@ -25,19 +25,16 @@ import numba.cuda
 def label_binarize(y, classes, neg_label=0, pos_label=1,
                    sparse_output=False):
 
-    classes = cp.asarray(classes, dtype=cp.int32)
-    labels = cp.asarray(y, dtype=cp.int32)
-
-    print(str(classes))
-    print(str(cp.unique(labels)))
+    classes = cp.asarray(classes, dtype=classes.dtype)
+    labels = cp.asarray(y, dtype=y.dtype)
 
     if not check_labels(labels, classes):
         raise ValueError("Unseen classes encountered in input")
 
-    row_ind = cp.arange(0, labels.shape[0], 1, dtype=cp.int32)
+    row_ind = cp.arange(0, labels.shape[0], 1, dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
-    val = cp.full(row_ind.shape[0], pos_label, dtype=cp.int32)
+    val = cp.full(row_ind.shape[0], pos_label, dtype=y.dtype)
 
     sp = cp.sparse.coo_matrix((val, (row_ind, col_ind)),
                               shape=(col_ind.shape[0],
@@ -49,7 +46,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
         return sp
     else:
 
-        arr = sp.toarray().astype(cp.int32)
+        arr = sp.toarray().astype(y.dtype)
         arr[arr == 0] = neg_label
 
         return arr
@@ -87,7 +84,7 @@ class LabelBinarizer(object):
         self : returns an instance of self.
         """
 
-        self.classes_ = cp.unique(y).astype(cp.int32)
+        self.classes_ = cp.unique(y).astype(y.dtype)
 
         return self
 
@@ -109,7 +106,7 @@ class LabelBinarizer(object):
         :return:
         """
         y_mapped = cp.argmax(
-            cp.asarray(y, dtype=cp.int32), axis=1).astype(cp.int32)
+            cp.asarray(y, dtype=y.dtype), axis=1).astype(y.dtype)
 
         return invert_labels(y_mapped, self.classes_)
 
@@ -120,5 +117,5 @@ class LabelBinarizer(object):
 
     def __setstate__(self, state):
         state['classes_'] = cp.asarray(state["classes_"].to_gpu_array(),
-                                       dtype=cp.int32)
+                                       dtype=self.classes_.dtype)
         self.__dict__.update(state)
