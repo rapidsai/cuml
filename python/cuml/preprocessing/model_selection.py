@@ -21,6 +21,8 @@ import warnings
 from numba import cuda
 from typing import Union
 
+from cuml.utils.cupy_utils import rmm_cupy_ary
+
 
 def train_test_split(
     X,
@@ -172,11 +174,11 @@ def train_test_split(
 
     if shuffle:
         if random_state is None or isinstance(random_state, int):
-            idxs = cp.arange(X.shape[0])
+            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
             random_state = cp.random.RandomState(seed=random_state)
 
         elif isinstance(random_state, cp.random.RandomState):
-            idxs = cp.arange(X.shape[0])
+            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
 
         elif isinstance(random_state, np.random.RandomState):
             idxs = np.arange(X.shape[0])
