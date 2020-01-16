@@ -379,18 +379,20 @@ class RandomForestClassifier(Base):
 
     def _tl_model_handles(self, model_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
-        mod_had_val = tl_mod_handle(& cuml_model_ptr,
-                                    <vector[unsigned char] &> model_bytes)
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        task_category = 1
+        build_treelite_forest(& cuml_model_ptr,
+                              rf_forest,
+                              <int> self.n_cols,
+                              <int> task_category,
+                              <vector[unsigned char] &> model_bytes)
         mod_handle = <size_t> cuml_model_ptr
-
-        print(" mod_handles in pyx _tl_model_handles : ",
-              ctypes.c_void_p(mod_handle).value)
 
         return ctypes.c_void_p(mod_handle).value
 
     def _read_mod_handles(self, mod_handles):
 
-        print(" mod_handles in pyx : ", mod_handles)
         cdef uintptr_t model_ptr = <uintptr_t> mod_handles
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
 

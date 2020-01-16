@@ -296,10 +296,6 @@ class RandomForestClassifier:
         return model._predict_get_all(X)
 
     @staticmethod
-    def _print_summary(model):
-        model.print_summary()
-
-    @staticmethod
     def _tl_model_handles(model, model_bytes):
         return model._tl_model_handles(model_bytes=model_bytes)
 
@@ -316,21 +312,9 @@ class RandomForestClassifier:
         """
         prints the summary of the forest used to train and test the model
         """
-        c = default_client()
-        futures = list()
-        workers = self.workers
+        for w in self.workers:
+            self.rfs[w].result().print_summary()
 
-        for n, w in enumerate(workers):
-            futures.append(
-                c.submit(
-                    RandomForestClassifier._print_summary,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-
-        wait(futures)
-        raise_exception_from_futures(futures)
         return self
 
     def convert_to_treelite(self):
