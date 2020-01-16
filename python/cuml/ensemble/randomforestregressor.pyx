@@ -371,6 +371,27 @@ class RandomForestRegressor(Base):
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
         return model_protobuf_bytes
 
+    def _tl_model_handles(self, model_bytes):
+        cdef ModelHandle cuml_model_ptr = NULL
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+        task_category = 1
+        build_treelite_forest(& cuml_model_ptr,
+                              rf_forest,
+                              <int> self.n_cols,
+                              <int> task_category,
+                              <vector[unsigned char] &> model_bytes)
+        mod_handle = <size_t> cuml_model_ptr
+
+        return ctypes.c_void_p(mod_handle).value
+
+    def _read_mod_handles(self, mod_handles):
+
+        cdef uintptr_t model_ptr = <uintptr_t> mod_handles
+        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
+
+        return model_protobuf_bytes
+
     def fit(self, X, y):
         """
         Perform Random Forest Regression on the input data

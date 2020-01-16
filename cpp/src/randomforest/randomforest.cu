@@ -326,17 +326,6 @@ void build_treelite_forest(ModelHandle* model,
   }
 }
 
-ModelHandle tl_mod_handle(ModelHandle* model,
-                          std::vector<unsigned char>& data) {
-  std::cout << "inside the C++ code" << std::flush << std::endl;
-  std::cout << data.size() << std::flush << std::endl;
-  const char* filename = std::tmpnam(nullptr);
-  std::ofstream file(filename, std::ios::binary);
-  file.write((char*)&data[0], data.size());
-  TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
-  return *model;
-}
-
 std::vector<unsigned char> save_model(ModelHandle model) {
   // create a temp file
   const char* filename = std::tmpnam(nullptr);
