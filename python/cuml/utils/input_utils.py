@@ -24,7 +24,7 @@ import warnings
 
 from collections import namedtuple
 from collections.abc import Collection
-from cuml.utils.cupy_utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary
 from numba import cuda
 
 

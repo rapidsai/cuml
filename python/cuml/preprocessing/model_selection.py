@@ -21,7 +21,7 @@ import warnings
 from numba import cuda
 from typing import Union
 
-from cuml.utils.cupy_utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary
 
 
 def train_test_split(

@@ -18,7 +18,7 @@ import cupy as cp
 import numpy as np
 import rmm
 
-from cuml.utils.cupy_utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 

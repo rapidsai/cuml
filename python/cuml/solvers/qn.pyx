@@ -33,8 +33,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
-from cuml.utils.cupy_utils import rmm_cupy_ary
+    input_to_dev_array, zeros, rmm_cupy_ary
 from cuml.utils.import_utils import has_cupy
 from cuml.metrics import accuracy_score
 

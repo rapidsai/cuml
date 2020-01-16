@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from cuml.utils.cupy_utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary
 from dask import delayed
 from dask.dataframe import from_delayed
 from dask.distributed import default_client
