@@ -36,7 +36,7 @@ from cuml.decomposition.utils cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-from cuml.linear_model import LinearRegression
+from cuml.linear_model import Ridge
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
                  namespace "MLCommon::Matrix":
@@ -58,7 +58,7 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
         int rank
         size_t size
 
-cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
+cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
 
     cdef void fit(cumlHandle& handle,
                   RankSizePair **rank_sizes,
@@ -67,6 +67,8 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                   size_t n_rows,
                   size_t n_cols,
                   floatData_t **labels,
+                  float *alpha,
+                  int n_alpha,
                   float *coef,
                   float *intercept,
                   bool fit_intercept,
@@ -81,6 +83,8 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                   size_t n_rows,
                   size_t n_cols,
                   doubleData_t **labels,
+                  double *alpha,
+                  int n_alpha,
                   double *coef,
                   double *intercept,
                   bool fit_intercept,
@@ -111,10 +115,10 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                       bool verbose) except +
 
 
-class LinearRegressionMG(LinearRegression):
+class RidgeMG(Ridge):
 
     def __init__(self, **kwargs):
-        super(LinearRegressionMG, self).__init__(**kwargs)
+        super(RidgeMG, self).__init__(**kwargs)
 
     def _build_dataFloat(self, arr_interfaces):
         cdef floatData_t **dataF = <floatData_t **> \
@@ -223,10 +227,15 @@ class LinearRegressionMG(LinearRegression):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t data
         cdef uintptr_t labels
+        cdef float float_alpha
+        cdef double double_alpha
+        # Only one alpha is supported.
+        self.n_alpha = 1
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             labels = self._build_dataFloat(arr_interfaces_y)
+            float_alpha = self.alpha
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -235,6 +244,8 @@ class LinearRegressionMG(LinearRegression):
                 <size_t>n_rows,
                 <size_t>n_cols,
                 <floatData_t**>labels,
+                <float*>&float_alpha,
+                <int>self.n_alpha,
                 <float*>coef_ptr,
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
@@ -243,9 +254,11 @@ class LinearRegressionMG(LinearRegression):
                 False)
 
             self.intercept_ = float_intercept
+
         else:
             data = self._build_dataDouble(arr_interfaces)
             labels = self._build_dataDouble(arr_interfaces_y)
+            double_alpha = self.alpha
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -254,6 +267,8 @@ class LinearRegressionMG(LinearRegression):
                 <size_t>n_rows,
                 <size_t>n_cols,
                 <doubleData_t**>labels,
+                <double*>&double_alpha,
+                <int>self.n_alpha,
                 <double*>coef_ptr,
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
@@ -281,7 +296,7 @@ class LinearRegressionMG(LinearRegression):
 
     def fit_colocated(self, input_data, n_rows, n_cols, partsToSizes, rank):
         """
-        Fit function for MNMG Linear Regression.
+        Fit function for MNMG Ridge Regression.
         This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions
@@ -331,10 +346,15 @@ class LinearRegressionMG(LinearRegression):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t data
         cdef uintptr_t labels
+        cdef float float_alpha
+        cdef double double_alpha
+        # Only one alpha is supported.
+        self.n_alpha = 1
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             labels = self._build_dataFloat(arr_interfaces_y)
+            float_alpha = self.alpha
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -343,6 +363,8 @@ class LinearRegressionMG(LinearRegression):
                 <size_t>n_rows,
                 <size_t>n_cols,
                 <floatData_t**>labels,
+                <float*>&float_alpha,
+                <int>self.n_alpha,
                 <float*>coef_ptr,
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
@@ -351,9 +373,11 @@ class LinearRegressionMG(LinearRegression):
                 False)
 
             self.intercept_ = float_intercept
+
         else:
             data = self._build_dataDouble(arr_interfaces)
             labels = self._build_dataDouble(arr_interfaces_y)
+            double_alpha = self.alpha
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -362,6 +386,8 @@ class LinearRegressionMG(LinearRegression):
                 <size_t>n_rows,
                 <size_t>n_cols,
                 <doubleData_t**>labels,
+                <double*>&double_alpha,
+                <int>self.n_alpha,
                 <double*>coef_ptr,
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
@@ -372,6 +398,9 @@ class LinearRegressionMG(LinearRegression):
             self.intercept_ = double_intercept
 
         self.handle.sync()
+
+        del(X_m)
+        del(y_m)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
@@ -386,7 +415,7 @@ class LinearRegressionMG(LinearRegression):
 
     def predict(self, X, n_rows, n_cols, partsToSizes, rank):
         """
-        Transform function for Linear Regression MG.
+        Transform function for Ridge Regression MG.
         This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions

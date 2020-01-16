@@ -323,3 +323,47 @@ void leaf_eval_classification(
   tree_leaf_cnt += nleafed;
   n_nodes_next = 2 * non_leaf_counter;
 }
+
+template <typename T, typename FDEV>
+void best_split_gather_classification(
+  const T *data, const int *labels, const unsigned int *d_colids,
+  const unsigned int *d_colstart, const unsigned int *d_nodestart,
+  const unsigned int *d_samplelist, const int nrows, const int Ncols,
+  const int ncols_sampled, const int n_unique_labels, const int nbins,
+  const int n_nodes, const int split_algo, const size_t treesz,
+  const float min_impurity_split,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem,
+  SparseTreeNode<T, int> *d_sparsenodes, int *d_nodelist) {
+  const int TPB = TemporaryMemory<T, int>::gather_threads;
+  if (split_algo == 0) {
+    using E = typename MLCommon::Stats::encode_traits<T>::E;
+    T init_val = std::numeric_limits<T>::max();
+    size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
+    best_split_gather_classification_minmax_kernel<T, E, FDEV, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, n_nodes,
+        n_unique_labels, nbins, nrows, Ncols, ncols_sampled, treesz,
+        min_impurity_split, init_val, d_sparsenodes, d_nodelist);
+  } else {
+    const T *d_question_ptr = tempmem->d_quantile->data();
+    size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
+    best_split_gather_classification_kernel<T, QuantileQues<T>, FDEV, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+        data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
+        d_samplelist, n_nodes, n_unique_labels, nbins, nrows, Ncols,
+        ncols_sampled, treesz, min_impurity_split, d_sparsenodes, d_nodelist);
+  }
+  CUDA_CHECK(cudaGetLastError());
+}
+template <typename T, typename FDEV>
+void make_leaf_gather_classification(
+  const int *labels, const unsigned int *nodestart,
+  const unsigned int *samplelist, const int n_unique_labels,
+  SparseTreeNode<T, int> *d_sparsenodes, int *nodelist, const int n_nodes,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  size_t shmemsz = n_unique_labels * sizeof(int);
+  make_leaf_gather_classification_kernel<T, FDEV>
+    <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+      labels, nodestart, samplelist, n_unique_labels, d_sparsenodes, nodelist);
+  CUDA_CHECK(cudaGetLastError());
+}
