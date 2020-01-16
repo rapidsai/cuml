@@ -38,7 +38,7 @@ from cuml.utils import get_dev_array_ptr, zeros
 from cuml.common.cuda import nvtx_range_wrap
 
 from cuml.common.base import Base
-from cuml.utils.cupy_utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary
 
 from libc.stdint cimport uintptr_t
 from libcpp.string cimport string

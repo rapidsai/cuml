@@ -49,7 +49,7 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
 
     .. code-block:: python
 
-        from cuml.utils.cupy_utils import rmm_cupy_ary
+        from cuml.utils import rmm_cupy_ary
         import cupy as cp
 
         # Get a new array filled with 0, column major
