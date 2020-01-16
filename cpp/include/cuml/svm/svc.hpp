@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include <cublas_v2.h>
-#include "common/cumlHandle.hpp"
-#include "matrix/kernelparams.h"
+#include <cuml/matrix/kernelparams.h>
+#include <cuml/cuml.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
 
@@ -32,14 +31,14 @@ namespace SVM {
  * Each row of the input data stores a feature vector.
  * We use the SMO method to fit the SVM.
  *
- * The output dbuffers in model shall be unallocated on entry.
+ * The output device buffers in model shall be unallocated on entry.
  *
  * @tparam math_t floating point type
  * @param [in] handle the cuML handle
  * @param [in] input device pointer for the input data in column major format.
  *   Size n_rows x n_cols.
  * @param [in] n_rows number of rows
- * @param [in] n_cols number of colums
+ * @param [in] n_cols number of columns
  * @param [in] labels device pointer for the labels. Size [n_rows].
  * @param [in] param parameters for training
  * @param [in] kernel_params parameters for the kernel function
@@ -69,7 +68,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [in] input device pointer for the input data in column major format,
  *   size [n_rows x n_cols].
  * @param [in] n_rows number of rows (input vectors)
- * @param [in] n_cols number of colums (features)
+ * @param [in] n_cols number of columns (features)
  * @param [in] kernel_params parameters for the kernel function
  * @param [in] model SVM model parameters
  * @param [out] preds device pointer to store the predicted class labels.
@@ -146,7 +145,7 @@ class SVC {
    *
    * @param input device pointer for the input data in column major format. Size n_rows x n_cols.
    * @param n_rows number of rows
-   * @param n_cols number of colums
+   * @param n_cols number of columns
    * @param labels device pointer for the labels. Size n_rows.
    */
   void fit(math_t *input, int n_rows, int n_cols, math_t *labels);
@@ -156,7 +155,7 @@ class SVC {
    * @param [in]  input device pointer for the input data in column major format,
    *   size [n_rows x n_cols].
    * @param [in] n_rows, number of vectors
-   * @param [in] n_cols number of featurs
+   * @param [in] n_cols number of features
    * @param [out] preds device pointer to store the predicted class labels.
    *    Size [n_rows]. Should be allocated on entry.
    */
@@ -167,7 +166,7 @@ class SVC {
    * @param [in] input device pointer for the input data in column major format,
    *   size [n_rows x n_cols].
    * @param [in] n_rows, number of vectors
-   * @param [in] n_cols number of featurs
+   * @param [in] n_cols number of features
    * @param [out] preds device pointer to store the decision function value
    *    Size [n_rows]. Should be allocated on entry.
    */

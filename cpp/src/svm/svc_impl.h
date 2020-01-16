@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 #include <iostream>
 
 #include <cublas_v2.h>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -35,8 +37,6 @@
 #include "matrix/kernelfactory.h"
 #include "matrix/matrix.h"
 #include "smosolver.h"
-#include "svm_model.h"
-#include "svm_parameter.h"
 
 namespace ML {
 namespace SVM {
@@ -47,16 +47,14 @@ namespace SVM {
  * Each row of the input data stores a feature vector.
  * We use the SMO method to fit the SVM.
  *
- * The output dbuffers shall be unallocated on entry.
- * Note that n_support, n_classes and b are host scalars, all other output
- * pointers are device pointers.
+ * The output device buffers in the model struct shall be unallocated on entry.
  *
  * @tparam math_t floating point type
  * @param [in] handle the cuML handle
  * @param [in] input device pointer for the input data in column major format.
  *   Size n_rows x n_cols.
  * @param [in] n_rows number of rows
- * @param [in] n_cols number of colums
+ * @param [in] n_cols number of columns
  * @param [in] labels device pointer for the labels. Size n_rows.
  * @param [in] param parameters for training
  * @param [in] kernel_params parameters for the kernel function
@@ -93,9 +91,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
       kernel_params, handle_impl.getCublasHandle());
-  SmoSolver<math_t> smo(handle_impl, param.C, param.tol, kernel,
-                        param.cache_size, param.nochange_steps);
-  smo.verbose = param.verbose;
+  SmoSolver<math_t> smo(handle_impl, param, kernel);
   smo.Solve(input, n_rows, n_cols, y.data(), &(model.dual_coefs),
             &(model.n_support), &(model.x_support), &(model.support_idx),
             &(model.b), param.max_iter);
@@ -127,7 +123,7 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * @param [in] input device pointer for the input data in column major format,
  *   size [n_rows x n_cols].
  * @param [in] n_rows number of rows (input vectors)
- * @param [in] n_cols number of colums (features)
+ * @param [in] n_cols number of columns (features)
  * @param [in] kernel_params parameters for the kernel function
  * @param [in] model SVM model parameters
  * @param [out] preds device pointer to store the output, size [n_rows].
@@ -226,6 +222,7 @@ void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
       preds, y.data(), n_rows, [b] __device__(math_t y) { return y + b; },
       stream);
   }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   delete kernel;
 }
 

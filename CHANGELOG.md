@@ -5,6 +5,10 @@
 - PR #1494: bench: ml-prims benchmark
 - PR #1514: bench: Fused L2 NN prim benchmark
 - PR #1554: obtain the ModelHandles for all treelite models in MNMG RF
+- PR #1411: Cython side of MNMG OLS
+- PR #1520: Cython side of MNMG Ridge Regression
+- PR #1516: Suppor Vector Regression (epsilon-SVR)
+
 
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
@@ -20,7 +24,9 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
+- PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 - PR #1551: Change custom kernel to cupy for col/row order transform
+- PR #1533: C++: interface header file separation for SVM
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
@@ -32,6 +38,7 @@
 - PR #1534: Removed TODO comment in create_ucp_listeners()
 - PR #1548: Fixing umap extra unary op in knn graph
 - PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
+- PR #1557: Increasing threshold for kmeans score
 
 # cuML 0.11.0 (11 Dec 2019)
 

@@ -176,7 +176,7 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  * val:    5   6   7   8
  * rank: 0th 1st 2nd 3rd
  *
- * On return, the rank is assigned or each thread:
+ * On return, the rank is assigned for each thread:
  * threadIdx.x: 0   1   2   3
  * rank:        3   1   2   0
  *
