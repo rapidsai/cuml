@@ -12,6 +12,7 @@
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
+- PR #1489: Enabling deep trees using Gather tree builder
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
 - PR #1432: Row-major (C-style) GPU arrays for benchmarks
@@ -38,6 +39,7 @@
 - PR #1548: Fixing umap extra unary op in knn graph
 - PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
 - PR #1557: Increasing threshold for kmeans score
+- PR #1562: Increasing threshold even higher
 
 # cuML 0.11.0 (11 Dec 2019)
 
