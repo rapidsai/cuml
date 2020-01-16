@@ -38,6 +38,7 @@
 - PR #1548: Fixing umap extra unary op in knn graph
 - PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
 - PR #1557: Increasing threshold for kmeans score
+- PR #1562: Increasing threshold even higher
 
 # cuML 0.11.0 (11 Dec 2019)
 
