@@ -188,7 +188,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);
     // print(rf_params);
-    handle.reset(new cumlHandle(rf_params.n_streams));
+
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    handle.reset(new cumlHandle(stream, rf_params.n_streams));
 
     data_len = params.n_rows * params.n_cols;
     inference_data_len = params.n_inference_rows * params.n_cols;
@@ -202,8 +204,6 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     treelite_predicted_labels.resize(params.n_inference_rows);
     ref_predicted_labels.resize(params.n_inference_rows);
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->setStream(stream);
 
     forest = new typename ML::RandomForestMetaData<T, L>;
     null_trees_ptr(forest);

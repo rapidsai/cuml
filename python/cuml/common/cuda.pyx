@@ -84,13 +84,13 @@ cdef class Stream:
     # be just fine (although, that certainly is ugly and hacky!).
     cdef size_t s
 
-    def __cinit__(self, _stream=NULL):
+    def __cinit__(self, _stream=None):
         if self.s != 0:
             return
 
         cdef _Stream stream
         cdef _Error
-        if _stream == NULL:
+        if _stream is None:
             e = cudaStreamCreate(&stream)
             if e != 0:
                 raise CudaRuntimeError("Stream create")

@@ -104,11 +104,13 @@ class cumlHandle {
   std::vector<cudaStream_t> getWorkerStreams() const;
 
   /**
-   * @brief API to get a specific worker streams by index.
+   * @brief API to get a specific worker stream by index.
    * @return worker stream corresponding to index in the handle
    */
   std::vector<cudaStream_t> getWorkerStream(int sid) const;
 
+  void waitOnUserStream() const;
+  void waitOnWorkerStreams() const;
 
   /**
      * @brief for internal use only.

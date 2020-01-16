@@ -91,8 +91,7 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    cumlHandle handle(stream, rf_params.n_streams);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels,
         labels_map.size(), rf_params);
@@ -191,8 +190,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
 
-    cumlHandle handle(rf_params.n_streams);
-    handle.setStream(stream);
+    cumlHandle handle(stream, rf_params.n_streams);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
 

@@ -109,10 +109,11 @@ cdef class Handle:
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         return h_.getNumWorkerStreams()
 
-    def getWorkerStreamsAsHandles():
+    def getWorkerStreamsAsHandles(self):
         """
-        Returns the internal streams as new single-stream handles
-        that can be used to parallelize a set of tasks.
+        Returns the internal streams as separate single-stream handles
+        that can be used to parallelize a set of tasks, giving each
+        task their own handle.
 
         Examples
         --------
@@ -146,15 +147,17 @@ cdef class Handle:
         handles = []
 
         cdef cumlHandle *new_handle
+        cdef _Stream cur_stream
         for i in range(int_streams.size()):
-            stream = cuml.cuda.Stream(int_streams.at(i))
+            cur_stream = int_streams.at(i)
+            stream = cuml.cuda.Stream(<size_t>cur_stream)
             handles.append(cuml.Handle(stream, 0))
         return handles
 
-    def waitOnUserStream():
+    def waitOnUserStream(self):
         cdef cumlHandle * h_ = < cumlHandle * > self.h
         h_.waitOnUserStream()
 
-    def waitOnWorkerStreams():
+    def waitOnWorkerStreams(self):
         cdef cumlHandle * h_ = < cumlHandle * > self.h
         h_.waitOnWorkerStreams()
