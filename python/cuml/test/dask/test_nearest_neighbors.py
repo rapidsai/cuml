@@ -33,7 +33,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from cuml.neighbors.nearest_neighbors_mg import \
     NearestNeighborsMG as cumlNN
 
-from cuml.dask.raise_mg_import_exception import raise_exception_from_futures
+from cuml.dask.common import raise_exception_from_futures
 
 from cuml.test.utils import array_equal
 
