@@ -308,13 +308,29 @@ class RandomForestClassifier:
     def _read_mod_handles(model, mod_handles):
         return model._read_mod_handles(mod_handles=mod_handles)
 
+    @staticmethod
+    def _print_summary(model):
+        model.print_summary()
+
     def print_summary(self):
         """
         prints the summary of the forest used to train and test the model
         """
-        for w in self.workers:
-            self.rfs[w].result().print_summary()
+        c = default_client()
+        futures = list()
+        workers = self.workers
 
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestClassifier._print_summary,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
         return self
 
     def convert_to_treelite(self):
