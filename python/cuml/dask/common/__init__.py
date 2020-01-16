@@ -26,8 +26,11 @@ from cuml.dask.common.dask_df_utils import to_dask_cudf  # NOQA
 from cuml.dask.common.dask_df_utils import to_dask_df  # NOQA
 from cuml.dask.common.dask_df_utils import extract_ddf_partitions  # NOQA
 from cuml.dask.common.dask_arr_utils import extract_arr_partitions # NOQA
+from cuml.dask.common.dask_df_utils import extract_colocated_ddf_partitions  # NOQA
 
 from cuml.dask.common.part_utils import *
 
 from cuml.dask.common.utils import raise_exception_from_futures  # NOQA
 from cuml.dask.common.utils import raise_mg_import_exception  # NOQA
+
+
