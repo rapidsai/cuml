@@ -33,6 +33,8 @@ from sklearn.neighbors import KNeighborsClassifier
 from cuml.neighbors.nearest_neighbors_mg import \
     NearestNeighborsMG as cumlNN
 
+from cuml.dask.utils import raise_exception_from_futures
+
 from cuml.test.utils import array_equal
 
 
@@ -81,7 +83,8 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
-                          centers=nclusters)
+                          centers=nclusters,
+                          verbose=True)
         X = X.astype(np.float32)
 
         X_cudf = _prep_training_data(client, X, n_parts)
@@ -94,7 +97,12 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-        local_i = np.array(out_i.compute().as_gpu_matrix())
+        wait(out_i)
+        raise_exception_from_futures(out_i)
+
+        out_i_local = out_i.compute()
+
+        local_i = np.array(out_i_local.as_gpu_matrix())
 
         sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
         skl_y_hat = sklModel.predict(X)
