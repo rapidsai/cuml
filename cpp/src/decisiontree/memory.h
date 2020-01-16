@@ -23,12 +23,25 @@
 
 template <class T, class L>
 struct TemporaryMemory {
+  //depth algorithm changer
+  const int swap_depth = 14;
+  static const int gather_threads = 256;
+  size_t parentsz, childsz, gather_max_nodes;
   //Allocators parsed from CUML handle
   std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
   std::shared_ptr<MLCommon::hostAllocator> host_allocator;
 
+  //Tree holder for gather algorithm
+  MLCommon::device_buffer<SparseTreeNode<T, L>> *d_sparsenodes = nullptr;
+  MLCommon::host_buffer<SparseTreeNode<T, L>> *h_sparsenodes = nullptr;
+
   //Temporary data buffer
   MLCommon::device_buffer<T> *temp_data = nullptr;
+  //Temporary CUB buffer
+  MLCommon::device_buffer<char> *temp_cub_buffer = nullptr;
+  size_t temp_cub_bytes;
+  MLCommon::host_buffer<int> *h_counter = nullptr;
+  MLCommon::device_buffer<int> *d_counter = nullptr;
   //Host/Device histograms and device minmaxs
   MLCommon::device_buffer<T> *d_globalminmax = nullptr;
   MLCommon::host_buffer<T> *h_globalminmax = nullptr;
@@ -108,6 +121,6 @@ struct TemporaryMemory {
                          bool col_shuffle);
 
   void LevelMemCleaner();
-  void print_info();
+  void print_info(int depth, int nrows, int ncols, float colper);
 };
 #include "memory.cuh"
