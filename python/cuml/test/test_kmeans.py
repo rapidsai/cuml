@@ -30,7 +30,7 @@ from sklearn.preprocessing import StandardScaler
 
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
-SCORE_EPS = 0.04
+SCORE_EPS = 0.06
 
 
 @pytest.mark.parametrize('name', dataset_names)
