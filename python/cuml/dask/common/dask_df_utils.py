@@ -15,9 +15,12 @@
 
 from tornado import gen
 from dask.distributed import default_client
+from dask import delayed
 from toolz import first
 from uuid import uuid1
 import dask.dataframe as dd
+import numpy as np
+from collections import defaultdict
 
 from dask.distributed import wait
 
@@ -53,6 +56,45 @@ def extract_ddf_partitions(ddf, client=None, agg=True):
 
     yield wait(worker_to_parts)
     raise gen.Return(worker_to_parts)
+
+
+@gen.coroutine
+def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
+    """
+    Given Dask cuDF input X and y, return an OrderedDict mapping
+    'worker -> [list of futures] of X and y' with the enforced
+     co-locality for each partition in ddf.
+
+    :param X_ddf: Dask.dataframe
+    :param y_ddf: Dask.dataframe
+    :param client: dask.distributed.Client
+    """
+    client = default_client() if client is None else client
+    data_parts = X_ddf.to_delayed()
+    label_parts = y_ddf.to_delayed()
+
+    if isinstance(data_parts, np.ndarray):
+        assert data_parts.shape[1] == 1
+        data_parts = data_parts.flatten().tolist()
+
+    if isinstance(label_parts, np.ndarray):
+        assert label_parts.ndim == 1 or label_parts.shape[1] == 1
+        label_parts = label_parts.flatten().tolist()
+
+    parts = list(map(delayed, zip(data_parts, label_parts)))
+    parts = client.compute(parts)
+    yield wait(parts)
+
+    key_to_part_dict = dict([(part.key, part) for part in parts])
+    who_has = yield client.scheduler.who_has(
+        keys=[part.key for part in parts]
+    )
+
+    worker_map = defaultdict(list)
+    for key, workers in who_has.items():
+        worker_map[first(workers)].append(key_to_part_dict[key])
+
+    return worker_map
 
 
 def get_meta(df):

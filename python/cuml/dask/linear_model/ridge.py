@@ -29,47 +29,55 @@ from functools import reduce
 from uuid import uuid1
 
 
-class LinearRegression(object):
-    """
-    LinearRegression is a simple machine learning model where the response y is
-    modelled by a linear combination of the predictors in X.
+class Ridge(object):
 
-    cuML's dask Linear Regression (multi-node multi-gpu) expects dask cuDF
+    """
+    Ridge extends LinearRegression by providing L2 regularization on the
+    coefficients when predicting response y with a linear combination of the
+    predictors in X. It can reduce the variance of the predictors, and improves
+    the conditioning of the problem.
+
+    cuML's dask Ridge (multi-node multi-gpu) expects dask cuDF
     DataFrame and provides an algorithms, Eig, to fit a linear model.
     And provides an eigendecomposition-based algorithm to fit a linear model.
-    (SVD, which is more stable than eig, will be added in an upcoming version.)
+    (SVD, which is more stable than eig, will be added in an upcoming version)
     Eig algorithm is usually preferred when the X is a tall and skinny matrix.
     As the number of features in X increases, the accuracy of Eig algorithm
     drops.
 
-    This is an experimental implementation of dask Linear Regresion. It
+    This is an experimental implementation of dask Ridge Regresion. It
     supports input X that has more than one column. Single column input
     X will be supported after SVD algorithm is added in an upcoming version.
 
     Parameters
     -----------
-    algorithm : 'eig'
+    alpha : float or double
+        Regularization strength - must be a positive float. Larger values
+        specify stronger regularization. Array input will be supported later.
+    solver : 'eig'
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
-        SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
-        LinearRegression adds an additional term c to correct for the global
+        If True, Ridge adds an additional term c to correct for the global
         mean of y, modeling the reponse as "x * beta + c".
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by its
-        L2 norm.
+        If True, the predictors in X will be normalized by dividing by it's L2
+        norm.
         If False, no scaling will be done.
 
     Attributes
     -----------
-    coef_ : cuDF series, shape (n_features)
+    coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
     """
 
     def __init__(self, client=None, **kwargs):
+        """
+        Initializes the linear regression class.
+        """
         self.client = default_client() if client is None else client
         self.kwargs = kwargs
         self.coef_ = None
@@ -80,15 +88,14 @@ class LinearRegression(object):
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
-            from cuml.linear_model.linear_regression_mg \
-               import LinearRegressionMG as cumlLinearRegression
+            from cuml.linear_model.ridge_mg import RidgeMG as cumlRidge
         except ImportError:
             raise Exception("cuML has not been built with multiGPU support "
                             "enabled. Build with the --multigpu flag to"
                             " enable multiGPU support.")
 
         handle = worker_state(sessionId)["handle"]
-        return cumlLinearRegression(handle=handle, **kwargs)
+        return cumlRidge(handle=handle, **kwargs)
 
     @staticmethod
     def _func_fit_colocated(f, data, n_rows, n_cols, partsToSizes, rank):
@@ -145,7 +152,6 @@ class LinearRegression(object):
                 rnk_counter = rnk_counter + 1
             worker_to_parts[w].append(p)
 
-        # Future TODO: add a DefaultOrderedDict to utils
         worker_to_parts_y = OrderedDict()
         for w, p in y_futures:
             if w not in worker_to_parts_y:
@@ -161,7 +167,7 @@ class LinearRegression(object):
 
         key = uuid1()
         partsToSizes = [(worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_get_size,
+            Ridge._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
@@ -172,7 +178,7 @@ class LinearRegression(object):
 
         key = uuid1()
         self.linear_models = [(wf[0], self.client.submit(
-            LinearRegression._func_create_model,
+            Ridge._func_create_model,
             comms.sessionId,
             **self.kwargs,
             workers=[wf[0]],
@@ -181,7 +187,7 @@ class LinearRegression(object):
 
         key = uuid1()
         linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_fit,
+            Ridge._func_fit,
             wf[1],
             worker_to_parts[wf[0]],
             worker_to_parts_y[wf[0]],
@@ -220,7 +226,7 @@ class LinearRegression(object):
         for w, futures in input_futures.items():
             self.rnks[w] = worker_info[w]["r"]
             parts = [(self.client.submit(
-                LinearRegression._func_get_size_cl,
+                Ridge._func_get_size_cl,
                 future,
                 workers=[w],
                 key="%s-%s" % (key, idx)).result())
@@ -232,7 +238,7 @@ class LinearRegression(object):
 
         key = uuid1()
         self.linear_models = [(w, self.client.submit(
-            LinearRegression._func_create_model,
+            Ridge._func_create_model,
             comms.sessionId,
             **self.kwargs,
             workers=[w],
@@ -241,7 +247,7 @@ class LinearRegression(object):
 
         key = uuid1()
         linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_fit_colocated,
+            Ridge._func_fit_colocated,
             wf[1],
             input_futures[wf[0]],
             n_rows, n_cols,
@@ -321,7 +327,7 @@ class LinearRegression(object):
 
         key = uuid1()
         partsToSizes = [(self.rnks[wf[0]], self.client.submit(
-            LinearRegression._func_get_size,
+            Ridge._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
@@ -332,7 +338,7 @@ class LinearRegression(object):
 
         key = uuid1()
         linear_pred = dict([(self.rnks[wf[0]], self.client.submit(
-            LinearRegression._func_predict,
+            Ridge._func_predict,
             wf[1],
             worker_to_parts[wf[0]],
             n_rows, n_cols,
@@ -353,7 +359,7 @@ class LinearRegression(object):
 
             f = linear_pred[rank]
             out_futures.append(self.client.submit(
-                LinearRegression._func_get_idx, f, completed_part_map[rank]))
+                Ridge._func_get_idx, f, completed_part_map[rank]))
 
             completed_part_map[rank] += 1
 
