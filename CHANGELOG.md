@@ -26,6 +26,7 @@
 - PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 - PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM
+- PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
