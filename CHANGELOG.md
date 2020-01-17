@@ -51,6 +51,7 @@
 - PR #1557: Increasing threshold for kmeans score
 - PR #1562: Increasing threshold even higher
 - PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
+- PR #1569: Remove Scikit-learn exception and depedenncy in SVM
 
 # cuML 0.11.0 (11 Dec 2019)
 
