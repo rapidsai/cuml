@@ -31,7 +31,25 @@ from dask.distributed import default_client
 
 class MultinomialNB(object):
 
+    """
+    Distributed Naive Bayes classifier for multinomial models
+
+    The multinomial Naive Bayes classifier is suitable for classification
+    with discrete features (e.g., word counts for text classification).
+
+    The multinomial distribution normally requires integer feature counts.
+    However, in practice, fractional counts such as tf-idf may also work.
+    """
     def __init__(self, client=None, **kwargs):
+
+        """
+        Create new multinomial distributed Naive Bayes classifier instance
+
+        Parameters
+        -----------
+
+        client : dask.distributed.Client optional Dask client to use
+        """
 
         self.client_ = client if client is not None else default_client()
         self.model_ = None
@@ -51,6 +69,22 @@ class MultinomialNB(object):
         return [model.predict(x) for x in X]
 
     def fit(self, X, y, classes=None):
+
+        """
+        Fit distributed Naive Bayes classifier model
+
+        Parameters
+        ----------
+
+        X : dask.Array with blocks containing dense or sparse cupy arrays
+        y : dask.Array with blocks containing cupy.ndarray
+        classes : array-like containing unique class labels
+
+        Returns
+        -------
+
+        cuml.dask.naive_bayes.MultinomialNB current model instance
+        """
 
         # Only Dask.Array supported for now
         if not isinstance(X, dask.array.core.Array):
@@ -108,6 +142,23 @@ class MultinomialNB(object):
         return arrs.shape[0]
 
     def predict(self, X):
+
+        """
+        Use distributed Naive Bayes model to predict the classes for a
+        given set of data samples.
+
+        Parameters
+        ----------
+
+        X : dask.Array with blocks containing dense or sparse cupy arrays
+
+
+        Returns
+        -------
+
+        dask.Array containing predicted classes
+
+        """
 
         gpu_futures = self.client_.sync(extract_arr_partitions, X)
         x_worker_parts = workers_to_parts(gpu_futures)

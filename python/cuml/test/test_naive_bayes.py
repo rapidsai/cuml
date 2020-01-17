@@ -21,6 +21,9 @@ import pytest
 from sklearn.metrics import accuracy_score
 from cuml.naive_bayes import MultinomialNB
 
+from numpy.testing import assert_allclose
+from sklearn.naive_bayes import MultinomialNB as skNB
+
 import math
 
 import numpy as np
@@ -34,7 +37,7 @@ def scipy_to_cp(sp, dtype):
     c = cp.asarray(coo.col)
     v = cp.asarray(values, dtype=dtype)
 
-    return cp.sparse.coo_matrix((v, (r, c)))
+    return cp.sparse.coo_matrix((v, (r, c)), sp.shape)
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
@@ -136,3 +139,83 @@ def test_partial_fit(x_dtype, y_dtype, nlp_20news):
     y = cp.asnumpy(y)
 
     assert accuracy_score(y, y_hat) >= 0.924
+
+
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_predict_proba(x_dtype, y_dtype, nlp_20news):
+
+    X, y = nlp_20news
+
+    cu_X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    cu_y = y.astype(y_dtype)
+
+    cu_X = cu_X.tocsr()
+
+    y = y.get()
+
+    cuml_model = MultinomialNB()
+    sk_model = skNB()
+
+    cuml_model.fit(cu_X, cu_y)
+
+    sk_model.fit(X, y)
+
+    cuml_proba = cuml_model.predict_proba(cu_X).get()
+    sk_proba = sk_model.predict_proba(X)
+
+    assert_allclose(cuml_proba, sk_proba, atol=1e-6, rtol=1e-2)
+
+
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_predict_log_proba(x_dtype, y_dtype, nlp_20news):
+
+    X, y = nlp_20news
+
+    cu_X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    cu_y = y.astype(y_dtype)
+
+    cu_X = cu_X.tocsr()
+
+    y = y.get()
+
+    cuml_model = MultinomialNB()
+    sk_model = skNB()
+
+    cuml_model.fit(cu_X, cu_y)
+
+    sk_model.fit(X, y)
+
+    cuml_proba = cuml_model.predict_log_proba(cu_X).get()
+    sk_proba = sk_model.predict_log_proba(X)
+
+    assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
+
+
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_score(x_dtype, y_dtype, nlp_20news):
+
+    X, y = nlp_20news
+
+    cu_X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    cu_y = y.astype(y_dtype)
+
+    cu_X = cu_X.tocsr()
+
+    y = y.get()
+
+    cuml_model = MultinomialNB()
+    sk_model = skNB()
+
+    cuml_model.fit(cu_X, cu_y)
+
+    sk_model.fit(X, y)
+
+    cuml_score = cuml_model.score(cu_X, cu_y)
+    sk_score = sk_model.score(X, y)
+
+    THRES = 1e-4
+
+    assert sk_score - THRES <= cuml_score <= sk_score + THRES
