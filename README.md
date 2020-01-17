@@ -77,24 +77,21 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-GPU available in conda CUDA 10 package |
-| | Linear Regression with Lasso or Ridge Regularization | |
+| | Linear Regression with Lasso or Ridge Regularization | Experimental multi-node multi-GPU via Dask|
 | | ElasticNet Regression | |
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
-|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
-|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask, available in version 0.12 branch and nightly conda packages. Uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query.  |
+|  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask, it uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask, it uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query.  |
 |  | Support Vector Machine Classifier (SVC) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | |
 ---
 
-More ML algorithms in cuML and more ML primitives in ml-prims are planned for
-future releases, including: spectral embedding, spectral clustering,
-support vector machines, and additional time series methods. Future releases
-will also expand support for multi-node, multi-GPU algorithms.
+More ML algorithms in cuML and more ML primitives in ml-prims are planned for future releases, including: spectral embedding, spectral clustering and additional time series methods. Future releases will also expand support for multi-node, multi-GPU algorithms.
 
 ## Installation
 
