@@ -131,8 +131,8 @@ class MultinomialNB(object):
         Examples
         --------
 
-        Load the 20 newsgroups dataset from Scikit-learn and train a Naive Bayes
-        classifier.
+        Load the 20 newsgroups dataset from Scikit-learn and train a
+        Naive Bayes classifier.
 
         .. code-block:: python
 
@@ -185,11 +185,13 @@ class MultinomialNB(object):
         Parameters
         ----------
 
-        alpha : float Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing)
-        fit_prior : boolean Whether to learn class prior probabilities or no. If false,
-                    a uniform prior will be used.
-        class_prior : array-like, size (n_classes) Prior probabilities of the classes. If
-                      specified, the priors are not adjusted according to the data.
+        alpha : float Additive (Laplace/Lidstone) smoothing parameter (0 for
+                no smoothing).
+        fit_prior : boolean Whether to learn class prior probabilities or no.
+                    If false, a uniform prior will be used.
+        class_prior : array-like, size (n_classes) Prior probabilities of the
+                      classes. If specified, the priors are not adjusted
+                      according to the data.
         """
 
         self.alpha = alpha
