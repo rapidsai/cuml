@@ -87,25 +87,46 @@ inverse_map_kernel_str = r'''
 '''
 
 
-def map_kernel(dtype):
+def _map_kernel(dtype):
     return cuda_kernel_factory(map_kernel_str,
                                (dtype,),
                                "map_labels_kernel")
 
 
-def inverse_map_kernel(dtype):
+def _inverse_map_kernel(dtype):
     return cuda_kernel_factory(inverse_map_kernel_str,
                                (dtype,),
                                "inv_map_labels_kernel")
 
 
-def validate_kernel(dtype):
+def _validate_kernel(dtype):
     return cuda_kernel_factory(validate_kernel_str,
                                (dtype,),
                                "validate_labels_kernel")
 
 
 def make_monotonic(labels, classes=None, copy=False):
+
+    """
+    Takes a set of labels that might not be drawn from the
+    set [0, n-1] and renumbers them to be drawn that
+    interval.
+
+    Parameters
+    ----------
+
+    labels : array-like of size (n,) labels to convert
+    classes : array-like of size (n_classes,) the unique
+              set of classes in the set of labels
+    copy : boolean if true, a copy will be returned and the
+           operation will not be done in place.
+
+    Returns
+    -------
+
+    mapped_labels : array-like of size (n,)
+    classes : array-like of size (n_classes,)
+    """
 
     labels = cp.asarray(labels, dtype=labels.dtype)
 
@@ -120,7 +141,7 @@ def make_monotonic(labels, classes=None, copy=False):
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
 
-    map_labels = map_kernel(labels.dtype)
+    map_labels = _map_kernel(labels.dtype)
     map_labels((math.ceil(labels.shape[0] / 32),), (32, ),
                (labels,
                 labels.shape[0],
@@ -132,6 +153,23 @@ def make_monotonic(labels, classes=None, copy=False):
 
 
 def check_labels(labels, classes):
+
+    """
+    Validates that a set of labels is drawn from the unique
+    set of given classes.
+
+    Parameters
+    ----------
+
+    labels : array-like of size (n,) labels to validate
+    classes : array-like of size (n_classes,) the unique
+              set of classes to verify
+
+    Returns
+    -------
+
+    result : boolean
+    """
 
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
@@ -146,7 +184,7 @@ def check_labels(labels, classes):
     valid = cp.array([1])
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
-    validate = validate_kernel(labels.dtype)
+    validate = _validate_kernel(labels.dtype)
     validate((math.ceil(labels.shape[0] / 32),), (32, ),
              (labels, labels.shape[0], classes,
              classes.shape[0], valid),
@@ -156,6 +194,29 @@ def check_labels(labels, classes):
 
 
 def invert_labels(labels, classes, copy=False):
+
+    """
+    Takes a set of labels that have been mapped to be drawn
+    from a monotonically increasing set and inverts them to
+    back to the original set of classes.
+
+    Parameters
+    ----------
+
+    labels : array-like of size (n,) labels to invert
+    classes : array-like of size (n_classes,) the unique set
+              of classes for inversion. It is assumed that
+              the classes are ordered by their corresponding
+              monotonically increasing label.
+    copy : boolean if true, a copy will be returned and the
+           operation will not be done in place.
+
+    Returns
+    -------
+
+    inverted labels : array-like of size (n,)
+
+    """
 
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
@@ -167,7 +228,7 @@ def invert_labels(labels, classes, copy=False):
         labels = labels.copy()
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
-    inverse_map = inverse_map_kernel(labels.dtype)
+    inverse_map = _inverse_map_kernel(labels.dtype)
     inverse_map((math.ceil(labels.shape[0] / 32),), (32,),
                 (classes, classes.shape[0],
                 labels, labels.shape[0]), shared_mem=smem)
