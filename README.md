@@ -86,6 +86,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | K-Nearest Neighbors (KNN) Classification | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query.  |
 |  | Support Vector Machine Classifier (SVC) | |
+|  | Epsilon Support Vector Regression (SVR) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | |
