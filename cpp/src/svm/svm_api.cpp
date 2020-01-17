@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-#include "svm_api.h"
 #include <cuml/cuml_api.h>
+#include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svm_api.h>
+#include <cuml/svm/svc.hpp>
 #include <tuple>
 #include "common/cumlHandle.hpp"
-#include "matrix/kernelparams.h"
-#include "svc.hpp"
-#include "svm_model.h"
-#include "svm_parameter.h"
 
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,

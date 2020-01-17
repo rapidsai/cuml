@@ -38,6 +38,7 @@ from cuml.utils import get_dev_array_ptr, zeros
 from cuml.common.cuda import nvtx_range_wrap
 
 from cuml.common.base import Base
+from cuml.utils import rmm_cupy_ary
 
 from libc.stdint cimport uintptr_t
 from libcpp.string cimport string
@@ -421,7 +422,8 @@ class ARIMAModel(Base):
 
         # note: `cp.diff()` returns row-major (regardless of input layout),
         # and thus needs conversion with `cp.asfortranarray()`
-        y_diff = cp.asfortranarray(cp.diff(self.d_y, axis=0))
+        y_diff = rmm_cupy_ary(cp.diff, self.d_y, axis=0)
+        y_diff = rmm_cupy_ary(cp.asfortranarray, y_diff)
         cdef uintptr_t d_y_diff_ptr = y_diff.data
 
         d_y_fc = rmm.device_array((nsteps, self.num_batches),

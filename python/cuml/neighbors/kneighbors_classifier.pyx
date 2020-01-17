@@ -308,6 +308,9 @@ class KNeighborsClassifier(NearestNeighbors):
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)
 
+    def get_param_names(self):
+        return ["n_neighbors", "algorithm", "metric", "weights"]
+
     def score(self, X, y, convert_dtype=True):
         """
         Compute the accuracy score using the given labels and

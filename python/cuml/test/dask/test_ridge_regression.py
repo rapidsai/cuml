@@ -64,15 +64,15 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_ols(nrows, ncols, n_parts, fit_intercept,
-             normalize, datatype, client=None):
+def test_ridge(nrows, ncols, n_parts, fit_intercept,
+               normalize, datatype, client=None):
 
     if client is None:
         cluster = LocalCUDACluster()
         client = Client(cluster)
 
     try:
-        from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
+        from cuml.dask.linear_model import Ridge as cumlRidge_dask
 
         n_info = 5
         nrows = np.int(nrows)
@@ -81,18 +81,17 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
 
         X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-        lr = cumlOLS_dask(fit_intercept=fit_intercept, normalize=normalize)
+        lr = cumlRidge_dask(alpha=0.5,
+                            fit_intercept=fit_intercept,
+                            normalize=normalize)
 
-        if n_parts > 2:
-            lr.fit(X_df, y_df, force_colocality=True)
-        else:
-            lr.fit(X_df, y_df)
+        lr.fit(X_df, y_df)
 
         ret = lr.predict(X_df)
 
         error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
-        assert(error_cuml < 1e-6)
+        assert(error_cuml < 1e-1)
 
     finally:
         client.close()
