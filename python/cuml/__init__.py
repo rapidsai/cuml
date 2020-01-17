@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.fil import fil
-from cuml.fil.fil import ForestInference
 from cuml.filter.kalman_filter import KalmanFilter
 
 from cuml.linear_model.elastic_net import ElasticNet
@@ -60,7 +59,6 @@ from cuml.random_projection.random_projection import GaussianRandomProjection, S
 from cuml.solvers.cd import CD
 from cuml.solvers.sgd import SGD
 from cuml.solvers.qn import QN
-from cuml import svm
 from cuml.svm import SVC
 from cuml.svm import SVR
 
