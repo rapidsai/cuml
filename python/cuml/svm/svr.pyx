@@ -34,7 +34,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
-from sklearn.exceptions import NotFittedError
 from cuml.svm.svm_base import SVMBase
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
