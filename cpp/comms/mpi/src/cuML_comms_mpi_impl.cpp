@@ -117,8 +117,8 @@ MPI_Datatype getMPIDatatype(
     case MLCommon::cumlCommunicator::DOUBLE:
       return MPI_DOUBLE;
     default:
-    // Execution should never reach here. This takes care of compiler warning.
-    return MPI_DOUBLE;
+      // Execution should never reach here. This takes care of compiler warning.
+      return MPI_DOUBLE;
   }
 }
 
@@ -133,8 +133,8 @@ MPI_Op getMPIOp(const cumlMPICommunicator_impl::op_t op) {
     case MLCommon::cumlCommunicator::MAX:
       return MPI_MAX;
     default:
-    // Execution should never reach here. This takes care of compiler warning.
-    return MPI_MAX;
+      // Execution should never reach here. This takes care of compiler warning.
+      return MPI_MAX;
   }
 }
 
@@ -159,8 +159,8 @@ ncclDataType_t getNCCLDatatype(
     case MLCommon::cumlCommunicator::DOUBLE:
       return ncclDouble;
     default:
-    // Execution should never reach here. This takes care of compiler warning.
-    return ncclDouble;
+      // Execution should never reach here. This takes care of compiler warning.
+      return ncclDouble;
   }
 }
 
@@ -175,8 +175,8 @@ ncclRedOp_t getNCCLOp(const cumlMPICommunicator_impl::op_t op) {
     case MLCommon::cumlCommunicator::MAX:
       return ncclMax;
     default:
-    // Execution should never reach here. This takes care of compiler warning.
-    return ncclMax;
+      // Execution should never reach here. This takes care of compiler warning.
+      return ncclMax;
   }
 }
 #endif
