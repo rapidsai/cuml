@@ -27,6 +27,8 @@ from cuml.datasets.regression import make_regression
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
 
+from cuml.fil.fil import ForestInference
+
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
