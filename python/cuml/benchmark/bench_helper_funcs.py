@@ -117,8 +117,8 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
     n_estimators = args["n_estimators"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
-    model_name = ("skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_" +
-        "{train_size}.model.pkl")
+    model_name = (f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_" +
+                  f"{train_size}.model.pkl")
     model_path = os.path.join(tmpdir, model_name)
     skl_model = skl_ensemble.RandomForestClassifier(**params)
     skl_model.fit(train_data, train_label)
@@ -137,8 +137,8 @@ def _build_cpu_skl_classifier(m, data, args, tmpdir):
     n_estimators = args["n_estimators"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
-    model_name = ("skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_" +
-    "{train_size}.model.pkl")
+    model_name = (f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_" +
+                  f"{train_size}.model.pkl")
     model_path = os.path.join(tmpdir, model_name)
 
     skl_model = pickle.load(open(model_path, "rb"))
