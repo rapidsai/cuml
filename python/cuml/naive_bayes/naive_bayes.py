@@ -29,11 +29,13 @@ from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
 from cuml.prims.label import invert_labels
 
+from cuml.metrics import accuracy_score
+
 
 def count_features_coo_kernel(float_dtype, int_dtype):
     """
     A simple reduction kernel that takes in a sparse (COO) array
-    of features and computes the sum and sum squared for each class
+    of features and computes the sum (or sum squared) for each class
     label
     """
 
@@ -112,7 +114,83 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 class MultinomialNB(object):
 
+    """
+    Naive Bayes classifier for multinomial models
+
+    The multinomial Naive Bayes classifier is suitable for classification
+    with discrete features (e.g., word counts for text classification).
+
+    The multinomial distribution normally requires integer feature counts.
+    However, in practice, fractional counts such as tf-idf may also work.
+    """
     def __init__(self, alpha=1.0, fit_prior=True, class_prior=None):
+
+        """
+        Create new multinomial Naive Bayes instance
+
+        Examples
+        --------
+
+        Load the 20 newsgroups dataset from Scikit-learn and train a Naive Bayes
+        classifier.
+
+        .. code-block:: python
+
+        import cupy as cp
+
+        from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import CountVectorizer
+
+        from cuml.naive_bayes import MultinomialNB
+
+        # Load corpus
+
+        twenty_train = fetch_20newsgroups(subset='train',
+                                  shuffle=True, random_state=42)
+
+        # Turn documents into term frequency vectors
+
+        count_vect = CountVectorizer()
+        features = count_vect.fit_transform(twenty_train.data)
+
+        # Put feature vectors and labels on the GPU
+
+        coo = features.tocoo()
+        values = coo.data
+
+        r = cp.asarray(coo.row)
+        c = cp.asarray(coo.col)
+        v = cp.asarray(values, dtype=cp.float32)
+
+        X = cp.sparse.coo_matrix((v, (r, c)))
+        y = cp.array(twenty_train.target).astype(cp.int32)
+
+        # Train model
+
+        model = MultinomialNB()
+        model.fit(X, y)
+
+        # Compute accuracy on training set
+
+        model.score(X, y)
+
+
+        Output:
+
+        .. code-block:: python
+
+        0.9244298934936523
+
+
+        Parameters
+        ----------
+
+        alpha : float Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing)
+        fit_prior : boolean Whether to learn class prior probabilities or no. If false,
+                    a uniform prior will be used.
+        class_prior : array-like, size (n_classes) Prior probabilities of the classes. If
+                      specified, the priors are not adjusted according to the data.
+        """
 
         self.alpha = alpha
         self.fit_prior = fit_prior
@@ -127,6 +205,19 @@ class MultinomialNB(object):
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     def fit(self, X, y, sample_weight=None):
+        """
+        Fit Naive Bayes classifier according to X, y
+
+        Parameters
+        ----------
+
+        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        y : array-like shape (n_samples) Target values.
+        sample_weight : array-like of shape (n_samples)
+            Weights applied to individial samples (1. for unweighted).
+        """
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
@@ -167,34 +258,156 @@ class MultinomialNB(object):
         Updates the log
         :return:
         """
-
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
-        Performs incremental training on a batch of samples. This also
-        allows out-of-core training.
+        Incremental fit on a batch of samples.
+
+        This method is expected to be called several times consecutively on
+        different chunks of a dataset so as to implement out-of-core or online
+        learning.
+
+        This is especially useful when the whole dataset is too big to fit in
+        memory at once.
+
+        This method has some performance overhead hence it is better to call
+        partial_fit on chunks of data that are as large as possible (as long
+        as fitting in the memory budget) to hide the overhead.
 
         Parameters
         ----------
 
-        X : training feature matrix
-        y :
-        :param classes:
-        :param sample_weight:
-        :return:
+        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features
+
+        y : array-like of shape (n_samples) Target values.
+        classes : array-like of shape (n_classes)
+                  List of all the classes that can possibly appear in the y
+                  vector. Must be provided at the first call to partial_fit,
+                  can be omitted in subsequent calls.
+
+        sample_weight : array-like of shape (n_samples)
+                        Weights applied to individual samples (1. for
+                        unweighted). Currently sample weight is ignored
+
+        Returns
+        -------
+
+        self : object
         """
         return self._partial_fit(X, y, sample_weight=sample_weight,
                                  _classes=classes)
 
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
     def predict(self, X):
+
+        """
+        Perform classification on an array of test vectors X.
+
+        Parameters
+        ----------
+
+        X : array-like of shape (n_samples, n_features)
+
+        Returns
+        -------
+
+        C : cupy.ndarray of shape (n_samples)
+
+        """
+
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
         return y_hat
+
+    def predict_log_proba(self, X):
+
+        """
+        Return log-probability estimates for the test vector X.
+
+        Parameters
+        ----------
+
+        X : array-like of shape (n_samples, n_features)
+
+
+        Returns
+        -------
+
+        C : array-like of shape (n_samples, n_classes)
+            Returns the log-probability of the samples for each class in the
+            model. The columns correspond to the classes in sorted order, as
+            they appear in the attribute classes_.
+        """
+        jll = self._joint_log_likelihood(X)
+
+        # normalize by P(X) = P(f_1, ..., f_n)
+
+        # Compute log(sum(exp()))
+
+        # Subtract max in exp to prevent inf
+        a_max = cp.amax(jll, axis=1, keepdims=True)
+
+        logsumexp = cp.log(cp.sum(cp.exp(jll - a_max), axis=1))
+
+        a_max = cp.squeeze(a_max, axis=1)
+
+        log_prob_x = a_max + logsumexp
+
+        if log_prob_x.ndim < 2:
+            log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
+        return jll - log_prob_x.T
+
+    def predict_proba(self, X):
+        """
+        Return probability estimates for the test vector X.
+
+        Parameters
+        ----------
+
+        X : array-like of shape (n_samples, n_features)
+
+        Returns
+        -------
+
+        C : array-like of shape (n_samples, n_classes)
+            Returns the probability of the samples for each class in the model.
+            The columns correspond to the classes in sorted order, as they
+            appear in the attribute classes_.
+        """
+        return cp.exp(self.predict_log_proba(X))
+
+    def score(self, X, y, sample_weight=None):
+        """
+        Return the mean accuracy on the given test data and labels.
+
+        In multi-label classification, this is the subset accuracy which is a
+        harsh metric since you require for each sample that each label set be
+        correctly predicted.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+        Test samples.
+
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+        True labels for X.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+        Sample weights. Currently, sample weight is ignored
+
+        Returns
+        -------
+
+        score : float Mean accuracy of self.predict(X) with respect to y.
+        """
+        y_hat = self.predict(X)
+        return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes, order="F",
@@ -204,8 +417,13 @@ class MultinomialNB(object):
 
     def _count(self, X, Y):
         """
-        :param X: cupy.sparse matrix of size (n_rows, n_features)
-        :param Y: cupy.array of monotonic class labels
+        Sum feature counts & class prior counts and add to current model.
+
+        Parameters
+        ----------
+        X : cupy.ndarray or cupy.sparse matrix of size
+                  (n_rows, n_features)
+        Y : cupy.array of monotonic class labels
         """
 
         if X.ndim != 2:
@@ -284,15 +502,30 @@ class MultinomialNB(object):
 
     def _update_feature_log_prob(self, alpha):
 
-        """ apply add-lambda smoothing to raw counts and recompute
-        log probabilities"""
+        """
+        Apply add-lambda smoothing to raw counts and recompute
+        log probabilities
+
+        Parameters
+        ----------
+
+        alpha : float amount of smoothing to apply (0. means no smoothing)
+        """
         smoothed_fc = self.feature_count_ + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
         self.feature_log_prob_ = (cp.log(smoothed_fc) -
                                   cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
-        """ Calculate the posterior log probability of the samples X """
+        """
+        Calculate the posterior log probability of the samples X
+
+        Parameters
+        ----------
+
+        X : array-like of size (n_samples, n_features)
+        """
+
         ret = X.dot(self.feature_log_prob_.T)
         ret += self.class_log_prior_
         return ret
