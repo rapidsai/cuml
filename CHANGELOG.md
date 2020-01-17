@@ -28,7 +28,6 @@
 - PR #1533: C++: interface header file separation for SVM
 - PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
 - PR #1570: Relax nccl in conda recipes to >=2.4 (matching CI)
-- PR #1574: Updated the init file to include SVM
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
@@ -44,6 +43,7 @@
 - PR #1562: Increasing threshold even higher
 - PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
 - PR #1569: Remove Scikit-learn exception and depedenncy in SVM
+- PR #1574: Updated the init file to include SVM
 
 # cuML 0.11.0 (11 Dec 2019)
 
