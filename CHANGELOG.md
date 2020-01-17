@@ -36,6 +36,7 @@
 - PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM
 - PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
+- PR #1570: Relax nccl in conda recipes to >=2.4 (matching CI)
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
