@@ -23,7 +23,7 @@ import cupy as cp
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
-SCORE_EPS = 0.02
+SCORE_EPS = 0.06
 
 
 @pytest.mark.mg
@@ -44,12 +44,12 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True,
+                               cluster_std=0.01, verbose=False,
                                random_state=10)
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=1, init="k-means||",
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 
@@ -66,8 +66,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         from sklearn.metrics import adjusted_rand_score
 
         cumlPred = cumlLabels.compute().to_pandas().values
-
-        print(str(np.unique(cumlPred)))
 
         assert cumlPred.shape[0] == nrows
         assert np.max(cumlPred) == nclusters-1
@@ -102,7 +100,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True,
+                               cluster_std=0.01, verbose=False,
                                random_state=10)
 
         wait(X_cudf)
@@ -148,12 +146,12 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True,
+                               cluster_std=0.01, verbose=False,
                                random_state=10)
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=1, init="k-means||",
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 

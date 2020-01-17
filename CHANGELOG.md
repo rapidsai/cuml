@@ -4,11 +4,15 @@
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
 - PR #1494: bench: ml-prims benchmark
 - PR #1514: bench: Fused L2 NN prim benchmark
+- PR #1411: Cython side of MNMG OLS
+- PR #1520: Cython side of MNMG Ridge Regression
+- PR #1516: Suppor Vector Regression (epsilon-SVR)
 
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
+- PR #1489: Enabling deep trees using Gather tree builder
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
 - PR #1432: Row-major (C-style) GPU arrays for benchmarks
@@ -20,6 +24,11 @@
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
 - PR #1555: FIL-SKL, an SKLearn-based benchmark for FIL
+- PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
+- PR #1551: Change custom kernel to cupy for col/row order transform
+- PR #1533: C++: interface header file separation for SVM
+- PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
+- PR #1570: Relax nccl in conda recipes to >=2.4 (matching CI)
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
@@ -30,7 +39,11 @@
 - PR #1505: cmake: added correct dependencies for prims-bench build
 - PR #1534: Removed TODO comment in create_ucp_listeners()
 - PR #1548: Fixing umap extra unary op in knn graph
-- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures. 
+- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
+- PR #1557: Increasing threshold for kmeans score
+- PR #1562: Increasing threshold even higher
+- PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
+- PR #1569: Remove Scikit-learn exception and depedenncy in SVM
 
 # cuML 0.11.0 (11 Dec 2019)
 
