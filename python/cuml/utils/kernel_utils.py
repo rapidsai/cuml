@@ -76,15 +76,22 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None,
 
         (float *a, double *b, int *c) {}
 
-    :param nvrtc_kernel_str: valid nvrtc kernel string without extern, scope,
-                             or function name.
-    :param dtypes: tuple of dtypes to search and replace.
-    :param kernel_name: prefix and function name to use. Note that when
-                        this not set (or is set to None), a UUID will
-                        be used, which will stop this function from
-                        being memoized.
-    :return: unique function name created for kernel,
-             cupy RawKernel object ready for use
+    Parameters
+    ----------
+
+    nvrtc_kernel_str : string valid nvrtc kernel string without extern, scope,
+                       or function name.
+    dtypes : tuple of dtypes to search and replace.
+    kernel_name : string prefix and function name to use. Note that when
+                  this not set (or is set to None), a UUID will
+                  be used, which will stop this function from
+                  being memoized.
+
+    Returns
+    -------
+
+    kernel_name : string unique function name created for kernel,
+    raw_kernel : cupy.RawKernel object ready for use
     """
 
     dtype_strs = get_dtype_strs(dtypes)
