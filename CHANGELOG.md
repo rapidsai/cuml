@@ -40,6 +40,7 @@
 - PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
 - PR #1557: Increasing threshold for kmeans score
 - PR #1562: Increasing threshold even higher
+- PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
 
 # cuML 0.11.0 (11 Dec 2019)
 
