@@ -352,7 +352,7 @@ def all_algorithms():
                 threshold=0.5,
                 storage_type="SPARSE",
             ),
-            name="FIL-SKL",
+            name="Sparse-FIL-SKL",
             accepts_labels=False,
             setup_cpu_func=_build_cpu_skl_classifier,
             setup_cuml_func=_build_fil_skl_classifier,
