@@ -76,8 +76,8 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Uniform Manifold Approximation and Projection (UMAP) | |
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
-| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Experimental multi-GPU available in conda CUDA 10 package |
-| | Linear Regression with Lasso or Ridge Regularization | Experimental multi-node multi-GPU via Dask|
+| **Linear Models for Regression or Classification** | Linear Regression (OLS) | |
+| | Linear Regression with Lasso or Ridge Regularization | |
 | | ElasticNet Regression | |
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
