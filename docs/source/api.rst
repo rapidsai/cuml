@@ -272,12 +272,6 @@ ARIMA
 .. autoclass:: cuml.tsa.ARIMAModel
     :members:
 
-Stationarity
-------------
-
-.. autoclass:: cuml.tsa.stationarity
-    :members:
-
 Multi-Node, Multi-GPU Algorithms
 ================================
 
