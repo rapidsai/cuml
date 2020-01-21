@@ -204,7 +204,7 @@ Random Projections
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
 
-.. autoclass:: cuml.random_projection.johnson_lindenstrauss_min_dim
+.. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
     :members:
 
 TSNE
