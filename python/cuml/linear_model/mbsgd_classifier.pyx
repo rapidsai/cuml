@@ -98,13 +98,14 @@ class MBSGDClassifier:
         The exponent used for calculating the invscaling learning rate
     learning_rate : 'optimal', 'constant', 'invscaling',
                     'adaptive' (default = 'constant')
-        optimal option supported in the next version
-        constant keeps the learning rate constant
-        adaptive changes the learning rate if the training loss or the
-        validation accuracy does not improve for n_iter_no_change epochs.
-        The old learning rate is generally divide by 5
+        `optimal` option will be supported in a future version
+        `constant` keeps the learning rate constant
+        `adaptive` changes the learning rate if the training loss or the
+        validation accuracy does not improve for `n_iter_no_change` epochs.
+        The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
+
     Notes
     ------
     For additional docs, see `scikitlearn's OLS
@@ -134,6 +135,7 @@ class MBSGDClassifier:
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -159,6 +161,7 @@ class MBSGDClassifier:
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -183,7 +186,7 @@ class MBSGDClassifier:
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------

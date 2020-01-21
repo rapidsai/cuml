@@ -348,26 +348,32 @@ class ForestInference(Base):
 
     Examples
     --------
-    For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/forest_inference_demo.ipynb # noqa
 
     In the example below, synthetic data is copied to the host before
     inference. ForestInference can also accept a numpy array directly at the
     cost of a slight performance overhead.
 
-    >>> # Assume that the file 'xgb.model' contains a classifier model that was
-    >>> # previously saved by XGBoost's save_model function.
-    >>>
-    >>> import sklearn, sklearn.datasets, numpy as np
-    >>> from numba import cuda
-    >>> from cuml import ForestInference
-    >>> model_path = 'xgb.model'
-    >>> X_test, y_test = sklearn.datasets.make_classification()
-    >>> X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
-    >>> fm = ForestInference.load(model_path, output_class=True)
-    >>> fil_preds_gpu = fm.predict(X_gpu)
-    >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
-    >>>                np.asarray(fil_preds_gpu))
+    .. code-block:: python
+
+        # Assume that the file 'xgb.model' contains a classifier model that was
+        # previously saved by XGBoost's save_model function.
+
+        import sklearn, sklearn.datasets, numpy as np
+        from numba import cuda
+        from cuml import ForestInference
+
+        model_path = 'xgb.model'
+        X_test, y_test = sklearn.datasets.make_classification()
+        X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
+        fm = ForestInference.load(model_path, output_class=True)
+        fil_preds_gpu = fm.predict(X_gpu)
+        accuracy_score = sklearn.metrics.accuracy_score(y_test,
+                       np.asarray(fil_preds_gpu))
+
+    Notes
+    ------
+    For additional usage examples, see the sample notebook at
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/forest_inference_demo.ipynb # noqa
 
     """
     def __init__(self,

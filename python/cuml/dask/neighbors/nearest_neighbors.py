@@ -51,8 +51,14 @@ class NearestNeighbors(object):
     def fit(self, X):
         """
         Fit a multi-node multi-GPU Nearest Neighbors index
-        :param X : dask_cudf.Dataframe
-        :return : NearestNeighbors model
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+
+        Returns
+        -------
+        self: NearestNeighbors model
         """
         self.X = self.client.sync(extract_ddf_partitions, X)
         self.n_cols = X.shape[1]
@@ -97,9 +103,17 @@ class NearestNeighbors(object):
     def get_neighbors(self, n_neighbors):
         """
         Returns the default n_neighbors, initialized from the constructor,
-        if n_neighbors is None
-        :param n_neighbors:
-        :return:
+        if n_neighbors is None.
+
+        Parameters
+        ----------
+        n_neighbors : int
+            Number of neighbors
+
+        Returns
+        --------
+        n_neighbors: int
+            Default n_neighbors if parameter n_neighbors is none
         """
         if n_neighbors is None:
             if "n_neighbors" in self.model_args \
@@ -196,14 +210,23 @@ class NearestNeighbors(object):
                    _return_futures=False):
         """
         Query the distributed nearest neighbors index
-        :param X : dask_cudf.Dataframe Vectors to query. If not
-                   provided, neighbors of each indexed point are returned.
-        :param n_neighbors : Number of neighbors to query for each row in
-                             X. If not provided, the n_neighbors on the
-                             model are used.
-        :param return_distance : If false, only indices are returned
-        :return : dask_cudf.DataFrame containing distances
-        :return : dask_cudf.DataFrame containing indices
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Vectors to query. If not provided, neighbors of each indexed point
+            are returned.
+        n_neighbors : int
+            Number of neighbors to query for each row in X. If not provided,
+            the n_neighbors on the model are used.
+        return_distance : boolean (default=True)
+            If false, only indices are returned
+
+        Returns
+        -------
+        ret : tuple (dask_cudf.DataFrame, dask_cudf.DataFrame)
+            First dask-cuDF DataFrame contains distances, second conains the
+            indices.
         """
         n_neighbors = self.get_neighbors(n_neighbors)
 
