@@ -60,23 +60,6 @@ Benchmarking
     :members:
 
 
-
-Utilities for I/O and Numba
----------------------------
-
-  .. automodule:: cuml.utils.input_utils
-    :members:
-
-  .. automodule:: cuml.utils.numba_utils
-    :members:
-
-Utilities for Dask and Multi-GPU Preprocessing
------------------------------------------------
-
-  .. automodule:: cuml.dask.common.utils
-     :members:
-
-
 Regression and Classification
 =============================
 
