@@ -129,6 +129,7 @@ class CD(Base):
     Output:
 
     .. code-block:: python
+
         Coefficients:
                     0 1.0019531
                     1 1.9980469
