@@ -68,7 +68,8 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
         temp_res = cupy_fn(*args, **kwargs)
         result = \
             _rmm_cupy6_array_like(temp_res,
-                                  order=_strides_to_order(temp_res.strides))
+                                  order=_strides_to_order(temp_res.strides,
+                                                          temp_res.dtype))
         cp.copyto(result, temp_res)
 
     return result
