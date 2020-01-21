@@ -52,6 +52,7 @@
 - PR #1562: Increasing threshold even higher
 - PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
 - PR #1569: Remove Scikit-learn exception and depedenncy in SVM
+- PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
 - PR #1574: Updated the init file to include SVM
 
 # cuML 0.11.0 (11 Dec 2019)
