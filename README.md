@@ -83,17 +83,15 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
-|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask |
+|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | K-Nearest Neighbors (KNN) Classification | |
 |  | K-Nearest Neighbors (KNN) Regression | |
 |  | Support Vector Machine Classifier (SVC) | |
-|  | Epsilon Support Vector Regression (SVR) | |
+|  | Epsilon-Support Vector Regression (SVR) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | |
 ---
-
-More ML algorithms and mathematical primitives are planned for future releases, including: spectral embedding, spectral clustering and additional time series methods. Future releases will also expand support for multi-node, multi-GPU algorithms.
 
 ## Installation
 
