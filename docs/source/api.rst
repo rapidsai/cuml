@@ -143,6 +143,12 @@ Forest Inferencing
 .. autoclass:: cuml.ForestInference
     :members:
 
+Coordinate Descent
+------------------
+
+.. autoclass:: cuml.CD
+    :members:
+
 Quasi-Newton
 ------------
 
@@ -153,6 +159,9 @@ Support Vector Machines
 ------------------------
 
 .. autoclass:: cuml.svm.SVC
+    :members:
+
+.. autoclass:: cuml.svm.SVR
     :members:
 
 Nearest Neighbors Classification
@@ -212,6 +221,9 @@ Random Projections
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
 
+.. autoclass:: cuml.random_projection.johnson_lindenstrauss_min_dim
+    :members:
+
 TSNE
 -------------
 
@@ -259,7 +271,6 @@ ARIMA
 
 .. autoclass:: cuml.tsa.ARIMAModel
     :members:
-
 
 Multi-Node, Multi-GPU Algorithms
 ================================
