@@ -10,8 +10,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. automethod:: cuml.preprocessing.model_selection
-    :members:
+ .. automethod:: cuml.preprocessing.model_selection.train_test_split
 
 Label Encoding
 --------------
