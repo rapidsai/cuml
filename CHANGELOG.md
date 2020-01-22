@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1586: Seasonal ARIMA
 
 ## Improvements
 

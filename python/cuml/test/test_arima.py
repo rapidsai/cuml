@@ -37,7 +37,6 @@ import pytest
 from collections import namedtuple
 import numpy as np
 import os
-from timeit import default_timer as timer
 import warnings
 
 import pandas as pd
