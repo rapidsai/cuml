@@ -24,4 +24,4 @@ from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, input_to_host_array, inp_array
 
 from cuml.utils.import_utils import has_cupy, has_dask, \
-    check_min_numba_version, check_min_cupy_version
+    check_min_numba_version, check_min_cupy_version, has_scipy
