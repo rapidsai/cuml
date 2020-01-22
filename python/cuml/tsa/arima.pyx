@@ -547,7 +547,7 @@ class ARIMA(Base):
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
             h: float = 1e-9,
-            maxiter = 1000):
+            maxiter=1000):
         """Fit the ARIMA model to each time series.
 
         Parameters
@@ -797,7 +797,7 @@ class ARIMA(Base):
         return x.reshape(N * self.batch_size, order='F')  # return 1D shape
 
     @nvtx_range_wrap
-    def _batched_transform(self, x, isInv = False):
+    def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
 
         Parameters:
@@ -828,8 +828,7 @@ class ARIMA(Base):
 
 
 # TODO: later replace with an AutoARIMA class
-def grid_search(y_b, d = 1, max_p = 3, max_q = 3, method="bic",
-                fit_intercept = None):
+def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=None):
     """Grid search to find optimal model order (p, q), weighing
     model complexity against likelihood.
     Optimality is based on minimizing BIC or AIC, which
