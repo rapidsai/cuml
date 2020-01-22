@@ -242,7 +242,7 @@ class ElasticNet(Base, RegressorMixin):
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------
