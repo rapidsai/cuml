@@ -35,7 +35,6 @@
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/matrix_vector_op.h>
-#include <linalg/unary_op.h>
 #include <metrics/batched/information_criterion.h>
 #include <stats/mean.h>
 #include "cuda_utils.h"
@@ -54,8 +53,8 @@ namespace ML {
  * @param[in]  d_in        Input. Shape (n_obs, batch_size) (device)
  * @param[in]  batch_size  Number of series per batch
  * @param[in]  n_obs       Number of observations per series
- * @param[in]  d           Order of simple differences (0, 1 or 1)
- * @param[in]  D           Order of seasonal differences (0, 1 or 1)
+ * @param[in]  d           Order of simple differences (0, 1 or 2)
+ * @param[in]  D           Order of seasonal differences (0, 1 or 2)
  * @param[in]  s           Seasonal period if D > 0
  * @param[in]  intercept   Whether the model fits an intercept
  * @param[in]  d_mu        Mu array if intercept > 0
@@ -148,8 +147,8 @@ static __global__ void _undiff_kernel(double* d_fc, const double* d_in,
  * @param[in]     batch_size  Number of series per batch
  * @param[in]     in_ld       Leading dimension of d_in
  * @param[in]     n_in        Number of observations/predictions in d_in
- * @param[in]     d           Order of simple differences (0, 1 or 1)
- * @param[in]     D           Order of seasonal differences (0, 1 or 1)
+ * @param[in]     d           Order of simple differences (0, 1 or 2)
+ * @param[in]     D           Order of seasonal differences (0, 1 or 2)
  * @param[in]     s           Seasonal period if D > 0
  * @param[in]     intercept   Whether the model fits an intercept
  * @param[in]     d_mu        Mu array if intercept > 0
