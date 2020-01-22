@@ -38,7 +38,7 @@ from cuml.utils import get_dev_array_ptr, zeros
 from cuml.common.cuda import nvtx_range_wrap
 
 from cuml.common.base import Base
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary, has_scipy
 
 from libc.stdint cimport uintptr_t
 from libcpp.string cimport string
@@ -231,6 +231,11 @@ class ARIMAModel(Base):
                  ma_params,
                  y,
                  handle=None):
+
+        if not has_scipy():
+            raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
+                               " Please install it to enable ARIMA "
+                               "estimation.")
         super().__init__(handle)
         self.order = order
 
