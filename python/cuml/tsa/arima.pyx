@@ -233,8 +233,9 @@ class ARIMAModel(Base):
                  handle=None):
 
         if not has_scipy():
-            raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator.\
-                                Please install it to enable ARIMA estimation.")
+            raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
+                               " Please install it to enable ARIMA "
+                               "estimation.")
         super().__init__(handle)
         self.order = order
 
