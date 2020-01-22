@@ -118,15 +118,22 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  Q           Number of seasonal MA parameters
  * @param[in]  s           Seasonal period
  * @param[in]  intercept   Whether the model fits an intercept (constant term)
- * @param[in]  d_params    Zipped trend, AR, and MA parameters
- *                         [mu, ar, ma] x batches (device)
+ * @param[in]  d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
+ * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
+ * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
+ * @param[in]  d_sar       Seasonal AR parameters.
+ *                         Shape: (P, batch_size) (device)
+ * @param[in]  d_sma       Seasonal MA parameters.
+ *                         Shape: (Q, batch_size) (device)
+ * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
  * @param[out] d_vs        Residual output (device)
  * @param[out] d_y_p       Prediction output (device)
  */
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
              int start, int end, int p, int d, int q, int P, int D, int Q,
-             int s, int intercept, const double* d_params, double* d_vs,
-             double* d_y_p);
+             int s, int intercept, const double* d_mu, const double* d_ar,
+             const double* d_ma, const double* d_sar, const double* d_sma,
+             const double* d_sigma2, double* d_vs, double* d_y_p);
 
 /**
  * Residual of in-sample prediction of a time-series given all the model

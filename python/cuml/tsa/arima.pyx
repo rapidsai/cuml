@@ -57,7 +57,9 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         int start, int end, int p, int d, int q, int P, int D, int Q, int s,
-        int intercept, const double* d_params, double* d_vs_ptr, double* d_y_p)
+        int intercept, const double* d_mu, const double* d_ar,
+        const double* d_ma, const double* d_sar, const double* d_sma,
+        const double* d_sigma2, double* d_vs_ptr, double* d_y_p)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
@@ -91,8 +93,6 @@ class ARIMA(Base):
     batch of time series of the same length with no missing values.
     The implementation is designed to give the best performance when using
     large batches of time series.
-
-    TODO: add complexity and memory info
 
     Examples
     ---------
@@ -169,6 +169,16 @@ class ARIMA(Base):
         After fitting, contains the number of iterations before convergence
         for each time series.
 
+    Performance
+    -----------
+    Let `r=max(p+s*P, q+s*Q+1)`. The device memory used for most operations
+    is `O(batch_size*n_obs + batch_size*r^2)`. The execution time is a linear
+    function of `n_obs` and `batch_size` (if `batch_size` is large), but grows
+    very fast with `r`.
+
+    The performance is optimized for very large batch sizes (e.g thousands of
+    series).
+
     References
     ----------
     This class is heavily influenced by the Python library `statsmodels`,
@@ -240,7 +250,7 @@ class ARIMA(Base):
         p, d, q = self.order
         P, D, Q, s = self.seasonal_order
 
-        # Convert host parameters to device parameters (will be removed later)
+        # Convert host parameters to device parameters
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
@@ -309,8 +319,6 @@ class ARIMA(Base):
         P, _, Q, s = self.seasonal_order
         return p + P + q + Q + self.intercept + 1
 
-    # TODO: update all docs for sigma2
-
     def get_params(self) -> Dict[str, np.ndarray]:
         """Get the parameters of the model
 
@@ -318,7 +326,7 @@ class ARIMA(Base):
         --------
         params: Dict[str, np.ndarray]
             A dictionary of parameter names and associated arrays
-            The key names are a subset of {"mu", "ar", "ma", "sar", "sma"}
+            The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
             The shape of the arrays are (batch_size,) for mu parameters and
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
@@ -340,7 +348,7 @@ class ARIMA(Base):
         --------
         params: Mapping[str, np.ndarray]
             A mapping (e.g dictionary) of parameter names and associated arrays
-            The key names are a subset of {"mu", "ar", "ma", "sar", "sma"}
+            The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
             The shape of the arrays are (batch_size,) for mu parameters and
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
@@ -396,11 +404,30 @@ class ARIMA(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        # TODO: change interface to remove this useless pack/unpack
-        x = self.pack()
-        cdef uintptr_t d_params_ptr
-        d_params, d_params_ptr, _, _, _ = \
-            input_to_dev_array(x, check_dtype=np.float64)
+        # Convert host parameters to device parameters
+        cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
+        cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
+        if self.intercept:
+            d_mu, d_mu_ptr, _, _, _ = \
+                input_to_dev_array(self.mu, check_dtype=np.float64)
+        if p:
+            d_ar, d_ar_ptr, _, _, _ = \
+                input_to_dev_array(self.ar, check_dtype=np.float64)
+        if q:
+            d_ma, d_ma_ptr, _, _, _ = \
+                input_to_dev_array(self.ma, check_dtype=np.float64)
+        if P:
+            d_sar, d_sar_ptr, _, _, _ = \
+                input_to_dev_array(self.sar, check_dtype=np.float64)
+        if Q:
+            d_sma, d_sma_ptr, _, _, _ = \
+                input_to_dev_array(self.sma, check_dtype=np.float64)
+        d_sigma2, d_sigma2_ptr, _, _, _ = \
+            input_to_dev_array(self.sigma2, check_dtype=np.float64)
 
         predict_size = end - start
 
@@ -421,8 +448,11 @@ class ARIMA(Base):
                     <int> self.n_obs, <int> start, <int> end,
                     <int> p, <int> d, <int> q,
                     <int> P, <int> D, <int> Q, <int> s,
-                    <int> self.intercept, <double*>d_params_ptr,
-                    <double*>d_vs_ptr, <double*>d_y_p_ptr)
+                    <int> self.intercept, <double*>d_mu_ptr,
+                    <double*>d_ar_ptr, <double*>d_ma_ptr,
+                    <double*>d_sar_ptr, <double*>d_sma_ptr,
+                    <double*>d_sigma2_ptr, <double*>d_vs_ptr,
+                    <double*>d_y_p_ptr)
 
         return d_y_p
 
@@ -517,7 +547,7 @@ class ARIMA(Base):
         ----------
         start_params : Mapping[str, object] (optional)
             A mapping (e.g dictionary) of parameter names and associated arrays
-            The key names are a subset of {"mu", "ar", "ma", "sar", "sma"}
+            The key names are in {"mu", "ar", "ma", "sar", "sma", "sigma2"}
             The shape of the arrays are (batch_size,) for mu parameters and
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.

@@ -199,18 +199,19 @@ static void pack(int batch_size, int p, int q, int P, int Q, int k,
                    });
 }
 
-/// TODO: add shape info like in pack
 /**
  * Helper function to unpack a linear array of parameters into separate arrays
  * of parameters.
  * 
  * @param[in]  d_params   Linear array of all parameters grouped by batch
  *                        [mu, ar, ma] (device)
- * @param[out] d_mu       mu if intercept != 0. (device)
- * @param[out] d_ar       AR parameters (device)
- * @param[out] d_ma       MA parameters (device)
- * @param[out] d_sar      Seasonal AR parameters (device)
- * @param[out] d_sma      Seasonal MA parameters (device)
+ * @param[out] d_mu       mu if intercept != 0. Shape: (batch_size,) (device)
+ * @param[out] d_ar       AR parameters. Shape: (p, batch_size) (device)
+ * @param[out] d_ma       MA parameters. Shape: (q, batch_size) (device)
+ * @param[out] d_sar      Seasonal AR parameters.
+ *                        Shape: (P, batch_size) (device)
+ * @param[out] d_sma      Seasonal MA parameters.
+ *                        Shape: (Q, batch_size) (device)
  * @param[out] d_sigma2   Variance parameters. Shape: (batch_size,) (device)
  * @param[in]  batch_size Number of time series analyzed.
  * @param[in]  p          Number of AR parameters
