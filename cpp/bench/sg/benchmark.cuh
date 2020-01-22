@@ -18,11 +18,11 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
+#include <utils.h>
 #include <cuml/cuml.hpp>
 #include <sstream>
 #include <vector>
 #include "dataset.cuh"
-#include "utils.h"
 
 namespace ML {
 namespace Bench {

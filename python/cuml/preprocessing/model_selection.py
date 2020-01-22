@@ -16,11 +16,12 @@
 import cudf
 import cupy as cp
 import numpy as np
+import warnings
 
-from cuml.utils.cupy_utils import test_numba_cupy_version_conflict
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 from numba import cuda
 from typing import Union
+
+from cuml.utils import rmm_cupy_ary
 
 
 def train_test_split(
@@ -29,6 +30,8 @@ def train_test_split(
     test_size: Union[float, int] = None,
     train_size: Union[float, int] = None,
     shuffle: bool = True,
+    random_state: Union[int, cp.random.RandomState,
+                        np.random.RandomState] = None,
     seed: Union[int, cp.random.RandomState, np.random.RandomState] = None
 ):
     """
@@ -49,7 +52,10 @@ def train_test_split(
         of instances to be assigned to the training set. Defaults to 0.8
     shuffle : bool, optional
         Whether or not to shuffle inputs before splitting
-    seed : int, CuPy RandomState or NumPy RandomState optional
+    random_state : int, CuPy RandomState or NumPy RandomState optional
+        If shuffle is true, seeds the generator. Unseeded by default
+    seed: random_state : int, CuPy RandomState or NumPy RandomState optional
+        Deprecated in favor of `random_state`.
         If shuffle is true, seeds the generator. Unseeded by default
 
     Examples
@@ -155,22 +161,33 @@ def train_test_split(
 
     x_numba = False
     y_numba = False
+
+    if seed is not None:
+        if random_state is None:
+            warnings.warn("Parameter 'seed' is deprecated, please use \
+                          'random_state' instead.")
+            random_state = seed
+        else:
+            warnings.warn("Both 'seed' and 'random_state' parameters were \
+                          set, using 'random_state' since 'seed' is \
+                          deprecated. ")
+
     if shuffle:
-        if seed is None or isinstance(seed, int):
-            idxs = cp.arange(X.shape[0])
-            seed = cp.random.RandomState(seed=seed)
+        if random_state is None or isinstance(random_state, int):
+            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
+            random_state = cp.random.RandomState(seed=random_state)
 
-        elif isinstance(seed, cp.random.RandomState):
-            idxs = cp.arange(X.shape[0])
+        elif isinstance(random_state, cp.random.RandomState):
+            idxs = rmm_cupy_ary(cp.arange, X.shape[0])
 
-        elif isinstance(seed, np.random.RandomState):
+        elif isinstance(random_state, np.random.RandomState):
             idxs = np.arange(X.shape[0])
 
         else:
-            raise TypeError("`seed` must be an int, NumPy RandomState \
+            raise TypeError("`random_state` must be an int, NumPy RandomState \
                              or CuPy RandomState.")
 
-        seed.shuffle(idxs)
+        random_state.shuffle(idxs)
 
         if isinstance(X, cudf.DataFrame) or isinstance(X, cudf.Series):
             X = X.iloc[idxs].reset_index(drop=True)
@@ -178,8 +195,7 @@ def train_test_split(
         elif cuda.is_cuda_array(X):
             # numba (and therefore rmm device_array) does not support
             # fancy indexing
-            if test_numba_cupy_version_conflict(X):
-                X = PatchedNumbaDeviceArray(X)
+            if cuda.devicearray.is_cuda_ndarray(X):
                 x_numba = True
             X = cp.asarray(X)[idxs]
 
@@ -187,8 +203,7 @@ def train_test_split(
             y = y.iloc[idxs].reset_index(drop=True)
 
         elif cuda.is_cuda_array(y):
-            if test_numba_cupy_version_conflict(y):
-                y = PatchedNumbaDeviceArray(y)
+            if cuda.devicearray.is_cuda_ndarray(y):
                 y_numba = True
             y = cp.asarray(y)[idxs]
 

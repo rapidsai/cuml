@@ -121,6 +121,7 @@ if "--multigpu" in sys.argv:
     sys.argv.remove('--multigpu')
 
 if "--singlegpu" in sys.argv:
+    exc_list.append('cuml/linear_model/ridge_mg.pyx')
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
@@ -129,6 +130,8 @@ if "--singlegpu" in sys.argv:
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
+    # ucx/ucx-py related functionality available in version 0.12+
+    # libs.append("ucp")
 
     sys_include = os.path.dirname(sysconfig.get_path("include"))
     include_dirs.append("%s/cumlprims" % sys_include)

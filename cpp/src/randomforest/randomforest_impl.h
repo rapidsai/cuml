@@ -63,8 +63,9 @@ class rfClassifier : public rf<T, int> {
                      int n_cols, int* predictions,
                      const RandomForestMetaData<T, int>* forest,
                      bool verbose = false);
-  RF_metrics score(const cumlHandle& user_handle, const int* ref_labels,
-                   int n_rows, int* predictions, bool verbose = false) const;
+  static RF_metrics score(const cumlHandle& user_handle, const int* ref_labels,
+                          int n_rows, const int* predictions,
+                          bool verbose = false);
 };
 
 template <class T>
@@ -83,7 +84,8 @@ class rfRegressor : public rf<T, T> {
                int n_cols, T* predictions,
                const RandomForestMetaData<T, T>* forest,
                bool verbose = false) const;
-  RF_metrics score(const cumlHandle& user_handle, const T* ref_labels,
-                   int n_rows, T* predictions, bool verbose = false) const;
+  static RF_metrics score(const cumlHandle& user_handle, const T* ref_labels,
+                          int n_rows, const T* predictions,
+                          bool verbose = false);
 };
 }  //End namespace ML

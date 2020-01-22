@@ -127,7 +127,9 @@ class SGD(Base):
 
     Examples
     ---------
+
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.solvers import SGD as cumlSGD
@@ -146,7 +148,9 @@ class SGD(Base):
         print(" cuML intercept : ", cu_sgd.intercept_)
         print(" cuML coef : ", cu_sgd.coef_)
         print("cuML predictions : ", cu_pred)
+
     Output:
+
     .. code-block:: python
 
         cuML intercept :  0.004561662673950195
@@ -196,6 +200,7 @@ class SGD(Base):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
+
     Notes
     ------
     For additional docs, see `scikitlearn's OLS
@@ -288,6 +293,7 @@ class SGD(Base):
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -383,6 +389,7 @@ class SGD(Base):
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -441,6 +448,7 @@ class SGD(Base):
     def predictClass(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -452,9 +460,10 @@ class SGD(Base):
             When set to True, the predictClass method will automatically
             convert the input to the data type which was used to train the
             model. This will increase memory used for the method.
+
         Returns
         ----------
-        y: cuDF DataFrame
+        y : cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 

@@ -16,25 +16,46 @@
 
 #pragma once
 
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
+
 namespace MLCommon {
 namespace LinAlg {
 
 namespace {
-  /**
-   * Like Python range.
-   *
-   * Fills the output as out[i] = i.
 
-   * \param [out] out device array, size [n]
-   * \param [in] n length of the array
-   */
-__global__ void range(int *out, int n) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n) {
-    out[tid] = tid;
-  }
+/**
+ * @brief Like Python range.
+ *
+ * Fills the output as out[i] = i.
+ *
+ * \param [out] out device array, size [end-start]
+ * \param [in] start of the range
+ * \param [in] end of range (exclusive)
+ * \param [in] stream cuda stream
+ */
+template <typename T>
+void range(T *out, int start, int end, cudaStream_t stream) {
+  thrust::counting_iterator<int> first(start);
+  thrust::counting_iterator<int> last = first + (end - start);
+  thrust::device_ptr<int> ptr(out);
+  thrust::copy(thrust::cuda::par.on(stream), first, last, ptr);
 }
 
+/**
+ * @brief Like Python range.
+ *
+ * Fills the output as out[i] = i.
+ *
+ * \param [out] out device array, size [n]
+ * \param [in] n length of the array
+ * \param [in] stream cuda stream
+ */
+template <typename T, int TPB = 256>
+void range(T *out, int n, cudaStream_t stream) {
+  range(out, 0, n, stream);
+}
 }  // unnamed namespace
 }  // namespace LinAlg
 }  // namespace MLCommon

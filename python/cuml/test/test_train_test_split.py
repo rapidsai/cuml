@@ -19,8 +19,6 @@ import numpy as np
 import pytest
 import rmm
 
-from cuml.utils.cupy_utils import test_numba_cupy_version_conflict as tnc
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 from cuml.preprocessing.model_selection import train_test_split
 from numba import cuda
 
@@ -103,7 +101,7 @@ def test_split_invalid_proportion(train_size):
 
 
 @pytest.mark.parametrize('seed_type', test_seeds)
-def test_random_seed(seed_type):
+def test_random_state(seed_type):
     for i in range(10):
         seed_n = np.random.randint(0, int(1e9))
         if seed_type == 'int':
@@ -115,15 +113,16 @@ def test_random_seed(seed_type):
         X = cudf.DataFrame({"x": range(100)})
         y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, seed=seed)
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                            random_state=seed)
 
         if seed_type == 'cupy':
             seed = cp.random.RandomState(seed=seed_n)
         if seed_type == 'numpy':
             seed = np.random.RandomState(seed=seed_n)
 
-        X_train2, X_test2, y_train2, y_test2 = train_test_split(X, y,
-                                                                seed=seed)
+        X_train2, X_test2, y_train2, y_test2 = \
+            train_test_split(X, y, random_state=seed)
 
         assert X_train.equals(X_train2)
         assert X_test.equals(X_test2)
@@ -155,7 +154,7 @@ def test_array_split(type, test_size, train_size, shuffle):
                                                         train_size=train_size,
                                                         test_size=test_size,
                                                         shuffle=shuffle,
-                                                        seed=0)
+                                                        random_state=0)
 
     if type == 'cupy':
         assert isinstance(X_train, cp.ndarray)
@@ -182,12 +181,6 @@ def test_array_split(type, test_size, train_size, shuffle):
         assert y_train == y[0:train_size]
         assert X_test == X[-1 * test_size:]
         assert y_test == y[-1 * test_size:]
-
-        if tnc(X_train):
-            X_train = PatchedNumbaDeviceArray(X_train)
-            X_test = PatchedNumbaDeviceArray(X_test)
-            y_train = PatchedNumbaDeviceArray(y_train)
-            y_test = PatchedNumbaDeviceArray(y_test)
 
         X_rec = cp.sort(cp.concatenate(X_train, X_test))
         y_rec = cp.sort(cp.concatenate(y_train, y_test))

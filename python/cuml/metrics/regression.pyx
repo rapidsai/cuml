@@ -76,7 +76,7 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
 
     n = len(y)
 
-    if y.dtype == 'float32':
+    if y_m.dtype == 'float32':
 
         result_f32 = regression.r2_score_py(handle_[0],
                                             <float*> y_ptr,
