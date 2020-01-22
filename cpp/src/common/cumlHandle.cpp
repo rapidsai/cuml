@@ -233,6 +233,10 @@ cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const {
   return _cusolverDn_handle;
 }
 
+cusolverSpHandle_t cumlHandle_impl::getcusolverSpHandle() const {
+  return _cusolverSp_handle;
+}
+
 cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
   return _cusparse_handle;
 }
@@ -286,6 +290,7 @@ void cumlHandle_impl::createResources() {
   CUDA_CHECK(cudaStreamCreate(&stream));
   CUBLAS_CHECK(cublasCreate(&_cublas_handle));
   CUSOLVER_CHECK(cusolverDnCreate(&_cusolverDn_handle));
+  CUSOLVER_CHECK(cusolverSpCreate(&_cusolverSp_handle));
   CUSPARSE_CHECK(cusparseCreate(&_cusparse_handle));
   _streams.push_back(stream);
   for (int i = 1; i < _num_streams; ++i) {
@@ -308,6 +313,14 @@ void cumlHandle_impl::destroyResources() {
 
   {
     cusolverStatus_t status = cusolverDnDestroy(_cusolverDn_handle);
+    if (CUSOLVER_STATUS_SUCCESS != status) {
+      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+      // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.
+    }
+  }
+
+  {
+    cusolverStatus_t status = cusolverSpDestroy(_cusolverSp_handle);
     if (CUSOLVER_STATUS_SUCCESS != status) {
       //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
       // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.

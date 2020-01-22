@@ -109,20 +109,23 @@ class BatchedCSR {
   /**
    * @brief Constructor that leaves the matrix uninitialized
    * 
-   * @param[in] m            Number of rows per matrix
-   * @param[in] n            Number of columns per matrix
-   * @param[in] nnz          Number of non-zero elements per matrix
-   * @param[in] batch_size   Number of matrices in the batch
-   * @param[in] cublasHandle cuBLAS handle
-   * @param[in] allocator    Device memory allocator
-   * @param[in] stream       CUDA stream
+   * @param[in] m                Number of rows per matrix
+   * @param[in] n                Number of columns per matrix
+   * @param[in] nnz              Number of non-zero elements per matrix
+   * @param[in] batch_size       Number of matrices in the batch
+   * @param[in] cublasHandle     cuBLAS handle
+   * @param[in] cusolverSpHandle cuSOLVER sparse handle
+   * @param[in] allocator        Device memory allocator
+   * @param[in] stream           CUDA stream
    */
   BatchedCSR(int m, int n, int nnz, int batch_size, cublasHandle_t cublasHandle,
+             cusolverSpHandle_t cusolverSpHandle,
              std::shared_ptr<ML::deviceAllocator> allocator,
              cudaStream_t stream)
     : m_batch_size(batch_size),
       m_allocator(allocator),
       m_cublasHandle(cublasHandle),
+      m_cusolverSpHandle(cusolverSpHandle),
       m_stream(stream),
       m_shape(std::pair<int, int>(m, n)),
       m_nnz(nnz) {
@@ -171,7 +174,7 @@ class BatchedCSR {
    */
   static BatchedCSR<T> from_dense(
     const LinAlg::Batched::BatchedMatrix<T>& dense,
-    const std::vector<bool>& mask) {
+    const std::vector<bool>& mask, cusolverSpHandle_t cusolverSpHandle) {
     std::pair<int, int> shape = dense.shape();
 
     // Create the index arrays from the mask
@@ -189,9 +192,9 @@ class BatchedCSR {
     }
     h_row_index[shape.first] = nnz;
 
-    BatchedCSR<T> out =
-      BatchedCSR<T>(shape.first, shape.second, nnz, dense.batches(),
-                    dense.cublasHandle(), dense.allocator(), dense.stream());
+    BatchedCSR<T> out = BatchedCSR<T>(
+      shape.first, shape.second, nnz, dense.batches(), dense.cublasHandle(),
+      cusolverSpHandle, dense.allocator(), dense.stream());
 
     // Copy the host index arrays to the device
     MLCommon::copy(out.get_col_index(), h_col_index.data(), nnz, out.stream());
@@ -239,6 +242,9 @@ class BatchedCSR {
   //! Return cublas handle
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
 
+  //! Return cusolver sparse handle
+  cusolverSpHandle_t cusolverSpHandle() const { return m_cusolverSpHandle; }
+
   //! Return allocator
   std::shared_ptr<deviceAllocator> allocator() const { return m_allocator; }
 
@@ -278,6 +284,7 @@ class BatchedCSR {
 
   std::shared_ptr<ML::deviceAllocator> m_allocator;
   cublasHandle_t m_cublasHandle;
+  cusolverSpHandle_t m_cusolverSpHandle;
   cudaStream_t m_stream;
 };
 
@@ -445,7 +452,11 @@ void b_spmm(T alpha, const BatchedCSR<T>& A,
 
 /**
  * @brief Solve discrete Lyapunov equation A*X*A' - X + Q = 0
- * @todo: docs
+ *
+ * @param[in]  A       Batched matrix A in CSR representation
+ * @param[in]  A_mask  Density mask of A (host)
+ * @param[in]  Q       Batched dense matrix Q
+ * @return             Batched dense matrix X solving the Lyapunov equation
  */
 template <typename T>
 LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
@@ -457,6 +468,7 @@ LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
   int batch_size = A.batches();
   auto stream = A.stream();
   auto allocator = A.allocator();
+  cusolverSpHandle_t cusolverSpHandle = A.cusolverSpHandle();
   auto counting = thrust::make_counting_iterator(0);
 
   //
@@ -514,8 +526,8 @@ LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
   }
 
   // Create the uninitialized batched CSR matrix
-  BatchedCSR<T> I_m_AxA(n2, n2, nnz, batch_size, A.cublasHandle(), allocator,
-                        stream);
+  BatchedCSR<T> I_m_AxA(n2, n2, nnz, batch_size, A.cublasHandle(),
+                        cusolverSpHandle, allocator, stream);
 
   // Copy the host index arrays to the device arrays
   copy(I_m_AxA.get_col_index(), h_AxA_col_index.data(), nnz, stream);
@@ -570,10 +582,6 @@ LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
   // Solve (I - TxT) vec(X) = vec(Q)
   //
 
-  /// TODO: integrate cuSOLVER sparse handle in cuML handle
-  cusolverSpHandle_t cusolverSpHandle;
-  cusolverSpCreate(&cusolverSpHandle);
-
   csrqrInfo_t info = NULL;
   cusparseMatDescr_t descr = NULL;
 
@@ -622,9 +630,6 @@ LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
   allocator->deallocate(pBuffer, workspaceInBytes, stream);
-
-  /// TODO: remove
-  CUSOLVER_CHECK(cusolverSpDestroy(cusolverSpHandle));
 
   CUSOLVER_CHECK(cusolverSpDestroyCsrqrInfo(info));
 

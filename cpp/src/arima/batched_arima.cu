@@ -459,8 +459,7 @@ static void _arma_least_squares(
       MLCommon::LinAlg::Batched::b_2dcopy(bm_y, p_ar, 0, ls_height, 1);
 
     // Residual, initialized as offset y to avoid one kernel call
-    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_residual =
-      bm_ar_fit.deepcopy();
+    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_residual(bm_ar_fit);
 
     // Initial AR fit
     MLCommon::LinAlg::Batched::b_gels(bm_ls, bm_ar_fit);

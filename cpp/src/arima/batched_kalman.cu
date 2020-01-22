@@ -39,7 +39,7 @@
 using MLCommon::LinAlg::Batched::b_gemm;
 using MLCommon::LinAlg::Batched::b_kron;
 using MLCommon::LinAlg::Batched::b_solve;
-using SparseMatrix = MLCommon::Sparse::Batched::BatchedCSR<double>;
+using BatchedCSR = MLCommon::Sparse::Batched::BatchedCSR<double>;
 using BatchedMatrix = MLCommon::LinAlg::Batched::BatchedMatrix<double>;
 
 namespace ML {
@@ -218,7 +218,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
 void _batched_kalman_loop_large(const double* d_ys, int nobs,
                                 const BatchedMatrix& T, const BatchedMatrix& Z,
                                 const BatchedMatrix& RRT, BatchedMatrix& P,
-                                BatchedMatrix& alpha, SparseMatrix& T_sparse,
+                                BatchedMatrix& alpha, BatchedCSR& T_sparse,
                                 int r, double* d_vs, double* d_Fs,
                                 double* d_sum_logFs, int fc_steps = 0,
                                 double* d_fc = nullptr) {
@@ -322,7 +322,7 @@ void _batched_kalman_loop_large(const double* d_ys, int nobs,
 void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
                          const BatchedMatrix& Z, const BatchedMatrix& RRT,
                          BatchedMatrix& P0, BatchedMatrix& alpha,
-                         SparseMatrix& T_sparse, int r, double* vs, double* Fs,
+                         BatchedCSR& T_sparse, int r, double* vs, double* Fs,
                          double* sum_logFs, int fc_steps = 0,
                          double* d_fc = nullptr) {
   const int batch_size = T.batches();
@@ -445,7 +445,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   BatchedMatrix RQb(r, 1, batch_size, cublasHandle, allocator, stream, true);
   double* d_RQ = RQb.raw_data();
-  double* d_R = Rb.raw_data();
+  const double* d_R = Rb.raw_data();
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
                      double sigma2 = d_sigma2[bid];
@@ -456,7 +456,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   BatchedMatrix RRT = b_gemm(RQb, Rb, false, true);
 
   /// TODO: create only when needed
-  SparseMatrix T_sparse = SparseMatrix::from_dense(Tb, T_mask);
+  BatchedCSR T_sparse =
+    BatchedCSR::from_dense(Tb, T_mask, handle.getImpl().getcusolverSpHandle());
 
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");

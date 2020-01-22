@@ -98,6 +98,7 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
     // Create handles, stream, allocator
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
+    CUSOLVER_CHECK(cusolverSpCreate(&cusolverSpHandle));
     auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
 
     // Created batched dense matrices
@@ -111,7 +112,7 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
     updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
 
     // Create sparse matrix A from the dense A and the mask
-    BatchedCSR<T> AbS = BatchedCSR<T>::from_dense(AbM, mask);
+    BatchedCSR<T> AbS = BatchedCSR<T>::from_dense(AbM, mask, cusolverSpHandle);
 
     // Create matrix that will hold the results
     res_bM = new LinAlg::Batched::BatchedMatrix<T>(m_r, n_r, params.batch_size,
@@ -154,6 +155,7 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
     delete res_bM;
     CUBLAS_CHECK(cublasDestroy(handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
+    CUSOLVER_CHECK(cusolverSpDestroy(cusolverSpHandle));
   }
 
  protected:
@@ -161,19 +163,19 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
   LinAlg::Batched::BatchedMatrix<T> *res_bM;
   std::vector<T> res_h;
   cublasHandle_t handle;
+  cusolverSpHandle_t cusolverSpHandle;
   cudaStream_t stream;
 };
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
 const std::vector<BatchedCSRInputs<double>> inputsd = {
-    {SpMV_op, 1, 90, 150, 440, 150, 1, 1e-6},
-    {SpMV_op, 5, 13, 12, 75, 12, 1, 1e-6},
-    {SpMV_op, 15, 8, 4, 6, 4, 1, 1e-6},
-    {SpMV_op, 33, 7, 7, 23, 7, 1, 1e-6},
-    {SpMM_op, 1, 20, 15, 55, 15, 30, 1e-6},
-    {SpMM_op, 9, 10, 9, 31, 9, 11, 1e-6},
-    {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-6}
-};
+  {SpMV_op, 1, 90, 150, 440, 150, 1, 1e-6},
+  {SpMV_op, 5, 13, 12, 75, 12, 1, 1e-6},
+  {SpMV_op, 15, 8, 4, 6, 4, 1, 1e-6},
+  {SpMV_op, 33, 7, 7, 23, 7, 1, 1e-6},
+  {SpMM_op, 1, 20, 15, 55, 15, 30, 1e-6},
+  {SpMM_op, 9, 10, 9, 31, 9, 11, 1e-6},
+  {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-6}};
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
 const std::vector<BatchedCSRInputs<float>> inputsf = {
@@ -183,8 +185,7 @@ const std::vector<BatchedCSRInputs<float>> inputsf = {
   {SpMV_op, 33, 7, 7, 23, 7, 1, 1e-2},
   {SpMM_op, 1, 20, 15, 55, 15, 30, 1e-2},
   {SpMM_op, 9, 10, 9, 31, 9, 11, 1e-2},
-  {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-2}
-};
+  {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-2}};
 
 using BatchedCSRTestD = BatchedCSRTest<double>;
 using BatchedCSRTestF = BatchedCSRTest<float>;
