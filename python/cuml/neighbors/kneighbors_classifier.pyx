@@ -83,7 +83,7 @@ class KNeighborsClassifier(NearestNeighbors):
     n_neighbors : int (default=5)
         Default number of neighbors to query
     verbose : boolean (default=False)
-        Whether to rint verbose logs
+        Whether to print verbose logs
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')

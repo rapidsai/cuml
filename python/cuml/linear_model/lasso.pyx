@@ -32,7 +32,7 @@ class Lasso(Base, RegressorMixin):
     predictors in X. It can zero some of the coefficients for feature
     selection and improves the conditioning of the problem.
 
-    cuML's Lassocan take array-like objects, either in host as
+    cuML's Lasso can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or `__cuda_array_interface__`
     compliant), in addition to cuDF objects. It uses coordinate descent to fit
     a linear model.
@@ -106,7 +106,7 @@ class Lasso(Base, RegressorMixin):
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : 'ciclyc', 'random' (default = 'cyclic')
+    selection : 'cyclic', 'random' (default = 'cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
