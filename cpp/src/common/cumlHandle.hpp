@@ -23,6 +23,7 @@
 
 #include <cublas_v2.h>
 #include <cusolverDn.h>
+#include <cusolverSp.h>
 #include <cusparse.h>
 
 #include <common/cuml_comms_int.hpp>
@@ -54,6 +55,7 @@ class cumlHandle_impl {
 
   cublasHandle_t getCublasHandle() const;
   cusolverDnHandle_t getcusolverDnHandle() const;
+  cusolverSpHandle_t getcusolverSpHandle() const;
   cusparseHandle_t getcusparseHandle() const;
 
   cudaStream_t getInternalStream(int sid) const;
@@ -77,6 +79,7 @@ class cumlHandle_impl {
   std::vector<cudaStream_t> _streams;
   cublasHandle_t _cublas_handle;
   cusolverDnHandle_t _cusolverDn_handle;
+  cusolverSpHandle_t _cusolverSp_handle;
   cusparseHandle_t _cusparse_handle;
   std::shared_ptr<deviceAllocator> _deviceAllocator;
   std::shared_ptr<hostAllocator> _hostAllocator;

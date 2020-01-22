@@ -39,7 +39,6 @@ enum BatchedMatrixOperation {
   AkB_op,
   AsolveZ_op,
   LaggedZ_op,
-  CopyA_op,
   CopyA2D_op,
   DiffA_op
 };
@@ -110,10 +109,6 @@ class BatchedMatrixTest
       case LaggedZ_op:
         // For this operation params.n holds the number of lags
         m_r = params.m - params.n;
-        n_r = params.n;
-        break;
-      case CopyA_op:
-        m_r = params.m;
         n_r = params.n;
         break;
       case CopyA2D_op:
@@ -192,9 +187,6 @@ class BatchedMatrixTest
       case LaggedZ_op:
         *res_bM = b_lagged_mat(ZbM, params.n);
         break;
-      case CopyA_op:
-        *res_bM = AbM.deepcopy();
-        break;
       case CopyA2D_op:
         *res_bM = b_2dcopy(AbM, params.s, params.t, params.p, params.q);
         break;
@@ -252,10 +244,6 @@ class BatchedMatrixTest
                                 Z.data() + bid * params.m, params.m, params.n);
         }
         break;
-      case CopyA_op:
-        memcpy(res_h.data(), A.data(),
-               params.m * params.n * params.batch_size * sizeof(T));
-        break;
       case CopyA2D_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
           Naive::naive2DCopy(res_h.data() + bid * m_r * n_r,
@@ -302,7 +290,6 @@ const std::vector<BatchedMatrixInputs<double>> inputsd = {
   {AsolveZ_op, 6, 17, 17, 1, 1, 0, 0, 1e-6},
   {LaggedZ_op, 5, 31, 9, 1, 1, 0, 0, 1e-6},
   {LaggedZ_op, 7, 129, 3, 1, 1, 0, 0, 1e-6},
-  {CopyA_op, 7, 35, 43, 1, 1, 0, 0, 1e-6},
   {CopyA2D_op, 11, 31, 63, 17, 14, 5, 9, 1e-6},
   {CopyA2D_op, 4, 33, 7, 30, 4, 3, 0, 1e-6},
   {DiffA_op, 5, 11, 1, 1, 1, 0, 0, 1e-6},
@@ -321,7 +308,6 @@ const std::vector<BatchedMatrixInputs<float>> inputsf = {
   {AsolveZ_op, 6, 17, 17, 1, 1, 0, 0, 1e-2},
   {LaggedZ_op, 5, 31, 9, 1, 1, 0, 0, 1e-5},
   {LaggedZ_op, 7, 129, 3, 1, 1, 0, 0, 1e-5},
-  {CopyA_op, 7, 35, 43, 1, 1, 0, 0, 1e-5},
   {CopyA2D_op, 11, 31, 63, 17, 14, 5, 9, 1e-5},
   {CopyA2D_op, 4, 33, 7, 30, 4, 3, 0, 1e-5},
   {DiffA_op, 5, 11, 1, 1, 1, 0, 0, 1e-2},
