@@ -38,6 +38,7 @@
 - PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
 - PR #1570: Relax nccl in conda recipes to >=2.4 (matching CI)
 - PR #1578: Add missing function information to the cuML documenataion
+- PR #1584: Add has_scipy utility function for runtime check
 - PR #1583: API docs updates for 0.12
 
 ## Bug Fixes
