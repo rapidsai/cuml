@@ -42,7 +42,8 @@ class LogisticRegression(Base):
     an event.
 
     cuML's LogisticRegression can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects.
     It provides both single-class (using sigmoid loss) and multiple-class
     (using softmax loss) variants, depending on the input variables.
 
@@ -52,6 +53,7 @@ class LogisticRegression(Base):
 
     - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
     regularization
+
     - Limited Memory BFGS (L-BFGS) otherwise.
 
 
@@ -129,7 +131,7 @@ class LogisticRegression(Base):
         Controls verbosity level of logging.
     l1_ratio: float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
-    solver: 'qn', 'lbfgs', 'owl' (default=qn).
+    solver: 'qn', 'lbfgs', 'owl' (default='qn').
         Algorithm to use in the optimization problem. Currently only `qn` is
         supported, which automatically selects either L-BFGS or OWL-QN
         depending on the conditions of the l1 regularization described
@@ -149,12 +151,12 @@ class LogisticRegression(Base):
     ------
 
     cuML's LogisticRegression uses a different solver that the equivalent
-    Scikit-learn except when there is no penalty and `solver=lbfgs` is
-    chosen in Scikit-learn. This can cause (smaller) differences in the
-    coefficients and predictions of the model, similar to difference when
+    Scikit-learn, except when there is no penalty and `solver=lbfgs` is
+    used in Scikit-learn. This can cause (smaller) differences in the
+    coefficients and predictions of the model, similar to
     using different solvers in Scikit-learn.
 
-    For additional docs, see Scikit-learn's LogistRegression
+    For additional information, see Scikit-learn's LogistRegression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
