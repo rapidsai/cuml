@@ -113,6 +113,7 @@ class QN(Base):
 
     - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
     regularization
+
     - Limited Memory BFGS (L-BFGS) otherwise.
 
     cuML's QN class can take array-like objects, either in host as
@@ -206,8 +207,10 @@ class QN(Base):
     Notes
     ------
        This class contains implementations of two popular Quasi-Newton methods:
+
        - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
        Wright - Numerical Optimization (1999)]
+
        - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML
        2007]
        <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
@@ -245,6 +248,7 @@ class QN(Base):
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -357,6 +361,7 @@ class QN(Base):
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)

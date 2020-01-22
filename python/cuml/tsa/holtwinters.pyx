@@ -74,16 +74,16 @@ class ExponentialSmoothing(Base):
     number of features when compared to the
     statsmodels.holtwinters.ExponentialSmoothing model. Noticeably, it lacks:
 
-        * .predict() : no support for in-sample prediction.
+        * predict : no support for in-sample prediction.
                        https://github.com/rapidsai/cuml/issues/875
 
-        * .hessian() : no support for returning Hessian matrix.
+        * hessian : no support for returning Hessian matrix.
                        https://github.com/rapidsai/cuml/issues/880
 
-        * .information() : no support for returning Fisher matrix.
+        * information : no support for returning Fisher matrix.
                            https://github.com/rapidsai/cuml/issues/880
 
-        * .loglike() : no support for returning Log-likelihood.
+        * loglike : no support for returning Log-likelihood.
                        https://github.com/rapidsai/cuml/issues/880
 
     Additionally, be warned that there may exist floating point instability
@@ -94,12 +94,12 @@ class ExponentialSmoothing(Base):
     This version of ExponentialSmoothing differs from statsmodels in some
     other minor ways:
 
-        * .__init__() : Cannot pass trend component or damped trend component
-        * .__init__() : this version can take additional parameter eps,
-                        start_periods, ts_num, and handle
-        * .score() : returns SSE rather than gradient logL
+        * Cannot pass trend component or damped trend component
+        * this version can take additional parameters `eps`,
+                        `start_periods`, `ts_num`, and `handle`
+        * Score returns SSE rather than gradient logL
                      https://github.com/rapidsai/cuml/issues/876
-        * this version provides get_level(), get_trend(), get_season()
+        * This version provides get_level(), get_trend(), get_season()
 
     Examples
     ---------
@@ -134,31 +134,29 @@ class ExponentialSmoothing(Base):
     Parameters
     -----------
     endog : array-like (device or host)
-            Acceptable formats: cuDF DataFrame, cuDF Series,
-            NumPy ndarray, Numba device ndarray, cuda array interface
-            compliant array like CuPy.
-            Note: cuDF.DataFrame types assumes data is in columns,
-            while all other datatypes assume data is in rows.
-            The endogenous dataset to be operated on.
-    seasonal : 'additive', 'add', 'multiplicative', 'mul'
-               (default = 'additive')
-               whether the seasonal trend should be calculated
-               additively or multiplicatively.
+        Acceptable formats: cuDF DataFrame, cuDF Series,
+        NumPy ndarray, Numba device ndarray, cuda array interface
+        compliant array like CuPy.
+        Note: cuDF.DataFrame types assumes data is in columns,
+        while all other datatypes assume data is in rows.
+        The endogenous dataset to be operated on.
+    seasonal : 'additive', 'add', 'multiplicative', 'mul' (default = 'additive')  # noqa
+        Whether the seasonal trend should be calculated
+        additively or multiplicatively.
     seasonal_periods : int (default=2)
-                       the seasonality of the data (how often it
-                       repeats). For monthly data this should be 12,
-                       for weekly data, this should be 7.
+        The seasonality of the data (how often it
+        repeats). For monthly data this should be 12,
+        for weekly data, this should be 7.
     start_periods : int (default=2)
-                    number of seasons to be used for seasonal
-                    seed values
+        Number of seasons to be used for seasonal seed values
     ts_num : int (default=1)
-             the number of different time series that were passed
-             in the endog param.
+        The number of different time series that were passed
+        in the endog param.
     eps : np.number > 0 (default=2.24e-3)
-          the accuracy to which gradient descent should achieve.
-          Note that changing this value may affect the forecasted results.
+        The accuracy to which gradient descent should achieve.
+        Note that changing this value may affect the forecasted results.
     handle : cuml.Handle (default=None)
-             If it is None, a new one is created just for this class.
+        If it is None, a new one is created just for this class.
 
     """
     def __init__(self, endog, seasonal="additive",
@@ -259,7 +257,7 @@ class ExponentialSmoothing(Base):
 
     def fit(self):
         """
-        Performing fitting on the given `endog` dataset.
+        Perform fitting on the given `endog` dataset.
         Calculates the level, trend, season, and SSE components.
         """
         if isinstance(self.endog, cudf.Series):
@@ -354,17 +352,17 @@ class ExponentialSmoothing(Base):
         Parameters
         -----------
         h : int (default=1)
-            the number of points for each series to be forecasted
+            The number of points for each series to be forecasted.
         index : int (default=None)
-                the index of the time series from which you want
-                forecasted points. if None, then a cudf.DataFrame of
-                the forecasted points from all time series is returned.
+            The index of the time series from which you want
+            forecasted points. if None, then a cudf.DataFrame of
+            the forecasted points from all time series is returned.
 
         Returns
         ----------
         preds : cudf.DataFrame or cudf.Series
-                Series of forecasted points if index is provided.
-                DataFrame of all forecasted points if index=None.
+            Series of forecasted points if index is provided.
+            DataFrame of all forecasted points if index=None.
 
         """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
@@ -438,14 +436,14 @@ class ExponentialSmoothing(Base):
         Parameters:
         ------------
         index : int (default=None)
-                the index of the time series from which the SSE will be
-                returned. if None, then all SSEs are returned in a cudf
-                Series.
+            The index of the time series from which the SSE will be
+            returned. if None, then all SSEs are returned in a cudf
+            Series.
 
         Returns:
         -----------
         score : np.float32, np.float64, or cudf.Series
-                the SSE of the fitted model
+            The SSE of the fitted model.
 
         """
         if self.fit_executed_flag:
@@ -466,14 +464,14 @@ class ExponentialSmoothing(Base):
         Parameters:
         ------------
         index : int (default=None)
-                the index of the time series from which the level will be
-                returned. if None, then all level components are returned
-                in a cudf.Series.
+            The index of the time series from which the level will be
+            returned. if None, then all level components are returned
+            in a cudf.Series.
 
         Returns:
         ----------
         level : cudf.Series or cudf.DataFrame
-                the level component of the fitted model
+            The level component of the fitted model
         """
         if self.fit_executed_flag:
             if index is None:
@@ -497,14 +495,14 @@ class ExponentialSmoothing(Base):
         Parameters:
         -----------
         index : int (default=None)
-                the index of the time series from which the trend will be
-                returned. if None, then all trend components are returned
-                in a cudf.Series.
+            The index of the time series from which the trend will be
+            returned. if None, then all trend components are returned
+            in a cudf.Series.
 
         Returns:
         ---------
         trend : cudf.Series or cudf.DataFrame
-                the trend component of the fitted model
+            The trend component of the fitted model.
         """
         if self.fit_executed_flag:
             if index is None:
@@ -528,14 +526,14 @@ class ExponentialSmoothing(Base):
         Parameters:
         -----------
         index : int (default=None)
-                the index of the time series from which the season will be
-                returned. if None, then all season components are returned
-                in a cudf.Series.
+            The index of the time series from which the season will be
+            returned. if None, then all season components are returned
+            in a cudf.Series.
 
         Returns:
         ---------
         season: cudf.Series or cudf.DataFrame
-                the season component of the fitted model
+            The season component of the fitted model
         """
         if self.fit_executed_flag:
             if index is None:
