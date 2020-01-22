@@ -50,9 +50,6 @@ namespace ML {
  *                             original series.
  *                             shape=(nobs, batch_size) (device)
  * @param[in]  host_loglike    Whether loglike is a host pointer
- * @param[in]  initP_kalman_it Initialize the Kalman filter covariance `P`
- *                             with 1 or more kalman iterations instead of
- *                             an analytical heuristic.
  * @param[in]  fc_steps        Number of steps to forecast
  * @param[in]  d_fc            Array to store the forecast
  */
@@ -61,8 +58,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            const double* d_sar, const double* d_sma,
                            const double* d_sigma2, int p, int q, int P, int Q,
                            int s, int batch_size, double* loglike, double* d_vs,
-                           bool host_loglike = true,
-                           bool initP_kalman_it = false, int fc_steps = 0,
+                           bool host_loglike = true, int fc_steps = 0,
                            double* d_fc = nullptr);
 
 /**

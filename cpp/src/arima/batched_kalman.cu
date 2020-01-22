@@ -432,10 +432,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                             const BatchedMatrix& Rb, std::vector<bool>& T_mask,
                             int r, double* d_vs, double* d_Fs,
                             double* d_loglike, const double* d_sigma2,
-                            bool initP_kalman_it = false, int fc_steps = 0,
-                            double* d_fc = nullptr) {
-  /// TODO: renove initP_kalman_it parameter
-
+                            int fc_steps = 0, double* d_fc = nullptr) {
   const size_t batch_size = Zb.batches();
   auto stream = handle.getStream();
   auto cublasHandle = handle.getImpl().getCublasHandle();
@@ -455,7 +452,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                    });
   BatchedMatrix RRT = b_gemm(RQb, Rb, false, true);
 
-  /// TODO: create only when needed
+  // Note: not always used
+  // (TODO: condition here and passed to Kalman loop?)
   BatchedCSR T_sparse =
     BatchedCSR::from_dense(Tb, T_mask, handle.getImpl().getcusolverSpHandle());
 
@@ -560,8 +558,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            const double* d_sar, const double* d_sma,
                            const double* d_sigma2, int p, int q, int P, int Q,
                            int s, int batch_size, double* loglike, double* d_vs,
-                           bool host_loglike, bool initP_kalman_it,
-                           int fc_steps, double* d_fc) {
+                           bool host_loglike, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE("batched_kalman_filter");
 
   const size_t ys_len = nobs;
@@ -598,7 +595,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   }
 
   _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, T_mask, r, d_vs, d_Fs,
-                         d_loglike, d_sigma2, initP_kalman_it, fc_steps, d_fc);
+                         d_loglike, d_sigma2, fc_steps, d_fc);
 
   if (host_loglike) {
     /* Tranfer log-likelihood device -> host */

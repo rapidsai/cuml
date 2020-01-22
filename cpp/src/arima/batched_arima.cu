@@ -200,18 +200,12 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, int p, int d, int q, int P, int D, int Q,
-             int s, int intercept, const double* d_params, double* d_vs,
-             double* d_y_p) {
+             int s, int intercept, const double* d_mu, const double* d_ar,
+             const double* d_ma, const double* d_sar, const double* d_sma,
+             const double* d_sigma2, double* d_vs, double* d_y_p) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
-
-  // Unpack parameters
-  double *d_mu, *d_ar, *d_ma, *d_sar, *d_sma, *d_sigma2;
-  allocate_params(allocator, stream, p, q, P, Q, batch_size, &d_ar, &d_ma,
-                  &d_sar, &d_sma, &d_sigma2, false, intercept, &d_mu);
-  unpack(d_params, d_mu, d_ar, d_ma, d_sar, d_sma, d_sigma2, batch_size, p, q,
-         P, Q, intercept, stream);
 
   // Prepare data
   int d_sD = d + D * s;
@@ -284,8 +278,6 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
                           stream);
   }
 
-  deallocate_params(allocator, stream, p, q, P, Q, batch_size, d_ar, d_ma,
-                    d_sar, d_sma, d_sigma2, false, intercept, d_mu);
   allocator->deallocate(d_y_prep, ld_yprep * batch_size * sizeof(double),
                         stream);
   ML::POP_RANGE();
@@ -324,7 +316,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   if (d + D + intercept == 0) {
     batched_kalman_filter(handle, d_y, n_obs, d_Tar, d_Tma, d_Tsar, d_Tsma,
                           d_sigma2, p, q, P, Q, s, batch_size, loglike, d_vs,
-                          host_loglike, false, fc_steps, d_fc);
+                          host_loglike, fc_steps, d_fc);
   } else {
     double* d_y_prep = (double*)allocator->allocate(
       batch_size * (n_obs - d - s * D) * sizeof(double), stream);
@@ -334,7 +326,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
     batched_kalman_filter(handle, d_y_prep, n_obs - d - s * D, d_Tar, d_Tma,
                           d_Tsar, d_Tsma, d_sigma2, p, q, P, Q, s, batch_size,
-                          loglike, d_vs, host_loglike, false, fc_steps, d_fc);
+                          loglike, d_vs, host_loglike, fc_steps, d_fc);
 
     allocator->deallocate(
       d_y_prep, sizeof(double) * batch_size * (n_obs - d - s * D), stream);
