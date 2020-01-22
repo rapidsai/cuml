@@ -73,7 +73,7 @@ static inline __host__ __device__ double reduced_polynomial(
  * Helper function to allocate all the parameter device arrays
  *
  * @tparam      AllocatorT Type of allocator used
- * @param[in]   al         Allocator
+ * @param[in]   alloc      Allocator
  * @param[in]   stream     CUDA stream
  * @param[in]   p          Number of AR parameters
  * @param[in]   q          Number of MA parameters
@@ -113,7 +113,7 @@ static void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * Helper function to deallocate all the parameter device arrays
  *
  * @tparam      AllocatorT Type of allocator used
- * @param[in]   al         Allocator
+ * @param[in]   alloc      Allocator
  * @param[in]   stream     CUDA stream
  * @param[in]   p          Number of AR parameters
  * @param[in]   q          Number of MA parameters
@@ -154,7 +154,7 @@ static void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * @param[in]  P           Number of seasonal AR parameters
  * @param[in]  Q           Number of seasonal MA parameters
  * @param[in]  k           Whether the model fits an intercept (constant term)
- * @param[in]  d_mu        mu if intercept != 0. Shape: (batch_size,) (device)
+ * @param[in]  d_mu        mu if k != 0. Shape: (batch_size,) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
  * @param[in]  d_sar       Seasonal AR parameters.
@@ -205,7 +205,7 @@ static void pack(int batch_size, int p, int q, int P, int Q, int k,
  * 
  * @param[in]  d_params   Linear array of all parameters grouped by batch
  *                        [mu, ar, ma] (device)
- * @param[out] d_mu       mu if intercept != 0. Shape: (batch_size,) (device)
+ * @param[out] d_mu       mu if k != 0. Shape: (batch_size,) (device)
  * @param[out] d_ar       AR parameters. Shape: (p, batch_size) (device)
  * @param[out] d_ma       MA parameters. Shape: (q, batch_size) (device)
  * @param[out] d_sar      Seasonal AR parameters.
