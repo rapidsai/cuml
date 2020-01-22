@@ -69,7 +69,7 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         const double* d_sar, const double* d_sma, const double* d_sigma2,
         double* ic, int ic_type)
 
-    void estimate_x0 (
+    void estimate_x0(
         cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
         double* d_sar, double* d_sma, double* d_sigma2, const double* d_y,
         int batch_size, int nobs, int p, int d, int q, int P, int D, int Q,
@@ -109,7 +109,8 @@ class ARIMA(Base):
         pattern = np.array([[0.05, 0.0], [0.07, 0.03],
                             [-0.03, 0.05], [0.02, 0.025]])
         noise = np.random.normal(scale=0.01, size=(n_obs, 2))
-        y = np.column_stack((0.5*x, -0.25*x)) + noise + np.tile(pattern, (25, 1))
+        y = (np.column_stack((0.5*x, -0.25*x)) + noise
+             + np.tile(pattern, (25, 1)))
 
         # Fit a seasonal ARIMA model
         model = arima.ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
@@ -185,7 +186,7 @@ class ARIMA(Base):
     This class is heavily influenced by the Python library `statsmodels`,
     particularly `statsmodels.tsa.statespace.sarimax.SARIMAX`.
     See https://www.statsmodels.org/stable/statespace.html
-    
+
     Additionally the following book is a useful reference:
     "Time Series Analysis by State Space Methods",
     J. Durbin, S.J. Koopman, 2nd Edition (2012).
@@ -528,20 +529,25 @@ class ARIMA(Base):
                     <int> s, <int> self.intercept)
 
         params = dict()
-        if self.intercept: params["mu"] = d_mu.copy_to_host()
-        if p: params["ar"] = d_ar.copy_to_host()
-        if q: params["ma"] = d_ma.copy_to_host()
-        if P: params["sar"] = d_sar.copy_to_host()
-        if Q: params["sma"] = d_sma.copy_to_host()
+        if self.intercept:
+            params["mu"] = d_mu.copy_to_host()
+        if p:
+            params["ar"] = d_ar.copy_to_host()
+        if q:
+            params["ma"] = d_ma.copy_to_host()
+        if P:
+            params["sar"] = d_sar.copy_to_host()
+        if Q:
+            params["sma"] = d_sma.copy_to_host()
         params["sigma2"] = d_sigma2.copy_to_host()
         self.set_params(params)
 
     @nvtx_range_wrap
     def fit(self,
-            start_params: Optional[Mapping[str, object]]=None,
-            opt_disp: int=-1,
-            h: float=1e-9,
-            maxiter=1000):
+            start_params: Optional[Mapping[str, object]] = None,
+            opt_disp: int = -1,
+            h: float = 1e-9,
+            maxiter = 1000):
         """Fit the ARIMA model to each time series.
 
         Parameters
@@ -610,7 +616,6 @@ class ARIMA(Base):
         self.unpack(self._batched_transform(x))
         self.niter = niter
 
-
     @nvtx_range_wrap
     def _loglike(self, x, trans=True):
         """Compute the batched log-likelihood for the given parameters.
@@ -654,7 +659,6 @@ class ARIMA(Base):
                         <bool> trans, <bool> True)
 
         return np.array(vec_loglike, dtype=np.float64)
-
 
     @nvtx_range_wrap
     def _loglike_grad(self, x, h=1e-8, trans=True):
@@ -714,13 +718,11 @@ class ARIMA(Base):
 
         return grad
 
-
     @property
     def llf(self):
         """Log-likelihood of a fit model. Shape: (batch_size,)
         """
         return self._loglike(self.pack(), trans=False)
-
 
     @nvtx_range_wrap
     def unpack(self, x: Union[list, np.ndarray]):
@@ -746,15 +748,19 @@ class ARIMA(Base):
         params = dict()
         # Note: going through np.array to avoid getting incorrect strides when
         # batch_size is 1
-        if k > 0: params["mu"] = np.array(x_mat[0], order='F')
-        if p > 0: params["ar"] = np.array(x_mat[k:k+p], order='F')
-        if q > 0: params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
-        if P > 0: params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
-        if Q > 0: params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
+        if k > 0:
+            params["mu"] = np.array(x_mat[0], order='F')
+        if p > 0:
+            params["ar"] = np.array(x_mat[k:k+p], order='F')
+        if q > 0:
+            params["ma"] = np.array(x_mat[k+p:k+p+q], order='F')
+        if P > 0:
+            params["sar"] = np.array(x_mat[k+p+q:k+p+q+P], order='F')
+        if Q > 0:
+            params["sma"] = np.array(x_mat[k+p+q+P:k+p+q+P+Q], order='F')
         params["sigma2"] = np.array(x_mat[k+p+q+P+Q], order='F')
 
         self.set_params(params)
-
 
     @nvtx_range_wrap
     def pack(self) -> np.ndarray:
@@ -776,15 +782,19 @@ class ARIMA(Base):
         # 2D array for convenience
         x = np.zeros((N, self.batch_size), order='F')
 
-        if k > 0: x[0] = params["mu"]
-        if p > 0: x[k:k+p] = params["ar"]
-        if q > 0: x[k+p:k+p+q] = params["ma"]
-        if P > 0: x[k+p+q:k+p+q+P] = params["sar"]
-        if Q > 0: x[k+p+q+P:k+p+q+P+Q] = params["sma"]
+        if k > 0:
+            x[0] = params["mu"]
+        if p > 0:
+            x[k:k+p] = params["ar"]
+        if q > 0:
+            x[k+p:k+p+q] = params["ma"]
+        if P > 0:
+            x[k+p+q:k+p+q+P] = params["sar"]
+        if Q > 0:
+            x[k+p+q+P:k+p+q+P+Q] = params["sma"]
         x[k+p+q+P+Q] = params["sigma2"]
 
         return x.reshape(N * self.batch_size, order='F')  # return 1D shape
-
 
     @nvtx_range_wrap
     def _batched_transform(self, x, isInv = False):
@@ -818,7 +828,8 @@ class ARIMA(Base):
 
 
 # TODO: later replace with an AutoARIMA class
-def grid_search(y_b, d=1, max_p=3, max_q=3, method="bic", fit_intercept=None):
+def grid_search(y_b, d = 1, max_p = 3, max_q = 3, method="bic",
+                fit_intercept = None):
     """Grid search to find optimal model order (p, q), weighing
     model complexity against likelihood.
     Optimality is based on minimizing BIC or AIC, which
