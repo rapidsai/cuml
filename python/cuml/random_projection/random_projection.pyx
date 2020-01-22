@@ -357,7 +357,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired by Scikit-learn's implementation :
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """
@@ -468,7 +468,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired by Scikit-learn's implementation :
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """

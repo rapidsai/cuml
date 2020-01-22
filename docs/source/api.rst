@@ -10,8 +10,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. automodule:: cuml.preprocessing.model_selection
-    :members:
+ .. automethod:: cuml.preprocessing.model_selection.train_test_split
 
 Label Encoding
 --------------
@@ -58,23 +57,6 @@ Benchmarking
 
   .. automodule:: cuml.benchmark.datagen
     :members:
-
-
-
-Utilities for I/O and Numba
----------------------------
-
-  .. automodule:: cuml.utils.input_utils
-    :members:
-
-  .. automodule:: cuml.utils.numba_utils
-    :members:
-
-Utilities for Dask and Multi-GPU Preprocessing
------------------------------------------------
-
-  .. automodule:: cuml.dask.common.utils
-     :members:
 
 
 Regression and Classification
@@ -221,7 +203,7 @@ Random Projections
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
 
-.. autoclass:: cuml.random_projection.johnson_lindenstrauss_min_dim
+.. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
     :members:
 
 TSNE
