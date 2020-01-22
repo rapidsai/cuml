@@ -255,13 +255,16 @@ class BatchedCSR {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return values array
-  T* get_values() const { return m_values.get(); }
+  T* get_values() { return m_values.get(); }
+  const T* get_values() const { return m_values.get(); }
 
   //! Return columns index array
-  int* get_col_index() const { return m_col_index.get(); }
+  int* get_col_index() { return m_col_index.get(); }
+  const int* get_col_index() const { return m_col_index.get(); }
 
   //! Return rows index array
-  int* get_row_index() const { return m_row_index.get(); }
+  int* get_row_index() { return m_row_index.get(); }
+  const int* get_row_index() const { return m_row_index.get(); }
 
  protected:
   //! Shape (rows, cols) of matrices.
