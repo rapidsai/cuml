@@ -54,7 +54,8 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
         int seed,
         int metric,
         double oversampling_factor,
-        int batch_size,
+        int batch_samples,
+        int batch_centroids,
         bool inertia_check
 
 cdef extern from "cumlprims/opg/kmeans.hpp" namespace "ML::kmeans::opg" nogil:
@@ -164,10 +165,9 @@ class KMeansMG(KMeans):
 
         self.handle.sync()
         cc_df = cudf.DataFrame()
-        for i in range(0, self.n_cols):
-            n_c = self.n_clusters
-            n_cols = self.n_cols
-            cc_df[str(i)] = self.cluster_centers_[i:n_c*n_cols:n_cols]
+        cc_df = cc_df.from_gpu_matrix(
+            self.cluster_centers_.reshape(self.n_clusters,
+                                          self.n_cols))
         self.cluster_centers_ = cc_df
 
         del(X_m)

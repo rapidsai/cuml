@@ -1,4 +1,4 @@
-# cuML 0.12.0 (Date TBD)
+# cuML 0.13.0 (Date TBD)
 
 ## New Features
 
@@ -7,14 +7,64 @@
 ## Bug Fixes
 
 
-# cuML 0.11.0 (Date TBD)
+# cuML 0.12.0 (Date TBD)
+
+## New Features
+- PR #1483: prims: Fused L2 distance and nearest-neighbor prim
+- PR #1494: bench: ml-prims benchmark
+- PR #1514: bench: Fused L2 NN prim benchmark
+- PR #1411: Cython side of MNMG OLS
+- PR #1520: Cython side of MNMG Ridge Regression
+- PR #1516: Suppor Vector Regression (epsilon-SVR)
+
+## Improvements
+- PR #1468: C++: updates to clang format flow to make it more usable among devs
+- PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
+- PR #1443: Added a new overloaded GEMM primitive
+- PR #1489: Enabling deep trees using Gather tree builder
+- PR #1463: Update FAISS submodule to 1.6.1
+- PR #1488: Add codeowners
+- PR #1432: Row-major (C-style) GPU arrays for benchmarks
+- PR #1490: Use dask master instead of conda package for testing
+- PR #1377: Add GPU array support for FIL benchmarking
+- PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
+- PR #1532: Update CuPy to >= 6.6 and allow 7.0
+- PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
+- PR #1545: Add conda environment version updates to ci script
+- PR #1541: Updates for libcudf++ Python refactor
+- PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
+- PR #1551: Change custom kernel to cupy for col/row order transform
+- PR #1533: C++: interface header file separation for SVM
+- PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
+- PR #1570: Relax nccl in conda recipes to >=2.4 (matching CI)
+- PR #1578: Add missing function information to the cuML documenataion
+- PR #1583: API docs updates for 0.12
+
+## Bug Fixes
+- PR #1470: Documentation: add make_regression, fix ARIMA section
+- PR #1482: Updated the code to remove sklearn from the mbsgd stress test
+- PR #1491: Update dev environments for 0.12
+- PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
+- PR #1498: Add build.sh to code owners
+- PR #1505: cmake: added correct dependencies for prims-bench build
+- PR #1534: Removed TODO comment in create_ucp_listeners()
+- PR #1548: Fixing umap extra unary op in knn graph
+- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
+- PR #1557: Increasing threshold for kmeans score
+- PR #1562: Increasing threshold even higher
+- PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
+- PR #1569: Remove Scikit-learn exception and depedenncy in SVM
+- PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
+- PR #1574: Updated the init file to include SVM
+
+# cuML 0.11.0 (11 Dec 2019)
 
 ## New Features
 
 - PR #1295: Cython side of MNMG PCA
 - PR #1218: prims: histogram prim
 - PR #1129: C++: Separate include folder for C++ API distribution
-- PR #1282: OPG KNN MNMG
+- PR #1282: OPG KNN MNMG Code (disabled for 0.11)
 - PR #1242: Initial implementation of FIL sparse forests
 - PR #1194: Initial ARIMA time-series modeling support.
 - PR #1286: Importing treelite models as FIL sparse forests
@@ -50,6 +100,7 @@
 - PR #1340: Updated unit tests to uses larger dataset
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
   model importing
+- PR #1367: --test-split benchmark parameter for train-test split
 - PR #1360: Improved tests for importing SciKit-Learn models into FIL
 - PR #1368: Add --num-rows benchmark command line argument
 - PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
@@ -57,8 +108,17 @@
 - PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
 - PR #1345: Removing deprecated should_downcast argument
 - PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1376: AUTO value for FIL algorithm
+- PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
 - PR #1357: Run benchmarks multiple times for CI
 - PR #1382: ARIMA optimization: move functions to C++ side
+- PR #1392: Updated RF code to reduce duplication of the code
+- PR #1444: UCX listener running in its own isolated thread
+- PR #1445: Improved performance of FIL sparse trees
+- PR #1431: Updated API docs
+- PR #1441: Remove unused CUDA conda labels
+- PR #1439: Match sklearn 0.22 default n_estimators for RF and fix test errors
+- PR #1461: Add kneighbors to API docs
 
 ## Bug Fixes
 - PR #1281: Making rng.h threadsafe
@@ -83,6 +143,12 @@
 - PR #1394: Warning added in svd for cuda version 10.1
 - PR #1407: Resolved RF predict issues and updated RF docstring
 - PR #1401: Patch for lbfgs solver for logistic regression with no l1 penalty
+- PR #1416: train_test_split numba and rmm device_array output bugfix
+- PR #1419: UMAP pickle tests are using wrong n_neighbors value for trustworthiness
+- PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
+- PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
+- PR #1458: Add joblib as an explicit requirement
+- PR #1474: Defer knn mnmg to 0.12 nightly builds and disable ucx-py dependency
 
 # cuML 0.10.0 (16 Oct 2019)
 

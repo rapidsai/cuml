@@ -128,6 +128,7 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   void get_request_id(request_t* req) const;
 
 #ifdef WITH_UCX
+  void* _ucp_handle;
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
   mutable request_t _next_request_id;

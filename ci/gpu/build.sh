@@ -42,8 +42,8 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c conda-forge -c conda-forge/label/rc_ucx -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
-      "cupy>=6.5,<7.0" \
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+      "cupy>=6.6.0,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
@@ -54,19 +54,19 @@ conda install -c conda-forge -c conda-forge/label/rc_ucx -c rapidsai -c rapidsai
       "umap-learn" \
       "protobuf >=3.4.1,<4.0.0" \
       "nccl>=2.4" \
-      "dask=2.5.0" \
-      "distributed=2.5.1" \
-      "dask-ml" \
+      "dask>=2.8.0" \
+      "distributed>=2.8.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
+      "ucx-py=0.12*" \
       "statsmodels" \
-      "ucx-py=0.2*" \
       "xgboost=0.90.rapidsdev1"
 
-
-# installing libclang separately so it doesn't get installed from conda-forge
-conda install -c rapidsai \
-      libclang
+# Install the master version of dask, distributed, and dask-ml
+logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
+pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
+logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
+pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
 
 logger "Check versions..."
 python --version
@@ -124,6 +124,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
+
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
 
 ################################################################################

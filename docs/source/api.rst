@@ -10,8 +10,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. automodule:: cuml.preprocessing.model_selection
-    :members:
+ .. automethod:: cuml.preprocessing.model_selection.train_test_split
 
 Label Encoding
 --------------
@@ -19,10 +18,18 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
 
-Dataset Generation
-------------------
+Dataset Generation (Single-GPU)
+-------------------------------
 
   .. automethod:: cuml.datasets.make_blobs
+  .. automethod:: cuml.datasets.make_regression
+
+
+Dataset Generation (Dask-based Multi-GPU)
+-----------------------------------------
+  .. automodule:: cuml.dask.datasets.blobs
+     :members:
+
 
 Metrics
 ---------
@@ -50,17 +57,7 @@ Benchmarking
 
   .. automodule:: cuml.benchmark.datagen
     :members:
-    
-       
 
-Utilities for I/O and Numba
----------------------------
-
-  .. automodule:: cuml.utils.input_utils
-    :members:
-
-  .. automodule:: cuml.utils.numba_utils
-    :members:
 
 Regression and Classification
 =============================
@@ -72,7 +69,7 @@ Linear Regression
     :members:
 
 Logistic Regression
------------------
+-------------------
 
 .. autoclass:: cuml.LogisticRegression
     :members:
@@ -95,14 +92,14 @@ ElasticNet Regression
 .. autoclass:: cuml.ElasticNet
     :members:
 
-Mini Batch SGD Classifier 
----------------------
+Mini Batch SGD Classifier
+-------------------------
 
 .. autoclass:: cuml.MBSGDClassifier
     :members:
 
 Mini Batch SGD Regressor
----------------------
+------------------------
 
 .. autoclass:: cuml.MBSGDRegressor
     :members:
@@ -123,9 +120,15 @@ Random Forest
     :members:
 
 Forest Inferencing
--------------------------
+------------------
 
 .. autoclass:: cuml.ForestInference
+    :members:
+
+Coordinate Descent
+------------------
+
+.. autoclass:: cuml.CD
     :members:
 
 Quasi-Newton
@@ -138,6 +141,21 @@ Support Vector Machines
 ------------------------
 
 .. autoclass:: cuml.svm.SVC
+    :members:
+
+.. autoclass:: cuml.svm.SVR
+    :members:
+
+Nearest Neighbors Classification
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsClassifier
+    :members:
+
+Nearest Neighbors Regression
+----------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Clustering
@@ -185,6 +203,9 @@ Random Projections
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
 
+.. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
+    :members:
+
 TSNE
 -------------
 
@@ -197,7 +218,19 @@ Neighbors
 Nearest Neighbors
 -----------------
 
-.. autoclass:: cuml.NearestNeighbors
+.. autoclass:: cuml.neighbors.NearestNeighbors
+    :members:
+
+Nearest Neighbors Classification
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsClassifier
+    :members:
+
+Nearest Neighbors Classification
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Time Series
@@ -215,6 +248,12 @@ Kalman Filter
 .. autoclass:: cuml.KalmanFilter
     :members:
 
+ARIMA
+-----
+
+.. autoclass:: cuml.tsa.ARIMAModel
+    :members:
+
 Multi-Node, Multi-GPU Algorithms
 ================================
 
@@ -224,6 +263,17 @@ K-Means Clustering
 .. autoclass:: cuml.dask.cluster.KMeans
     :members:
 
+Nearest Neighbors
+-----------------
+
+.. autoclass:: cuml.dask.neighbors.NearestNeighbors
+    :members:
+
+Principal Component Analysis
+-----------------------------
+.. autoclass:: cuml.dask.decomposition.PCA
+    :members:
+
 Random Forest
 -------------
 
@@ -231,4 +281,10 @@ Random Forest
     :members:
 
 .. autoclass:: cuml.dask.ensemble.RandomForestRegressor
+    :members:
+
+Truncated SVD
+--------------
+
+.. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
