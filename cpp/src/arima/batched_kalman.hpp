@@ -30,15 +30,7 @@ namespace ML {
  * @param[in]  d_ys_b        Batched time series
  *                           Shape (nobs, batch_size) (col-major, device)
  * @param[in]  nobs          Number of samples per time series
- * @param[in]  d_ar          AR parameters, in groups of size `p`
- *                           with total length `p * batch_size` (device)
- * @param[in]  d_ma          MA parameters, in groups of size `q`
- *                           with total length `q * batch_size` (device)
- * @param[in]  d_sar         Seasonal AR parameters, in groups of size `P`
- *                           with total length `P * batch_size` (device)
- * @param[in]  d_sma         Seasonal MA parameters, in groups of size `Q`
- *                           with total length `Q * batch_size` (device)
- * @param[in]  d_sigma2      Variance parameter. Shape: (batch_size,) (device)
+ * @param[in]  params        ARIMA parameters (device)
  * @param[in]  order         ARIMA hyper-parameters
  * @param[in]  batch_size    Number of series making up the batch
  * @param[out] loglike_b     Resulting loglikelihood (for each series)
@@ -50,9 +42,7 @@ namespace ML {
  * @param[in]  d_fc          Array to store the forecast
  */
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
-                           const double* d_ar, const double* d_ma,
-                           const double* d_sar, const double* d_sma,
-                           const double* d_sigma2, ARIMAOrder order,
+                           const ARIMAParamsD params, ARIMAOrder order,
                            int batch_size, double* loglike, double* d_vs,
                            bool host_loglike = true, int fc_steps = 0,
                            double* d_fc = nullptr);
@@ -65,24 +55,12 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
  * @param[in]  order      ARIMA hyper-parameters
  * @param[in]  batch_size Number of time series analyzed.
  * @param[in]  isInv      Do the inverse transform?
- * @param[in]  d_ar       AR parameters (device)
- * @param[in]  d_ma       MA parameters (device)
- * @param[in]  d_sar      Seasonal AR parameters (device)
- * @param[in]  d_sma      Seasonal MA parameters (device)
- * @param[out] d_Tar      Transformed AR parameters (device)
- *                        Allocated internally.
- * @param[out] d_Tma      Transformed MA parameters (device)
- *                        Allocated internally.
- * @param[out] d_Tsar     Transformed seasonal AR parameters (device)
- *                        Allocated internally.
- * @param[out] d_Tsma     Transformed seasonal MA parameters (device)
- *                        Allocated internally.
+ * @param[in]  params     ARIMA parameters (device)
+ * @param[in]  Tparams    Transformed ARIMA parameters (device)
  */
 void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
-                             int batch_size, bool isInv, const double* d_ar,
-                             const double* d_ma, const double* d_sar,
-                             const double* d_sma, double* d_Tar, double* d_Tma,
-                             double* d_Tsar, double* d_Tsma);
+                             int batch_size, bool isInv,
+                             const ARIMAParamsD params, ARIMAParamsD Tparams);
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure

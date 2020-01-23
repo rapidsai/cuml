@@ -23,7 +23,7 @@ namespace ML {
 /**
  * Structure to hold the ARIMA order (makes it easier to pass as an argument)
  */
-typedef struct ARIMAOrder {
+struct ARIMAOrder {
   int p;  // Basic order
   int d;
   int q;
@@ -38,6 +38,21 @@ typedef struct ARIMAOrder {
   inline int complexity() { return p + P + q + Q + k + 1; }
 
   inline bool need_prep() { return static_cast<bool>(d + D + k); }
-} ARIMAOrder;
+};
+
+/**
+ * Structure to hold the parameters (makes it easier to pass as an argument)
+ */
+template<typename T>
+struct ARIMAParams {
+  T* mu = nullptr;
+  T* ar = nullptr;
+  T* ma = nullptr;
+  T* sar = nullptr;
+  T* sma = nullptr;
+  T* sigma2 = nullptr;
+};
+
+typedef ARIMAParams<double> ARIMAParamsD;
 
 }  // namespace ML
