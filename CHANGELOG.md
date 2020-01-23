@@ -40,6 +40,7 @@
 - PR #1578: Add missing function information to the cuML documenataion
 - PR #1584: Add has_scipy utility function for runtime check
 - PR #1583: API docs updates for 0.12
+- PR #1591: Updated FIL documentation
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
