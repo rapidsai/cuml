@@ -13,7 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import cudf
+import dask_cudf
 import pytest
+import rmm
+
+import numpy as np
+import pandas as pd
 
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
@@ -22,11 +29,6 @@ from sklearn.datasets import make_regression, make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, r2_score
 from dask.distributed import Client
-
-import dask_cudf
-import cudf
-import numpy as np
-import pandas as pd
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -114,7 +116,7 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
                                                      partitions_per_worker)
 
-        X_test_cudf = cudf.DataFrame.from_gpu_matrix(X_test)
+        X_test_cudf = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
@@ -183,7 +185,7 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
         X_train_df, y_train_df = dask_utils.persist_across_workers(
             c, [X_train_df, y_train_df], workers=workers)
 
-        X_test_cudf = cudf.DataFrame.from_gpu_matrix(X_test)
+        X_test_cudf = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cu_rf_mg = cuRFR_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
