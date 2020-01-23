@@ -44,6 +44,7 @@
 - PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
 - PR #1569: Remove Scikit-learn exception and depedenncy in SVM
 - PR #1574: Updated the init file to include SVM
+- PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
 
 # cuML 0.11.0 (11 Dec 2019)
 
