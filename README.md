@@ -83,6 +83,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
 | | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
+| | Inference for decision tree-based models | Forest Inference Library (FIL) |
 |  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | K-Nearest Neighbors (KNN) Classification | |
 |  | K-Nearest Neighbors (KNN) Regression | |
