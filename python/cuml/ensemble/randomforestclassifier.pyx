@@ -645,7 +645,7 @@ class RandomForestClassifier(Base):
         """
         cdef uintptr_t X_ptr, preds_ptr
         X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X.compute(), order='C', check_dtype=self.dtype,
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)

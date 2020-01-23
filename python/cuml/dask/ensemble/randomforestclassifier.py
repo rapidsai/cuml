@@ -389,16 +389,8 @@ class RandomForestClassifier:
         c = default_client()
         workers = self.workers
 
-        #if not isinstance(X, np.ndarray):
-        #    raise ValueError("Predict inputs must be numpy arrays")
-
-        key = uuid1()
-        #gpu_futures = c.sync(extract_ddf_partitions, X)
-        #worker_to_parts = workers_to_parts(gpu_futures)
         X_Scattered = c.scatter(X)
         futures = list()
-        print(" creating the dataset and calling the predict function")
-        #for idx, wf in enumerate(worker_to_parts.items()):
         for n, w in enumerate(workers):
             futures.append(
                 c.submit(
@@ -421,21 +413,14 @@ class RandomForestClassifier:
 
         pred = list()
 
-        print("shape of the results : ", np.shape(rslts))
-        print("length of the results in rslts[0] : ", len(rslts[0]))
-        print(" self.n_estimators_per_worker[d]: ", self.n_estimators_per_worker[0])
-
-        print("length of X : ", len(X))
         for i in range(len(X)):
             classes = dict()
             max_class = -1
             max_val = 0
 
             for d in range(len(rslts)):
-                #print("shape of rslts[d] : ", np.shape(rslts[d]))
                 for j in range(self.n_estimators_per_worker[d]):
                     sub_ind = indexes[d] + j
-                    #print("indexes[d] +j : ", indexes[d] + j)
                     cls = rslts[d][sub_ind]
                     if cls not in classes.keys():
                         classes[cls] = 1
@@ -449,7 +434,6 @@ class RandomForestClassifier:
                 indexes[d] = indexes[d] + self.n_estimators_per_worker[d]
 
             pred.append(max_class)
-        print("length of predicted results: ", len(pred))
         return pred
 
     def get_params(self, deep=True):
