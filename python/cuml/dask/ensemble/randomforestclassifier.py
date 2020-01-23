@@ -22,7 +22,6 @@ import cudf
 from dask.distributed import default_client, wait
 import math
 import random
-import numpy as np
 
 from uuid import uuid1
 
