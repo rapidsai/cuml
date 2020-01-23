@@ -554,9 +554,7 @@ static void init_batched_kalman_matrices(
 }
 
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
-                           const double* d_ar, const double* d_ma,
-                           const double* d_sar, const double* d_sma,
-                           const double* d_sigma2, ARIMAOrder order,
+                           ARIMAParamsD params, ARIMAOrder order,
                            int batch_size, double* loglike, double* d_vs,
                            bool host_loglike, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE("batched_kalman_filter");
@@ -575,9 +573,9 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   BatchedMatrix Rb(r, 1, batch_size, cublasHandle, allocator, stream, false);
 
   std::vector<bool> T_mask;
-  init_batched_kalman_matrices(handle, d_ar, d_ma, d_sar, d_sma, batch_size,
-                               order, r, Zb.raw_data(), Rb.raw_data(),
-                               Tb.raw_data(), T_mask);
+  init_batched_kalman_matrices(handle, params.ar, params.ma, params.sar,
+                               params.sma, batch_size, order, r, Zb.raw_data(),
+                               Rb.raw_data(), Tb.raw_data(), T_mask);
 
   ////////////////////////////////////////////////////////////
   // Computation
@@ -595,7 +593,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   }
 
   _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, T_mask, r, d_vs, d_Fs,
-                         d_loglike, d_sigma2, fc_steps, d_fc);
+                         d_loglike, params.sigma2, fc_steps, d_fc);
 
   if (host_loglike) {
     /* Tranfer log-likelihood device -> host */
@@ -664,32 +662,26 @@ void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
     (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
   double* d_Tparams =
     (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
-  double *d_mu, *d_ar, *d_ma, *d_sar, *d_sma, *d_sigma2, *d_Tar, *d_Tma,
-    *d_Tsar, *d_Tsma;
-  allocate_params(alloc, stream, order, batch_size, &d_mu, &d_ar, &d_ma, &d_sar,
-                  &d_sma, &d_sigma2, false);
-  allocate_params(alloc, stream, order, batch_size, nullptr, &d_Tar, &d_Tma,
-                  &d_Tsar, &d_Tsma, nullptr, true);
+  ARIMAParamsD params, Tparams;
+  allocate_params(alloc, stream, order, batch_size, &params, false);
+  allocate_params(alloc, stream, order, batch_size, &Tparams, true);
 
   MLCommon::updateDevice(d_params, h_params, N * batch_size, stream);
 
-  unpack(d_params, d_mu, d_ar, d_ma, d_sar, d_sma, d_sigma2, batch_size, order,
-         stream);
+  unpack(d_params, params, batch_size, order, stream);
 
-  batched_jones_transform(handle, order, batch_size, isInv, d_ar, d_ma, d_sar,
-                          d_sma, d_Tar, d_Tma, d_Tsar, d_Tsma);
+  batched_jones_transform(handle, order, batch_size, isInv, params, Tparams);
+  Tparams.mu = params.mu;
+  Tparams.sigma2 = params. sigma2;
 
-  pack(batch_size, order, d_mu, d_Tar, d_Tma, d_Tsar, d_Tsma, d_sigma2,
-       d_Tparams, stream);
+  pack(batch_size, order, Tparams, d_Tparams, stream);
 
   MLCommon::updateHost(h_Tparams, d_Tparams, N * batch_size, stream);
 
   alloc->deallocate(d_params, N * batch_size * sizeof(double), stream);
   alloc->deallocate(d_Tparams, N * batch_size * sizeof(double), stream);
-  deallocate_params(alloc, stream, order, batch_size, d_mu, d_ar, d_ma, d_sar,
-                    d_sma, d_sigma2, false);
-  deallocate_params(alloc, stream, order, batch_size, nullptr, d_Tar, d_Tma,
-                    d_Tsar, d_Tsma, nullptr, true);
+  deallocate_params(alloc, stream, order, batch_size, params, false);
+  deallocate_params(alloc, stream, order, batch_size, Tparams, true);
 }
 
 /**
@@ -720,20 +712,22 @@ void _transform_helper(cumlHandle& handle, const double* d_param,
 }
 
 void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
-                             int batch_size, bool isInv, const double* d_ar,
-                             const double* d_ma, const double* d_sar,
-                             const double* d_sma, double* d_Tar, double* d_Tma,
-                             double* d_Tsar, double* d_Tsma) {
+                             int batch_size, bool isInv,
+                             const ARIMAParamsD params, ARIMAParamsD Tparams) {
   ML::PUSH_RANGE("batched_jones_transform");
 
   if (order.p)
-    _transform_helper(handle, d_ar, d_Tar, order.p, batch_size, isInv, true);
+    _transform_helper(handle, params.ar, Tparams.ar, order.p, batch_size, isInv,
+                      true);
   if (order.q)
-    _transform_helper(handle, d_ma, d_Tma, order.q, batch_size, isInv, false);
+    _transform_helper(handle, params.ma, Tparams.ma, order.q, batch_size, isInv,
+                      false);
   if (order.P)
-    _transform_helper(handle, d_sar, d_Tsar, order.P, batch_size, isInv, true);
+    _transform_helper(handle, params.sar, Tparams.sar, order.P, batch_size,
+                      isInv, true);
   if (order.Q)
-    _transform_helper(handle, d_sma, d_Tsma, order.Q, batch_size, isInv, false);
+    _transform_helper(handle, params.sma, Tparams.sma, order.Q, batch_size,
+                      isInv, false);
 
   ML::POP_RANGE();
 }

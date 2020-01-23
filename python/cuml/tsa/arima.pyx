@@ -62,6 +62,14 @@ cdef extern from "arima/arima_common.h" namespace "ML":
         int complexity()
         bool need_prep()
 
+    ctypedef struct ARIMAParamsD:
+        double* mu
+        double* ar
+        double* ma
+        double* sar
+        double* sma
+        double* sigma2
+
 
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void batched_loglike(
@@ -71,20 +79,15 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-        int start, int end, ARIMAOrder order, const double* d_mu,
-        const double* d_ar, const double* d_ma, const double* d_sar,
-        const double* d_sma, const double* d_sigma2, double* d_vs_ptr,
-        double* d_y_p)
+        int start, int end, ARIMAOrder order, const ARIMAParamsD params,
+        double* d_vs_ptr, double* d_y_p)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-        ARIMAOrder order, const double* d_mu, const double* d_ar,
-        const double* d_ma, const double* d_sar, const double* d_sma,
-        const double* d_sigma2, double* ic, int ic_type)
+        ARIMAOrder order, const ARIMAParamsD params, double* ic, int ic_type)
 
     void estimate_x0(
-        cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
-        double* d_sar, double* d_sma, double* d_sigma2, const double* d_y,
+        cumlHandle& handle, ARIMAParamsD params, const double* d_y,
         int batch_size, int nobs, ARIMAOrder order)
 
 
@@ -292,6 +295,14 @@ class ARIMA(Base):
         d_sigma2, d_sigma2_ptr, _, _, _ = \
             input_to_dev_array(self.sigma2, check_dtype=np.float64)
 
+        cdef ARIMAParamsD cpp_params
+        cpp_params.mu = <double*> d_mu_ptr
+        cpp_params.ar = <double*> d_ar_ptr
+        cpp_params.ma = <double*> d_ma_ptr
+        cpp_params.sar = <double*> d_sar_ptr
+        cpp_params.sma = <double*> d_sma_ptr
+        cpp_params.sigma2 = <double*> d_sigma2_ptr
+
         cdef vector[double] ic
         ic.resize(self.batch_size)
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
@@ -305,11 +316,8 @@ class ARIMA(Base):
 
         information_criterion(handle_[0], <double*> d_y_ptr,
                               <int> self.batch_size, <int> self.n_obs,
-                              <ARIMAOrder> order, <double*> d_mu_ptr,
-                              <double*> d_ar_ptr, <double*> d_ma_ptr,
-                              <double*> d_sar_ptr, <double*> d_sma_ptr,
-                              <double*> d_sigma2_ptr, <double*> ic.data(),
-                              <int> ic_type_id)
+                              <ARIMAOrder> order, cpp_params,
+                              <double*> ic.data(), <int> ic_type_id)
 
         return ic
 
@@ -421,7 +429,6 @@ class ARIMA(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        # Convert host parameters to device parameters
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_ma_ptr = <uintptr_t> NULL
@@ -446,6 +453,14 @@ class ARIMA(Base):
         d_sigma2, d_sigma2_ptr, _, _, _ = \
             input_to_dev_array(self.sigma2, check_dtype=np.float64)
 
+        cdef ARIMAParamsD cpp_params
+        cpp_params.mu = <double*> d_mu_ptr
+        cpp_params.ar = <double*> d_ar_ptr
+        cpp_params.ma = <double*> d_ma_ptr
+        cpp_params.sar = <double*> d_sar_ptr
+        cpp_params.sma = <double*> d_sma_ptr
+        cpp_params.sigma2 = <double*> d_sigma2_ptr
+
         predict_size = end - start
 
         # allocate residual (vs) and prediction (y_p) device memory and get
@@ -462,12 +477,8 @@ class ARIMA(Base):
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
-                    <int> self.n_obs, <int> start, <int> end,
-                    order, <double*>d_mu_ptr,
-                    <double*>d_ar_ptr, <double*>d_ma_ptr,
-                    <double*>d_sar_ptr, <double*>d_sma_ptr,
-                    <double*>d_sigma2_ptr, <double*>d_vs_ptr,
-                    <double*>d_y_p_ptr)
+                    <int> self.n_obs, <int> start, <int> end, order,
+                    cpp_params, <double*>d_vs_ptr, <double*>d_y_p_ptr)
 
         return d_y_p
 
@@ -539,12 +550,17 @@ class ARIMA(Base):
         d_sigma2 = zeros(self.batch_size, dtype=self.dtype)
         d_sigma2_ptr = get_dev_array_ptr(d_sigma2)
 
+        cdef ARIMAParamsD cpp_params
+        cpp_params.mu = <double*> d_mu_ptr
+        cpp_params.ar = <double*> d_ar_ptr
+        cpp_params.ma = <double*> d_ma_ptr
+        cpp_params.sar = <double*> d_sar_ptr
+        cpp_params.sma = <double*> d_sma_ptr
+        cpp_params.sigma2 = <double*> d_sigma2_ptr
+
         # Call C++ function
-        estimate_x0(handle_[0], <double*> d_mu_ptr, <double*> d_ar_ptr,
-                    <double*> d_ma_ptr, <double*> d_sar_ptr,
-                    <double*> d_sma_ptr, <double*> d_sigma2_ptr,
-                    <double*> d_y_ptr, <int> self.batch_size, <int> self.n_obs,
-                    order)
+        estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
+                    <int> self.batch_size, <int> self.n_obs, order)
 
         params = dict()
         if order.k:

@@ -31,7 +31,7 @@ namespace ML {
  * @param[in]  batch_size   Number of time series
  * @param[in]  nobs         Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
- * @param[in]  d_params     Parameters to evaluate group by series:
+ * @param[in]  d_params     Parameters to evaluate grouped by series:
  *                          [mu0, ar.., ma.., mu1, ..] (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
@@ -60,14 +60,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  batch_size   Number of time series
  * @param[in]  nobs         Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
- * @param[in]  d_mu         mu if d != 0. Shape: (d, batch_size) (device)
- * @param[in]  d_ar         AR parameters. Shape: (p, batch_size) (device)
- * @param[in]  d_ma         MA parameters. Shape: (q, batch_size) (device)
- * @param[in]  d_sar        Seasonal AR parameters.
- *                          Shape: (P, batch_size) (device)
- * @param[in]  d_sma        Seasonal MA parameters.
- *                          Shape: (Q, batch_size) (device)
- * @param[in]  d_sigma2     Variance parameter. Shape: (batch_size,) (device)
+ * @param[in]  params       ARIMA parameters (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
  *                          shape = (nobs, batch_size) (device)
@@ -77,12 +70,10 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, ARIMAOrder order, const double* d_mu,
-                     const double* d_ar, const double* d_ma,
-                     const double* d_sar, const double* d_sma,
-                     const double* d_sigma2, double* loglike, double* d_vs,
-                     bool trans = true, bool host_loglike = true,
-                     int fc_steps = 0, double* d_fc = nullptr);
+                     int nobs, ARIMAOrder order, const ARIMAParamsD params,
+                     double* loglike, double* d_vs, bool trans = true,
+                     bool host_loglike = true, int fc_steps = 0,
+                     double* d_fc = nullptr);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -97,22 +88,13 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  start       Index to start the prediction
  * @param[in]  end         Index to end the prediction (excluded)
  * @param[in]  order       ARIMA hyper-parameters
- * @param[in]  d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
- * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
- * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
- * @param[in]  d_sar       Seasonal AR parameters.
- *                         Shape: (P, batch_size) (device)
- * @param[in]  d_sma       Seasonal MA parameters.
- *                         Shape: (Q, batch_size) (device)
- * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
+ * @param[in]  params      ARIMA parameters (device)
  * @param[out] d_vs        Residual output (device)
  * @param[out] d_y_p       Prediction output (device)
  */
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-             int start, int end, ARIMAOrder order, const double* d_mu,
-             const double* d_ar, const double* d_ma, const double* d_sar,
-             const double* d_sma, const double* d_sigma2, double* d_vs,
-             double* d_y_p);
+             int start, int end, ARIMAOrder order, ARIMAParamsD params,
+             double* d_vs, double* d_y_p);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
@@ -124,14 +106,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  * @param[in]  nobs        Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
- * @param[in]  d_mu        mu if intercept != 0. Shape: (batch_size,) (device)
- * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
- * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
- * @param[in]  d_sar       Seasonal AR parameters.
- *                         Shape: (P, batch_size) (device)
- * @param[in]  d_sma       Seasonal MA parameters.
- *                         Shape: (Q, batch_size) (device)
- * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
+ * @param[in]  params      ARIMA parameters (device)
  * @param[out] ic          Array where to write the information criteria
  *                         Shape: (batch_size) (host)
  * @param[in]  ic_type     Type of information criterion wanted.
@@ -139,23 +114,13 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
                            int batch_size, int nobs, ARIMAOrder order,
-                           const double* d_mu, const double* d_ar,
-                           const double* d_ma, const double* d_sar,
-                           const double* d_sma, const double* d_sigma2,
-                           double* ic, int ic_type);
+                           const ARIMAParamsD params, double* ic, int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
  *
  * @param[in]  handle      cuML handle
- * @param[out] d_mu        mu if intercept != 0. Shape: (batch_size,) (device)
- * @param[out] d_ar        AR parameters. Shape: (p, batch_size) (device)
- * @param[out] d_ma        MA parameters. Shape: (q, batch_size) (device)
- * @param[out] d_sar       Seasonal AR parameters.
- *                         Shape: (P, batch_size) (device)
- * @param[out] d_sma       Seasonal MA parameters.
- *                         Shape: (Q, batch_size) (device)
- * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
+ * @param[in]  params      ARIMA parameters (device)
  * @param[in]  d_y         Series to fit: shape = (nobs, batch_size) and
  *                         expects column major data layout. (device)
  * @param[in]  batch_size  Total number of batched time series
@@ -163,8 +128,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  */
-void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
-                 double* d_sar, double* d_sma, double* d_sigma2,
-                 const double* d_y, int batch_size, int nobs, ARIMAOrder order);
+void estimate_x0(cumlHandle& handle, ARIMAParamsD params, const double* d_y,
+                 int batch_size, int nobs, ARIMAOrder order);
 
 }  // namespace ML
