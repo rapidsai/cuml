@@ -48,39 +48,51 @@ from libc.stdlib cimport malloc, free
 from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
+
+cdef extern from "arima/arima_common.h" namespace "ML":
+    ctypedef struct ARIMAOrder:
+        int p  # Basic order
+        int d
+        int q
+        int P  # Seasonal order
+        int D
+        int Q
+        int s  # Seasonal period
+        int k  # Fit intercept?
+        int complexity()
+        bool need_prep()
+
+
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void batched_loglike(
-        cumlHandle& handle, const double* y, int batch_size, int nobs, int p,
-        int d, int q, int P, int D, int Q, int s, int intercept,
-        const double* params, double* loglike, double* d_vs, bool trans,
-        bool host_loglike)
+        cumlHandle& handle, const double* y, int batch_size, int nobs,
+        ARIMAOrder order, const double* params, double* loglike, double* d_vs,
+        bool trans, bool host_loglike)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-        int start, int end, int p, int d, int q, int P, int D, int Q, int s,
-        int intercept, const double* d_mu, const double* d_ar,
-        const double* d_ma, const double* d_sar, const double* d_sma,
-        const double* d_sigma2, double* d_vs_ptr, double* d_y_p)
+        int start, int end, ARIMAOrder order, const double* d_mu,
+        const double* d_ar, const double* d_ma, const double* d_sar,
+        const double* d_sma, const double* d_sigma2, double* d_vs_ptr,
+        double* d_y_p)
 
     void information_criterion(
-        cumlHandle& handle, const double* d_y, int batch_size, int nobs, int p,
-        int d, int q, int P, int D, int Q, int s, int intercept,
-        const double* d_mu, const double* d_ar, const double* d_ma,
-        const double* d_sar, const double* d_sma, const double* d_sigma2,
-        double* ic, int ic_type)
+        cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+        ARIMAOrder order, const double* d_mu, const double* d_ar,
+        const double* d_ma, const double* d_sar, const double* d_sma,
+        const double* d_sigma2, double* ic, int ic_type)
 
     void estimate_x0(
         cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
         double* d_sar, double* d_sma, double* d_sigma2, const double* d_y,
-        int batch_size, int nobs, int p, int d, int q, int P, int D, int Q,
-        int s, int intercept)
+        int batch_size, int nobs, ARIMAOrder order)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
 
     void batched_jones_transform(
-        cumlHandle& handle, int p, int q, int P, int Q, int intercept,
-        int batchSize, bool isInv, const double* h_params, double* h_Tparams)
+        cumlHandle& handle, ARIMAOrder order, int batchSize, bool isInv,
+        const double* h_params, double* h_Tparams)
 
 
 class ARIMA(Base):
@@ -249,8 +261,11 @@ class ARIMA(Base):
         """Wrapper around C++ information_criterion
         """
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        p, d, q = self.order
-        P, D, Q, s = self.seasonal_order
+
+        cdef ARIMAOrder order
+        order.p, order.d, order.q = self.order
+        order.P, order.D, order.Q, order.s = self.seasonal_order
+        order.k = self.intercept
 
         # Convert host parameters to device parameters
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
@@ -259,19 +274,19 @@ class ARIMA(Base):
         cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
-        if self.intercept:
+        if order.k:
             d_mu, d_mu_ptr, _, _, _ = \
                 input_to_dev_array(self.mu, check_dtype=np.float64)
-        if p:
+        if order.p:
             d_ar, d_ar_ptr, _, _, _ = \
                 input_to_dev_array(self.ar, check_dtype=np.float64)
-        if q:
+        if order.q:
             d_ma, d_ma_ptr, _, _, _ = \
                 input_to_dev_array(self.ma, check_dtype=np.float64)
-        if P:
+        if order.P:
             d_sar, d_sar_ptr, _, _, _ = \
                 input_to_dev_array(self.sar, check_dtype=np.float64)
-        if Q:
+        if order.Q:
             d_sma, d_sma_ptr, _, _, _ = \
                 input_to_dev_array(self.sma, check_dtype=np.float64)
         d_sigma2, d_sigma2_ptr, _, _, _ = \
@@ -290,12 +305,11 @@ class ARIMA(Base):
 
         information_criterion(handle_[0], <double*> d_y_ptr,
                               <int> self.batch_size, <int> self.n_obs,
-                              <int> p, <int> d, <int> q, <int> P, <int> D,
-                              <int> Q, <int> s, <int> self.intercept,
-                              <double*> d_mu_ptr, <double*> d_ar_ptr,
-                              <double*> d_ma_ptr, <double*> d_sar_ptr,
-                              <double*> d_sma_ptr, <double*> d_sigma2_ptr,
-                              <double*> ic.data(), <int> ic_type_id)
+                              <ARIMAOrder> order, <double*> d_mu_ptr,
+                              <double*> d_ar_ptr, <double*> d_ma_ptr,
+                              <double*> d_sar_ptr, <double*> d_sma_ptr,
+                              <double*> d_sigma2_ptr, <double*> ic.data(),
+                              <int> ic_type_id)
 
         return ic
 
@@ -385,9 +399,10 @@ class ARIMA(Base):
             model.fit()
             y_pred = model.predict().copy_to_host()
         """
-
-        p, d, q = self.order
-        P, D, Q, s = self.seasonal_order
+        cdef ARIMAOrder order
+        order.p, order.d, order.q = self.order
+        order.P, order.D, order.Q, order.s = self.seasonal_order
+        order.k = self.intercept
 
         if start < 0:
             raise ValueError("ERROR(`predict`): start < 0")
@@ -396,9 +411,9 @@ class ARIMA(Base):
                              " the data and the prediction")
         elif end <= start:
             raise ValueError("ERROR(`predict`): end <= start")
-        elif start < d + D * s:
+        elif start < order.d + order.D * order.s:
             print("WARNING(`predict`): predictions before {} are undefined,"
-                  " will be padded with NaN".format(d + D * s),
+                  " will be set to NaN".format(order.d + order.D * order.s),
                   file=sys.stderr)
 
         if end is None:
@@ -413,19 +428,19 @@ class ARIMA(Base):
         cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
-        if self.intercept:
+        if order.k:
             d_mu, d_mu_ptr, _, _, _ = \
                 input_to_dev_array(self.mu, check_dtype=np.float64)
-        if p:
+        if order.p:
             d_ar, d_ar_ptr, _, _, _ = \
                 input_to_dev_array(self.ar, check_dtype=np.float64)
-        if q:
+        if order.q:
             d_ma, d_ma_ptr, _, _, _ = \
                 input_to_dev_array(self.ma, check_dtype=np.float64)
-        if P:
+        if order.P:
             d_sar, d_sar_ptr, _, _, _ = \
                 input_to_dev_array(self.sar, check_dtype=np.float64)
-        if Q:
+        if order.Q:
             d_sma, d_sma_ptr, _, _, _ = \
                 input_to_dev_array(self.sma, check_dtype=np.float64)
         d_sigma2, d_sigma2_ptr, _, _, _ = \
@@ -437,7 +452,7 @@ class ARIMA(Base):
         # pointers
         cdef uintptr_t d_vs_ptr
         cdef uintptr_t d_y_p_ptr
-        d_vs = rmm.device_array((self.n_obs - d - D * s,
+        d_vs = rmm.device_array((self.n_obs - order.d - order.D * order.s,
                                  self.batch_size), dtype=np.float64, order="F")
         d_y_p = rmm.device_array((predict_size, self.batch_size),
                                  dtype=np.float64, order="F")
@@ -448,9 +463,7 @@ class ARIMA(Base):
 
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
                     <int> self.n_obs, <int> start, <int> end,
-                    <int> p, <int> d, <int> q,
-                    <int> P, <int> D, <int> Q, <int> s,
-                    <int> self.intercept, <double*>d_mu_ptr,
+                    order, <double*>d_mu_ptr,
                     <double*>d_ar_ptr, <double*>d_ma_ptr,
                     <double*>d_sar_ptr, <double*>d_sma_ptr,
                     <double*>d_sigma2_ptr, <double*>d_vs_ptr,
@@ -489,8 +502,10 @@ class ARIMA(Base):
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
-        p, d, q = self.order
-        P, D, Q, s = self.seasonal_order
+        cdef ARIMAOrder order
+        order.p, order.d, order.q = self.order
+        order.P, order.D, order.Q, order.s = self.seasonal_order
+        order.k = self.intercept
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -502,20 +517,24 @@ class ARIMA(Base):
         cdef uintptr_t d_sar_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
-        if self.intercept:
+        if order.k:
             d_mu = zeros(self.batch_size, dtype=self.dtype)
             d_mu_ptr = get_dev_array_ptr(d_mu)
-        if p:
-            d_ar = zeros((p, self.batch_size), dtype=self.dtype, order='F')
+        if order.p:
+            d_ar = zeros((order.p, self.batch_size), dtype=self.dtype,
+                         order='F')
             d_ar_ptr = get_dev_array_ptr(d_ar)
-        if q:
-            d_ma = zeros((q, self.batch_size), dtype=self.dtype, order='F')
+        if order.q:
+            d_ma = zeros((order.q, self.batch_size), dtype=self.dtype,
+                         order='F')
             d_ma_ptr = get_dev_array_ptr(d_ma)
-        if P:
-            d_sar = zeros((P, self.batch_size), dtype=self.dtype, order='F')
+        if order.P:
+            d_sar = zeros((order.P, self.batch_size), dtype=self.dtype,
+                          order='F')
             d_sar_ptr = get_dev_array_ptr(d_sar)
-        if Q:
-            d_sma = zeros((Q, self.batch_size), dtype=self.dtype, order='F')
+        if order.Q:
+            d_sma = zeros((order.Q, self.batch_size), dtype=self.dtype,
+                          order='F')
             d_sma_ptr = get_dev_array_ptr(d_sma)
         d_sigma2 = zeros(self.batch_size, dtype=self.dtype)
         d_sigma2_ptr = get_dev_array_ptr(d_sigma2)
@@ -525,19 +544,18 @@ class ARIMA(Base):
                     <double*> d_ma_ptr, <double*> d_sar_ptr,
                     <double*> d_sma_ptr, <double*> d_sigma2_ptr,
                     <double*> d_y_ptr, <int> self.batch_size, <int> self.n_obs,
-                    <int> p, <int> d, <int> q, <int> P, <int> D, <int> Q,
-                    <int> s, <int> self.intercept)
+                    order)
 
         params = dict()
-        if self.intercept:
+        if order.k:
             params["mu"] = d_mu.copy_to_host()
-        if p:
+        if order.p:
             params["ar"] = d_ar.copy_to_host()
-        if q:
+        if order.q:
             params["ma"] = d_ma.copy_to_host()
-        if P:
+        if order.P:
             params["sar"] = d_sar.copy_to_host()
-        if Q:
+        if order.Q:
             params["sma"] = d_sma.copy_to_host()
         params["sigma2"] = d_sigma2.copy_to_host()
         self.set_params(params)
@@ -636,8 +654,10 @@ class ARIMA(Base):
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
 
-        p, d, q = self.order
-        P, D, Q, s = self.seasonal_order
+        cdef ARIMAOrder order
+        order.p, order.d, order.q = self.order
+        order.P, order.D, order.Q, order.s = self.seasonal_order
+        order.k = self.intercept
 
         cdef uintptr_t d_x_ptr
         d_x_array, d_x_ptr, _, _, _ = \
@@ -646,15 +666,13 @@ class ARIMA(Base):
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        d_vs = rmm.device_array((self.n_obs - d - D * s,
+        d_vs = rmm.device_array((self.n_obs - order.d - order.D * order.s,
                                  self.batch_size),
                                 dtype=np.float64, order="F")
         cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
 
         batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
-                        <int> self.n_obs, <int> p, <int> d, <int> q,
-                        <int> P, <int> D, <int> Q, <int> s,
-                        <int> self.intercept, <double*> d_x_ptr,
+                        <int> self.n_obs, order, <double*> d_x_ptr,
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
                         <bool> trans, <bool> True)
 
@@ -812,17 +830,18 @@ class ARIMA(Base):
             Packed transformed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        p, _, q = self.order
-        P, _, Q, _ = self.seasonal_order
+        cdef ARIMAOrder order
+        order.p, order.d, order.q = self.order
+        order.P, order.D, order.Q, order.s = self.seasonal_order
+        order.k = self.intercept
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        Tx = np.zeros(self.batch_size * (p + q + P + Q + self.intercept + 1))
+        Tx = np.zeros(self.batch_size * order.complexity())
 
         cdef uintptr_t x_ptr = x.ctypes.data
         cdef uintptr_t Tx_ptr = Tx.ctypes.data
-        batched_jones_transform(handle_[0], p, q, P, Q, <int> self.intercept,
-                                <int> self.batch_size, <bool> isInv,
-                                <double*>x_ptr, <double*>Tx_ptr)
+        batched_jones_transform(handle_[0], order, <int> self.batch_size,
+                                <bool> isInv, <double*>x_ptr, <double*>Tx_ptr)
 
         return (Tx)
 

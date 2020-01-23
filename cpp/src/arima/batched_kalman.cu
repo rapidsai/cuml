@@ -18,15 +18,16 @@
 #include "batched_kalman.hpp"
 
 #include <algorithm>
+#include <vector>
 
 #include <nvToolsExt.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <cub/cub.cuh>
 
-#include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
 
+#include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
 #include "linalg/batched/batched_matrix.h"
@@ -489,9 +490,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
 static void init_batched_kalman_matrices(
   cumlHandle& handle, const double* d_ar, const double* d_ma,
-  const double* d_sar, const double* d_sma, int nb, int p, int q, int P, int Q,
-  int s, int r, double* d_Z_b, double* d_R_b, double* d_T_b,
-  std::vector<bool>& T_mask) {
+  const double* d_sar, const double* d_sma, int nb, ARIMAOrder order, int r,
+  double* d_Z_b, double* d_R_b, double* d_T_b, std::vector<bool>& T_mask) {
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.getStream();
@@ -503,46 +503,46 @@ static void init_batched_kalman_matrices(
   cudaMemsetAsync(d_T_b, 0.0, r * r * nb * sizeof(double), stream);
 
   auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + nb,
-    [=] __device__(int bid) {
-      // See TSA pg. 54 for Z,R,T matrices
-      // Z = [1 0 0 0 ... 0]
-      d_Z_b[bid * r] = 1.0;
+  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
+                   [=] __device__(int bid) {
+                     // See TSA pg. 54 for Z,R,T matrices
+                     // Z = [1 0 0 0 ... 0]
+                     d_Z_b[bid * r] = 1.0;
 
-      /*     |1.0        |
-       * R = |theta_1    |
-       *     | ...       |
-       *     |theta_{r-1}|
-       */
-      d_R_b[bid * r] = 1.0;
-      for (int i = 0; i < r - 1; i++) {
-        d_R_b[bid * r + i + 1] =
-          reduced_polynomial<false>(bid, d_ma, q, d_sma, Q, s, i + 1);
-      }
+                     //     |1.0        |
+                     // R = |theta_1    |
+                     //     | ...       |
+                     //     |theta_{r-1}|
+                     //
+                     d_R_b[bid * r] = 1.0;
+                     for (int i = 0; i < r - 1; i++) {
+                       d_R_b[bid * r + i + 1] = reduced_polynomial<false>(
+                         bid, d_ma, order.q, d_sma, order.Q, order.s, i + 1);
+                     }
 
-      /*     |phi_1  1.0  0.0  ...  0.0|
-       *     | .          1.0          |
-       *     | .              .        |
-       * T = | .                .   0.0|
-       *     | .                  .    |
-       *     | .                    1.0|
-       *     |phi_r  0.0  0.0  ...  0.0|
-       */
-      double* batch_T = d_T_b + bid * r * r;
-      for (int i = 0; i < r; i++) {
-        batch_T[i] = reduced_polynomial<true>(bid, d_ar, p, d_sar, P, s, i + 1);
-      }
-      // shifted identity
-      for (int i = 0; i < r - 1; i++) {
-        batch_T[(i + 1) * r + i] = 1.0;
-      }
-    });
+                     //     |phi_1  1.0  0.0  ...  0.0|
+                     //     | .          1.0          |
+                     //     | .              .        |
+                     // T = | .                .   0.0|
+                     //     | .                  .    |
+                     //     | .                    1.0|
+                     //     |phi_r  0.0  0.0  ...  0.0|
+                     //
+                     double* batch_T = d_T_b + bid * r * r;
+                     for (int i = 0; i < r; i++) {
+                       batch_T[i] = reduced_polynomial<true>(
+                         bid, d_ar, order.p, d_sar, order.P, order.s, i + 1);
+                     }
+                     // shifted identity
+                     for (int i = 0; i < r - 1; i++) {
+                       batch_T[(i + 1) * r + i] = 1.0;
+                     }
+                   });
 
   T_mask.resize(r * r, false);
-  for (int iP = 0; iP < P + 1; iP++) {
-    for (int ip = 0; ip < p + 1; ip++) {
-      int i = iP * s + ip - 1;
+  for (int iP = 0; iP < order.P + 1; iP++) {
+    for (int ip = 0; ip < order.p + 1; ip++) {
+      int i = iP * order.s + ip - 1;
       if (i >= 0) T_mask[i] = true;
     }
   }
@@ -556,8 +556,8 @@ static void init_batched_kalman_matrices(
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            const double* d_ar, const double* d_ma,
                            const double* d_sar, const double* d_sma,
-                           const double* d_sigma2, int p, int q, int P, int Q,
-                           int s, int batch_size, double* loglike, double* d_vs,
+                           const double* d_sigma2, ARIMAOrder order,
+                           int batch_size, double* loglike, double* d_vs,
                            bool host_loglike, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE("batched_kalman_filter");
 
@@ -568,15 +568,15 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   auto allocator = handle.getDeviceAllocator();
 
   // see (3.18) in TSA by D&K
-  int r = std::max(p + s * P, q + s * Q + 1);
+  int r = order.r();
 
   BatchedMatrix Zb(1, r, batch_size, cublasHandle, allocator, stream, false);
   BatchedMatrix Tb(r, r, batch_size, cublasHandle, allocator, stream, false);
   BatchedMatrix Rb(r, 1, batch_size, cublasHandle, allocator, stream, false);
 
   std::vector<bool> T_mask;
-  init_batched_kalman_matrices(handle, d_ar, d_ma, d_sar, d_sma, batch_size, p,
-                               q, P, Q, s, r, Zb.raw_data(), Rb.raw_data(),
+  init_batched_kalman_matrices(handle, d_ar, d_ma, d_sar, d_sma, batch_size,
+                               order, r, Zb.raw_data(), Rb.raw_data(),
                                Tb.raw_data(), T_mask);
 
   ////////////////////////////////////////////////////////////
@@ -654,10 +654,10 @@ void fix_ar_ma_invparams(const double* d_old_params, double* d_new_params,
     });
 }
 
-void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
-                             int intercept, int batch_size, bool isInv,
-                             const double* h_params, double* h_Tparams) {
-  int N = p + q + P + Q + intercept + 1;
+void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
+                             int batch_size, bool isInv, const double* h_params,
+                             double* h_Tparams) {
+  int N = order.complexity();
   auto alloc = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_params =
@@ -666,30 +666,30 @@ void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
     (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
   double *d_mu, *d_ar, *d_ma, *d_sar, *d_sma, *d_sigma2, *d_Tar, *d_Tma,
     *d_Tsar, *d_Tsma;
-  allocate_params(alloc, stream, p, q, P, Q, batch_size, &d_ar, &d_ma, &d_sar,
-                  &d_sma, &d_sigma2, false, intercept, &d_mu);
-  allocate_params(alloc, stream, p, q, P, Q, batch_size, &d_Tar, &d_Tma,
+  allocate_params(alloc, stream, order, batch_size, &d_mu, &d_ar, &d_ma, &d_sar,
+                  &d_sma, &d_sigma2, false);
+  allocate_params(alloc, stream, order, batch_size, nullptr, &d_Tar, &d_Tma,
                   &d_Tsar, &d_Tsma, nullptr, true);
 
   MLCommon::updateDevice(d_params, h_params, N * batch_size, stream);
 
-  unpack(d_params, d_mu, d_ar, d_ma, d_sar, d_sma, d_sigma2, batch_size, p, q,
-         P, Q, intercept, stream);
+  unpack(d_params, d_mu, d_ar, d_ma, d_sar, d_sma, d_sigma2, batch_size, order,
+         stream);
 
-  batched_jones_transform(handle, p, q, P, Q, batch_size, isInv, d_ar, d_ma,
-                          d_sar, d_sma, d_Tar, d_Tma, d_Tsar, d_Tsma);
+  batched_jones_transform(handle, order, batch_size, isInv, d_ar, d_ma, d_sar,
+                          d_sma, d_Tar, d_Tma, d_Tsar, d_Tsma);
 
-  pack(batch_size, p, q, P, Q, intercept, d_mu, d_Tar, d_Tma, d_Tsar, d_Tsma,
-       d_sigma2, d_Tparams, stream);
+  pack(batch_size, order, d_mu, d_Tar, d_Tma, d_Tsar, d_Tsma, d_sigma2,
+       d_Tparams, stream);
 
   MLCommon::updateHost(h_Tparams, d_Tparams, N * batch_size, stream);
 
   alloc->deallocate(d_params, N * batch_size * sizeof(double), stream);
   alloc->deallocate(d_Tparams, N * batch_size * sizeof(double), stream);
-  deallocate_params(alloc, stream, p, q, P, Q, batch_size, d_ar, d_ma, d_sar,
-                    d_sma, d_sigma2, false, intercept, d_mu);
-  deallocate_params(alloc, stream, p, q, P, Q, batch_size, d_Tar, d_Tma, d_Tsar,
-                    d_Tsma, nullptr, true);
+  deallocate_params(alloc, stream, order, batch_size, d_mu, d_ar, d_ma, d_sar,
+                    d_sma, d_sigma2, false);
+  deallocate_params(alloc, stream, order, batch_size, nullptr, d_Tar, d_Tma,
+                    d_Tsar, d_Tsma, nullptr, true);
 }
 
 /**
@@ -719,17 +719,21 @@ void _transform_helper(cumlHandle& handle, const double* d_param,
   allocator->deallocate(d_param_fixed, sizeof(double) * batch_size * k, stream);
 }
 
-void batched_jones_transform(cumlHandle& handle, int p, int q, int P, int Q,
+void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
                              int batch_size, bool isInv, const double* d_ar,
                              const double* d_ma, const double* d_sar,
                              const double* d_sma, double* d_Tar, double* d_Tma,
                              double* d_Tsar, double* d_Tsma) {
   ML::PUSH_RANGE("batched_jones_transform");
 
-  if (p) _transform_helper(handle, d_ar, d_Tar, p, batch_size, isInv, true);
-  if (q) _transform_helper(handle, d_ma, d_Tma, q, batch_size, isInv, false);
-  if (P) _transform_helper(handle, d_sar, d_Tsar, P, batch_size, isInv, true);
-  if (Q) _transform_helper(handle, d_sma, d_Tsma, Q, batch_size, isInv, false);
+  if (order.p)
+    _transform_helper(handle, d_ar, d_Tar, order.p, batch_size, isInv, true);
+  if (order.q)
+    _transform_helper(handle, d_ma, d_Tma, order.q, batch_size, isInv, false);
+  if (order.P)
+    _transform_helper(handle, d_sar, d_Tsar, order.P, batch_size, isInv, true);
+  if (order.Q)
+    _transform_helper(handle, d_sma, d_Tsma, order.Q, batch_size, isInv, false);
 
   ML::POP_RANGE();
 }
