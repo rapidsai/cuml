@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -348,7 +348,7 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
       std::cout << std::endl;
     }
 
-    for (int i = 0; i < this->rf_params.n_trees; i++) {
+    for (int i = 0; i < num_trees; i++) {
       int prediction;
       trees[i].predict(user_handle, &forest->trees[i],
                        &h_input[row_id * row_size], 1, n_cols, &prediction,

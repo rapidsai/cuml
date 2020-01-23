@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@ import math
 import numpy as np
 import warnings
 
-from numba import cuda
-
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
@@ -38,6 +36,8 @@ from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+
+from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
