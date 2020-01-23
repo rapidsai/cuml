@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 
 #pragma once
 #include <cuml/cuml.hpp>
-#include <vector>
+
+#include "arima_common.h"
 
 namespace ML {
 
@@ -29,14 +30,7 @@ namespace ML {
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
  * @param[in]  nobs         Number of observations in a time series
- * @param[in]  p            Number of AR parameters
- * @param[in]  d            Difference order
- * @param[in]  q            Number of MA parameters
- * @param[in]  P            Number of seasonal AR parameters
- * @param[in]  D            Seasonal difference order
- * @param[in]  Q            Number of seasonal MA parameters
- * @param[in]  s            Seasonal period
- * @param[in]  intercept    Whether the model fits an intercept (constant term)
+ * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  d_params     Parameters to evaluate group by series:
  *                          [mu0, ar.., ma.., mu1, ..] (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
@@ -48,10 +42,10 @@ namespace ML {
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, int p, int d, int q, int P, int D, int Q, int s,
-                     int intercept, const double* d_params, double* loglike,
-                     double* d_vs, bool trans = true, bool host_loglike = true,
-                     int fc_steps = 0, double* d_fc = nullptr);
+                     int nobs, ARIMAOrder order, const double* d_params,
+                     double* loglike, double* d_vs, bool trans = true,
+                     bool host_loglike = true, int fc_steps = 0,
+                     double* d_fc = nullptr);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -65,14 +59,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
  * @param[in]  nobs         Number of observations in a time series
- * @param[in]  p            Number of AR parameters
- * @param[in]  d            Difference order
- * @param[in]  q            Number of MA parameters
- * @param[in]  P            Number of seasonal AR parameters
- * @param[in]  D            Seasonal difference order
- * @param[in]  Q            Number of seasonal MA parameters
- * @param[in]  s            Seasonal period
- * @param[in]  intercept    Whether the model fits an intercept (constant term)
+ * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  d_mu         mu if d != 0. Shape: (d, batch_size) (device)
  * @param[in]  d_ar         AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma         MA parameters. Shape: (q, batch_size) (device)
@@ -90,13 +77,12 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, int p, int d, int q, int P, int D, int Q, int s,
-                     int intercept, const double* d_mu, const double* d_ar,
-                     const double* d_ma, const double* d_sar,
-                     const double* d_sma, const double* d_sigma2,
-                     double* loglike, double* d_vs, bool trans = true,
-                     bool host_loglike = true, int fc_steps = 0,
-                     double* d_fc = nullptr);
+                     int nobs, ARIMAOrder order, const double* d_mu,
+                     const double* d_ar, const double* d_ma,
+                     const double* d_sar, const double* d_sma,
+                     const double* d_sigma2, double* loglike, double* d_vs,
+                     bool trans = true, bool host_loglike = true,
+                     int fc_steps = 0, double* d_fc = nullptr);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -110,14 +96,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  *                         (all series must be identical)
  * @param[in]  start       Index to start the prediction
  * @param[in]  end         Index to end the prediction (excluded)
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference order
- * @param[in]  q           Number of MA parameters
- * @param[in]  P           Number of seasonal AR parameters
- * @param[in]  D           Seasonal difference order
- * @param[in]  Q           Number of seasonal MA parameters
- * @param[in]  s           Seasonal period
- * @param[in]  intercept   Whether the model fits an intercept (constant term)
+ * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
@@ -130,50 +109,10 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[out] d_y_p       Prediction output (device)
  */
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-             int start, int end, int p, int d, int q, int P, int D, int Q,
-             int s, int intercept, const double* d_mu, const double* d_ar,
-             const double* d_ma, const double* d_sar, const double* d_sma,
-             const double* d_sigma2, double* d_vs, double* d_y_p);
-
-/**
- * Residual of in-sample prediction of a time-series given all the model
- * parameters.
- * 
- * @note: this overload should be used when the parameters are already unpacked
- *        to avoid useless packing / unpacking
- *
- * @param[in]  handle      cuML handle
- * @param[in]  d_y         Batched Time series to predict.
- *                         Shape: (num_samples, batch size) (device)
- * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
- *                         (all series must be identical)
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference order
- * @param[in]  q           Number of MA parameters
- * @param[in]  P           Number of seasonal AR parameters
- * @param[in]  D           Seasonal difference order
- * @param[in]  Q           Number of seasonal MA parameters
- * @param[in]  s           Seasonal period
- * @param[in]  intercept   Whether the model fits an intercept (constant term)
- * @param[in]  d_mu        mu if intercept != 0. Shape: (d, batch_size) (device)
- * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
- * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
- * @param[in]  d_sar       Seasonal AR parameters.
- *                         Shape: (P, batch_size) (device)
- * @param[in]  d_sma       Seasonal MA parameters.
- *                         Shape: (Q, batch_size) (device)
- * @param[in]  d_sigma2    Variance parameter. Shape: (batch_size,) (device)
- * @param[out] d_vs        Residual output (device)
- * @param[in]  trans       Run `jones_transform` on params.
- * @param[in]  fc_steps    Number of steps to forecast
- * @param[in]  d_fc        Array to store the forecast
- */
-void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-              int p, int d, int q, int P, int D, int Q, int s, int intercept,
-              const double* d_mu, const double* d_ar, const double* d_sar,
-              const double* d_sma, const double* d_sigma2, double* d_vs,
-              bool trans, int fc_steps = 0, double* d_fc = nullptr);
+             int start, int end, ARIMAOrder order, const double* d_mu,
+             const double* d_ar, const double* d_ma, const double* d_sar,
+             const double* d_sma, const double* d_sigma2, double* d_vs,
+             double* d_y_p);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
@@ -184,14 +123,7 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  * @param[in]  batch_size  Total number of batched time series
  * @param[in]  nobs        Number of samples per time series
  *                         (all series must be identical)
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference order
- * @param[in]  q           Number of MA parameters
- * @param[in]  P           Number of seasonal AR parameters
- * @param[in]  D           Seasonal difference order
- * @param[in]  Q           Number of seasonal MA parameters
- * @param[in]  s           Seasonal period
- * @param[in]  intercept   Whether the model fits an intercept (constant term)
+ * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  d_mu        mu if intercept != 0. Shape: (batch_size,) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
@@ -206,8 +138,7 @@ void residual(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  *                         0: AIC, 1: AICc, 2: BIC
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
-                           int batch_size, int nobs, int p, int d, int q, int P,
-                           int D, int Q, int s, int intercept,
+                           int batch_size, int nobs, ARIMAOrder order,
                            const double* d_mu, const double* d_ar,
                            const double* d_ma, const double* d_sar,
                            const double* d_sma, const double* d_sigma2,
@@ -230,18 +161,10 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  * @param[in]  batch_size  Total number of batched time series
  * @param[in]  nobs        Number of samples per time series
  *                         (all series must be identical)
- * @param[in]  p           Number of AR parameters
- * @param[in]  d           Difference order
- * @param[in]  q           Number of MA parameters
- * @param[in]  P           Number of seasonal AR parameters
- * @param[in]  D           Seasonal difference order
- * @param[in]  Q           Number of seasonal MA parameters
- * @param[in]  s           Seasonal period
- * @param[in]  intercept   Whether the model fits an intercept (constant term)
+ * @param[in]  order       ARIMA hyper-parameters
  */
 void estimate_x0(cumlHandle& handle, double* d_mu, double* d_ar, double* d_ma,
                  double* d_sar, double* d_sma, double* d_sigma2,
-                 const double* d_y, int batch_size, int nobs, int p, int d,
-                 int q, int P, int D, int Q, int s, int intercept);
+                 const double* d_y, int batch_size, int nobs, ARIMAOrder order);
 
 }  // namespace ML

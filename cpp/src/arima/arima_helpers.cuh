@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@
 
 #include <cuda_runtime.h>
 
+#include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+
+#include "arima_common.h"
 
 namespace ML {
 
@@ -75,10 +78,7 @@ static inline __host__ __device__ double reduced_polynomial(
  * @tparam      AllocatorT Type of allocator used
  * @param[in]   alloc      Allocator
  * @param[in]   stream     CUDA stream
- * @param[in]   p          Number of AR parameters
- * @param[in]   q          Number of MA parameters
- * @param[in]   P          Number of seasonal AR parameters
- * @param[in]   Q          Number of seasonal MA parameters
+ * @param[in]   order      ARIMA hyper-parameters
  * @param[in]   batch_size Number of time series analyzed.
  * @param[out]  d_ar       AR parameters to allocate (device)
  * @param[out]  d_ma       MA parameters to allocate (device)
@@ -87,24 +87,28 @@ static inline __host__ __device__ double reduced_polynomial(
  * @param[in]   d_sigma2   Variance parameters to allocate (device)
  *                         Ignored if tr == true
  * @param[in]   tr         Whether these are the transformed parameters
- * @param[in]   k          Whether to fit an intercept
  * @param[out]  d_mu       Intercept parameters to allocate (device)
  */
 template <typename AllocatorT>
-static void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
-                            int q, int P, int Q, int batch_size, double** d_ar,
-                            double** d_ma, double** d_sar, double** d_sma,
-                            double** d_sigma2, bool tr = false, int k = 0,
-                            double** d_mu = nullptr) {
-  if (k) *d_mu = (double*)alloc->allocate(batch_size * sizeof(double), stream);
-  if (p)
-    *d_ar = (double*)alloc->allocate(p * batch_size * sizeof(double), stream);
-  if (q)
-    *d_ma = (double*)alloc->allocate(q * batch_size * sizeof(double), stream);
-  if (P)
-    *d_sar = (double*)alloc->allocate(P * batch_size * sizeof(double), stream);
-  if (Q)
-    *d_sma = (double*)alloc->allocate(Q * batch_size * sizeof(double), stream);
+static void allocate_params(AllocatorT& alloc, cudaStream_t stream,
+                            ARIMAOrder order, int batch_size, double** d_mu,
+                            double** d_ar, double** d_ma, double** d_sar,
+                            double** d_sma, double** d_sigma2,
+                            bool tr = false) {
+  if (order.k && !tr)
+    *d_mu = (double*)alloc->allocate(batch_size * sizeof(double), stream);
+  if (order.p)
+    *d_ar =
+      (double*)alloc->allocate(order.p * batch_size * sizeof(double), stream);
+  if (order.q)
+    *d_ma =
+      (double*)alloc->allocate(order.q * batch_size * sizeof(double), stream);
+  if (order.P)
+    *d_sar =
+      (double*)alloc->allocate(order.P * batch_size * sizeof(double), stream);
+  if (order.Q)
+    *d_sma =
+      (double*)alloc->allocate(order.Q * batch_size * sizeof(double), stream);
   if (!tr)
     *d_sigma2 = (double*)alloc->allocate(batch_size * sizeof(double), stream);
 }
@@ -115,10 +119,7 @@ static void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * @tparam      AllocatorT Type of allocator used
  * @param[in]   alloc      Allocator
  * @param[in]   stream     CUDA stream
- * @param[in]   p          Number of AR parameters
- * @param[in]   q          Number of MA parameters
- * @param[in]   P          Number of seasonal AR parameters
- * @param[in]   Q          Number of seasonal MA parameters
+ * @param[in]   order      ARIMA hyper-parameters
  * @param[in]   batch_size Number of time series analyzed.
  * @param[out]  d_ar       AR parameters to deallocate (device)
  * @param[out]  d_ma       MA parameters to deallocate (device)
@@ -127,20 +128,24 @@ static void allocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * @param[out]  d_sigma2   Variance parameters to deallocate (device)
  *                         Ignored if tr == true
  * @param[in]   tr         Whether these are the transformed parameters
- * @param[in]   k          Whether to fit an intercept
  * @param[out]  d_mu       Intercept parameters to deallocate (device)
  */
 template <typename AllocatorT>
-static void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
-                              int q, int P, int Q, int batch_size, double* d_ar,
-                              double* d_ma, double* d_sar, double* d_sma,
-                              double* d_sigma2, bool tr = false, int k = 0,
-                              double* d_mu = nullptr) {
-  if (k) alloc->deallocate(d_mu, batch_size * sizeof(double), stream);
-  if (p) alloc->deallocate(d_ar, p * batch_size * sizeof(double), stream);
-  if (q) alloc->deallocate(d_ma, q * batch_size * sizeof(double), stream);
-  if (P) alloc->deallocate(d_sar, P * batch_size * sizeof(double), stream);
-  if (Q) alloc->deallocate(d_sma, Q * batch_size * sizeof(double), stream);
+static void deallocate_params(AllocatorT& alloc, cudaStream_t stream,
+                              ARIMAOrder order, int batch_size, double* d_mu,
+                              double* d_ar, double* d_ma, double* d_sar,
+                              double* d_sma, double* d_sigma2,
+                              bool tr = false) {
+  if (order.k && !tr)
+    alloc->deallocate(d_mu, batch_size * sizeof(double), stream);
+  if (order.p)
+    alloc->deallocate(d_ar, order.p * batch_size * sizeof(double), stream);
+  if (order.q)
+    alloc->deallocate(d_ma, order.q * batch_size * sizeof(double), stream);
+  if (order.P)
+    alloc->deallocate(d_sar, order.P * batch_size * sizeof(double), stream);
+  if (order.Q)
+    alloc->deallocate(d_sma, order.Q * batch_size * sizeof(double), stream);
   if (!tr) alloc->deallocate(d_sigma2, batch_size * sizeof(double), stream);
 }
 
@@ -149,11 +154,7 @@ static void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * parameter vector
  *
  * @param[in]  batch_size  Batch size
- * @param[in]  p           Number of AR parameters
- * @param[in]  q           Number of MA parameters
- * @param[in]  P           Number of seasonal AR parameters
- * @param[in]  Q           Number of seasonal MA parameters
- * @param[in]  k           Whether the model fits an intercept (constant term)
+ * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  d_mu        mu if k != 0. Shape: (batch_size,) (device)
  * @param[in]  d_ar        AR parameters. Shape: (p, batch_size) (device)
  * @param[in]  d_ma        MA parameters. Shape: (q, batch_size) (device)
@@ -165,36 +166,35 @@ static void deallocate_params(AllocatorT& alloc, cudaStream_t stream, int p,
  * @param[out] d_params    Output parameter vector
  * @param[in]  stream      CUDA stream
  */
-static void pack(int batch_size, int p, int q, int P, int Q, int k,
-                 const double* d_mu, const double* d_ar, const double* d_ma,
-                 const double* d_sar, const double* d_sma,
-                 const double* d_sigma2, double* d_params,
+static void pack(int batch_size, ARIMAOrder order, const double* d_mu,
+                 const double* d_ar, const double* d_ma, const double* d_sar,
+                 const double* d_sma, const double* d_sigma2, double* d_params,
                  cudaStream_t stream) {
-  int N = p + q + P + Q + k + 1;
+  int N = order.complexity();
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
                      double* param = d_params + bid * N;
-                     if (k) {
+                     if (order.k) {
                        *param = d_mu[bid];
                        param++;
                      }
-                     for (int ip = 0; ip < p; ip++) {
-                       param[ip] = d_ar[p * bid + ip];
+                     for (int ip = 0; ip < order.p; ip++) {
+                       param[ip] = d_ar[order.p * bid + ip];
                      }
-                     param += p;
-                     for (int iq = 0; iq < q; iq++) {
-                       param[iq] = d_ma[q * bid + iq];
+                     param += order.p;
+                     for (int iq = 0; iq < order.q; iq++) {
+                       param[iq] = d_ma[order.q * bid + iq];
                      }
-                     param += q;
-                     for (int iP = 0; iP < P; iP++) {
-                       param[iP] = d_sar[P * bid + iP];
+                     param += order.q;
+                     for (int iP = 0; iP < order.P; iP++) {
+                       param[iP] = d_sar[order.P * bid + iP];
                      }
-                     param += P;
-                     for (int iQ = 0; iQ < Q; iQ++) {
-                       param[iQ] = d_sma[Q * bid + iQ];
+                     param += order.P;
+                     for (int iQ = 0; iQ < order.Q; iQ++) {
+                       param[iQ] = d_sma[order.Q * bid + iQ];
                      }
-                     param += Q;
+                     param += order.Q;
                      *param = d_sigma2[bid];
                    });
 }
@@ -214,42 +214,37 @@ static void pack(int batch_size, int p, int q, int P, int Q, int k,
  *                        Shape: (Q, batch_size) (device)
  * @param[out] d_sigma2   Variance parameters. Shape: (batch_size,) (device)
  * @param[in]  batch_size Number of time series analyzed.
- * @param[in]  p          Number of AR parameters
- * @param[in]  q          Number of MA parameters
- * @param[in]  P          Number of seasonal AR parameters
- * @param[in]  Q          Number of seasonal MA parameters
- * @param[in]  k          Whether the model fits an intercept
+ * @param[in]  order      ARIMA hyper-parameters
  * @param[in]  stream     CUDA stream
  */
 static void unpack(const double* d_params, double* d_mu, double* d_ar,
                    double* d_ma, double* d_sar, double* d_sma, double* d_sigma2,
-                   int batch_size, int p, int q, int P, int Q, int k,
-                   cudaStream_t stream) {
-  int N = p + q + P + Q + k + 1;
+                   int batch_size, ARIMAOrder order, cudaStream_t stream) {
+  int N = order.complexity();
   auto counting = thrust::make_counting_iterator(0);
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
                      const double* param = d_params + bid * N;
-                     if (k) {
+                     if (order.k) {
                        d_mu[bid] = *param;
                        param++;
                      }
-                     for (int ip = 0; ip < p; ip++) {
-                       d_ar[p * bid + ip] = param[ip];
+                     for (int ip = 0; ip < order.p; ip++) {
+                       d_ar[order.p * bid + ip] = param[ip];
                      }
-                     param += p;
-                     for (int iq = 0; iq < q; iq++) {
-                       d_ma[q * bid + iq] = param[iq];
+                     param += order.p;
+                     for (int iq = 0; iq < order.q; iq++) {
+                       d_ma[order.q * bid + iq] = param[iq];
                      }
-                     param += q;
-                     for (int iP = 0; iP < P; iP++) {
-                       d_sar[P * bid + iP] = param[iP];
+                     param += order.q;
+                     for (int iP = 0; iP < order.P; iP++) {
+                       d_sar[order.P * bid + iP] = param[iP];
                      }
-                     param += P;
-                     for (int iQ = 0; iQ < Q; iQ++) {
-                       d_sma[Q * bid + iQ] = param[iQ];
+                     param += order.P;
+                     for (int iQ = 0; iQ < order.Q; iQ++) {
+                       d_sma[order.Q * bid + iQ] = param[iQ];
                      }
-                     param += Q;
+                     param += order.Q;
                      d_sigma2[bid] = *param;
                    });
 }
