@@ -90,7 +90,7 @@ class RandomForestClassifier:
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = auto)
+    max_features : float (default = 'auto')
                    Ratio of number of features (columns) to consider
                    per node split.
     n_bins :  int (default = 8)

@@ -114,7 +114,7 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
                                                      partitions_per_worker)
 
-        X_test_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_test))
+        X_test_cudf = cudf.DataFrame.from_gpu_matrix(X_test)
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
@@ -183,7 +183,7 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
         X_train_df, y_train_df = dask_utils.persist_across_workers(
             c, [X_train_df, y_train_df], workers=workers)
 
-        X_test_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_test))
+        X_test_cudf = cudf.DataFrame.from_gpu_matrix(X_test)
         cu_rf_mg = cuRFR_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
