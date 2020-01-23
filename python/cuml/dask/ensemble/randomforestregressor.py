@@ -18,7 +18,6 @@ from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
 import cudf
-import numpy as np
 
 from dask.distributed import default_client, wait
 
@@ -381,9 +380,6 @@ class RandomForestRegressor:
         """
         c = default_client()
         workers = self.workers
-
-        if not isinstance(X, np.ndarray):
-            raise ValueError("Predict inputs must be numpy arrays")
 
         X_Scattered = c.scatter(X)
 
