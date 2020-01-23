@@ -325,7 +325,6 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
                                     int* predictions,
                                     const RandomForestMetaData<T, int>* forest,
                                     bool verbose) {
-
   int num_trees = this->rf_params.n_trees;
   std::vector<int> h_predictions(n_rows * num_trees);
 
@@ -334,7 +333,6 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
   cudaStream_t stream = user_handle.getStream();
   MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-
 
   int row_size = n_cols;
   int pred_id = 0;
@@ -358,7 +356,8 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
     }
   }
 
-  MLCommon::updateDevice(predictions, h_predictions.data(), n_rows*num_trees, stream);
+  MLCommon::updateDevice(predictions, h_predictions.data(), n_rows * num_trees,
+                         stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
