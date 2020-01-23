@@ -21,9 +21,11 @@
 # cython: language_level = 3
 
 import ctypes
+import cudf
 import cupy as cp
 import math
 import numpy as np
+import rmm
 import warnings
 
 from libcpp cimport bool
@@ -520,10 +522,9 @@ class RandomForestClassifier(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        preds = np.zeros(n_rows, dtype=np.int32)
-        cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+        preds = cudf.Series(zeros(n_rows, dtype=np.int32))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -556,10 +557,9 @@ class RandomForestClassifier(Base):
 
         self.handle.sync()
         # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
+        predicted_result = preds.to_array()
         del(X_m)
-        del(preds_m)
-        return preds
+        return predicted_result
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
@@ -649,11 +649,9 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
-        preds = np.zeros(n_rows * self.n_estimators,
-                         dtype=np.int32)
 
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+        preds = cudf.Series(zeros(n_rows * self.n_estimators, dtype=np.int32))
+        preds_ptr = get_cudf_column_ptr(preds)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -687,10 +685,9 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        preds = preds_m.copy_to_host()
+        predicted_result = preds.to_array()
         del(X_m)
-        del(preds_m)
-        return preds
+        return predicted_result
 
     def score(self, X, y, threshold=0.5,
               algo='BATCH_TREE_REORG', num_classes=2,
