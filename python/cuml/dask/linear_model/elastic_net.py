@@ -183,7 +183,7 @@ class ElasticNet:
             msg = "l1_ratio value has to be between 0.0 and 1.0"
             raise ValueError(msg.format(l1_ratio))
 
-    def fit(self, X, y):
+    def fit(self, X, y, force_colocality=False):
         """
         Fit the model with X and y.
 
@@ -206,7 +206,7 @@ class ElasticNet:
 
         """
 
-        self.cuElasticNet.fit(X, y)
+        self.cuElasticNet.fit(X, y, force_colocality)
 
         self.coef_ = self.cuElasticNet.coef_
         self.intercept_ = self.cuElasticNet.intercept_

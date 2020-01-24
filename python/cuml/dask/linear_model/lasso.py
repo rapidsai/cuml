@@ -168,7 +168,7 @@ class Lasso:
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, force_colocality=False):
         """
         Fit the model with X and y.
 
@@ -191,7 +191,7 @@ class Lasso:
 
         """
 
-        self.culasso.fit(X, y)
+        self.culasso.fit(X, y, force_colocality)
 
         self.coef_ = self.culasso.coef_
         self.intercept_ = self.culasso.intercept_

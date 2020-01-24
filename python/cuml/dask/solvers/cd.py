@@ -59,12 +59,16 @@ class CD(object):
         return cumlCD(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_fit(f, data, M, N, partsToRanks, rank):
-        return f.fit(data, M, N, partsToRanks, rank)
-        
+    def _func_fit_colocated(f, data, n_rows, n_cols, partsToSizes, rank):
+        return f.fit_colocated(data, n_rows, n_cols, partsToSizes, rank)
+
     @staticmethod
-    def _func_predict(f, df, M, N, partsToRanks, rank):
-        return f.predict(df, M, N, partsToRanks, rank)
+    def _func_fit(f, X, y, n_rows, n_cols, partsToSizes, rank):
+        return f.fit(X, y, n_rows, n_cols, partsToSizes, rank)
+
+    @staticmethod
+    def _func_predict(f, df, n_rows, n_cols, partsToSizes, rank):
+        return f.predict(df, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
     def _func_get_first(f):
@@ -79,55 +83,78 @@ class CD(object):
         return model.transform(df)
 
     @staticmethod
-    def _func_get_size_colocated(df):
+    def _func_get_size_cl(df):
         return df[0].shape[0]
 
     @staticmethod
     def _func_get_size(df):
         return df.shape[0]
 
-    def fit(self, X, y):         
-        input_futures = self.client.sync(extract_colocated_ddf_partitions, X, y, self.client)
-        workers = list(input_futures.keys())
+    def _fit(self, X, y):
+        X_futures = self.client.sync(extract_ddf_partitions, X)
+        y_futures = self.client.sync(extract_ddf_partitions, y)
+
+        X_partition_workers = [w for w, xc in X_futures]
+        y_partition_workers = [w for w, xc in y_futures]
+
+        if set(X_partition_workers) != set(y_partition_workers):
+            raise ValueError("""
+              X  and y are not partitioned on the same workers expected \n_cols
+              Linear Regression""")
+
+        self.rnks = dict()
+        rnk_counter = 0
+        worker_to_parts = OrderedDict()
+        for w, p in X_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            if w not in self.rnks.keys():
+                self.rnks[w] = rnk_counter
+                rnk_counter = rnk_counter + 1
+            worker_to_parts[w].append(p)
+
+        # Future TODO: add a DefaultOrderedDict to utils
+        worker_to_parts_y = OrderedDict()
+        for w, p in y_futures:
+            if w not in worker_to_parts_y:
+                worker_to_parts_y[w] = []
+            worker_to_parts_y[w].append(p)
+
+        workers = list(map(lambda x: x[0], X_futures))
 
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=workers)
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
-        N = X.shape[1]
-        M = 0
-
-        self.rnks = dict()
-        partsToRanks = dict()
         key = uuid1()
-        for w, futures in input_futures.items():
-            self.rnks[w] = worker_info[w]["r"]
-            parts = [(self.client.submit(CD._func_get_size_colocated,
-                                        future,
-                                        workers=[w],
-                                        key="%s-%s" % (key, idx)).result())
-            for idx, future in enumerate(futures)]
-            partsToRanks[worker_info[w]["r"]] = parts
-            for p in parts:
-                M = M + p
+        partsToSizes = [(worker_info[wf[0]]["r"], self.client.submit(
+            CD._func_get_size,
+            wf[1],
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)).result())
+            for idx, wf in enumerate(X_futures)]
+
+        n_cols = X.shape[1]
+        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
-        self.linear_models = [(w, self.client.submit(
+        self.linear_models = [(wf[0], self.client.submit(
             CD._func_create_model,
             comms.sessionId,
             **self.kwargs,
-            workers=[w],
+            workers=[wf[0]],
             key="%s-%s" % (key, idx)))
-            for idx, w in enumerate(workers)]
+            for idx, wf in enumerate(worker_to_parts.items())]
 
         key = uuid1()
         linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
             CD._func_fit,
             wf[1],
-            input_futures[wf[0]],
-            M, N, 
-            partsToRanks,
+            worker_to_parts[wf[0]],
+            worker_to_parts_y[wf[0]],
+            n_rows, n_cols,
+            partsToSizes,
             worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
@@ -140,6 +167,105 @@ class CD(object):
 
         self.local_model = self.linear_models[0][1].result()
         self.coef_ = self.local_model.coef_
+        self.intercept_ = self.local_model.intercept_
+
+    def _fit_with_colocality(self, X, y):
+        input_futures = self.client.sync(extract_colocated_ddf_partitions,
+                                         X, y, self.client)
+        workers = list(input_futures.keys())
+
+        comms = CommsContext(comms_p2p=False)
+        comms.init(workers=workers)
+
+        worker_info = comms.worker_info(comms.worker_addresses)
+
+        n_cols = X.shape[1]
+        n_rows = 0
+
+        self.rnks = dict()
+        partsToSizes = dict()
+        key = uuid1()
+        for w, futures in input_futures.items():
+            self.rnks[w] = worker_info[w]["r"]
+            parts = [(self.client.submit(
+                CD._func_get_size_cl,
+                future,
+                workers=[w],
+                key="%s-%s" % (key, idx)).result())
+                for idx, future in enumerate(futures)]
+
+            partsToSizes[worker_info[w]["r"]] = parts
+            for p in parts:
+                n_rows = n_rows + p
+
+        key = uuid1()
+        self.linear_models = [(w, self.client.submit(
+            CD._func_create_model,
+            comms.sessionId,
+            **self.kwargs,
+            workers=[w],
+            key="%s-%s" % (key, idx)))
+            for idx, w in enumerate(workers)]
+
+        key = uuid1()
+        linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
+            CD._func_fit_colocated,
+            wf[1],
+            input_futures[wf[0]],
+            n_rows, n_cols,
+            partsToSizes,
+            worker_info[wf[0]]["r"],
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]]))
+            for idx, wf in enumerate(self.linear_models)])
+
+        wait(list(linear_fit.values()))
+        raise_exception_from_futures(list(linear_fit.values()))
+
+        comms.destroy()
+
+        self.local_model = self.linear_models[0][1].result()
+        self.coef_ = self.local_model.coef_
+        self.intercept_ = self.local_model.intercept_
+
+    def fit(self, X, y, force_colocality=False):
+        """
+        Fit the model with X and y. If force_colocality is set to True,
+        the partitions of X and y will be re-distributed to force the
+        co-locality.
+
+        In some cases, data samples and their labels can be distributed
+        into different workers by dask. In that case, force_colocality
+        param can be set to True to re-arrange the data.
+
+        Usually, you will not need to force co-locality if you pass the
+        X and y as follows;
+
+        fit(X["all_the_columns_but_labels"], X["labels"])
+
+        You might want to force co-locality if you pass the X and y as
+        follows;
+
+        fit(X, y)
+
+        because dask might have distributed the partitions of X and y
+        into different workers.
+
+        Parameters
+        ----------
+        X : dask cuDF dataframe (n_rows, n_features)
+            Features for regression
+        y : dask cuDF (n_rows, 1)
+            Labels (outcome values)
+        force_colocality: boolean (True: re-distributes the partitions
+                          of X and y to force the co-locality of
+                          the partitions)
+        """
+
+        if force_colocality:
+            self._fit_with_colocality(X, y)
+        else:
+            self._fit(X, y)
 
     def predict(self, X):
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
