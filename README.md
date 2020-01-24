@@ -88,7 +88,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | Support Vector Machine Classifier (SVC) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
-|  | Auto-regressive Integrated Moving Average (ARIMA) | |
+|  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
 ---
 
 More ML algorithms in cuML and more ML primitives in ml-prims are planned for
