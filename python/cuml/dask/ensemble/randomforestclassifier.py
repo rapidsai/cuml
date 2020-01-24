@@ -110,7 +110,7 @@ class RandomForestClassifier:
     Examples
     ---------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/random_forest_mnmg_demo.ipynb
     """
 
     def __init__(
@@ -440,6 +440,7 @@ class RandomForestClassifier:
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -455,6 +456,7 @@ class RandomForestClassifier:
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params
