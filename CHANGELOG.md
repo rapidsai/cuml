@@ -49,6 +49,7 @@
 - PR #1569: Remove Scikit-learn exception and depedenncy in SVM
 - PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
 - PR #1574: Updated the init file to include SVM
+- PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
 
 # cuML 0.11.0 (11 Dec 2019)
 
