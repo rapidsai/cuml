@@ -342,7 +342,7 @@ class RandomForestRegressor:
         model = self.rfs[worker_numb[0]].result()
         for n in range(len(self.workers)):
             list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-            size_of_mod_bytes_read.append((mod_bytes[n]))
+            size_of_mod_bytes_read.append(len(mod_bytes[n]))
 
         return list_mod_handles, size_of_mod_bytes_read
 
