@@ -1,3 +1,12 @@
+# cuML 0.13.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
+
 # cuML 0.12.0 (Date TBD)
 
 ## New Features
@@ -31,6 +40,7 @@
 - PR #1578: Add missing function information to the cuML documenataion
 - PR #1584: Add has_scipy utility function for runtime check
 - PR #1583: API docs updates for 0.12
+- PR #1591: Updated FIL documentation
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
@@ -48,7 +58,9 @@
 - PR #1569: Remove Scikit-learn exception and depedenncy in SVM
 - PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
 - PR #1574: Updated the init file to include SVM
+- PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
 - PR #1590: Fix destination directory structure for run-clang-format.py
+
 
 # cuML 0.11.0 (11 Dec 2019)
 
