@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -325,8 +325,14 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
                                     int* predictions,
                                     const RandomForestMetaData<T, int>* forest,
                                     bool verbose) {
+  int num_trees = this->rf_params.n_trees;
+  std::vector<int> h_predictions(n_rows * num_trees);
+
+  std::vector<T> h_input(n_rows * n_cols);
   const cumlHandle_impl& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
+  MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
   int pred_id = 0;
@@ -336,20 +342,22 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
       std::cout << "\n\n";
       std::cout << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
-        std::cout << input[row_id * row_size + i] << ", ";
+        std::cout << h_input[row_id * row_size + i] << ", ";
       std::cout << std::endl;
     }
 
-    for (int i = 0; i < this->rf_params.n_trees; i++) {
+    for (int i = 0; i < num_trees; i++) {
       int prediction;
       trees[i].predict(user_handle, &forest->trees[i],
-                       &input[row_id * row_size], 1, n_cols, &prediction,
+                       &h_input[row_id * row_size], 1, n_cols, &prediction,
                        verbose);
-      predictions[pred_id] = prediction;
+      h_predictions[pred_id] = prediction;
       pred_id++;
     }
   }
 
+  MLCommon::updateDevice(predictions, h_predictions.data(), n_rows * num_trees,
+                         stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
