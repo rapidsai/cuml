@@ -406,7 +406,7 @@ __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
   __syncthreads();
 
   if (row >= n_samples) return;
-  int cur_max = -1;
+  ProbaType cur_max = -1;
   int cur_label = -1;
   for (int j = 0; j < n_uniq_labels; j++) {
     float cur_count = class_proba[i + j];
