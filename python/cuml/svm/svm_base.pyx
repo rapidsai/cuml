@@ -33,7 +33,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
-from sklearn.exceptions import NotFittedError
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -286,7 +285,7 @@ class SVMBase(Base):
         if self._c_kernel != LINEAR:
             raise AttributeError("coef_ is only available for linear kernels")
         if self._model is None:
-            raise NotFittedError("Call fit before prediction")
+            raise RuntimeError("Call fit before prediction")
         if self._coef_ is None:
             self._coef_ = self._calc_coef()
         return self._coef_
@@ -499,7 +498,7 @@ class SVMBase(Base):
         """
 
         if self._model is None:
-            raise NotFittedError("Call fit before prediction")
+            raise RuntimeError("Call fit before prediction")
 
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, pred_dtype = \

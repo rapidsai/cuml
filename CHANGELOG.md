@@ -14,6 +14,7 @@
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
+- PR #1489: Enabling deep trees using Gather tree builder
 - PR #1463: Update FAISS submodule to 1.6.1
 - PR #1488: Add codeowners
 - PR #1432: Row-major (C-style) GPU arrays for benchmarks
@@ -27,6 +28,12 @@
 - PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 - PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM
+- PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
+- PR #1570: Relax nccl in conda recipes to >=2.4 (matching CI)
+- PR #1578: Add missing function information to the cuML documenataion
+- PR #1584: Add has_scipy utility function for runtime check
+- PR #1583: API docs updates for 0.12
+- PR #1591: Updated FIL documentation
 
 ## Bug Fixes
 - PR #1470: Documentation: add make_regression, fix ARIMA section
@@ -39,6 +46,12 @@
 - PR #1548: Fixing umap extra unary op in knn graph
 - PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
 - PR #1557: Increasing threshold for kmeans score
+- PR #1562: Increasing threshold even higher
+- PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
+- PR #1569: Remove Scikit-learn exception and depedenncy in SVM
+- PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
+- PR #1574: Updated the init file to include SVM
+- PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
 
 # cuML 0.11.0 (11 Dec 2019)
 
