@@ -155,8 +155,10 @@ class KMeans(object):
         return model.score(df)
 
     def raise_exception_from_futures(self, futures):
-        """Raises a RuntimeError if any of the futures indicates
-        an exception"""
+        """
+        Raises a RuntimeError if any of the futures indicates
+        an exception
+        """
         errs = [f.exception() for f in futures if f.exception()]
         if errs:
             raise RuntimeError("%d of %d worker jobs failed: %s" % (
@@ -165,9 +167,15 @@ class KMeans(object):
 
     def fit(self, X):
         """
-        Fits a distributed KMeans model
-        :param X: dask_cudf.Dataframe to fit
-        :return: This KMeans instance
+        Fit a multi-node multi-GPU KMeans model
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+
+        Returns
+        -------
+        self: KMeans model
         """
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
@@ -198,11 +206,20 @@ class KMeans(object):
 
         return self
 
-    def parallel_func(self, X, func):
+    def _parallel_func(self, X, func):
         """
-        Predicts the labels using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to predict
-        :return: A dask_cudf.Dataframe containing label predictions
+        Internal function that predicts the labels using a distributed
+        KMeans model.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to predict
+
+        Returns
+        -------
+        result: dask_cudf.Dataframe
+            Dataframe containing label predictions
         """
 
         key = uuid1()
@@ -222,28 +239,66 @@ class KMeans(object):
 
     def predict(self, X):
         """
-        Predicts the labels using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to predict
-        :return: A dask_cudf.Dataframe containing label predictions
+        Predict the labels using a distributed KMeans model.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to predict
+
+        Returns
+        -------
+        result: dask_cudf.Dataframe
+            Dataframe containing label predictions
         """
-        return self.parallel_func(X, KMeans._func_predict)
+        return self._parallel_func(X, KMeans._func_predict)
 
     def fit_predict(self, X):
+        """
+        Compute cluster centers and predict cluster index for each sample.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to predict
+
+        Returns
+        -------
+        result: dask_cudf.Dataframe
+            Dataframe containing predictions
+
+        """
         return self.fit(X).predict(X)
 
     def transform(self, X):
         """
         Predicts the labels using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to predict
-        :return: A dask_cudf.Dataframe containing label predictions
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to predict
+
+        Returns
+        -------
+        result: dask_cudf.Dataframe
+            Dataframe containing predictions
         """
-        return self.parallel_func(X, KMeans._func_transform)
+        return self._parallel_func(X, KMeans._func_transform)
 
     def fit_transform(self, X):
         """
         Calls fit followed by transform using a distributed KMeans model
-        :param X: dask_cudf.Dataframe to fit & predict
-        :return: A dask_cudf.Dataframe containing label predictions
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to predict
+
+        Returns
+        -------
+        result: dask_cudf.Dataframe
+            Dataframe containing predictions
         """
         return self.fit(X).transform(X)
 
