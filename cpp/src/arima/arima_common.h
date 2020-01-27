@@ -34,8 +34,8 @@ struct ARIMAOrder {
   int k;  // Fit intercept?
 
   inline int r() { return std::max(p + s * P, q + s * Q + 1); }
-
   inline int complexity() { return p + P + q + Q + k + 1; }
+  inline int lost_in_diff() { return d + s * D; }
 
   inline bool need_prep() { return static_cast<bool>(d + D + k); }
 };
@@ -43,7 +43,7 @@ struct ARIMAOrder {
 /**
  * Structure to hold the parameters (makes it easier to pass as an argument)
  */
-template<typename T>
+template <typename T>
 struct ARIMAParams {
   T* mu = nullptr;
   T* ar = nullptr;

@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <vector>
 
-#include <nvToolsExt.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <cub/cub.cuh>
@@ -44,10 +43,6 @@ using BatchedCSR = MLCommon::Sparse::Batched::BatchedCSR<double>;
 using BatchedMatrix = MLCommon::LinAlg::Batched::BatchedMatrix<double>;
 
 namespace ML {
-
-void nvtx_range_push(std::string msg) { ML::PUSH_RANGE(msg.c_str()); }
-
-void nvtx_range_pop() { ML::POP_RANGE(); }
 
 //! Thread-local Matrix-Vector multiplication.
 template <int r>
@@ -107,7 +102,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
   constexpr int r2 = r * r;
   double l_RRT[r2];
   double l_T[r2];
-  // double l_Z[r];
+  // double l_Z[r]; // note: will be used when introducing exogeneous var.
   double l_P[r2];
   double l_alpha[r];
   double l_K[r];
@@ -117,7 +112,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
   int bid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (bid < batch_size) {
-    // load GM into registers
+    // Load global mem into registers
     {
       int b_r_offset = bid * r;
       int b_r2_offset = bid * r2;
@@ -208,7 +203,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
  * @param[in]  RRT          Batched R*R' (R="selection" vector)   (r x r)
  * @param[in]  P            Batched P                             (r x r)
  * @param[in]  alpha        Batched state vector                  (r x 1)
- * @param[in]  T_mask       Density mask of T (non-batched)       (r x r)
+ * @param[in]  T_sparse     Batched sparse matrix T               (r x r)
  * @param[in]  r            Dimension of the state vector
  * @param[out] d_vs         Batched residuals                     (nobs)
  * @param[out] d_Fs         Batched variance of prediction errors (nobs)    
@@ -312,6 +307,7 @@ void _batched_kalman_loop_large(const double* d_ys, int nobs,
       [=] __device__(int bid) { d_fc[bid * fc_steps + i] = d_alpha[bid * r]; });
 
     b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp);
+    /// TODO: replace with spmm!!
     MLCommon::copy(d_alpha, v_tmp.raw_data(), r * nb, stream);
   }
 }
@@ -557,7 +553,7 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            ARIMAParamsD params, ARIMAOrder order,
                            int batch_size, double* loglike, double* d_vs,
                            bool host_loglike, int fc_steps, double* d_fc) {
-  ML::PUSH_RANGE("batched_kalman_filter");
+  ML::PUSH_RANGE(__func__);
 
   const size_t ys_len = nobs;
 
@@ -672,7 +668,7 @@ void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
 
   batched_jones_transform(handle, order, batch_size, isInv, params, Tparams);
   Tparams.mu = params.mu;
-  Tparams.sigma2 = params. sigma2;
+  Tparams.sigma2 = params.sigma2;
 
   pack(batch_size, order, Tparams, d_Tparams, stream);
 
@@ -714,7 +710,7 @@ void _transform_helper(cumlHandle& handle, const double* d_param,
 void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
                              int batch_size, bool isInv,
                              const ARIMAParamsD params, ARIMAParamsD Tparams) {
-  ML::PUSH_RANGE("batched_jones_transform");
+  ML::PUSH_RANGE(__func__);
 
   if (order.p)
     _transform_helper(handle, params.ar, Tparams.ar, order.p, batch_size, isInv,
