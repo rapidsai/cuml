@@ -32,11 +32,8 @@
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
 #include "linalg/batched/batched_matrix.h"
-#include "linalg/binary_op.h"
-#include "linalg/cublas_wrappers.h"
 #include "linalg/matrix_vector_op.h"
 #include "metrics/batched/information_criterion.h"
-#include "stats/mean.h"
 #include "utils.h"
 
 namespace ML {
@@ -191,8 +188,8 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   const auto stream = handle.getStream();
 
   // Prepare data
-  int d_sD = order.d + order.D * order.s;
-  int ld_yprep = n_obs - d_sD;
+  int diff_obs = order.lost_in_diff();
+  int ld_yprep = n_obs - diff_obs;
   double* d_y_prep = (double*)allocator->allocate(
     ld_yprep * batch_size * sizeof(double), stream);
   _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, order.d, order.D,
@@ -211,8 +208,9 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ARIMAOrder order_after_prep = {order.p, 0,       order.q, order.P,
                                  0,       order.Q, order.s, 0};
   std::vector<double> loglike = std::vector<double>(batch_size);
-  batched_loglike(handle, d_y_prep, batch_size, n_obs - d_sD, order_after_prep,
-                  params, loglike.data(), d_vs, false, true, num_steps, d_y_fc);
+  batched_loglike(handle, d_y_prep, batch_size, n_obs - diff_obs,
+                  order_after_prep, params, loglike.data(), d_vs, false, true,
+                  num_steps, d_y_fc);
 
   auto counting = thrust::make_counting_iterator(0);
   int predict_ld = end - start;
@@ -221,7 +219,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   // In-sample prediction
   //
 
-  int p_start = std::max(start, d_sD);
+  int p_start = std::max(start, diff_obs);
   int p_end = std::min(n_obs, end);
 
   // The prediction loop starts by filling undefined predictions with NaN,
@@ -230,13 +228,13 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int bid) {
                        d_y_p[0] = 0.0;
-                       for (int i = 0; i < d_sD - start; i++) {
+                       for (int i = 0; i < diff_obs - start; i++) {
                          d_y_p[bid * predict_ld + i] = nan("");
                        }
                        for (int i = p_start; i < p_end; i++) {
                          d_y_p[bid * predict_ld + i - start] =
                            d_y[bid * n_obs + i] -
-                           d_vs[bid * ld_yprep + i - d_sD];
+                           d_vs[bid * ld_yprep + i - diff_obs];
                        }
                      });
   }
@@ -342,8 +340,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_vs = (double*)allocator->allocate(
-    sizeof(double) * (n_obs - order.d - order.s * order.D) * batch_size,
-    stream);
+    sizeof(double) * (n_obs - order.lost_in_diff()) * batch_size, stream);
   double* d_ic =
     (double*)allocator->allocate(sizeof(double) * batch_size, stream);
 
@@ -354,15 +351,13 @@ void information_criterion(cumlHandle& handle, const double* d_y,
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(
     d_ic, d_ic, static_cast<MLCommon::Metrics::IC_Type>(ic_type),
-    order.p + order.q + order.P + order.Q + order.k + 1, batch_size,
-    n_obs - order.d - order.s * order.D, stream);
+    order.complexity(), batch_size, n_obs - order.lost_in_diff(), stream);
 
   /* Transfer information criterion device -> host */
   MLCommon::updateHost(ic, d_ic, batch_size, stream);
 
   allocator->deallocate(
-    d_vs, sizeof(double) * (n_obs - order.d - order.s * order.D) * batch_size,
-    stream);
+    d_vs, sizeof(double) * (n_obs - order.lost_in_diff()) * batch_size, stream);
   allocator->deallocate(d_ic, sizeof(double) * batch_size, stream);
   ML::POP_RANGE();
 }
