@@ -306,8 +306,7 @@ void _batched_kalman_loop_large(const double* d_ys, int nobs,
       thrust::cuda::par.on(stream), counting, counting + nb,
       [=] __device__(int bid) { d_fc[bid * fc_steps + i] = d_alpha[bid * r]; });
 
-    b_gemm(false, false, r, 1, r, 1.0, T, alpha, 0.0, v_tmp);
-    /// TODO: replace with spmm!!
+    MLCommon::Sparse::Batched::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
     MLCommon::copy(d_alpha, v_tmp.raw_data(), r * nb, stream);
   }
 }
