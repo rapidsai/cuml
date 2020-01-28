@@ -390,8 +390,8 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   }
 }
 
-template <typename OutType = int, typename ProbaType = float>
-__global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
+template <typename OutType = int>
+__global__ void class_vote_kernel(OutType *out, const float *class_proba,
                                   int *unique_labels, int n_uniq_labels,
                                   size_t n_samples, int n_outputs,
                                   int output_offset) {
@@ -406,7 +406,7 @@ __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
   __syncthreads();
 
   if (row >= n_samples) return;
-  ProbaType cur_max = -1;
+  float cur_max = -1.0;
   int cur_label = -1;
   for (int j = 0; j < n_uniq_labels; j++) {
     float cur_count = class_proba[i + j];
@@ -511,11 +511,16 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  *        the user_stream is used.
  */
 template <int TPB_X = 32>
-void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
-                  size_t n_rows, int k, std::vector<int *> &uniq_labels,
+void knn_classify(int *out,
+                  const int64_t *knn_indices,
+                  std::vector<int *> &y,
+                  size_t n_rows,
+                  int k,
+                  std::vector<int *> &uniq_labels,
                   std::vector<int> &n_unique,
                   std::shared_ptr<deviceAllocator> &allocator,
-                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
+                  cudaStream_t user_stream,
+                  cudaStream_t *int_streams = nullptr,
                   int n_int_streams = 0) {
   std::vector<float *> probs;
   std::vector<device_buffer<float> *> tmp_probs;
