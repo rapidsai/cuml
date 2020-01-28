@@ -59,6 +59,7 @@
 - PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
 - PR #1574: Updated the init file to include SVM
 - PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
+- PR #1601: Fixed wrong datatype used in knn voting kernel
 
 # cuML 0.11.0 (11 Dec 2019)
 
