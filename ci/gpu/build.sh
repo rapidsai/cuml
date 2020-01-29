@@ -42,7 +42,7 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+conda install -c rapidsai -c rapidsai-nightly -c nvidia -c conda-forge \
       "cupy>=6.6.0,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
@@ -58,9 +58,9 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "distributed>=2.8.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.12*" \
+      "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
-      "xgboost=0.90.rapidsdev1"
+      "xgboost=1.0.0dev.rapidsai0.12"
 
 # Install the master version of dask, distributed, and dask-ml
 logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
