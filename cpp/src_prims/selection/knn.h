@@ -390,8 +390,8 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   }
 }
 
-template <typename OutType = int, typename ProbaType = float>
-__global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
+template <typename OutType = int>
+__global__ void class_vote_kernel(OutType *out, const float *class_proba,
                                   int *unique_labels, int n_uniq_labels,
                                   size_t n_samples, int n_outputs,
                                   int output_offset) {
@@ -406,7 +406,7 @@ __global__ void class_vote_kernel(OutType *out, const ProbaType *class_proba,
   __syncthreads();
 
   if (row >= n_samples) return;
-  int cur_max = -1;
+  float cur_max = -1.0;
   int cur_label = -1;
   for (int j = 0; j < n_uniq_labels; j++) {
     float cur_count = class_proba[i + j];
