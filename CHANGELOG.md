@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR # 1602: Update XGBoost version in CI
 
 
 # cuML 0.12.0 (Date TBD)
