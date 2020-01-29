@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #1594: Train-test split is now reproducible
 
 
 # cuML 0.12.0 (Date TBD)
