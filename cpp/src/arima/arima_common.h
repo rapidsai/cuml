@@ -33,15 +33,17 @@ struct ARIMAOrder {
   int s;  // Seasonal period
   int k;  // Fit intercept?
 
-  inline int r() { return std::max(p + s * P, q + s * Q + 1); }
-  inline int complexity() { return p + P + q + Q + k + 1; }
-  inline int lost_in_diff() { return d + s * D; }
+  inline int r() const { return std::max(p + s * P, q + s * Q + 1); }
+  inline int complexity() const { return p + P + q + Q + k + 1; }
+  inline int lost_in_diff() const { return d + s * D; }
 
-  inline bool need_prep() { return static_cast<bool>(d + D + k); }
+  inline bool need_prep() const { return static_cast<bool>(d + D + k); }
 };
 
 /**
  * Structure to hold the parameters (makes it easier to pass as an argument)
+ * @note: a const structure doesn't mean that the arrays can't be modified,
+ *        only the pointers can't!
  */
 template <typename T>
 struct ARIMAParams {

@@ -35,14 +35,14 @@ namespace ML {
  *                          [mu0, ar.., ma.., mu1, ..] (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (nobs, batch_size) (device)
+ *                          shape = (nobs-d-s*D, batch_size) (device)
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, ARIMAOrder order, const double* d_params,
+                     int nobs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
                      bool host_loglike = true, int fc_steps = 0,
                      double* d_fc = nullptr);
@@ -63,17 +63,17 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  params       ARIMA parameters (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (nobs, batch_size) (device)
+ *                          shape = (nobs-d-s*D, batch_size) (device)
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, ARIMAOrder order, const ARIMAParamsD params,
-                     double* loglike, double* d_vs, bool trans = true,
-                     bool host_loglike = true, int fc_steps = 0,
-                     double* d_fc = nullptr);
+                     int nobs, const ARIMAOrder& order,
+                     const ARIMAParamsD& params, double* loglike, double* d_vs,
+                     bool trans = true, bool host_loglike = true,
+                     int fc_steps = 0, double* d_fc = nullptr);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -93,8 +93,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[out] d_y_p       Prediction output (device)
  */
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-             int start, int end, ARIMAOrder order, ARIMAParamsD params,
-             double* d_vs, double* d_y_p);
+             int start, int end, const ARIMAOrder& order,
+             const ARIMAParamsD& params, double* d_vs, double* d_y_p);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
@@ -113,8 +113,8 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  *                         0: AIC, 1: AICc, 2: BIC
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
-                           int batch_size, int nobs, ARIMAOrder order,
-                           const ARIMAParamsD params, double* ic, int ic_type);
+                           int batch_size, int nobs, const ARIMAOrder& order,
+                           const ARIMAParamsD& params, double* ic, int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
@@ -128,7 +128,8 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  */
-void estimate_x0(cumlHandle& handle, ARIMAParamsD params, const double* d_y,
-                 int batch_size, int nobs, ARIMAOrder order);
+void estimate_x0(cumlHandle& handle, const ARIMAParamsD& params,
+                 const double* d_y, int batch_size, int nobs,
+                 const ARIMAOrder& order);
 
 }  // namespace ML

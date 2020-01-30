@@ -60,7 +60,6 @@ cdef extern from "arima/arima_common.h" namespace "ML":
         int s  # Seasonal period
         int k  # Fit intercept?
         int complexity()
-        bool need_prep()
 
     ctypedef struct ARIMAParamsD:
         double* mu
@@ -74,28 +73,29 @@ cdef extern from "arima/arima_common.h" namespace "ML":
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs,
-        ARIMAOrder order, const double* params, double* loglike, double* d_vs,
-        bool trans, bool host_loglike)
+        const ARIMAOrder& order, const double* params, double* loglike,
+        double* d_vs, bool trans, bool host_loglike)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-        int start, int end, ARIMAOrder order, const ARIMAParamsD params,
-        double* d_vs_ptr, double* d_y_p)
+        int start, int end, const ARIMAOrder& order,
+        const ARIMAParamsD& params, double* d_vs_ptr, double* d_y_p)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-        ARIMAOrder order, const ARIMAParamsD params, double* ic, int ic_type)
+        const ARIMAOrder& order, const ARIMAParamsD& params, double* ic,
+        int ic_type)
 
     void estimate_x0(
-        cumlHandle& handle, ARIMAParamsD params, const double* d_y,
-        int batch_size, int nobs, ARIMAOrder order)
+        cumlHandle& handle, const ARIMAParamsD& params, const double* d_y,
+        int batch_size, int nobs, const ARIMAOrder& order)
 
 
 cdef extern from "arima/batched_kalman.hpp" namespace "ML":
 
     void batched_jones_transform(
-        cumlHandle& handle, ARIMAOrder order, int batchSize, bool isInv,
-        const double* h_params, double* h_Tparams)
+        cumlHandle& handle, const ARIMAOrder& order, int batchSize,
+        bool isInv, const double* h_params, double* h_Tparams)
 
 
 class ARIMA(Base):
