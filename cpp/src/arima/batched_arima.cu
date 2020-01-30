@@ -181,8 +181,8 @@ static void _finalize_forecast(cumlHandle& handle, double* d_fc,
 }
 
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
-             int start, int end, ARIMAOrder order, ARIMAParamsD params,
-             double* d_vs, double* d_y_p) {
+             int start, int end, const ARIMAOrder& order,
+             const ARIMAParamsD& params, double* d_vs, double* d_y_p) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   const auto stream = handle.getStream();
@@ -267,9 +267,10 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 }
 
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int n_obs, ARIMAOrder order, ARIMAParamsD params,
-                     double* loglike, double* d_vs, bool trans,
-                     bool host_loglike, int fc_steps, double* d_fc) {
+                     int n_obs, const ARIMAOrder& order,
+                     const ARIMAParamsD& params, double* loglike, double* d_vs,
+                     bool trans, bool host_loglike, int fc_steps,
+                     double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   auto allocator = handle.getDeviceAllocator();
@@ -314,7 +315,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 }
 
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int n_obs, ARIMAOrder order, const double* d_params,
+                     int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans,
                      bool host_loglike, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE(__func__);
@@ -334,8 +335,9 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 }
 
 void information_criterion(cumlHandle& handle, const double* d_y,
-                           int batch_size, int n_obs, ARIMAOrder order,
-                           const ARIMAParamsD params, double* ic, int ic_type) {
+                           int batch_size, int n_obs, const ARIMAOrder& order,
+                           const ARIMAParamsD& params, double* ic,
+                           int ic_type) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
@@ -516,9 +518,9 @@ static void _arma_least_squares(
  * the series pre-processed by estimate_x0
  */
 static void _start_params(
-  cumlHandle& handle, ARIMAParamsD params,
+  cumlHandle& handle, const ARIMAParamsD& params,
   const MLCommon::LinAlg::Batched::BatchedMatrix<double>& bm_y,
-  ARIMAOrder order) {
+  const ARIMAOrder& order) {
   // Estimate an ARMA fit without seasonality
   if (order.p + order.q + order.k)
     _arma_least_squares(handle, params.ar, params.ma, params.sigma2, bm_y,
@@ -531,8 +533,9 @@ static void _start_params(
                         order.p + order.q + order.k == 0);
 }
 
-void estimate_x0(cumlHandle& handle, ARIMAParamsD params, const double* d_y,
-                 int batch_size, int n_obs, ARIMAOrder order) {
+void estimate_x0(cumlHandle& handle, const ARIMAParamsD& params,
+                 const double* d_y, int batch_size, int n_obs,
+                 const ARIMAOrder& order) {
   ML::PUSH_RANGE(__func__);
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();

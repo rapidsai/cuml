@@ -36,13 +36,13 @@ namespace ML {
  * @param[out] loglike_b     Resulting loglikelihood (for each series)
  * @param[out] d_vs          Residual between the prediction and the
  *                           original series.
- *                           shape=(nobs, batch_size) (device)
+ *                           shape=(nobs-d-s*D, batch_size) (device)
  * @param[in]  host_loglike  Whether loglike is a host pointer
  * @param[in]  fc_steps      Number of steps to forecast
  * @param[in]  d_fc          Array to store the forecast
  */
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
-                           const ARIMAParamsD params, ARIMAOrder order,
+                           const ARIMAParamsD& params, const ARIMAOrder& order,
                            int batch_size, double* loglike, double* d_vs,
                            bool host_loglike = true, int fc_steps = 0,
                            double* d_fc = nullptr);
@@ -58,9 +58,10 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
  * @param[in]  params     ARIMA parameters (device)
  * @param[in]  Tparams    Transformed ARIMA parameters (device)
  */
-void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
+void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv,
-                             const ARIMAParamsD params, ARIMAParamsD Tparams);
+                             const ARIMAParamsD& params,
+                             const ARIMAParamsD& Tparams);
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure
@@ -76,7 +77,7 @@ void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
  *                        (expects pre-allocated array of size
  *                         (p+q)*batch_size) (host)
  */
-void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
+void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv, const double* h_params,
                              double* h_Tparams);
 }  // namespace ML

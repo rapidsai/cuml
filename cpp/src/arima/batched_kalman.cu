@@ -488,8 +488,9 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
 static void init_batched_kalman_matrices(
   cumlHandle& handle, const double* d_ar, const double* d_ma,
-  const double* d_sar, const double* d_sma, int nb, ARIMAOrder order, int r,
-  double* d_Z_b, double* d_R_b, double* d_T_b, std::vector<bool>& T_mask) {
+  const double* d_sar, const double* d_sma, int nb, const ARIMAOrder& order,
+  int r, double* d_Z_b, double* d_R_b, double* d_T_b,
+  std::vector<bool>& T_mask) {
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.getStream();
@@ -552,7 +553,7 @@ static void init_batched_kalman_matrices(
 }
 
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
-                           ARIMAParamsD params, ARIMAOrder order,
+                           const ARIMAParamsD& params, const ARIMAOrder& order,
                            int batch_size, double* loglike, double* d_vs,
                            bool host_loglike, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE(__func__);
@@ -650,7 +651,7 @@ void fix_ar_ma_invparams(const double* d_old_params, double* d_new_params,
     });
 }
 
-void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
+void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv, const double* h_params,
                              double* h_Tparams) {
   int N = order.complexity();
@@ -709,9 +710,10 @@ void _transform_helper(cumlHandle& handle, const double* d_param,
   allocator->deallocate(d_param_fixed, sizeof(double) * batch_size * k, stream);
 }
 
-void batched_jones_transform(cumlHandle& handle, ARIMAOrder order,
+void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv,
-                             const ARIMAParamsD params, ARIMAParamsD Tparams) {
+                             const ARIMAParamsD& params,
+                             const ARIMAParamsD& Tparams) {
   ML::PUSH_RANGE(__func__);
 
   if (order.p)
