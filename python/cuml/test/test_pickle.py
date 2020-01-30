@@ -77,10 +77,10 @@ rf_models = {
 }
 
 k_neighbors_models = {
-    "KNN-Classifer": lambda n_neighbors=10: cuml.neighbors.KNeighborsClassifier(
-                                                n_neighbors=n_neighbors),
-    "KNN-Regressor": lambda n_neighbors=10: cuml.neighbors.KNeighborsRegressor(
-                                                    n_neighbors=n_neighbors)
+    "KNN-Classifer": lambda n_neighbors=10: cuml.neighbors.
+            KNeighborsClassifier(n_neighbors=n_neighbors),
+    "KNN-Regressor": lambda n_neighbors=10: cuml.neighbors.
+            KNeighborsRegressor(n_neighbors=n_neighbors)
 }
 
 all_models = {**regression_models,
@@ -371,7 +371,8 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, y_train, X_test = make_classification_dataset(datatype, nrows, ncols, n_info)
+        X_train, y_train, X_test = make_classification_dataset(datatype, 
+                                                               nrows, ncols, n_info)
         model = k_neighbors_models[keys](n_neighbors=k)
         model.fit(X_train, y_train)
         result["neighbors"] = model.predict(X_test)
@@ -383,7 +384,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
         state = pickled_model.__dict__
         assert state["n_indices"] == 1
         assert "X_m" in state
-        
+
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
