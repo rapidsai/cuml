@@ -160,7 +160,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
 
       // 5. L = T - K * Z
       // L = T (L is tmp)
-      for (int i = 0; i < r * r; i++) {
+      for (int i = 0; i < r2; i++) {
         l_tmp[i] = l_T[i];
       }
       // L = L - K * Z ; optimized for Z = (1 0 ... 0):
@@ -173,7 +173,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys, int nobs,
       // P = TP*L'
       MM_l<r, false, true>(l_TP, l_tmp, l_P);
       // P = P + RRT
-      for (int i = 0; i < r * r; i++) {
+      for (int i = 0; i < r2; i++) {
         l_P[i] += l_RRT[i];
       }
     }
@@ -384,9 +384,11 @@ void batched_kalman_loop(const double* ys, int nobs, const BatchedMatrix& T,
 }
 
 template <int NUM_THREADS>
-__global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
-                                              double* d_sumLogFs, int nobs,
-                                              int batch_size, double* loglike) {
+__global__ void batched_kalman_loglike_kernel(const double* d_vs,
+                                              const double* d_Fs,
+                                              const double* d_sumLogFs,
+                                              int nobs, int batch_size,
+                                              double* loglike) {
   using BlockReduce = cub::BlockReduce<double, NUM_THREADS>;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
@@ -398,8 +400,9 @@ __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
     // vs and Fs are in time-major order (memory layout: column major)
     int idx = (it + tid) + bid * nobs;
     double d_vs2_Fs = 0.0;
-    if (idx < nobs * batch_size) {
-      d_vs2_Fs = d_vs[idx] * d_vs[idx] / d_Fs[idx];
+    if (it + tid < nobs) {
+      double _vi = d_vs[idx];
+      d_vs2_Fs = _vi * _vi / d_Fs[idx];
     }
     __syncthreads();
     double partial_sum = BlockReduce(temp_storage).Sum(d_vs2_Fs, nobs - it);
@@ -412,9 +415,9 @@ __global__ void batched_kalman_loglike_kernel(double* d_vs, double* d_Fs,
   }
 }
 
-void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs,
-                            int nobs, int batch_size, double* loglike,
-                            cudaStream_t stream) {
+void batched_kalman_loglike(const double* d_vs, const double* d_Fs,
+                            const double* d_sumLogFs, int nobs, int batch_size,
+                            double* loglike, cudaStream_t stream) {
   constexpr int NUM_THREADS = 128;
   batched_kalman_loglike_kernel<NUM_THREADS>
     <<<batch_size, NUM_THREADS, 0, stream>>>(d_vs, d_Fs, d_sumLogFs, nobs,
