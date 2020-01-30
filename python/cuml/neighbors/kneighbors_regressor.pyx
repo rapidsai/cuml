@@ -150,6 +150,30 @@ class KNeighborsRegressor(NearestNeighbors):
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy "
                              "is supported currently.")
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+
+        # Only need to store index if fit() was called
+        if self.n_indices == 1:
+            state['y'] = cudf.Series(self.y)
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+        return state
+
+    def __setstate__(self, state):
+        super(NearestNeighbors, self).__init__(handle=None,
+                                               verbose=state['verbose'])
+
+        cdef uintptr_t x_ctype
+
+        # Only need to recover state if model had been previously fit
+        if state["n_indices"] == 1:
+
+            state['y'] = state['y'].to_gpu_array()
+            state['X_m'] = state['X_m'].as_gpu_matrix()
+        self.__dict__.update(state)
+        
 
     def fit(self, X, y, convert_dtype=True):
         """
