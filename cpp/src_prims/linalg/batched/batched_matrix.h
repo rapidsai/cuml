@@ -285,6 +285,20 @@ class BatchedMatrix {
     return &(m_A_dense.get()[id * m_shape.first * m_shape.second]);
   }
 
+  /**
+   * @brief Reshape the matrix (the new shape must have the same size)
+   *        The column-major data is left unchanged
+   * 
+   * @param[in]  m  Number of desired rows
+   * @param[in]  n  Number of desired columns
+   */
+  void reshape(int m, int n) {
+    const int r = m_shape.first * m_shape.second;
+    ASSERT(r == m * n,
+           "ERROR: Size mismatch - Cannot reshape matrix into desired shape");
+    m_shape = std::pair<int, int>(m, n);
+  }
+
   //! Stack the matrix by columns creating a long vector
   BatchedMatrix<T> vec() const {
     int m = m_shape.first;
@@ -915,13 +929,17 @@ BatchedMatrix<T> b_2dcopy(const BatchedMatrix<T>& in, int starting_row,
 
 /**
  * @brief Solve discrete Lyapunov equation A*X*A' - X + Q = 0
+ * 
+ * @note The content of Q isn't modified, but Q is reshaped into a vector
+ *       and back into a matrix
  *
  * @param[in]  A       Batched matrix A
  * @param[in]  Q       Batched matrix Q
  * @return             Batched matrix X solving the Lyapunov equation
  */
 template <typename T>
-BatchedMatrix<T> b_lyapunov(BatchedMatrix<T> A, BatchedMatrix<T> Q) {
+BatchedMatrix<T> b_lyapunov(const BatchedMatrix<T>& A,
+                            BatchedMatrix<T>& Q) {
   int batch_size = A.batches();
   int n = A.shape().first;
   int n2 = n * n;
@@ -938,8 +956,10 @@ BatchedMatrix<T> b_lyapunov(BatchedMatrix<T> A, BatchedMatrix<T> Q) {
                        b_I_m_AxA[(n2 + 1) * i] += 1.0;
                      }
                    });
-  BatchedMatrix<T> invI_m_AxA_x_Qvec = b_solve(I_m_AxA, Q.vec());
-  BatchedMatrix<T> X = invI_m_AxA_x_Qvec.mat(n, n);
+  Q.reshape(n2, 1);
+  BatchedMatrix<T> X = b_solve(I_m_AxA, Q);
+  Q.reshape(n, n);
+  X.reshape(n, n);
   return X;
 }
 
