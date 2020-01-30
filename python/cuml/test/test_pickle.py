@@ -371,8 +371,10 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, y_train, X_test = make_classification_dataset(datatype, 
-                                                               nrows, ncols, n_info)
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info)
         model = k_neighbors_models[keys](n_neighbors=k)
         model.fit(X_train, y_train)
         result["neighbors"] = model.predict(X_test)
