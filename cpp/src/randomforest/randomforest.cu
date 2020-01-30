@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <typeinfo>
 #include <vector>
 #include "randomforest_impl.cuh"
 
@@ -287,6 +288,10 @@ void build_treelite_forest(ModelHandle* model,
     file.write((char*)&data[0], data.size());
     // read the file as a protobuf model
     TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
+    size_t nt;
+    TREELITE_CHECK(TreeliteQueryNumTree(*model, &nt));
+    std::cout << "$$$$$$$$$$$$$$$$$$$$$$" << std::flush << std::endl;
+    std::cout << "num_trees " << nt << std::flush << std::endl;
   }
 
   else {
@@ -328,6 +333,9 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model) {
   // create a temp file
+  size_t nt;
+  TREELITE_CHECK(TreeliteQueryNumTree(model, &nt));
+  std::cout << "num_trees " << nt << std::flush << std::endl;
   const char* filename = std::tmpnam(nullptr);
   // export the treelite model to protobuf nd save it in the temp file
   TreeliteExportProtobufModel(filename, model);
@@ -347,22 +355,111 @@ ModelHandle tl_mod_handle(ModelHandle* model,
   std::ofstream file(filename, std::ios::binary);
   file.write((char*)&data[0], data.size());
   TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
-
+  size_t nt;
+  TREELITE_CHECK(TreeliteQueryNumTree(*model, &nt));
+  std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::flush << std::endl;
+  std::cout << "num_trees " << nt << std::flush << std::endl;
   return *model;
  }
 
+
+void check_concat_tl_mod(ModelHandle concat_tree_handle,
+                         std::vector<ModelHandle *> treelite_handles) {
+  size_t concat_forest;
+  size_t single_handle;
+  int total_num_trees;
+  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++){
+    TREELITE_CHECK(TreeliteQueryNumTree(*treelite_handles[tl_num], &single_handle));
+    total_num_trees = total_num_trees + single_handle;
+  }
+
+  TREELITE_CHECK(TreeliteQueryNumTree(concat_tree_handle, &concat_forest));
+  ASSERT(concat_forest != total_num_trees,
+         "Error! the number of trees in the concatenated forest and the sum "
+         "of the trees present in the forests present in each worker are not equal");
+
+  int concat_mod_tree_num = 0;
+  tl::Model& concat_model = *(tl::Model*)concat_tree_handle;  
+  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++){
+    tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
+    std::cout << "num of trees in handle : " << model.trees.size() << std::flush << std::endl;
+    for (int indiv_trees = 0; indiv_trees < model.trees.size(); indiv_trees++){
+      const tl::Tree& concat_tree = (concat_model.trees[concat_mod_tree_num+indiv_trees]);
+      const tl::Tree& single_worker_tree = (model.trees[indiv_trees]);
+
+      if (concat_tree.num_nodes != single_worker_tree.num_nodes){
+        std::cout << "num nodes in concat: " << concat_tree.num_nodes << std::flush << std::endl;
+        std::cout << "num nodes in single: " << single_worker_tree.num_nodes << std::flush << std::endl;
+        throw("Error! the trees saved in concatenated forest and the different "
+              "from the ones present in the individual forests");
+      }
+
+      //ASSERT(concat_tree.num_nodes != single_worker_tree.num_nodes,
+      //       "Error! the trees saved in concatenated forest and the different "
+      //       "from the ones present in the individual forests");
+      const auto& check_node = single_worker_tree[0];
+      const auto& val = check_node.is_leaf();
+
+      //std::cout << " val from  single tree : " << val << std::flush << std::endl;
+      for(int each_node = 0; each_node<(single_worker_tree).num_nodes; each_node++){
+        const auto& node_concat = concat_tree[each_node];
+        const auto& node_single = single_worker_tree[each_node];
+        std::cout << "&concat_tree[each_node] : " << node_concat.cleft() << std::flush
+                  << std::endl;
+        //std::cout << "&single_worker_tree[each_node] : " << single_worker_tree[each_node].cleft() << std::flush
+        //          << std::endl;
+
+        //std::cout << "&single_worker_tree[each_node] : " << node_sing.cleft() << std::flush
+        //          << std::endl;
+        const auto concat_val = node_single.is_leaf();
+        const auto single_val = node_single.is_leaf();
+        std::cout << "@@@@@@@@@@@@@@@" << std::flush << std::endl;
+        ASSERT(concat_val != single_val,
+               "Error! the trees saved in concatenated forest and the different "
+               "from the ones present in the individual forests");
+        }
+      }
+    concat_mod_tree_num = concat_mod_tree_num + model.trees.size();
+    }
+ }
+
+
 std::vector<unsigned char> concatenate_trees(const cumlHandle& handle,
                                              std::vector<ModelHandle *> treelite_handles) {
-  tl::Model& output_model = *(tl::Model*)treelite_handles[0];
-  for (int tl_num = 1; tl_num < treelite_handles.size(); tl_num++){
+  //tl::Model check_mod;
+  tl::Model& first_model = *(tl::Model*)treelite_handles[0];
+  tl::Model concat_model;
+  std::cout << "check type of tl_mod read : " << typeid(first_model).name() << std::flush
+            << std::endl;
+  std::cout << "check type of tl_mod created : " << typeid(concat_model).name()
+            << std::flush << std::endl;
+  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++){
     tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
     for (int i = 0; i < model.trees.size(); i ++) {
-      (output_model.trees).push_back(std::move(model.trees[i]));
+      //(check_mod.trees).push_back(std::move(model.trees[i]));
+      (concat_model.trees).push_back(std::move(model.trees[i]));
     }
   }
 
+  ModelHandle concat_mod_handle = &(concat_model);
+  concat_model.num_feature = first_model.num_feature;
+  concat_model.num_output_group = first_model.num_output_group;
+  concat_model.random_forest_flag = first_model.random_forest_flag;
+  concat_model.param = first_model.param;
+  std::cout << "concat_model " << &(concat_model) << std::flush << std::endl;
+  size_t single_handle;
+  TREELITE_CHECK(TreeliteQueryNumTree(concat_mod_handle, &single_handle));
+  std::cout << "num_trees " << single_handle << std::flush << std::endl;
+  TREELITE_CHECK(TreeliteQueryNumFeature(concat_mod_handle, &single_handle));
+  std::cout << "num_features " << single_handle << std::flush << std::endl;
+  std::cout << "num_output_grp : " << concat_model.num_output_group << std::flush
+            << std::endl;
+  std::cout << "num_trees in the first_model : " << first_model.trees.size() << std::flush
+            << std::endl;  
   std::vector<unsigned char> concat_mod_bytes;
-  concat_mod_bytes = save_model(treelite_handles[0]);
+  std::cout << "after concatenation : " << std::flush << std::endl;
+  check_concat_tl_mod(concat_mod_handle, treelite_handles);
+  concat_mod_bytes = save_model(concat_mod_handle); //treelite_handles[0]);
   return concat_mod_bytes;
 }
 
