@@ -71,7 +71,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int k
     ) except +
 
-
+import ipdb
 class KNeighborsClassifier(NearestNeighbors):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
@@ -136,12 +136,37 @@ class KNeighborsClassifier(NearestNeighbors):
 
         """
         super(KNeighborsClassifier, self).__init__(**kwargs)
+
         self.y = None
         self.weights = weights
 
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy is "
                              "supported currently.")
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+
+        # Only need to store index if fit() was called
+        if self.n_indices == 1:
+            state['y'] = cudf.Series(self.y)
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+        return state
+
+    def __setstate__(self, state):
+        super(NearestNeighbors, self).__init__(handle=None,
+                                               verbose=state['verbose'])
+
+        cdef uintptr_t x_ctype
+
+        # Only need to recover state if model had been previously fit
+        if state["n_indices"] == 1:
+
+            state['y'] = state['y'].to_gpu_array()
+            state['X_m'] = state['X_m'].as_gpu_matrix()
+        self.__dict__.update(state)
+
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -164,7 +189,6 @@ class KNeighborsClassifier(NearestNeighbors):
             convert the inputs to np.float32.
         """
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
-
         self.y, _, _, _, _ = \
             input_to_dev_array(y, order='F', check_dtype=np.int32,
                                convert_to_dtype=(np.int32
