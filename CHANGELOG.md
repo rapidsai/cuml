@@ -7,6 +7,7 @@
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
+- PR #1611: Fixing pickling errors for KNN classifier and regressor
 
 # cuML 0.12.0 (Date TBD)
 

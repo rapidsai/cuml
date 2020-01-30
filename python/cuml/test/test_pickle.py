@@ -26,7 +26,6 @@ from sklearn.datasets import load_iris, make_classification,\
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
 
-
 regression_models = {
     "LinearRegression": lambda fit_intercept=True: cuml.LinearRegression(
         fit_intercept=fit_intercept),
@@ -77,6 +76,13 @@ rf_models = {
     "rfr": lambda: cuml.RandomForestRegressor()
 }
 
+k_neighbors_models = {
+    "KNN-Classifer": lambda n_neighbors=10: cuml.neighbors.
+    KNeighborsClassifier(n_neighbors=n_neighbors),
+    "KNN-Regressor": lambda n_neighbors=10: cuml.neighbors.
+    KNeighborsRegressor(n_neighbors=n_neighbors)
+}
+
 all_models = {**regression_models,
               **solver_models,
               **cluster_models,
@@ -85,7 +91,8 @@ all_models = {**regression_models,
               **neighbor_models,
               **dbscan_model,
               **umap_model,
-              **rf_models}
+              **rf_models,
+              **k_neighbors_models}
 
 
 def pickle_save_load(tmpdir, func_create_model, func_assert):
@@ -351,6 +358,34 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
                                                     n_neighbors=data_info[3])
         assert array_equal(result["neighbors_D"], D_after)
         assert array_equal(result["neighbors_I"], I_after)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
+                         stress_param([500000, 1000, 500, 50])])
+@pytest.mark.parametrize('keys', k_neighbors_models.keys())
+def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
+    result = {}
+
+    def create_mod():
+        nrows, ncols, n_info, k = data_info
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info)
+        model = k_neighbors_models[keys](n_neighbors=k)
+        model.fit(X_train, y_train)
+        result["neighbors"] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        D_after = pickled_model.predict(X_test)
+        assert array_equal(result["neighbors"], D_after)
+        state = pickled_model.__dict__
+        assert state["n_indices"] == 1
+        assert "X_m" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
