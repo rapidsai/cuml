@@ -150,6 +150,7 @@ class KNeighborsRegressor(NearestNeighbors):
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy "
                              "is supported currently.")
+
     def __getstate__(self):
         state = self.__dict__.copy()
 
@@ -173,7 +174,6 @@ class KNeighborsRegressor(NearestNeighbors):
             state['y'] = state['y'].to_gpu_array()
             state['X_m'] = state['X_m'].as_gpu_matrix()
         self.__dict__.update(state)
-        
 
     def fit(self, X, y, convert_dtype=True):
         """
