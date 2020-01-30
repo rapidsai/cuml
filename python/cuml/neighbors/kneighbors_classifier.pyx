@@ -71,7 +71,6 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int k
     ) except +
 
-import ipdb
 class KNeighborsClassifier(NearestNeighbors):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
