@@ -233,6 +233,8 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. At least one parameter"
                              " among p, q, P, Q and fit_intercept must be"
                              " non-zero")
+        if p > 4 or P > 4 or q > 4 or Q > 4:
+            raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
 
         self.order = order
         self.seasonal_order = seasonal_order
