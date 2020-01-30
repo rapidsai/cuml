@@ -78,9 +78,9 @@ rf_models = {
 
 k_neighbors_models = {
     "KNN-Classifer": lambda n_neighbors=10: cuml.neighbors.
-            KNeighborsClassifier(n_neighbors=n_neighbors),
+    KNeighborsClassifier(n_neighbors=n_neighbors),
     "KNN-Regressor": lambda n_neighbors=10: cuml.neighbors.
-            KNeighborsRegressor(n_neighbors=n_neighbors)
+    KNeighborsRegressor(n_neighbors=n_neighbors)
 }
 
 all_models = {**regression_models,
