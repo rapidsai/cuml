@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import inspect
 import cuml
 import numpy as np
 import pickle
@@ -26,42 +27,59 @@ from sklearn.datasets import load_iris, make_classification,\
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
 
-regression_models = {
-    "LinearRegression": lambda fit_intercept=True: cuml.LinearRegression(
-        fit_intercept=fit_intercept),
-    "LogisticRegression": lambda fit_intercept=True: cuml.LogisticRegression(
-        fit_intercept=fit_intercept),
-    "Lasso": lambda fit_intercept=True: cuml.Lasso(
-        fit_intercept=fit_intercept),
-    "Ridge": lambda fit_intercept=True: cuml.Ridge(
-        fit_intercept=fit_intercept),
-    "ElasticNet": lambda fit_intercept=True: cuml.ElasticNet(
-        fit_intercept=fit_intercept)
-}
 
-solver_models = {
-    "CD": lambda: cuml.CD(),
-    "SGD": lambda: cuml.SGD(eta0=0.005),
-    "QN": lambda: cuml.QN(loss="softmax")
-}
+class ModuleConfig:
+    def __init__(self, module, exclude_classes=None, custom_constructors=None):
+        self.module = module
+        self.exclude_classes = exclude_classes or []
+        self.custom_constructors = custom_constructors or []
 
-cluster_models = {
-    "KMeans": lambda: cuml.KMeans()
-}
+    def _get_classes(self):
+        classes = dict(inspect.getmembers(self.module, inspect.isclass))
+        classes.pop('__class__', None)
+        return classes
 
-decomposition_models = {
-    "PCA": lambda: cuml.PCA(),
-    "TruncatedSVD": lambda: cuml.TruncatedSVD(),
-}
+    def get_models(self):
+        classes = self._get_classes()
+        models = {name: cls for name, cls in classes.items() if cls not in self.exclude_classes}
+        models.update(self.custom_constructors)
+        return models
 
-decomposition_models_xfail = {
-    "GaussianRandomProjection": lambda: cuml.GaussianRandomProjection(),
-    "SparseRandomProjection": lambda: cuml.SparseRandomProjection()
-}
 
-neighbor_models = {
-    "NearestNeighbors": lambda: cuml.NearestNeighbors()
-}
+regression_config = ModuleConfig(
+    module=cuml.linear_model,
+    # TODO: Check if MBSGDRegressor should be included into regression pickle tests
+    # TODO: Check if MBSGDClassifier should be included into some other pickle tests
+    exclude_classes=[cuml.MBSGDClassifier, cuml.MBSGDRegressor]
+)
+regression_models = regression_config.get_models()
+
+solver_config = ModuleConfig(
+    module=cuml.solvers,
+    custom_constructors={
+        "SGD": lambda: cuml.SGD(eta0=0.005),
+        "QN": lambda: cuml.QN(loss="softmax")
+    }
+)
+solver_models = solver_config.get_models()
+
+cluster_config = ModuleConfig(
+    module=cuml.cluster,
+    exclude_classes=[cuml.DBSCAN]
+)
+cluster_models = cluster_config.get_models()
+
+decomposition_config = ModuleConfig(module=cuml.decomposition)
+decomposition_models = decomposition_config.get_models()
+
+decomposition_config_xfail = ModuleConfig(module=cuml.random_projection)
+decomposition_models_xfail = decomposition_config_xfail.get_models()
+
+neighbor_config = ModuleConfig(
+    module=cuml.neighbors,
+    exclude_classes=[cuml.neighbors.KNeighborsClassifier, cuml.neighbors.KNeighborsRegressor]
+)
+neighbor_models = neighbor_config.get_models()
 
 dbscan_model = {
     "DBSCAN": lambda: cuml.DBSCAN()
@@ -71,17 +89,11 @@ umap_model = {
     "UMAP": lambda: cuml.UMAP()
 }
 
-rf_models = {
-    "rfc": lambda: cuml.RandomForestClassifier(),
-    "rfr": lambda: cuml.RandomForestRegressor()
-}
+rf_models = ModuleConfig(module=cuml.ensemble)
+rf_models = rf_models.get_models()
 
-k_neighbors_models = {
-    "KNN-Classifer": lambda n_neighbors=10: cuml.neighbors.
-    KNeighborsClassifier(n_neighbors=n_neighbors),
-    "KNN-Regressor": lambda n_neighbors=10: cuml.neighbors.
-    KNeighborsRegressor(n_neighbors=n_neighbors)
-}
+k_neighbors_config = ModuleConfig(module=cuml.neighbors, exclude_classes=[cuml.neighbors.NearestNeighbors])
+k_neighbors_models = k_neighbors_config.get_models()
 
 all_models = {**regression_models,
               **solver_models,
@@ -142,7 +154,7 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, key):
     result = {}
 
     def create_mod():
-        if key == 'rfr':
+        if key == 'RandomForestRegressor':
             X_train, y_train, X_test = make_dataset(datatype,
                                                     nrows,
                                                     ncols,
