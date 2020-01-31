@@ -198,6 +198,8 @@ class SVMBase(Base):
         self.epsilon = epsilon
         self.svmType = None  # Child class should set self.svmType
 
+        self.fit_once_ = 0 # Parameter to indicating if model has been fitted at least once
+        
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
         self.support_ = None
