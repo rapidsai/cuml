@@ -19,9 +19,7 @@ import cudf
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
-from itertools import chain 
-import cudf
-import numpy as np
+from itertools import chain
 
 from dask.distributed import default_client, wait
 
@@ -301,7 +299,6 @@ class RandomForestRegressor:
             X_test_df = cudf.concat(X_test)
         return model.predict(X_test_df, concat_mod_bytes=concat_mod_bytes)
 
-
     @staticmethod
     def _tl_model_handles(model, model_bytes):
         return model._tl_model_handles(model_bytes=model_bytes)
@@ -332,7 +329,7 @@ class RandomForestRegressor:
         Convert the cuML Random Forest model present in different workers to
         the treelite format and then concatenate the different treelite models
         to create a single model. The concatenated model is then converted to
-        model bytes format. 
+        model bytes format.
         """
         mod_bytes = []
         for w in self.workers:
@@ -345,7 +342,8 @@ class RandomForestRegressor:
         for n in range(len(self.workers)):
             list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_mod_bytes = model.concatenate_treelite_bytes(treelite_handle=list_mod_handles)
+        concat_mod_bytes = model.concatenate_treelite_bytes(
+            treelite_handle=list_mod_handles)
 
         return concat_mod_bytes
 
@@ -436,7 +434,6 @@ class RandomForestRegressor:
         """
         c = default_client()
         preds = []
-        workers = self.workers
         gpu_futures = c.sync(extract_ddf_partitions, X)
         worker_to_parts = workers_to_parts(gpu_futures)
 
