@@ -471,7 +471,7 @@ class SVMBase(Base):
         self._unpack_model()
         self.fit_status_ = 0
         self.handle.sync()
-        self.fit_once = 0
+        self.fit_once_ = 1
 
         del X_m
         del y_m

@@ -371,8 +371,10 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, y_train, X_test = make_classification_dataset(datatype, 
-                                                               nrows, ncols, n_info)
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info)
         model = k_neighbors_models[keys](n_neighbors=k)
         model.fit(X_train, y_train)
         result["neighbors"] = model.predict(X_test)
@@ -526,15 +528,18 @@ def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
 @pytest.mark.parametrize('n_info', [unit_param(7)])
 def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
-    result = {}
 
     def create_mod():
-        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
+        X_train, y_train, X_test = make_dataset(datatype,
+                                                nrows,
+                                                ncols,
+                                                n_info)
         model = cuml.svm.SVR()
         return model, [X_train, y_train, X_test]
 
@@ -550,6 +555,7 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
@@ -557,7 +563,10 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 
     def create_mod():
-        X_train, y_train, X_test = make_classification_dataset(datatype, nrows, ncols, n_info)
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info)
         model = cuml.svm.SVC()
         return model, [X_train, y_train, X_test]
 
