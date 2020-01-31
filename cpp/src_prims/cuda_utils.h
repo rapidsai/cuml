@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,17 @@
 #include <iomanip>
 #include "math_constants.h"
 #include "utils.h"
+
+#ifndef ENABLE_MEMCPY_ASYNC
+#  if __CUDA_ARCH__ >= 800
+#    define ENABLE_MEMCPY_ASYNC 1
+#  endif
+#else
+#  if __CUDA_ARCH__ < 800
+#    define ENABLE_MEMCPY_ASYNC 0
+#    warning "memcpy_async has been enabled for older GPUs! Disabling it."
+#  endif
+#endif
 
 namespace MLCommon {
 
