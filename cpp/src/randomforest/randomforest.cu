@@ -18,8 +18,8 @@
 #else
 #define omp_get_max_threads() 1
 #endif
-#include <treelite/tree.h>
 #include <treelite/c_api.h>
+#include <treelite/tree.h>
 #include <cstdio>
 #include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
@@ -357,46 +357,52 @@ ModelHandle tl_mod_handle(ModelHandle* model,
   size_t nt;
   TREELITE_CHECK(TreeliteQueryNumTree(*model, &nt));
   return *model;
- }
-
+}
 
 void check_concat_tl_mod(ModelHandle concat_tree_handle,
-                         std::vector<ModelHandle *> treelite_handles) {
+                         std::vector<ModelHandle*> treelite_handles) {
   size_t concat_forest;
   size_t single_handle;
   int total_num_trees;
-  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++){
-    TREELITE_CHECK(TreeliteQueryNumTree(*treelite_handles[tl_num], &single_handle));
+  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
+    TREELITE_CHECK(
+      TreeliteQueryNumTree(*treelite_handles[tl_num], &single_handle));
     total_num_trees = total_num_trees + single_handle;
   }
 
   TREELITE_CHECK(TreeliteQueryNumTree(concat_tree_handle, &concat_forest));
 
-  ASSERT(concat_forest != total_num_trees,
-         "Error! the number of trees in the concatenated forest and the sum "
-         "of the trees present in the forests present in each worker are not equal");
+  ASSERT(
+    concat_forest != total_num_trees,
+    "Error! the number of trees in the concatenated forest and the sum "
+    "of the trees present in the forests present in each worker are not equal");
 
   int concat_mod_tree_num = 0;
-  tl::Model& concat_model = *(tl::Model*)concat_tree_handle;  
-  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++){
+  tl::Model& concat_model = *(tl::Model*)concat_tree_handle;
+  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
     const tl::Model& model = *(tl::Model*)(treelite_handles[tl_num]);
     bool check_num_features = concat_model.num_feature != model.num_feature;
-    bool check_num_output_group = concat_model.num_output_group != model.num_output_group;
-    bool check_rf_flag = concat_model.random_forest_flag != model.random_forest_flag;
-    if (check_num_features || check_num_output_group || check_rf_flag){
-        throw("Error! the trees saved in concatenated forest and the different "
-              "from the ones present in the individual forests");
+    bool check_num_output_group =
+      concat_model.num_output_group != model.num_output_group;
+    bool check_rf_flag =
+      concat_model.random_forest_flag != model.random_forest_flag;
+    if (check_num_features || check_num_output_group || check_rf_flag) {
+      throw(
+        "Error! the trees saved in concatenated forest and the different "
+        "from the ones present in the individual forests");
     }
 
-    for (int indiv_trees = 0; indiv_trees < model.trees.size(); indiv_trees++){
-      const tl::Tree concat_tree = concat_model.trees[concat_mod_tree_num+indiv_trees];
+    for (int indiv_trees = 0; indiv_trees < model.trees.size(); indiv_trees++) {
+      const tl::Tree concat_tree =
+        concat_model.trees[concat_mod_tree_num + indiv_trees];
       const tl::Tree single_worker_tree = model.trees[indiv_trees];
-      if (concat_tree.num_nodes != single_worker_tree.num_nodes){
-        throw("Error! the trees saved in concatenated forest and the different "
-              "from the ones present in the individual forests");
+      if (concat_tree.num_nodes != single_worker_tree.num_nodes) {
+        throw(
+          "Error! the trees saved in concatenated forest and the different "
+          "from the ones present in the individual forests");
       }
 
-      for(int each_node = 0; each_node<concat_tree.num_nodes; each_node++){
+      for (int each_node = 0; each_node < concat_tree.num_nodes; each_node++) {
         const tl::Tree::Node& node_concat = concat_tree[each_node];
         const tl::Tree::Node& node_single = single_worker_tree[each_node];
         bool check_is_root = node_concat.is_root() != node_single.is_root();
@@ -405,12 +411,14 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
         bool check_leaf = node_concat.leaf_value() != node_single.leaf_value();
         bool check_cright = node_concat.cright() != node_single.cright();
         bool check_cleft = node_concat.cleft() != node_single.cleft();
-        bool check_split = node_concat.split_index() != node_single.split_index();
+        bool check_split =
+          node_concat.split_index() != node_single.split_index();
 
         if (check_is_root || check_parent || check_is_leaf || check_leaf ||
-        	check_split || check_cleft || check_cright) {
-          throw("Error! the trees saved in concatenated forest and the different "
-                "from the ones present in the individual forests");
+            check_split || check_cleft || check_cright) {
+          throw(
+            "Error! the trees saved in concatenated forest and the different "
+            "from the ones present in the individual forests");
         }
       }
     }
@@ -418,17 +426,16 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
   }
 }
 
-
-std::vector<unsigned char> concatenate_trees(const cumlHandle& handle,
-                                             std::vector<ModelHandle *> treelite_handles) {
+std::vector<unsigned char> concatenate_trees(
+  const cumlHandle& handle, std::vector<ModelHandle*> treelite_handles) {
   //tl::Model check_mod;
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
   tl::Model concat_model;
-  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++){
+  for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
     tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
     int limit = model.trees.size();
     //auto copied_tree = model.trees[0];
-    for (int i = 0; i < limit ; i ++) {
+    for (int i = 0; i < limit; i++) {
       (concat_model.trees).push_back((model.trees[i]));
     }
   }
@@ -444,7 +451,7 @@ std::vector<unsigned char> concatenate_trees(const cumlHandle& handle,
   std::vector<unsigned char> concat_mod_bytes;
   // check if the concatenated model created matches exactly with the original
   check_concat_tl_mod(concat_mod_handle, treelite_handles);
-  concat_mod_bytes = save_model(concat_mod_handle); 
+  concat_mod_bytes = save_model(concat_mod_handle);
   return concat_mod_bytes;
 }
 
