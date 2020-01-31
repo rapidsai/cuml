@@ -21,12 +21,6 @@
 #include <cub/cub.cuh>
 #include <limits>
 
-#ifndef ENABLE_MEMCPY_ASYNC
-#if __CUDA_ARCH__ >= 800
-#define ENABLE_MEMCPY_ASYNC 1
-#endif
-#endif
-
 #if (ENABLE_MEMCPY_ASYNC == 1)
 #include <cuda_pipeline.h>
 #endif
