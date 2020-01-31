@@ -189,6 +189,33 @@ class SVC(SVMBase):
                                   verbose)
         self.svmType = C_SVC
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['handle']
+        del state['_model']
+
+        # Only if the model is fit once, we need to update these parameters
+        if self.fit_once_ == 1:
+            state['dual_coef_'] = cudf.DataFrame.from_gpu_matrix(self.dual_coef_)
+            state['support_'] = cudf.Series(self.support_)
+            state['support_vectors_'] = \
+                cudf.DataFrame.from_gpu_matrix(self.support_vectors_)
+            state['_unique_labels'] = cudf.Series(self._unique_labels)
+
+        return state
+
+    def __setstate__(self, state):
+        super(SVMBase, self).__init__(handle=None, verbose=state['verbose'])
+
+        if state["fit_once_"] == 1:
+            state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
+            state['support_'] = state['support_'].to_gpu_array()
+            state['support_vectors_'] = state['support_vectors_'].as_gpu_matrix()
+            state['_unique_labels'] = state['_unique_labels'].to_gpu_array()
+        self.__dict__.update(state)
+        self._model = self._get_svm_model()
+        self._freeSvmBuffers = False
+        
     def fit(self, X, y):
         """
         Fit the model with X and y.
@@ -241,6 +268,7 @@ class SVC(SVMBase):
 
         self._unpack_model()
         self.fit_status_ = 0
+        self.fit_once_ = 1
         self.handle.sync()
 
         del X_m
