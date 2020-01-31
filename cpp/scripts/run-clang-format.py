@@ -86,7 +86,7 @@ def list_all_src_files(file_regex, ignore_regex, srcdirs, dstdir, inplace):
                     if inplace:
                         _dir = root
                     else:
-                        _dir = os.path.join(dstdir, os.path.basename(root))
+                        _dir = os.path.join(dstdir, root)
                     dst = os.path.join(_dir, f)
                     allFiles.append((src, dst))
     return allFiles

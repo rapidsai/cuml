@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import cudf
+
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
@@ -24,8 +26,8 @@ import numpy as np
 from dask.distributed import default_client, wait
 
 import math
-from uuid import uuid1
 import random
+from uuid import uuid1
 
 
 class RandomForestRegressor:
@@ -460,6 +462,7 @@ class RandomForestRegressor:
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -475,6 +478,7 @@ class RandomForestRegressor:
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,13 +21,13 @@
 # cython: language_level = 3
 
 import ctypes
+import cudf
 import cupy as cp
 import dask
 import math
 import numpy as np
+import rmm
 import warnings
-
-from numba import cuda
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -42,7 +42,9 @@ from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, rmm_cupy_ary
+
+from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -441,7 +443,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = cp.unique(y_m)
+        unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
 
         if num_unique_labels > 2:
@@ -555,10 +557,9 @@ class RandomForestClassifier(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        preds = np.zeros(n_rows, dtype=np.int32)
-        cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+        preds = cudf.Series(zeros(n_rows, dtype=np.int32))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -591,10 +592,9 @@ class RandomForestClassifier(Base):
 
         self.handle.sync()
         # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
+        predicted_result = preds.to_array()
         del(X_m)
-        del(preds_m)
-        return preds
+        return predicted_result
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
@@ -664,7 +664,7 @@ class RandomForestClassifier(Base):
 
         return preds
 
-    def _predict_get_all(self, X):
+    def _predict_get_all(self, X, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -680,20 +680,16 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        cdef uintptr_t X_ptr
-        X_ptr = X.ctypes.data
-        n_rows, n_cols = np.shape(X)
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
+        cdef uintptr_t X_ptr, preds_ptr
+        X_m, X_ptr, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
-        preds = np.zeros(n_rows * self.n_estimators,
-                         dtype=np.int32)
+        preds = cudf.Series(zeros(n_rows * self.n_estimators, dtype=np.int32))
+        preds_ptr = get_cudf_column_ptr(preds)
 
-        cdef uintptr_t preds_ptr = preds.ctypes.data
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -726,7 +722,9 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        return preds
+        predicted_result = preds.to_array()
+        del(X_m)
+        return predicted_result
 
     def score(self, X, y, threshold=0.5,
               algo='BATCH_TREE_REORG', num_classes=2,

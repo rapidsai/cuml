@@ -96,3 +96,11 @@ def check_min_cupy_version(version):
         return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
     else:
         return False
+
+
+def has_scipy():
+    try:
+        import scipy   # NOQA
+        return True
+    except ImportError:
+        return False
