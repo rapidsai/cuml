@@ -54,6 +54,28 @@ class AlgorithmPair:
     Provides mechanisms to run each version with default arguments.
     If no CPU-based version of the algorithm is available, pass None for the
     cpu_class when instantiating
+
+    Parameters
+    ----------
+    cpu_class : class
+       Class for CPU version of algorithm. Set to None if not available.
+    cuml_class : class
+       Class for cuML algorithm
+    shared_args : dict
+       Arguments passed to both implementations's initializer
+    cuml_args : dict
+       Arguments *only* passed to cuml's initializer
+    cpu_args dict
+       Arguments *only* passed to sklearn's initializer
+    accepts_labels : boolean
+       If True, the fit methods expects both X and y
+       inputs. Otherwise, it expects only an X input.
+    data_prep_hook : function (data -> data)
+       Optional function to run on input data before passing to fit
+    accuracy_function : function (y_test, y_pred)
+       Function that returns a scalar representing accuracy
+    bench_func : custom function to perform fit/predict/transform
+                 calls.
     """
 
     def __init__(
@@ -72,29 +94,6 @@ class AlgorithmPair:
         setup_cpu_func=None,
         setup_cuml_func=None,
     ):
-        """
-        Parameters
-        ----------
-        cpu_class : class
-           Class for CPU version of algorithm. Set to None if not available.
-        cuml_class : class
-           Class for cuML algorithm
-        shared_args : dict
-           Arguments passed to both implementations's initializer
-        cuml_args : dict
-           Arguments *only* passed to cuml's initializer
-        cpu_args dict
-           Arguments *only* passed to sklearn's initializer
-        accepts_labels : boolean
-           If True, the fit methods expects both X and y
-           inputs. Otherwise, it expects only an X input.
-        data_prep_hook : function (data -> data)
-           Optional function to run on input data before passing to fit
-        accuracy_function : function (y_test, y_pred)
-           Function that returns a scalar representing accuracy
-        bench_func : custom function to perform fit/predict/transform
-                     calls.
-        """
         if name:
             self.name = name
         else:

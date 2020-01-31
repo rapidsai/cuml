@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,11 +20,10 @@
 # cython: language_level = 3
 
 import ctypes
+import cudf
 import math
 import numpy as np
 import warnings
-
-from numba import cuda
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -39,6 +38,8 @@ from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 from cython.operator cimport dereference as deref
+
+from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -524,10 +525,9 @@ class RandomForestRegressor(Base):
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
 
-        preds = np.zeros(n_rows, dtype=self.dtype)
-        cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+        preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -560,10 +560,9 @@ class RandomForestRegressor(Base):
 
         self.handle.sync()
         # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
+        predicted_result = preds.to_array()
         del(X_m)
-        del(preds_m)
-        return preds
+        return predicted_result
 
     def predict(self, X, predict_model="GPU",
                 algo='BATCH_TREE_REORG', convert_dtype=True,
