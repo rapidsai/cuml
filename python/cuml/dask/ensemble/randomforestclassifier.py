@@ -17,13 +17,11 @@
 import cudf
 
 from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts, to_dask_cudf
+    raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
-import cudf
-from collections import OrderedDict
 
 from dask.distributed import default_client, wait
-from itertools import chain 
+from itertools import chain
 
 import math
 import random
@@ -334,7 +332,7 @@ class RandomForestClassifier:
         Convert the cuML Random Forest model present in different workers to
         the treelite format and then concatenate the different treelite models
         to create a single model. The concatenated model is then converted to
-        model bytes format. 
+        model bytes format.
         """
         mod_bytes = []
         for w in self.workers:
@@ -347,7 +345,8 @@ class RandomForestClassifier:
         for n in range(len(self.workers)):
             list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_mod_bytes = model.concatenate_treelite_bytes(treelite_handle=list_mod_handles)
+        concat_mod_bytes = model.concatenate_treelite_bytes(
+            treelite_handle=list_mod_handles)
 
         return concat_mod_bytes
 
@@ -448,19 +447,17 @@ class RandomForestClassifier:
             if self.rfs[w].result().multi_class == 1:
                 self.multi_class = 1
 
-        if self.multi_class == 1 :
+        if self.multi_class == 1:
             preds = self.predict_using_cpu(X)
 
         else:
             preds = self.predict_using_fil(X)
-        
-        return preds
 
+        return preds
 
     def predict_using_fil(self, X):
         c = default_client()
         preds = []
-        workers = self.workers
         gpu_futures = c.sync(extract_ddf_partitions, X)
         worker_to_parts = workers_to_parts(gpu_futures)
 
