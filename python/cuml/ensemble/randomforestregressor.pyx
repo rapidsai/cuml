@@ -601,9 +601,9 @@ class RandomForestRegressor(Base):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               task_category=\
-                                                   REGRESSION_CATEGORY)
+            preds = self._predict_model_on_gpu(
+                X, algo, convert_dtype,
+                task_category=REGRESSION_CATEGORY)
 
         return preds
 
