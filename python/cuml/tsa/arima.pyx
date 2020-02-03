@@ -61,13 +61,13 @@ cdef extern from "arima/arima_common.h" namespace "ML":
         int k  # Fit intercept?
         int complexity()
 
-    ctypedef struct ARIMAParamsD:
-        double* mu
-        double* ar
-        double* ma
-        double* sar
-        double* sma
-        double* sigma2
+    cdef cppclass ARIMAParams[DataT]:
+        DataT* mu
+        DataT* ar
+        DataT* ma
+        DataT* sar
+        DataT* sma
+        DataT* sigma2
 
 
 cdef extern from "arima/batched_arima.hpp" namespace "ML":
@@ -79,15 +79,15 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         int start, int end, const ARIMAOrder& order,
-        const ARIMAParamsD& params, double* d_vs_ptr, double* d_y_p)
+        const ARIMAParams[double]& params, double* d_vs_ptr, double* d_y_p)
 
     void information_criterion(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
-        const ARIMAOrder& order, const ARIMAParamsD& params, double* ic,
-        int ic_type)
+        const ARIMAOrder& order, const ARIMAParams[double]& params,
+        double* ic, int ic_type)
 
     void estimate_x0(
-        cumlHandle& handle, ARIMAParamsD& params, const double* d_y,
+        cumlHandle& handle, ARIMAParams[double]& params, const double* d_y,
         int batch_size, int nobs, const ARIMAOrder& order)
 
 
@@ -297,7 +297,7 @@ class ARIMA(Base):
         d_sigma2, d_sigma2_ptr, _, _, _ = \
             input_to_dev_array(self.sigma2, check_dtype=np.float64)
 
-        cdef ARIMAParamsD cpp_params
+        cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
         cpp_params.ar = <double*> d_ar_ptr
         cpp_params.ma = <double*> d_ma_ptr
@@ -455,7 +455,7 @@ class ARIMA(Base):
         d_sigma2, d_sigma2_ptr, _, _, _ = \
             input_to_dev_array(self.sigma2, check_dtype=np.float64)
 
-        cdef ARIMAParamsD cpp_params
+        cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
         cpp_params.ar = <double*> d_ar_ptr
         cpp_params.ma = <double*> d_ma_ptr
@@ -552,7 +552,7 @@ class ARIMA(Base):
         d_sigma2 = zeros(self.batch_size, dtype=self.dtype)
         d_sigma2_ptr = get_dev_array_ptr(d_sigma2)
 
-        cdef ARIMAParamsD cpp_params
+        cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
         cpp_params.ar = <double*> d_ar_ptr
         cpp_params.ma = <double*> d_ma_ptr

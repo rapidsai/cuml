@@ -553,7 +553,7 @@ static void init_batched_kalman_matrices(
 }
 
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
-                           const ARIMAParamsD& params, const ARIMAOrder& order,
+                           const ARIMAParams<double>& params, const ARIMAOrder& order,
                            int batch_size, double* loglike, double* d_vs,
                            bool host_loglike, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE(__func__);
@@ -661,7 +661,7 @@ void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
     (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
   double* d_Tparams =
     (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
-  ARIMAParamsD params, Tparams;
+  ARIMAParams<double> params, Tparams;
   params.allocate(order, batch_size, alloc, stream, false);
   Tparams.allocate(order, batch_size, alloc, stream, true);
 
@@ -712,8 +712,8 @@ void _transform_helper(cumlHandle& handle, const double* d_param,
 
 void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv,
-                             const ARIMAParamsD& params,
-                             const ARIMAParamsD& Tparams) {
+                             const ARIMAParams<double>& params,
+                             const ARIMAParams<double>& Tparams) {
   ML::PUSH_RANGE(__func__);
 
   if (order.p)
