@@ -63,9 +63,6 @@
 - PR #1574: Updated the init file to include SVM
 - PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
 - PR #1601: Fixed wrong datatype used in knn voting kernel
-- PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
-- PR #1548: Fixing umap extra unary op in knn graph
-- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures. 
 
 # cuML 0.11.0 (11 Dec 2019)
 
