@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 #include <cuml/cuml.hpp>
 #include "sparse/coo.h"
-#include "sparse/nvgraph_wrappers.h"
 
 #include "sparse/spectral.h"
 
