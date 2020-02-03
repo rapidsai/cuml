@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <cuda_utils.h>
+#include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
@@ -23,7 +24,6 @@
 #include "common/host_buffer.hpp"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
-#include "matrix/kernelparams.h"
 #include "test_utils.h"
 
 namespace MLCommon {
