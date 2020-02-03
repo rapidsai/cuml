@@ -71,8 +71,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, const ARIMAOrder& order,
-                     const ARIMAParamsD& params, double* loglike, double* d_vs,
-                     bool trans = true, bool host_loglike = true,
+                     const ARIMAParams<double>& params, double* loglike,
+                     double* d_vs, bool trans = true, bool host_loglike = true,
                      int fc_steps = 0, double* d_fc = nullptr);
 
 /**
@@ -94,7 +94,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  */
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
              int start, int end, const ARIMAOrder& order,
-             const ARIMAParamsD& params, double* d_vs, double* d_y_p);
+             const ARIMAParams<double>& params, double* d_vs, double* d_y_p);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
@@ -114,7 +114,8 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
                            int batch_size, int nobs, const ARIMAOrder& order,
-                           const ARIMAParamsD& params, double* ic, int ic_type);
+                           const ARIMAParams<double>& params, double* ic,
+                           int ic_type);
 
 /**
  * Provide initial estimates to ARIMA parameters mu, AR, and MA
@@ -128,7 +129,8 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  */
-void estimate_x0(cumlHandle& handle, ARIMAParamsD& params, const double* d_y,
-                 int batch_size, int nobs, const ARIMAOrder& order);
+void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
+                 const double* d_y, int batch_size, int nobs,
+                 const ARIMAOrder& order);
 
 }  // namespace ML

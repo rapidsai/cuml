@@ -207,6 +207,4 @@ struct ARIMAParams {
   }
 };
 
-typedef ARIMAParams<double> ARIMAParamsD;
-
 }  // namespace ML

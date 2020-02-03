@@ -42,8 +42,9 @@ namespace ML {
  * @param[in]  d_fc          Array to store the forecast
  */
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
-                           const ARIMAParamsD& params, const ARIMAOrder& order,
-                           int batch_size, double* loglike, double* d_vs,
+                           const ARIMAParams<double>& params,
+                           const ARIMAOrder& order, int batch_size,
+                           double* loglike, double* d_vs,
                            bool host_loglike = true, int fc_steps = 0,
                            double* d_fc = nullptr);
 
@@ -60,8 +61,8 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
  */
 void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv,
-                             const ARIMAParamsD& params,
-                             const ARIMAParamsD& Tparams);
+                             const ARIMAParams<double>& params,
+                             const ARIMAParams<double>& Tparams);
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure
