@@ -200,7 +200,7 @@ class SVR(SVMBase):
         del state['_model']
         if self.fit_once_ == 1:
             state['dual_coef_'] = cudf.DataFrame \
-                    .from_gpu_matrix(self.dual_coef_)
+                .from_gpu_matrix(self.dual_coef_)
             state['support_'] = cudf.Series(self.support_)
             state['support_vectors_'] = cudf.DataFrame \
                 .from_gpu_matrix(self.support_vectors_)
