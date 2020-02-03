@@ -558,8 +558,8 @@ class SVMBase(Base):
         if state["fit_once_"] == 1:
             state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
             state['support_'] = state['support_'].to_gpu_array()
-            state['support_vectors_'] = state['support_vectors_']
-            .as_gpu_matrix()
+            state['support_vectors_'] = state['support_vectors_'] \
+                .as_gpu_matrix()
             state['_unique_labels'] = state['_unique_labels'].to_gpu_array()
         self.__dict__.update(state)
         self._model = self._get_svm_model()
