@@ -15,8 +15,9 @@
 #
 
 import numpy as np
-from scipy.optimize import _lbfgsb
+
 from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
+from cuml.utils import has_scipy
 
 
 def _fd_fprime(x, f, h):
@@ -79,6 +80,11 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
               Maximum number of line-search iterations.
 
     """
+
+    if has_scipy():
+        from scipy.optimize import _lbfgsb
+    else:
+        raise RuntimeError("Scipy is needed to run batched_fmin_lbfgs_b")
 
     nvtx_range_push("LBFGS")
     n = len(x0) // num_batches
