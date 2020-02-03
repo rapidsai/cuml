@@ -20,8 +20,8 @@
 #include <random>
 #include <vector>
 
-#include "batched_matrix.h"
-#include "linalg/batched/batched_matrix.h"
+#include "linalg/batched/matrix.h"
+#include "linalg_naive.h"
 #include "sparse/batched/csr.h"
 #include "test_utils.h"
 
@@ -29,11 +29,11 @@ namespace MLCommon {
 namespace Sparse {
 namespace Batched {
 
-enum BatchedCSROperation { SpMV_op, SpMM_op };
+enum CSROperation { SpMV_op, SpMM_op };
 
 template <typename T>
-struct BatchedCSRInputs {
-  BatchedCSROperation operation;
+struct CSRInputs {
+  CSROperation operation;
   int batch_size;
   int m;  // Dimensions of A
   int n;
@@ -44,11 +44,11 @@ struct BatchedCSRInputs {
 };
 
 template <typename T>
-class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
+class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
  protected:
   void SetUp() override {
     using std::vector;
-    params = ::testing::TestWithParam<BatchedCSRInputs<T>>::GetParam();
+    params = ::testing::TestWithParam<CSRInputs<T>>::GetParam();
 
     // Check if the dimensions are valid and compute the output dimensions
     int m_r, n_r;
@@ -102,21 +102,21 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
     auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
 
     // Created batched dense matrices
-    LinAlg::Batched::BatchedMatrix<T> AbM(params.m, params.n, params.batch_size,
-                                          handle, allocator, stream);
-    LinAlg::Batched::BatchedMatrix<T> BxbM(
-      params.p, params.q, params.batch_size, handle, allocator, stream);
+    LinAlg::Batched::Matrix<T> AbM(params.m, params.n, params.batch_size,
+                                   handle, allocator, stream);
+    LinAlg::Batched::Matrix<T> BxbM(params.p, params.q, params.batch_size,
+                                    handle, allocator, stream);
 
     // Copy the data to the device
     updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
     updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
 
     // Create sparse matrix A from the dense A and the mask
-    BatchedCSR<T> AbS = BatchedCSR<T>::from_dense(AbM, mask, cusolverSpHandle);
+    CSR<T> AbS = CSR<T>::from_dense(AbM, mask, cusolverSpHandle);
 
     // Create matrix that will hold the results
-    res_bM = new LinAlg::Batched::BatchedMatrix<T>(m_r, n_r, params.batch_size,
-                                                   handle, allocator, stream);
+    res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle,
+                                            allocator, stream);
 
     // Compute the tested results
     switch (params.operation) {
@@ -159,8 +159,8 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
   }
 
  protected:
-  BatchedCSRInputs<T> params;
-  LinAlg::Batched::BatchedMatrix<T> *res_bM;
+  CSRInputs<T> params;
+  LinAlg::Batched::Matrix<T> *res_bM;
   std::vector<T> res_h;
   cublasHandle_t handle;
   cusolverSpHandle_t cusolverSpHandle;
@@ -168,7 +168,7 @@ class BatchedCSRTest : public ::testing::TestWithParam<BatchedCSRInputs<T>> {
 };
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
-const std::vector<BatchedCSRInputs<double>> inputsd = {
+const std::vector<CSRInputs<double>> inputsd = {
   {SpMV_op, 1, 90, 150, 440, 150, 1, 1e-6},
   {SpMV_op, 5, 13, 12, 75, 12, 1, 1e-6},
   {SpMV_op, 15, 8, 4, 6, 4, 1, 1e-6},
@@ -178,7 +178,7 @@ const std::vector<BatchedCSRInputs<double>> inputsd = {
   {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-6}};
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
-const std::vector<BatchedCSRInputs<float>> inputsf = {
+const std::vector<CSRInputs<float>> inputsf = {
   {SpMV_op, 1, 90, 150, 440, 150, 1, 1e-2},
   {SpMV_op, 5, 13, 12, 75, 12, 1, 1e-2},
   {SpMV_op, 15, 8, 4, 6, 4, 1, 1e-2},
@@ -187,8 +187,8 @@ const std::vector<BatchedCSRInputs<float>> inputsf = {
   {SpMM_op, 9, 10, 9, 31, 9, 11, 1e-2},
   {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-2}};
 
-using BatchedCSRTestD = BatchedCSRTest<double>;
-using BatchedCSRTestF = BatchedCSRTest<float>;
+using BatchedCSRTestD = CSRTest<double>;
+using BatchedCSRTestF = CSRTest<float>;
 TEST_P(BatchedCSRTestD, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
                               CompareApprox<double>(params.tolerance), stream));

@@ -26,7 +26,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include "linalg/batched/batched_matrix.h"
+#include "linalg/batched/matrix.h"
 #include "linalg/cusolver_wrappers.h"
 #include "matrix/matrix.h"
 
@@ -99,12 +99,12 @@ static __global__ void csr_to_dense_kernel(T* dense, const int* col_index,
 }
 
 /**
- * @brief The BatchedCSR class provides storage and a few operations for
+ * @brief The Batched::CSR class provides storage and a few operations for
  *        a batch of matrices in Compressed Sparse Row representation, that
  *        share a common structure (index arrays) but different values.
  */
 template <typename T>
-class BatchedCSR {
+class CSR {
  public:
   /**
    * @brief Constructor that leaves the matrix uninitialized
@@ -118,10 +118,9 @@ class BatchedCSR {
    * @param[in] allocator        Device memory allocator
    * @param[in] stream           CUDA stream
    */
-  BatchedCSR(int m, int n, int nnz, int batch_size, cublasHandle_t cublasHandle,
-             cusolverSpHandle_t cusolverSpHandle,
-             std::shared_ptr<ML::deviceAllocator> allocator,
-             cudaStream_t stream)
+  CSR(int m, int n, int nnz, int batch_size, cublasHandle_t cublasHandle,
+      cusolverSpHandle_t cusolverSpHandle,
+      std::shared_ptr<ML::deviceAllocator> allocator, cudaStream_t stream)
     : m_batch_size(batch_size),
       m_allocator(allocator),
       m_cublasHandle(cublasHandle),
@@ -172,9 +171,9 @@ class BatchedCSR {
    *                    get the mask
    * @return Batched CSR matrix
    */
-  static BatchedCSR<T> from_dense(
-    const LinAlg::Batched::BatchedMatrix<T>& dense,
-    const std::vector<bool>& mask, cusolverSpHandle_t cusolverSpHandle) {
+  static CSR<T> from_dense(const LinAlg::Batched::Matrix<T>& dense,
+                           const std::vector<bool>& mask,
+                           cusolverSpHandle_t cusolverSpHandle) {
     std::pair<int, int> shape = dense.shape();
 
     // Create the index arrays from the mask
@@ -192,9 +191,9 @@ class BatchedCSR {
     }
     h_row_index[shape.first] = nnz;
 
-    BatchedCSR<T> out = BatchedCSR<T>(
-      shape.first, shape.second, nnz, dense.batches(), dense.cublasHandle(),
-      cusolverSpHandle, dense.allocator(), dense.stream());
+    CSR<T> out = CSR<T>(shape.first, shape.second, nnz, dense.batches(),
+                        dense.cublasHandle(), cusolverSpHandle,
+                        dense.allocator(), dense.stream());
 
     // Copy the host index arrays to the device
     MLCommon::copy(out.get_col_index(), h_col_index.data(), nnz, out.stream());
@@ -215,12 +214,12 @@ class BatchedCSR {
   /**
    * @brief Construct a dense batched matrix
    * 
-   * @return BatchedMatrix representing the same data as this object
+   * @return Batched::Matrix representing the same data as this object
    */
-  LinAlg::Batched::BatchedMatrix<T> to_dense() {
-    LinAlg::Batched::BatchedMatrix<T> dense(m_shape.first, m_shape.second,
-                                            m_batch_size, m_cublasHandle,
-                                            m_allocator, m_stream, true);
+  LinAlg::Batched::Matrix<T> to_dense() {
+    LinAlg::Batched::Matrix<T> dense(m_shape.first, m_shape.second,
+                                     m_batch_size, m_cublasHandle, m_allocator,
+                                     m_stream, true);
 
     // Copy the data from the sparse to the dense representation
     constexpr int TPB = 256;
@@ -346,9 +345,8 @@ __global__ void batched_spmv_kernel(T alpha, const int* A_col_index,
  * @param[in,out] y      Batched dense vector y
  */
 template <typename T>
-void b_spmv(T alpha, const BatchedCSR<T>& A,
-            const LinAlg::Batched::BatchedMatrix<T>& x, T beta,
-            LinAlg::Batched::BatchedMatrix<T>& y) {
+void b_spmv(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& x,
+            T beta, LinAlg::Batched::Matrix<T>& y) {
   int m = A.shape().first;
   int n = A.shape().second;
   // A few checks
@@ -430,9 +428,8 @@ __global__ void batched_spmm_kernel(T alpha, const int* A_col_index,
  * @param[in,out] C      Batched dense matrix C
  */
 template <typename T>
-void b_spmm(T alpha, const BatchedCSR<T>& A,
-            const LinAlg::Batched::BatchedMatrix<T>& B, T beta,
-            LinAlg::Batched::BatchedMatrix<T>& C) {
+void b_spmm(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& B,
+            T beta, LinAlg::Batched::Matrix<T>& C) {
   int m = A.shape().first;
   int n = B.shape().second;
   int k = A.shape().second;
@@ -462,9 +459,9 @@ void b_spmm(T alpha, const BatchedCSR<T>& A,
  * @return             Batched dense matrix X solving the Lyapunov equation
  */
 template <typename T>
-LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
-  const BatchedCSR<T>& A, const std::vector<bool>& A_mask,
-  const LinAlg::Batched::BatchedMatrix<T>& Q) {
+LinAlg::Batched::Matrix<T> b_lyapunov(const CSR<T>& A,
+                                      const std::vector<bool>& A_mask,
+                                      const LinAlg::Batched::Matrix<T>& Q) {
   int n = A.shape().first;
   int n2 = n * n;
   int A_nnz = A.nnz();
@@ -529,8 +526,8 @@ LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
   }
 
   // Create the uninitialized batched CSR matrix
-  BatchedCSR<T> I_m_AxA(n2, n2, nnz, batch_size, A.cublasHandle(),
-                        cusolverSpHandle, allocator, stream);
+  CSR<T> I_m_AxA(n2, n2, nnz, batch_size, A.cublasHandle(), cusolverSpHandle,
+                 allocator, stream);
 
   // Copy the host index arrays to the device arrays
   copy(I_m_AxA.get_col_index(), h_AxA_col_index.data(), nnz, stream);
@@ -619,8 +616,8 @@ LinAlg::Batched::BatchedMatrix<T> b_lyapunov(
   void* pBuffer = allocator->allocate(workspaceInBytes, stream);
 
   // Create output matrix
-  LinAlg::Batched::BatchedMatrix<T> X(n, n, batch_size, A.cublasHandle(),
-                                      allocator, stream, false);
+  LinAlg::Batched::Matrix<T> X(n, n, batch_size, A.cublasHandle(), allocator,
+                               stream, false);
 
   // Then loop over the groups and solve
   for (int start_id = 0; start_id < batch_size; start_id += group_size) {
