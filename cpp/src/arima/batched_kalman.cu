@@ -662,25 +662,25 @@ void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
   double* d_Tparams =
     (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
   ARIMAParamsD params, Tparams;
-  allocate_params(alloc, stream, order, batch_size, &params, false);
-  allocate_params(alloc, stream, order, batch_size, &Tparams, true);
+  params.allocate(order, batch_size, alloc, stream, false);
+  Tparams.allocate(order, batch_size, alloc, stream, true);
 
   MLCommon::updateDevice(d_params, h_params, N * batch_size, stream);
 
-  unpack(d_params, params, batch_size, order, stream);
+  params.unpack(order, batch_size, d_params, stream);
 
   batched_jones_transform(handle, order, batch_size, isInv, params, Tparams);
   Tparams.mu = params.mu;
   Tparams.sigma2 = params.sigma2;
 
-  pack(batch_size, order, Tparams, d_Tparams, stream);
+  Tparams.pack(order, batch_size, d_Tparams, stream);
 
   MLCommon::updateHost(h_Tparams, d_Tparams, N * batch_size, stream);
 
   alloc->deallocate(d_params, N * batch_size * sizeof(double), stream);
   alloc->deallocate(d_Tparams, N * batch_size * sizeof(double), stream);
-  deallocate_params(alloc, stream, order, batch_size, params, false);
-  deallocate_params(alloc, stream, order, batch_size, Tparams, true);
+  params.deallocate(order, batch_size, alloc, stream, false);
+  Tparams.deallocate(order, batch_size, alloc, stream, true);
 }
 
 /**

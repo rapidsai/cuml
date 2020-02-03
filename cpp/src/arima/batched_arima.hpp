@@ -128,8 +128,7 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  */
-void estimate_x0(cumlHandle& handle, const ARIMAParamsD& params,
-                 const double* d_y, int batch_size, int nobs,
-                 const ARIMAOrder& order);
+void estimate_x0(cumlHandle& handle, ARIMAParamsD& params, const double* d_y,
+                 int batch_size, int nobs, const ARIMAOrder& order);
 
 }  // namespace ML
