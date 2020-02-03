@@ -77,10 +77,10 @@ if(BUILD_CUML_TESTS)
         ${CUML_C_TARGET}
         pthread
         ${ZLIB_LIBRARIES}
-    )
+        )
 
     # (please keep the filenames in alphabetical order)
-    add_executable(ml
+    set(CUML_CPP_TEST_SRCS
       sg/cd_test.cu
       sg/dbscan_test.cu
       sg/fil_test.cu
@@ -97,13 +97,22 @@ if(BUILD_CUML_TESTS)
       sg/ridge.cu
       sg/rproj_test.cu
       sg/sgd.cu
-      sg/spectral_test.cu
+      # sg/spectral_test.cu
       sg/svc_test.cu
       sg/trustworthiness_test.cu
       sg/tsne_test.cu
       sg/tsvd_test.cu
-      sg/umap_test.cu
+      # sg/umap_test.cu
       )
+
+    if(CUDA_VERSION_MAJOR LESS 11)
+      list(APPEND CUML_CPP_TEST_SRCS
+        sg/spectral_test.cu
+        sg/umap_test.cu
+        )
+    endif()
+
+    add_executable(ml ${CUML_CPP_TEST_SRCS})
 
     add_dependencies(ml cub)
     add_dependencies(ml cutlass)
