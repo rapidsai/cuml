@@ -447,7 +447,7 @@ class RandomForestClassifier(Base):
         num_unique_labels = len(unique_labels)
 
         if num_unique_labels > 2:
-          self.multi_class = 1
+            self.multi_class = 1
 
         for i in range(num_unique_labels):
             if i not in unique_labels:
