@@ -218,6 +218,12 @@ if("${GPU_ARCHS}" STREQUAL "ALL")
   endif()
 endif()
 
+# nvgraph is deprecated in favor of cugraph
+if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
+  message("Disabling nvgraph library. It is deprecated in favor of cugraph")
+  set(CUDA_nvgraph_LIBRARY "")
+endif()
+
 message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
@@ -360,7 +366,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   set(CUML_CPP_TARGET "cuml++")
 
-  add_library(${CUML_CPP_TARGET} SHARED
+  set(CUML_CPP_SRCS
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
@@ -383,16 +389,25 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
-    src/spectral/spectral.cu
+    # src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/ws_util.cu
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu
+    # src/umap/umap.cu
     src/arima/batched_kalman.cu
     src/arima/batched_arima.cu
+  )
+
+  if(CUDA_VERSION_MAJOR LESS 11)
+    list(APPEND CUML_CPP_SRCS
+      src/spectral/spectral.cu
+      src/umap/umap.cu
     )
+  endif()
+
+  add_library(${CUML_CPP_TARGET} SHARED ${CUML_CPP_SRCS})
 
   set(CUML_LINK_LIBRARIES
     ${CUDA_cublas_LIBRARY}
