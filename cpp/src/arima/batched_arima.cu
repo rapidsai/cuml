@@ -31,7 +31,7 @@
 #include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
-#include "linalg/batched/batched_matrix.h"
+#include "linalg/batched/matrix.h"
 #include "linalg/matrix_vector_op.h"
 #include "metrics/batched/information_criterion.h"
 #include "utils.h"
@@ -371,8 +371,8 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  */
 static void _arma_least_squares(
   cumlHandle& handle, double* d_ar, double* d_ma, double* d_sigma2,
-  const MLCommon::LinAlg::Batched::BatchedMatrix<double>& bm_y, int p, int q,
-  int s, bool estimate_sigma2, int k = 0, double* d_mu = nullptr) {
+  const MLCommon::LinAlg::Batched::Matrix<double>& bm_y, int p, int q, int s,
+  bool estimate_sigma2, int k = 0, double* d_mu = nullptr) {
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
@@ -401,7 +401,7 @@ static void _arma_least_squares(
   /* Matrix formed by lag matrices of y and the residuals respectively,
    * side by side. The left side will be used to estimate AR, the right
    * side to estimate MA */
-  MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_ls_ar_res(
+  MLCommon::LinAlg::Batched::Matrix<double> bm_ls_ar_res(
     n_obs - r, p + q + k, batch_size, cublas_handle, allocator, stream, false);
   int ar_offset = r - ps;
   int res_offset = r - p_ar - qs;
@@ -410,17 +410,17 @@ static void _arma_least_squares(
   if (q) {
     // Create lagged y
     int ls_height = n_obs - p_ar;
-    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_ls =
+    MLCommon::LinAlg::Batched::Matrix<double> bm_ls =
       MLCommon::LinAlg::Batched::b_lagged_mat(bm_y, p_ar);
 
     /* Matrix for the initial AR fit, initialized by copy of y
      * (note: this is because gels works in-place ; the matrix has larger
      *  dimensions than the actual AR fit) */
-    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_ar_fit =
+    MLCommon::LinAlg::Batched::Matrix<double> bm_ar_fit =
       MLCommon::LinAlg::Batched::b_2dcopy(bm_y, p_ar, 0, ls_height, 1);
 
     // Residual, initialized as offset y to avoid one kernel call
-    MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_residual(bm_ar_fit);
+    MLCommon::LinAlg::Batched::Matrix<double> bm_residual(bm_ar_fit);
 
     // Initial AR fit
     MLCommon::LinAlg::Batched::b_gels(bm_ls, bm_ar_fit);
@@ -455,11 +455,11 @@ static void _arma_least_squares(
 
   /* Initializing the vector for the ARMA fit
    * (note: also in-place as described for AR fit) */
-  MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_arma_fit =
+  MLCommon::LinAlg::Batched::Matrix<double> bm_arma_fit =
     MLCommon::LinAlg::Batched::b_2dcopy(bm_y, r, 0, n_obs - r, 1);
 
   // The residuals will be computed only if sigma2 is requested
-  MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_final_residual(
+  MLCommon::LinAlg::Batched::Matrix<double> bm_final_residual(
     n_obs - r, 1, batch_size, cublas_handle, allocator, stream, false);
   if (estimate_sigma2) {
     MLCommon::copy(bm_final_residual.raw_data(), bm_arma_fit.raw_data(),
@@ -517,10 +517,9 @@ static void _arma_least_squares(
  * Auxiliary function of estimate_x0: compute the starting parameters for
  * the series pre-processed by estimate_x0
  */
-static void _start_params(
-  cumlHandle& handle, ARIMAParams<double>& params,
-  const MLCommon::LinAlg::Batched::BatchedMatrix<double>& bm_y,
-  const ARIMAOrder& order) {
+static void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
+                          const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                          const ARIMAOrder& order) {
   // Estimate an ARMA fit without seasonality
   if (order.p + order.q + order.k)
     _arma_least_squares(handle, params.ar, params.ma, params.sigma2, bm_y,
@@ -543,7 +542,7 @@ void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
   auto allocator = handle_impl.getDeviceAllocator();
 
   // Difference if necessary, copy otherwise
-  MLCommon::LinAlg::Batched::BatchedMatrix<double> bm_yd(
+  MLCommon::LinAlg::Batched::Matrix<double> bm_yd(
     n_obs - order.d - order.s * order.D, 1, batch_size, cublas_handle,
     allocator, stream, false);
   _prepare_data(handle, bm_yd.raw_data(), d_y, batch_size, n_obs, order.d,

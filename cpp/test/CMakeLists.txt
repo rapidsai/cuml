@@ -171,11 +171,11 @@ if(BUILD_PRIMS_TESTS)
       prims/add.cu
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
-      prims/batched/batched_csr.cu
-      prims/batched/batched_matrix.cu
+      prims/batched/csr.cu
+      prims/batched/gemv.cu
       prims/batched/information_criterion.cu
       prims/batched/make_symm.cu
-      prims/batched/gemv.cu
+      prims/batched/matrix.cu
       prims/binary_op.cu
       prims/ternary_op.cu
       prims/cache.cu
