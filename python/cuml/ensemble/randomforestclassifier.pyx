@@ -399,6 +399,7 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
+        self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
@@ -609,7 +610,7 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
 
-        if predict_model == "CPU":
+        if predict_model == "CPU" or self.num_classes > 2:
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and not convert_dtype:
