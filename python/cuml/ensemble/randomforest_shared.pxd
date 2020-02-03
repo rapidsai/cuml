@@ -71,6 +71,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         CLASSIFICATION,
         REGRESSION
 
+    cdef enum task_category:
+        REGRESSION_CATEGORY = 1
+        CLASSIFICATION_CATEGORY = 2
+
     cdef struct RF_metrics:
         RF_type rf_type
         float accuracy
