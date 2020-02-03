@@ -278,7 +278,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   ARIMAParamsD Tparams;
 
   if (trans) {
-    allocate_params(allocator, stream, order, batch_size, &Tparams, true);
+    Tparams.allocate(order, batch_size, allocator, stream, true);
 
     batched_jones_transform(handle, order, batch_size, false, params, Tparams);
   } else {
@@ -309,7 +309,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   }
 
   if (trans) {
-    deallocate_params(allocator, stream, order, batch_size, Tparams, true);
+    Tparams.deallocate(order, batch_size, allocator, stream, true);
   }
   ML::POP_RANGE();
 }
@@ -324,13 +324,13 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   ARIMAParamsD params;
-  allocate_params(allocator, stream, order, batch_size, &params, false);
-  unpack(d_params, params, batch_size, order, stream);
+  params.allocate(order, batch_size, allocator, stream, false);
+  params.unpack(order, batch_size, d_params, stream);
 
   batched_loglike(handle, d_y, batch_size, n_obs, order, params, loglike, d_vs,
                   trans, host_loglike, fc_steps, d_fc);
 
-  deallocate_params(allocator, stream, order, batch_size, params, false);
+  params.deallocate(order, batch_size, allocator, stream, false);
   ML::POP_RANGE();
 }
 
@@ -518,7 +518,7 @@ static void _arma_least_squares(
  * the series pre-processed by estimate_x0
  */
 static void _start_params(
-  cumlHandle& handle, const ARIMAParamsD& params,
+  cumlHandle& handle, ARIMAParamsD& params,
   const MLCommon::LinAlg::Batched::BatchedMatrix<double>& bm_y,
   const ARIMAOrder& order) {
   // Estimate an ARMA fit without seasonality
@@ -533,9 +533,8 @@ static void _start_params(
                         order.p + order.q + order.k == 0);
 }
 
-void estimate_x0(cumlHandle& handle, const ARIMAParamsD& params,
-                 const double* d_y, int batch_size, int n_obs,
-                 const ARIMAOrder& order) {
+void estimate_x0(cumlHandle& handle, ARIMAParamsD& params, const double* d_y,
+                 int batch_size, int n_obs, const ARIMAOrder& order) {
   ML::PUSH_RANGE(__func__);
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();

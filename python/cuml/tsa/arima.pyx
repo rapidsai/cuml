@@ -87,7 +87,7 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         int ic_type)
 
     void estimate_x0(
-        cumlHandle& handle, const ARIMAParamsD& params, const double* d_y,
+        cumlHandle& handle, ARIMAParamsD& params, const double* d_y,
         int batch_size, int nobs, const ARIMAOrder& order)
 
 

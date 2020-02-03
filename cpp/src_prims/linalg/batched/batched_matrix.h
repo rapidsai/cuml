@@ -938,8 +938,7 @@ BatchedMatrix<T> b_2dcopy(const BatchedMatrix<T>& in, int starting_row,
  * @return             Batched matrix X solving the Lyapunov equation
  */
 template <typename T>
-BatchedMatrix<T> b_lyapunov(const BatchedMatrix<T>& A,
-                            BatchedMatrix<T>& Q) {
+BatchedMatrix<T> b_lyapunov(const BatchedMatrix<T>& A, BatchedMatrix<T>& Q) {
   int batch_size = A.batches();
   int n = A.shape().first;
   int n2 = n * n;
