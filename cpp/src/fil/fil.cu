@@ -140,7 +140,6 @@ struct forest {
       transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
         preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
         threshold_, global_bias_);
-      std::cout << " preds : " << preds << std::flush << std::endl;
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
