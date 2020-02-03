@@ -25,7 +25,6 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <typeinfo>
 #include <vector>
 
 #include "randomforest_impl.cuh"
@@ -348,6 +347,7 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   return bytes_info;
 }
 
+/**
 ModelHandle tl_mod_handle(ModelHandle* model,
                           std::vector<unsigned char>& data) {
   const char* filename = std::tmpnam(nullptr);
@@ -358,6 +358,7 @@ ModelHandle tl_mod_handle(ModelHandle* model,
   TREELITE_CHECK(TreeliteQueryNumTree(*model, &nt));
   return *model;
 }
+**/
 
 void check_concat_tl_mod(ModelHandle concat_tree_handle,
                          std::vector<ModelHandle*> treelite_handles) {

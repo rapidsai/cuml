@@ -374,9 +374,15 @@ class RandomForestRegressor(Base):
         return model_protobuf_bytes
 
     def _tl_model_handles(self, model_bytes):
+        task_category = 1
         cdef ModelHandle cuml_model_ptr = NULL
-        mod_had_val = tl_mod_handle(& cuml_model_ptr,
-                                    <vector[unsigned char] &> model_bytes)
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        build_treelite_forest(& cuml_model_ptr,
+                              rf_forest,
+                              <int> self.n_cols,
+                              <int> task_category,
+                              <vector[unsigned char] &> model_bytes)
         mod_handle = <size_t> cuml_model_ptr
 
         return ctypes.c_void_p(mod_handle).value
