@@ -8,6 +8,7 @@
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
 - PR #1611: Fixing pickling errors for KNN classifier and regressor
+- PR #1627: Adding a check for multi-class data in RF classification
 
 # cuML 0.12.0 (Date TBD)
 
