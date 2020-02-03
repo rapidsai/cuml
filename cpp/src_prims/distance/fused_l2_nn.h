@@ -445,6 +445,30 @@ struct FusedL2NN {
   }
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
+  ///@todo: fix this to use memcpy_async
+  DI void ldgXY(IdxT kidx) {
+    auto koffset = kidx + scolid;
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
+        ldg(ldgDataX[i], x + i * P::LdgRowsX * k + koffset);
+      } else {
+#pragma unroll
+        for (int j = 0; j < P::Veclen; ++j) {
+          ldgDataX[i][j] = Zero;
+        }
+      }
+    }
+    for (int i = 0; i < P::LdgPerThY; ++i) {
+      if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
+        ldg(ldgDataY[i], y + i * P::LdgRowsY * k + koffset);
+      } else {
+#pragma unroll
+        for (int j = 0; j < P::Veclen; ++j) {
+          ldgDataY[i][j] = Zero;
+        }
+      }
+    }
+  }
 #else  // ENABLE_MEMCPY_ASYNC
   DI void ldgXY(IdxT kidx) {
     auto koffset = kidx + scolid;
@@ -469,7 +493,12 @@ struct FusedL2NN {
       }
     }
   }
+#endif  // ENABLE_MEMCPY_ASYNC
 
+#if (ENABLE_MEMCPY_ASYNC == 1)
+  DI void stsXY() {  // no-op in case memcpy-async is possible
+  }
+#else  // ENABLE_MEMCPY_ASYNC
   DI void stsXY() {
     auto offset = pageWr * P::SmemPage + srowid * P::SmemStride + scolid;
     auto* saddrx = sx + offset;
