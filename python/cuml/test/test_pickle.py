@@ -22,8 +22,7 @@ import pytest
 from cuml.test.utils import array_equal, unit_param, stress_param
 from cuml.test.test_svm import compare_svm
 from sklearn.base import clone
-from sklearn.datasets import load_iris, make_classification,\
-    make_regression
+from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
 
@@ -41,15 +40,16 @@ class ModuleConfig:
 
     def get_models(self):
         classes = self._get_classes()
-        models = {name: cls for name, cls in classes.items() if cls not in self.exclude_classes}
+        models = {name: cls for name, cls in classes.items() if
+                  cls not in self.exclude_classes}
         models.update(self.custom_constructors)
         return models
 
 
 regression_config = ModuleConfig(
     module=cuml.linear_model,
-    # TODO: Check if MBSGDRegressor should be included into regression pickle tests
-    # TODO: Check if MBSGDClassifier should be included into some other pickle tests
+    # TODO: Check if MBSGDRegressor should be included into regression tests
+    # TODO: Check if MBSGDClassifier should be included into some other tests
     exclude_classes=[cuml.MBSGDClassifier, cuml.MBSGDRegressor]
 )
 regression_models = regression_config.get_models()
@@ -77,7 +77,8 @@ decomposition_models_xfail = decomposition_config_xfail.get_models()
 
 neighbor_config = ModuleConfig(
     module=cuml.neighbors,
-    exclude_classes=[cuml.neighbors.KNeighborsClassifier, cuml.neighbors.KNeighborsRegressor]
+    exclude_classes=[cuml.neighbors.KNeighborsClassifier,
+                     cuml.neighbors.KNeighborsRegressor]
 )
 neighbor_models = neighbor_config.get_models()
 
@@ -92,7 +93,8 @@ umap_model = {
 rf_models = ModuleConfig(module=cuml.ensemble)
 rf_models = rf_models.get_models()
 
-k_neighbors_config = ModuleConfig(module=cuml.neighbors, exclude_classes=[cuml.neighbors.NearestNeighbors])
+k_neighbors_config = ModuleConfig(module=cuml.neighbors, exclude_classes=[
+    cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
 all_models = {**regression_models,
@@ -181,7 +183,7 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, key):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', regression_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
     result = {}
@@ -204,7 +206,7 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', solver_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 def test_solver_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
@@ -226,7 +228,7 @@ def test_solver_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', cluster_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 def test_cluster_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
@@ -248,7 +250,7 @@ def test_cluster_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', decomposition_models_xfail.values())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 @pytest.mark.xfail
 def test_decomposition_pickle(tmpdir, datatype, keys, data_size):
     result = {}
@@ -305,7 +307,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', decomposition_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 @pytest.mark.xfail
 def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
     result = {}
@@ -339,6 +341,7 @@ def test_unfit_pickle(model_name):
     mod_unpickled = pickle.loads(mod_pickled_bytes)
     assert mod_unpickled is not None
 
+
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
 def test_unfit_clone(model_name):
@@ -351,7 +354,7 @@ def test_unfit_clone(model_name):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', neighbor_models.keys())
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
-                         stress_param([500000, 1000, 500, 50])])
+                                       stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
     result = {}
 
@@ -376,7 +379,7 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
-                         stress_param([500000, 1000, 500, 50])])
+                                       stress_param([500000, 1000, 500, 50])])
 @pytest.mark.parametrize('keys', k_neighbors_models.keys())
 def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
     result = {}
@@ -404,7 +407,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
-                         stress_param([500000, 1000, 500, 50])])
+                                       stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     result = {}
     """
@@ -438,7 +441,7 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', dbscan_model.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
@@ -478,7 +481,7 @@ def test_tsne_pickle(tmpdir):
             new_keys -= set([key])
 
         # Check all keys have been checked
-        assert(len(new_keys) == 0)
+        assert (len(new_keys) == 0)
 
         # Transform data
         result["fit_model"] = pickled_model.fit(X)
@@ -560,24 +563,29 @@ def test_module_config():
                           exclude_classes=[SomeModule.ExcludedClass],
                           custom_constructors={
                               "CustomConstructorClass":
-                                  lambda: SomeModule.CustomConstructorClass(some_parameter=1)
+                                  lambda: SomeModule.CustomConstructorClass(
+                                      some_parameter=1)
                           })
 
     models = module.get_models()
     ref = {
         "SomeClass": SomeModule.SomeClass,
-        "CustomConstructorClass": lambda: SomeModule.CustomConstructorClass(some_parameter=1)
+        "CustomConstructorClass": lambda: SomeModule.CustomConstructorClass(
+            some_parameter=1)
     }
 
-    # Here we don't do `assert models == ref` because CustomConstructorClass is a lambda.
-    assert len(models) == len(ref)
+    # Here we don't do `assert models == ref` because CustomConstructorClass is
+    # a lambda.
+    assert len(models) == len(ref) == 2
     assert models['SomeClass'] == ref['SomeClass']
-    assert models['CustomConstructorClass']() == ref['CustomConstructorClass']()
+    assert models['CustomConstructorClass']() == ref[
+        'CustomConstructorClass']()
 
 
 def test_module_config_empty_module():
     class EmptyModule:
         pass
+
     assert {} == ModuleConfig(EmptyModule).get_models()
 
 
@@ -588,10 +596,14 @@ def test_module_config_parameters():
                 return type(other) == type(self)
 
     models1 = ModuleConfig(module=SomeModule).get_models()
-    models2 = ModuleConfig(module=SomeModule, exclude_classes=[SomeModule.SomeClass]).get_models()
-    models3 = ModuleConfig(module=SomeModule,
-                           custom_constructors={'SomeClass': lambda: SomeModule.SomeClass()}).get_models()
+    models2 = ModuleConfig(module=SomeModule,
+                           exclude_classes=[SomeModule.SomeClass]).get_models()
+    models3 = ModuleConfig(
+        module=SomeModule,
+        custom_constructors={'SomeClass': lambda: SomeModule.SomeClass()}
+    ).get_models()
 
     assert models1 == {'SomeClass': SomeModule.SomeClass}
     assert models2 == {}
-    assert len(models3) == 1 and models3['SomeClass']() == SomeModule.SomeClass()
+    assert len(models3) == 1 and models3[
+        'SomeClass']() == SomeModule.SomeClass()
