@@ -357,7 +357,7 @@ class RandomForestRegressor(Base):
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
 
-        task_category = 1
+        task_category = REGRESSION_CATEGORY
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -376,7 +376,7 @@ class RandomForestRegressor(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
-        task_category = 1
+        task_category = REGRESSION_CATEGORY
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
@@ -478,7 +478,8 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo,
-                              convert_dtype=False, task_category=1):
+                              convert_dtype=False,
+                              task_category=REGRESSION_CATEGORY):
 
         cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, _ = \
@@ -490,7 +491,7 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
-        task_category = 1  # for regression
+        task_category = REGRESSION_CATEGORY  # for regression
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
@@ -601,7 +602,8 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               task_category=1)
+                                               task_category=\
+                                                   REGRESSION_CATEGORY)
 
         return preds
 

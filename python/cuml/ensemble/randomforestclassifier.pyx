@@ -366,7 +366,7 @@ class RandomForestClassifier(Base):
 
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
-        task_category = 1
+        task_category = CLASSIFICATION_CATEGORY
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -386,7 +386,7 @@ class RandomForestClassifier(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
-        task_category = 1
+        task_category = CLASSIFICATION_CATEGORY
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
