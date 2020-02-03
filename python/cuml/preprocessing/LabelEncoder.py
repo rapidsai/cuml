@@ -116,7 +116,7 @@ class LabelEncoder(object):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
         self._fitted: bool = False
@@ -221,7 +221,8 @@ class LabelEncoder(object):
         return cudf.Series(arr)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
-        ''' Revert ordinal label to original label
+        """
+        Revert ordinal label to original label
 
         Parameters
         ----------
@@ -232,7 +233,7 @@ class LabelEncoder(object):
         -------
         reverted : cudf.Series
             Reverted labels
-        '''
+        """
         # check LabelEncoder is fitted
         self._check_is_fitted()
         # check input type is cudf.Series

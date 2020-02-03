@@ -33,7 +33,6 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
     device_array_from_ptr, get_dev_array_ptr
 from libcpp cimport bool
-from sklearn.exceptions import NotFittedError
 from cuml.svm.svm_base import SVMBase
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -110,6 +109,7 @@ class SVC(SVMBase):
     [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
          Algorithm for Support VectorMachine Training, IEEE Transactions on
          Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
+
     [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
     *      of Machine Learning Research, 19, 1-5 (2018)
         https://github.com/Xtra-Computing/thundersvm

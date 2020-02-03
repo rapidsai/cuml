@@ -405,7 +405,9 @@ class UMAP(Base):
             return cupy.array(embedding)
 
     def fit(self, X, y=None, convert_dtype=True):
-        """Fit X into an embedded space.
+        """
+        Fit X into an embedded space.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -480,7 +482,8 @@ class UMAP(Base):
         return self
 
     def fit_transform(self, X, y=None, convert_dtype=True):
-        """Fit X into an embedded space and return that transformed
+        """
+        Fit X into an embedded space and return that transformed
         output.
 
         There is a subtle difference between calling fit_transform(X)
@@ -496,6 +499,7 @@ class UMAP(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
         -------
         X_new : array, shape (n_samples, n_components)
@@ -505,7 +509,8 @@ class UMAP(Base):
         return UMAP._prep_output(X, self.embedding_)
 
     def transform(self, X, convert_dtype=True):
-        """Transform X into the existing embedded space and return that
+        """
+        Transform X into the existing embedded space and return that
         transformed output.
 
         Please refer to the reference UMAP implementation for information
@@ -521,6 +526,7 @@ class UMAP(Base):
             New data to be transformed.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
         -------
         X_new : array, shape (n_samples, n_components)
