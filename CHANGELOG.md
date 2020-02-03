@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1620: Pickling tests now automatically finds new model classes if the module already exists
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
