@@ -40,7 +40,7 @@ requirements:
   run:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
-    - nccl 2.4.*
+    - nccl>=2.4
     - ucx-py {{ minor_version }}
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 

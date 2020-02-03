@@ -83,6 +83,22 @@ class KNeighborsRegressor(NearestNeighbors):
     The K-Nearest Neighbors Regressor will compute the average of the
     labels for the k closest neighbors and use it as the label.
 
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    verbose : boolean (default=False)
+        Whether to print verbose logs
+    handle : cumlHandle
+        The cumlHandle resources to use
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+    metric : string (default='euclidean').
+        Distance metric to use.
+    weights : string (default='uniform')
+        Sample weights to use. Currently, only the uniform strategy is
+        supported.
+
     Examples
     ---------
     .. code-block:: python
@@ -128,24 +144,36 @@ class KNeighborsRegressor(NearestNeighbors):
     """
 
     def __init__(self, weights="uniform", **kwargs):
-        """
-        Parameters
-        ----------
-        n_neighbors : int default number of neighbors to query (default=5)
-        verbose : boolean print verbose logs
-        handle : cumlHandle the cumlHandle resources to use
-        algorithm : string the query algorithm to use. Currently, only
-                    'brute' is supported.
-        metric : string distance metric to use. (default="euclidean").
-        weights : string sample weights to use. (default="uniform").
-                  Currently, only the uniform strategy is supported.
-        """
         super(KNeighborsRegressor, self).__init__(**kwargs)
         self.y = None
         self.weights = weights
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy "
                              "is supported currently.")
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+
+        # Only need to store index if fit() was called
+        if self.n_indices == 1:
+            state['y'] = cudf.Series(self.y)
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+        return state
+
+    def __setstate__(self, state):
+        super(NearestNeighbors, self).__init__(handle=None,
+                                               verbose=state['verbose'])
+
+        cdef uintptr_t x_ctype
+
+        # Only need to recover state if model had been previously fit
+        if state["n_indices"] == 1:
+
+            state['y'] = state['y'].to_gpu_array()
+            state['X_m'] = state['X_m'].as_gpu_matrix()
+        self.__dict__.update(state)
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -166,7 +194,6 @@ class KNeighborsRegressor(NearestNeighbors):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        :return :
         """
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self.y, _, _, _, _ = \
@@ -192,7 +219,6 @@ class KNeighborsRegressor(NearestNeighbors):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        :return:
         """
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -259,7 +285,6 @@ class KNeighborsRegressor(NearestNeighbors):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        :return :
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)
         return r2_score(y, y_hat, convert_dtype=convert_dtype)

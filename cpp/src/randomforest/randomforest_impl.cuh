@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ namespace ML {
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
- * @param[in] cfg_rf_type: Random forest type. Only CLASSIFICATION is currently supported.
+ * @param[in] cfg_rf_type: Random forest type.
  */
 template <typename T, typename L>
 rf<T, L>::rf(RF_params cfg_rf_params, int cfg_rf_type)
@@ -325,8 +325,14 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
                                     int* predictions,
                                     const RandomForestMetaData<T, int>* forest,
                                     bool verbose) {
+  int num_trees = this->rf_params.n_trees;
+  std::vector<int> h_predictions(n_rows * num_trees);
+
+  std::vector<T> h_input(n_rows * n_cols);
   const cumlHandle_impl& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
+  MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   int row_size = n_cols;
   int pred_id = 0;
@@ -336,20 +342,22 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
       std::cout << "\n\n";
       std::cout << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
-        std::cout << input[row_id * row_size + i] << ", ";
+        std::cout << h_input[row_id * row_size + i] << ", ";
       std::cout << std::endl;
     }
 
-    for (int i = 0; i < this->rf_params.n_trees; i++) {
+    for (int i = 0; i < num_trees; i++) {
       int prediction;
       trees[i].predict(user_handle, &forest->trees[i],
-                       &input[row_id * row_size], 1, n_cols, &prediction,
+                       &h_input[row_id * row_size], 1, n_cols, &prediction,
                        verbose);
-      predictions[pred_id] = prediction;
+      h_predictions[pred_id] = prediction;
       pred_id++;
     }
   }
 
+  MLCommon::updateDevice(predictions, h_predictions.data(), n_rows * num_trees,
+                         stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -361,13 +369,13 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 template <typename T>
 RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle,
                                   const int* ref_labels, int n_rows,
-                                  int* predictions, bool verbose) const {
+                                  const int* predictions, bool verbose) {
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
@@ -566,14 +574,14 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
+ * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] forest: CPU pointer to RandomForestMetaData struct
  * @param[in] verbose: flag for debugging purposes.
  */
 template <typename T>
 RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle,
                                  const T* ref_labels, int n_rows,
-                                 T* predictions, bool verbose) const {
+                                 const T* predictions, bool verbose) {
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,11 +21,12 @@
 # cython: language_level = 3
 
 import ctypes
+import cudf
+import cupy as cp
 import math
 import numpy as np
+import rmm
 import warnings
-
-from numba import cuda
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -38,8 +39,9 @@ from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
-from cuml.utils.cupy_utils import checked_cupy_unique
+    input_to_dev_array, zeros, rmm_cupy_ary
+
+from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -281,6 +283,7 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
+        self.dtype = None
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
         if ((seed is not None) and (n_streams != 1)):
@@ -302,7 +305,9 @@ class RandomForestClassifier(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self.model_pbuf_bytes = self._get_model_info()
+        if self.n_cols:
+            # only if model has been fit previously
+            self.model_pbuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*>params_t
@@ -409,7 +414,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = checked_cupy_unique(y_m)
+        unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
 
         for i in range(num_unique_labels):
@@ -517,10 +522,9 @@ class RandomForestClassifier(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        preds = np.zeros(n_rows, dtype=np.int32)
-        cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
+        preds = cudf.Series(zeros(n_rows, dtype=np.int32))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -553,10 +557,9 @@ class RandomForestClassifier(Base):
 
         self.handle.sync()
         # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
+        predicted_result = preds.to_array()
         del(X_m)
-        del(preds_m)
-        return preds
+        return predicted_result
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
@@ -624,7 +627,7 @@ class RandomForestClassifier(Base):
 
         return preds
 
-    def _predict_get_all(self, X):
+    def _predict_get_all(self, X, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -640,20 +643,16 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        cdef uintptr_t X_ptr
-        X_ptr = X.ctypes.data
-        n_rows, n_cols = np.shape(X)
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
+        cdef uintptr_t X_ptr, preds_ptr
+        X_m, X_ptr, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
-        preds = np.zeros(n_rows * self.n_estimators,
-                         dtype=np.int32)
+        preds = cudf.Series(zeros(n_rows * self.n_estimators, dtype=np.int32))
+        preds_ptr = get_cudf_column_ptr(preds)
 
-        cdef uintptr_t preds_ptr = preds.ctypes.data
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -686,10 +685,13 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        return preds
+        predicted_result = preds.to_array()
+        del(X_m)
+        return predicted_result
 
     def score(self, X, y, threshold=0.5,
-              algo='BATCH_TREE_REORG', num_classes=2):
+              algo='BATCH_TREE_REORG', num_classes=2,
+              convert_dtype=True):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -715,6 +717,9 @@ class RandomForestClassifier(Base):
             predict operation on the GPU.
         num_classes : integer
             number of different classes present in the dataset
+        convert_dtype : boolean, default=True
+            whether to convert input data to correct dtype automatically
+
         Returns
         -------
         float
@@ -722,11 +727,14 @@ class RandomForestClassifier(Base):
         """
         cdef uintptr_t X_ptr, y_ptr
         y_m, y_ptr, n_rows, _, y_dtype = \
-            input_to_dev_array(y, check_dtype=np.int32)
+            input_to_dev_array(y, check_dtype=np.int32,
+                               convert_to_dtype=(np.int32 if convert_dtype
+                                                 else False))
 
         preds = self.predict(X, output_class=True,
                              threshold=threshold, algo=algo,
-                             num_classes=num_classes)
+                             num_classes=num_classes,
+                             convert_dtype=convert_dtype)
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
@@ -777,6 +785,8 @@ class RandomForestClassifier(Base):
 
         params = dict()
         for key in RandomForestClassifier.variables:
+            if key in ['handle']:
+                continue
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params

@@ -205,22 +205,25 @@ class KMeans(Base):
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
-           (default = 'scalable-k-means++')
+    init : 'scalable-kmeans++', 'k-means||' , 'random' or an ndarray (default = 'scalable-k-means++')  # noqa
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
         kmeans++ initialization.
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    oversampling_factor : float64 scalable k-means|| oversampling factor
-    max_samples_per_batch : int maximum number of samples to use for each batch
-                                of the pairwise distance computation.
-    oversampling_factor : int (default = 2) The amount of points to sample
+    oversampling_factor : float64
+        scalable k-means|| oversampling factor
+    max_samples_per_batch : int (default=1<<15)
+        maximum number of samples to use for each batch
+        of the pairwise distance computation.
+    oversampling_factor : int (default = 2)
+        The amount of points to sample
         in scalable k-means++ initialization for potential centroids.
         Increasing this value can lead to better initial centroids at the
         cost of memory. The total number of centroids sampled in scalable
         k-means++ is oversampling_factor * n_clusters * 8.
-    max_samples_per_batch : int (default = 32768) The number of data
+    max_samples_per_batch : int (default = 32768)
+        The number of data
         samples to use for batches of the pairwise distance computation.
         This computation is done throughout both fit predict. The default
         should suit most cases. The total number of elements in the batched
@@ -479,6 +482,7 @@ class KMeans(Base):
         self.handle.sync()
         del(X_m)
         del(clust_mat)
+
         return self.labels_, inertia
 
     def predict(self, X, convert_dtype=False):

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import math
 import numpy as np
 import pandas as pd
 
+from cuml.utils import rmm_cupy_ary
 from dask import delayed
 from dask.dataframe import from_delayed
 from dask.distributed import default_client
@@ -32,13 +33,14 @@ from uuid import uuid1
 
 
 def create_local_data(m, n, centers, cluster_std, random_state,
-                      dtype, type):
+                      dtype, type, order='F'):
     X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
                           random_state=random_state)
 
     if type == 'array':
-        X = cp.asarray(X.astype(dtype))
-        y = cp.asarray(y.astype(dtype)).reshape(m, 1)
+        X = rmm_cupy_ary(cp.asarray, X.astype(dtype), order=order)
+        y = rmm_cupy_ary(cp.asarray, y.astype(dtype),
+                         order=order).reshape(m, 1)
 
     elif type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
@@ -65,7 +67,7 @@ def get_labels(t):
 
 def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32, output='dataframe'):
+               dtype=np.float32, output='dataframe', order='F'):
 
     """
     Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
@@ -121,7 +123,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                                     size=(centers, ncols)).astype(np.float32)
 
     if verbose:
-        print("Generating %d samples acgraross %d partitions on "
+        print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
               (math.ceil(nrows/len(workers)), n_parts, len(workers), nrows))
 

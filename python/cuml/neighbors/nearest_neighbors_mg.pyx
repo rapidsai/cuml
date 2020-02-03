@@ -36,9 +36,6 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
 
-import scipy.stats as stats
-
-
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
