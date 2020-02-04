@@ -74,7 +74,8 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
     if (n_batches > 1) {
       std::cout << "Running batched training on " << n_batches
                 << " batches w/ ";
-      std::cout << batchSize * n_rows * sizeof(T) * 1e-6 << " megabytes." << std::endl;
+      std::cout << batchSize * n_rows * sizeof(T) * 1e-6 << " megabytes."
+                << std::endl;
     }
   }
 

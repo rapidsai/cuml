@@ -53,7 +53,6 @@ template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
                                const T *embeddings, int embeddings_n,
                                int n_components, T *result, int n_neighbors) {
-
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   int i =
@@ -100,8 +99,8 @@ void _fit(const cumlHandle &handle,
   MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params, d_alloc,
-                stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
+                d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   COO<T> rgraph_coo(d_alloc, stream);
@@ -157,8 +156,8 @@ void _fit(const cumlHandle &handle,
   MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params, d_alloc,
-                stream);
+  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
+                d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
@@ -239,11 +238,19 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
+  if (params->verbose) {
+    std::cout << "Running transform" << std::endl;
+  }
+
+  if (params->verbose) {
+    std::cout << "Building KNN Graph" << std::endl;
+  }
+
   /**
    * Perform kNN of X
    */
   MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream,
-                                            n * params->n_neighbors);
+                                               n * params->n_neighbors);
   MLCommon::device_buffer<T> knn_dists(d_alloc, stream,
                                        n * params->n_neighbors);
 
@@ -253,6 +260,10 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   float adjusted_local_connectivity =
     max(0.0, params->local_connectivity - 1.0);
+
+  if (params->verbose) {
+    std::cout << "Smoothing KNN distances" << std::endl;
+  }
 
   /**
    * Perform smooth_knn_dist
@@ -277,6 +288,10 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
 
+  if (params->verbose) {
+    std::cout << "Executing fuzzy simplicial set" << std::endl;
+  }
+
   /**
    * Allocate workspace for fuzzy simplicial set.
    */
@@ -300,6 +315,10 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::device_buffer<T> vals_normed(d_alloc, stream, graph_coo.nnz);
   CUDA_CHECK(
     cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(T), stream));
+
+  if (params->verbose) {
+    std::cout << "Performing L1 normalization" << std::endl;
+  }
 
   MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(
     row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows,
@@ -355,10 +374,18 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, d_alloc,
                                                stream);
 
+  if (params->verbose) {
+    std::cout << "Computing # of epochs for training each sample" << std::endl;
+  }
+
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, nnz);
 
   SimplSetEmbedImpl::make_epochs_per_sample(
     comp_coo.vals(), comp_coo.nnz, n_epochs, epochs_per_sample.data(), stream);
+
+  if (params->verbose) {
+    std::cout << "Performing optimization" << std::endl;
+  }
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),

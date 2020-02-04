@@ -10,8 +10,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. automodule:: cuml.preprocessing.model_selection
-    :members:
+ .. automethod:: cuml.preprocessing.model_selection.train_test_split
 
 Label Encoding
 --------------
@@ -23,6 +22,7 @@ Dataset Generation (Single-GPU)
 -------------------------------
 
   .. automethod:: cuml.datasets.make_blobs
+  .. automethod:: cuml.datasets.make_regression
 
 
 Dataset Generation (Dask-based Multi-GPU)
@@ -57,23 +57,6 @@ Benchmarking
 
   .. automodule:: cuml.benchmark.datagen
     :members:
-
-
-
-Utilities for I/O and Numba
----------------------------
-
-  .. automodule:: cuml.utils.input_utils
-    :members:
-
-  .. automodule:: cuml.utils.numba_utils
-    :members:
-
-Utilities for Dask and Multi-GPU Preprocessing
------------------------------------------------
-
-  .. automodule:: cuml.dask.common.utils
-     :members:
 
 
 Regression and Classification
@@ -142,6 +125,12 @@ Forest Inferencing
 .. autoclass:: cuml.ForestInference
     :members:
 
+Coordinate Descent
+------------------
+
+.. autoclass:: cuml.CD
+    :members:
+
 Quasi-Newton
 ------------
 
@@ -152,6 +141,9 @@ Support Vector Machines
 ------------------------
 
 .. autoclass:: cuml.svm.SVC
+    :members:
+
+.. autoclass:: cuml.svm.SVR
     :members:
 
 Nearest Neighbors Classification
@@ -211,6 +203,9 @@ Random Projections
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
 
+.. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
+    :members:
+
 TSNE
 -------------
 
@@ -259,7 +254,6 @@ ARIMA
 .. autoclass:: cuml.tsa.ARIMAModel
     :members:
 
-
 Multi-Node, Multi-GPU Algorithms
 ================================
 
@@ -269,6 +263,17 @@ K-Means Clustering
 .. autoclass:: cuml.dask.cluster.KMeans
     :members:
 
+Nearest Neighbors
+-----------------
+
+.. autoclass:: cuml.dask.neighbors.NearestNeighbors
+    :members:
+
+Principal Component Analysis
+-----------------------------
+.. autoclass:: cuml.dask.decomposition.PCA
+    :members:
+
 Random Forest
 -------------
 
@@ -276,12 +281,6 @@ Random Forest
     :members:
 
 .. autoclass:: cuml.dask.ensemble.RandomForestRegressor
-    :members:
-
-
-Principal Component Analysis
------------------------------
-.. autoclass:: cuml.dask.decomposition.PCA
     :members:
 
 Truncated SVD

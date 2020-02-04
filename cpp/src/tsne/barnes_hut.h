@@ -215,9 +215,9 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
     START_TIMER;
     TSNE::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
-      /*errl,*/ theta, epssq, sortl, childl, massl, YY, YY + nnodes + 1, rep_forces,
-      rep_forces + nnodes + 1, Z_norm, theta_squared, NNODES, FOUR_NNODES, n,
-      radiusd_squared, maxdepthd);
+      /*errl,*/ theta, epssq, sortl, childl, massl, YY, YY + nnodes + 1,
+      rep_forces, rep_forces + nnodes + 1, Z_norm, theta_squared, NNODES,
+      FOUR_NNODES, n, radiusd_squared, maxdepthd);
     CUDA_CHECK(cudaPeekAtLastError());
 
     END_TIMER(RepulsionTime);

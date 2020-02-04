@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,10 +23,13 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
+from sklearn.datasets import make_regression, make_friedman1
 from sklearn.datasets.samples_generator import make_classification, \
     make_gaussian_quantiles
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+
 import cudf
 
 
@@ -439,3 +442,65 @@ def test_svm_memleak_on_exception(params, n_rows=1000, n_iter=10,
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
     print("Delta GPU mem: {} bytes".format(delta_mem))
     assert delta_mem == 0
+
+
+def make_regression_dataset(dataset, n_rows, n_cols):
+    np.random.seed(137)
+    if dataset == 'reg1':
+        X, y = make_regression(
+            n_rows, n_cols, n_informative=2, n_targets=1, random_state=137)
+    elif dataset == 'reg2':
+        X, y = make_regression(
+            n_rows, n_cols, n_informative=2, n_targets=1, random_state=137,
+            noise=10)
+    elif dataset == 'Friedman':
+        X, y = make_friedman1(n_samples=n_rows, n_features=n_cols, noise=0.0,
+                              random_state=137)
+    else:
+        raise ValueError('Wrong option for dataste: ', dataset)
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+    dtype = np.float32
+    X = X.astype(dtype)
+    y = y.astype(dtype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y)
+    return X_train, X_test, y_train, y_test
+
+
+def compare_svr(svr1, svr2, X_test, y_test, tol=1e-3):
+    if X_test.shape[0] > 1:
+        score1 = svr1.score(X_test, y_test)
+        score2 = svr2.score(X_test, y_test)
+        assert abs(score1-score2) < tol
+    else:
+        y_pred1 = svr1.predict(X_test).to_array()
+        y_pred2 = svr2.predict(X_test)
+        mse1 = mean_squared_error(y_test, y_pred1)
+        mse2 = mean_squared_error(y_test, y_pred2)
+        assert (mse1-mse2)/mse2 < tol
+
+
+@pytest.mark.parametrize('params', [
+    {'kernel': 'linear', 'C': 1, 'gamma': 1},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 1},
+    {'kernel': 'poly', 'C': 1, 'gamma': 1},
+])
+@pytest.mark.parametrize('dataset', ['reg1', 'reg2', 'Friedman'])
+@pytest.mark.parametrize('n_rows', [unit_param(3), unit_param(100),
+                                    quality_param(1000), stress_param(5000)])
+@pytest.mark.parametrize('n_cols', [unit_param(5), unit_param(100),
+                                    quality_param(1000), stress_param(1000)])
+def test_svr_skl_cmp(params, dataset, n_rows, n_cols):
+    """ Compare to Sklearn SVR """
+    if (dataset == 'Friedman' and n_cols < 5):
+        # We need at least 5 feature columns for the Friedman dataset
+        return
+    X_train, X_test, y_train, y_test = make_regression_dataset(dataset, n_rows,
+                                                               n_cols)
+    cuSVR = cu_svm.SVR(**params)
+    cuSVR.fit(X_train, y_train)
+
+    sklSVR = svm.SVR(**params)
+    sklSVR.fit(X_train, y_train)
+
+    compare_svr(cuSVR, sklSVR, X_test, y_test)
