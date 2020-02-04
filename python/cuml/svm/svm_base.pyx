@@ -198,8 +198,9 @@ class SVMBase(Base):
         self.epsilon = epsilon
         self.svmType = None  # Child class should set self.svmType
 
-        # Parameter to indicating if model has been fitted at least once
-        self.fit_status_ = 1
+        # Parameter to indicate if model has been correctly fitted
+        # fit_status == -1 indicates that the model is not yet fitted
+        self.fit_status_ = -1
 
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
@@ -554,6 +555,7 @@ class SVMBase(Base):
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None, verbose=state['verbose'])
 
+        # Only if model was fit, these parameters would be written
         if state["fit_status_"] == 0:
             state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
             state['support_'] = state['support_'].to_gpu_array()
