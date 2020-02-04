@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
