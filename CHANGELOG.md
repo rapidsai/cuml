@@ -1,4 +1,4 @@
-# cuML 0.12.0 (Date TBD)
+# cuML 0.12.0 (04 Feb 2020)
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
