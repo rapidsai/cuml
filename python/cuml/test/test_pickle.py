@@ -545,13 +545,13 @@ def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
 
 def test_module_config():
     class SomeModule:
-        class SomeClass:
+        class SomeClass(cuml.Base):
             pass
 
-        class ExcludedClass:
+        class ExcludedClass(cuml.Base):
             pass
 
-        class CustomConstructorClass:
+        class CustomConstructorClass(cuml.Base):
             def __init__(self, some_parameter):
                 self.some_parameter = some_parameter
 
@@ -590,7 +590,7 @@ def test_module_config_empty_module():
 
 def test_module_config_parameters():
     class SomeModule:
-        class SomeClass:
+        class SomeClass(cuml.Base):
             def __eq__(self, other):
                 return type(other) == type(self)
 
