@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import inspect
 
 import numpy as np
 import pandas as pd
@@ -163,3 +163,21 @@ def quality_param(*args, **kwargs):
 
 def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
+class ModuleConfig:
+    def __init__(self, module, exclude_classes=None, custom_constructors=None):
+        self.module = module
+        self.exclude_classes = exclude_classes or []
+        self.custom_constructors = custom_constructors or []
+
+    def _get_classes(self):
+        return inspect.getmembers(self.module, inspect.isclass)
+
+    def get_models(self):
+        classes = self._get_classes()
+        models = {name: cls for name, cls in classes
+                  if cls not in self.exclude_classes and
+                  issubclass(cls, cuml.Base)}
+        models.update(self.custom_constructors)
+        return models
