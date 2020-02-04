@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench -v -g -n --allgpuarch --singlegpu -h --help"
+VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    cuml          - build the cuml Python package
    prims         - build the ML prims tests
    bench         - build the cuml C++ benchmark
+   prims-bench   - build the ml-prims C++ benchmark
  and <flag> is:
    -v            - verbose build mode
    -g            - build for debug
@@ -113,7 +114,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         GPU_ARCH=""
         echo "Building for the architecture of the GPU in the system..."
@@ -132,7 +133,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DBUILD_CUML_STD_COMMS=ON \
-          -DWITH_UCX=OFF \
+          -DWITH_UCX=ON \
           -DBUILD_CUML_MPI_COMMS=OFF \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \
@@ -151,6 +152,9 @@ if hasArg prims; then
 fi
 if hasArg bench; then
     MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
+fi
+if hasArg prims-bench; then
+    MAKE_TARGETS="${MAKE_TARGETS} prims_benchmark"
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components

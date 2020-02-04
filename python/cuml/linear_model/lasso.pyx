@@ -20,9 +20,11 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
+from cuml.metrics.base import RegressorMixin
+from cuml.common.base import Base
 
 
-class Lasso:
+class Lasso(Base, RegressorMixin):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the
@@ -30,8 +32,10 @@ class Lasso:
     predictors in X. It can zero some of the coefficients for feature
     selection and improves the conditioning of the problem.
 
-    cuML's Lasso an array-like object or cuDF DataFrame and
-    uses coordinate descent to fit a linear model.
+    cuML's Lasso can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects. It uses coordinate descent to fit
+    a linear model.
 
     Examples
     ---------
@@ -102,7 +106,7 @@ class Lasso:
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : str, default ‘cyclic’
+    selection : 'cyclic', 'random' (default = 'cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
@@ -220,7 +224,7 @@ class Lasso:
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------

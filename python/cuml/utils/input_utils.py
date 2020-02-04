@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +17,15 @@
 import cuml.utils.numba_utils
 
 import cudf
+import cupy as cp
 import numpy as np
+import rmm
 import warnings
-
-from cuml.utils.import_utils import has_cupy
-from cuml.utils.cupy_utils import test_numba_cupy_version_conflict
-from cuml.utils.numba_utils import PatchedNumbaDeviceArray
 
 from collections import namedtuple
 from collections.abc import Collection
+from cuml.utils import rmm_cupy_ary
 from numba import cuda
-
-import rmm
 
 
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
@@ -145,7 +142,10 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             X_m = X.to_gpu_array()
         else:
             if X.null_count == 0:
-                X_m = X._column._data.mem
+                # using __cuda_array_interface__ support of cudf.Series for
+                # this temporarily while switching from rmm device_array to
+                # rmm deviceBuffer https://github.com/rapidsai/cuml/issues/1379
+                X_m = cuda.as_cuda_array(X._column)
             else:
                 raise ValueError("Error: cuDF Series has missing/null values")
 
@@ -222,11 +222,8 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             warnings.warn("Expected " + order_to_str(order) + " major order, "
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
-            X_m = cuml.utils.numba_utils.gpu_major_converter(X_m,
-                                                             n_rows,
-                                                             n_cols,
-                                                             dtype,
-                                                             to_order=order)
+            X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
+            X_m = cuda.as_cuda_array(X_m)
 
     X_ptr = get_dev_array_ptr(X_m)
 
@@ -242,9 +239,6 @@ def convert_dtype(X, to_dtype=np.float32):
     Todo: support other dtypes if needed.
     """
 
-    # Using cuDF for converting numba and device array interface inputs
-    # if CuPy not installed, temporary while CuPy conda package
-    # causes nccl conflicts
     if isinstance(X, np.ndarray):
         dtype = X.dtype
         if dtype != to_dtype:
@@ -258,25 +252,9 @@ def convert_dtype(X, to_dtype=np.float32):
         return X.astype(to_dtype)
 
     elif cuda.is_cuda_array(X):
-        if has_cupy():
-            import cupy as cp
-
-            if test_numba_cupy_version_conflict(X):
-                X = PatchedNumbaDeviceArray(X)
-
-            X_m = cp.asarray(X)
-            X_m = X_m.astype(to_dtype)
-            return cuda.as_cuda_array(X_m)
-        else:
-            warnings.warn("Using cuDF for dtype conversion, install"
-                          "CuPy for faster data conversion.")
-            if (len(X.shape) == 1):
-                return cudf.Series(X).astype(to_dtype).to_gpu_array()
-            else:
-                X_df = cudf.DataFrame()
-                X = X_df.from_gpu_matrix(X)
-                X = convert_dtype(X, to_dtype=to_dtype)
-                return X.as_gpu_matrix()
+        X_m = cp.asarray(X)
+        X_m = X_m.astype(to_dtype)
+        return cuda.as_cuda_array(X_m)
 
     else:
         raise TypeError("Received unsupported input type " % type(X))

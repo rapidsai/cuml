@@ -18,7 +18,7 @@
 
 #include <vector>
 
-namespace MLCommon{
+namespace MLCommon {
 namespace Datasets {
 namespace Digits {
 const std::vector<float> digits = {
@@ -16400,6 +16400,6 @@ static const std::vector<int> COL_vector = {
 
 static const int n_samples = 1797;
 static const int n_features = 64;
-} // END Digits
-} // END Datasets
-} // END MLCommon
+}  // namespace Digits
+}  // namespace Datasets
+}  // namespace MLCommon

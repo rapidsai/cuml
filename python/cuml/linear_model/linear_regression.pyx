@@ -156,7 +156,7 @@ class LinearRegression(Base):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept_` is False, will be 0.
 
     Notes
     ------
@@ -174,11 +174,11 @@ class LinearRegression(Base):
         tasks. This model should be first tried if the machine learning problem
         is a regression task (predicting a continuous variable).
 
-    For additional docs, see `scikitlearn's OLS
+    For additional information, see `scikitlearn's OLS documentation
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb>`_.
+    <https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/linear_regression_demo.ipynb>`_.
 
 
     """
@@ -311,7 +311,8 @@ class LinearRegression(Base):
 
     def predict(self, X, convert_dtype=False):
         """
-        Predicts the y for X.
+        Predicts `y` values for `X`.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -367,7 +368,7 @@ class LinearRegression(Base):
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------
@@ -399,3 +400,13 @@ class LinearRegression(Base):
         if 'algorithm' in params.keys():
             self.algo = self._get_algorithm_int(self.algorithm)
         return self
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+        return state
+
+    def __setstate__(self, state):
+        super(LinearRegression, self).__init__(handle=None)
+        self.__dict__.update(state)

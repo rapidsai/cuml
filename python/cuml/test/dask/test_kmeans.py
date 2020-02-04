@@ -19,7 +19,11 @@ from dask.distributed import Client, wait
 
 import numpy as np
 
+import cupy as cp
+
 from cuml.test.utils import unit_param, quality_param, stress_param
+
+SCORE_EPS = 0.06
 
 
 @pytest.mark.mg
@@ -40,12 +44,12 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True,
+                               cluster_std=0.01, verbose=False,
                                random_state=10)
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=1, init="k-means||",
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 
@@ -96,7 +100,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
-                               cluster_std=0.01, verbose=True,
+                               cluster_std=0.01, verbose=False,
                                random_state=10)
 
         wait(X_cudf)
@@ -119,6 +123,60 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         from sklearn.metrics import adjusted_rand_score
         assert adjusted_rand_score(labels, xformed_labels)
+
+    finally:
+        client.close()
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
+                                   stress_param(5e6)])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
+                                       stress_param(50)])
+@pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
+                                     stress_param(50)])
+def test_score(nrows, ncols, nclusters, n_parts, cluster):
+
+    client = Client(cluster)
+
+    try:
+        from cuml.dask.cluster import KMeans as cumlKMeans
+
+        from cuml.dask.datasets import make_blobs
+
+        X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
+                               cluster_std=0.01, verbose=False,
+                               random_state=10)
+
+        wait(X_cudf)
+
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+                               n_clusters=nclusters,
+                               random_state=10)
+
+        cumlModel.fit(X_cudf)
+
+        actual_score = cumlModel.score(X_cudf)
+
+        X = cp.asarray(X_cudf.compute().as_gpu_matrix())
+
+        predictions = cumlModel.predict(X_cudf).compute()
+
+        centers = cp.array(cumlModel.cluster_centers_.as_gpu_matrix())
+
+        expected_score = 0
+        for idx, label in enumerate(predictions):
+
+            x = X[idx]
+            y = centers[label]
+
+            dist = np.sqrt(np.sum((x - y)**2))
+            expected_score += dist**2
+
+        assert actual_score + SCORE_EPS \
+            >= (-1*expected_score) \
+            >= actual_score - SCORE_EPS
 
     finally:
         client.close()

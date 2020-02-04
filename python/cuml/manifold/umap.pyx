@@ -228,6 +228,9 @@ class UMAP(Base):
     algorithm for large data sizes while cuml.umap always uses exact
     kNN.
 
+    Known issue: If a UMAP model has not yet been fit, it cannot be pickled.
+    However, after fitting, a UMAP mode.
+
     References
     ----------
     * Leland McInnes, John Healy, James Melville
@@ -313,6 +316,8 @@ class UMAP(Base):
         self.umap_params = <size_t> umap_params
 
         self.callback = callback  # prevent callback destruction
+        self.X_m = None
+        self.embedding_ = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -322,8 +327,11 @@ class UMAP(Base):
         cdef size_t params_t = <size_t>self.umap_params
         cdef UMAPParams* umap_params = <UMAPParams*>params_t
 
-        state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-        state['embedding_'] = cudf.DataFrame.from_gpu_matrix(self.embedding_)
+        if hasattr(self, "X_m") and self.X_m is not None:
+            # fit has not yet been called
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+            state['embedding_'] = \
+                cudf.DataFrame.from_gpu_matrix(self.embedding_)
 
         state["n_neighbors"] = umap_params.n_neighbors
         state["n_components"] = umap_params.n_components
@@ -348,14 +356,18 @@ class UMAP(Base):
         return state
 
     def __del__(self):
-        cdef UMAPParams* umap_params = <UMAPParams*><size_t>self.umap_params
-        del umap_params
+        cdef UMAPParams * umap_params
+        if hasattr(self, 'umap_params'):
+            umap_params = <UMAPParams*><size_t>self.umap_params
+            free(umap_params)
 
     def __setstate__(self, state):
         super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
-        state['X_m'] = row_matrix(state['X_m'])
-        state["embedding_"] = row_matrix(state["embedding_"])
+        if "X_m" in state and state["X_m"] is not None:
+            # fit has not yet been called
+            state["X_m"] = row_matrix(state["X_m"])
+            state["embedding_"] = row_matrix(state["embedding_"])
 
         cdef UMAPParams *umap_params = new UMAPParams()
 
@@ -393,7 +405,9 @@ class UMAP(Base):
             return cupy.array(embedding)
 
     def fit(self, X, y=None, convert_dtype=True):
-        """Fit X into an embedded space.
+        """
+        Fit X into an embedded space.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -468,7 +482,8 @@ class UMAP(Base):
         return self
 
     def fit_transform(self, X, y=None, convert_dtype=True):
-        """Fit X into an embedded space and return that transformed
+        """
+        Fit X into an embedded space and return that transformed
         output.
 
         There is a subtle difference between calling fit_transform(X)
@@ -484,6 +499,7 @@ class UMAP(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
         -------
         X_new : array, shape (n_samples, n_components)
@@ -493,7 +509,8 @@ class UMAP(Base):
         return UMAP._prep_output(X, self.embedding_)
 
     def transform(self, X, convert_dtype=True):
-        """Transform X into the existing embedded space and return that
+        """
+        Transform X into the existing embedded space and return that
         transformed output.
 
         Please refer to the reference UMAP implementation for information
@@ -509,11 +526,13 @@ class UMAP(Base):
             New data to be transformed.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         Returns
         -------
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
         """
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 

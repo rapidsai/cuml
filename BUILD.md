@@ -11,7 +11,7 @@ To install cuML from source, ensure the following dependencies are met:
 5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-8. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
+8. clang-format (= 8.0.0) - enforces uniform C++ coding style; required for developers. The RAPIDS conda channel provides a package (`conda install -c rapidsai libclang`). If not using conda, install using your OS package manager.
 9. NCCL (>=2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
@@ -89,11 +89,17 @@ $ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
 $ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
-To run c++ benchmarks (optional):
+To run cuML c++ benchmarks (optional):
 ```bash
 $ ./bench/sg_benchmark  # Single GPU benchmarks
 ```
 Refer to `--help` option to know more on its usage
+
+To run ml-prims C++ benchmarks (optional):
+```bash
+$ ./bench/prims_benchmark  # ml-prims benchmarks
+```
+Refer to `--help` option to know more on its uage
 
 5. Build the `cuml` python package:
 
@@ -133,6 +139,7 @@ $ ./build.sh libcuml                   # build and install the cuML C++ and C-wr
 $ ./build.sh cuml                      # build and install the cuML python package
 $ ./build.sh prims                     # build the ML prims tests
 $ ./build.sh bench                     # build the cuML c++ benchmark
+$ ./build.sh prims-bench               # build the ml-prims c++ benchmark
 ```
 
 Other `build.sh` options:
@@ -165,6 +172,7 @@ cuML's cmake has the following configurable flags available:
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchark.  |
+| BUILD_CUML_PRIMS_BENCH | [ON, OFF] | ON | Enable/disable building of ml-prims C++ benchark.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
