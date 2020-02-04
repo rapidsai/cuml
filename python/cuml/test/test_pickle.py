@@ -45,12 +45,7 @@ class ModuleConfig:
         return models
 
 
-regression_config = ModuleConfig(
-    module=cuml.linear_model,
-    # TODO: Check if MBSGDRegressor should be included into regression tests
-    # TODO: Check if MBSGDClassifier should be included into some other tests
-    exclude_classes=[cuml.MBSGDClassifier, cuml.MBSGDRegressor]
-)
+regression_config = ModuleConfig(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 
 solver_config = ModuleConfig(
