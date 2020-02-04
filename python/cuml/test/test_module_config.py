@@ -66,4 +66,3 @@ def test_module_config_parameters():
     assert models2 == {}
     assert len(models3) == 1 and models3[
         'SomeClass']() == SomeModule.SomeClass()
-
