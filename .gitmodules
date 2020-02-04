@@ -8,6 +8,3 @@
 [submodule "thirdparty/treelite"]
 	path = thirdparty/treelite
 	url = https://github.com/dmlc/treelite.git
-[submodule "thirdparty/benchmark"]
-	path = thirdparty/benchmark
-	url = https://github.com/google/benchmark
