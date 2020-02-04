@@ -1,7 +1,3 @@
-[submodule "thirdparty/faiss"]
-	path = thirdparty/faiss
-	url = https://github.com/facebookresearch/faiss
-    ignore = dirty
 [submodule "thirdparty/treelite"]
 	path = thirdparty/treelite
 	url = https://github.com/dmlc/treelite.git
