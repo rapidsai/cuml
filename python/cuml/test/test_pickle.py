@@ -34,14 +34,13 @@ class ModuleConfig:
         self.custom_constructors = custom_constructors or []
 
     def _get_classes(self):
-        classes = dict(inspect.getmembers(self.module, inspect.isclass))
-        classes.pop('__class__', None)
-        return classes
+        return inspect.getmembers(self.module, inspect.isclass)
 
     def get_models(self):
         classes = self._get_classes()
-        models = {name: cls for name, cls in classes.items() if
-                  cls not in self.exclude_classes}
+        models = {name: cls for name, cls in classes
+                  if cls not in self.exclude_classes and
+                  issubclass(cls, cuml.Base)}
         models.update(self.custom_constructors)
         return models
 
