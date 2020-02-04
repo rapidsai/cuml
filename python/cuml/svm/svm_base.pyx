@@ -199,7 +199,7 @@ class SVMBase(Base):
         self.svmType = None  # Child class should set self.svmType
 
         # Parameter to indicating if model has been fitted at least once
-        self.fit_once_ = 0
+        self.fit_status_ = 1
 
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
@@ -472,7 +472,6 @@ class SVMBase(Base):
         self._unpack_model()
         self.fit_status_ = 0
         self.handle.sync()
-        self.fit_once_ = 1
 
         del X_m
         del y_m
@@ -543,7 +542,7 @@ class SVMBase(Base):
         del state['_model']
 
         # Only when the model is fit once we need to store these parameters
-        if self.fit_once_ == 1:
+        if self.fit_status_ == 0:
             state['dual_coef_'] = \
                 cudf.DataFrame.from_gpu_matrix(self.dual_coef_)
             state['support_'] = cudf.Series(self.support_)
@@ -555,7 +554,7 @@ class SVMBase(Base):
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None, verbose=state['verbose'])
 
-        if state["fit_once_"] == 1:
+        if state["fit_status_"] == 0:
             state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
             state['support_'] = state['support_'].to_gpu_array()
             state['support_vectors_'] = state['support_vectors_'] \
