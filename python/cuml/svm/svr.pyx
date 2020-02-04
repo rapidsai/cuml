@@ -194,7 +194,6 @@ class SVR(SVMBase):
                                   verbose, epsilon)
         self.svmType = EPSILON_SVR
 
-
     def fit(self, X, y):
         """
         Fit the model with X and y.
