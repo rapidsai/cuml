@@ -1,3 +1,0 @@
-[submodule "thirdparty/treelite"]
-	path = thirdparty/treelite
-	url = https://github.com/dmlc/treelite.git
