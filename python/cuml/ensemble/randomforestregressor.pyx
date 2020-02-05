@@ -35,6 +35,7 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.fil.fil import TreeliteModel
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
@@ -354,10 +355,9 @@ class RandomForestRegressor(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
-    def _get_model_info(self):
+    def _convert_to_treelite(self):
+        task_category = REGRESSION_MODEL
         cdef ModelHandle cuml_model_ptr = NULL
-
-        task_category = 1
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -365,12 +365,38 @@ class RandomForestRegressor(Base):
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
-
         mod_ptr = <size_t> cuml_model_ptr
-        fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return treelite_handle
+
+    def _get_protobuf_bytes(self):
+        fit_mod_ptr = self._convert_to_treelite()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
         return model_protobuf_bytes
+
+    def convert_to_treelite_model(self):
+        """
+        Converts the cuML RF model to a Treelite model
+
+        Returns
+        ----------
+        tl_to_fil_model : Treelite model
+        """
+        treelite_handle = self._convert_to_treelite()
+        treelite_model = \
+            TreeliteModel.from_treelite_model_handle(treelite_handle)
+        return treelite_model
+
+    def convert_to_fil_model(self, output_class=False,
+                             algo='BATCH_TREE_REORG'):
+        treelite_handle = self._convert_to_treelite()
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(treelite_handle,
+                                             output_class=output_class,
+                                             algo=algo)
+        return tl_to_fil_model
 
     def fit(self, X, y):
         """
@@ -457,31 +483,16 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo,
-                              convert_dtype=False, task_category=1):
-
-        cdef ModelHandle cuml_model_ptr
+                              convert_dtype, task_category=REGRESSION_MODEL):
         X_m, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
 
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
-
-        task_category = 1  # for regression
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <size_t> cuml_model_ptr
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=False,
-                                             algo=algo)
+        task_category = REGRESSION_MODEL  # for regression
+        tl_to_fil_model = self.convert_to_fil_model(output_class=False,
+                                                    algo=algo)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
         return preds
