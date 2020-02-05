@@ -209,12 +209,19 @@ class ARIMA(Base):
 
     def __init__(self,
                  y,
-                 order: Tuple[int, int, int],
+                 order: Tuple[int, int, int] = (1, 1, 1),
                  seasonal_order: Tuple[int, int, int, int]
                  = (0, 0, 0, 0),
                  fit_intercept=None,
                  handle=None):
         super().__init__(handle)
+
+        self.order = order
+        self.seasonal_order = seasonal_order
+        if fit_intercept is None:
+            # by default, use an intercept only with non differenced models
+            fit_intercept = (order[1] + seasonal_order[1] == 0)
+        self.intercept = int(fit_intercept)
 
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
@@ -229,19 +236,12 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. Required: d+D <= 2")
         if s != 0 and (p >= s or q >= s):
             raise ValueError("ERROR: Invalid order. Required: s > p, s > q")
-        if p + q + P + Q + fit_intercept == 0:
+        if p + q + P + Q + self.intercept == 0:
             raise ValueError("ERROR: Invalid order. At least one parameter"
                              " among p, q, P, Q and fit_intercept must be"
                              " non-zero")
         if p > 4 or P > 4 or q > 4 or Q > 4:
             raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
-
-        self.order = order
-        self.seasonal_order = seasonal_order
-        if fit_intercept is None:
-            # by default, use an intercept only with non differenced models
-            fit_intercept = (order[1] + seasonal_order[1] == 0)
-        self.intercept = int(fit_intercept)
 
         # Get device array. Float64 only for now.
         self.d_y, _, self.n_obs, self.batch_size, self.dtype \
