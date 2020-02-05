@@ -35,8 +35,8 @@ namespace Naive {
  * @param[in]   q      Columns of matrix B
  */
 template <typename DataT>
-void naiveKronecker(DataT *K, const DataT *A, const DataT *B, int m, int n,
-                    int p, int q) {
+void kronecker(DataT *K, const DataT *A, const DataT *B, int m, int n, int p,
+               int q) {
   int k_m = m * p;
 #pragma omp parallel for collapse(2)
   for (int i = 0; i < m; i++) {
@@ -66,8 +66,7 @@ void naiveKronecker(DataT *K, const DataT *A, const DataT *B, int m, int n,
  * @param[in]   n      Columns of B
  */
 template <typename DataT>
-void naiveMatMul(DataT *out, const DataT *A, const DataT *B, int m, int k,
-                 int n) {
+void matMul(DataT *out, const DataT *A, const DataT *B, int m, int k, int n) {
 #pragma omp parallel for collapse(2)
   for (int j = 0; j < n; j++) {
     for (int i = 0; i < m; i++) {
@@ -91,8 +90,8 @@ void naiveMatMul(DataT *out, const DataT *A, const DataT *B, int m, int k,
  * @param[in]   alpha  Coefficient to multiply the elements of v with
  */
 template <typename DataT>
-void naiveAdd(DataT *out, const DataT *u, const DataT *v, int len,
-              DataT alpha = 1.0) {
+void add(DataT *out, const DataT *u, const DataT *v, int len,
+         DataT alpha = 1.0) {
 #pragma omp parallel for
   for (int i = 0; i < len; i++) {
     out[i] = u[i] + alpha * v[i];
@@ -109,7 +108,7 @@ void naiveAdd(DataT *out, const DataT *u, const DataT *v, int len,
  * @param[in]   lags   Number of lags
  */
 template <typename DataT>
-void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
+void laggedMat(DataT *out, const DataT *in, int len, int lags) {
   int lagged_len = len - lags;
 #pragma omp parallel for
   for (int lag = 1; lag <= lags; lag++) {
@@ -134,8 +133,8 @@ void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
  * @param[in]   out_cols     Number of columns in the input matrix
  */
 template <typename DataT>
-void naive2DCopy(DataT *out, const DataT *in, int starting_row,
-                 int starting_col, int in_rows, int out_rows, int out_cols) {
+void copy2D(DataT *out, const DataT *in, int starting_row, int starting_col,
+            int in_rows, int out_rows, int out_cols) {
 #pragma omp parallel for collapse(2)
   for (int i = 0; i < out_rows; i++) {
     for (int j = 0; j < out_cols; j++) {
@@ -154,7 +153,7 @@ void naive2DCopy(DataT *out, const DataT *in, int starting_row,
  * @param[in]   len          Length of the input vector
  */
 template <typename DataT>
-void naiveDiff(DataT *out, const DataT *in, int len) {
+void diff(DataT *out, const DataT *in, int len) {
 #pragma omp parallel for
   for (int i = 0; i < len - 1; i++) {
     out[i] = in[i + 1] - in[i];

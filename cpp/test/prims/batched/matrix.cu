@@ -199,38 +199,38 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     switch (params.operation) {
       case AB_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::naiveMatMul(res_h.data() + bid * m_r * n_r,
-                             A.data() + bid * params.m * params.n,
-                             B.data() + bid * params.p * params.q, params.m,
-                             params.n, params.q);
+          Naive::matMul(res_h.data() + bid * m_r * n_r,
+                        A.data() + bid * params.m * params.n,
+                        B.data() + bid * params.p * params.q, params.m,
+                        params.n, params.q);
         }
         break;
       case ApB_op:
-        Naive::naiveAdd(res_h.data(), A.data(), B.data(), A.size());
+        Naive::add(res_h.data(), A.data(), B.data(), A.size());
         break;
       case AmB_op:
-        Naive::naiveAdd(res_h.data(), A.data(), B.data(), A.size(), T(-1.0));
+        Naive::add(res_h.data(), A.data(), B.data(), A.size(), T(-1.0));
         break;
       case AkB_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::naiveKronecker(res_h.data() + bid * m_r * n_r,
-                                A.data() + bid * params.m * params.n,
-                                B.data() + bid * params.p * params.q, params.m,
-                                params.n, params.p, params.q);
+          Naive::kronecker(res_h.data() + bid * m_r * n_r,
+                           A.data() + bid * params.m * params.n,
+                           B.data() + bid * params.p * params.q, params.m,
+                           params.n, params.p, params.q);
         }
         break;
       case AZT_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::naiveMatMul(res_h.data() + bid * m_r * n_r,
-                             A.data() + bid * params.m * params.n,
-                             Z.data() + bid * r, params.m, params.n, 1);
+          Naive::matMul(res_h.data() + bid * m_r * n_r,
+                        A.data() + bid * params.m * params.n,
+                        Z.data() + bid * r, params.m, params.n, 1);
         }
         break;
       case ZA_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::naiveMatMul(res_h.data() + bid * m_r * n_r, Z.data() + bid * r,
-                             A.data() + bid * params.m * params.n, 1, params.m,
-                             params.n);
+          Naive::matMul(res_h.data() + bid * m_r * n_r, Z.data() + bid * r,
+                        A.data() + bid * params.m * params.n, 1, params.m,
+                        params.n);
         }
         break;
       case AsolveZ_op:
@@ -239,22 +239,22 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         break;
       case LaggedZ_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::naiveLaggedMat(res_h.data() + bid * m_r * n_r,
-                                Z.data() + bid * params.m, params.m, params.n);
+          Naive::laggedMat(res_h.data() + bid * m_r * n_r,
+                           Z.data() + bid * params.m, params.m, params.n);
         }
         break;
       case CopyA2D_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::naive2DCopy(res_h.data() + bid * m_r * n_r,
-                             A.data() + bid * params.m * params.n, params.s,
-                             params.t, params.m, m_r, n_r);
+          Naive::copy2D(res_h.data() + bid * m_r * n_r,
+                        A.data() + bid * params.m * params.n, params.s,
+                        params.t, params.m, m_r, n_r);
         }
         break;
       case DiffA_op:
         int len = params.m * params.n;
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::naiveDiff(res_h.data() + bid * (len - 1), A.data() + bid * len,
-                           len);
+          Naive::diff(res_h.data() + bid * (len - 1), A.data() + bid * len,
+                      len);
         }
         break;
     }

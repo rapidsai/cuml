@@ -133,17 +133,17 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     switch (params.operation) {
       case SpMV_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          LinAlg::Naive::naiveMatMul(
+          LinAlg::Naive::matMul(
             res_h.data() + bid * m_r, A.data() + bid * params.m * params.n,
             Bx.data() + bid * params.p, params.m, params.n, 1);
         }
         break;
       case SpMM_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          LinAlg::Naive::naiveMatMul(res_h.data() + bid * m_r * n_r,
-                                     A.data() + bid * params.m * params.n,
-                                     Bx.data() + bid * params.p * params.q,
-                                     params.m, params.n, params.q);
+          LinAlg::Naive::matMul(res_h.data() + bid * m_r * n_r,
+                                A.data() + bid * params.m * params.n,
+                                Bx.data() + bid * params.p * params.q, params.m,
+                                params.n, params.q);
         }
         break;
     }
