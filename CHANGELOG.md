@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1635: cuML Array shim and configurable output added to cluster methods
 
 ## Improvements
 - PR #1628: Remove submodules from cuML
