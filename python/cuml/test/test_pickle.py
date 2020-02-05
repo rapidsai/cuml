@@ -31,10 +31,7 @@ regression_models = regression_config.get_models()
 
 solver_config = ModuleConfig(
     module=cuml.solvers,
-    custom_constructors={
-        "SGD": lambda: cuml.SGD(eta0=0.005),
-        "QN": lambda: cuml.QN(loss="softmax")
-    }
+    custom_constructors={"QN": lambda: cuml.QN(loss="softmax")}
 )
 solver_models = solver_config.get_models()
 
