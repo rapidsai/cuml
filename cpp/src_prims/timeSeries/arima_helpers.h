@@ -24,6 +24,7 @@
 
 #include "cuda_utils.h"
 #include "cuml/tsa/arima_common.h"
+#include "linalg/batched/matrix.h"
 #include "linalg/matrix_vector_op.h"
 #include "timeSeries/jones_transform.h"
 
