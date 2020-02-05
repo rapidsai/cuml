@@ -458,6 +458,7 @@ def test_fil_and_treelite_models_classification(datatype, nrows, column_info):
 
     assert numb_treees == tl_model.num_trees
     assert ncols == tl_model.num_features
+    del tl_model
 
 
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
@@ -501,3 +502,4 @@ def test_fil_and_treelite_models_regression(datatype, nrows, column_info):
 
     assert numb_treees == tl_model.num_trees
     assert ncols == tl_model.num_features
+    del tl_model
