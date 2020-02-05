@@ -19,35 +19,35 @@ import pickle
 import pytest
 
 from cuml.test.utils import array_equal, unit_param, stress_param, \
-    ModuleConfig
+    ClassEnumerator
 from cuml.test.test_svm import compare_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
 
-regression_config = ModuleConfig(module=cuml.linear_model)
+regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 
-solver_config = ModuleConfig(
+solver_config = ClassEnumerator(
     module=cuml.solvers,
     custom_constructors={"QN": lambda: cuml.QN(loss="softmax")}
 )
 solver_models = solver_config.get_models()
 
-cluster_config = ModuleConfig(
+cluster_config = ClassEnumerator(
     module=cuml.cluster,
     exclude_classes=[cuml.DBSCAN]
 )
 cluster_models = cluster_config.get_models()
 
-decomposition_config = ModuleConfig(module=cuml.decomposition)
+decomposition_config = ClassEnumerator(module=cuml.decomposition)
 decomposition_models = decomposition_config.get_models()
 
-decomposition_config_xfail = ModuleConfig(module=cuml.random_projection)
+decomposition_config_xfail = ClassEnumerator(module=cuml.random_projection)
 decomposition_models_xfail = decomposition_config_xfail.get_models()
 
-neighbor_config = ModuleConfig(
+neighbor_config = ClassEnumerator(
     module=cuml.neighbors,
     exclude_classes=[cuml.neighbors.KNeighborsClassifier,
                      cuml.neighbors.KNeighborsRegressor]
@@ -62,10 +62,10 @@ umap_model = {
     "UMAP": lambda: cuml.UMAP()
 }
 
-rf_models = ModuleConfig(module=cuml.ensemble)
+rf_models = ClassEnumerator(module=cuml.ensemble)
 rf_models = rf_models.get_models()
 
-k_neighbors_config = ModuleConfig(module=cuml.neighbors, exclude_classes=[
+k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
