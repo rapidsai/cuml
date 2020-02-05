@@ -22,7 +22,6 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include "arima_helpers.cuh"
 #include "batched_arima.hpp"
 #include "batched_kalman.hpp"
 
@@ -34,151 +33,10 @@
 #include "linalg/batched/matrix.h"
 #include "linalg/matrix_vector_op.h"
 #include "metrics/batched/information_criterion.h"
+#include "timeSeries/arima_helpers.h"
 #include "utils.h"
 
 namespace ML {
-
-/**
- * @brief Prepare data by differencing if needed (simple and/or seasonal)
- *        and removing a trend if needed
- *
- * @note: It is assumed that d + D <= 2. This is enforced on the Python side
- *
- * @param[in]  handle      cuML handle
- * @param[out] d_out       Output. Shape (n_obs - d - D*s, batch_size) (device)
- * @param[in]  d_in        Input. Shape (n_obs, batch_size) (device)
- * @param[in]  batch_size  Number of series per batch
- * @param[in]  n_obs       Number of observations per series
- * @param[in]  d           Order of simple differences (0, 1 or 2)
- * @param[in]  D           Order of seasonal differences (0, 1 or 2)
- * @param[in]  s           Seasonal period if D > 0
- * @param[in]  intercept   Whether the model fits an intercept
- * @param[in]  d_mu        Mu array if intercept > 0
- *                         Shape (batch_size,) (device)
- */
-static void _prepare_data(cumlHandle& handle, double* d_out, const double* d_in,
-                          int batch_size, int n_obs, int d, int D, int s,
-                          int intercept = 0, const double* d_mu = nullptr) {
-  const auto stream = handle.getStream();
-
-  // Only one difference (simple or seasonal)
-  if (d + D == 1) {
-    int period = d ? 1 : s;
-    int tpb = (n_obs - period) > 512 ? 256 : 128;  // quick heuristics
-    MLCommon::LinAlg::Batched::
-      batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(d_in, d_out, n_obs,
-                                                          period);
-    CUDA_CHECK(cudaPeekAtLastError());
-  }
-  // Two differences (simple or seasonal or both)
-  else if (d + D == 2) {
-    int period1 = d ? 1 : s;
-    int period2 = d == 2 ? 1 : s;
-    int tpb = (n_obs - period1 - period2) > 512 ? 256 : 128;
-    MLCommon::LinAlg::Batched::
-      batched_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
-        d_in, d_out, n_obs, period1, period2);
-    CUDA_CHECK(cudaPeekAtLastError());
-  }
-  // If no difference and the pointers are different, copy in to out
-  else if (d + D == 0 && d_in != d_out) {
-    MLCommon::copy(d_out, d_in, n_obs * batch_size, stream);
-  }
-  // Other cases: no difference and the pointers are the same, nothing to do
-
-  // Remove trend in-place
-  if (intercept) {
-    MLCommon::LinAlg::matrixVectorOp(
-      d_out, d_out, d_mu, batch_size, n_obs - d - D * s, false, true,
-      [] __device__(double a, double b) { return a - b; }, stream);
-  }
-}
-
-/**
- * @brief Helper function that will read in src0 if the given index is
- *        negative, src1 otherwise.
- * @note  This is useful when one array is the logical continuation of
- *        another and the index is expressed relatively to the second array.
- */
-static __device__ double _select_read(const double* src0, int size0,
-                                      const double* src1, int idx) {
-  return idx < 0 ? src0[size0 + idx] : src1[idx];
-}
-
-/**
- * @brief Kernel to undifference the data with up to two levels of simple
- *        and/or seasonal differencing.
- * @note  One thread per series.
- */
-template <bool double_diff>
-static __global__ void _undiff_kernel(double* d_fc, const double* d_in,
-                                      int num_steps, int batch_size, int in_ld,
-                                      int n_in, int s0, int s1 = 0) {
-  int bid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (bid < batch_size) {
-    double* b_fc = d_fc + bid * num_steps;
-    const double* b_in = d_in + bid * in_ld;
-    for (int i = 0; i < num_steps; i++) {
-      if (!double_diff) {  // One simple or seasonal difference
-        b_fc[i] += _select_read(b_in, n_in, b_fc, i - s0);
-      } else {  // Two differences (simple, seasonal or both)
-        double fc_acc = -_select_read(b_in, n_in, b_fc, i - s0 - s1);
-        fc_acc += _select_read(b_in, n_in, b_fc, i - s0);
-        fc_acc += _select_read(b_in, n_in, b_fc, i - s1);
-        b_fc[i] += fc_acc;
-      }
-    }
-  }
-}
-
-/**
- * @brief Finalizes a forecast by adding the trend and/or undifferencing
- *
- * @note: It is assumed that d + D <= 2. This is enforced on the Python side
- *
- * @param[in]     handle      cuML handle
- * @param[in|out] d_fc        Forecast. Shape (num_steps, batch_size) (device)
- * @param[in]     d_in        Original data. Shape (n_obs, batch_size) (device)
- * @param[in]     num_steps   Number of steps forecasted
- * @param[in]     batch_size  Number of series per batch
- * @param[in]     in_ld       Leading dimension of d_in
- * @param[in]     n_in        Number of observations/predictions in d_in
- * @param[in]     d           Order of simple differences (0, 1 or 2)
- * @param[in]     D           Order of seasonal differences (0, 1 or 2)
- * @param[in]     s           Seasonal period if D > 0
- * @param[in]     intercept   Whether the model fits an intercept
- * @param[in]     d_mu        Mu array if intercept > 0
- *                            Shape (batch_size,) (device)
- */
-static void _finalize_forecast(cumlHandle& handle, double* d_fc,
-                               const double* d_in, int num_steps,
-                               int batch_size, int in_ld, int n_in, int d,
-                               int D, int s, int intercept = 0,
-                               const double* d_mu = nullptr) {
-  const auto stream = handle.getStream();
-
-  // Add the trend in-place
-  if (intercept) {
-    MLCommon::LinAlg::matrixVectorOp(
-      d_fc, d_fc, d_mu, batch_size, num_steps, false, true,
-      [] __device__(double a, double b) { return a + b; }, stream);
-  }
-
-  // Undifference
-  constexpr int TPB = 64;  // One thread per series -> avoid big blocks
-  if (d + D == 1) {
-    _undiff_kernel<false>
-      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
-        d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s);
-    CUDA_CHECK(cudaPeekAtLastError());
-  } else if (d + D == 2) {
-    _undiff_kernel<true>
-      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
-        d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s,
-        d == 2 ? 1 : s);
-    CUDA_CHECK(cudaPeekAtLastError());
-  }
-}
 
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, const ARIMAOrder& order,
@@ -192,8 +50,9 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   int ld_yprep = n_obs - diff_obs;
   double* d_y_prep = (double*)allocator->allocate(
     ld_yprep * batch_size * sizeof(double), stream);
-  _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, order.d, order.D,
-                order.s, order.k, params.mu);
+  MLCommon::TimeSeries::prepare_data(d_y_prep, d_y, batch_size, n_obs, order.d,
+                                     order.D, order.s, stream, order.k,
+                                     params.mu);
 
   // Create temporary array for the forecasts
   int num_steps = std::max(end - n_obs, 0);
@@ -245,8 +104,9 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
   if (num_steps) {
     // Add trend and/or undiff
-    _finalize_forecast(handle, d_y_fc, d_y, num_steps, batch_size, n_obs, n_obs,
-                       order.d, order.D, order.s, order.k, params.mu);
+    MLCommon::TimeSeries::finalize_forecast(
+      d_y_fc, d_y, num_steps, batch_size, n_obs, n_obs, order.d, order.D,
+      order.s, stream, order.k, params.mu);
 
     // Copy forecast in d_y_p
     thrust::for_each(thrust::cuda::par.on(stream), counting,
@@ -280,7 +140,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   if (trans) {
     Tparams.allocate(order, batch_size, allocator, stream, true);
 
-    batched_jones_transform(handle, order, batch_size, false, params, Tparams);
+    MLCommon::TimeSeries::batched_jones_transform(
+      order, batch_size, false, params, Tparams, allocator, stream);
   } else {
     // non-transformed case: just use original parameters
     Tparams = params;
@@ -295,8 +156,9 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
       batch_size * (n_obs - order.d - order.s * order.D) * sizeof(double),
       stream);
 
-    _prepare_data(handle, d_y_prep, d_y, batch_size, n_obs, order.d, order.D,
-                  order.s, order.k, params.mu);
+    MLCommon::TimeSeries::prepare_data(d_y_prep, d_y, batch_size, n_obs,
+                                       order.d, order.D, order.s, stream,
+                                       order.k, params.mu);
 
     batched_kalman_filter(handle, d_y_prep, n_obs - order.d - order.s * order.D,
                           Tparams, order, batch_size, loglike, d_vs,
@@ -545,8 +407,8 @@ void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
   MLCommon::LinAlg::Batched::Matrix<double> bm_yd(
     n_obs - order.d - order.s * order.D, 1, batch_size, cublas_handle,
     allocator, stream, false);
-  _prepare_data(handle, bm_yd.raw_data(), d_y, batch_size, n_obs, order.d,
-                order.D, order.s);
+  MLCommon::TimeSeries::prepare_data(bm_yd.raw_data(), d_y, batch_size, n_obs,
+                                     order.d, order.D, order.s, stream);
   // Note: mu is not known yet! We just want to difference the data
 
   // Do the computation of the initial parameters

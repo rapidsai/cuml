@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "arima_helpers.cuh"
 #include "batched_kalman.hpp"
 
 #include <algorithm>
@@ -33,7 +32,7 @@
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "sparse/batched/csr.h"
-#include "timeSeries/jones_transform.h"
+#include "timeSeries/arima_helpers.h"
 #include "utils.h"
 
 namespace ML {
@@ -527,8 +526,9 @@ static void init_batched_kalman_matrices(
                      //
                      d_R_b[bid * r] = 1.0;
                      for (int i = 0; i < r - 1; i++) {
-                       d_R_b[bid * r + i + 1] = reduced_polynomial<false>(
-                         bid, d_ma, order.q, d_sma, order.Q, order.s, i + 1);
+                       d_R_b[bid * r + i + 1] =
+                         MLCommon::TimeSeries::reduced_polynomial<false>(
+                           bid, d_ma, order.q, d_sma, order.Q, order.s, i + 1);
                      }
 
                      //     |phi_1  1.0  0.0  ...  0.0|
@@ -541,8 +541,9 @@ static void init_batched_kalman_matrices(
                      //
                      double* batch_T = d_T_b + bid * r * r;
                      for (int i = 0; i < r; i++) {
-                       batch_T[i] = reduced_polynomial<true>(
-                         bid, d_ar, order.p, d_sar, order.P, order.s, i + 1);
+                       batch_T[i] =
+                         MLCommon::TimeSeries::reduced_polynomial<true>(
+                           bid, d_ar, order.p, d_sar, order.P, order.s, i + 1);
                      }
                      // shifted identity
                      for (int i = 0; i < r - 1; i++) {
@@ -621,71 +622,26 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   ML::POP_RANGE();
 }
 
-/* AR and MA parameters have to be within a "triangle" region (i.e., subject to
- * an inequality) for the inverse transform to not return 'NaN' due to the
- * logarithm within the inverse. This function ensures that inequality is
- * satisfied for all parameters.
- */
-void fix_ar_ma_invparams(const double* d_old_params, double* d_new_params,
-                         int batch_size, int pq, cudaStream_t stream,
-                         bool isAr = true) {
-  CUDA_CHECK(cudaMemcpyAsync(d_new_params, d_old_params,
-                             batch_size * pq * sizeof(double),
-                             cudaMemcpyDeviceToDevice, stream));
-  int n = pq;
-
-  // The parameter must be within a "triangle" region. If not, we bring the
-  // parameter inside by 1%.
-  double eps = 0.99;
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + batch_size,
-    [=] __device__(int ib) {
-      for (int i = 0; i < n; i++) {
-        double sum = 0.0;
-        for (int j = 0; j < i; j++) {
-          sum += d_new_params[n - j - 1 + ib * n];
-        }
-        // AR is minus
-        if (isAr) {
-          // param < 1-sum(param)
-          d_new_params[n - i - 1 + ib * n] =
-            fmin((1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
-          // param > -(1-sum(param))
-          d_new_params[n - i - 1 + ib * n] =
-            fmax(-(1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
-        } else {
-          // MA is plus
-          // param < 1+sum(param)
-          d_new_params[n - i - 1 + ib * n] =
-            fmin((1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
-          // param > -(1+sum(param))
-          d_new_params[n - i - 1 + ib * n] =
-            fmax(-(1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
-        }
-      }
-    });
-}
-
 void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
                              int batch_size, bool isInv, const double* h_params,
                              double* h_Tparams) {
   int N = order.complexity();
-  auto alloc = handle.getDeviceAllocator();
+  auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_params =
-    (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
+    (double*)allocator->allocate(N * batch_size * sizeof(double), stream);
   double* d_Tparams =
-    (double*)alloc->allocate(N * batch_size * sizeof(double), stream);
+    (double*)allocator->allocate(N * batch_size * sizeof(double), stream);
   ARIMAParams<double> params, Tparams;
-  params.allocate(order, batch_size, alloc, stream, false);
-  Tparams.allocate(order, batch_size, alloc, stream, true);
+  params.allocate(order, batch_size, allocator, stream, false);
+  Tparams.allocate(order, batch_size, allocator, stream, true);
 
   MLCommon::updateDevice(d_params, h_params, N * batch_size, stream);
 
   params.unpack(order, batch_size, d_params, stream);
 
-  batched_jones_transform(handle, order, batch_size, isInv, params, Tparams);
+  MLCommon::TimeSeries::batched_jones_transform(
+    order, batch_size, isInv, params, Tparams, allocator, stream);
   Tparams.mu = params.mu;
   Tparams.sigma2 = params.sigma2;
 
@@ -693,59 +649,10 @@ void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
 
   MLCommon::updateHost(h_Tparams, d_Tparams, N * batch_size, stream);
 
-  alloc->deallocate(d_params, N * batch_size * sizeof(double), stream);
-  alloc->deallocate(d_Tparams, N * batch_size * sizeof(double), stream);
-  params.deallocate(order, batch_size, alloc, stream, false);
-  Tparams.deallocate(order, batch_size, alloc, stream, true);
-}
-
-/**
- * Auxiliary function of batched_jones_transform to remove redundancy.
- * Applies the transform to the given batched parameters.
- */
-void _transform_helper(cumlHandle& handle, const double* d_param,
-                       double* d_Tparam, int k, int batch_size, bool isInv,
-                       bool isAr) {
-  auto allocator = handle.getDeviceAllocator();
-  auto stream = handle.getStream();
-
-  // inverse transform will produce NaN if parameters are outside of a
-  // "triangle" region
-  double* d_param_fixed =
-    (double*)allocator->allocate(sizeof(double) * batch_size * k, stream);
-  if (isInv) {
-    fix_ar_ma_invparams(d_param, d_param_fixed, batch_size, k, stream, isAr);
-  } else {
-    CUDA_CHECK(cudaMemcpyAsync(d_param_fixed, d_param,
-                               sizeof(double) * batch_size * k,
-                               cudaMemcpyDeviceToDevice, stream));
-  }
-  MLCommon::TimeSeries::jones_transform(d_param_fixed, batch_size, k, d_Tparam,
-                                        isAr, isInv, allocator, stream);
-
-  allocator->deallocate(d_param_fixed, sizeof(double) * batch_size * k, stream);
-}
-
-void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
-                             int batch_size, bool isInv,
-                             const ARIMAParams<double>& params,
-                             const ARIMAParams<double>& Tparams) {
-  ML::PUSH_RANGE(__func__);
-
-  if (order.p)
-    _transform_helper(handle, params.ar, Tparams.ar, order.p, batch_size, isInv,
-                      true);
-  if (order.q)
-    _transform_helper(handle, params.ma, Tparams.ma, order.q, batch_size, isInv,
-                      false);
-  if (order.P)
-    _transform_helper(handle, params.sar, Tparams.sar, order.P, batch_size,
-                      isInv, true);
-  if (order.Q)
-    _transform_helper(handle, params.sma, Tparams.sma, order.Q, batch_size,
-                      isInv, false);
-
-  ML::POP_RANGE();
+  allocator->deallocate(d_params, N * batch_size * sizeof(double), stream);
+  allocator->deallocate(d_Tparams, N * batch_size * sizeof(double), stream);
+  params.deallocate(order, batch_size, allocator, stream, false);
+  Tparams.deallocate(order, batch_size, allocator, stream, true);
 }
 
 }  // namespace ML
