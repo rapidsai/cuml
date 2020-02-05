@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #1628: Remove submodules from cuML
+- PR #1639: Expose the build_treelite function for python
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
@@ -31,7 +32,6 @@
 - PR #1488: Add codeowners
 - PR #1432: Row-major (C-style) GPU arrays for benchmarks
 - PR #1490: Use dask master instead of conda package for testing
-- PR #1504: Expose the build_treelite function for python
 - PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
 - PR #1532: Update CuPy to >= 6.6 and allow 7.0
