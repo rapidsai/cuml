@@ -49,7 +49,7 @@ from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
 
-cdef extern from "arima/arima_common.h" namespace "ML":
+cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
     ctypedef struct ARIMAOrder:
         int p  # Basic order
         int d

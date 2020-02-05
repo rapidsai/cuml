@@ -16,9 +16,8 @@
 
 #pragma once
 
+#include <cuml/tsa/arima_common.h>
 #include <cuml/cuml.hpp>
-
-#include "arima_common.h"
 
 namespace ML {
 
@@ -49,24 +48,8 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            double* d_fc = nullptr);
 
 /**
- * Public interface to batched "jones transform" used in ARIMA to ensure
- * certain properties of the AR and MA parameters.
- *
- * @param[in]  handle     cuML handle
- * @param[in]  order      ARIMA hyper-parameters
- * @param[in]  batch_size Number of time series analyzed.
- * @param[in]  isInv      Do the inverse transform?
- * @param[in]  params     ARIMA parameters (device)
- * @param[in]  Tparams    Transformed ARIMA parameters (device)
- */
-void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
-                             int batch_size, bool isInv,
-                             const ARIMAParams<double>& params,
-                             const ARIMAParams<double>& Tparams);
-
-/**
  * Convenience function for batched "jones transform" used in ARIMA to ensure
- * certain properties of the AR and MA parameters. (takes host array and
+ * certain properties of the AR and MA parameters (takes host array and
  * returns host array)
  *
  * @param[in]  handle     cuML handle
