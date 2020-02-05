@@ -382,7 +382,7 @@ void batched_kalman_loop(const double* ys, int nobs,
             alpha.raw_data(), batch_size, vs, Fs, sum_logFs, fc_steps, d_fc);
         break;
     }
-    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaPeekAtLastError());
   } else {
     _batched_kalman_loop_large(ys, nobs, T, Z, RRT, P0, alpha, T_sparse, r, vs,
                                Fs, sum_logFs, fc_steps, d_fc);
