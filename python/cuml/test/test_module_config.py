@@ -41,6 +41,30 @@ def test_module_config():
         'CustomConstructorClass']()
 
 
+def test_module_config_actual_module():
+    module = ModuleConfig(module=cuml.linear_model,
+                          exclude_classes=[cuml.LinearRegression,
+                                           cuml.MBSGDClassifier,
+                                           cuml.MBSGDRegressor],
+                          custom_constructors={
+                              'LogisticRegression':
+                                  lambda: cuml.LogisticRegression(handle=1)
+                          })
+    models = module.get_models()
+    ref = {
+        'ElasticNet': cuml.ElasticNet,
+        'Lasso': cuml.Lasso,
+        'LogisticRegression': lambda: cuml.LogisticRegression(handle=1),
+        'Ridge': cuml.Ridge
+    }
+
+    assert models['LogisticRegression']().handle == ref[
+        'LogisticRegression']().handle
+    models.pop('LogisticRegression')
+    ref.pop('LogisticRegression')
+    assert models == ref
+
+
 def test_module_config_empty_module():
     class EmptyModule:
         pass
