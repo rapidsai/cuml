@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
