@@ -24,6 +24,7 @@
 - PR #1516: Suppor Vector Regression (epsilon-SVR)
 
 ## Improvements
+- PR #1638: Update cuml/docs/README.md
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
