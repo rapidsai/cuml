@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "batched_kalman.hpp"
-
 #include <algorithm>
 #include <vector>
 
@@ -24,6 +22,7 @@
 #include <cub/cub.cuh>
 
 #include <cuml/cuml.hpp>
+#include <cuml/tsa/batched_kalman.hpp>
 
 #include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
