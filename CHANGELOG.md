@@ -3,9 +3,14 @@
 ## New Features
 
 ## Improvements
+- PR #1628: Remove submodules from cuML
 
 ## Bug Fixes
-
+- PR #1594: Train-test split is now reproducible
+- PR #1590: Fix destination directory structure for run-clang-format.py
+- PR #1611: Fixing pickling errors for KNN classifier and regressor
+- PR #1634: Fix title in KNN docs
+- PR #1627: Adding a check for multi-class data in RF classification
 
 # cuML 0.12.0 (Date TBD)
 
@@ -59,6 +64,7 @@
 - PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
 - PR #1574: Updated the init file to include SVM
 - PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
+- PR #1601: Fixed wrong datatype used in knn voting kernel
 
 # cuML 0.11.0 (11 Dec 2019)
 
