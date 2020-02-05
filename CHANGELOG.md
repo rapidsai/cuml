@@ -1,14 +1,15 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
-- PR #1628: Remove submodules from cuML
 
 ## Improvements
+- PR #1628: Remove submodules from cuML
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
 - PR #1611: Fixing pickling errors for KNN classifier and regressor
+- PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
 
 # cuML 0.12.0 (Date TBD)
