@@ -117,7 +117,7 @@ class MBSGDClassifier(Base):
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbose=False):
-        super().__init__(handle=handle, verbose=verbose)
+        super(MBSGDClassifier, self).__init__(handle=handle, verbose=verbose)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
