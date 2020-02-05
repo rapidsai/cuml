@@ -70,7 +70,7 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         DataT* sigma2
 
 
-cdef extern from "arima/batched_arima.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
@@ -91,7 +91,7 @@ cdef extern from "arima/batched_arima.hpp" namespace "ML":
         int batch_size, int nobs, const ARIMAOrder& order)
 
 
-cdef extern from "arima/batched_kalman.hpp" namespace "ML":
+cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
 
     void batched_jones_transform(
         cumlHandle& handle, const ARIMAOrder& order, int batchSize,

@@ -22,10 +22,9 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include "batched_arima.hpp"
-#include "batched_kalman.hpp"
-
 #include <cuml/cuml.hpp>
+#include <cuml/tsa/batched_arima.hpp>
+#include <cuml/tsa/batched_kalman.hpp>
 
 #include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
