@@ -30,6 +30,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array import Array as cumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -262,15 +263,16 @@ class KMeans(Base):
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=0, random_state=1, init='scalable-k-means++',
-                 oversampling_factor=2.0, max_samples_per_batch=1<<15):
-        super(KMeans, self).__init__(handle, verbose)
+                 oversampling_factor=2.0, max_samples_per_batch=1<<15,
+                 output_type='cupy'):
+        super(KMeans, self).__init__(handle, verbose, output_type)
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
         self.max_iter = max_iter
         self.tol = tol
-        self.labels_ = None
-        self.cluster_centers_ = None
+        self._labels_ = None
+        self._cluster_centers_ = None
         self.inertia_ = 0
         self.n_iter_ = 0
         self.oversampling_factor=oversampling_factor
@@ -290,9 +292,10 @@ class KMeans(Base):
         else:
             self.init = 'preset'
             params.init = Array
-            self.cluster_centers_, _, n_rows, self.n_cols, self.dtype = \
+            self._cluster_centers_, _, n_rows, self.n_cols, self.dtype = \
                 input_to_dev_array(init, order='C',
-                                   check_dtype=[np.float32, np.float64])
+                                   check_dtype=[np.float32, np.float64],
+                                   legacy=False)
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
@@ -328,20 +331,20 @@ class KMeans(Base):
         X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='C',
                                check_cols=check_cols,
-                               check_dtype=check_dtype)
+                               check_dtype=check_dtype,
+                               legacy=False)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
+        self._labels_ = cumlArray.zeros(shape=n_rows, dtype=np.int32)
+        cdef uintptr_t labels_ptr = self._labels_.ptr
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
-            clust_cent = zeros(self.n_clusters * self.n_cols,
-                               dtype=self.dtype)
-            self.cluster_centers_ = rmm.to_device(clust_cent)
+            self._cluster_centers_ = \
+                cumlArray.zeros(shape=(self.n_clusters, self.n_cols),
+                            dtype=self.dtype, order='C')
 
-        c_c = self.cluster_centers_
-        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
+        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
         cdef float inertiaf = 0
         cdef double inertiad = 0
@@ -383,11 +386,6 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
-        cc_df = cudf.DataFrame()
-        cc_df = cc_df.from_gpu_matrix(
-            self.cluster_centers_.reshape(self.n_clusters,
-                                          self.n_cols))
-        self.cluster_centers_ = cc_df
 
         del(X_m)
 
@@ -437,14 +435,15 @@ class KMeans(Base):
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
-                               check_cols=self.n_cols)
+                               check_cols=self.n_cols,
+                               legacy=False)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        self.labels_ = cudf.Series(zeros(n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
+        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
+
+        self._labels_ = cumlArray.zeros(shape=n_rows, dtype=np.int32)
+        cdef uintptr_t labels_ptr = self._labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.
         cdef float inertiaf = 0
@@ -481,7 +480,6 @@ class KMeans(Base):
 
         self.handle.sync()
         del(X_m)
-        del(clust_mat)
 
         return self.labels_, inertia
 
@@ -528,16 +526,20 @@ class KMeans(Base):
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
-                               check_cols=self.n_cols)
+                               check_cols=self.n_cols,
+                               legacy=False)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = rmm.to_device(zeros(self.n_clusters*n_rows,
-                                   dtype=self.dtype))
+        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
+        # preds_data = rmm.to_device(zeros(self.n_clusters*n_rows,
+        #                            dtype=self.dtype))
+
+        preds = cumlArray.zeros(shape=(self.n_clusters, n_rows), dtype=self.dtype,
+                            order='C')
+
+        cdef uintptr_t preds_ptr = preds.ptr
 
         # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
         distance_metric = 1
@@ -568,13 +570,9 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
-        preds_gdf = cudf.DataFrame()
-        for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i:n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
 
         del(X_m)
-        del(clust_mat)
-        return preds_gdf
+        return preds.to_output(self._output_type)
 
     def score(self, X):
         """
