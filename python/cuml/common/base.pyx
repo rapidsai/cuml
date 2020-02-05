@@ -20,6 +20,8 @@
 # cython: language_level = 3
 
 
+from cuml.common.array import Array
+
 import cuml.common.handle
 import cuml.common.cuda
 import inspect
@@ -67,7 +69,7 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False):
+    def __init__(self, handle=None, verbose=False, output_type='cupy'):
         """
         Constructor. All children must call init method of this base class.
 
@@ -80,6 +82,7 @@ class Base:
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
+        self._output_type = self._get_output_type(output_type)
 
     def __repr__(self):
         """
@@ -152,3 +155,18 @@ class Base:
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.handle = cuml.common.handle.Handle()
+
+    def __getattr__(self, attr):
+        real_name = '_' + attr
+        if real_name in self.__dict__.keys():
+            if isinstance(self.__dict__[real_name], Array):
+                return self.__dict__[real_name].to_output(self._output_type)
+
+    def _get_output_type(self, output_dtype):
+        if isinstance(output_dtype, str):
+            output_type = output_dtype.lower()
+            if output_type in ['numpy', 'cupy', 'series', 'dataframe', 'numba']:
+                return output_dtype
+        else:
+            raise ValueError('Parameter output_dtype must be one of "series" ',
+                             '"dataframe", cupy", "numpy" or "numba"')
