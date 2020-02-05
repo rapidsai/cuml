@@ -1,9 +1,9 @@
 import cuml
 
-from cuml.test.utils import ModuleConfig
+from cuml.test.utils import ClassEnumerator
 
 
-def test_module_config():
+def test_class_enumerator():
     class SomeModule:
         class SomeClass(cuml.Base):
             pass
@@ -18,13 +18,13 @@ def test_module_config():
             def __eq__(self, other):
                 return self.some_parameter == other.some_parameter
 
-    module = ModuleConfig(module=SomeModule,
-                          exclude_classes=[SomeModule.ExcludedClass],
-                          custom_constructors={
-                              "CustomConstructorClass":
-                                  lambda: SomeModule.CustomConstructorClass(
-                                      some_parameter=1)
-                          })
+    module = ClassEnumerator(module=SomeModule,
+                             exclude_classes=[SomeModule.ExcludedClass],
+                             custom_constructors={
+                                 "CustomConstructorClass":
+                                     lambda: SomeModule.CustomConstructorClass(
+                                         some_parameter=1)
+                             })
 
     models = module.get_models()
     ref = {
@@ -41,15 +41,13 @@ def test_module_config():
         'CustomConstructorClass']()
 
 
-def test_module_config_actual_module():
-    module = ModuleConfig(module=cuml.linear_model,
-                          exclude_classes=[cuml.LinearRegression,
-                                           cuml.MBSGDClassifier,
-                                           cuml.MBSGDRegressor],
-                          custom_constructors={
-                              'LogisticRegression':
-                                  lambda: cuml.LogisticRegression(handle=1)
-                          })
+def test_class_enumerator_actual_module():
+    module = ClassEnumerator(module=cuml.linear_model,
+                             exclude_classes=[cuml.LinearRegression],
+                             custom_constructors={
+                                 'LogisticRegression':
+                                     lambda: cuml.LogisticRegression(handle=1)
+                             })
     models = module.get_models()
     ref = {
         'ElasticNet': cuml.ElasticNet,
@@ -65,23 +63,24 @@ def test_module_config_actual_module():
     assert models == ref
 
 
-def test_module_config_empty_module():
+def test_class_enumerator_empty_module():
     class EmptyModule:
         pass
 
-    assert {} == ModuleConfig(EmptyModule).get_models()
+    assert {} == ClassEnumerator(EmptyModule).get_models()
 
 
-def test_module_config_parameters():
+def test_class_enumerator_parameters():
     class SomeModule:
         class SomeClass(cuml.Base):
             def __eq__(self, other):
                 return type(other) == type(self)
 
-    models1 = ModuleConfig(module=SomeModule).get_models()
-    models2 = ModuleConfig(module=SomeModule,
-                           exclude_classes=[SomeModule.SomeClass]).get_models()
-    models3 = ModuleConfig(
+    models1 = ClassEnumerator(module=SomeModule).get_models()
+    models2 = ClassEnumerator(module=SomeModule,
+                              exclude_classes=[
+                                  SomeModule.SomeClass]).get_models()
+    models3 = ClassEnumerator(
         module=SomeModule,
         custom_constructors={'SomeClass': lambda: SomeModule.SomeClass()}
     ).get_models()

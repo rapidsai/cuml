@@ -165,7 +165,7 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-class ModuleConfig:
+class ClassEnumerator:
     """Helper class to automatically pick up every models classes in a module.
     Filters out classes not inheriting from cuml.Base.
 
