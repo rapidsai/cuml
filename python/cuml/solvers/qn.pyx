@@ -33,7 +33,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, rmm_cupy_ary
 from cuml.utils.import_utils import has_cupy
 from cuml.metrics import accuracy_score
 
@@ -113,6 +113,7 @@ class QN(Base):
 
     - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
     regularization
+
     - Limited Memory BFGS (L-BFGS) otherwise.
 
     cuML's QN class can take array-like objects, either in host as
@@ -206,8 +207,10 @@ class QN(Base):
     Notes
     ------
        This class contains implementations of two popular Quasi-Newton methods:
+
        - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
        Wright - Numerical Optimization (1999)]
+
        - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML
        2007]
        <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
@@ -245,6 +248,7 @@ class QN(Base):
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -274,7 +278,7 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        self.num_classes = len(cp.unique(y_m)) - 1
+        self.num_classes = len(rmm_cupy_ary(cp.unique, y_m)) - 1
 
         self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self.num_classes > 2:
@@ -357,6 +361,7 @@ class QN(Base):
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
