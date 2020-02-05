@@ -306,7 +306,7 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfais
 
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           fca738770d2b09be1c0842fac9c0f5e3f6126c40
+    GIT_TAG           f772480cbc3fcb67edc1ef70d0affc3dcfedbf9e
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
