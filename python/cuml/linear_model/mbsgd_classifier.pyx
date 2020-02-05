@@ -115,7 +115,9 @@ class MBSGDClassifier(Base):
     def __init__(self, loss='hinge', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
-                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
+                 verbose=False):
+        super().__init__(handle=handle, verbose=verbose)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -129,7 +131,6 @@ class MBSGDClassifier(Base):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.handle = handle
         self.cu_mbsgd_classifier = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=False):
