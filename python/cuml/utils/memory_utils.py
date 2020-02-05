@@ -15,7 +15,9 @@
 #
 
 import cupy as cp
+import functools
 import numpy as np
+import operator
 import rmm
 
 from cuml.utils.import_utils import check_min_cupy_version
@@ -90,9 +92,41 @@ def _rmm_cupy6_array_like(ary, order):
 
 
 def _strides_to_order(strides, dtype):
-    if strides[0] == dtype.itemsize:
+    if strides[0] == dtype.itemsize or len(strides) == 1:
         return 'F'
     elif strides[1] == dtype.itemsize:
         return 'C'
     else:
         raise ValueError("Invalid strides value for dtype")
+
+
+def _order_to_strides(order, shape, dtype):
+    itemsize = cp.dtype(dtype).itemsize
+    if isinstance(shape, int):
+        return (itemsize,)
+
+    elif len(shape) == 1:
+        return (itemsize,)
+
+    elif order == 'C':
+        dim_minor = shape[1] * itemsize
+        return (dim_minor, itemsize)
+
+    elif order == 'F':
+        dim_minor = shape[0] * itemsize
+        return (itemsize, dim_minor)
+
+    else:
+        raise ValueError('Order must be "F" or "C". ')
+
+
+def _get_size_from_shape(shape, dtype):
+    itemsize = cp.dtype(dtype).itemsize
+    if isinstance(shape, int):
+        size = itemsize * shape
+        shape = (shape,)
+    elif isinstance(shape, tuple):
+        size = functools.reduce(operator.mul, shape)
+    else:
+        raise ValueError("Shape must be int or tuple of ints.")
+    return (size, shape)
