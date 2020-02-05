@@ -20,6 +20,7 @@ import cupy as cp
 import numpy as np
 import cudf
 import pickle
+
 from copy import deepcopy
 from numba import cuda
 from cuml.common.array import Array
@@ -29,9 +30,6 @@ test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
 ]
 
-# test_output_types = [
-#     'numpy', 'numba', 'cupy', 'dataframe', 'series'
-# ]
 test_output_types = {
     'numpy': np.ndarray,
     'cupy': cp.ndarray,
@@ -54,7 +52,7 @@ test_dtypes_output = [
     np.uint8, np.uint16, np.uint32, np.uint64
 ]
 
-test_shapes = [10, (10,), (10,1), (10, 5), (1, 10)]
+test_shapes = [10, (10,), (10, 1), (10, 5), (1, 10)]
 
 test_slices = [0, 5, 'left', 'right', 'both', 'bool_op']
 
@@ -75,7 +73,6 @@ def test_array_init(input_type, dtype, shape, order):
 
     if shape == (10, 5):
         assert ary.order == order
-
 
     if shape == 10:
         assert ary.shape == (10,)
@@ -111,7 +108,7 @@ def test_array_init(input_type, dtype, shape, order):
 @pytest.mark.parametrize('slice', test_slices)
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_get_set_item(slice, order):
-    inp = create_input('numpy', 'float32', (10,10), order)
+    inp = create_input('numpy', 'float32', (10, 10), order)
     ary = Array(data=inp)
 
     if isinstance(slice, int):
@@ -158,7 +155,7 @@ def test_create_empty(shape, dtype, order):
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_create_zeros(shape, dtype, order):
-    inp = cp.zeros((10,5))
+    inp = cp.zeros((10, 5))
     ary = Array(data=inp)
     test = cp.zeros((10, 5))
     assert cp.all(test == cp.asarray(ary))
@@ -300,4 +297,3 @@ def create_input(input_type, dtype, shape, order):
 
     else:
         return rand_ary
-

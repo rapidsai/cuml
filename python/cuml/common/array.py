@@ -16,16 +16,12 @@
 
 import cupy as cp
 import numpy as np
-import functools
-import operator
-import rmm
+
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
-from numba import cuda
-import pdb
-
 from cuml.utils.memory_utils import _strides_to_order, _get_size_from_shape, \
     _order_to_strides, rmm_cupy_ary
+from numba import cuda
 
 
 class Array(Buffer):
@@ -48,9 +44,8 @@ class Array(Buffer):
             self.order = order
             self.strides = _order_to_strides(order, shape, dtype)
 
-        elif hasattr(data,
-                     "__array_interface__") or hasattr(data,
-                     "__cuda_array_interface__"):
+        elif hasattr(data, "__array_interface__") or \
+                hasattr(data, "__cuda_array_interface__"):
             super(Array, self).__init__(data=data, owner=owner)
             self.shape = data.shape
             self.dtype = np.dtype(data.dtype)
@@ -78,7 +73,7 @@ class Array(Buffer):
 
         elif output_type == 'dataframe':
             if self.dtype not in [np.uint8, np.uint16, np.uint32,
-                    np.uint64, np.float16]:
+                                  np.uint64, np.float16]:
                 mat = cuda.as_cuda_array(self)
                 if len(mat.shape) == 1:
                     mat = mat.reshape(mat.shape[0], 1)
