@@ -34,6 +34,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
+from cuml.fil.fil import TreeliteModel
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
@@ -364,9 +365,9 @@ class RandomForestClassifier(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
-    def _get_model_info(self):
+    def _convert_to_treelite(self):
+        task_category = self.num_classes
         cdef ModelHandle cuml_model_ptr = NULL
-        task_category = 1
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -374,13 +375,41 @@ class RandomForestClassifier(Base):
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
-
         mod_ptr = <size_t> cuml_model_ptr
-        fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return treelite_handle
+
+    def _get_protobuf_bytes(self):
+        fit_mod_ptr = self._convert_to_treelite()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
 
         return model_protobuf_bytes
+
+    def convert_to_treelite_model(self):
+        """
+        Converts the cuML RF model to a Treelite model
+
+        Returns
+        ----------
+        tl_to_fil_model : Treelite model
+        """
+        treelite_handle = self._convert_to_treelite()
+        treelite_model = \
+            TreeliteModel.from_treelite_model_handle(treelite_handle)
+        return treelite_model
+
+    def convert_to_fil_model(self, output_class=True,
+                             threshold=0.5, algo='BATCH_TREE_REORG',
+                             task_category=CLASSIFICATION_MODEL):
+        treelite_handle = self._convert_to_treelite()
+        fil_model = ForestInference()
+        tl_to_fil_model = \
+            fil_model.load_from_randomforest(treelite_handle,
+                                             output_class=output_class,
+                                             threshold=threshold,
+                                             algo=algo)
+        return tl_to_fil_model
 
     def fit(self, X, y):
         """
@@ -488,29 +517,15 @@ class RandomForestClassifier(Base):
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
                               num_classes, convert_dtype):
-        cdef ModelHandle cuml_model_ptr = NULL
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
 
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
-
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> n_cols,
-                              <int> num_classes,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <size_t> cuml_model_ptr
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             threshold=threshold,
-                                             algo=algo)
+        tl_to_fil_model = self.convert_to_fil_model(output_class,
+                                                    threshold, algo,
+                                                    num_classes)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
         return preds

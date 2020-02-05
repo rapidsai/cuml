@@ -26,6 +26,8 @@ enum RF_type {
   REGRESSION,
 };
 
+enum task_category { REGRESSION_MODEL = 1, CLASSIFICATION_MODEL = 2 };
+
 struct RF_metrics {
   RF_type rf_type;
 
