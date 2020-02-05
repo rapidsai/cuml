@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
 
 ## Bug Fixes
