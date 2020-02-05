@@ -399,6 +399,7 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
+        self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
@@ -575,9 +576,10 @@ class RandomForestClassifier(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
+            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
+            or convert_dtype is set to True. Also the 'GPU' should only be
+            used for binary classification problems.
         output_class: boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -609,7 +611,7 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
 
-        if predict_model == "CPU":
+        if predict_model == "CPU" or self.num_classes > 2:
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and not convert_dtype:
