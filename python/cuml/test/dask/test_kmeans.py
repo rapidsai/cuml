@@ -23,7 +23,7 @@ import cupy as cp
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
-SCORE_EPS = 0.04
+SCORE_EPS = 0.06
 
 
 @pytest.mark.mg
