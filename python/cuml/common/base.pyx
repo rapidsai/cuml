@@ -165,7 +165,8 @@ class Base:
     def _get_output_type(self, output_dtype):
         if isinstance(output_dtype, str):
             output_type = output_dtype.lower()
-            if output_type in ['numpy', 'cupy', 'series', 'dataframe', 'numba']:
+            if output_type in ['numpy', 'cupy', 'series', 'dataframe',
+                               'numba']:
                 return output_dtype
         else:
             raise ValueError('Parameter output_dtype must be one of "series" ',

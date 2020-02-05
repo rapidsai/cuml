@@ -342,7 +342,7 @@ class KMeans(Base):
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self._cluster_centers_ = \
                 cumlArray.zeros(shape=(self.n_clusters, self.n_cols),
-                            dtype=self.dtype, order='C')
+                                dtype=self.dtype, order='C')
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
@@ -533,11 +533,9 @@ class KMeans(Base):
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        # preds_data = rmm.to_device(zeros(self.n_clusters*n_rows,
-        #                            dtype=self.dtype))
-
-        preds = cumlArray.zeros(shape=(self.n_clusters, n_rows), dtype=self.dtype,
-                            order='C')
+        preds = cumlArray.zeros(shape=(self.n_clusters, n_rows),
+                                dtype=self.dtype,
+                                order='C')
 
         cdef uintptr_t preds_ptr = preds.ptr
 

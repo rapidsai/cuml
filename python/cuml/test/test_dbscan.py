@@ -91,7 +91,8 @@ def test_dbscan_sklearn_comparison(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5, output_type='numpy')
+    cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5,
+                           output_type='numpy')
     cu_y_pred = cuml_dbscan.fit_predict(X)
 
     if nrows < 500000:

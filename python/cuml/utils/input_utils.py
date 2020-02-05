@@ -19,12 +19,11 @@ import cuml.utils.numba_utils
 import cudf
 import cupy as cp
 import numpy as np
-import rmm
 import warnings
 
 from collections import namedtuple
 from collections.abc import Collection
-from copy import deepcopy
+from copy import deepcopy as deepcp
 
 from cuml.utils import rmm_cupy_ary
 from numba import cuda
@@ -133,7 +132,6 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             raise ValueError("Error: cuDF Series has missing/null values")
 
     if isinstance(X, cudf.DataFrame):
-        dtype = np.dtype(X[X.columns[0]]._column.dtype)
         if order == 'F':
             X_m = Array(data=X.as_gpu_matrix(order='F'))
         elif order == 'C':
@@ -143,7 +141,7 @@ def input_to_dev_array(X, order='F', deepcopy=False,
         X_m = Array(data=X)
 
         if deepcopy:
-            X_m = deepcopy(X_m)
+            X_m = deepcp(X_m)
 
     else:
         msg = "X matrix format " + str(X.__class__) + " not supported"
@@ -194,7 +192,6 @@ def input_to_dev_array(X, order='F', deepcopy=False,
                           "result in additional memory utilization.")
             X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
             X_m = Array(data=X_m)
-
 
     ptr = X_m.ptr
     if legacy:

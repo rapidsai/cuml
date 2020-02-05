@@ -181,7 +181,6 @@ class DBSCAN(Base):
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
-
     def fit(self, X, out_dtype="int32"):
         """
         Perform DBSCAN clustering from features.
