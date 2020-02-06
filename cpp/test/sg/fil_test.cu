@@ -391,7 +391,8 @@ class TreeliteFilTest : public BaseFilTest {
     return key;
   }
 
-  void init_forest_impl(fil::forest_t* pforest, fil::storage_type_t storage_type) {
+  void init_forest_impl(fil::forest_t* pforest,
+                        fil::storage_type_t storage_type) {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
     std::unique_ptr<tlf::ModelBuilder> model_builder(
       new tlf::ModelBuilder(ps.num_cols, 1, random_forest_flag));
