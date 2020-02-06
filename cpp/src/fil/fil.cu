@@ -506,10 +506,11 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       int depth = max_depth(model_ref);
       // max 2**25 dense nodes, 256 MiB dense model size
       const int LOG2_MAX_DENSE_NODES = 25;
-      int log2_num_dense_nodes = depth + 1 +
-        int(ceil(std::log2(model_ref.trees.size())));
-      storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES ?
-        storage_type_t::SPARSE : storage_type_t::DENSE;
+      int log2_num_dense_nodes =
+        depth + 1 + int(ceil(std::log2(model_ref.trees.size())));
+      storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES
+                       ? storage_type_t::SPARSE
+                       : storage_type_t::DENSE;
     } else {
       // only dense storage is supported for other algorithms
       storage_type = storage_type_t::DENSE;
