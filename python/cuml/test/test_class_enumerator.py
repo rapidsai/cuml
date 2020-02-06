@@ -43,7 +43,9 @@ def test_class_enumerator():
 
 def test_class_enumerator_actual_module():
     module = ClassEnumerator(module=cuml.linear_model,
-                             exclude_classes=[cuml.LinearRegression],
+                             exclude_classes=[cuml.LinearRegression,
+                                              cuml.MBSGDClassifier,
+                                              cuml.MBSGDRegressor],
                              custom_constructors={
                                  'LogisticRegression':
                                      lambda: cuml.LogisticRegression(handle=1)
