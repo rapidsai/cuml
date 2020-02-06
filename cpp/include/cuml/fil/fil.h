@@ -72,6 +72,9 @@ enum output_t {
       class (0 or 1) */
   THRESHOLD = 0x100,
 };
+inline output_t& operator|= (output_t& a, output_t b) { return (output_t&)((int&)a |= (int)b); }
+inline output_t& operator&= (output_t& a, output_t b) { return (output_t&)((int&)a &= (int)b); }
+inline output_t operator~ (output_t a) { return (output_t)~(int)a; }
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
 enum storage_type_t {
@@ -203,7 +206,7 @@ void free(const cumlHandle& h, forest_t f);
  *  @param num_rows number of data rows
  */
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows);
+             size_t num_rows, bool predict_proba=false);
 
 }  // namespace fil
 }  // namespace ML
