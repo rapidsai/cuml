@@ -528,7 +528,6 @@ class RandomForestClassifier(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         if len(concat_mod_bytes) != 0:
             self.model_pbuf_bytes = concat_mod_bytes
-
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
@@ -553,7 +552,7 @@ class RandomForestClassifier(Base):
                                              algo=algo)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
-        return preds.copy_to_host()
+        return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         cdef uintptr_t X_ptr
