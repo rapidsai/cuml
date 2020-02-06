@@ -445,14 +445,11 @@ class RandomForestClassifier:
 
         Parameters
         ----------
-        X : np.array
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of examples to predict.
+        X : dask cuDF dataframe or numpy array (n_samples, n_features)
 
         Returns
         ----------
-        y: np.array
-           Dense vector (int) of shape (n_samples, 1)
+        y: dask cuDF or numpy array of shape (n_samples, 1)
 
         """
         for w in self.workers:
@@ -516,7 +513,6 @@ class RandomForestClassifier:
                 completed_part_map[rank] = 0
 
             f = preds[rank]
-
             out_futures.append(c.submit(
                 RandomForestClassifier._func_get_idx, f,
                 start_posi[rank], start_posi[rank]+size))

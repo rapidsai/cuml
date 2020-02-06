@@ -518,7 +518,7 @@ class RandomForestRegressor(Base):
                                              algo=algo)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
-        return preds.copy_to_host()
+        return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         cdef uintptr_t X_ptr

@@ -347,19 +347,6 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   return bytes_info;
 }
 
-/**
-ModelHandle tl_mod_handle(ModelHandle* model,
-                          std::vector<unsigned char>& data) {
-  const char* filename = std::tmpnam(nullptr);
-  std::ofstream file(filename, std::ios::binary);
-  file.write((char*)&data[0], data.size());
-  TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
-  size_t nt;
-  TREELITE_CHECK(TreeliteQueryNumTree(*model, &nt));
-  return *model;
-}
-**/
-
 void check_concat_tl_mod(ModelHandle concat_tree_handle,
                          std::vector<ModelHandle*> treelite_handles) {
   size_t concat_forest;
@@ -429,13 +416,11 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
 
 std::vector<unsigned char> concatenate_trees(
   const cumlHandle& handle, std::vector<ModelHandle*> treelite_handles) {
-  //tl::Model check_mod;
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
   tl::Model concat_model;
   for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
     tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
     int limit = model.trees.size();
-    //auto copied_tree = model.trees[0];
     for (int i = 0; i < limit; i++) {
       (concat_model.trees).push_back((model.trees[i]));
     }
