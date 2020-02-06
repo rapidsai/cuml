@@ -147,7 +147,7 @@ def test_rf_throws_exceptions(cluster):
         c.close()
 
 
-@pytest.mark.parametrize('partitions_per_worker', [1])
+@pytest.mark.parametrize('partitions_per_worker', [1, 3, 5])
 def test_rf_regression_dask_fil(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
@@ -203,7 +203,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster):
         c.close()
 
 
-@pytest.mark.parametrize('partitions_per_worker', [1])
+@pytest.mark.parametrize('partitions_per_worker', [1, 3, 5])
 def test_rf_classification_dask_fil(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers

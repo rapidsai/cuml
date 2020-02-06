@@ -16,10 +16,12 @@
 
 import cudf
 
-from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
-from itertools import chain
+    raise_exception_from_futures, workers_to_parts, to_dask_cudf
+from cuml.dask.common.comms import CommsContext
+from cuml.ensemble import RandomForestRegressor as cuRFR
+
+from collections import OrderedDict
 
 from dask.distributed import default_client, wait
 
@@ -292,7 +294,7 @@ class RandomForestRegressor:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X_test, concat_mod_bytes, r):
+    def _predict(model, X_test, concat_mod_bytes):
         if len(X_test) == 1:
             X_test_df = X_test[0]
         else:
@@ -302,6 +304,15 @@ class RandomForestRegressor:
     @staticmethod
     def _tl_model_handles(model, model_bytes):
         return model._tl_model_handles(model_bytes=model_bytes)
+
+    @staticmethod
+    def _func_get_size(df):
+        return df.shape[0]
+
+    @staticmethod
+    def _func_get_idx(f, start_posi, end_posi):
+
+        return f[start_posi:end_posi]
 
     def print_summary(self):
         """
@@ -432,28 +443,61 @@ class RandomForestRegressor:
            Dense vector (float) of shape (n_samples, 1)
 
         """
-        c = default_client()
-        preds = []
-        gpu_futures = c.sync(extract_ddf_partitions, X)
-        worker_to_parts = workers_to_parts(gpu_futures)
-
         concat_mod_bytes = self.concat_treelite_models()
 
-        for idx, wf in enumerate(worker_to_parts.items()):
-            preds.append(
-                c.submit(
-                    RandomForestRegressor._predict,
-                    self.rfs[wf[0]],
-                    wf[1],
-                    concat_mod_bytes,
-                    random.random(),
-                    workers=[wf[0]]))
+        c = default_client()
+        key = uuid1()
+        gpu_futures = c.sync(extract_ddf_partitions, X)
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            worker_to_parts[w].append(p)
 
-        wait(preds)
-        raise_exception_from_futures(preds)
-        collected_preds = c.gather(preds)
+        workers = set(map(lambda x: x[0], gpu_futures))
 
-        return list(chain.from_iterable(collected_preds))
+        comms = CommsContext(comms_p2p=True)
+        comms.init(workers=workers)
+
+        worker_info = comms.worker_info(comms.worker_addresses)
+
+        key = uuid1()
+        partsToSizes = [(worker_info[wf[0]]["r"], c.submit(
+            RandomForestRegressor._func_get_size,
+            wf[1],
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)).result())
+            for idx, wf in enumerate(gpu_futures)]
+
+        print(" worker_info  : ", worker_info)
+        key = uuid1()
+        preds = dict([(worker_info[wf[0]]["r"], c.submit(
+            RandomForestRegressor._predict,
+            self.rfs[wf[0]],
+            wf[1],
+            concat_mod_bytes,
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)))
+            for idx, wf in enumerate(worker_to_parts.items())])
+
+        out_futures = []
+        start_posi = dict([(worker_info[wf[0]]["r"], 0)
+                          for idx, wf in enumerate(worker_to_parts.items())])
+
+        completed_part_map = {}
+        for rank, size in partsToSizes:
+            if rank not in completed_part_map:
+                completed_part_map[rank] = 0
+
+            f = preds[rank]
+
+            out_futures.append(c.submit(
+                RandomForestRegressor._func_get_idx, f,
+                start_posi[rank], start_posi[rank]+size))
+            start_posi[rank] = start_posi[rank] + size
+            completed_part_map[rank] += 1
+
+        return to_dask_cudf(out_futures)
 
     def get_params(self, deep=True):
         """

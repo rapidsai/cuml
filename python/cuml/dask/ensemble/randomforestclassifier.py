@@ -318,17 +318,6 @@ class RandomForestClassifier:
     def _tl_model_handles(model, model_bytes):
         return model._tl_model_handles(model_bytes=model_bytes)
 
-    def raise_exception_from_futures(self, futures):
-        """
-        Raises a RuntimeError if any of the futures indicates
-        an exception
-        """
-        errs = [f.exception() for f in futures if f.exception()]
-        if errs:
-            raise RuntimeError("%d of %d worker jobs failed: %s" % (
-                len(errs), len(futures), ", ".join(map(str, errs))
-            ))
-
     def print_summary(self):
         """
         prints the summary of the forest used to train and test the model
