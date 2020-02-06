@@ -16,12 +16,15 @@
 
 import cudf
 
-from cuml.dask.common import extract_ddf_partitions, \
+from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
 
+from cuml.dask.common.comms import CommsContext
+
+from collections import OrderedDict
+
 from dask.distributed import default_client, wait
-from itertools import chain
 
 import math
 import random
@@ -291,7 +294,7 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict_gpu(model, X_test, concat_mod_bytes, r):
+    def _predict_gpu(model, X_test, concat_mod_bytes):
         if len(X_test) == 1:
             X_test_df = X_test[0]
         else:
@@ -303,8 +306,28 @@ class RandomForestClassifier:
         return model._predict_get_all(X)
 
     @staticmethod
+    def _func_get_size(df):
+        return df.shape[0]
+
+    @staticmethod
+    def _func_get_idx(f, start_posi, end_posi):
+
+        return f[start_posi:end_posi]
+
+    @staticmethod
     def _tl_model_handles(model, model_bytes):
         return model._tl_model_handles(model_bytes=model_bytes)
+
+    def raise_exception_from_futures(self, futures):
+        """
+        Raises a RuntimeError if any of the futures indicates
+        an exception
+        """
+        errs = [f.exception() for f in futures if f.exception()]
+        if errs:
+            raise RuntimeError("%d of %d worker jobs failed: %s" % (
+                len(errs), len(futures), ", ".join(map(str, errs))
+            ))
 
     def print_summary(self):
         """
@@ -456,28 +479,62 @@ class RandomForestClassifier:
         return preds
 
     def predict_using_fil(self, X):
-        c = default_client()
-        preds = []
-        gpu_futures = c.sync(extract_ddf_partitions, X)
-        worker_to_parts = workers_to_parts(gpu_futures)
 
         concat_mod_bytes = self.concat_treelite_models()
 
-        for idx, wf in enumerate(worker_to_parts.items()):
-            preds.append(
-                c.submit(
-                    RandomForestClassifier._predict_gpu,
-                    self.rfs[wf[0]],
-                    wf[1],
-                    concat_mod_bytes,
-                    random.random(),
-                    workers=[wf[0]]))
+        c = default_client()
+        key = uuid1()
+        gpu_futures = c.sync(extract_ddf_partitions, X)
+        worker_to_parts = OrderedDict()
+        for w, p in gpu_futures:
+            if w not in worker_to_parts:
+                worker_to_parts[w] = []
+            worker_to_parts[w].append(p)
 
-        wait(preds)
-        raise_exception_from_futures(preds)
-        collected_preds = c.gather(preds)
+        workers = set(map(lambda x: x[0], gpu_futures))
 
-        return list(chain.from_iterable(collected_preds))
+        comms = CommsContext(comms_p2p=True)
+        comms.init(workers=workers)
+
+        worker_info = comms.worker_info(comms.worker_addresses)
+
+        key = uuid1()
+        partsToSizes = [(worker_info[wf[0]]["r"], c.submit(
+            RandomForestClassifier._func_get_size,
+            wf[1],
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)).result())
+            for idx, wf in enumerate(gpu_futures)]
+
+        print(" worker_info  : ", worker_info)
+        key = uuid1()
+        preds = dict([(worker_info[wf[0]]["r"], c.submit(
+            RandomForestClassifier._predict_gpu,
+            self.rfs[wf[0]],
+            wf[1],
+            concat_mod_bytes,
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)))
+            for idx, wf in enumerate(worker_to_parts.items())])
+
+        out_futures = []
+        start_posi = dict([(worker_info[wf[0]]["r"], 0)
+                          for idx, wf in enumerate(worker_to_parts.items())])
+
+        completed_part_map = {}
+        for rank, size in partsToSizes:
+            if rank not in completed_part_map:
+                completed_part_map[rank] = 0
+
+            f = preds[rank]
+
+            out_futures.append(c.submit(
+                RandomForestClassifier._func_get_idx, f,
+                start_posi[rank], start_posi[rank]+size))
+            start_posi[rank] = start_posi[rank] + size
+            completed_part_map[rank] += 1
+
+        return to_dask_cudf(out_futures)
 
     def predict_using_cpu(self, X):
         """
