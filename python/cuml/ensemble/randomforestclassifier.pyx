@@ -367,6 +367,7 @@ class RandomForestClassifier(Base):
 
     def _convert_to_treelite(self):
         task_category = self.num_classes
+
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -380,6 +381,9 @@ class RandomForestClassifier(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
+        if self.num_classes > 2:
+            raise ValueError("Pickling support for multiclass "
+                             "classification models is not yet implemented.")
         fit_mod_ptr = self._convert_to_treelite()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
@@ -392,8 +396,11 @@ class RandomForestClassifier(Base):
 
         Returns
         ----------
-        tl_to_fil_model : Treelite model
+        tl_to_fil_model : Treelite version of this model
         """
+        if self.num_classes > 2:
+            raise ValueError("GPU prediction cannot be used for multiclass "
+                             "classification models.")
         treelite_handle = self._convert_to_treelite()
         treelite_model = \
             TreeliteModel.from_treelite_model_handle(treelite_handle)
@@ -402,6 +409,9 @@ class RandomForestClassifier(Base):
     def convert_to_fil_model(self, output_class=True,
                              threshold=0.5, algo='BATCH_TREE_REORG',
                              task_category=CLASSIFICATION_MODEL):
+        if self.num_classes > 2:
+            raise ValueError("FIL does not supported for multiclass "
+                             "classification models.")
         treelite_handle = self._convert_to_treelite()
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -627,6 +637,10 @@ class RandomForestClassifier(Base):
         """
 
         if predict_model == "CPU" or self.num_classes > 2:
+            if self.num_classes > 2:
+                warnings.warn("GPU-based prediction is performed only for\
+                               binary classification models. Therefore, \
+                               prediction will be performed on the CPU")
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and not convert_dtype:

@@ -381,7 +381,7 @@ class RandomForestRegressor(Base):
 
         Returns
         ----------
-        tl_to_fil_model : Treelite model
+        tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._convert_to_treelite()
         treelite_model = \
