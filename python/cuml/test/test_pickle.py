@@ -54,16 +54,12 @@ neighbor_config = ClassEnumerator(
 )
 neighbor_models = neighbor_config.get_models()
 
-dbscan_model = {
-    "DBSCAN": lambda: cuml.DBSCAN()
-}
+dbscan_model = {"DBSCAN": cuml.DBSCAN}
 
-umap_model = {
-    "UMAP": lambda: cuml.UMAP()
-}
+umap_model = {"UMAP": cuml.UMAP}
 
-rf_models = ClassEnumerator(module=cuml.ensemble)
-rf_models = rf_models.get_models()
+rf_module = ClassEnumerator(module=cuml.ensemble)
+rf_models = rf_module.get_models()
 
 k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
