@@ -86,12 +86,18 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   //size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   //if (i >= n) return;
   if(threadIdx.x || blockIdx.x) return;
+  
+  /*printf("%d row class pre-transform_k probabilities during %s, output_t & THRESHOLD = %d, preds=%p, global_bias=%f, inv_num_trees=%f:\n [",
+    n, binary_classification ? "predict_proba()" : "predict", output & output_t::THRESHOLD, preds, global_bias, inv_num_trees);
+  for(long long int i = 0; i < n; i++)
+    printf("%f, ", preds[i]);
+  printf("]\n\n"); */
   for(long long int i = n-1; i>=0; i--) {
   float result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
-  if ((output & output_t::THRESHOLD) != 0) {
+  if ((output & output_t::THRESHOLD) && !binary_classification) {
     result = result > threshold ? 1.0f : 0.0f;
   }
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
@@ -102,6 +108,11 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   } else*/
     preds[i] = result;
   }
+  printf("%d row class probabilities during %s, preds=%p:\n [",
+    n, binary_classification ? "predict_proba()" : "predict", preds);
+  for(long long int i = 0; i < n; i++)
+    printf("%f, ", preds[i]);
+  printf("]\n\n");
 }
 
 struct forest {
@@ -144,16 +155,10 @@ struct forest {
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
-    printf("inference_output before predict flags (THRESHOLD | SIGMOID | AVG ) or RAW: %x\n", (int)output_);
-    output_t inference_output = output_;
-    if(predict_proba)
-        inference_output &= ~output_t::THRESHOLD;
-    printf("inference_output after predict flags (THRESHOLD | SIGMOID | AVG ) or RAW: %x\n", (int)inference_output);
-
     // Transform the output if necessary.
-    if (inference_output != output_t::RAW || global_bias_ != 0.0f) {
+    if (output_ != output_t::RAW || global_bias_ != 0.0f) {
       transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, num_rows, inference_output, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+        preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
         threshold_, global_bias_, predict_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }

@@ -26,7 +26,7 @@ import math
 import numpy as np
 import warnings
 
-import rmm
+from numba import cuda as rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
