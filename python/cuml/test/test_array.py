@@ -16,6 +16,7 @@
 
 import pytest
 
+import cuml
 import cupy as cp
 import numpy as np
 import cudf
@@ -35,7 +36,8 @@ test_output_types = {
     'cupy': cp.ndarray,
     'numba': None,
     'series': cudf.Series,
-    'dataframe': cudf.DataFrame
+    'dataframe': cudf.DataFrame,
+    'cudf': None
 }
 
 test_dtypes_all = [
@@ -170,7 +172,7 @@ def test_output(output_type, dtype, order, shape):
     ary = Array(inp)
 
     if dtype in [np.uint8, np.uint16, np.uint32, np.uint64, np.float16] and \
-            output_type in ['series', 'dataframe']:
+            output_type in ['series', 'dataframe', 'cudf']:
         with pytest.raises(ValueError):
             res = ary.to_output(output_type)
     elif shape == (10, 5) and output_type == 'series':
@@ -182,6 +184,11 @@ def test_output(output_type, dtype, order, shape):
         # using correct numba ndarray check
         if output_type == 'numba':
             assert cuda.devicearray.is_cuda_ndarray(res)
+        elif output_type == 'cudf':
+            if shape == (10, 5):
+                assert isinstance(res, cudf.DataFrame)
+            else:
+                assert isinstance(res, cudf.Series)
         else:
             assert isinstance(res, test_output_types[output_type])
 
