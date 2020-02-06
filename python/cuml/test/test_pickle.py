@@ -47,11 +47,7 @@ decomposition_models = decomposition_config.get_models()
 decomposition_config_xfail = ClassEnumerator(module=cuml.random_projection)
 decomposition_models_xfail = decomposition_config_xfail.get_models()
 
-neighbor_config = ClassEnumerator(
-    module=cuml.neighbors,
-    exclude_classes=[cuml.neighbors.KNeighborsClassifier,
-                     cuml.neighbors.KNeighborsRegressor]
-)
+neighbor_config = ClassEnumerator(module=cuml.neighbors)
 neighbor_models = neighbor_config.get_models()
 
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
@@ -328,10 +324,13 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
+        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
         model = neighbor_models[keys]()
-        model.fit(X_train)
+        if keys in k_neighbors_models.keys():
+            model.fit(X_train, y_train)
+        else:
+            model.fit(X_train)
         result["neighbors_D"], result["neighbors_I"] = \
             model.kneighbors(X_test, n_neighbors=k)
         return model, X_test
