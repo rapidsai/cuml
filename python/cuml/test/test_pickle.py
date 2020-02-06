@@ -527,3 +527,57 @@ def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
         assert array_equal(result["svr"], pickled_model.predict(X_test))
 
     pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
+
+    def create_mod():
+        X_train, y_train, X_test = make_dataset(datatype,
+                                                nrows,
+                                                ncols,
+                                                n_info)
+        model = cuml.svm.SVR()
+        return model, [X_train, y_train, X_test]
+
+    def assert_model(pickled_model, X):
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == -1
+
+        pickled_model.fit(X[0], X[1])
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == 0
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
+
+    def create_mod():
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info)
+        model = cuml.svm.SVC()
+        return model, [X_train, y_train, X_test]
+
+    def assert_model(pickled_model, X):
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == -1
+
+        pickled_model.fit(X[0], X[1])
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == 0
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
