@@ -82,9 +82,11 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
     sigmoid and applying threshold */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
-                            float global_bias) {
-  size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
-  if (i >= n) return;
+                            float global_bias, bool binary_classification) {
+  //size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
+  //if (i >= n) return;
+  if(threadIdx.x || blockIdx.x) return;
+  for(long long int i = n-1; i>=0; i--) {
   float result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
@@ -92,7 +94,14 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   if ((output & output_t::THRESHOLD) != 0) {
     result = result > threshold ? 1.0f : 0.0f;
   }
-  preds[i] = result;
+  // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
+  // that is also the default order, so we should use the same one
+  /*if(binary_classification) {
+    preds[i] = 1.f - result;
+    preds[i+n] = result;
+  } else*/
+    preds[i] = result;
+  }
 }
 
 struct forest {
@@ -121,7 +130,7 @@ struct forest {
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
   void predict(const cumlHandle& h, float* preds, const float* data,
-               size_t num_rows) {
+               size_t num_rows, bool predict_proba) {
     // Initialize prediction parameters.
     predict_params params;
     params.num_cols = num_cols_;
@@ -135,11 +144,17 @@ struct forest {
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
+    printf("inference_output before predict flags (THRESHOLD | SIGMOID | AVG ) or RAW: %x\n", (int)output_);
+    output_t inference_output = output_;
+    if(predict_proba)
+        inference_output &= ~output_t::THRESHOLD;
+    printf("inference_output after predict flags (THRESHOLD | SIGMOID | AVG ) or RAW: %x\n", (int)inference_output);
+
     // Transform the output if necessary.
-    if (output_ != output_t::RAW || global_bias_ != 0.0f) {
+    if (inference_output != output_t::RAW || global_bias_ != 0.0f) {
       transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-        threshold_, global_bias_);
+        preds, num_rows, inference_output, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+        threshold_, global_bias_, predict_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -533,8 +548,8 @@ void free(const cumlHandle& h, forest_t f) {
 }
 
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows) {
-  f->predict(h, preds, data, num_rows);
+             size_t num_rows, bool predict_proba) {
+  f->predict(h, preds, data, num_rows, predict_proba);
 }
 
 }  // namespace fil

@@ -168,7 +168,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                       forest_t,
                       float*,
                       float*,
-                      size_t)
+                      size_t,
+                      bool)
 
     cdef forest_t from_treelite(cumlHandle& handle,
                                 forest_t*,
@@ -210,7 +211,7 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, preds=None):
+    def predict(self, X, predict_proba, preds=None):
         """
         Returns the results of forest inference on the exampes in X
 
@@ -220,6 +221,9 @@ cdef class ForestInference_impl():
             For optimal performance, pass a device array with C-style layout
 
         preds : float32 device array, shape = n_samples
+
+        predict_proba : bool, whether to output class probabilities instead of classes.
+        Currently supported only for binary classification
         """
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, _, X_dtype = \
@@ -229,7 +233,10 @@ cdef class ForestInference_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            preds = rmm.device_array(n_rows, dtype=np.float32)
+            shape = (n_rows,)
+            if predict_proba:
+                shape += (2,)
+            preds = rmm.device_array(shape, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
@@ -244,11 +251,12 @@ cdef class ForestInference_impl():
                 self.forest_data,
                 <float*> preds_ptr,
                 <float*> X_ptr,
-                <size_t> n_rows)
+                <size_t> n_rows,
+                <bool> predict_proba)
         self.handle.sync()
         # synchronous w/o a stream
         return preds
-
+    
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,
                                         bool output_class,
@@ -382,7 +390,7 @@ class ForestInference(Base):
         super(ForestInference, self).__init__(handle)
         self._impl = ForestInference_impl(self.handle)
 
-    def predict(self, X, preds=None):
+    def predict(self, X, preds=None, predict_proba=False):
         """
         Predicts the labels for X with the loaded forest model.
         By default, the result is the raw floating point output
@@ -398,7 +406,8 @@ class ForestInference(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
            For optimal performance, pass a device array with C-style layout
-        preds: gpuarray or cudf.Series, shape = (n_samples,)
+        preds: gpuarray or cudf.Series, shape = (n_samples,) for class prediction
+           and (n_samples,2) for binary probability output
            Optional 'out' location to store inference results
 
         Returns
@@ -406,7 +415,19 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        return self._impl.predict(X, preds)
+        return self._impl.predict(X, predict_proba, preds)
+
+    def predict_proba(self, X, preds=None):
+        """
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
+           For optimal performance, pass a device array with C-style layout
+        preds: gpuarray or cudf.Series, shape = (n_samples,) for class prediction
+           and (n_samples,2) for binary probability output
+        """
+        return self.predict(X, preds, True)
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='AUTO',
