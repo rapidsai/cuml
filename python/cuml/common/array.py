@@ -62,6 +62,15 @@ class Array(Buffer):
         cp.asarray(self).__setitem__(slice, value)
 
     def to_output(self, output_type='cupy'):
+
+        if output_type == 'cudf':
+            if len(self.shape) ==1:
+                output_type = 'series'
+            elif self.shape[0] > 1 and self.shape[1] > 1:
+                output_type = 'dataframe'
+            else:
+                output_type = 'series'
+
         if output_type == 'cupy':
             return cp.asarray(self)
 
