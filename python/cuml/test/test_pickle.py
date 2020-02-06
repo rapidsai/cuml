@@ -18,8 +18,10 @@ import numpy as np
 import pickle
 import pytest
 
+from cuml.test import test_arima
+from cuml.tsa.arima import ARIMAModel
 from cuml.test.utils import array_equal, unit_param, stress_param, \
-    ClassEnumerator
+    ClassEnumerator, get_classes_from_package
 from cuml.test.test_svm import compare_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
@@ -61,16 +63,24 @@ k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
-all_models = {**regression_models,
-              **solver_models,
-              **cluster_models,
-              **decomposition_models,
-              **decomposition_models_xfail,
-              **neighbor_models,
-              **dbscan_model,
-              **umap_model,
-              **rf_models,
-              **k_neighbors_models}
+all_models = get_classes_from_package(cuml)
+all_models.update({
+    **regression_models,
+    **solver_models,
+    **cluster_models,
+    **decomposition_models,
+    **decomposition_models_xfail,
+    **neighbor_models,
+    **dbscan_model,
+    **umap_model,
+    **rf_models,
+    **k_neighbors_models,
+    'ARIMAModel': lambda: ARIMAModel((1, 1, 1),
+                                     np.array([-217.72, -206.77]),
+                                     [np.array([0.03]), np.array([-0.03])],
+                                     [np.array([-0.99]), np.array([-0.99])],
+                                     test_arima.get_data()[1])
+})
 
 
 def pickle_save_load(tmpdir, func_create_model, func_assert):
