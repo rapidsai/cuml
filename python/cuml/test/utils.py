@@ -204,3 +204,9 @@ class ClassEnumerator:
                   issubclass(cls, cuml.Base)}
         models.update(self.custom_constructors)
         return models
+
+
+def get_classes_from_package(package):
+    modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
+    classes = [ClassEnumerator(module).get_models() for module in modules]
+    return {k: v for dictionary in classes for k, v in dictionary.items()}
