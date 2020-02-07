@@ -146,7 +146,7 @@ def test_get_set_item(slice, order):
         ary[:] = 1.0
 
     else:
-        pytest.xfail("not implemented logical indexing, unless we need it")
+        pytest.skip("not implemented logical indexing, unless we need it")
 
     assert np.array_equal(inp, ary.to_output('numpy'))
 
@@ -310,9 +310,6 @@ def test_deepcopy(input_type):
     if input_type != 'series':
         # skipping one dimensional ary order test
         assert ary.order == b.order
-
-
-@pytest.mark.parametrize()
 
 
 def create_input(input_type, dtype, shape, order):
