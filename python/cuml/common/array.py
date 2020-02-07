@@ -36,6 +36,8 @@ class Array(Buffer):
                 raise TypeError("Need to specify dtype, shape and order when \
                                 creating an Array from a pointer.")
 
+        ary_interface = False
+
         if isinstance(data, DeviceBuffer) or isinstance(data, int):
             size, shape = _get_size_from_shape(shape, dtype)
             super(Array, self).__init__(data=data, owner=owner, size=size)
@@ -44,16 +46,26 @@ class Array(Buffer):
             self.order = order
             self.strides = _order_to_strides(order, shape, dtype)
 
-        elif hasattr(data, "__array_interface__") or \
-                hasattr(data, "__cuda_array_interface__"):
-            super(Array, self).__init__(data=data, owner=owner)
-            self.shape = data.shape
-            self.dtype = np.dtype(data.dtype)
-            self.strides = data.strides
-            self.order = _strides_to_order(data.strides, data.dtype)
+        elif hasattr(data, "__array_interface__"):
+            ary_interface = data.__array_interface__
+
+        elif hasattr(data, "__cuda_array_interface__"):
+            ary_interface = data.__cuda_array_interface__
 
         else:
             raise TypeError("Unrecognized data type.")
+
+        if ary_interface:
+            super(Array, self).__init__(data=data, owner=owner)
+            self.shape = ary_interface['shape']
+            self.dtype = np.dtype(data.dtype)
+            if ary_interface['strides'] is None:
+                self.order = 'C'
+                self.strides = _order_to_strides(self.order, self.shape,
+                                                 self.dtype)
+            else:
+                self.strides = ary_interface['strides']
+                self.order = _strides_to_order(self.strides, data.dtype)
 
     def __getitem__(self, slice):
         return Array(data=cp.asarray(self).__getitem__(slice))
