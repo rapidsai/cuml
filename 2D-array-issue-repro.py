@@ -10,6 +10,14 @@ from sklearn.model_selection import train_test_split
     
 from cuml import ForestInference
 
+from print_setting_kernel.print_setting_kernel import print_setter
+
+print(print_setter(12, 7).copy_to_host())
+print(print_setter(6, 3).copy_to_host())
+print(print_setter(10, 4).copy_to_host())
+
+exit(0)
+
 class SKLearnRFClassifier():
     def train(self, X_train, y_train,
                             num_rounds):
@@ -61,3 +69,17 @@ def try_sk():
 
 
 try_sk()
+
+from numba import cuda
+import rmm
+
+@cuda.jit
+def set_and_print(an_array, modulo):
+    for i in range(an_array.size):
+        an_array[i] = i % modulo
+        print(an_array[i])
+
+an_array = rmm.device_array((2, 2), dtype=np.float32)
+set_and_print[1, 1](an_array.reshape([4]), 5)
+print(an_array.copy_to_host())
+

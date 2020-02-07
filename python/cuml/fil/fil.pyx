@@ -24,6 +24,7 @@ import cudf
 import ctypes
 import math
 import numpy as np
+cimport numpy
 import warnings
 
 from numba import cuda as rmm
@@ -244,7 +245,7 @@ cdef class ForestInference_impl():
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = input_to_dev_array(
-            preds,
+            preds, order='C',
             check_dtype=np.float32)
 
         predict(handle_[0],
@@ -390,7 +391,7 @@ class ForestInference(Base):
         super(ForestInference, self).__init__(handle)
         self._impl = ForestInference_impl(self.handle)
 
-    def predict(self, X, preds=None, predict_proba=False):
+    def predict(self, X, preds=None):
         """
         Predicts the labels for X with the loaded forest model.
         By default, the result is the raw floating point output
@@ -415,7 +416,7 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        return self._impl.predict(X, predict_proba, preds)
+        return self._impl.predict(X, False, preds)
 
     def predict_proba(self, X, preds=None):
         """
@@ -427,7 +428,7 @@ class ForestInference(Base):
         preds: gpuarray or cudf.Series, shape = (n_samples,) for class prediction
            and (n_samples,2) for binary probability output
         """
-        return self.predict(X, preds, True)
+        return self._impl.predict(X, True, preds)
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='AUTO',
