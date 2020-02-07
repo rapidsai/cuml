@@ -129,8 +129,9 @@ class Array(Buffer):
 
     @classmethod
     def zeros(cls, shape, dtype='float32', order='F'):
-        return Array(rmm_cupy_ary(cp.zeros, shape, order=order,
-                                  dtype=dtype))
+        ary = Array.empty(shape, dtype, order)
+        ary[:] = 0
+        return ary
 
     @property
     def __cuda_array_interface__(self):
