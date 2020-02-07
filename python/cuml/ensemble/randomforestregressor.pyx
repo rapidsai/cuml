@@ -457,7 +457,7 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              storage_type, task_category=1):
+                              sparse_forest, task_category=1):
 
         cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, _ = \
@@ -477,6 +477,15 @@ class RandomForestRegressor(Base):
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
+
+        if sparse_forest:
+            storage_type = 'SPARSE'
+        elif not sparse_forest:
+            print(" DEFAULT IS fALSE")
+            storage_type = 'DENSE'
+        else:
+            storage_type = 'AUTO'
+
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
@@ -539,7 +548,7 @@ class RandomForestRegressor(Base):
 
     def predict(self, X, predict_model="GPU",
                 algo='BATCH_TREE_REORG', convert_dtype=True,
-                storage_type='SPARSE'):
+                sparse_forest=False):
         """
         Predicts the labels for X.
         Parameters
@@ -564,14 +573,15 @@ class RandomForestRegressor(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        storage_type : string (default = 'SPARSE')
+        sparse_forest : boolean or string (default = False)
             This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library
+            created in the Forest Inference Library. This variable is not
+            required while using predict_model='CPU'.
             'AUTO' or 'auto' - choose the storage type automatically
-                                (currently DENSE is chosen by AUTO)
-             'DENSE' or 'dense' - create a dense forest
-             'SPARSE' or 'sparse' - create a sparse forest;
-                                    requires algo='NAIVE' or algo='AUTO'
+                                (currently False is chosen by AUTO)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='NAIVE'
+                    or algo='AUTO'
 
         Returns
         ----------
@@ -591,7 +601,7 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               storage_type, task_category=1)
+                                               sparse_forest, task_category=1)
 
         return preds
 
@@ -628,8 +638,9 @@ class RandomForestRegressor(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else False))
 
-        preds = self._predict_model_on_gpu(X, algo=algo,
-                                           convert_dtype=convert_dtype)
+        preds = self.predict(X, algo=algo,
+                             convert_dtype=convert_dtype)
+
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
             input_to_dev_array(preds)
