@@ -33,6 +33,8 @@ regression_models = regression_config.get_models()
 
 solver_config = ClassEnumerator(
     module=cuml.solvers,
+    # QN uses softmax here because some of the tests uses multiclass
+    # logistic regression which requires a softmax loss
     custom_constructors={"QN": lambda: cuml.QN(loss="softmax")}
 )
 solver_models = solver_config.get_models()
