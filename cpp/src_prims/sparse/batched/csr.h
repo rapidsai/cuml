@@ -431,10 +431,12 @@ __global__ void batched_spmm_kernel_shared_mem(T alpha, const int* A_col_index,
 
   // Using dynamic shared memory
   extern __shared__ int8_t shared_mem[];
-  int* s_A_col_index = (int*)shared_mem;
-  int* s_A_row_index = (int*)(shared_mem + nnz * sizeof(int));
-  T* s_A_values = (T*)(shared_mem + (nnz + m + 1) * sizeof(int));
-  T* s_B = (T*)(shared_mem + (nnz + m + 1) * sizeof(int) + nnz * sizeof(T));
+  // Mapping arrays to shared mem ; note: T before int for alignment!
+  T* s_A_values = (T*)shared_mem;
+  T* s_B = (T*)(shared_mem + nnz * sizeof(T));
+  int* s_A_col_index = (int*)(shared_mem + (nnz + k * n) * sizeof(T));
+  int* s_A_row_index =
+    (int*)(shared_mem + (nnz + k * n) * sizeof(T) + nnz * sizeof(int));
 
   // Load A in shared memory
   const T* b_A_values = A_values + bid * nnz;
@@ -481,7 +483,7 @@ __global__ void batched_spmm_kernel_shared_mem(T alpha, const int* A_col_index,
  */
 template <typename T>
 void b_spmm(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& B,
-            T beta, LinAlg::Batched::Matrix<T>& C) {
+            T beta, LinAlg::Batched::Matrix<T>& C, bool use_shared_mem = true) {
   int m = A.shape().first;
   int n = B.shape().second;
   int k = A.shape().second;
@@ -495,10 +497,10 @@ void b_spmm(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& B,
          "SpMM: Dimension mismatch: C");
 
   // Execute the kernel
-  if (true) {  // Shared memory kernel (large matrices)
+  if (use_shared_mem) {  // Shared memory kernel (large matrices)
     size_t shared_mem_size =
       (nnz + m + 1) * sizeof(int) + (nnz + k * n) * sizeof(T);
-    batched_spmm_kernel<<<nb, n, shared_mem_size, A.stream()>>>(
+    batched_spmm_kernel_shared_mem<<<nb, n, shared_mem_size, A.stream()>>>(
       alpha, A.get_col_index(), A.get_row_index(), A.get_values(), B.raw_data(),
       beta, C.raw_data(), m, k, n, nnz);
     CUDA_CHECK(cudaPeekAtLastError());
