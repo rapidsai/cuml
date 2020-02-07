@@ -510,7 +510,6 @@ class RandomForestClassifier(Base):
         if sparse_forest:
             storage_type = 'SPARSE'
         elif not sparse_forest:
-            print(" DEFAULT IS fALSE")
             storage_type = 'DENSE'
         elif sparse_forest == 'auto':
             storage_type = 'AUTO'
