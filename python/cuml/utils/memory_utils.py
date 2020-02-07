@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import contextlib
+import cuml
 import cupy as cp
 import functools
 import numpy as np
@@ -130,3 +132,36 @@ def _get_size_from_shape(shape, dtype):
     else:
         raise ValueError("Shape must be int or tuple of ints.")
     return (size, shape)
+
+
+def set_global_output_type(output_type):
+    if isinstance(output_type, str):
+        output_type = output_type.lower()
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
+            cuml.global_output_type = output_type
+        else:
+            raise ValueError('Parameter output_type must be one of ' +
+                              '"series", "dataframe", cupy", "numpy", ' +
+                              '"numba" or "input')
+    else:
+        raise ValueError('Parameter output_type must be one of "series" ' +
+                         '"dataframe", cupy", "numpy", "numba" or "input')
+
+
+@contextlib.contextmanager
+def using_output_type(output_type):
+    if isinstance(output_type, str):
+        output_type = output_type.lower()
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
+            prev_output_type = cuml.global_output_type
+            try:
+                cuml.global_output_type = output_type
+                yield
+            finally:
+                cuml.global_output_type = prev_output_type
+        else:
+            raise ValueError('Parameter output_type must be one of "series" ' +
+                             '"dataframe", cupy", "numpy", "numba" or "input')
+    else:
+        raise ValueError('Parameter output_type must be one of "series" ' +
+                         '"dataframe", cupy", "numpy", "numba" or "input')

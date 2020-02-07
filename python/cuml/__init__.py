@@ -54,7 +54,8 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 from cuml.preprocessing.model_selection import train_test_split
 
-from cuml.random_projection.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
+from cuml.random_projection.random_projection import GaussianRandomProjection, \
+    SparseRandomProjection, johnson_lindenstrauss_min_dim
 
 from cuml.solvers.cd import CD
 from cuml.solvers.sgd import SGD
@@ -67,6 +68,17 @@ from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
+
+# Output type configuration
+
+global_output_type = 'input'
+
+from cuml.utils.memory_utils import set_global_output_type, using_output_type
+
+
+# Version configuration
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
+
