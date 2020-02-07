@@ -145,6 +145,7 @@ struct predict_params {
   int num_cols;
   algo_t algo;
   int max_items;  // only set and used by infer()
+  int n_output_classes;
 
   // Data parameters.
   float* preds;
