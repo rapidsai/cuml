@@ -319,6 +319,8 @@ class KMeans(Base):
 
         """
 
+        self._check_output_type(X)
+
         cdef uintptr_t input_ptr
 
         if self.init == 'preset':
@@ -430,6 +432,8 @@ class KMeans(Base):
         Sum of squared distances of samples to their closest cluster center.
         """
 
+        self._check_output_type(X)
+
         cdef uintptr_t input_ptr
         X_m, input_ptr, n_rows, n_cols, dtype = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
@@ -500,6 +504,8 @@ class KMeans(Base):
         Which cluster each datapoint belongs to.
         """
 
+        self._check_output_type(X)
+
         return self.__predict_labels_inertia(X, convert_dtype=convert_dtype)[0]
 
     def transform(self, X, convert_dtype=False):
@@ -520,6 +526,8 @@ class KMeans(Base):
 
 
         """
+
+        self._check_output_type(X)
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, n_rows, n_cols, dtype = \
@@ -588,6 +596,8 @@ class KMeans(Base):
         score: float
                  Opposite of the value of X on the K-means objective.
         """
+        self._check_output_type(X)
+
         return -1 * self.__predict_labels_inertia(X)[1]
 
     def fit_transform(self, X, convert_dtype=False):
