@@ -501,14 +501,16 @@ void b_spmm(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& B,
     batched_spmm_kernel<<<nb, n, shared_mem_size, A.stream()>>>(
       alpha, A.get_col_index(), A.get_row_index(), A.get_values(), B.raw_data(),
       beta, C.raw_data(), m, k, n, nnz);
+    CUDA_CHECK(cudaPeekAtLastError());
   } else {  // No shared memory (small matrices)
     constexpr int TPB = 256;
     int threads_per_bid =
       nb <= 1024 ? 8 : (nb <= 2048 ? 4 : (nb <= 4096 ? 2 : 1));
-    batched_spmm_kernel<<<MLCommon::ceildiv<int>(nb, TPB), TPB, 0,
-                          A.stream()>>>(
+    batched_spmm_kernel<<<MLCommon::ceildiv<int>(nb * threads_per_bid, TPB),
+                          TPB, 0, A.stream()>>>(
       alpha, A.get_col_index(), A.get_row_index(), A.get_values(), B.raw_data(),
       beta, C.raw_data(), m, k, n, nb, threads_per_bid);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
 }
 

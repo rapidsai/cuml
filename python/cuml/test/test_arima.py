@@ -171,9 +171,6 @@ test_data = {
     (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
 }
 
-# TODO: test greater orders! (at least 3, 4)
-# TODO: test greater seasonal periods! (52)
-
 # Dictionary for lazy-loading of datasets
 # (name, dtype) -> (pandas dataframe, cuDF dataframe)
 lazy_data = {}
@@ -436,10 +433,3 @@ def test_start_params(test_case, dtype):
 
     # Compare results
     np.testing.assert_allclose(x_cuml, x_ref, rtol=0.001, atol=0.01)
-
-
-# TODO: AIC/AICc/BIC tests?
-# Note: at the moment we have different values than statsmodels for the
-# information criteria, essentially because they have a more complex
-# calculation for the degree of freedom, we use the simple one with the
-# number of parameters of the model (p + P + q + Q + k)
