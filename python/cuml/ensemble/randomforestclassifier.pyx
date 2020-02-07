@@ -512,8 +512,12 @@ class RandomForestClassifier(Base):
         elif not sparse_forest:
             print(" DEFAULT IS fALSE")
             storage_type = 'DENSE'
-        else:
+        elif sparse_forest == 'auto':
             storage_type = 'AUTO'
+        else:
+            raise ValueError("The value entered for spares_forest is wrong."
+                             " Please refer to the documentation to see the"
+                             " accepted values.")
 
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -620,8 +624,8 @@ class RandomForestClassifier(Base):
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. This variable is not
             required while using predict_model='CPU'.
-            'AUTO' or 'auto' - choose the storage type automatically
-                                (currently False is chosen by AUTO)
+            'auto' - choose the storage type automatically
+                     (currently False is chosen by auto)
              False - create a dense forest
              True - create a sparse forest, requires algo='NAIVE'
                     or algo='AUTO'
