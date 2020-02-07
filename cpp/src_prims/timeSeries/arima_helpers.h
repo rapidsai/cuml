@@ -96,9 +96,9 @@ HDI DataT reduced_polynomial(int bid, const DataT* param, int lags,
  *                         Shape (batch_size,) (device)
  */
 template <typename DataT>
-void prepare_data(DataT* d_out, const DataT* d_in, int batch_size,
-                         int n_obs, int d, int D, int s, cudaStream_t stream,
-                         int intercept = 0, const DataT* d_mu = nullptr) {
+void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
+                  int d, int D, int s, cudaStream_t stream, int intercept = 0,
+                  const DataT* d_mu = nullptr) {
   // Only one difference (simple or seasonal)
   if (d + D == 1) {
     int period = d ? 1 : s;
@@ -139,8 +139,8 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size,
  *        another and the index is expressed relatively to the second array.
  */
 template <typename DataT>
-DI DataT _select_read(const DataT* src0, int size0,
-                                     const DataT* src1, int idx) {
+DI DataT _select_read(const DataT* src0, int size0, const DataT* src1,
+                      int idx) {
   return idx < 0 ? src0[size0 + idx] : src1[idx];
 }
 
