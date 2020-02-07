@@ -63,6 +63,10 @@ k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
+unfit_pickle_xfail = ['ARIMAModel', 'KalmanFilter', 'ForestInference']
+unfit_clone_xfail = ['ARIMAModel', 'ExponentialSmoothing', 'KalmanFilter',
+                     'MBSGDClassifier', 'MBSGDRegressor']
+
 all_models = get_classes_from_package(cuml)
 all_models.update({
     **regression_models,
@@ -79,7 +83,10 @@ all_models.update({
                                      np.array([-217.72, -206.77]),
                                      [np.array([0.03]), np.array([-0.03])],
                                      [np.array([-0.99]), np.array([-0.99])],
-                                     test_arima.get_data()[1])
+                                     test_arima.get_data()[1]),
+    'ExponentialSmoothing':
+        lambda: cuml.ExponentialSmoothing(np.array([-217.72, -206.77])),
+    'KalmanFilter': lambda: cuml.KalmanFilter(1, 1),
 })
 
 
@@ -306,7 +313,8 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
-    if model_name in decomposition_models_xfail.keys():
+    if (model_name in decomposition_models_xfail.keys() or
+            model_name in unfit_pickle_xfail):
         pytest.xfail()
 
     # Pickling should work even if fit has not been called
@@ -319,6 +327,9 @@ def test_unfit_pickle(model_name):
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
 def test_unfit_clone(model_name):
+    if model_name in unfit_clone_xfail:
+        pytest.xfail()
+
     # Cloning runs into many of the same problems as pickling
     mod = all_models[model_name]()
     clone(mod)
@@ -526,7 +537,6 @@ def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize('ncols', [unit_param(16)])
 @pytest.mark.parametrize('n_info', [unit_param(7)])
 def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
-
     def create_mod():
         X_train, y_train, X_test = make_dataset(datatype,
                                                 nrows,
@@ -553,7 +563,6 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize('ncols', [unit_param(16)])
 @pytest.mark.parametrize('n_info', [unit_param(7)])
 def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
-
     def create_mod():
         X_train, y_train, X_test = make_classification_dataset(datatype,
                                                                nrows,
