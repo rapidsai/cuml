@@ -201,6 +201,8 @@ void free(const cumlHandle& h, forest_t f);
  *  @param data array of size n * cols (cols is the number of columns
  *      for the forest f) from which to predict
  *  @param num_rows number of data rows
+ *  @param for classifier models, predict_proba forces to output both class probabilities
+ *      instead of binary class prediction. format matches scikit-learn API
  */
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
              size_t num_rows, bool predict_proba=false);

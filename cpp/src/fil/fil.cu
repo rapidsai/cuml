@@ -79,7 +79,8 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
-    sigmoid and applying threshold */
+    sigmoid and applying threshold. in case of predict_proba, skips threshold
+    and fills in the converse probability */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
                             float global_bias, bool predict_proba) {
