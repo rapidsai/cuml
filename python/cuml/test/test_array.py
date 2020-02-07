@@ -58,12 +58,20 @@ test_shapes = [10, (10,), (10, 1), (10, 5), (1, 10)]
 
 test_slices = [0, 5, 'left', 'right', 'both', 'bool_op']
 
+unsupported_cudf_dtypes = [np.uint8, np.uint16, np.uint32, np.uint64,
+                           np.float16]
+
 
 @pytest.mark.parametrize('input_type', test_input_types)
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('shape', test_shapes)
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_array_init(input_type, dtype, shape, order):
+    if input_type == 'series':
+        if dtype in unsupported_cudf_dtypes or \
+             shape == (10, 5):
+            pytest.skip("Unsupported cuDF parameter")
+
     if input_type is not None:
         inp = create_input(input_type, dtype, shape, order)
         ary = Array(data=inp)
@@ -78,6 +86,10 @@ def test_array_init(input_type, dtype, shape, order):
 
     if shape == 10:
         assert ary.shape == (10,)
+    elif input_type == 'series':
+        # cudf Series make their shape (10,) from (10, 1)
+        if shape == (10, 1):
+            assert ary.shape == (10,)
     else:
         assert ary.shape == shape
 
@@ -171,7 +183,7 @@ def test_output(output_type, dtype, order, shape):
     inp = create_input('numpy', dtype, shape, order)
     ary = Array(inp)
 
-    if dtype in [np.uint8, np.uint16, np.uint32, np.uint64, np.float16] and \
+    if dtype in unsupported_cudf_dtypes and \
             output_type in ['series', 'dataframe', 'cudf']:
         with pytest.raises(ValueError):
             res = ary.to_output(output_type)
@@ -245,12 +257,17 @@ def test_cuda_array_interface(dtype, shape, order):
 
 @pytest.mark.parametrize('input_type', test_input_types)
 def test_pickle(input_type):
-    inp = create_input(input_type, np.float32, (10, 5), 'F')
+    if input_type == 'series':
+        inp = create_input(input_type, np.float32, (10, 1), 'C')
+    else:
+        inp = create_input(input_type, np.float32, (10, 5), 'F')
     ary = Array(data=inp)
     a = pickle.dumps(ary)
     b = pickle.loads(a)
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
+    elif input_type == 'series':
+        assert np.all(inp == b.to_output('series'))
     else:
         assert cp.all(inp == cp.asarray(b))
 
@@ -260,16 +277,24 @@ def test_pickle(input_type):
         b.__cuda_array_interface__['strides']
     assert ary.__cuda_array_interface__['typestr'] == \
         b.__cuda_array_interface__['typestr']
-    assert ary.order == b.order
+
+    if input_type != 'series':
+        # skipping one dimensional ary order test
+        assert ary.order == b.order
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
 def test_deepcopy(input_type):
-    inp = create_input(input_type, np.float32, (10, 5), 'F')
+    if input_type == 'series':
+        inp = create_input(input_type, np.float32, (10, 1), 'C')
+    else:
+        inp = create_input(input_type, np.float32, (10, 5), 'F')
     ary = Array(data=inp)
     b = deepcopy(ary)
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
+    elif input_type == 'series':
+        assert np.all(inp == b.to_output('series'))
     else:
         assert cp.all(inp == cp.asarray(b))
 
@@ -281,7 +306,13 @@ def test_deepcopy(input_type):
         b.__cuda_array_interface__['strides']
     assert ary.__cuda_array_interface__['typestr'] == \
         b.__cuda_array_interface__['typestr']
-    assert ary.order == b.order
+
+    if input_type != 'series':
+        # skipping one dimensional ary order test
+        assert ary.order == b.order
+
+
+@pytest.mark.parametrize()
 
 
 def create_input(input_type, dtype, shape, order):
@@ -299,7 +330,7 @@ def create_input(input_type, dtype, shape, order):
     elif input_type == 'numba':
         return cuda.as_cuda_array(rand_ary)
 
-    elif input_type == 'sereis':
+    elif input_type == 'series':
         return cudf.Series(cuda.as_cuda_array(rand_ary))
 
     else:
