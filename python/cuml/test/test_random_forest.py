@@ -425,11 +425,11 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('storage_type', ['SPARSE', 'DENSE'])
+@pytest.mark.parametrize('sparse_forest', [True, False, 'AUTO'])
 @pytest.mark.parametrize('algo', ['AUTO', 'NAIVE'])
 def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                   nrows, column_info, max_features,
-                                  storage_type, algo):
+                                  sparse_forest, algo):
     use_handle = True
     ncols, n_info = column_info
 
@@ -455,7 +455,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                    predict_model="GPU",
                                    output_class=True,
                                    threshold=0.5,
-                                   storage_type=storage_type,
+                                   sparse_forest=sparse_forest,
                                    algo=algo)
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
@@ -483,10 +483,10 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('storage_type', ['SPARSE', 'DENSE'])
+@pytest.mark.parametrize('sparse_forest', [True, False, 'AUTO'])
 @pytest.mark.parametrize('algo', ['AUTO', 'NAIVE'])
 def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
-                              max_features, rows_sample, storage_type, algo):
+                              max_features, rows_sample, sparse_forest, algo):
 
     ncols, n_info = column_info
     use_handle = True
@@ -520,7 +520,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     cuml_model.fit(X_train, y_train)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU",
-                                   storage_type=storage_type, algo=algo)
+                                   sparse_forest=sparse_forest, algo=algo)
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)

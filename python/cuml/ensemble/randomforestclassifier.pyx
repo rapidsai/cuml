@@ -488,7 +488,7 @@ class RandomForestClassifier(Base):
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
                               num_classes, convert_dtype,
-                              storage_type):
+                              sparse_forest):
         cdef ModelHandle cuml_model_ptr = NULL
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
@@ -506,6 +506,15 @@ class RandomForestClassifier(Base):
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
+
+        if sparse_forest:
+            storage_type = 'SPARSE'
+        elif not sparse_forest:
+            print(" DEFAULT IS fALSE")
+            storage_type = 'DENSE'
+        else:
+            storage_type = 'AUTO'
+
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
@@ -568,7 +577,7 @@ class RandomForestClassifier(Base):
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
                 num_classes=2, convert_dtype=True,
-                storage_type='SPARSE'):
+                sparse_forest=False):
         """
         Predicts the labels for X.
 
@@ -607,14 +616,15 @@ class RandomForestClassifier(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        storage_type : string (default = 'SPARSE')
+        sparse_forest : boolean or string (default = False)
             This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library
+            created in the Forest Inference Library. This variable is not
+            required while using predict_model='CPU'.
             'AUTO' or 'auto' - choose the storage type automatically
-                                (currently DENSE is chosen by AUTO)
-             'DENSE' or 'dense' - create a dense forest
-             'SPARSE' or 'sparse' - create a sparse forest;
-                                    requires algo='NAIVE' or algo='AUTO'
+                                (currently False is chosen by AUTO)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='NAIVE'
+                    or algo='AUTO'
 
         Returns
         ----------
@@ -637,7 +647,7 @@ class RandomForestClassifier(Base):
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
                                                num_classes, convert_dtype,
-                                               storage_type)
+                                               sparse_forest)
 
         return preds
 
