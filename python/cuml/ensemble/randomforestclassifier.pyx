@@ -487,7 +487,8 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype):
+                              num_classes, convert_dtype,
+                              storage_type):
         cdef ModelHandle cuml_model_ptr = NULL
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
@@ -510,7 +511,8 @@ class RandomForestClassifier(Base):
             fil_model.load_from_randomforest(treelite_handle,
                                              output_class=output_class,
                                              threshold=threshold,
-                                             algo=algo)
+                                             algo=algo,
+                                             storage_type=storage_type)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
         return preds
@@ -565,7 +567,8 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
-                num_classes=2, convert_dtype=True):
+                num_classes=2, convert_dtype=True,
+                storage_type='SPARSE'):
         """
         Predicts the labels for X.
 
@@ -604,6 +607,14 @@ class RandomForestClassifier(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+        storage_type : string (default = 'SPARSE')
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library
+            'AUTO' or 'auto' - choose the storage type automatically
+                                (currently DENSE is chosen by AUTO)
+             'DENSE' or 'dense' - create a dense forest
+             'SPARSE' or 'sparse' - create a sparse forest;
+                                    requires algo='NAIVE' or algo='AUTO'
 
         Returns
         ----------
@@ -625,7 +636,8 @@ class RandomForestClassifier(Base):
         else:
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
-                                               num_classes, convert_dtype)
+                                               num_classes, convert_dtype,
+                                               storage_type)
 
         return preds
 

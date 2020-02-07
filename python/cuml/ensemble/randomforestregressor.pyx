@@ -456,8 +456,8 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def _predict_model_on_gpu(self, X, algo,
-                              convert_dtype=False, task_category=1):
+    def _predict_model_on_gpu(self, X, algo, convert_dtype,
+                              storage_type, task_category=1):
 
         cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, _ = \
@@ -481,7 +481,8 @@ class RandomForestRegressor(Base):
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
                                              output_class=False,
-                                             algo=algo)
+                                             algo=algo,
+                                             storage_type=storage_type)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
         return preds
@@ -537,7 +538,8 @@ class RandomForestRegressor(Base):
         return predicted_result
 
     def predict(self, X, predict_model="GPU",
-                algo='BATCH_TREE_REORG', convert_dtype=True):
+                algo='BATCH_TREE_REORG', convert_dtype=True,
+                storage_type='SPARSE'):
         """
         Predicts the labels for X.
         Parameters
@@ -562,6 +564,15 @@ class RandomForestRegressor(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+        storage_type : string (default = 'SPARSE')
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library
+            'AUTO' or 'auto' - choose the storage type automatically
+                                (currently DENSE is chosen by AUTO)
+             'DENSE' or 'dense' - create a dense forest
+             'SPARSE' or 'sparse' - create a sparse forest;
+                                    requires algo='NAIVE' or algo='AUTO'
+
         Returns
         ----------
         y: NumPy
@@ -580,7 +591,7 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               task_category=1)
+                                               storage_type, task_category=1)
 
         return preds
 
