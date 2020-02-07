@@ -413,3 +413,125 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         sk_predict = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_predict)
         assert cu_acc >= (sk_acc - 0.07)
+
+
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
+                         stress_param(0.95)])
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('split_algo', [0, 1])
+@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('storage_type', ['SPARSE', 'DENSE'])
+@pytest.mark.parametrize('algo', ['AUTO', 'NAIVE'])
+def test_rf_classification_sparse(datatype, split_algo, rows_sample,
+                                  nrows, column_info, max_features,
+                                  storage_type, algo):
+    use_handle = True
+    ncols, n_info = column_info
+
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
+                       n_bins=16, split_algo=split_algo, split_criterion=0,
+                       min_rows_per_node=2, seed=123, n_streams=1,
+                       n_estimators=40, handle=handle, max_leaves=-1,
+                       max_depth=16)
+    cuml_model.fit(X_train, y_train)
+    fil_preds = cuml_model.predict(X_test,
+                                   predict_model="GPU",
+                                   output_class=True,
+                                   threshold=0.5,
+                                   storage_type=storage_type,
+                                   algo=algo)
+    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
+    cuml_acc = accuracy_score(y_test, cu_predict)
+    fil_acc = accuracy_score(y_test, fil_preds)
+
+    if nrows < 500000:
+        sk_model = skrfc(n_estimators=40,
+                         max_depth=16,
+                         min_samples_split=2, max_features=max_features,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_predict = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_predict)
+        assert fil_acc >= (sk_acc - 0.07)
+    assert fil_acc >= (cuml_acc - 0.02)
+
+
+@pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
+                         stress_param('stress')])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         quality_param([200, 50]),
+                         stress_param([400, 100])])
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
+                         stress_param(0.95)])
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('split_algo', [0, 1])
+@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('storage_type', ['SPARSE', 'DENSE'])
+@pytest.mark.parametrize('algo', ['AUTO', 'NAIVE'])
+def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
+                              max_features, rows_sample, storage_type, algo):
+
+    ncols, n_info = column_info
+    use_handle = True
+
+    if mode == 'unit':
+        X, y = make_regression(n_samples=500, n_features=ncols,
+                               n_informative=n_info,
+                               random_state=123)
+
+    elif mode == 'quality':
+        X, y = fetch_california_housing(return_X_y=True)
+
+    else:
+        X, y = make_regression(n_samples=100000, n_features=ncols,
+                               n_informative=n_info,
+                               random_state=123)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Initialize and fit using cuML's random forest regression model
+    cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
+                       n_bins=16, split_algo=split_algo, split_criterion=2,
+                       min_rows_per_node=2, seed=123, n_streams=1,
+                       n_estimators=50, handle=handle, max_leaves=-1,
+                       max_depth=16, accuracy_metric='mse')
+    cuml_model.fit(X_train, y_train)
+    # predict using FIL
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                   storage_type=storage_type, algo=algo)
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
+    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
+    # Initialize, fit and predict using
+    # sklearn's random forest regression model
+    if mode != "stress":
+        sk_model = skrfr(n_estimators=50, max_depth=16,
+                         min_samples_split=2, max_features=max_features,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_predict = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+        assert fil_r2 >= (sk_r2 - 0.07)
+    assert fil_r2 >= (cu_r2 - 0.02)
