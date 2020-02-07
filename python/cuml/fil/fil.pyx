@@ -24,10 +24,9 @@ import cudf
 import ctypes
 import math
 import numpy as np
-cimport numpy
 import warnings
 
-from numba import cuda as rmm
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
