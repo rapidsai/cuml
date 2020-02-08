@@ -142,8 +142,8 @@ def set_global_output_type(output_type):
             cuml.global_output_type = output_type
         else:
             raise ValueError('Parameter output_type must be one of ' +
-                              '"series", "dataframe", cupy", "numpy", ' +
-                              '"numba" or "input')
+                             '"series", "dataframe", cupy", "numpy", ' +
+                             '"numba" or "input')
     else:
         raise ValueError('Parameter output_type must be one of "series" ' +
                          '"dataframe", cupy", "numpy", "numba" or "input')

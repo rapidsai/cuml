@@ -16,7 +16,6 @@
 
 import pytest
 
-import cuml
 import cupy as cp
 import numpy as np
 import cudf

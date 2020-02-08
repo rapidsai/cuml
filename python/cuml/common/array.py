@@ -20,7 +20,7 @@ import numpy as np
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
 from cuml.utils.memory_utils import _strides_to_order, _get_size_from_shape, \
-    _order_to_strides, rmm_cupy_ary
+    _order_to_strides
 from numba import cuda
 
 
