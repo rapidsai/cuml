@@ -222,8 +222,8 @@ cdef class ForestInference_impl():
 
         preds : float32 device array, shape = n_samples
 
-        predict_proba : bool, whether to output class probabilities instead of classes.
-        Currently supported only for binary classification. output format matches sklearn
+        predict_proba : bool, whether to output class probabilities (vs classes)
+        Supported only for binary classification. output format matches sklearn
         """
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, _, X_dtype = \
@@ -256,7 +256,7 @@ cdef class ForestInference_impl():
         self.handle.sync()
         # synchronous w/o a stream
         return preds
-    
+
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,
                                         bool output_class,
@@ -423,7 +423,8 @@ class ForestInference(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
            For optimal performance, pass a device array with C-style layout
-        preds: gpuarray or cudf.Series, shape = (n_samples,2) for binary probability output
+        preds: gpuarray or cudf.Series, shape = (n_samples,2)
+           binary probability output
            Optional 'out' location to store inference results
         """
         return self._impl.predict(X, True, preds)
