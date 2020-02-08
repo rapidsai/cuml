@@ -169,9 +169,8 @@ def test_create_empty(shape, dtype, order):
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_create_zeros(shape, dtype, order):
-    inp = cp.zeros((10, 5))
-    ary = Array(data=inp)
-    test = cp.zeros((10, 5))
+    ary = Array.zeros(shape=shape, dtype=dtype, order=order)
+    test = cp.zeros(shape)
     assert cp.all(test == cp.asarray(ary))
 
 
