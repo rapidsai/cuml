@@ -211,7 +211,7 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, predict_proba, preds=None):
+    def predict(self, X, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the exampes in X
 
@@ -406,7 +406,7 @@ class ForestInference(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
            For optimal performance, pass a device array with C-style layout
-        preds: gpuarray or cudf.Series, shape = (n_samples,) for class prediction
+        preds: gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
 
         Returns

@@ -145,7 +145,7 @@ struct predict_params {
   int num_cols;
   algo_t algo;
   int max_items;  // only set and used by infer()
-  int n_output_classes;
+  int num_output_classes;
   // so far, only 1 or 2 is supported, and only used to output probabilities
   // from classifier models
 
