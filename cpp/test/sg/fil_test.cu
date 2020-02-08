@@ -93,7 +93,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(preds_d));
+    CUDA_CHECK(cudaFree(proba_d));
     CUDA_CHECK(cudaFree(want_preds_d));
+    CUDA_CHECK(cudaFree(want_proba_d));
     CUDA_CHECK(cudaFree(data_d));
   }
 
@@ -192,6 +194,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void predict_on_cpu() {
     // predict on host
     std::vector<float> want_preds_h(ps.num_rows);
+    std::vector<float> want_proba_h(ps.num_rows * 2);
     int num_nodes = tree_num_nodes();
     for (int i = 0; i < ps.num_rows; ++i) {
       float pred = 0.0f;
@@ -201,6 +204,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       if ((ps.output & fil::output_t::AVG) != 0) pred = pred / ps.num_trees;
       pred += ps.global_bias;
       if ((ps.output & fil::output_t::SIGMOID) != 0) pred = sigmoid(pred);
+      want_proba_h[i * 2] = 1.f - pred;
+      want_proba_h[i * 2 + 1] = pred;
       if ((ps.output & fil::output_t::THRESHOLD) != 0) {
         pred = pred > ps.threshold ? 1.0f : 0.0f;
       }
@@ -209,7 +214,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // copy to GPU
     allocate(want_preds_d, ps.num_rows);
+    allocate(want_proba_d, ps.num_rows * 2);
     updateDevice(want_preds_d, want_preds_h.data(), ps.num_rows, stream);
+    updateDevice(want_proba_d, want_proba_h.data(), ps.num_rows * 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -221,7 +228,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // predict
     allocate(preds_d, ps.num_rows);
+    allocate(proba_d, ps.num_rows * 2);
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
+    fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
@@ -229,6 +238,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
+    ASSERT_TRUE(devArrMatch(want_proba_d, proba_d, ps.num_rows * 2,
+                            CompareApprox<float>(ps.tolerance), stream));
     ASSERT_TRUE(devArrMatch(want_preds_d, preds_d, ps.num_rows,
                             CompareApprox<float>(ps.tolerance), stream));
   }
@@ -255,7 +266,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // predictions
   float* preds_d = nullptr;
+  float* proba_d = nullptr;
   float* want_preds_d = nullptr;
+  float* want_proba_d = nullptr;
 
   // input data
   float* data_d = nullptr;

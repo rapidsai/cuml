@@ -205,7 +205,7 @@ void free(const cumlHandle& h, forest_t f);
  *      instead of binary class prediction. format matches scikit-learn API
  */
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows, bool predict_proba=false);
+             size_t num_rows, bool predict_proba = false);
 
 }  // namespace fil
 }  // namespace ML

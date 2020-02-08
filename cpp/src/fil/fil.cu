@@ -86,7 +86,7 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
                             float global_bias, bool predict_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  
+
   float result = preds[predict_proba ? i * 2 : i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
@@ -96,9 +96,9 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   }
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
-  if(predict_proba) {
-    preds[i*2] = 1.f - result;
-    preds[i*2+1] = result;
+  if (predict_proba) {
+    preds[i * 2] = 1.f - result;
+    preds[i * 2 + 1] = result;
   } else
     preds[i] = result;
 }
@@ -138,7 +138,7 @@ struct forest {
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
-    params.n_output_classes = predict_proba ? 2 : 1;
+    params.num_output_classes = predict_proba ? 2 : 1;
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();

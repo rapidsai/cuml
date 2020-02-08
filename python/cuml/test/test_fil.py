@@ -223,6 +223,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     skl_preds = skl_model.predict(X_validation)
     skl_preds_int = np.around(skl_preds)
+    skl_proba = skl_model.predict_proba(X_validation)
 
     skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
 
@@ -234,10 +235,12 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                            threshold=0.50,
                                            storage_type=storage_type)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(skl_acc, 1e-5)
     assert array_equal(fil_preds, skl_preds_int)
+    assert array_equal(fil_proba, skl_proba)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -386,6 +389,7 @@ def test_lightgbm(tmp_path):
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
+    gbm_proba = bst.predict_proba(X)
 
     model_path = str(os.path.join(tmp_path,
                                   'lgb.model'))
@@ -396,4 +400,6 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
 
     fil_preds = np.asarray(fm.predict(X))
+    fil_proba = np.asarray(fm.predict_proba(X))
     assert np.allclose(gbm_preds, fil_preds, 1e-3)
+    assert np.allclose(gbm_proba, fil_proba, 1e-3)

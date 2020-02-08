@@ -103,7 +103,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     for (int i = 0; i < NITEMS; ++i) {
       int row = blockIdx.x * NITEMS + i;
       if (row < params.num_rows)
-        params.preds[row * params.n_output_classes] = out[i];
+        params.preds[row * params.num_output_classes] = out[i];
     }
   }
 }
