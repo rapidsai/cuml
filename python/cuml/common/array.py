@@ -26,6 +26,74 @@ from numba import cuda
 
 class Array(Buffer):
 
+    """
+    Array represents an abstracted array allocation. It can be instantiated by
+    itself, creating an rmm.DeviceBuffer underneath, or can be instantiated by
+    __cuda_array_interface__ or __array_interface__ compliant, in which case
+    it'll keep a reference to that data underneath. Also can be created
+    from a pointer, specifying the characteristics of the array, in that case
+    the owner of the data referred to by the pointer should be specified
+    explicitly.
+
+    Parameters
+    ----------
+
+    data : rmm.DeviceBuffer, array_like, int
+        An array-like object or integer representing a
+        device or host pointer to pre-allocated memory.
+    owner : object, optional
+        Python object to which the lifetime of the memory
+        allocation is tied. If provided, a reference to this
+        object is kept in this Buffer.
+    dtype : data-type, optional
+        Any object that can be interpreted as a numpy or cupy data type.
+    shape : int or tuple of ints, optional
+        Shape of created array.
+    order: string, optional
+        Whether to create a F-major or C-major array.
+
+    Attributes
+    ----------
+
+    ptr : int
+        Pointer to the data
+    size : int
+        Size of the array data in bytes
+    _owner : Python Object
+        Object that owns the data of the array
+    shape : tuple of ints
+        Shape of the array
+    order : {'F', 'C'}
+        'F' or 'C' to indicate Fortran-major or C-major order of the array
+    strides : tuple of ints
+        Strides of the data
+    __cuda_array_interface__ : dictionary
+        __cuda_array_interface__ to interop with other libraries.
+
+    Object Methods
+    --------------
+
+    to_output : Convert the array to the appropriate output format.
+
+    Class Methods
+    -------------
+
+    Array.empty : Create an empty array, allocating a DeviceBuffer.
+    Array.zeros : Create an Array with allocated DeviceBuffer initialized with
+        zeros.
+
+    Notes
+    -----
+
+    cuml Array is not meant as an end-user array library. It is meant for
+    cuML/RAPIDS developer consumption. Therefore it contains the minimum
+    functionality. Its functionality is hidden by base.pyx to provide
+    automatic output format conversion so that the users see the important
+    attributes in whatever format they prefer.
+
+
+    """
+
     def __init__(self, data=None, owner=None, dtype=None, shape=None,
                  order=None):
         if data is None:
@@ -74,6 +142,22 @@ class Array(Buffer):
         cp.asarray(self).__setitem__(slice, value)
 
     def to_output(self, output_type='cupy'):
+        """
+        Convert array to output format
+
+        Parameters
+        ----------
+        output_type : string
+            Format to convert the array to. Acceptable formats are:
+            'cupy' - to cupy array
+            'numpy' - to numba array
+            'numba' - to numba device array
+            'dataframe' - to cuDF DataFrame
+            'series' - to cuDF Series
+            'cudf' - to cuDF Series if array in single dimensional, to
+                DataFrame otherwise
+        """
+
         if output_type == 'cudf':
             if len(self.shape) == 1:
                 output_type = 'series'
@@ -123,12 +207,41 @@ class Array(Buffer):
 
     @classmethod
     def empty(cls, shape, dtype, order='F'):
+        """
+        Create an empty Array with an allocated but uninitialized DeviceBuffer
+
+        Parameters
+        ----------
+        dtype : data-type, optional
+        Any object that can be interpreted as a numpy or cupy data type.
+        shape : int or tuple of ints, optional
+            Shape of created array.
+        order: string, optional
+            Whether to create a F-major or C-major array. Used to check the order
+            of the input. If fail_on_order=True method will raise ValueError,
+            otherwise it will convert X to be of order `order`.
+        """
+
         size, _ = _get_size_from_shape(shape, dtype)
         dbuf = DeviceBuffer(size=size)
         return Array(data=dbuf, shape=shape, dtype=dtype, order=order)
 
     @classmethod
     def zeros(cls, shape, dtype='float32', order='F'):
+        """
+        Create an Array with an allocated DeviceBuffer initialized to zeros.
+
+        Parameters
+        ----------
+        dtype : data-type, optional
+        Any object that can be interpreted as a numpy or cupy data type.
+        shape : int or tuple of ints, optional
+            Shape of created array.
+        order: string, optional
+            Whether to create a F-major or C-major array. Used to check the order
+            of the input. If fail_on_order=True method will raise ValueError,
+            otherwise it will convert X to be of order `order`.
+        """
         size, _ = _get_size_from_shape(shape, dtype)
         dbuf = DeviceBuffer(size=size)
         cp.asarray(dbuf).fill(0)
