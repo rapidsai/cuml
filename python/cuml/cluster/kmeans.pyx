@@ -407,7 +407,7 @@ class KMeans(Base):
         """
         return self.fit(X).labels_
 
-    def __predict_labels_inertia(self, X, convert_dtype=False):
+    def _predict_labels_inertia(self, X, convert_dtype=False):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -506,7 +506,7 @@ class KMeans(Base):
 
         self._check_output_type(X)
 
-        return self.__predict_labels_inertia(X, convert_dtype=convert_dtype)[0]
+        return self._predict_labels_inertia(X, convert_dtype=convert_dtype)[0]
 
     def transform(self, X, convert_dtype=False):
         """
@@ -541,7 +541,7 @@ class KMeans(Base):
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        preds = cumlArray.zeros(shape=(self.n_clusters, n_rows),
+        preds = cumlArray.zeros(shape=(n_rows, self.n_clusters),
                                 dtype=self.dtype,
                                 order='C')
 
@@ -578,7 +578,8 @@ class KMeans(Base):
         self.handle.sync()
 
         del(X_m)
-        return preds.to_output(self._output_type)
+        print("kmeans.pyx transform ", self.output_type)
+        return preds.to_output(self.output_type)
 
     def score(self, X):
         """
@@ -598,7 +599,7 @@ class KMeans(Base):
         """
         self._check_output_type(X)
 
-        return -1 * self.__predict_labels_inertia(X)[1]
+        return -1 * self._predict_labels_inertia(X)[1]
 
     def fit_transform(self, X, convert_dtype=False):
         """
