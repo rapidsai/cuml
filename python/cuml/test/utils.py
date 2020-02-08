@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import inspect
 
 import numpy as np
 import pandas as pd
@@ -163,3 +163,50 @@ def quality_param(*args, **kwargs):
 
 def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
+class ClassEnumerator:
+    """Helper class to automatically pick up every models classes in a module.
+    Filters out classes not inheriting from cuml.Base.
+
+    Parameters
+    ----------
+    module: python module (ex: cuml.linear_regression)
+        The module for which to retrieve models.
+    exclude_classes: list of classes (optional)
+        Those classes will be filtered out from the retrieved models.
+    custom_constructors: dictionary of {class_name: lambda}
+        Custom constructors to use instead of the default one.
+        ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
+    """
+    def __init__(self, module, exclude_classes=None, custom_constructors=None):
+        self.module = module
+        self.exclude_classes = exclude_classes or []
+        self.custom_constructors = custom_constructors or []
+
+    def _get_classes(self):
+        return inspect.getmembers(self.module, inspect.isclass)
+
+    def get_models(self):
+        """Picks up every models classes from self.module.
+        Filters out classes not inheriting from cuml.Base.
+
+        Returns
+        -------
+        models: dictionary of {class_name: class|class_constructor}
+            Dictionary of models in the module, except when a
+            custom_constructor is specified, in that case the value is the
+            specified custom_constructor.
+        """
+        classes = self._get_classes()
+        models = {name: cls for name, cls in classes
+                  if cls not in self.exclude_classes and
+                  issubclass(cls, cuml.Base)}
+        models.update(self.custom_constructors)
+        return models
+
+
+def get_classes_from_package(package):
+    modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
+    classes = [ClassEnumerator(module).get_models() for module in modules]
+    return {k: v for dictionary in classes for k, v in dictionary.items()}
