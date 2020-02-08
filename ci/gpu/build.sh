@@ -59,14 +59,20 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=0.12*" \
-      "statsmodels" \
-      "xgboost=0.90.rapidsdev1"
+      "statsmodels"
+
+
 
 # Install the master version of dask, distributed, and dask-ml
 logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
 logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+
+# Install XGBoost snapshot
+logger "pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc1%2B5ca21f252a4b70795efc0895fbfbd385319223ce-py2.py3-none-manylinux1_x86_64.whl --no-deps"
+pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc1%2B5ca21f252a4b70795efc0895fbfbd385319223ce-py2.py3-none-manylinux1_x86_64.whl --upgrade --no-deps
+
 
 logger "Check versions..."
 python --version
