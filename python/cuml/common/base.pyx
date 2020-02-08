@@ -37,6 +37,7 @@ _input_type_to_str = {
     DataFrame: 'cudf'
 }
 
+
 class Base:
     """
     Base class for all the ML algos. It handles some of the common operations
