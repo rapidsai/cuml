@@ -416,6 +416,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
@@ -433,7 +434,6 @@ if(BUILD_CUML_C_LIBRARY)
     src/svm/svm_api.cpp)
 
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
-
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################
