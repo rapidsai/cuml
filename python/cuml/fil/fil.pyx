@@ -222,7 +222,7 @@ cdef class ForestInference_impl():
 
         preds : float32 device array, shape = n_samples
 
-        predict_proba : bool, whether to output class probabilities (vs classes)
+        predict_proba : bool, whether to output class probabilities(vs classes)
         Supported only for binary classification. output format matches sklearn
         """
         cdef uintptr_t X_ptr
