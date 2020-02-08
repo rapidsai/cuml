@@ -39,7 +39,7 @@ test_output_types = {
 def test_default_global_output_type(input_type):
     dataset = get_small_dataset(input_type)
 
-    dbscan_float = cuml.DBSCAN(eps = 1.0, min_samples = 1)
+    dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
     dbscan_float.fit(dataset)
 
     res = dbscan_float.labels_
@@ -57,7 +57,7 @@ def test_global_output_type(global_type, input_type):
 
     cuml.set_global_output_type(global_type)
 
-    dbscan_float = cuml.DBSCAN(eps = 1.0, min_samples = 1)
+    dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
     dbscan_float.fit(dataset)
 
     res = dbscan_float.labels_
@@ -78,7 +78,7 @@ def test_output_type_context_mgr(global_type, context_type):
 
     # use cuml context manager
     with cuml.using_output_type(context_type):
-        dbscan_float = cuml.DBSCAN(eps = 1.0, min_samples = 1)
+        dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
         dbscan_float.fit(dataset)
 
         res = dbscan_float.labels_
@@ -90,7 +90,7 @@ def test_output_type_context_mgr(global_type, context_type):
 
     # use cuml again outside the context manager
 
-    dbscan_float = cuml.DBSCAN(eps = 1.0, min_samples = 1)
+    dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
     dbscan_float.fit(dataset)
 
     res = dbscan_float.labels_
