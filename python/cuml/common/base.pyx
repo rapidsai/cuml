@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -186,6 +186,11 @@ class Base:
             self.output_type = self.output_type
 
     def _check_output_type(self, input):
+        """
+        Method to be called by fit/predict/etc. method of inheriting classes
+        to correctly set the output type depending on the type of inputs,
+        class output type and global output type
+        """
         if self.output_type == 'input' or self._mirror_input:
             if type(input) in _input_type_to_str.keys():
                 self.output_type = _input_type_to_str[type(input)]
