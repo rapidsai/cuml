@@ -13,6 +13,7 @@
 # limitations under the License.
 import inspect
 
+import cupy as cp
 import numpy as np
 import pandas as pd
 from copy import deepcopy
@@ -104,7 +105,7 @@ def normalize_clusters(a0, b0, n_clusters):
 
 def to_nparray(x):
     if isinstance(x, Number):
-        return np.array([x])
+        return np.asarray([x])
     elif isinstance(x, pd.DataFrame):
         return x.values
     elif isinstance(x, cudf.DataFrame):
@@ -113,7 +114,9 @@ def to_nparray(x):
         return x.to_pandas().values
     elif isinstance(x, DeviceNDArray):
         return x.copy_to_host()
-    return np.array(x)
+    elif isinstance(x, cp.ndarray):
+        return cp.asnumpy(x)
+    return np.asarray(x)
 
 
 def clusters_equal(a0, b0, n_clusters, tol=1e-4):

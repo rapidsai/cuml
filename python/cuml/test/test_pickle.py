@@ -439,11 +439,11 @@ def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
         nrows, ncols, n_info = data_size
         X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
         model = dbscan_model[keys]()
-        result["dbscan"] = model.fit_predict(X_train).to_array()
+        result["dbscan"] = model.fit_predict(X_train)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
-        pickle_after_predict = pickled_model.fit_predict(X_train).to_array()
+        pickle_after_predict = pickled_model.fit_predict(X_train)
         assert array_equal(result["dbscan"], pickle_after_predict)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
