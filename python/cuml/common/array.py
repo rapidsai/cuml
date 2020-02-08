@@ -29,12 +29,12 @@ class Array(Buffer):
     def __init__(self, data=None, owner=None, dtype=None, shape=None,
                  order=None):
         if data is None:
-            raise TypeError("To create an empty Array, use the class method \
-                             Array.empty()")
+            raise TypeError("To create an empty Array, use the class method" +
+                             " Array.empty()")
         if isinstance(data, int):
             if dtype is None or shape is None or order is None:
-                raise TypeError("Need to specify dtype, shape and order when \
-                                creating an Array from a pointer.")
+                raise TypeError("Need to specify dtype, shape and order when"
+                                " creating an Array from a pointer.")
 
         ary_interface = False
 
