@@ -145,7 +145,7 @@ struct forest {
     infer(params, stream);
 
     // Transform the output if necessary.
-    if (output_ != output_t::RAW || global_bias_ != 0.0f) {
+    if (output_ != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
       transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
         preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
         threshold_, global_bias_, predict_proba);
