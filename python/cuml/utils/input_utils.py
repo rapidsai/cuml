@@ -153,9 +153,6 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
         check_dtype = [np.dtype(dtype) for dtype in check_dtype]
 
-        print(check_dtype)
-        print(X_m.dtype)
-
         if X_m.dtype not in check_dtype:
             type_str = X_m.dtype
             del X_m

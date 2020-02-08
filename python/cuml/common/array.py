@@ -213,13 +213,11 @@ class Array(Buffer):
         Parameters
         ----------
         dtype : data-type, optional
-        Any object that can be interpreted as a numpy or cupy data type.
+            Any object that can be interpreted as a numpy or cupy data type.
         shape : int or tuple of ints, optional
             Shape of created array.
         order: string, optional
-            Whether to create a F-major or C-major array. Used to check the order
-            of the input. If fail_on_order=True method will raise ValueError,
-            otherwise it will convert X to be of order `order`.
+            Whether to create a F-major or C-major array.
         """
 
         size, _ = _get_size_from_shape(shape, dtype)
@@ -234,13 +232,11 @@ class Array(Buffer):
         Parameters
         ----------
         dtype : data-type, optional
-        Any object that can be interpreted as a numpy or cupy data type.
+            Any object that can be interpreted as a numpy or cupy data type.
         shape : int or tuple of ints, optional
             Shape of created array.
         order: string, optional
-            Whether to create a F-major or C-major array. Used to check the order
-            of the input. If fail_on_order=True method will raise ValueError,
-            otherwise it will convert X to be of order `order`.
+            Whether to create a F-major or C-major array.
         """
         size, _ = _get_size_from_shape(shape, dtype)
         dbuf = DeviceBuffer(size=size)
