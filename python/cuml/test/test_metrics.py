@@ -146,7 +146,7 @@ def test_rand_index_score(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
+    cu_y_pred = cuml_kmeans.fit_predict(X).to_output('numpy')
 
     cu_score = cu_ars(y, cu_y_pred)
     cu_score_using_sk = sk_ars(y, cu_y_pred)
