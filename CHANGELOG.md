@@ -22,6 +22,7 @@
 - PR #1661: Fix nvstring variable name
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
+- PR #1642: Support XGBoost 1.0+ models in FIL
 
 # cuML 0.12.0 (Date TBD)
 
