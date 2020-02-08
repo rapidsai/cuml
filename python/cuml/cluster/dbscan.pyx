@@ -139,6 +139,13 @@ class DBSCAN(Base):
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
+    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
+        Use it to control output type of the results and attributes.
+        If None it'll inherit the output type set at the
+        module level, cuml.output_type. If that has not been changed, by
+        default the estimator will mirror the type of the data used for each
+        fit or predict call.
+        If set, the estimator will override the global option for its behavior.
 
     Attributes
     -----------

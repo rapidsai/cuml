@@ -44,35 +44,78 @@ class Base:
     across all algos. Every ML algo class exposed at cython level must inherit
     from this class.
 
+    Typical estimator design using Base requires three main things:
+
+    1. Call the base init method explicitly from inheriting estimators in their
+        init
+    2. Attributes that users will want to acces, and are array-like should
+        use cuml.common.Array and have a preceding underscore `_` before
+        the name the user expects. That way the __getattr__ of Base will
+        convert it automatically to the appropriate output format for the
+        user. For example in DBSCAN the user expects to be able to access
+        model.labels_, so the code actually has an attribute
+        model._labals_ that gets converted at the moment the user accesses
+        labels_ automatically. No need for extra code in inheritting classes
+        as long as they follow that naming convention.
+    3. To appropriately work for outputs mirroring the format of inputs of the
+        user when appropriate, the code in the inheriting estimator must call
+        the method self._check_output_type(input) with input being the data
+        sent by the user that the method's output and model attributes
+        want to mirror. In general this means that the first call in an
+        estimator's predict(self, X), fit(self, X), transform etc. must be to
+        self._check_output_type(X).
+
+    Parameters
+    ----------
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+    verbose : bool
+        Whether to print debug spews
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None it'll inherit the output type set at the
+        module level, cuml.output_type. If set the estimator will override
+        the global option for its behavior.
+
     Examples
     --------
 
+
+
     .. code-block:: python
 
-        import cuml
+        from cuml import Base
 
         # assuming this ML algo has separate 'fit' and 'predict' methods
-        class MyAlgo(cuml.Base):
+        class MyAlgo(Base):
             def __init__(self, ...):
                 super(MyAlgo, self).__init__(...)
                 # other setup logic
 
-            def fit(self, ...):
+            def fit(self, data, ...):
+                # check output format
+                self._check_output_type(data)
                 # train logic goes here
 
-            def predict(self, ...):
+            def predict(self, data, ...):
+                # check output format
+                self._check_output_type(data)
                 # inference logic goes here
 
             def get_param_names(self):
                 # return a list of hyperparam names supported by this algo
 
+        # stream and handle example:
+
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
         handle.enableRMM()   # Enable RMM as the device-side allocator
+
         algo = MyAlgo(handle=handle)
         algo.fit(...)
         result = algo.predict(...)
+
         # final sync of all gpu-work launched inside this object
         # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
         # the default stream inside the `cumlHandle` is being used
@@ -84,12 +127,6 @@ class Base:
         """
         Constructor. All children must call init method of this base class.
 
-        Parameters
-        ----------
-        handle : cuml.Handle
-               If it is None, a new one is created just for this class
-        verbose : bool
-                Whether to print debug spews
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose

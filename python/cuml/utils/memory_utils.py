@@ -136,6 +136,35 @@ def _get_size_from_shape(shape, dtype):
 
 
 def set_global_output_type(output_type):
+    """
+    Method to set cuML's single GPU estimators global output type.
+    It will be used by all estimators unless overriden in their initialization
+    with their own output_type parameter. Can also be overriden by the context
+    manager method `using_output_type`
+
+    Parameters
+    ----------
+    output_type : {'input', 'cudf', 'cupy', 'numba', numpy'} (default = 'input')  # noqa
+        Desired output type of results and attributes of the estimators.
+        'input' will mean that the parameters and methods will mirror the
+        format of the data sent to the estimators/methods. 'cudf' will
+        return cuDF Series for single dimensional results and DataFrames
+        for the rest. 'cupy' will return CuPy ndarrays. 'numpy' will return
+        NumPy ndarrays.
+
+    Notes
+    -----
+    'cupy' and 'numba' options (as well as 'input' when using Numba and CuPy
+    ndarrays for input) have the least overhead. cuDF add memory consumption
+    and processing time needed to build the Series and DataFrames. 'numpy' has
+    the biggest overhead due to the need to transfer data to CPU memory.
+
+    cuML is transitioning to support this parameter for all its estimators.
+    Currently the following single GPU estimators have this new behavior:
+
+    - DBSCAN
+    - KMeans
+    """
     if isinstance(output_type, str):
         output_type = output_type.lower()
         if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
@@ -151,6 +180,64 @@ def set_global_output_type(output_type):
 
 @contextlib.contextmanager
 def using_output_type(output_type):
+    """
+    Context manager method to set cuML's global output type inside a `with`
+    statement. It gets reset to the prior value it had once the `with` code
+    block is executer.
+
+    Parameters
+    ----------
+    output_type : {'input', 'cudf', 'cupy', 'numba', numpy'} (default = 'input')  # noqa
+        Desired output type of results and attributes of the estimators.
+        'input' will mean that the parameters and methods will mirror the
+        format of the data sent to the estimators/methods. 'cudf' will
+        return cuDF Series for single dimensional results and DataFrames
+        for the rest. 'cupy' will return CuPy ndarrays. 'numpy' will return
+        NumPy ndarrays.
+
+    Example
+    -------
+
+    .. code-block:: python
+
+        import cuml
+        import cupy as cp
+
+        ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
+        ary = cp.asarray(ary)
+
+        with cuml.using_output_type('cudf'):
+            dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
+            dbscan_float.fit(ary)
+
+            print("cuML output inside `with` context")
+            print(dbscan_float.labels_)
+            print(type(dbscan_float.labels_))
+
+        # use cuml again outside the context manager
+        dbscan_float2 = cuml.DBSCAN(eps=1.0, min_samples=1)
+        dbscan_float2.fit(ary)
+
+        print("cuML default output")
+        print(dbscan_float2.labels_)
+        print(type(dbscan_float2.labels_))
+
+    Output:
+
+    .. code-block:: python
+        cuML output inside `with` context
+        0    0
+        1    1
+        2    2
+        dtype: int32
+        <class 'cudf.core.series.Series'>
+
+
+        cuML default output
+        [0 1 2]
+        <class 'cupy.core.core.ndarray'>
+
+    """
     if isinstance(output_type, str):
         output_type = output_type.lower()
         if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
