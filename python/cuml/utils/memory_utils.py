@@ -129,6 +129,7 @@ def _get_size_from_shape(shape, dtype):
         shape = (shape,)
     elif isinstance(shape, tuple):
         size = functools.reduce(operator.mul, shape)
+        size = size * itemsize
     else:
         raise ValueError("Shape must be int or tuple of ints.")
     return (size, shape)
