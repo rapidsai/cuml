@@ -91,6 +91,9 @@ class Array(Buffer):
     automatic output format conversion so that the users see the important
     attributes in whatever format they prefer.
 
+    Todo: support cuda streams in the constructor, particularly after
+
+
 
     """
 
