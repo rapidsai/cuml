@@ -116,10 +116,19 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         xformed = cumlModel.transform(X_cudf).compute()
 
-        assert xformed.shape == (nrows, nclusters)
+        if nclusters == 1:
+            # series shape is (nrows,) not (nrows, 1) but both are valid
+            # and equivalent for this test
+            assert xformed.shape in [(nrows, nclusters), (nrows,)]
+            xformed = xformed.to_array()
+        else:
+            assert xformed.shape == (nrows, nclusters)
+            xformed = xformed.as_matrix()
 
         # The argmin of the transformed values should be equal to the labels
-        xformed_labels = np.argmin(xformed.to_pandas().to_numpy(), axis=1)
+        # reshape is a quick manner of dealing with (nrows,) is not (nrows, 1)
+        xformed_labels = np.argmin(xformed.reshape((int(nrows),
+                                                    int(nclusters))), axis=1)
 
         from sklearn.metrics import adjusted_rand_score
         assert adjusted_rand_score(labels, xformed_labels)
