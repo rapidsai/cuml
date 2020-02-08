@@ -129,9 +129,11 @@ class Array(Buffer):
 
     @classmethod
     def zeros(cls, shape, dtype='float32', order='F'):
-        ary = Array.empty(shape, dtype, order)
-        ary[:] = 0
-        return ary
+        size, _ = _get_size_from_shape(shape, dtype)
+        dbuf = DeviceBuffer(size=size)
+        cp.asarray(dbuf).fill(0)
+        return Array(data=dbuf, shape=shape, dtype=dtype,
+                     order=order)
 
     @property
     def __cuda_array_interface__(self):
