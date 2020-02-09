@@ -184,7 +184,7 @@ class DBSCAN(Base):
         self.max_mbytes_per_batch = max_mbytes_per_batch
         self.verbose = verbose
 
-        # C++ API expects this to* be numeric.
+        # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
