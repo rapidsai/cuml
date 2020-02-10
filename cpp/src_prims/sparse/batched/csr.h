@@ -416,9 +416,23 @@ __global__ void batched_spmm_kernel(T alpha, const int* A_col_index,
 }
 
 /**
- * @todo: docs
+ * Kernel to compute a batched SpMM: alpha*A*B + beta*C
+ * (where A is a sparse matrix, B and C dense matrices)
+ * 
  * @note: this is more performant when the matrices are large enough and
  *        assuming that almost all elements of B need to be read
+ * 
+ * @param[in]     alpha           Scalar alpha
+ * @param[in]     A_col_index     CSR column index of batched matrix A
+ * @param[in]     A_row_index     CSR row index of batched matrix A
+ * @param[in]     A_values        Values of the non-zero elements of A
+ * @param[in]     B               Dense matrix B
+ * @param[in]     beta            Scalar beta
+ * @param[in,out] C               Dense matrix C
+ * @param[in]     m               Number of rows of A and C
+ * @param[in]     k               Number of columns of A, rows of B
+ * @param[in]     n               Number of columns of B and C
+ * @param[in]     nnz             Number of non-zero elements per matrix
  */
 template <typename T>
 __global__ void batched_spmm_kernel_shared_mem(T alpha, const int* A_col_index,
