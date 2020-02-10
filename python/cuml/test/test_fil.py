@@ -116,6 +116,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
     xgb_preds_int = np.around(xgb_preds)
+    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
 
@@ -124,10 +125,12 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
+    assert array_equal(fil_proba, xgb_proba)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
