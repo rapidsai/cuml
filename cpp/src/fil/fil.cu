@@ -325,6 +325,12 @@ int max_depth(const tl::Tree& tree) {
                           RECURSION_LIMIT);
 }
 
+int max_depth(const tl::Model& model) {
+  int depth = 0;
+  for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
+  return depth;
+}
+
 void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
                       bool* default_left, const tl::Tree::Node& node) {
   // in treelite (take left node if val [op] threshold),
@@ -450,10 +456,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
            param.pred_transform.c_str());
   }
   params->num_trees = model.trees.size();
-
-  int depth = 0;
-  for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
-  params->depth = depth;
+  params->depth = max_depth(model);
 }
 
 // uses treelite model with additional tl_params to initialize FIL params
@@ -505,15 +508,29 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
+  const tl::Model& model_ref = *(tl::Model*)model;
   if (storage_type == storage_type_t::AUTO) {
-    storage_type = storage_type_t::DENSE;
+    if (tl_params->algo == algo_t::ALGO_AUTO ||
+        tl_params->algo == algo_t::NAIVE) {
+      int depth = max_depth(model_ref);
+      // max 2**25 dense nodes, 256 MiB dense model size
+      const int LOG2_MAX_DENSE_NODES = 25;
+      int log2_num_dense_nodes =
+        depth + 1 + int(ceil(std::log2(model_ref.trees.size())));
+      storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES
+                       ? storage_type_t::SPARSE
+                       : storage_type_t::DENSE;
+    } else {
+      // only dense storage is supported for other algorithms
+      storage_type = storage_type_t::DENSE;
+    }
   }
 
   switch (storage_type) {
     case storage_type_t::DENSE: {
       forest_params_t params;
       std::vector<dense_node_t> nodes;
-      tl2fil_dense(&nodes, &params, *(tl::Model*)model, tl_params);
+      tl2fil_dense(&nodes, &params, model_ref, tl_params);
       init_dense(handle, pforest, nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
@@ -524,7 +541,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       forest_params_t params;
       std::vector<int> trees;
       std::vector<sparse_node_t> nodes;
-      tl2fil_sparse(&trees, &nodes, &params, *(tl::Model*)model, tl_params);
+      tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
