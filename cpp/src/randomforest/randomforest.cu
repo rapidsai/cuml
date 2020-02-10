@@ -365,7 +365,7 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
   int concat_mod_tree_num = 0;
   tl::Model& concat_model = *(tl::Model*)concat_tree_handle;
   for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
-    const tl::Model& model = *(tl::Model*)(treelite_handles[tl_num]);
+    const tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
     bool check_num_features = concat_model.num_feature != model.num_feature;
     bool check_num_output_group =
       concat_model.num_output_group != model.num_output_group;
@@ -419,11 +419,11 @@ std::vector<unsigned char> concatenate_trees(
     tl::Model& model = *(tl::Model*)treelite_handles[tl_num];
     int limit = model.trees.size();
     for (int i = 0; i < limit; i++) {
-      (concat_model.trees).push_back((model.trees[i]));
+      concat_model.trees.push_back(model.trees[i]);
     }
   }
 
-  ModelHandle concat_mod_handle = &(concat_model);
+  ModelHandle concat_mod_handle = &concat_model;
   concat_model.num_feature = first_model.num_feature;
   concat_model.num_output_group = first_model.num_output_group;
   concat_model.random_forest_flag = first_model.random_forest_flag;
