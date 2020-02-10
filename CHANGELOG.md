@@ -3,10 +3,12 @@
 ## New Features
 
 ## Improvements
+- PR #1620: Pickling tests now automatically finds all model classes inheriting from cuml.Base
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
 - PR #1649: Add the storage_type option to RF predict
+- PR #1647: storage_type=AUTO uses SPARSE for large models
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
