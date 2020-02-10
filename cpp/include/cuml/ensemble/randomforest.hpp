@@ -122,10 +122,10 @@ void build_treelite_forest(ModelHandle* model,
 std::vector<unsigned char> save_model(ModelHandle model);
 
 std::vector<unsigned char> concatenate_trees(
-  const cumlHandle& handle, std::vector<ModelHandle*> treelite_handles);
+  const cumlHandle& handle, std::vector<ModelHandle> treelite_handles);
 
 void check_concat_tl_mod(ModelHandle concat_tree_handle,
-                         std::vector<ModelHandle*> treelite_handles);
+                         std::vector<ModelHandle> treelite_handles);
 
 // ----------------------------- Classification ----------------------------------- //
 

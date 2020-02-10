@@ -345,13 +345,13 @@ std::vector<unsigned char> save_model(ModelHandle model) {
 }
 
 void check_concat_tl_mod(ModelHandle concat_tree_handle,
-                         std::vector<ModelHandle*> treelite_handles) {
+                         std::vector<ModelHandle> treelite_handles) {
   size_t concat_forest;
   size_t single_handle;
   int total_num_trees;
   for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
     TREELITE_CHECK(
-      TreeliteQueryNumTree(*treelite_handles[tl_num], &single_handle));
+      TreeliteQueryNumTree(treelite_handles[tl_num], &single_handle));
     total_num_trees = total_num_trees + single_handle;
   }
 
@@ -412,7 +412,7 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
 }
 
 std::vector<unsigned char> concatenate_trees(
-  const cumlHandle& handle, std::vector<ModelHandle*> treelite_handles) {
+  const cumlHandle& handle, std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
   tl::Model concat_model;
   for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
