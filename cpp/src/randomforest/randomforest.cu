@@ -289,8 +289,7 @@ void build_treelite_forest(ModelHandle* model,
     file.write((char*)&data[0], data.size());
     // read the file as a protobuf model
     TREELITE_CHECK(TreeliteLoadProtobufModel(filename, model));
-    size_t nt;
-    TREELITE_CHECK(TreeliteQueryNumTree(*model, &nt));
+
   }
 
   else {
@@ -332,8 +331,6 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model) {
   // create a temp file
-  size_t nt;
-  TREELITE_CHECK(TreeliteQueryNumTree(model, &nt));
   const char* filename = std::tmpnam(nullptr);
   // export the treelite model to protobuf nd save it in the temp file
   TreeliteExportProtobufModel(filename, model);

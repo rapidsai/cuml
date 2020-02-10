@@ -1,7 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
-- PR #1612: Created a function to check the concatenated forest 
+- PR #1646: Using FIL to predict in MNMG RF
 
 ## Improvements
 
@@ -19,7 +19,6 @@
 - PR #1411: Cython side of MNMG OLS
 - PR #1520: Cython side of MNMG Ridge Regression
 - PR #1516: Suppor Vector Regression (epsilon-SVR)
-- PR #1646: Using FIL to predict in MNMG RF
 
 ## Improvements
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
