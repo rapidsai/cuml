@@ -371,7 +371,7 @@ def test_output_args(small_classifier_and_preds):
                               threshold=0.50)
     X = np.asarray(X)
     fil_preds = fm.predict(X)
-    assert np.allclose(fil_preds, xgb_preds, 1e-3)
+    assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
@@ -396,4 +396,4 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
 
     fil_preds = np.asarray(fm.predict(X))
-    assert np.allclose(gbm_preds, fil_preds, 1e-3)
+    assert array_equal(gbm_preds, fil_preds, 1e-3)
