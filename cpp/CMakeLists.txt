@@ -285,8 +285,8 @@ ExternalProject_Add(faiss
                             --with-cuda-arch=${FAISS_GPU_ARCHS}
                             -v
   PREFIX            ${FAISS_DIR}
-  BUILD_COMMAND     $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
-  INSTALL_COMMAND   $(MAKE) -s install > /dev/null
+  BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM} -j${PARALLEL_LEVEL} VERBOSE=1
+  INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1
 )
@@ -313,7 +313,7 @@ ExternalProject_Add(treelite
                       -DENABLE_PROTOBUF=ON
                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
     UPDATE_COMMAND    ""
-    PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
+    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true
 )
 
 add_dependencies(treelite faiss)
