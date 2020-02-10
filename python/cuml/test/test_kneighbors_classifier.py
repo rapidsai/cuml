@@ -22,10 +22,13 @@ import rmm
 import cudf
 
 from cuml.neighbors import KNeighborsClassifier as cuKNN
+from sklearn.neighbors import KNeighborsClassifier as skKNN
 
 from sklearn.datasets import make_blobs
 import numpy as np
 from cuml.test.utils import array_equal
+
+import pandas as pd
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -119,6 +122,39 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
 
     assert array_equal(y_hat.astype(np.int32), y.astype(np.int32))
     assert array_equal(predictions.sum(axis=1), np.ones(nrows))
+
+
+@pytest.mark.parametrize("n_samples", [100])
+@pytest.mark.parametrize("n_features", [40])
+@pytest.mark.parametrize("n_neighbors", [4])
+@pytest.mark.parametrize("n_query", [100])
+def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
+
+    np.random.seed(123)
+
+    X_host_train = pd.DataFrame(np.random.uniform(0, 1,
+                                                  (n_samples, n_features)))
+    y_host_train = pd.DataFrame(np.random.randint(0, 5, (n_samples, 1)))
+    X_host_test = pd.DataFrame(np.random.uniform(0, 1,
+                                                 (n_query, n_features)))
+
+    X_device_train = cudf.DataFrame.from_pandas(X_host_train)
+    y_device_train = cudf.DataFrame.from_pandas(y_host_train)
+
+    X_device_test = cudf.DataFrame.from_pandas(X_host_test)
+
+    knn_sk = skKNN(algorithm="brute", n_neighbors=n_neighbors, n_jobs=1)
+    knn_sk.fit(X_host_train, y_host_train)
+
+    sk_result = knn_sk.predict(X_host_test)
+
+    knn_cuml = cuKNN(n_neighbors=n_neighbors)
+    knn_cuml.fit(X_device_train, y_device_train)
+
+    cuml_result = knn_cuml.predict(X_device_test)
+
+    assert np.array_equal(
+        np.asarray(cuml_result.as_gpu_matrix())[:, 0], sk_result)
 
 
 def test_nonmonotonic_labels():
