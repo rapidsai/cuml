@@ -16,6 +16,7 @@
 - PR #1617: Fixing pickling issues for SVC and SVR
 - PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
+- PR #1654: Skip treelite patch if it's already been applied
 
 # cuML 0.12.0 (Date TBD)
 
