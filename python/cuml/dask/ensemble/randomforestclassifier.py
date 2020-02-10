@@ -295,11 +295,12 @@ class RandomForestClassifier:
 
     @staticmethod
     def _predict_gpu(model, X_test, concat_mod_bytes):
-        if len(X_test) == 1:
-            X_test_df = X_test[0]
-        else:
-            X_test_df = cudf.concat(X_test)
-        return model.predict(X_test_df, concat_mod_bytes=concat_mod_bytes)
+        preds = []
+        for i in range(len(X_test)):
+            X_test_df = X_test[i]
+            preds.append(model.predict(X_test_df,
+                                       concat_mod_bytes=concat_mod_bytes))
+        return preds
 
     @staticmethod
     def _predict_cpu(model, X, r):
@@ -310,9 +311,9 @@ class RandomForestClassifier:
         return df.shape[0]
 
     @staticmethod
-    def _func_get_idx(f, start_posi, end_posi):
+    def _func_get_idx(f, idx):
 
-        return f[start_posi:end_posi]
+        return f[idx]
 
     @staticmethod
     def _tl_model_handles(model, model_bytes):
@@ -492,7 +493,6 @@ class RandomForestClassifier:
             key="%s-%s" % (key, idx)).result())
             for idx, wf in enumerate(gpu_futures)]
 
-        print(" worker_info  : ", worker_info)
         key = uuid1()
         preds = dict([(worker_info[wf[0]]["r"], c.submit(
             RandomForestClassifier._predict_gpu,
@@ -504,8 +504,6 @@ class RandomForestClassifier:
             for idx, wf in enumerate(worker_to_parts.items())])
 
         out_futures = []
-        start_posi = dict([(worker_info[wf[0]]["r"], 0)
-                          for idx, wf in enumerate(worker_to_parts.items())])
 
         completed_part_map = {}
         for rank, size in partsToSizes:
@@ -515,8 +513,7 @@ class RandomForestClassifier:
             f = preds[rank]
             out_futures.append(c.submit(
                 RandomForestClassifier._func_get_idx, f,
-                start_posi[rank], start_posi[rank]+size))
-            start_posi[rank] = start_posi[rank] + size
+                completed_part_map[rank]))
             completed_part_map[rank] += 1
 
         return to_dask_cudf(out_futures)
