@@ -3,13 +3,18 @@
 ## New Features
 
 ## Improvements
+- PR #1620: Pickling tests now automatically finds all model classes inheriting from cuml.Base
+- PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
+- PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
 - PR #1639: Expose the build_treelite function for python
+- PR #1647: storage_type=AUTO uses SPARSE for large models
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
 - PR #1611: Fixing pickling errors for KNN classifier and regressor
+- PR #1617: Fixing pickling issues for SVC and SVR
 - PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
 
@@ -24,6 +29,7 @@
 - PR #1516: Suppor Vector Regression (epsilon-SVR)
 
 ## Improvements
+- PR #1638: Update cuml/docs/README.md
 - PR #1468: C++: updates to clang format flow to make it more usable among devs
 - PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
 - PR #1443: Added a new overloaded GEMM primitive
