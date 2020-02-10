@@ -85,6 +85,7 @@ def test_array_init(input_type, dtype, shape, order):
 
     if shape == 10:
         assert ary.shape == (10,)
+        len(ary) == 10
     elif input_type == 'series':
         # cudf Series make their shape (10,) from (10, 1)
         if shape == (10, 1):

@@ -235,5 +235,3 @@ class Base:
                 self.output_type = 'numba'
             else:
                 self.output_type = 'cupy'
-        else:
-            self.output_type = self.output_type

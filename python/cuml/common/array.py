@@ -144,6 +144,23 @@ class Array(Buffer):
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
 
+    def __reduce__(self):
+        return self.__class__, (self.to_output('numpy'),)
+
+    def __len__(self):
+        return self.shape[0]
+
+    @property
+    def __cuda_array_interface__(self):
+        output = {
+            "shape": self.shape,
+            "strides": self.strides,
+            "typestr": self.dtype.str,
+            "data": (self.ptr, False),
+            "version": 2,
+        }
+        return output
+
     def to_output(self, output_type='cupy'):
         """
         Convert array to output format
@@ -153,7 +170,7 @@ class Array(Buffer):
         output_type : string
             Format to convert the array to. Acceptable formats are:
             'cupy' - to cupy array
-            'numpy' - to numba array
+            'numpy' - to numpy (host ) array
             'numba' - to numba device array
             'dataframe' - to cuDF DataFrame
             'series' - to cuDF Series
@@ -176,7 +193,7 @@ class Array(Buffer):
             return cuda.as_cuda_array(self)
 
         elif output_type == 'numpy':
-            return np.array(cp.asnumpy(cp.asarray(self)), order=self.order)
+            return cp.asnumpy(cp.asarray(self), order=self.order)
 
         elif output_type == 'dataframe':
             if self.dtype not in [np.uint8, np.uint16, np.uint32,
@@ -204,9 +221,6 @@ class Array(Buffer):
                     return Series(self, dtype=self.dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
-
-    def __reduce__(self):
-        return self.__class__, (self.to_output('numpy'),)
 
     @classmethod
     def empty(cls, shape, dtype, order='F'):
@@ -246,14 +260,3 @@ class Array(Buffer):
         cp.asarray(dbuf).fill(0)
         return Array(data=dbuf, shape=shape, dtype=dtype,
                      order=order)
-
-    @property
-    def __cuda_array_interface__(self):
-        output = {
-            "shape": self.shape,
-            "strides": self.strides,
-            "typestr": self.dtype.str,
-            "data": (self.ptr, False),
-            "version": 2,
-        }
-        return output
