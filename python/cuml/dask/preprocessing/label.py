@@ -23,6 +23,7 @@ import scipy
 import dask
 import cupy as cp
 
+
 class LabelBinarizer(object):
     """
     A distributed version of LabelBinarizer for one-hot encoding
@@ -50,12 +51,11 @@ class LabelBinarizer(object):
     @staticmethod
     def _func_xform(model, y):
         xform_in = cp.asarray(y, dtype=y.dtype)
-        return model.transform(xform_in).get()
+        return model.transform(xform_in)
 
     @staticmethod
     def _func_inv_xform(model, y, threshold):
-        if not cp.sparse.isspmatrix(y) and not scipy.sparse.isspmatrix(y):
-            y = cp.asarray(y, dtype=y.dtype)
+        y = cp.asarray(y, dtype=y.dtype)
         return model.inverse_transform(y, threshold)
 
     def fit(self, y):
@@ -104,20 +104,14 @@ class LabelBinarizer(object):
         parts = self.client_.sync(extract_arr_partitions, y)
 
         xform_func = dask.delayed(LabelBinarizer._func_xform)
-        meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
-        f = [dask.array.from_delayed(
-            xform_func(self.model, part), meta=meta, dtype=y.dtype,
-            shape=y.shape) for w, part in parts]
+        meta = rmm_cupy_ary(cp.zeros, 1)
+        if self.model.sparse_output:
+            meta = cp.sparse.csr_matrix(meta)
+        f = [dask.array.from_delayed(xform_func(self.model, part), meta=meta, dtype=cp.float32,
+            shape=(len(y), len(self.classes_))) for w, part in parts]
 
-        arr = dask.array.stack(f, axis=0)
-
-        def map_func(x):
-            cparr = cp.asarray(x, dtype=cp.float32)
-            if cparr.ndim == 3:
-                cparr = cparr.reshape(cparr.shape[1:])
-            return cp.sparse.csr_matrix(cparr)
-
-        return arr.map_blocks(map_func)
+        arr = dask.array.asarray(f)
+        return arr.reshape(arr.shape[1:])
 
     def inverse_transform(self, y, threshold=None):
 
@@ -132,4 +126,5 @@ class LabelBinarizer(object):
             dtype=dtype, shape=(y.shape[0],), meta=meta)
              for w, part in parts]
 
-        return dask.array.stack(f, axis=0)
+        ret = dask.array.stack(f, axis=0)
+        return ret.reshape(ret.shape[1:])
