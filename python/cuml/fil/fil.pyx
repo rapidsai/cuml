@@ -418,6 +418,14 @@ class ForestInference(Base):
 
     def predict_proba(self, X, preds=None):
         """
+        Predicts the class probabilities for X with the loaded forest model.
+        The result is the raw floating point output
+        from the model.
+
+        See the documentation of ForestInference.load for details.
+
+        Parameters
+        ----------
         X : array-like (device or host) shape = (n_samples, n_features)
            Dense matrix (floats) of shape (n_samples, n_features).
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -426,6 +434,11 @@ class ForestInference(Base):
         preds: gpuarray or cudf.Series, shape = (n_samples,2)
            binary probability output
            Optional 'out' location to store inference results
+
+        Returns
+        ----------
+        GPU array of shape (n_samples,2) with inference results
+        (or 'preds' filled with inference results if preds was specified)
         """
         return self._impl.predict(X, True, preds)
 
