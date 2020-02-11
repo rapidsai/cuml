@@ -301,6 +301,16 @@ class TSNE(Base):
 
         return
 
+    def __getattr__(self, attr):
+        # Function only to check attribute Y
+        # while will be deprecated in 0.14
+        if attr == "Y":
+            warnings.warn("""Attribute Y is deprecated and will be dropped in
+                          version 0.14, access the embeddings using the 
+                          attribute ‘embeddings_’ instead.""", 
+                          DeprecationWarning)
+            return self.embedding_
+
     def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
 
@@ -403,13 +413,13 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        self.Y = Y
+        self.embedding_ = Y
         return self
 
     def __del__(self):
-        if "Y" in self.__dict__:
-            del self.Y
-            self.Y = None
+        if "embedding_" in self.__dict__:
+            del self.embedding_
+            self.embedding_ = None
 
     def fit_transform(self, X, convert_dtype=True):
         """Fit X into an embedded space and return that transformed output.
@@ -432,21 +442,21 @@ class TSNE(Base):
         self.fit(X, convert_dtype)
 
         if isinstance(X, cudf.DataFrame):
-            if isinstance(self.Y, cudf.DataFrame):
-                return self.Y
+            if isinstance(self.embedding_, cudf.DataFrame):
+                return self.embedding_
             else:
-                return cudf.DataFrame.from_gpu_matrix(self.Y)
+                return cudf.DataFrame.from_gpu_matrix(self.embedding_)
         elif isinstance(X, np.ndarray):
-            data = self.Y.copy_to_host()
-            del self.Y
+            data = self.embedding_.copy_to_host()
+            del self.embedding_
             return data
         return None  # is this even possible?
 
     def __getstate__(self):
         state = self.__dict__.copy()
 
-        if "Y" in state:
-            state["Y"] = cudf.DataFrame.from_gpu_matrix(state["Y"])
+        if "embedding_" in state:
+            state["embedding_"] = cudf.DataFrame.from_gpu_matrix(state["embedding_"])
 
         if "handle" in state:
             del state["handle"]
