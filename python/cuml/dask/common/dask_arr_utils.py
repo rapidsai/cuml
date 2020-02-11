@@ -21,6 +21,9 @@ import cupy as cp
 import cudf
 import dask
 
+from cuml.dask.common.dask_df_utils import extract_ddf_partitions,\
+    to_dask_cudf
+from cuml.dask.common.utils import raise_exception_from_futures
 from tornado import gen
 from dask.distributed import default_client
 from toolz import first
@@ -73,26 +76,23 @@ def extract_arr_partitions(darray, client=None):
     raise gen.Return(worker_to_parts)
 
 
-def _conv_to_sp(dtype):
-    def _conv(x):
-        data = x.data
-        indices = x.indices
-        indptr = x.indptr
-
-        data_cp = rmm_cupy_ary(cp.asarray, data)
-        indices_cp = rmm_cupy_ary(cp.asarray, indices)
-        indptr_cp = rmm_cupy_ary(cp.asarray, indptr)
-
-        ret = cp.sparse.csr_matrix((data_cp, indices_cp, indptr_cp),
-                                   dtype=dtype)
-
-        return ret
-
-    return _conv
-
-
-def x_p(x):
+def _x_p(x):
     return x
+
+
+def _conv_np_to_df(x):
+    cupy_ary = rmm_cupy_ary(cp.asarray,
+                            x,
+                            dtype=x.dtype)
+    return cudf.DataFrame.from_gpu_matrix(cupy_ary)
+
+
+def _conv_df_to_sp(x):
+    cupy_ary = rmm_cupy_ary(cp.asarray,
+                            x.as_gpu_matrix(),
+                            dtype=x.dtypes[0])
+
+    return cp.sparse.csr_matrix(cupy_ary)
 
 
 def to_sp_dask_array(cudf_or_array, client=None):
@@ -103,10 +103,22 @@ def to_sp_dask_array(cudf_or_array, client=None):
     dask.Array without copying to host.
 
 
+    NOTE: Until https://github.com/cupy/cupy/issues/2655 and
+    https://github.com/dask/dask/issues/5604 are implemented, compute()
+    will not be able to be called on a Dask.array that is backed with
+    sparse CuPy arrays because they lack the necessary functionality
+    to be stacked into a single array. The array returned from this
+    utility will, however, still be able to be passed into functions
+    that can make use of sparse CuPy-backed Dask.Array (eg. Distributed
+    Naive Bayes).
+
     Parameters
     ----------
-    cudf_or_array : cuDF or array-like sparse or dense array
+    cudf_or_array : cuDF, array-like sparse / dense array, or
+                    Dask DataFrame/Array
     client : dask.distributed.Client (optional) Dask client
+
+    dtype : output dtype
 
     Returns
     -------
@@ -114,43 +126,53 @@ def to_sp_dask_array(cudf_or_array, client=None):
     """
     client = default_client() if client is None else client
 
-    if scipy.sparse.isspmatrix(cudf_or_array):
-        cudf_or_array = _conv_to_sp(cudf_or_array.dtype)(
-            cudf_or_array.tocsr())
+    shape = cudf_or_array.shape
+    dtype = cudf_or_array.dtypes[0] if isinstance(cudf_or_array,
+                                              dask.dataframe.DataFrame) \
+        or isinstance(cudf_or_array, cudf.DataFrame) else cudf_or_array.dtype
 
-    if cp.sparse.isspmatrix(cudf_or_array):
+    meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
 
-        dtype = cudf_or_array.dtype
-        shape = cudf_or_array.shape
+    if isinstance(cudf_or_array, dask.array.Array):
+        # At the time of developing this, using map_blocks will not work
+        # to convert a Dask.Array to CuPy sparse arrays underneath.
+        parts = client.sync(extract_arr_partitions, cudf_or_array)
+        cudf_or_array = [client.submit(_conv_np_to_df, part, workers=[w])
+                         for w, part in parts]
 
-        f = client.submit(x_p, cudf_or_array)
+        cudf_or_array = to_dask_cudf(cudf_or_array)
 
-        meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1), dtype=dtype)
+    if isinstance(cudf_or_array, dask.dataframe.DataFrame):
+        """
+        Dask.Dataframe needs special attention since it has multiple dtypes. 
+        Just use the first (and assume all the rest are the same)
+        """
+        cudf_or_array = cudf_or_array.map_partitions(_conv_df_to_sp,
+                                           meta=dask.array.from_array(meta))
 
-        ret = dask.array.from_delayed(f, shape=shape,
-                                      meta=meta).persist()
-
-        return ret
-
-    elif isinstance(cudf_or_array, cudf.DataFrame):
-        df = cudf_or_array
-
-    elif isinstance(cudf_or_array, np.ndarray):
-        df = cudf.DataFrame.from_gpu_matrix(cp.asarray(cudf_or_array))
-
-    elif isinstance(cudf_or_array, cp.ndarray):
-        df = cudf.DataFrame.from_gpu_matrix(cudf_or_array)
+        return cudf_or_array
 
     else:
-        raise ValueError("Unexpected input type.")
+        if scipy.sparse.isspmatrix(cudf_or_array):
+            cudf_or_array = cp.sparse.csr_matrix(cudf_or_array.tocsr())
+        elif cp.sparse.isspmatrix(cudf_or_array):
+            pass
+        elif isinstance(cudf_or_array, cudf.DataFrame):
+            cupy_ary = cp.asarray(cudf_or_array.as_gpu_matrix(), dtype)
+            cudf_or_array = cp.sparse.csr_matrix(cupy_ary)
+        elif isinstance(cudf_or_array, np.ndarray):
+            cupy_ary = rmm_cupy_ary(cp.asarray,
+                                    cudf_or_array,
+                                    dtype=cudf_or_array.dtype)
+            cudf_or_array = cp.sparse.csr_matrix(cupy_ary)
 
-    sp = cp.sparse.csr_matrix(rmm_cupy_ary(cp.asarray, df.as_gpu_matrix(),
-                                           dtype=df.dtypes[0]))
+        elif isinstance(cudf_or_array, cp.core.core.ndarray):
+            cudf_or_array = cp.sparse.csr_matrix(cudf_or_array)
+        else:
+            raise ValueError("Unexpected input type %s" % type(cudf_or_array))
 
-    f = client.submit(x_p, sp)
+        # Push to worker
+        cudf_or_array = client.submit(_x_p, cudf_or_array)
 
-    meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1),
-                                dtype=df.dtypes[0])
-
-    return dask.array.from_delayed(f, shape=df.shape,
-                                   meta=meta).persist()
+    return dask.array.from_delayed(cudf_or_array, shape=shape,
+                                   meta=meta)

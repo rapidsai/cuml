@@ -17,13 +17,19 @@ import pytest
 
 from cuml.test.utils import array_equal
 
+import dask_cudf
 import cudf
 import cupy as cp
 
+
+from cuml.dask.common.dask_arr_utils import extract_arr_partitions
+import dask
 from dask.distributed import Client
 
 
-@pytest.mark.parametrize("input_type", ["dataframe",
+@pytest.mark.parametrize("input_type", ["dask_array",
+                                        "dask_dataframe",
+                                        "dataframe",
                                         "scipysparse",
                                         "cupysparse",
                                         "numpy",
@@ -40,7 +46,12 @@ def test_to_sp_dask_array(input_type, nrows, ncols, cluster):
         from cuml.dask.common import to_sp_dask_array
 
         a = cp.sparse.random(nrows, ncols, format='csr', dtype=cp.float32)
-        if input_type == "dataframe":
+        if input_type == "dask_dataframe":
+            df = cudf.DataFrame.from_gpu_matrix(a.todense())
+            inp = dask_cudf.from_cudf(df, npartitions=2)
+        elif input_type == "dask_array":
+            inp = dask.array.from_array(a.todense().get())
+        elif input_type == "dataframe":
             inp = cudf.DataFrame.from_gpu_matrix(a.todense())
         elif input_type == "scipysparse":
             inp = a.get()
@@ -52,10 +63,18 @@ def test_to_sp_dask_array(input_type, nrows, ncols, cluster):
             inp = a.todense()
 
         arr = to_sp_dask_array(inp, c)
+        arr.compute_chunk_sizes()
 
-        b = arr.compute().get()
+        assert arr.shape == (nrows, ncols)
 
-        assert array_equal(a.todense().get(), b.todense())
+        # We can't call compute directly on this array yet when it has
+        # multiple partitions yet so we will manually concat any
+        # potential pieces.
+        parts = c.sync(extract_arr_partitions, arr)
+        local_parts = cp.vstack([part[1].result().todense()
+                                 for part in parts]).get()
+
+        assert array_equal(a.todense().get(), local_parts)
 
     finally:
         c.close()
