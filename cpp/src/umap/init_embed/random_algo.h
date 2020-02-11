@@ -36,8 +36,6 @@ void launcher(const T *X, int n, int d, const long *knn_indices,
   gettimeofday(&tp, NULL);
   long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-  seed = 50;
-
   MLCommon::Random::Rng r(seed);
   r.uniform<T>(embedding, n * params->n_components, -10, 10, stream);
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,22 @@ from cuml.prims.label import make_monotonic, check_labels, \
 
 import numba.cuda
 
+from cuml.utils import rmm_cupy_ary
+
 
 def label_binarize(y, classes, neg_label=0, pos_label=1,
                    sparse_output=False):
+    """
+
+
+    Parameters
+    ----------
+    :param classes:
+    :param neg_label:
+    :param pos_label:
+    :param sparse_output:
+    :return:
+    """
 
     classes = cp.asarray(classes, dtype=classes.dtype)
     labels = cp.asarray(y, dtype=y.dtype)
@@ -71,7 +84,8 @@ class LabelBinarizer(object):
         self.sparse_output = sparse_output
 
     def fit(self, y):
-        """Fit label binarizer`
+        """
+        Fit label binarizer
 
         Parameters
         ----------
@@ -84,15 +98,40 @@ class LabelBinarizer(object):
         self : returns an instance of self.
         """
 
-        self.classes_ = cp.unique(y).astype(y.dtype)
+        if y.ndims > 2:
+            raise ValueError("labels cannot be greater than 2 dimensions")
+
+        if y.ndims == 2:
+
+            unique_classes = rmm_cupy_ary(cp.unique, y)
+            if unique_classes != [0, 1]:
+                raise ValueError("2-d array can must be binary")
+
+            self.classes_ = rmm_cupy_ary(cp.arange, 0, y.shape[1])
+        else:
+            self.classes_ = rmm_cupy_ary(cp.unique, y).astype(y.dtype)
 
         return self
 
     def fit_transform(self, y):
+        """
+        Fit label binarizer and transform multi-class labels to binary
+
+        Parameters
+        ----------
+        y : array of shape [n_samples,] or [n_samples, n_classes]
+        :param y:
+        :return:
+        """
         return self.fit(y).transform(y)
 
     def transform(self, y):
+        """
 
+        labels.
+        :param y:
+        :return:
+        """
         return label_binarize(y, self.classes_,
                               pos_label=self.pos_label,
                               neg_label=self.neg_label,
@@ -105,6 +144,9 @@ class LabelBinarizer(object):
         :param threshold:
         :return:
         """
+
+        # If we are already given multi-class, just return it.
+
 
         if cp.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)

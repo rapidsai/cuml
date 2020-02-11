@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,19 +24,18 @@ import cupy as cp
 
 
 def cp_to_df(cp_ndarr, sparse):
-    numba_arr = numba.cuda.to_device(cp_ndarr)
+    numba_arr = numba.cuda.as_cuda_array(cp_ndarr)
     if not sparse:
         return cudf.DataFrame.from_gpu_matrix(numba_arr)
     else:
         raise ValueError("Sparse outputs are not yet supported")
 
 
-def cp_to_series(cp_ndarr):
-    numba_arr = numba.cuda.to_device(cp_ndarr)
-    return cudf.Series(numba_arr)
-
-
 class LabelBinarizer(object):
+    """
+    A distributed version of LabelBinarizer for one-hot encoding
+    a collection of labels.
+    """
 
     def __init__(self, client=None, **kwargs):
 
@@ -66,7 +65,7 @@ class LabelBinarizer(object):
     @staticmethod
     def _func_inv_xform(model, y, threshold):
         inv_xform_in = cp.asarray(y.to_gpu_matrix(), dtype=y.dtype)
-        return cp_to_series(model.inverse_transform(inv_xform_in, threshold))
+        return cudf.Series(model.inverse_transform(inv_xform_in, threshold))
 
     def fit(self, y):
         """Fit label binarizer`
@@ -98,6 +97,16 @@ class LabelBinarizer(object):
         return self
 
     def fit_transform(self, y):
+        """
+        Fit the label encoder and return transformed labels
+
+        Parameters
+        ----------
+        y : array of shape [n_samples,] or [n_samples, n_classes]
+            Target values. The 2-d matrix should only contain 0 and 1,
+            represents multilabel classification.
+        :return:
+        """
         return self.fit(y).transform(y)
 
     def transform(self, y):
