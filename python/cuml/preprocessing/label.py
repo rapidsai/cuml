@@ -43,7 +43,8 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
     if not check_labels(labels, classes):
         raise ValueError("Unseen classes encountered in input")
 
-    row_ind = cp.arange(0, labels.shape[0], 1, dtype=y.dtype)
+    row_ind = rmm_cupy_ary(cp.arange, 0, labels.shape[0], 1,
+                           dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
     val = cp.full(row_ind.shape[0], pos_label, dtype=y.dtype)
@@ -229,6 +230,6 @@ class LabelBinarizer(object):
             y_mapped = rmm_cupy_ary(cp.array, y.indices, dtype=y.indices.dtype)
         else:
             y_mapped = cp.argmax(
-                cp.asarray(y, dtype=y.dtype), axis=1).astype(y.dtype)
+                rmm_cupy_ary(cp.asarray, y, dtype=y.dtype), axis=1).astype(y.dtype)
 
         return invert_labels(y_mapped, self.classes_)

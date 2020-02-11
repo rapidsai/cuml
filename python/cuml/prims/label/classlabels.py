@@ -17,6 +17,8 @@
 import cupy as cp
 import math
 
+from cuml.utils import rmm_cupy_ary
+
 from cuml.utils import cuda_kernel_factory
 
 
@@ -128,7 +130,7 @@ def make_monotonic(labels, classes=None, copy=False):
     classes : array-like of size (n_classes,)
     """
 
-    labels = cp.asarray(labels, dtype=labels.dtype)
+    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
 
     if copy:
         labels = labels.copy()
@@ -175,8 +177,8 @@ def check_labels(labels, classes):
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
 
-    labels = cp.asarray(labels, dtype=labels.dtype)
-    classes = cp.asarray(classes, dtype=classes.dtype)
+    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
+    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
@@ -221,8 +223,8 @@ def invert_labels(labels, classes, copy=False):
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-    labels = cp.asarray(labels, dtype=labels.dtype)
-    classes = cp.asarray(classes, dtype=classes.dtype)
+    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
+    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
 
     if copy:
         labels = labels.copy()
