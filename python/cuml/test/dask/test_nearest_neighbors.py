@@ -83,8 +83,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         X, y = make_blobs(n_samples=int(nrows),
                           n_features=ncols,
-                          centers=nclusters,
-                          verbose=True)
+                          centers=nclusters)
         X = X.astype(np.float32)
 
         X_cudf = _prep_training_data(client, X, n_parts)
