@@ -368,14 +368,15 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
   TREELITE_CHECK(TreeliteQueryNumFeature(concat_tree_handle, &concat_output));
 
   TREELITE_CHECK(TreeliteQueryNumFeature(treelite_handles[0], &indiv_feats));
-  TREELITE_CHECK(TreeliteQueryNumOutputGroups(treelite_handles[0], &indiv_output));
+  TREELITE_CHECK(
+    TreeliteQueryNumOutputGroups(treelite_handles[0], &indiv_output));
 
-  ASSERT(
-    concat_feats != indiv_feats || concat_output != indiv_output,
-    "Error! the number of features or the output group in the concatenated forest "
-    "and the forests present in each worker are not equal");
+  ASSERT(concat_feats != indiv_feats || concat_output != indiv_output,
+         "Error! the number of features or the output group in the "
+         "concatenated forest "
+         "and the forests present in each worker are not equal");
 
-  if (deep_check){
+  if (deep_check) {
     int concat_mod_tree_num = 0;
     tl::Model& concat_model = *(tl::Model*)concat_tree_handle;
     for (int tl_num = 0; tl_num < treelite_handles.size(); tl_num++) {
@@ -391,7 +392,8 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
           "from the ones present in the individual forests");
       }
 
-      for (int indiv_trees = 0; indiv_trees < model.trees.size(); indiv_trees++) {
+      for (int indiv_trees = 0; indiv_trees < model.trees.size();
+           indiv_trees++) {
         const tl::Tree concat_tree =
           concat_model.trees[concat_mod_tree_num + indiv_trees];
         const tl::Tree single_worker_tree = model.trees[indiv_trees];
@@ -401,13 +403,15 @@ void check_concat_tl_mod(ModelHandle concat_tree_handle,
             "from the ones present in the individual forests");
         }
 
-        for (int each_node = 0; each_node < concat_tree.num_nodes; each_node++) {
+        for (int each_node = 0; each_node < concat_tree.num_nodes;
+             each_node++) {
           const tl::Tree::Node& node_concat = concat_tree[each_node];
           const tl::Tree::Node& node_single = single_worker_tree[each_node];
           bool check_is_root = node_concat.is_root() != node_single.is_root();
           bool check_parent = node_concat.parent() != node_single.parent();
           bool check_is_leaf = node_concat.is_leaf() != node_single.is_leaf();
-          bool check_leaf = node_concat.leaf_value() != node_single.leaf_value();
+          bool check_leaf =
+            node_concat.leaf_value() != node_single.leaf_value();
           bool check_cright = node_concat.cright() != node_single.cright();
           bool check_cleft = node_concat.cleft() != node_single.cleft();
           bool check_split =
