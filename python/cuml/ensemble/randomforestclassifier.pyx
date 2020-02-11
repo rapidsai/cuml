@@ -622,7 +622,7 @@ class RandomForestClassifier(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = False)
+        fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. This variable is not
             required while using predict_model='CPU'.
