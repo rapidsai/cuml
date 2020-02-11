@@ -418,7 +418,8 @@ class MultinomialNB(object):
         score : float Mean accuracy of self.predict(X) with respect to y.
         """
         y_hat = self.predict(X)
-        return accuracy_score(y_hat, rmm_cupy_ary(cp.asarray, y, dtype=y.dtype))
+        return accuracy_score(y_hat, rmm_cupy_ary(cp.asarray, y,
+                                                  dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = rmm_cupy_ary(cp.zeros, n_effective_classes,
@@ -446,7 +447,7 @@ class MultinomialNB(object):
                           "converted, which will increase memory consumption")
 
         counts = rmm_cupy_ary(cp.zeros, (self.n_classes_, self.n_features_),
-                          order="F", dtype=X.dtype)
+                              order="F", dtype=X.dtype)
 
         class_c = rmm_cupy_ary(cp.zeros, self.n_classes_, order="F",
                                dtype=X.dtype)
@@ -510,8 +511,8 @@ class MultinomialNB(object):
             self.class_log_prior_ = log_class_count - \
                 cp.log(self.class_count_.sum())
         else:
-            self.class_log_prior_ = cp.full(self.n_classes_,
-                                            -math.log(self.n_classes_))
+            self.class_log_prior_ = rmm_cupy_ary(cp.full, self.n_classes_,
+                                                 -math.log(self.n_classes_))
 
     def _update_feature_log_prob(self, alpha):
 
