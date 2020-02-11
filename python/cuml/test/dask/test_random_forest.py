@@ -82,7 +82,6 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
         cu_rf_mg_predict = cu_rf_mg.predict(X_test)
 
         acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
-        print(acc_score)
         assert acc_score > 0.8
 
     finally:
@@ -194,8 +193,6 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster):
         cu_rf_mg_predict = cu_rf_mg.predict(X_test_df)
 
         acc_score = r2_score(cu_rf_mg_predict, y_test)
-
-        print(str(acc_score))
 
         assert acc_score >= 0.70
 
