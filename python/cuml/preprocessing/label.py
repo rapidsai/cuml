@@ -79,7 +79,8 @@ class LabelBinarizer(object):
     import cupy as cp
     from cuml.preprocessing import LabelBinarizer
 
-    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1], dtype=cp.int32)
+    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
+                        dtype=cp.int32)
 
     lb = LabelBinarizer()
 
@@ -172,8 +173,8 @@ class LabelBinarizer(object):
 
     def fit_transform(self, y):
         """
-        Fit label binarizer and transform multi-class labels to their dummy-encoded
-        representation.
+        Fit label binarizer and transform multi-class labels to their
+        dummy-encoded representation.
 
         Parameters
         ----------

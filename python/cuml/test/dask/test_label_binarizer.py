@@ -17,8 +17,6 @@ from cuml.dask.preprocessing import LabelBinarizer
 from cuml.test.utils import array_equal
 from dask.distributed import Client
 
-import scipy
-
 import dask
 import numpy as np
 import cupy as cp

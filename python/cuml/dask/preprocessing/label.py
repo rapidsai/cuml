@@ -15,7 +15,7 @@
 
 from cuml.preprocessing.label import LabelBinarizer as LB
 from dask.distributed import default_client
-from cuml.dask.common import extract_arr_partitions, to_sp_dask_array
+from cuml.dask.common import extract_arr_partitions
 
 from cuml.utils import rmm_cupy_ary
 
@@ -48,7 +48,8 @@ class LabelBinarizer(object):
     cluster = LocalCUDACluster()
     client = Client(cluster)
 
-    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1], dtype=cp.int32)
+    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
+                        dtype=cp.int32)
     labels = dask.array.from_array(labels)
 
     lb = LabelBinarizer()
