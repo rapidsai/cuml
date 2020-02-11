@@ -19,11 +19,6 @@ import scipy.sparse
 import numpy as np
 import cupy as cp
 import cudf
-import dask_cudf
-
-import copyreg
-
-import rmm
 import dask
 
 from tornado import gen
@@ -84,14 +79,12 @@ def _conv_to_sp(dtype):
         indices = x.indices
         indptr = x.indptr
 
-        data_cp = cp.asarray(data)
-        indices_cp = cp.asarray(indices)
-        indptr_cp = cp.asarray(indptr)
+        data_cp = rmm_cupy_ary(cp.asarray, data)
+        indices_cp = rmm_cupy_ary(cp.asarray, indices)
+        indptr_cp = rmm_cupy_ary(cp.asarray, indptr)
 
         ret = cp.sparse.csr_matrix((data_cp, indices_cp, indptr_cp),
-                                    dtype=dtype)
-
-        cp.cuda.Stream.null.synchronize()
+                                   dtype=dtype)
 
         return ret
 
@@ -132,7 +125,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
         f = client.submit(x_p, cudf_or_array)
 
-        meta = cp.sparse.csr_matrix(cp.zeros(1), dtype=dtype)
+        meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1), dtype=dtype)
 
         ret = dask.array.from_delayed(f, shape=shape,
                                       meta=meta).persist()
@@ -151,11 +144,13 @@ def to_sp_dask_array(cudf_or_array, client=None):
     else:
         raise ValueError("Unexpected input type.")
 
-    sp = cp.sparse.csr_matrix(cp.asarray(df.as_gpu_matrix(), dtype=df.dtypes[0]))
+    sp = cp.sparse.csr_matrix(rmm_cupy_ary(cp.asarray, df.as_gpu_matrix(),
+                                           dtype=df.dtypes[0]))
 
     f = client.submit(x_p, sp)
 
-    meta = cp.sparse.csr_matrix(cp.zeros(1), dtype=df.dtypes[0])
+    meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1),
+                                dtype=df.dtypes[0])
 
     return dask.array.from_delayed(f, shape=df.shape,
-                                  meta=meta).persist()
+                                   meta=meta).persist()

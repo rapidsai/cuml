@@ -7,6 +7,7 @@ enable_tcp_over_ucx = True
 enable_nvlink = False
 enable_infiniband = False
 
+
 @pytest.fixture(scope="module")
 def cluster():
     cluster = LocalCUDACluster(protocol="tcp")
