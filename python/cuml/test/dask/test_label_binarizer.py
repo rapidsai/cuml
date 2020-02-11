@@ -30,7 +30,6 @@ import cupy as cp
                ([9, 8, 2, 1, 3, 4],
                 [8, 2, 1, 2, 2])]
 )
-@pytest.mark.skip
 def test_basic_functions(labels, cluster):
 
     client = Client(cluster)

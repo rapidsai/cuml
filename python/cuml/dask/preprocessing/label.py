@@ -23,14 +23,6 @@ import cudf
 import cupy as cp
 
 
-def cp_to_df(cp_ndarr, sparse):
-    numba_arr = numba.cuda.as_cuda_array(cp_ndarr)
-    if not sparse:
-        return cudf.DataFrame.from_gpu_matrix(numba_arr)
-    else:
-        raise ValueError("Sparse outputs are not yet supported")
-
-
 class LabelBinarizer(object):
     """
     A distributed version of LabelBinarizer for one-hot encoding
