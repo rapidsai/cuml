@@ -13,13 +13,11 @@
 # limitations under the License.
 #
 
-import cudf
+import scipy
 import cupy as cp
 
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
-
-import numba.cuda
 
 from cuml.utils import rmm_cupy_ary
 
@@ -148,18 +146,14 @@ class LabelBinarizer(object):
         # If we are already given multi-class, just return it.
         if cp.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
+        elif scipy.sparse.isspmatrix(y):
+            y = y.tocsr()
+            y_mapped = rmm_cupy_ary(cp.array, y.indices, dtype=y.indices.dtype)
         else:
             y_mapped = cp.argmax(
                 cp.asarray(y, dtype=y.dtype), axis=1).astype(y.dtype)
 
-        return invert_labels(y_mapped, self.classes_)
+        inverted = invert_labels(y_mapped, self.classes_)
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state['classes_'] = cudf.Series(numba.cuda.to_device(self.classes_))
-        return state
-
-    def __setstate__(self, state):
-        state['classes_'] = cp.asarray(state["classes_"].to_gpu_array(),
-                                       dtype=self.classes_.dtype)
-        self.__dict__.update(state)
+        print("INVERTED: " + str(inverted))
+        return inverted

@@ -15,13 +15,13 @@
 
 from cuml.preprocessing.label import LabelBinarizer as LB
 from dask.distributed import default_client
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf
+from cuml.dask.common import extract_arr_partitions, to_sp_dask_array
 
-import numba.cuda
+from cuml.utils import rmm_cupy_ary
 
-import cudf
+import scipy
+import dask
 import cupy as cp
-
 
 class LabelBinarizer(object):
     """
@@ -45,26 +45,26 @@ class LabelBinarizer(object):
 
     @staticmethod
     def _func_unique_classes(y):
-        return y.unique()
+        return cp.unique(y)
 
     @staticmethod
     def _func_xform(model, y):
-        xform_in = cp.asarray(y.to_gpu_array(), dtype=y.dtype)
-
-        xformed = model.transform(xform_in)
-        return cp_to_df(xformed, model.sparse_output)
+        xform_in = cp.asarray(y, dtype=y.dtype)
+        return model.transform(xform_in).get()
 
     @staticmethod
     def _func_inv_xform(model, y, threshold):
-        inv_xform_in = cp.asarray(y.to_gpu_matrix(), dtype=y.dtype)
-        return cudf.Series(model.inverse_transform(inv_xform_in, threshold))
+        if not cp.sparse.isspmatrix(y) and not scipy.sparse.isspmatrix(y):
+            y = cp.asarray(y, dtype=y.dtype)
+        return model.inverse_transform(y, threshold)
 
     def fit(self, y):
         """Fit label binarizer`
 
         Parameters
         ----------
-        y : array of shape [n_samples,] or [n_samples, n_classes]
+        y : Dask.Array of shape [n_samples,] or [n_samples, n_classes]
+            chunked by row.
             Target values. The 2-d matrix should only contain 0 and 1,
             represents multilabel classification.
 
@@ -74,15 +74,13 @@ class LabelBinarizer(object):
         """
 
         # Take the unique classes and broadcast them all around the cluster.
-        futures = self.client_.sync(extract_ddf_partitions, y)
+        futures = self.client_.sync(extract_arr_partitions, y)
 
         unique = [self.client_.submit(LabelBinarizer._func_unique_classes, f)
                   for w, f in futures]
 
         classes = self.client_.compute(unique, True)
-        classes = cudf.concat(classes).unique().to_gpu_array()
-
-        self.classes_ = cp.asarray(classes, dtype=y.dtype)
+        self.classes_ = cp.unique(cp.stack(classes, axis=0))
 
         self.model = LB(**self.kwargs).fit(self.classes_)
 
@@ -103,19 +101,35 @@ class LabelBinarizer(object):
 
     def transform(self, y):
 
-        parts = self.client_.sync(extract_ddf_partitions, y)
-        f = [self.client_.submit(LabelBinarizer._func_xform,
-                                 self.model,
-                                 part) for w, part in parts]
+        parts = self.client_.sync(extract_arr_partitions, y)
 
-        # Assume dense output for now
-        return to_dask_cudf(f)
+        xform_func = dask.delayed(LabelBinarizer._func_xform)
+        meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
+        f = [dask.array.from_delayed(
+            xform_func(self.model, part), meta=meta, dtype=y.dtype,
+            shape=y.shape) for w, part in parts]
+
+        arr = dask.array.stack(f, axis=0)
+
+        def map_func(x):
+            cparr = cp.asarray(x, dtype=cp.float32)
+            if cparr.ndim == 3:
+                cparr = cparr.reshape(cparr.shape[1:])
+            return cp.sparse.csr_matrix(cparr)
+
+        return arr.map_blocks(map_func)
 
     def inverse_transform(self, y, threshold=None):
 
-        parts = self.client_.sync(extract_ddf_partitions, y)
-        f = [self.client_.submit(LabelBinarizer._func_inv_xform,
-                                 self.model, part, threshold)
+        parts = self.client_.sync(extract_arr_partitions, y)
+        inv_func = dask.delayed(LabelBinarizer._func_inv_xform)
+
+        dtype = self.classes_.dtype
+        meta = rmm_cupy_ary(cp.zeros, 1, dtype=dtype)
+
+        f = [dask.array.from_delayed(
+            inv_func(self.model, part, threshold),
+            dtype=dtype, shape=(y.shape[0],), meta=meta)
              for w, part in parts]
 
-        return to_dask_cudf(f)
+        return dask.array.stack(f, axis=0)

@@ -20,6 +20,7 @@ from dask.distributed import Client
 import cudf
 import dask_cudf
 
+import dask
 import numpy as np
 import cupy as cp
 
@@ -36,11 +37,11 @@ def test_basic_functions(labels, cluster):
 
     fit_labels, xform_labels = labels
 
-    s = cudf.Series(np.array(fit_labels, dtype=np.int32))
-    df = dask_cudf.from_cudf(s, npartitions=2)
+    s = np.array(fit_labels, dtype=np.int32)
+    df = dask.array.from_array(s)
 
-    s2 = cudf.Series(np.array(xform_labels, dtype=np.int32))
-    df2 = dask_cudf.from_cudf(s2, npartitions=2)
+    s2 = np.array(xform_labels, dtype=np.int32)
+    df2 = dask.array.from_array(s2)
 
     binarizer = LabelBinarizer(client=client)
     binarizer.fit(df)
@@ -49,10 +50,15 @@ def test_basic_functions(labels, cluster):
                        np.unique(cp.asnumpy(fit_labels)))
 
     xformed = binarizer.transform(df2)
+    xformed.compute_chunk_sizes()
+
+    print("OUTPUT: "+ str(xformed.compute()))
 
     assert xformed.compute().shape[1] == binarizer.classes_.shape[0]
 
     original = binarizer.inverse_transform(xformed)
-    test = cp.asarray(original.compute().to_gpu_array())
+    test = original.compute()
+
+    print("TEST: "+ str(test))
 
     assert array_equal(cp.asnumpy(test), xform_labels)
