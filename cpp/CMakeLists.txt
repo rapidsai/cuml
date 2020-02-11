@@ -381,14 +381,14 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
-    src/spectral/spectral.cu
+    #src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/svr.cu
     src/svm/ws_util.cu
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu
+    #src/umap/umap.cu
     src/arima/batched_kalman.cu
     src/arima/batched_arima.cu
     )
@@ -399,7 +399,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusolver_LIBRARY}
     ${CUDA_CUDART_LIBRARY}
     ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
+    #${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     ${Protobuf_LIBRARIES}
     treelitelib
