@@ -1,37 +1,37 @@
 diff --git a/gpu/utils/DeviceDefs.cuh b/gpu/utils/DeviceDefs.cuh
-index a93d636..4e859ec 100644
+index 4e859ec..a93d636 100644
 --- a/gpu/utils/DeviceDefs.cuh
 +++ b/gpu/utils/DeviceDefs.cuh
 @@ -11,7 +11,7 @@
  namespace faiss { namespace gpu {
  
  #ifdef __CUDA_ARCH__
--#if __CUDA_ARCH__ <= 800
-+#if __CUDA_ARCH__ <= 750
+-#if __CUDA_ARCH__ <= 750
++#if __CUDA_ARCH__ <= 800
  constexpr int kWarpSize = 32;
  #else
  #error Unknown __CUDA_ARCH__; please define parameters for compute capability
 diff --git a/gpu/utils/DeviceUtils.cu b/gpu/utils/DeviceUtils.cu
-index 48809ea..5d8254a 100644
+index 5d8254a..48809ea 100644
 --- a/gpu/utils/DeviceUtils.cu
 +++ b/gpu/utils/DeviceUtils.cu
-@@ -103,18 +103,13 @@ int getDeviceForAddress(const void* p) {
+@@ -103,13 +103,18 @@ int getDeviceForAddress(const void* p) {
    cudaError_t err = cudaPointerGetAttributes(&att, p);
    FAISS_ASSERT(err == cudaSuccess ||
           err == cudaErrorInvalidValue);
--#if CUDART_VERSION >= 11000
--  cudaMemoryType type = att.type;
--#else
--  cudaMemoryType type = att.memoryType;
--#endif
++#if CUDART_VERSION >= 11000
++  cudaMemoryType type = att.type;
++#else
++  cudaMemoryType type = att.memoryType;
++#endif
  
    if (err == cudaErrorInvalidValue) {
      // Make sure the current thread error status has been reset
      err = cudaGetLastError();
      FAISS_ASSERT(err == cudaErrorInvalidValue);
      return -1;
--  } else if (type == cudaMemoryTypeHost) {
-+  } else if (att.memoryType == cudaMemoryTypeHost) {
+-  } else if (att.memoryType == cudaMemoryTypeHost) {
++  } else if (type == cudaMemoryTypeHost) {
      return -1;
    } else {
      return att.device;

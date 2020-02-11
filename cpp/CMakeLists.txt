@@ -289,6 +289,7 @@ ExternalProject_Add(faiss
   INSTALL_COMMAND   $(MAKE) -s install > /dev/null
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1
+  PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/faiss_cuda11.patch || true
 )
 
 add_dependencies(faiss cutlass)
