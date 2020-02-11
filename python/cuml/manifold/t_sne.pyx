@@ -31,7 +31,7 @@ import warnings
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
-from cuml.utils import input_to_dev_array as to_cuda
+from cuml.utils import input_to_dev_array
 import rmm
 
 from libcpp cimport bool
@@ -142,8 +142,6 @@ class TSNE(Base):
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
-    should_downcast : bool (default True)
-        Whether to reduce to dataset to float32 or not.
     handle : (cuML Handle, default None)
         You can pass in a past handle that was initialized, or we will create
         one for you anew!
@@ -203,7 +201,6 @@ class TSNE(Base):
                  int exaggeration_iter=250,
                  float pre_momentum=0.5,
                  float post_momentum=0.8,
-                 bool should_downcast=True,
                  handle=None):
 
         super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
@@ -302,10 +299,9 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
-        self._should_downcast = should_downcast
         return
 
-    def fit(self, X):
+    def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
 
         Parameters
@@ -328,12 +324,10 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
-        if self._should_downcast:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                             convert_to_dtype=np.float32)
-        else:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                             check_dtype=np.float32)
+        _X, X_ptr, n, p, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
@@ -418,7 +412,7 @@ class TSNE(Base):
             del self.Y
             self.Y = None
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, convert_dtype=True):
         """Fit X into an embedded space and return that transformed output.
 
         Parameters
@@ -433,7 +427,7 @@ class TSNE(Base):
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
-        self.fit(X)
+        self.fit(X, convert_dtype)
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.Y, cudf.DataFrame):
