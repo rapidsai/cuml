@@ -230,6 +230,7 @@ class LabelBinarizer(object):
             y_mapped = rmm_cupy_ary(cp.array, y.indices, dtype=y.indices.dtype)
         else:
             y_mapped = cp.argmax(
-                rmm_cupy_ary(cp.asarray, y, dtype=y.dtype), axis=1).astype(y.dtype)
+                rmm_cupy_ary(cp.asarray, y, dtype=y.dtype),
+                axis=1).astype(y.dtype)
 
         return invert_labels(y_mapped, self.classes_)
