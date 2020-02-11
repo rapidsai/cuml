@@ -146,8 +146,6 @@ class LabelBinarizer(object):
         """
 
         # If we are already given multi-class, just return it.
-
-
         if cp.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
         else:

@@ -20,7 +20,7 @@ from cuml.test.utils import array_equal
 import cudf
 import cupy as cp
 
-from dask.distributed import Client, wait
+from dask.distributed import Client
 
 
 @pytest.mark.parametrize("input_type", ["dataframe",
@@ -57,8 +57,5 @@ def test_to_sp_dask_array(input_type, nrows, ncols, cluster):
 
         assert array_equal(a.todense().get(), b.todense())
 
-
-
     finally:
         c.close()
-
