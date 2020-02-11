@@ -19,7 +19,6 @@ from cuml.dask.common import extract_arr_partitions, to_sp_dask_array
 
 from cuml.utils import rmm_cupy_ary
 
-import scipy
 import dask
 import cupy as cp
 
@@ -28,9 +27,23 @@ class LabelBinarizer(object):
     """
     A distributed version of LabelBinarizer for one-hot encoding
     a collection of labels.
-    """
 
+    Examples
+    --------
+
+
+    """
     def __init__(self, client=None, **kwargs):
+
+        """
+        Initialize new LabelBinarizer instance
+
+        Parameters
+        ----------
+        client : dask.Client optional client to use
+        kwargs : dict of arguments to proxy to underlying single-process
+                 LabelBinarizer
+        """
 
         self.client_ = client if client is not None else default_client()
         self.kwargs = kwargs
@@ -92,14 +105,30 @@ class LabelBinarizer(object):
 
         Parameters
         ----------
-        y : array of shape [n_samples,] or [n_samples, n_classes]
-            Target values. The 2-d matrix should only contain 0 and 1,
+        y : Dask.Array of shape [n_samples,] or [n_samples, n_classes]
+            target values. The 2-d matrix should only contain 0 and 1,
             represents multilabel classification.
-        :return:
+
+        Returns
+        -------
+
+        arr : Dask.Array backed by CuPy arrays containing encoded labels
         """
         return self.fit(y).transform(y)
 
     def transform(self, y):
+        """
+        Transform and return encoded labels
+
+        Parameters
+        ----------
+        y : Dask.Array of shape [n_samples,] or [n_samples, n_classes]
+
+        Returns
+        -------
+
+        arr : Dask.Array backed by CuPy arrays containing encoded labels
+        """
 
         parts = self.client_.sync(extract_arr_partitions, y)
 
@@ -107,13 +136,30 @@ class LabelBinarizer(object):
         meta = rmm_cupy_ary(cp.zeros, 1)
         if self.model.sparse_output:
             meta = cp.sparse.csr_matrix(meta)
-        f = [dask.array.from_delayed(xform_func(self.model, part), meta=meta, dtype=cp.float32,
-            shape=(len(y), len(self.classes_))) for w, part in parts]
+        f = [dask.array.from_delayed(xform_func(self.model, part),
+             meta=meta, dtype=cp.float32,
+             shape=(len(y), len(self.classes_))) for w, part in parts]
 
         arr = dask.array.asarray(f)
         return arr.reshape(arr.shape[1:])
 
     def inverse_transform(self, y, threshold=None):
+        """
+        Invert a set of encoded labels back to original labels
+
+        Parameters
+        ----------
+
+        y : Dask.Array of shape [n_samples, n_classes] containing encoded
+            labels
+
+        threshold : float This value is currently ignored
+
+        Returns
+        -------
+
+        arr : Dask.Array backed by CuPy arrays containing original labels
+        """
 
         parts = self.client_.sync(extract_arr_partitions, y)
         inv_func = dask.delayed(LabelBinarizer._func_inv_xform)

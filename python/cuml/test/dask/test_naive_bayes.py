@@ -46,10 +46,6 @@ def load_corpus(client):
 
     X = to_sp_dask_array(xformed, client)
 
-    comp = X.compute()
-
-    print(str(comp))
-
     y = dask.array.from_array(twenty_train.target, asarray=False,
                               fancy=False).astype(cp.int32)
 
@@ -72,3 +68,23 @@ def test_basic_fit_predict(cluster):
     y = y.compute()
 
     assert(accuracy_score(y_hat.get(), y) > .97)
+
+
+def test_score(cluster):
+
+    client = Client(cluster)
+
+    X, y = load_corpus(client)
+
+    model = MultinomialNB()
+
+    model.fit(X, y)
+
+    y_hat = model.predict(X)
+
+    score = model.score(X, y)
+
+    y_hat = y_hat.compute()
+    y = y.compute()
+
+    assert(accuracy_score(y_hat.get(), y) == score)

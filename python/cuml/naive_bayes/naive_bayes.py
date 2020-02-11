@@ -128,6 +128,17 @@ class MultinomialNB(object):
         """
         Create new multinomial Naive Bayes instance
 
+        Parameters
+        ----------
+
+        alpha : float Additive (Laplace/Lidstone) smoothing parameter (0 for
+                no smoothing).
+        fit_prior : boolean Whether to learn class prior probabilities or no.
+                    If false, a uniform prior will be used.
+        class_prior : array-like, size (n_classes) Prior probabilities of the
+                      classes. If specified, the priors are not adjusted
+                      according to the data.
+
         Examples
         --------
 
@@ -155,15 +166,8 @@ class MultinomialNB(object):
 
         # Put feature vectors and labels on the GPU
 
-        coo = features.tocoo()
-        values = coo.data
-
-        r = cp.asarray(coo.row)
-        c = cp.asarray(coo.col)
-        v = cp.asarray(values, dtype=cp.float32)
-
-        X = cp.sparse.coo_matrix((v, (r, c)))
-        y = cp.array(twenty_train.target).astype(cp.int32)
+        X = cp.sparse.csr_matrix(features.tocsr())
+        y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
         # Train model
 
@@ -174,24 +178,11 @@ class MultinomialNB(object):
 
         model.score(X, y)
 
-
         Output:
 
         .. code-block:: python
 
         0.9244298934936523
-
-
-        Parameters
-        ----------
-
-        alpha : float Additive (Laplace/Lidstone) smoothing parameter (0 for
-                no smoothing).
-        fit_prior : boolean Whether to learn class prior probabilities or no.
-                    If false, a uniform prior will be used.
-        class_prior : array-like, size (n_classes) Prior probabilities of the
-                      classes. If specified, the priors are not adjusted
-                      according to the data.
         """
 
         self.alpha = alpha
