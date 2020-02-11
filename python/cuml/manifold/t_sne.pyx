@@ -310,10 +310,9 @@ class TSNE(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            y contains a label per row.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         """
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -421,6 +420,9 @@ class TSNE(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit_transform method will automatically
+            convert the inputs to np.float32.
 
         Returns
         --------
