@@ -18,3 +18,4 @@ from cuml.metrics.trustworthiness import trustworthiness
 from cuml.metrics.regression import r2_score
 from cuml.metrics.accuracy import accuracy_score
 from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.homogeneity_score import homogeneity_score

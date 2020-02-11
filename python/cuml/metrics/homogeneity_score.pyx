@@ -59,33 +59,26 @@ def homogeneity_score(ground_truth, predictions, handle=None):
         float
           The homogeneity of the predicted labeling given the ground truth
     """
-    handle = cuml.common.handle.Handle() \
-        if handle is None else handle
-    cdef cumlHandle*handle_ = \
-        <cumlHandle*> <size_t> handle.getHandle()
+    handle = cuml.common.handle.Handle() if handle is None else handle
+    cdef cumlHandle*handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
-    cdef uintptr_t preds_ptr, ground_truth_ptr
-    preds_m, preds_ptr, n_rows, _, _ = \
-        input_to_dev_array(predictions,
-                           convert_to_dtype=
-                           None
-                           # np.int32
-                           # if convert_dtype else None
-                           )
+    cdef uintptr_t preds_ptr
+    cdef uintptr_t ground_truth_ptr
+
+    preds_m, preds_ptr, n_rows, _, _ = input_to_dev_array(predictions,
+                                                          convert_to_dtype=None
+                                                          )
 
     ground_truth_m, ground_truth_ptr, _, _, ground_truth_dtype = \
-        input_to_dev_array(ground_truth,
-                           convert_to_dtype=
-                           None
-                           # np.int32
-                           # if convert_dtype else None
-                           ,
-                           check_rows=n_rows
-                           )
+        input_to_dev_array(ground_truth, convert_to_dtype=None,
+                           check_rows=n_rows)
 
-    # TODO: Test when all labels are not in the ground_truth/preds, especially the min/max label
-    lower_class_range = min(ground_truth_m.min(), preds_m.min())
-    upper_class_range = max(ground_truth_m.max(), preds_m.max())
+    # TODO: Test when all labels are not in the ground_truth/preds, especially
+    #  the min/max label
+    # lower_class_range = min(np.min(ground_truth_m), np.min(preds_m))
+    # upper_class_range = max(np.max(ground_truth_m), np.max(preds_m))
+    lower_class_range = 0
+    upper_class_range = 1
 
     hom = homogeneityScore(handle_[0],
                            <int*> ground_truth_ptr,
