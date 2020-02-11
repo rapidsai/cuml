@@ -422,8 +422,6 @@ class ForestInference(Base):
         The result is the raw floating point output
         from the model.
 
-        See the documentation of ForestInference.load for details.
-
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
