@@ -457,7 +457,7 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              sparse_forest, task_category=1):
+                              fil_sparse_format, task_category=1):
 
         cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, _ = \
@@ -478,12 +478,12 @@ class RandomForestRegressor(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if sparse_forest:
+        if fil_sparse_format:
             storage_type = 'SPARSE'
-        elif not sparse_forest:
+        elif not fil_sparse_format:
             storage_type = 'DENSE'
-        elif sparse_forest == 'auto':
-            storage_type = 'AUTO'
+        elif fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
         else:
             raise ValueError("The value entered for spares_forest is wrong."
                              " Please refer to the documentation to see the"
@@ -551,7 +551,7 @@ class RandomForestRegressor(Base):
 
     def predict(self, X, predict_model="GPU",
                 algo='BATCH_TREE_REORG', convert_dtype=True,
-                sparse_forest=False):
+                fil_sparse_format=False):
         """
         Predicts the labels for X.
         Parameters
@@ -576,7 +576,7 @@ class RandomForestRegressor(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        sparse_forest : boolean or string (default = False)
+        fil_sparse_format : boolean or string (default = False)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. This variable is not
             required while using predict_model='CPU'.
@@ -604,7 +604,8 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               sparse_forest, task_category=1)
+                                               fil_sparse_format,
+                                               task_category=1)
 
         return preds
 

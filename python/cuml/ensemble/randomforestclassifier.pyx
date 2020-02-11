@@ -488,7 +488,7 @@ class RandomForestClassifier(Base):
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
                               num_classes, convert_dtype,
-                              sparse_forest):
+                              fil_sparse_format):
         cdef ModelHandle cuml_model_ptr = NULL
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
@@ -507,12 +507,12 @@ class RandomForestClassifier(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if sparse_forest:
+        if fil_sparse_format:
             storage_type = 'SPARSE'
-        elif not sparse_forest:
+        elif not fil_sparse_format:
             storage_type = 'DENSE'
-        elif sparse_forest == 'auto':
-            storage_type = 'AUTO'
+        elif fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
         else:
             raise ValueError("The value entered for spares_forest is wrong."
                              " Please refer to the documentation to see the"
@@ -580,7 +580,7 @@ class RandomForestClassifier(Base):
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
                 num_classes=2, convert_dtype=True,
-                sparse_forest=False):
+                fil_sparse_format=False):
         """
         Predicts the labels for X.
 
@@ -619,7 +619,7 @@ class RandomForestClassifier(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        sparse_forest : boolean or string (default = False)
+        fil_sparse_format : boolean or string (default = False)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. This variable is not
             required while using predict_model='CPU'.
@@ -650,7 +650,7 @@ class RandomForestClassifier(Base):
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
                                                num_classes, convert_dtype,
-                                               sparse_forest)
+                                               fil_sparse_format)
 
         return preds
 
