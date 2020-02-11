@@ -17,6 +17,7 @@
 - PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
 - PR #1654: Skip treelite patch if it's already been applied
+- PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
 
 # cuML 0.12.0 (Date TBD)
 
