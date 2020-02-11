@@ -305,9 +305,9 @@ class TSNE(Base):
         # Function only to check attribute Y
         # while will be deprecated in 0.14
         if attr == "Y":
-            warnings.warn("""Attribute Y is deprecated and will be dropped in
-                          version 0.14, access the embeddings using the 
-                          attribute ‘embeddings_’ instead.""", 
+            warnings.warn("Attribute Y is deprecated and will be dropped in "
+                          "version 0.14, access the embeddings using the "
+                          "attribute ‘embeddings_’ instead.",
                           DeprecationWarning)
             return self.embedding_
 
@@ -456,7 +456,8 @@ class TSNE(Base):
         state = self.__dict__.copy()
 
         if "embedding_" in state:
-            state["embedding_"] = cudf.DataFrame.from_gpu_matrix(state["embedding_"])
+            state["embedding_"] = cudf.DataFrame.
+                                    from_gpu_matrix(state["embedding_"])
 
         if "handle" in state:
             del state["handle"]
