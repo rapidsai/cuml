@@ -152,3 +152,35 @@ def test_rand_index_score(name, nrows):
     cu_score_using_sk = sk_ars(y, cu_y_pred)
 
     assert array_equal(cu_score, cu_score_using_sk)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64, np.int])
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_homogeneity_score(datatype, use_handle):
+    def score_labeling(ground_truth, predictions):
+        a = np.array(ground_truth, dtype=datatype)
+        b = np.array(predictions, dtype=datatype)
+
+        a_dev = cuda.to_device(a)
+        b_dev = cuda.to_device(b)
+
+        handle, stream = get_handle(use_handle)
+
+        return cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
+
+    # Perfect labelings are homogeneous
+    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [1, 1, 0, 0]), 1.0)
+    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 1]), 1.0)
+
+    # Non-perfect labelings that further split classes into more clusters can
+    # be perfectly homogeneous
+    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 2]), 1.0)
+    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 1, 2, 3]), 1.0)
+
+    # Clusters that include samples from different classes do not make for an
+    # homogeneous labeling
+    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 1, 0, 1]), 0.0)
+    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 0, 0, 0]), 0.0)
+
+    # TODO: Test when all labels are not in the ground_truth/preds, especially
+    #  the min/max label
