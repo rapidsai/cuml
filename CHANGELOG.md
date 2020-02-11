@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1656: improve error message when using unsupported algo in FIL
 - PR #1644: Add `predict_proba()` for FIL binary classifier
 - PR #1620: Pickling tests now automatically finds all model classes inheriting from cuml.Base
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
