@@ -22,6 +22,7 @@ import cupy as cp
 
 from dask.distributed import Client, wait
 
+
 @pytest.mark.parametrize("input_type", ["dataframe",
                                         "scipysparse",
                                         "cupysparse",
