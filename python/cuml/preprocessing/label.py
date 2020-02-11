@@ -25,15 +25,16 @@ from cuml.utils import rmm_cupy_ary
 def label_binarize(y, classes, neg_label=0, pos_label=1,
                    sparse_output=False):
     """
-
+    A stateless helper function to dummy encode multi-class labels.
 
     Parameters
     ----------
-    :param classes:
-    :param neg_label:
-    :param pos_label:
-    :param sparse_output:
-    :return:
+
+    y : array-like of size [n_samples,] or [n_samples, n_classes]
+    classes : the set of unique classes in the input
+    neg_label : integer the negative value for transformed output
+    pos_label : integer the positive value for transformed output
+    sparse_output : bool whether to return sparse array
     """
 
     classes = cp.asarray(classes, dtype=classes.dtype)
@@ -65,7 +66,28 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
 
 class LabelBinarizer(object):
 
+    """
+    A multi-class one-hot encoder for labels.
+
+    Examples
+    --------
+
+
+
+    """
+
     def __init__(self, neg_label=0, pos_label=1, sparse_output=False):
+        """
+        Creates a LabelBinarizer instance
+
+        Parameters
+        ----------
+
+        neg_label : integer label to be used as the negative binary label
+        pos_label : integer label to be used as the positive binary label
+        sparse_output : bool whether to return sparse arrays for transformed
+                        output
+        """
         if neg_label >= pos_label:
             raise ValueError("neg_label=%s must be less "
                              "than pos_label=%s." % (neg_label, pos_label))
@@ -113,22 +135,32 @@ class LabelBinarizer(object):
 
     def fit_transform(self, y):
         """
-        Fit label binarizer and transform multi-class labels to binary
+        Fit label binarizer and transform multi-class labels to their dummy-encoded
+        representation.
 
         Parameters
         ----------
         y : array of shape [n_samples,] or [n_samples, n_classes]
-        :param y:
-        :return:
+
+        Returns
+        -------
+
+        arr : array with encoded labels
         """
         return self.fit(y).transform(y)
 
     def transform(self, y):
         """
-
+        Transform multi-class labels to their dummy-encoded representation
         labels.
-        :param y:
-        :return:
+
+        Parameters
+        ----------
+        y : array of shape [n_samples,] or [n_samples, n_classes]
+
+        Returns
+        -------
+        arr : array with encoded labels
         """
         return label_binarize(y, self.classes_,
                               pos_label=self.pos_label,
@@ -137,10 +169,18 @@ class LabelBinarizer(object):
 
     def inverse_transform(self, y, threshold=None):
         """
-        Transform binary labels back to multi-class labels
-        :param Y:
-        :param threshold:
-        :return:
+        Transform binary labels back to original multi-class labels
+
+        Parameters
+        ----------
+
+        y : array of shape [n_samples, n_classes]
+        threshold : float this value is currently ignored
+
+        Returns
+        -------
+
+        arr : array with original labels
         """
 
         # If we are already given multi-class, just return it.

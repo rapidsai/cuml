@@ -36,82 +36,63 @@ class MultinomialNB(object):
     """
     Distributed Naive Bayes classifier for multinomial models
 
-    The multinomial Naive Bayes classifier is suitable for classification
-    with discrete features (e.g., word counts for text classification).
+    Examples
+    --------
 
-    The multinomial distribution normally requires integer feature counts.
-    However, in practice, fractional counts such as tf-idf may also work.
+    Load the 20 newsgroups dataset from Scikit-learn and train a
+    Naive Bayes classifier.
+
+    .. code-block:: python
+
+    import cupy as cp
+
+    from sklearn.datasets import fetch_20newsgroups
+    from sklearn.feature_extraction.text import HashingVectorizer
+
+    from dask_cuda import LocalCUDACluster
+    from dask.distributed import Client
+
+    from cuml.naive_bayes import MultinomialNB
+
+    # Create a local CUDA cluster
+
+    cluster = LocalCUDACluster()
+    client = Client(cluster)
+
+    # Load corpus
+
+    twenty_train = fetch_20newsgroups(subset='train',
+                                      shuffle=True,
+                                      random_state=42)
+
+    hv = HashingVectorizer(alternate_sign=False, norm=None)
+    xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
+
+    X = to_dask_array(client, xformed)
+    y = dask.array.from_array(twenty_train.target, asarray=False,
+                          fancy=False).astype(cp.int32)
+
+    # Train model
+
+    model = MultinomialNB()
+    model.fit(X, y)
+
+    # Compute accuracy on training set
+
+    model.score(X, y)
+
+
+    Output:
+
+    .. code-block:: python
+
+    0.9244298934936523
+
     """
     def __init__(self, client=None, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
-
-        Examples
-        --------
-
-        Load the 20 newsgroups dataset from Scikit-learn and train a
-        Naive Bayes classifier.
-
-        .. code-block:: python
-
-        import cupy as cp
-
-        from sklearn.datasets import fetch_20newsgroups
-        from sklearn.feature_extraction.text import HashingVectorizer
-
-        twenty_train = fetch_20newsgroups(subset='train',
-                                          shuffle=True,
-                                          random_state=42)
-
-        hv = HashingVectorizer(alternate_sign=False, norm=None)
-        xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
-
-        X = to_dask_array(client, xformed)
-        y = dask.array.from_array(twenty_train.target, asarray=False,
-                              fancy=False).astype(cp.int32)
-
-
-        from cuml.naive_bayes import MultinomialNB
-
-        # Load corpus
-
-        twenty_train = fetch_20newsgroups(subset='train',
-                                  shuffle=True, random_state=42)
-
-        # Turn documents into term frequency vectors
-
-        count_vect = CountVectorizer()
-        features = count_vect.fit_transform(twenty_train.data)
-
-        # Put feature vectors and labels on the GPU
-
-        coo = features.tocoo()
-        values = coo.data
-
-        r = cp.asarray(coo.row)
-        c = cp.asarray(coo.col)
-        v = cp.asarray(values, dtype=cp.float32)
-
-        X = cp.sparse.coo_matrix((v, (r, c)))
-        y = cp.array(twenty_train.target).astype(cp.int32)
-
-        # Train model
-
-        model = MultinomialNB()
-        model.fit(X, y)
-
-        # Compute accuracy on training set
-
-        model.score(X, y)
-
-
-        Output:
-
-        .. code-block:: python
-
-        0.9244298934936523
-
 
         Parameters
         -----------
@@ -279,3 +260,37 @@ class MultinomialNB(object):
             final_parts[w] += 1
 
         return dask.array.concatenate(to_concat)
+
+    def score(self, X, y):
+        """
+        Compute accuracy score
+
+        Parameters
+        ----------
+
+        X : Dask.Array with features to predict
+        y : Dask.Array with labels to use for computing accuracy
+
+        Returns
+        -------
+        score : float the resulting accuracy score
+        """
+
+        y_hat = self.predict(X)
+        gpu_futures = self.client_.sync(extract_arr_partitions, [y_hat, y])
+
+        def count_accurate_predictions(y_hat_y):
+            y_hat, y = y_hat_y
+            y_hat = cp.asarray(y_hat, dtype=y_hat.dtype)
+            y = cp.asarray(y, dtype=y.dtype)
+            return y.shape[0] - cp.count_nonzero(y-y_hat)
+
+        key = uuid1()
+
+        futures = [self.client_.submit(count_accurate_predictions,
+                                        wf[1],
+                                        workers=[wf[0]],
+                                        key="%s-%s" % (key, idx)).result()
+                   for idx, wf in enumerate(gpu_futures)]
+
+        return sum(futures) / X.shape[0]
