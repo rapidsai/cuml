@@ -67,13 +67,50 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
 class LabelBinarizer(object):
 
     """
-    A multi-class one-hot encoder for labels.
+    A multi-class dummy encoder for labels.
 
     Examples
     --------
 
+    Create an array with labels and dummy encode them
+
+    .. code-block:: python
+
+    import cupy as cp
+    from cuml.preprocessing import LabelBinarizer
+
+    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1], dtype=cp.int32)
+
+    lb = LabelBinarizer()
+
+    encoded = lb.fit_transform(labels)
+
+    print(str(encoded)
+
+    decoded = lb.inverse_transform(encoded)
+
+    print(str(decoded)
 
 
+    Output:
+
+    .. code-block:: python
+
+    [[1 0 0 0 0 0 0 0]
+     [0 0 0 0 0 1 0 0]
+     [0 0 0 0 0 0 0 1]
+     [0 0 0 0 0 0 1 0]
+     [0 0 1 0 0 0 0 0]
+     [0 0 0 0 1 0 0 0]
+     [0 1 0 0 0 0 0 0]
+     [1 0 0 0 0 0 0 0]
+     [1 0 0 0 0 0 0 0]
+     [0 0 0 0 1 0 0 0]
+     [0 0 0 1 0 0 0 0]
+     [0 0 1 0 0 0 0 0]
+     [0 1 0 0 0 0 0 0]]
+
+     [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
     """
 
     def __init__(self, neg_label=0, pos_label=1, sparse_output=False):

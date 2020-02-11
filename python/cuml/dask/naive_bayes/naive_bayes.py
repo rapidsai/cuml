@@ -47,12 +47,14 @@ class MultinomialNB(object):
     import cupy as cp
 
     from sklearn.datasets import fetch_20newsgroups
-    from sklearn.feature_extraction.text import HashingVectorizer
+    from sklearn.feature_extraction.text import CountVectorizer
 
     from dask_cuda import LocalCUDACluster
     from dask.distributed import Client
 
-    from cuml.naive_bayes import MultinomialNB
+    from cuml.dask.common import to_sp_dask_array
+
+    from cuml.dask.naive_bayes import MultinomialNB
 
     # Create a local CUDA cluster
 
@@ -62,13 +64,12 @@ class MultinomialNB(object):
     # Load corpus
 
     twenty_train = fetch_20newsgroups(subset='train',
-                                      shuffle=True,
-                                      random_state=42)
+                              shuffle=True, random_state=42)
 
-    hv = HashingVectorizer(alternate_sign=False, norm=None)
-    xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
+    cv = CountVectorizer()
+    xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
 
-    X = to_dask_array(client, xformed)
+    X = to_sp_dask_array(xformed, client)
     y = dask.array.from_array(twenty_train.target, asarray=False,
                           fancy=False).astype(cp.int32)
 
@@ -279,7 +280,7 @@ class MultinomialNB(object):
         y_hat = self.predict(X)
         gpu_futures = self.client_.sync(extract_arr_partitions, [y_hat, y])
 
-        def count_accurate_predictions(y_hat_y):
+        def _count_accurate_predictions(y_hat_y):
             y_hat, y = y_hat_y
             y_hat = cp.asarray(y_hat, dtype=y_hat.dtype)
             y = cp.asarray(y, dtype=y.dtype)
@@ -287,7 +288,7 @@ class MultinomialNB(object):
 
         key = uuid1()
 
-        futures = [self.client_.submit(count_accurate_predictions,
+        futures = [self.client_.submit(_count_accurate_predictions,
                                         wf[1],
                                         workers=[wf[0]],
                                         key="%s-%s" % (key, idx)).result()

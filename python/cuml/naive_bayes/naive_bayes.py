@@ -122,6 +122,52 @@ class MultinomialNB(object):
 
     The multinomial distribution normally requires integer feature counts.
     However, in practice, fractional counts such as tf-idf may also work.
+
+    Examples
+    --------
+
+    Load the 20 newsgroups dataset from Scikit-learn and train a
+    Naive Bayes classifier.
+
+    .. code-block:: python
+
+    import cupy as cp
+
+    from sklearn.datasets import fetch_20newsgroups
+    from sklearn.feature_extraction.text import CountVectorizer
+
+    from cuml.naive_bayes import MultinomialNB
+
+    # Load corpus
+
+    twenty_train = fetch_20newsgroups(subset='train',
+                              shuffle=True, random_state=42)
+
+    # Turn documents into term frequency vectors
+
+    count_vect = CountVectorizer()
+    features = count_vect.fit_transform(twenty_train.data)
+
+    # Put feature vectors and labels on the GPU
+
+    X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+    y = cp.asarray(twenty_train.target, dtype=cp.int32)
+
+    # Train model
+
+    model = MultinomialNB()
+    model.fit(X, y)
+
+    # Compute accuracy on training set
+
+    model.score(X, y)
+
+    Output:
+
+    .. code-block:: python
+
+    0.9244298934936523
+
     """
     def __init__(self, alpha=1.0, fit_prior=True, class_prior=None):
 
@@ -138,51 +184,6 @@ class MultinomialNB(object):
         class_prior : array-like, size (n_classes) Prior probabilities of the
                       classes. If specified, the priors are not adjusted
                       according to the data.
-
-        Examples
-        --------
-
-        Load the 20 newsgroups dataset from Scikit-learn and train a
-        Naive Bayes classifier.
-
-        .. code-block:: python
-
-        import cupy as cp
-
-        from sklearn.datasets import fetch_20newsgroups
-        from sklearn.feature_extraction.text import CountVectorizer
-
-        from cuml.naive_bayes import MultinomialNB
-
-        # Load corpus
-
-        twenty_train = fetch_20newsgroups(subset='train',
-                                  shuffle=True, random_state=42)
-
-        # Turn documents into term frequency vectors
-
-        count_vect = CountVectorizer()
-        features = count_vect.fit_transform(twenty_train.data)
-
-        # Put feature vectors and labels on the GPU
-
-        X = cp.sparse.csr_matrix(features.tocsr())
-        y = cp.asarray(twenty_train.target, dtype=cp.int32)
-
-        # Train model
-
-        model = MultinomialNB()
-        model.fit(X, y)
-
-        # Compute accuracy on training set
-
-        model.score(X, y)
-
-        Output:
-
-        .. code-block:: python
-
-        0.9244298934936523
         """
 
         self.alpha = alpha
