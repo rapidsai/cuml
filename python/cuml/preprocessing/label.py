@@ -153,7 +153,4 @@ class LabelBinarizer(object):
             y_mapped = cp.argmax(
                 cp.asarray(y, dtype=y.dtype), axis=1).astype(y.dtype)
 
-        inverted = invert_labels(y_mapped, self.classes_)
-
-        print("INVERTED: " + str(inverted))
-        return inverted
+        return invert_labels(y_mapped, self.classes_)
