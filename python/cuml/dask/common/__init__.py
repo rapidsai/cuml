@@ -21,16 +21,28 @@ from cuml.dask.common.comms_utils import inject_comms_on_handle, \
     perform_test_comms_recv_any_rank, \
     inject_comms_on_handle_coll_only, is_ucx_enabled
 
+from cuml.dask.common.dask_arr_utils import extract_arr_partitions # NOQA
+from cuml.dask.common.dask_arr_utils import to_sp_dask_array # NOQA
+
 from cuml.dask.common.dask_df_utils import get_meta  # NOQA
 from cuml.dask.common.dask_df_utils import to_dask_cudf  # NOQA
 from cuml.dask.common.dask_df_utils import to_dask_df  # NOQA
 from cuml.dask.common.dask_df_utils import extract_ddf_partitions  # NOQA
-from cuml.dask.common.dask_arr_utils import extract_arr_partitions # NOQA
 from cuml.dask.common.dask_df_utils import extract_colocated_ddf_partitions  # NOQA
 
 from cuml.dask.common.part_utils import *
 
 from cuml.dask.common.utils import raise_exception_from_futures  # NOQA
 from cuml.dask.common.utils import raise_mg_import_exception  # NOQA
+
+import cupy as cp
+import copyreg
+
+
+def serialize_mat_descriptor(m):
+    return cp.cupy.cusparse.MatDescriptor.create, ()
+
+copyreg.pickle(cp.cupy.cusparse.MatDescriptor, serialize_mat_descriptor)
+
 
 

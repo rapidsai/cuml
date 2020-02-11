@@ -22,32 +22,13 @@ from dask.distributed import Client
 
 from sklearn.feature_extraction.text import HashingVectorizer
 
-from cuml.dask.common import extract_arr_partitions
+from cuml.dask.common import to_sp_dask_array
 
 from sklearn.metrics import accuracy_score
 
 from cuml.dask.naive_bayes import MultinomialNB
 
 from sklearn.datasets import fetch_20newsgroups
-
-
-def to_dask_array(client, sp):
-
-    sp = sp.tocsr().astype(cp.float32)
-
-    arr = dask.array.from_array(sp, chunks=sp.shape, asarray=False,
-                                fancy=False).persist()
-
-    f = list(map(lambda x: x[1], client.sync(extract_arr_partitions, arr)))
-
-    def conv(x):
-        return cp.sparse.csr_matrix(x, dtype=cp.float32)
-
-    f = client.submit(conv, f[0])
-
-    return dask.array.from_delayed(f, shape=sp.shape,
-                                   meta=cp.sparse.csr_matrix(cp.zeros(1),
-                                                             dtype=cp.float32))
 
 
 def load_corpus(client):
@@ -62,7 +43,12 @@ def load_corpus(client):
     hv = HashingVectorizer(alternate_sign=False, norm=None)
 
     xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
-    X = to_dask_array(client, xformed)
+
+    X = to_sp_dask_array(xformed, client)
+
+    comp = X.compute()
+
+    print(str(comp))
 
     y = dask.array.from_array(twenty_train.target, asarray=False,
                               fancy=False).astype(cp.int32)

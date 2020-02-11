@@ -26,6 +26,8 @@ import dask
 from cuml.dask.common import extract_arr_partitions, \
     workers_to_parts
 
+from cuml.utils import rmm_cupy_ary
+
 from dask.distributed import default_client
 
 
@@ -44,6 +46,72 @@ class MultinomialNB(object):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
+
+        Examples
+        --------
+
+        Load the 20 newsgroups dataset from Scikit-learn and train a
+        Naive Bayes classifier.
+
+        .. code-block:: python
+
+        import cupy as cp
+
+        from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import HashingVectorizer
+
+        twenty_train = fetch_20newsgroups(subset='train',
+                                          shuffle=True,
+                                          random_state=42)
+
+        hv = HashingVectorizer(alternate_sign=False, norm=None)
+        xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
+
+        X = to_dask_array(client, xformed)
+        y = dask.array.from_array(twenty_train.target, asarray=False,
+                              fancy=False).astype(cp.int32)
+
+
+        from cuml.naive_bayes import MultinomialNB
+
+        # Load corpus
+
+        twenty_train = fetch_20newsgroups(subset='train',
+                                  shuffle=True, random_state=42)
+
+        # Turn documents into term frequency vectors
+
+        count_vect = CountVectorizer()
+        features = count_vect.fit_transform(twenty_train.data)
+
+        # Put feature vectors and labels on the GPU
+
+        coo = features.tocoo()
+        values = coo.data
+
+        r = cp.asarray(coo.row)
+        c = cp.asarray(coo.col)
+        v = cp.asarray(values, dtype=cp.float32)
+
+        X = cp.sparse.coo_matrix((v, (r, c)))
+        y = cp.array(twenty_train.target).astype(cp.int32)
+
+        # Train model
+
+        model = MultinomialNB()
+        model.fit(X, y)
+
+        # Compute accuracy on training set
+
+        model.score(X, y)
+
+
+        Output:
+
+        .. code-block:: python
+
+        0.9244298934936523
+
 
         Parameters
         -----------
@@ -67,6 +135,10 @@ class MultinomialNB(object):
     @staticmethod
     def _predict(model, X):
         return [model.predict(x) for x in X]
+
+    @staticmethod
+    def _unique(x):
+        return rmm_cupy_ary(cp.unique, x)
 
     def fit(self, X, y, classes=None):
 
@@ -104,8 +176,8 @@ class MultinomialNB(object):
 
         n_features = X.shape[1]
 
-        classes = cp.unique(y.map_blocks(cp.unique).compute()) \
-            if classes is None else classes
+        classes = MultinomialNB._unique(y.map_blocks(
+            MultinomialNB._unique).compute()) if classes is None else classes
 
         n_classes = len(classes)
 
@@ -122,10 +194,14 @@ class MultinomialNB(object):
         self.model_.n_classes = n_classes
         self.model_.n_features = X.shape[1]
 
-        self.model_.class_count_ = cp.zeros(n_classes, order="F",
-                                            dtype=cp.float32)
-        self.model_.feature_count_ = cp.zeros((n_classes, n_features),
-                                              order="F", dtype=cp.float32)
+        self.model_.class_count_ = rmm_cupy_ary(cp.zeros,
+                                                n_classes,
+                                                order="F",
+                                                dtype=cp.float32)
+        self.model_.feature_count_ = rmm_cupy_ary(cp.zeros,
+                                                  (n_classes, n_features),
+                                                  order="F",
+                                                  dtype=cp.float32)
 
         for class_count_, feature_count_ in counts:
             self.model_.class_count_ += class_count_
