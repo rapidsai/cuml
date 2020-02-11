@@ -457,7 +457,7 @@ class TSNE(Base):
 
         if "embedding_" in state:
             state["embedding_"] = cudf.DataFrame.from_gpu_matrix(
-                                    state["embedding_"])
+                state["embedding_"])
 
         if "handle" in state:
             del state["handle"]
