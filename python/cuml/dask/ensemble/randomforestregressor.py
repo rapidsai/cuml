@@ -312,12 +312,11 @@ class RandomForestRegressor:
 
     @staticmethod
     def _func_get_idx(f, idx):
-
         return f[idx]
 
     def print_summary(self):
         """
-        prints the summary of the forest used to train and test the model
+        Print the summary of the forest used to train and test the model.
         """
         c = default_client()
         futures = list()
@@ -336,26 +335,25 @@ class RandomForestRegressor:
         raise_exception_from_futures(futures)
         return self
 
-    def concat_treelite_models(self, deep_check):
+    def _concat_treelite_models(self, deep_check):
         """
         Convert the cuML Random Forest model present in different workers to
         the treelite format and then concatenate the different treelite models
         to create a single model. The concatenated model is then converted to
-        model bytes format.
+        bytes format.
         """
         mod_bytes = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
-        worker_numb = [i for i in self.workers]
-
-        list_mod_handles = []
-        model = self.rfs[worker_numb[0]].result()
+        worker_tcp_info = [i for i in self.workers]
+        all_tl_mod_handles = []
+        model = self.rfs[worker_tcp_info[0]].result()
         for n in range(len(self.workers)):
-            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
         concat_mod_bytes = model.concatenate_treelite_bytes(
-            treelite_handle=list_mod_handles, deep_check=deep_check)
+            treelite_handle=all_tl_mod_handles, deep_check=deep_check)
 
         return concat_mod_bytes
 
@@ -438,16 +436,23 @@ class RandomForestRegressor:
         ----------
         X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
         deep_check : boolean (default = False)
+                     This is used to check if the concatenated forest used to
+                     predict the labels in GPU, have the right forest
+                     information.
                      Set it to True if you want to run an extensive check of
-                     the concatenated treelite forest created using the
-                     forest information from all the workers.
+                     the concatenated treelite forest created. It will compare
+                     the position and value of each node present in each tree
+                     of the concatenated forest with respect to the original
+                     forests present in the different workers.
+                     Required only while using predict for binary
+                     classification.
         Returns
         ----------
         y: NumPy
            Dense vector (float) of shape (n_samples, 1)
 
         """
-        concat_mod_bytes = self.concat_treelite_models(deep_check)
+        concat_mod_bytes = self._concat_treelite_models(deep_check)
 
         c = default_client()
         key = uuid1()
@@ -466,14 +471,13 @@ class RandomForestRegressor:
         worker_info = comms.worker_info(comms.worker_addresses)
 
         key = uuid1()
-        partsToSizes = [(worker_info[wf[0]]["r"], c.submit(
+        parts_to_sizes = [(worker_info[wf[0]]["r"], c.submit(
             RandomForestRegressor._func_get_size,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx)).result())
             for idx, wf in enumerate(gpu_futures)]
 
-        print(" worker_info  : ", worker_info)
         key = uuid1()
         preds = dict([(worker_info[wf[0]]["r"], c.submit(
             RandomForestRegressor._predict,
@@ -487,7 +491,7 @@ class RandomForestRegressor:
         out_futures = []
 
         completed_part_map = {}
-        for rank, size in partsToSizes:
+        for rank, size in parts_to_sizes:
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
 
