@@ -580,7 +580,7 @@ class RandomForestClassifier(Base):
                 output_class=True, threshold=0.5,
                 algo='auto',
                 num_classes=2, convert_dtype=True,
-                fil_sparse_format=False):
+                fil_sparse_format='auto'):
         """
         Predicts the labels for X.
 
@@ -627,7 +627,7 @@ class RandomForestClassifier(Base):
             created in the Forest Inference Library. This variable is not
             required while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently False is chosen by auto)
+                     (currently True is chosen by auto)
              False - create a dense forest
              True - create a sparse forest, requires algo='naive'
                     or algo='auto'
