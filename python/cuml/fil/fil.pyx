@@ -140,7 +140,7 @@ cdef class TreeliteModel():
 
 cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:
-        ALGO_AUTO,
+        AUTO,
         NAIVE,
         TREE_REORG,
         BATCH_TREE_REORG
@@ -186,8 +186,8 @@ cdef class ForestInference_impl():
         self.handle = handle
 
     def get_algo(self, algo_str):
-        algo_dict={'AUTO': algo_t.ALGO_AUTO,
-                   'auto': algo_t.ALGO_AUTO,
+        algo_dict={'AUTO': algo_t.AUTO,
+                   'auto': algo_t.AUTO,
                    'NAIVE': algo_t.NAIVE,
                    'naive': algo_t.NAIVE,
                    'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,

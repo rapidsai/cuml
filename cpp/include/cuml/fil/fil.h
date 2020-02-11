@@ -33,7 +33,7 @@ namespace fil {
 enum algo_t {
   /** choose the algorithm automatically; currently chooses NAIVE for sparse forests 
       and BATCH_TREE_REORG for dense ones */
-  ALGO_AUTO,
+  AUTO,
   /** naive algorithm: 1 thread block predicts 1 row; the row is cached in
       shared memory, and the trees are distributed cyclically between threads */
   NAIVE,
