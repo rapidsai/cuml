@@ -400,7 +400,7 @@ class RandomForestClassifier(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def concatenate_treelite_bytes(self, treelite_handle):
+    def concatenate_treelite_bytes(self, treelite_handle, deep_check):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef vector[ModelHandle] *mod_handle_vec \
@@ -413,7 +413,8 @@ class RandomForestClassifier(Base):
 
         concat_mod_bytes = \
             concatenate_trees(handle_[0],
-                              deref(mod_handle_vec))
+                              deref(mod_handle_vec),
+                              <bool> deep_check)
 
         return concat_mod_bytes
 

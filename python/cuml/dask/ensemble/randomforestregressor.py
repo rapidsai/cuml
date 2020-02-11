@@ -336,7 +336,7 @@ class RandomForestRegressor:
         raise_exception_from_futures(futures)
         return self
 
-    def concat_treelite_models(self):
+    def concat_treelite_models(self, deep_check):
         """
         Convert the cuML Random Forest model present in different workers to
         the treelite format and then concatenate the different treelite models
@@ -355,7 +355,7 @@ class RandomForestRegressor:
             list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
         concat_mod_bytes = model.concatenate_treelite_bytes(
-            treelite_handle=list_mod_handles)
+            treelite_handle=list_mod_handles, deep_check=deep_check)
 
         return concat_mod_bytes
 
@@ -430,21 +430,24 @@ class RandomForestRegressor:
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, deep_check=False):
         """
         Predicts the regressor outputs for X.
 
         Parameters
         ----------
         X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
-
+        deep_check : boolean (default = False)
+                     Set it to True if you want to run an extensive check of
+                     the concatenated treelite forest created using the
+                     forest information from all the workers.
         Returns
         ----------
         y: NumPy
            Dense vector (float) of shape (n_samples, 1)
 
         """
-        concat_mod_bytes = self.concat_treelite_models()
+        concat_mod_bytes = self.concat_treelite_models(deep_check)
 
         c = default_client()
         key = uuid1()
