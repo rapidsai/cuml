@@ -98,10 +98,10 @@ class LabelBinarizer(object):
         self : returns an instance of self.
         """
 
-        if y.ndims > 2:
+        if y.ndim > 2:
             raise ValueError("labels cannot be greater than 2 dimensions")
 
-        if y.ndims == 2:
+        if y.ndim == 2:
 
             unique_classes = rmm_cupy_ary(cp.unique, y)
             if unique_classes != [0, 1]:
