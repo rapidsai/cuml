@@ -70,7 +70,7 @@ def test_rf_classification(datatype, split_algo, rows_sample,
                                    predict_model="GPU",
                                    output_class=True,
                                    threshold=0.5,
-                                   algo='batch_tree_reorg')
+                                   algo='auto')
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
     fil_acc = accuracy_score(y_test, fil_preds)

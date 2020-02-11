@@ -551,7 +551,7 @@ class RandomForestRegressor(Base):
 
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
-                fil_sparse_format=False):
+                fil_sparse_format='auto'):
         """
         Predicts the labels for X.
         Parameters
@@ -584,7 +584,7 @@ class RandomForestRegressor(Base):
             created in the Forest Inference Library. This variable is not
             required while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently False is chosen by auto)
+                     (currently True is chosen by auto)
              False - create a dense forest
              True - create a sparse forest, requires algo='naive'
                     or algo='auto'
@@ -612,7 +612,7 @@ class RandomForestRegressor(Base):
 
         return preds
 
-    def score(self, X, y, algo='BATCH_TREE_REORG', convert_dtype=True):
+    def score(self, X, y, algo='auto', convert_dtype=True):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
