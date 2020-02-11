@@ -19,7 +19,11 @@ import math
 
 import numpy as np
 import cupy as cp
+import scipy.sparse
+
 import cupy.prof
+
+from cuml.utils import rmm_cupy_ary
 
 import warnings
 
@@ -218,10 +222,12 @@ class MultinomialNB(object):
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
 
         if isinstance(X, np.ndarray):
-            X = cp.asarray(X, X.dtype)
+            X = rmm_cupy_ary(cp.asarray, X, X.dtype)
+        elif scipy.sparse.isspmatrix(X):
+            X = cp.sparse.csr_matrix(X)
 
         if isinstance(y, np.ndarray):
-            y = cp.asarray(y, y.dtype)
+            y = rmm_cupy_ary(cp.asarray, y, y.dtype)
 
         Y, label_classes = make_monotonic(y, copy=True)
 
@@ -313,6 +319,11 @@ class MultinomialNB(object):
 
         """
 
+        if isinstance(X, np.ndarray):
+            X = rmm_cupy_ary(cp.asarray)
+        elif scipy.sparse.isspmatrix(X):
+            X = cp.sparse.csr_matrix(X)
+
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
@@ -338,6 +349,12 @@ class MultinomialNB(object):
             model. The columns correspond to the classes in sorted order, as
             they appear in the attribute classes_.
         """
+
+        if isinstance(X, np.ndarray):
+            X = rmm_cupy_ary(cp.asarray)
+        elif scipy.sparse.isspmatrix(X):
+            X = cp.sparse.csr_matrix(X)
+
         jll = self._joint_log_likelihood(X)
 
         # normalize by P(X) = P(f_1, ..., f_n)
@@ -401,13 +418,14 @@ class MultinomialNB(object):
         score : float Mean accuracy of self.predict(X) with respect to y.
         """
         y_hat = self.predict(X)
-        return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
+        return accuracy_score(y_hat, rmm_cupy_ary(cp.asarray, y, dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
-        self.class_count_ = cp.zeros(n_effective_classes, order="F",
-                                     dtype=dtype)
-        self.feature_count_ = cp.zeros((n_effective_classes, n_features),
-                                       order="F", dtype=dtype)
+        self.class_count_ = rmm_cupy_ary(cp.zeros, n_effective_classes,
+                                         order="F", dtype=dtype)
+        self.feature_count_ = rmm_cupy_ary(cp.zeros,
+                                           (n_effective_classes, n_features),
+                                           order="F", dtype=dtype)
 
     def _count(self, X, Y):
         """
@@ -427,10 +445,11 @@ class MultinomialNB(object):
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
-        counts = cp.zeros((self.n_classes_, self.n_features_),
+        counts = rmm_cupy_ary(cp.zeros, (self.n_classes_, self.n_features_),
                           order="F", dtype=X.dtype)
 
-        class_c = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
+        class_c = rmm_cupy_ary(cp.zeros, self.n_classes_, order="F",
+                               dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]

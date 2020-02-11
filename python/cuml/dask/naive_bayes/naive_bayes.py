@@ -282,8 +282,8 @@ class MultinomialNB(object):
 
         def _count_accurate_predictions(y_hat_y):
             y_hat, y = y_hat_y
-            y_hat = cp.asarray(y_hat, dtype=y_hat.dtype)
-            y = cp.asarray(y, dtype=y.dtype)
+            y_hat = rmm_cupy_ary(cp.asarray, y_hat, dtype=y_hat.dtype)
+            y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
             return y.shape[0] - cp.count_nonzero(y-y_hat)
 
         key = uuid1()
