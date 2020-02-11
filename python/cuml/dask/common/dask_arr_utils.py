@@ -21,9 +21,7 @@ import cupy as cp
 import cudf
 import dask
 
-from cuml.dask.common.dask_df_utils import extract_ddf_partitions,\
-    to_dask_cudf
-from cuml.dask.common.utils import raise_exception_from_futures
+from cuml.dask.common.dask_df_utils import to_dask_cudf
 from tornado import gen
 from dask.distributed import default_client
 from toolz import first
@@ -127,9 +125,11 @@ def to_sp_dask_array(cudf_or_array, client=None):
     client = default_client() if client is None else client
 
     shape = cudf_or_array.shape
-    dtype = cudf_or_array.dtypes[0] if isinstance(cudf_or_array,
-                                              dask.dataframe.DataFrame) \
-        or isinstance(cudf_or_array, cudf.DataFrame) else cudf_or_array.dtype
+    if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \
+       isinstance(cudf_or_array, cudf.DataFrame):
+        dtype = cudf_or_array.dtypes[0]
+    else:
+        dtype = cudf_or_array.dtype
 
     meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
 
@@ -144,11 +144,11 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
     if isinstance(cudf_or_array, dask.dataframe.DataFrame):
         """
-        Dask.Dataframe needs special attention since it has multiple dtypes. 
+        Dask.Dataframe needs special attention since it has multiple dtypes.
         Just use the first (and assume all the rest are the same)
         """
-        cudf_or_array = cudf_or_array.map_partitions(_conv_df_to_sp,
-                                           meta=dask.array.from_array(meta))
+        cudf_or_array = cudf_or_array.map_partitions(
+            _conv_df_to_sp, meta=dask.array.from_array(meta))
 
         return cudf_or_array
 

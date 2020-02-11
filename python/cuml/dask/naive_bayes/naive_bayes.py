@@ -289,9 +289,9 @@ class MultinomialNB(object):
         key = uuid1()
 
         futures = [self.client_.submit(_count_accurate_predictions,
-                                        wf[1],
-                                        workers=[wf[0]],
-                                        key="%s-%s" % (key, idx)).result()
+                                       wf[1],
+                                       workers=[wf[0]],
+                                       key="%s-%s" % (key, idx)).result()
                    for idx, wf in enumerate(gpu_futures)]
 
         return sum(futures) / X.shape[0]
