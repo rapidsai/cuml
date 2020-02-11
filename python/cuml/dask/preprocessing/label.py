@@ -31,6 +31,57 @@ class LabelBinarizer(object):
     Examples
     --------
 
+    Examples
+    --------
+
+    Create an array with labels and dummy encode them
+
+    .. code-block:: python
+
+    import cupy as cp
+    from cuml.dask.preprocessing import LabelBinarizer
+
+    from dask_cuda import LocalCUDACluster
+    from dask.distributed import Client
+    import dask
+
+    cluster = LocalCUDACluster()
+    client = Client(cluster)
+
+    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1], dtype=cp.int32)
+    labels = dask.array.from_array(labels)
+
+    lb = LabelBinarizer()
+
+    encoded = lb.fit_transform(labels)
+
+    print(str(encoded.compute())
+
+    decoded = lb.inverse_transform(encoded)
+
+    print(str(decoded.compute())
+
+
+    Output:
+
+    .. code-block:: python
+
+    [[1 0 0 0 0 0 0 0]
+     [0 0 0 0 0 1 0 0]
+     [0 0 0 0 0 0 0 1]
+     [0 0 0 0 0 0 1 0]
+     [0 0 1 0 0 0 0 0]
+     [0 0 0 0 1 0 0 0]
+     [0 1 0 0 0 0 0 0]
+     [1 0 0 0 0 0 0 0]
+     [1 0 0 0 0 0 0 0]
+     [0 0 0 0 1 0 0 0]
+     [0 0 0 1 0 0 0 0]
+     [0 0 1 0 0 0 0 0]
+     [0 1 0 0 0 0 0 0]]
+
+     [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+
 
     """
     def __init__(self, client=None, **kwargs):
