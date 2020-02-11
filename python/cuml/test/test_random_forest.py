@@ -70,7 +70,7 @@ def test_rf_classification(datatype, split_algo, rows_sample,
                                    predict_model="GPU",
                                    output_class=True,
                                    threshold=0.5,
-                                   algo='BATCH_TREE_REORG')
+                                   algo='batch_tree_reorg')
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
     fil_acc = accuracy_score(y_test, fil_preds)
@@ -426,7 +426,7 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
-@pytest.mark.parametrize('algo', ['AUTO', 'NAIVE'])
+@pytest.mark.parametrize('algo', ['auto', 'naive'])
 def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                   nrows, column_info, max_features,
                                   fil_sparse_format, algo):
@@ -484,7 +484,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'AUTO'])
-@pytest.mark.parametrize('algo', ['AUTO', 'NAIVE'])
+@pytest.mark.parametrize('algo', ['auto', 'naive'])
 def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                               max_features, rows_sample,
                               fil_sparse_format, algo):

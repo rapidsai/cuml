@@ -578,7 +578,7 @@ class RandomForestClassifier(Base):
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
-                algo='BATCH_TREE_REORG',
+                algo='auto',
                 num_classes=2, convert_dtype=True,
                 fil_sparse_format=False):
         """
@@ -601,14 +601,17 @@ class RandomForestClassifier(Base):
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
-        algo : string (default = 'BATCH_TREE_REORG')
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'NAIVE' - simple inference using shared memory
-            'TREE_REORG' - similar to naive but trees rearranged to be more
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
                            coalescing-friendly
-            'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+            'batch_tree_reorg' - similar to tree_reorg but predicting
                                  multiple rows per thread block
+            `algo` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -626,8 +629,8 @@ class RandomForestClassifier(Base):
             'auto' - choose the storage type automatically
                      (currently False is chosen by auto)
              False - create a dense forest
-             True - create a sparse forest, requires algo='NAIVE'
-                    or algo='AUTO'
+             True - create a sparse forest, requires algo='naive'
+                    or algo='auto'
 
         Returns
         ----------
@@ -717,7 +720,7 @@ class RandomForestClassifier(Base):
         return predicted_result
 
     def score(self, X, y, threshold=0.5,
-              algo='BATCH_TREE_REORG', num_classes=2,
+              algo='auto', num_classes=2,
               convert_dtype=True):
         """
         Calculates the accuracy metric score of the model for X.
@@ -730,14 +733,17 @@ class RandomForestClassifier(Base):
             ndarray, cuda array interface compliant array like CuPy
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
-        algo : string name of the algo from (from algo_t enum)
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'NAIVE' - simple inference using shared memory
-            'TREE_REORG' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
-            multiple rows per thread block
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+                           coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+                                 multiple rows per thread block
+            `algo` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
         threshold : float
             threshold is used to for classification
             This is optional and required only while performing the
