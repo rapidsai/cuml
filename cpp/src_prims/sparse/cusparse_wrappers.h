@@ -35,15 +35,17 @@ cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, T *vals,
                                T *vals_sorted, int *d_P);
 
 template <>
-cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, double *vals,
-                               double *vals_sorted, int *d_P) {
+inline cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz,
+                                      double *vals, double *vals_sorted,
+                                      int *d_P) {
   return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
 }
 
 template<>
-cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, float *vals,
-                               float *vals_sorted, int *d_P) {
+inline cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz,
+                                      float *vals, float *vals_sorted,
+                                      int *d_P) {
   return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
 }
@@ -58,8 +60,8 @@ void cusparsecoo2csr(cusparseHandle_t handle, const T* cooRowInd, int nnz,
                      int m, T* csrRowPtr);
 
 template <>
-void cusparsecoo2csr(cusparseHandle_t handle, const int* cooRowInd, int nnz,
-                     int m, int* csrRowPtr) {
+inline void cusparsecoo2csr(cusparseHandle_t handle, const int* cooRowInd,
+                            int nnz, int m, int* csrRowPtr) {
   CUSPARSE_CHECK(cusparseXcoo2csr(handle, cooRowInd, nnz, m, csrRowPtr,
                                   CUSPARSE_INDEX_BASE_ZERO));
 }
