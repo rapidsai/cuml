@@ -57,11 +57,13 @@ inline cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz,
  */
 template <typename T>
 void cusparsecoo2csr(cusparseHandle_t handle, const T* cooRowInd, int nnz,
-                     int m, T* csrRowPtr);
+                     int m, T* csrRowPtr, cudaStream_t stream);
 
 template <>
 inline void cusparsecoo2csr(cusparseHandle_t handle, const int* cooRowInd,
-                            int nnz, int m, int* csrRowPtr) {
+                            int nnz, int m, int* csrRowPtr,
+                            cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   CUSPARSE_CHECK(cusparseXcoo2csr(handle, cooRowInd, nnz, m, csrRowPtr,
                                   CUSPARSE_INDEX_BASE_ZERO));
 }
