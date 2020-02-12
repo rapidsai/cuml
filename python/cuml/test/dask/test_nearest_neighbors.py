@@ -33,8 +33,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from cuml.neighbors.nearest_neighbors_mg import \
     NearestNeighborsMG as cumlNN
 
-from cuml.dask.common import raise_exception_from_futures
-
 from cuml.test.utils import array_equal
 
 
@@ -72,7 +70,7 @@ def _prep_training_data(c, X_train, partitions_per_worker):
                                      quality_param(7), stress_param(50)])
 @pytest.mark.parametrize("streams_per_handle", [1, 5])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
-                     streams_per_handle, ucx_cluster):
+                     streams_per_handle, cluster):
 
     client = Client(cluster)
 
