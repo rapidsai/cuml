@@ -261,9 +261,9 @@ class LinearRegression(Base):
             raise TypeError(msg)
 
         if self.n_cols == 1 and self.algo != 0:
-            # TODO: Throw exception when this changes algorithm from the user's
-            # choice. Github issue #602
-            # eig based method doesn't work when there is only one column.
+            warnings.warn("Changing solver from 'eig' to 'svg' as eig solver"
+                          "does not support training data with 1 column"
+                          "currently", UserWarning)
             self.algo = 0
 
         self.coef_ = cudf.Series(zeros(self.n_cols,
