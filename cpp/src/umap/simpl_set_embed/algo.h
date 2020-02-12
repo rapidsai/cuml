@@ -217,12 +217,10 @@ __global__ void optimize_batch_kernel(
             grad_d = 4.0;
           atomicAdd(current + d, grad_d * alpha);
         }
-
       }
 
       epoch_of_next_negative_sample[row] +=
         n_neg_samples * epochs_per_negative_sample[row];
-
     }
   }
 }
