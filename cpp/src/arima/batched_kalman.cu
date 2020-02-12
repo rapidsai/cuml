@@ -468,10 +468,13 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
   // Use the dense version for small matrices, the sparse version otherwise
+  // MLCommon::LinAlg::Batched::Matrix<double> P =
+  //   (r <= 8 && batch_size <= 1024)
+  //     ? MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT)
+  //     : MLCommon::Sparse::Batched::b_lyapunov(T_sparse, T_mask, RRT);
   MLCommon::LinAlg::Batched::Matrix<double> P =
-    (r <= 8 && batch_size <= 1024)
-      ? MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT)
-      : MLCommon::Sparse::Batched::b_lyapunov(T_sparse, T_mask, RRT);
+    MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT);
+  /// TODO: cleanup
   ML::POP_RANGE();
 
   // init alpha to zero

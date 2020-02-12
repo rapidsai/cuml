@@ -33,6 +33,7 @@
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/unary_op.h>
+#include <matrix/matrix.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -404,6 +405,35 @@ class Matrix {
   }
 
   /**
+   * @brief Compute alpha*A' for a batched matrix A
+   *
+   * @return alpha*A'
+   */
+  Matrix<T> transpose(double alpha = 1.0) const {
+    int m = m_shape.first;
+    int n = m_shape.second;
+
+    Matrix<T> At(n, m, m_batch_size, m_cublasHandle, m_allocator, m_stream);
+
+    const double* d_A = m_A_dense.get();
+    double* d_At = At.m_A_dense.get();
+
+    // Naive batched transpose ; TODO: improve
+    auto counting = thrust::make_counting_iterator<int>(0);
+    thrust::for_each(thrust::cuda::par.on(m_stream), counting,
+                     counting + m_batch_size * m, [=] __device__(int tid) {
+                       int bid = tid / m;
+                       int i = tid % m;
+                       const double* b_A = d_A + bid * m * n;
+                       double* b_At = d_At + bid * m * n;
+                       for (int j = 0; j < n; j++) {
+                         b_At[i * n + j] = alpha * b_A[j * m + i];
+                       }
+                     });
+    return At;
+  }
+
+  /**
    * @brief Initialize a batched identity matrix.
    * 
    * @param[in]  m            Number of rows/columns of matrix
@@ -420,8 +450,8 @@ class Matrix {
     Matrix I(m, m, batch_size, cublasHandle, allocator, stream, true);
 
     identity_matrix_kernel<T>
-      <<<batch_size, std::min(1024, m), 0, stream>>>(I.raw_data(), m);
-    CUDA_CHECK(cudaGetLastError());
+      <<<batch_size, std::min(256, m), 0, stream>>>(I.raw_data(), m);
+    CUDA_CHECK(cudaPeekAtLastError());
     return I;
   }
 
@@ -915,9 +945,145 @@ Matrix<T> b_2dcopy(const Matrix<T>& in, int starting_row, int starting_col,
 }
 
 /**
+ * @todo: docs
+ */
+template <typename T>
+DI void generate_householder_vector(T* d_u, const T* d_x, int m) {
+  // Compute norm of the vectors x and u
+  T x_norm = (T)0, u_norm = (T)0;
+  for (int i = 1; i < m; i++) {
+    u_norm += d_x[i] * d_x[i];
+  }
+  T x0 = d_x[0];
+  x_norm = sqrt(u_norm + x0 * x0);
+  T u0 = x0 - (x0 < 0 ? 1 : -1) * x_norm;
+  u_norm = sqrt(u_norm + u0 * u0);
+
+  // Compute u
+  d_u[0] = u0 / u_norm;
+  for (int i = 1; i < m; i++) {
+    d_u[i] = d_x[i] / u_norm;
+  }
+}
+
+/**
+ * @brief Hessenberg decomposition A = UHU', where Q is unitary and H in
+ *        Hessenberg form (no zeros below the subdiagonal), using Householder
+ *        reflections
+ * @todo: docs
+ */
+template <typename T>
+void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
+  int n = A.shape().first;
+  int n2 = n * n;
+  int batch_size = A.batches();
+  auto stream = A.stream();
+  auto allocator = A.allocator();
+  auto cublasHandle = A.cublasHandle();
+  auto counting = thrust::make_counting_iterator(0);
+
+  T* d_H = H.raw_data();
+  T* d_U = U.raw_data();
+
+  // Copy A in H
+  copy(H.raw_data(), A.raw_data(), n2 * batch_size, stream);
+
+  // Initialize U with the identity
+  CUDA_CHECK(cudaMemsetAsync(d_U, 0, sizeof(T) * n2 * batch_size, stream));
+  identity_matrix_kernel<T>
+    <<<batch_size, std::min(256, n), 0, stream>>>(d_U, n);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  // Create an array to store the Householder vectors
+  int u_size = (n * (n - 1)) / 2 - 1;
+  T* d_u = (T*)allocator->allocate(u_size * batch_size * sizeof(T), stream);
+
+  // Temporary buffer for intermediate results
+  int temp_size = n;
+  T* d_temp =
+    (T*)allocator->allocate(temp_size * batch_size * sizeof(T), stream);
+
+  // BLAS scalars
+  T one = (T)1, zero = (T)0, m_two = (T)-2;
+  CUBLAS_CHECK(cublasSetPointerMode(cublasHandle, CUBLAS_POINTER_MODE_HOST));
+
+  // Transform H to Hessenberg form in-place
+  int u_offset = 0;
+  for (int k = 0; k < n - 2; k++) {
+    // Generate the reflector
+    thrust::for_each(thrust::cuda::par.on(A.stream()), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       T* b_u = d_u + u_size * ib;
+                       T* b_x = d_H + n2 * ib;
+                       generate_householder_vector(
+                         b_u + u_offset, b_x + (n + 1) * k + 1, n - k - 1);
+                     });
+
+    // H[k+1:, k:] = H[k+1:, k:] - 2 * uk * (uk' * H[k+1:, k:])
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, 1, n - k, n - k - 1, &one,
+      d_u + u_offset, 1, u_size, d_H + (n + 1) * k + 1, n, n2, &zero, d_temp, 1,
+      temp_size, batch_size, stream));
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n - k - 1, n - k, 1, &m_two,
+      d_u + u_offset, n - k - 1, u_size, d_temp, 1, temp_size, &one,
+      d_H + (n + 1) * k + 1, n, n2, batch_size, stream));
+
+    // H[:, k+1:] = H[:, k+1:] - 2 * (H[:, k+1:] * uk) * uk'
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, n - k - 1, &one,
+      d_H + (k + 1) * n, n, n2, d_u + u_offset, n - k - 1, u_size, &zero,
+      d_temp, n, temp_size, batch_size, stream));
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n, n - k - 1, 1, &m_two, d_temp,
+      n, temp_size, d_u + u_offset, 1, u_size, &one, d_H + (k + 1) * n, n, n2,
+      batch_size, stream));
+
+    u_offset += n - k - 1;
+  }
+
+  // Update U
+  u_offset = u_size - 2;
+  for (int k = n - 3; k >= 0; k--) {
+    // U[k+1:, k+1:] = U[k+1:, k+1:] - 2 * uk * (uk' * U[k+1:, k+1:])
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, 1, n - k - 1, n - k - 1, &one,
+      d_u + u_offset, 1, u_size, d_U + (k + 1) * (n + 1), n, n2, &zero, d_temp,
+      1, temp_size, batch_size, stream));
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n - k - 1, n - k - 1, 1, &m_two,
+      d_u + u_offset, n - k - 1, u_size, d_temp, 1, temp_size, &one,
+      d_U + (k + 1) * (n + 1), n, n2, batch_size, stream));
+
+    u_offset -= n - k;
+  }
+
+  allocator->deallocate(d_u, u_size * batch_size * sizeof(T), stream);
+  allocator->deallocate(d_temp, temp_size * batch_size * sizeof(T), stream);
+}
+
+/**
+ * @brief Schur decomposition A = USU', where U is unitary and S is a
+ *        block-upper triangular matrix with block size <= 2
+ * @todo: docs
+ */
+template <typename T>
+void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S) {
+  int n = A.shape().first;
+  int batch_size = A.batches();
+  auto stream = A.stream();
+  auto allocator = A.allocator();
+  // auto counting = thrust::make_counting_iterator(0);
+
+  Matrix<T> H(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+
+  b_hessenberg(A, U, H);
+}
+
+/**
  * @brief Solve discrete Lyapunov equation A*X*A' - X + Q = 0
  * 
- * @note The content of Q isn't modified, but Q is reshaped into a vector
+ * @note The content of Q isn't modified, but can be reshaped into a vector
  *       and back into a matrix
  *
  * @param[in]  A       Batched matrix A
@@ -927,26 +1093,99 @@ Matrix<T> b_2dcopy(const Matrix<T>& in, int starting_row, int starting_col,
 template <typename T>
 Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
   int batch_size = A.batches();
+  auto stream = A.stream();
+  auto allocator = A.allocator();
   int n = A.shape().first;
   int n2 = n * n;
-
-  Matrix<T> I_m_AxA = b_kron(-A, A);
-  // Note: avoiding the creation of an identity matrix to save memory;
-  // also -AxA = (-A)xa
-  double* d_I_m_AxA = I_m_AxA.raw_data();
   auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(thrust::cuda::par.on(A.stream()), counting,
-                   counting + batch_size, [=] __device__(int ib) {
-                     double* b_I_m_AxA = d_I_m_AxA + ib * n2 * n2;
-                     for (int i = 0; i < n * n; i++) {
-                       b_I_m_AxA[(n2 + 1) * i] += 1.0;
-                     }
-                   });
-  Q.reshape(n2, 1);
-  Matrix<T> X = b_solve(I_m_AxA, Q);
-  Q.reshape(n, n);
-  X.reshape(n, n);
-  return X;
+
+  bool small = false;
+
+  if (small) {
+    //
+    // Use direct solution with Kronecker product
+    //
+    Matrix<T> I_m_AxA = b_kron(-A, A);
+    double* d_I_m_AxA = I_m_AxA.raw_data();
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       double* b_I_m_AxA = d_I_m_AxA + ib * n2 * n2;
+                       for (int i = 0; i < n * n; i++) {
+                         b_I_m_AxA[(n2 + 1) * i] += 1.0;
+                       }
+                     });
+    Q.reshape(n2, 1);
+    Matrix<T> X = b_solve(I_m_AxA, Q);
+    Q.reshape(n, n);
+    X.reshape(n, n);
+    return X;
+  } else {
+    //
+    // Transform to Sylvester equation (Popov, 1964)
+    //
+    Matrix<T> B(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> C(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    {
+      Matrix<T> ApI(A);
+      Matrix<T> AmI(A);
+      Matrix<T> AtpI = A.transpose();
+      double* d_ApI = ApI.raw_data();
+      double* d_AmI = AmI.raw_data();
+      double* d_AtpI = AtpI.raw_data();
+      thrust::for_each(thrust::cuda::par.on(stream), counting,
+                       counting + batch_size, [=] __device__(int ib) {
+                         int idx = ib * n2;
+                         for (int i = 0; i < n; i++) {
+                           d_ApI[idx] += 1.0;
+                           d_AmI[idx] -= 1.0;
+                           d_AtpI[idx] += 1.0;
+                           idx += n + 1;
+                         }
+                       });
+      Matrix<T> ApI_inv = ApI.inv();
+
+      // B = (A-I)*(A+I)^{-1}
+      b_gemm(false, false, n, n, n, 1.0, AmI, ApI_inv, 0.0, B);
+      // C = 2*(A'+I)^{-1}*Q*(A+I)^{-1}
+      b_gemm(false, false, n, n, n, -2.0, AtpI.inv(), Q * ApI_inv, 0.0, C);
+    }
+
+    //
+    // Solve Sylvester equation BX + XB' = -C with Bartels-Stewart algorithm
+    //
+
+    // 1. Shur decomposition
+    Matrix<T> R(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> U(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> S(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> V(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> mBt = B.transpose(-1.0);
+    b_schur(B, U, R);
+    b_schur(mBt, V, S);
+    /// TODO: clear prints
+    // MLCommon::Matrix::print(U.raw_data(), n, n * batch_size);
+    // std::cout << std::endl;
+    // MLCommon::Matrix::print(R.raw_data(), n, n * batch_size);
+    // std::cout << std::endl;
+    // MLCommon::Matrix::print(V.raw_data(), n, n * batch_size);
+    // std::cout << std::endl;
+    // MLCommon::Matrix::print(S.raw_data(), n, n * batch_size);
+
+    // 2. F = -U'CV
+    // Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator,
+    //                    stream, false);
+    // b_gemm(true, false, n, n, n, -1.0, U, C * V, 0.0, F);
+
+    // 3. Solve RY-YS'=F (where Y=U'XV)
+    /// TODO: solve using forward substitution on the blocks
+
+    // 4. X = UYV'
+    /// TODO: simple matmul
+
+    Matrix<T> X =
+      Matrix<T>::Identity(n, batch_size, A.cublasHandle(), allocator, stream);
+    return X;
+  }
 }
 
 }  // namespace Batched
