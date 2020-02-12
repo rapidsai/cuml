@@ -74,9 +74,12 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
   struct timeval tp;
   gettimeofday(&tp, NULL);
   long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+  seed = 50;
 
   MLCommon::Random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
+
+  std::cout << MLCommon::arr2Str(tmp_storage.data(), 25, "tmp_storage", stream) << std::endl;
 
   MLCommon::LinAlg::unaryOp<T>(
     embedding, embedding, n * params->n_components,

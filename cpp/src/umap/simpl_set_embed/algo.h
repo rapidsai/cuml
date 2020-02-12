@@ -271,6 +271,8 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     gettimeofday(&tp, NULL);
     long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
+    seed = 50;
+
     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
       epochs_per_sample, n_vertices, move_other,
