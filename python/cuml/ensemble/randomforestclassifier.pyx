@@ -287,7 +287,9 @@ class RandomForestClassifier(Base):
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
         if ((seed is not None) and (n_streams != 1)):
-            warnings.warn("Random seed requires n_streams=1.")
+            warnings.warn("Random seed requires n_streams=1. If n_streams"
+                          " is not set to 1 then the result will not be "
+                          "reproducible even when the seed value is set.")
         self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
