@@ -147,7 +147,10 @@ class LabelBinarizer(object):
                   for w, f in futures]
 
         classes = self.client_.compute(unique, True)
-        self.classes_ = cp.unique(cp.stack(classes, axis=0))
+        self.classes_ = rmm_cupy_ary(cp.unique,
+                                     rmm_cupy_ary(cp.stack,
+                                                  classes,
+                                                  axis=0))
 
         self.model = LB(**self.kwargs).fit(self.classes_)
 

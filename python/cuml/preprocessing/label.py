@@ -37,8 +37,8 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
     sparse_output : bool whether to return sparse array
     """
 
-    classes = cp.asarray(classes, dtype=classes.dtype)
-    labels = cp.asarray(y, dtype=y.dtype)
+    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
+    labels = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
 
     if not check_labels(labels, classes):
         raise ValueError("Unseen classes encountered in input")
@@ -47,7 +47,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
                            dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
-    val = cp.full(row_ind.shape[0], pos_label, dtype=y.dtype)
+    val = rmm_cupy_ary(cp.full, row_ind.shape[0], pos_label, dtype=y.dtype)
 
     sp = cp.sparse.coo_matrix((val, (row_ind, col_ind)),
                               shape=(col_ind.shape[0],
@@ -227,10 +227,12 @@ class LabelBinarizer(object):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
         elif scipy.sparse.isspmatrix(y):
             y = y.tocsr()
-            y_mapped = rmm_cupy_ary(cp.array, y.indices, dtype=y.indices.dtype)
+            y_mapped = rmm_cupy_ary(cp.array, y.indices,
+                                    dtype=y.indices.dtype)
         else:
-            y_mapped = cp.argmax(
-                rmm_cupy_ary(cp.asarray, y, dtype=y.dtype),
-                axis=1).astype(y.dtype)
+            y_mapped = rmm_cupy_ary(cp.argmax,
+                                    rmm_cupy_ary(cp.asarray, y,
+                                                 dtype=y.dtype),
+                                    axis=1).astype(y.dtype)
 
         return invert_labels(y_mapped, self.classes_)
