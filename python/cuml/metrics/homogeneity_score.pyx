@@ -20,6 +20,7 @@
 # cython: language_level = 3
 
 import numpy as np
+import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
@@ -35,7 +36,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                             const int upper_class_range) except +
 
 
-def homogeneity_score(ground_truth, predictions, handle=None):
+def homogeneity_score(labels_true, labels_pred, handle=None):
     """
     Computes the homogeneity metric of a cluster labeling given a ground truth.
 
@@ -46,18 +47,19 @@ def homogeneity_score(ground_truth, predictions, handle=None):
     a permutation of the class or cluster label values won’t change the score
     value in any way.
 
-        Parameters
-        ----------
-        handle : cuml.Handle
-        predictions : NumPy ndarray or Numba device
-           The labels predicted by the model for the test dataset
-        ground_truth : NumPy ndarray, Numba device
-           The ground truth labels of the test dataset
+    Parameters
+    ----------
+    handle : cuml.Handle
+    labels_pred : int32 NumPy ndarray, int32 Numba device or int32 cudf Series
+       The labels predicted by the model for the test dataset
+    labels_true : int32 NumPy ndarray, int32 Numba device or int32 cudf Series
+       The ground truth labels of the test dataset
 
-        Returns
-        -------
-        float
-          The homogeneity of the predicted labeling given the ground truth
+    Returns
+    -------
+    float
+      The homogeneity of the predicted labeling given the ground truth.
+      Score between 0.0 and 1.0. 1.0 stands for perfectly homogeneous labeling.
     """
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle*handle_ = <cumlHandle*> <size_t> handle.getHandle()
@@ -65,18 +67,21 @@ def homogeneity_score(ground_truth, predictions, handle=None):
     cdef uintptr_t preds_ptr
     cdef uintptr_t ground_truth_ptr
 
-    preds_m, preds_ptr, n_rows, _, _ = input_to_dev_array(predictions,
-                                                          convert_to_dtype=None
-                                                          )
+    preds_m, preds_ptr, n_rows, _, _ = input_to_dev_array(
+        labels_pred,
+        convert_to_dtype=np.float32,
+    )
 
-    ground_truth_m, ground_truth_ptr, _, _, ground_truth_dtype = \
-        input_to_dev_array(ground_truth, convert_to_dtype=None,
-                           check_rows=n_rows)
+    ground_truth_m, ground_truth_ptr, _, _, _ = input_to_dev_array(
+        labels_true,
+        convert_to_dtype=np.float32,
+        check_rows=n_rows,
+    )
 
     # TODO: Test when all labels are not in the ground_truth/preds, especially
     #  the min/max label
-    # lower_class_range = min(np.min(ground_truth_m), np.min(preds_m))
-    # upper_class_range = max(np.max(ground_truth_m), np.max(preds_m))
+    # lower_class_range = cp.min(cp.min(ground_truth_m), cp.min(preds_m))
+    # upper_class_range = cp.max(cp.max(ground_truth_m), cp.max(preds_m))
     lower_class_range = 0
     upper_class_range = 1
 
@@ -84,7 +89,7 @@ def homogeneity_score(ground_truth, predictions, handle=None):
                            <int*> ground_truth_ptr,
                            <int*> preds_ptr,
                            <int> n_rows,
-                           lower_class_range,
-                           upper_class_range)
+                           <int> lower_class_range,
+                           <int> upper_class_range)
 
     return hom
