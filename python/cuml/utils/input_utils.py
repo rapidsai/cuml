@@ -40,7 +40,7 @@ def get_dev_array_ptr(ary):
 
 def get_cudf_column_ptr(col):
     """
-    Returns pointerr of a cudf Series
+    Returns pointer of a cudf Series
     """
     return col.__cuda_array_interface__['data'][0]
 
