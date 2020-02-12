@@ -56,35 +56,41 @@ def test_basic_fit_predict(cluster):
 
     client = Client(cluster)
 
-    X, y = load_corpus(client)
+    try:
+        X, y = load_corpus(client)
 
-    model = MultinomialNB()
+        model = MultinomialNB()
 
-    model.fit(X, y)
+        model.fit(X, y)
 
-    y_hat = model.predict(X)
+        y_hat = model.predict(X)
 
-    y_hat = y_hat.compute()
-    y = y.compute()
+        y_hat = y_hat.compute()
+        y = y.compute()
 
-    assert(accuracy_score(y_hat.get(), y) > .97)
+        assert(accuracy_score(y_hat.get(), y) > .97)
+    finally:
+        client.close()
 
 
 def test_score(cluster):
 
     client = Client(cluster)
 
-    X, y = load_corpus(client)
+    try:
+        X, y = load_corpus(client)
 
-    model = MultinomialNB()
+        model = MultinomialNB()
 
-    model.fit(X, y)
+        model.fit(X, y)
 
-    y_hat = model.predict(X)
+        y_hat = model.predict(X)
 
-    score = model.score(X, y)
+        score = model.score(X, y)
 
-    y_hat = y_hat.compute()
-    y = y.compute()
+        y_hat = y_hat.compute()
+        y = y.compute()
 
-    assert(accuracy_score(y_hat.get(), y) == score)
+        assert(accuracy_score(y_hat.get(), y) == score)
+    finally:
+        client.close()

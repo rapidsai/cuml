@@ -32,31 +32,34 @@ def test_basic_functions(labels, cluster):
 
     client = Client(cluster)
 
-    fit_labels, xform_labels = labels
+    try:
+        fit_labels, xform_labels = labels
 
-    s = cp.asarray(fit_labels, dtype=np.int32)
-    df = dask.array.from_array(s)
+        s = cp.asarray(fit_labels, dtype=np.int32)
+        df = dask.array.from_array(s)
 
-    s2 = cp.asarray(xform_labels, dtype=np.int32)
-    df2 = dask.array.from_array(s2)
+        s2 = cp.asarray(xform_labels, dtype=np.int32)
+        df2 = dask.array.from_array(s2)
 
-    binarizer = LabelBinarizer(client=client, sparse_output=False)
-    binarizer.fit(df)
+        binarizer = LabelBinarizer(client=client, sparse_output=False)
+        binarizer.fit(df)
 
-    assert array_equal(cp.asnumpy(binarizer.classes_),
-                       np.unique(cp.asnumpy(s)))
+        assert array_equal(cp.asnumpy(binarizer.classes_),
+                           np.unique(cp.asnumpy(s)))
 
-    xformed = binarizer.transform(df2)
+        xformed = binarizer.transform(df2)
 
-    xformed = xformed.map_blocks(lambda x: x.get(), dtype=cp.float32)
-    xformed.compute_chunk_sizes()
+        xformed = xformed.map_blocks(lambda x: x.get(), dtype=cp.float32)
+        xformed.compute_chunk_sizes()
 
-    assert xformed.compute().shape[1] == binarizer.classes_.shape[0]
+        assert xformed.compute().shape[1] == binarizer.classes_.shape[0]
 
-    original = binarizer.inverse_transform(xformed)
-    test = original.compute()
+        original = binarizer.inverse_transform(xformed)
+        test = original.compute()
 
-    assert array_equal(cp.asnumpy(test), xform_labels)
+        assert array_equal(cp.asnumpy(test), xform_labels)
+    finally:
+        client.close()
 
 
 @pytest.mark.parametrize(
@@ -70,5 +73,8 @@ def test_basic_functions(labels, cluster):
                                              "arrays")
 def test_sparse_output_fails(labels, cluster):
 
-    client = Client(cluster)
-    LabelBinarizer(client=client, sparse_output=True)
+    try:
+        client = Client(cluster)
+        LabelBinarizer(client=client, sparse_output=True)
+    finally:
+        client.close()
