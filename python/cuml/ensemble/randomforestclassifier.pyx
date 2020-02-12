@@ -641,7 +641,7 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
 
-        if predict_model == "CPU" or self.num_classes > 2:
+        if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and not convert_dtype:
