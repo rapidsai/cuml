@@ -16,8 +16,6 @@
 
 #include <nvgraph.h>
 
-#include "sparse/nvgraph_wrappers.h"
-
 #include "selection/knn.h"
 #include "sparse/coo.h"
 
@@ -28,6 +26,13 @@
 
 namespace MLCommon {
 namespace Spectral {
+
+#define NVGRAPH_CHECK(call)                                             \
+  do {                                                                  \
+    nvgraphStatus_t status = call;                                      \
+    ASSERT(status == NVGRAPH_STATUS_SUCCESS, "FAIL: call='%s', status='%d'\n", \
+           #call, status);                                              \
+  } while (0)
 
 template <typename T>
 void fit_clusters(int *rows, int *cols, T *vals, int nnz, int n, int n_clusters,
