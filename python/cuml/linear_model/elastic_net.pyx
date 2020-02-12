@@ -114,6 +114,8 @@ class ElasticNet(Base, RegressorMixin):
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class.
 
     Attributes
     -----------
@@ -280,16 +282,3 @@ class ElasticNet(Base, RegressorMixin):
                 setattr(self, key, value)
 
         return self
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-
-        return state
-
-    def __setstate__(self, state):
-        super(ElasticNet, self).__init__(handle=None, verbose=state['verbose'])
-
-        self.__dict__.update(state)
