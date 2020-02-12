@@ -301,15 +301,13 @@ class TSNE(Base):
 
         return
 
-    def __getattr__(self, attr):
-        # Function only to check attribute Y
-        # while will be deprecated in 0.14
-        if attr == "Y":
-            warnings.warn("Attribute Y is deprecated and will be dropped in "
-                          "version 0.14, access the embeddings using the "
-                          "attribute ‘embeddings_’ instead.",
-                          DeprecationWarning)
-            return self.embedding_
+    @property
+    def Y(self):
+        warnings.warn("Attribute Y is deprecated and will be dropped in "
+                      "version 0.14, access the embeddings using the "
+                      "attribute ‘embedding_’ instead.",
+                      DeprecationWarning)
+        return self.embedding_
 
     def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
@@ -417,7 +415,7 @@ class TSNE(Base):
         return self
 
     def __del__(self):
-        if "embedding_" in self.__dict__:
+        if hasattr(self, 'embedding_'):
             del self.embedding_
             self.embedding_ = None
 
@@ -439,7 +437,7 @@ class TSNE(Base):
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
-        self.fit(X, convert_dtype)
+        self.fit(X, convert_dtype=convert_dtype)
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.embedding_, cudf.DataFrame):
