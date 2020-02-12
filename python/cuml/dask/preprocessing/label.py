@@ -100,6 +100,8 @@ class LabelBinarizer(object):
         self.client_ = client if client is not None else default_client()
         self.kwargs = kwargs
 
+        # Sparse output will be added once sparse CuPy arrays are supported
+        # by Dask.Array: https://github.com/rapidsai/cuml/issues/1665
         if "sparse_output" in self.kwargs and \
                 self.kwargs["sparse_output"] is True:
             raise ValueError("Sparse output not yet "
