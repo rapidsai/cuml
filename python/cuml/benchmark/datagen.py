@@ -284,7 +284,7 @@ def gen_data(
             n_samples = int(data[0].shape[0] * (1 - test_fraction))
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(
-                *data, train_size=n_samples
+                *data, train_size=n_samples, random_state=random_state
             )
         )
         data = (X_train, y_train, X_test, y_test)
