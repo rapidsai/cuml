@@ -72,7 +72,7 @@ def _prep_training_data(c, X_train, partitions_per_worker):
                                      quality_param(7), stress_param(50)])
 @pytest.mark.parametrize("streams_per_handle", [1, 5])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
-                     streams_per_handle, cluster):
+                     streams_per_handle, ucx_cluster):
 
     client = Client(cluster)
 
@@ -96,12 +96,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-        wait(out_i)
-        raise_exception_from_futures(out_i)
-
-        out_i_local = out_i.compute()
-
-        local_i = np.array(out_i_local.as_gpu_matrix())
+        local_i = np.array(out_i.compute().as_gpu_matrix())
 
         sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
         skl_y_hat = sklModel.predict(X)
