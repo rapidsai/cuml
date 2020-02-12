@@ -31,12 +31,12 @@ namespace Sparse {
  * @{
  */
 template <typename T>
-cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz, T *vals,
+cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz, const T *vals,
                               T *vals_sorted, int *d_P, cudaStream_t stream);
 
 template <>
 inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
-                                     double *vals, double *vals_sorted,
+                                     const double *vals, double *vals_sorted,
                                      int *d_P, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P,
@@ -45,7 +45,7 @@ inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
 
 template <>
 inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
-                                     float *vals, float *vals_sorted,
+                                     const float *vals, float *vals_sorted,
                                      int *d_P, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
