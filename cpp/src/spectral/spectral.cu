@@ -16,7 +16,6 @@
 
 #include <cuml/cuml.hpp>
 #include "sparse/coo.h"
-#include "sparse/nvgraph_wrappers.h"
 
 #include "sparse/spectral.h"
 

@@ -17,7 +17,6 @@
 #pragma once
 
 #include <sparse/coo.h>
-#include <sparse/nvgraph_wrappers.h>
 #include <cuml/cuml.hpp>
 
 namespace ML {
