@@ -31,21 +31,23 @@ namespace Sparse {
  * @{
  */
 template <typename T>
-cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz, T *vals,
-                               T *vals_sorted, int *d_P);
+cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz, T *vals,
+                              T *vals_sorted, int *d_P, cudaStream_t stream);
 
 template <>
-inline cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz,
-                                      double *vals, double *vals_sorted,
-                                      int *d_P) {
+inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
+                                     double *vals, double *vals_sorted,
+                                     int *d_P, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
 }
 
-template<>
-inline cusparseStatus_t cusparse_gthr(cusparseHandle_t handle, int nnz,
-                                      float *vals, float *vals_sorted,
-                                      int *d_P) {
+template <>
+inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
+                                     float *vals, float *vals_sorted,
+                                     int *d_P, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
 }
@@ -66,6 +68,42 @@ inline void cusparsecoo2csr(cusparseHandle_t handle, const int* cooRowInd,
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   CUSPARSE_CHECK(cusparseXcoo2csr(handle, cooRowInd, nnz, m, csrRowPtr,
                                   CUSPARSE_INDEX_BASE_ZERO));
+}
+/** @} */
+
+/**
+ * @defgroup coosort cusparse coo sort methods
+ * @{
+ */
+template <typename T>
+size_t cusparsecoosort_bufferSizeExt(cusparseHandle_t handle, int m, int n,
+                                     int nnz, const T* cooRows,
+                                     const T* cooCols, cudaStream_t stream);
+
+template <>
+inline size_t cusparsecoosort_bufferSizeExt(cusparseHandle_t handle, int m,
+                                            int n, int nnz, const int* cooRows,
+                                            const int* cooCols,
+                                            cudaStream_t stream) {
+  size_t val;
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, cooRows,
+                                                cooCols, &val));
+  return val;
+}
+
+template <typename T>
+void cusparsecoosortByRow(cusparseHandle_t handle, int m, int n, int nnz,
+                          T* cooRows, T* cooCols, T* P, void* pBuffer,
+                          cudaStream_t stream);
+
+template <>
+inline void cusparsecoosortByRow(cusparseHandle_t handle, int m, int n, int nnz,
+                                 int* cooRows, int* cooCols, int* P,
+                                 void* pBuffer, cudaStream_t stream) {
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+  CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, cooRows, cooCols, P,
+                                       pBuffer));
 }
 /** @} */
 
