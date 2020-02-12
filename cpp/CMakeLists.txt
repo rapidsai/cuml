@@ -416,6 +416,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
+  # If we export the libdmlc symbols, they can lead to weird crashes with other
+  # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
 endif(BUILD_CUML_CPP_LIBRARY)
 
