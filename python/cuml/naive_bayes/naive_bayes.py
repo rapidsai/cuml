@@ -127,6 +127,11 @@ class MultinomialNB(object):
     The multinomial distribution normally requires integer feature counts.
     However, in practice, fractional counts such as tf-idf may also work.
 
+    NOTE: While cuML only provides the multinomial version currently, the
+    other variants are planned to be included soon. Refer to the
+    corresponding Github issue for updates:
+    https://github.com/rapidsai/cuml/issues/1666
+
     Examples
     --------
 
