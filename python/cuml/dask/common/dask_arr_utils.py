@@ -110,6 +110,8 @@ def to_sp_dask_array(cudf_or_array, client=None):
     that can make use of sparse CuPy-backed Dask.Array (eg. Distributed
     Naive Bayes).
 
+    Relevant cuML issue: https://github.com/rapidsai/cuml/issues/1387
+
     Parameters
     ----------
     cudf_or_array : cuDF, array-like sparse / dense array, or
