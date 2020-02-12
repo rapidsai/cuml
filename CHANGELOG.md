@@ -8,6 +8,7 @@
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
 - PR #1647: storage_type=AUTO uses SPARSE for large models
+- PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
