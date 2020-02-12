@@ -40,9 +40,9 @@ def get_dev_array_ptr(ary):
 
 def get_cudf_column_ptr(col):
     """
-    Returns ctype pointer of a cudf column
+    Returns pointerr of a cudf Series
     """
-    return cudf._lib.cudf.get_column_data_ptr(col._column)
+    return col.__cuda_array_interface__['data'][0]
 
 
 def get_dtype(X):
