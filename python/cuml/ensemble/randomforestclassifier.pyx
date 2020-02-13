@@ -401,19 +401,16 @@ class RandomForestClassifier(Base):
         return ctypes.c_void_p(mod_handle).value
 
     def concatenate_treelite_bytes(self, treelite_handle):
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
-        cdef vector[ModelHandle*] *mod_handle_vec \
-            = new vector[ModelHandle*]()
+        cdef vector[ModelHandle] *mod_handle_vec \
+            = new vector[ModelHandle]()
         cdef uintptr_t mod_ptr
         for i in treelite_handle:
             mod_ptr = <uintptr_t>i
             mod_handle_vec.push_back((
-                <ModelHandle*> mod_ptr))
+                <ModelHandle> mod_ptr))
 
         concat_mod_bytes = \
-            concatenate_trees(handle_[0],
-                              deref(mod_handle_vec))
+            concatenate_trees(deref(mod_handle_vec))
 
         return concat_mod_bytes
 
