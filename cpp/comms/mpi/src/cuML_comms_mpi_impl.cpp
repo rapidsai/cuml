@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,6 +91,9 @@ size_t getDatatypeSize(const cumlMPICommunicator_impl::datatype_t datatype) {
       return sizeof(float);
     case MLCommon::cumlCommunicator::DOUBLE:
       return sizeof(double);
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
+      return 0;
   }
 }
 
@@ -113,6 +116,9 @@ MPI_Datatype getMPIDatatype(
       return MPI_FLOAT;
     case MLCommon::cumlCommunicator::DOUBLE:
       return MPI_DOUBLE;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
+      return MPI_DOUBLE;
   }
 }
 
@@ -125,6 +131,9 @@ MPI_Op getMPIOp(const cumlMPICommunicator_impl::op_t op) {
     case MLCommon::cumlCommunicator::MIN:
       return MPI_MIN;
     case MLCommon::cumlCommunicator::MAX:
+      return MPI_MAX;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
       return MPI_MAX;
   }
 }
@@ -149,6 +158,9 @@ ncclDataType_t getNCCLDatatype(
       return ncclFloat;
     case MLCommon::cumlCommunicator::DOUBLE:
       return ncclDouble;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
+      return ncclDouble;
   }
 }
 
@@ -161,6 +173,9 @@ ncclRedOp_t getNCCLOp(const cumlMPICommunicator_impl::op_t op) {
     case MLCommon::cumlCommunicator::MIN:
       return ncclMin;
     case MLCommon::cumlCommunicator::MAX:
+      return ncclMax;
+    default:
+      // Execution should never reach here. This takes care of compiler warning.
       return ncclMax;
   }
 }
@@ -365,7 +380,7 @@ void cumlMPICommunicator_impl::reducescatter(const void* sendbuff,
 
 MLCommon::cumlCommunicator::status_t cumlMPICommunicator_impl::syncStream(
   cudaStream_t stream) const {
-#ifndef HAVE_NCCL
+#ifdef HAVE_NCCL
   cudaError_t cudaErr;
   ncclResult_t ncclErr, ncclAsyncErr;
   while (1) {
@@ -397,6 +412,7 @@ MLCommon::cumlCommunicator::status_t cumlMPICommunicator_impl::syncStream(
   }
 #else
   CUDA_CHECK(cudaStreamSynchronize(stream));
+  return status_t::commStatusSuccess;
 #endif
 }
 }  // end namespace ML

@@ -78,6 +78,22 @@ class KNeighborsClassifier(NearestNeighbors):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
 
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    verbose : boolean (default=False)
+        Whether to print verbose logs
+    handle : cumlHandle
+        The cumlHandle resources to use
+    algorithm : string (default='brute')
+        The query algorithm to use. Currently, only 'brute' is supported.
+    metric : string (default='euclidean').
+        Distance metric to use.
+    weights : string (default='uniform')
+        Sample weights to use. Currently, only the uniform strategy is
+        supported.
+
     Examples
     ---------
     .. code-block:: python
@@ -103,7 +119,6 @@ class KNeighborsClassifier(NearestNeighbors):
     Output:
     -------
 
-
     .. code-block:: python
 
       array([3, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1, 0, 0, 0, 2, 3, 3,
@@ -118,24 +133,40 @@ class KNeighborsClassifier(NearestNeighbors):
 
     def __init__(self, weights="uniform", **kwargs):
         """
-        Parameters
-        ----------
-        n_neighbors : int default number of neighbors to query (default=5)
-        verbose : boolean print verbose logs
-        handle : cumlHandle the cumlHandle resources to use
-        algorithm : string the query algorithm to use. Currently, only
-                    'brute' is supported.
-        metric : string distance metric to use. (default="euclidean").
-        weights : string sample weights to use. (default="uniform").
-                  Currently, only the uniform strategy is supported.
+
         """
         super(KNeighborsClassifier, self).__init__(**kwargs)
+
         self.y = None
         self.weights = weights
 
         if weights != "uniform":
             raise ValueError("Only uniform weighting strategy is "
                              "supported currently.")
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        del state['handle']
+
+        # Only need to store index if fit() was called
+        if self.n_indices == 1:
+            state['y'] = cudf.Series(self.y)
+            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+        return state
+
+    def __setstate__(self, state):
+        super(NearestNeighbors, self).__init__(handle=None,
+                                               verbose=state['verbose'])
+
+        cdef uintptr_t x_ctype
+
+        # Only need to recover state if model had been previously fit
+        if state["n_indices"] == 1:
+
+            state['y'] = state['y'].to_gpu_array()
+            state['X_m'] = state['X_m'].as_gpu_matrix()
+        self.__dict__.update(state)
 
     def fit(self, X, y, convert_dtype=True):
         """
@@ -158,7 +189,6 @@ class KNeighborsClassifier(NearestNeighbors):
             convert the inputs to np.float32.
         """
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
-
         self.y, _, _, _, _ = \
             input_to_dev_array(y, order='F', check_dtype=np.int32,
                                convert_to_dtype=(np.int32
@@ -308,6 +338,9 @@ class KNeighborsClassifier(NearestNeighbors):
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)
 
+    def get_param_names(self):
+        return ["n_neighbors", "algorithm", "metric", "weights"]
+
     def score(self, X, y, convert_dtype=True):
         """
         Compute the accuracy score using the given labels and
@@ -329,7 +362,6 @@ class KNeighborsClassifier(NearestNeighbors):
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
-        :param sample_weight : This parameter is curren
         """
         y_hat = self.predict(X, convert_dtype=convert_dtype)
         if isinstance(y_hat, tuple):

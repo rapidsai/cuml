@@ -20,9 +20,11 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
+from cuml.metrics.base import RegressorMixin
+from cuml.common.base import Base
 
 
-class ElasticNet:
+class ElasticNet(Base, RegressorMixin):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -240,7 +242,7 @@ class ElasticNet:
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------
