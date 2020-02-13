@@ -609,7 +609,7 @@ class RandomForestClassifier(Base):
                            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
                                  multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
+            `auto` - choose the algorithm automatically. Currently
                      'batch_tree_reorg' is used for dense storage
                      and 'naive' for sparse storage
         threshold : float (default = 0.5)
@@ -741,7 +741,7 @@ class RandomForestClassifier(Base):
                            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
                                  multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
+            `auto` - choose the algorithm automatically. Currently
                      'batch_tree_reorg' is used for dense storage
                      and 'naive' for sparse storage
         threshold : float
