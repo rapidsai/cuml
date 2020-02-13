@@ -55,8 +55,8 @@ if(BUILD_CUML_BENCH)
     sg/dbscan.cu
     sg/kmeans.cu
     sg/main.cpp
-    sg/rf_classifier.cu
-    sg/rf_regressor.cu
+    # sg/rf_classifier.cu
+    # sg/rf_regressor.cu
     )
   target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
   target_include_directories(${CUML_SG_BENCH_TARGET}

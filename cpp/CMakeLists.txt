@@ -298,6 +298,7 @@ ExternalProject_Add(faiss
   INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1
+  PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/faiss_cuda11.patch || true
 )
 
 add_dependencies(faiss cutlass)
@@ -319,7 +320,7 @@ ExternalProject_Add(treelite
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                      -DENABLE_PROTOBUF=ON
+                      -DENABLE_PROTOBUF=OFF
                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
     UPDATE_COMMAND    ""
     PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true
@@ -389,14 +390,14 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/solver.cu
-    # src/spectral/spectral.cu
+    #src/spectral/spectral.cu
     src/svm/svc.cu
     src/svm/svr.cu
     src/svm/ws_util.cu
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
-    # src/umap/umap.cu
+    #src/umap/umap.cu
     src/arima/batched_kalman.cu
     src/arima/batched_arima.cu
   )
@@ -416,7 +417,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_cusolver_LIBRARY}
     ${CUDA_CUDART_LIBRARY}
     ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
+    #${CUDA_nvgraph_LIBRARY}
     ${ZLIB_LIBRARIES}
     ${Protobuf_LIBRARIES}
     treelitelib
