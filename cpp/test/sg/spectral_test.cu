@@ -56,6 +56,9 @@ TEST_F(TestSpectralClustering, Fit) {
   MLCommon::allocate(out, n, true);
 
   ML::Spectral::fit_clusters(handle, X, n, d, k, 10, 1e-3f, out);
+  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+  CUDA_CHECK(cudaFree(out));
+  CUDA_CHECK(cudaFree(X));
 }
 
 typedef SpectralTest<float> TestSpectralEmbedding;
