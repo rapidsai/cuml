@@ -26,6 +26,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
+#include "common/device_buffer.hpp"
 #include "linalg/batched/matrix.h"
 #include "linalg/cusolver_wrappers.h"
 #include "matrix/matrix.h"
@@ -102,6 +103,10 @@ static __global__ void csr_to_dense_kernel(T* dense, const int* col_index,
  * @brief The Batched::CSR class provides storage and a few operations for
  *        a batch of matrices in Compressed Sparse Row representation, that
  *        share a common structure (index arrays) but different values.
+ * 
+ * @note Most of the operations are asynchronous, using the stream that
+ *       is given in the constructor (or, if constructing from a dense matrix,
+ *       the stream attached to this matrix)
  */
 template <typename T>
 class CSR {
@@ -126,38 +131,11 @@ class CSR {
       m_cublasHandle(cublasHandle),
       m_cusolverSpHandle(cusolverSpHandle),
       m_stream(stream),
-      m_shape(std::pair<int, int>(m, n)),
-      m_nnz(nnz) {
-    // Allocate the values
-    T* values =
-      (T*)m_allocator->allocate(sizeof(T) * m_nnz * m_batch_size, m_stream);
-    // Allocate the index arrays
-    int* col_index = (int*)m_allocator->allocate(sizeof(int) * m_nnz, m_stream);
-    int* row_index =
-      (int*)m_allocator->allocate(sizeof(int) * (m_shape.first + 1), m_stream);
-
-    /* Take these references to extract them from member-storage for the
-     * lambda below. There are better C++14 ways to do this, but I'll keep
-     * it C++11 for now. */
-    auto& shape = m_shape;
-
-    /* Note: we create these "free" functions with explicit copies to ensure
-     * that the deallocate function gets called with the correct values. */
-    auto deallocate_values = [allocator, batch_size, nnz, stream](T* A) {
-      allocator->deallocate(A, batch_size * nnz * sizeof(T), stream);
-    };
-    auto deallocate_col = [allocator, nnz, stream](int* A) {
-      allocator->deallocate(A, sizeof(int) * nnz, stream);
-    };
-    auto deallocate_row = [allocator, shape, stream](int* A) {
-      allocator->deallocate(A, sizeof(int) * (shape.first + 1), stream);
-    };
-
-    // When the shared pointers go to 0, the memory is deallocated
-    m_values = std::shared_ptr<T>(values, deallocate_values);
-    m_col_index = std::shared_ptr<int>(col_index, deallocate_col);
-    m_row_index = std::shared_ptr<int>(row_index, deallocate_row);
-  }
+      m_shape(m, n),
+      m_nnz(nnz),
+      m_values(allocator, stream, nnz * batch_size),
+      m_col_index(allocator, stream, nnz),
+      m_row_index(allocator, stream, m + 1) { }
 
   /**
    * @brief Construct from a dense batched matrix and its mask
@@ -225,7 +203,7 @@ class CSR {
     constexpr int TPB = 256;
     csr_to_dense_kernel<<<MLCommon::ceildiv<int>(m_batch_size, TPB), TPB, 0,
                           m_stream>>>(
-      dense.raw_data(), m_col_index.get(), m_row_index.get(), m_values.get(),
+      dense.raw_data(), m_col_index.data(), m_row_index.data(), m_values.data(),
       m_batch_size, m_shape.first, m_shape.second, m_nnz);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -254,16 +232,16 @@ class CSR {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return values array
-  T* get_values() { return m_values.get(); }
-  const T* get_values() const { return m_values.get(); }
+  T* get_values() { return m_values.data(); }
+  const T* get_values() const { return m_values.data(); }
 
   //! Return columns index array
-  int* get_col_index() { return m_col_index.get(); }
-  const int* get_col_index() const { return m_col_index.get(); }
+  int* get_col_index() { return m_col_index.data(); }
+  const int* get_col_index() const { return m_col_index.data(); }
 
   //! Return rows index array
-  int* get_row_index() { return m_row_index.get(); }
-  const int* get_row_index() const { return m_row_index.get(); }
+  int* get_row_index() { return m_row_index.data(); }
+  const int* get_row_index() const { return m_row_index.data(); }
 
  protected:
   //! Shape (rows, cols) of matrices.
@@ -273,13 +251,13 @@ class CSR {
   int m_nnz;
 
   //! Array(pointer) to the values in all the batched matrices.
-  std::shared_ptr<T> m_values;
+  device_buffer<T> m_values;
 
   //! Array(pointer) to the column index of the CSR.
-  std::shared_ptr<int> m_col_index;
+  device_buffer<int> m_col_index;
 
   //! Array(pointer) to the row index of the CSR.
-  std::shared_ptr<int> m_row_index;
+  device_buffer<int> m_row_index;
 
   //! Number of matrices in batch
   size_t m_batch_size;
@@ -367,6 +345,7 @@ void b_spmv(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& x,
                         A.stream()>>>(
     alpha, A.get_col_index(), A.get_row_index(), A.get_values(), x.raw_data(),
     beta, y.raw_data(), m, n, A.batches());
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
