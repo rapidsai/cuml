@@ -569,10 +569,10 @@ class RandomForestRegressor(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
+                           coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
+                                 multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
                      'batch_tree_reorg' is used for dense storage
                      and 'naive' for sparse storage
         convert_dtype : bool, optional (default = True)
@@ -631,7 +631,7 @@ class RandomForestRegressor(Base):
             coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
             multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
+            `auto` - choose the algorithm automatically. Currently
                      'batch_tree_reorg' is used for dense storage
                      and 'naive' for sparse storage
         convert_dtype : boolean, default=True
