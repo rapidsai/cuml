@@ -316,29 +316,30 @@ cdef class ForestInference_impl():
 
 
 class ForestInference(Base):
-    """
-    ForestInference provides GPU-accelerated inference (prediction)
+    """ForestInference provides GPU-accelerated inference (prediction)
     for random forest and boosted decision tree models.
 
     This module does not support training models. Rather, users should
     train a model in another package and save it in a
     treelite-compatible format. (See https://github.com/dmlc/treelite)
-    Currently, LightGBM and XGBoost GBDT and random forest models are
-    supported.
+    Currently, LightGBM, XGBoost and SKLearn GBDT and random forest models
+    are supported.
 
-    Users typically create a ForestInference object by loading a
-    saved model file with ForestInference.load. The resulting object
+    Users typically create a ForestInference object by loading a saved model
+    file with ForestInference.load. It is also possible to create it from an
+    SKLearn model using ForestInference.load_from_sklearn. The resulting object
     provides a `predict` method for carrying out inference.
 
     **Known limitations**:
-     * Trees are represented as complete binary trees, so a tree of depth k
-       will be stored in (2**k) - 1 nodes. This will be less space-efficient
-       for sparse trees.
-     * While treelite supports additional formats, only XGBoost and LightGBM
-       are tested in FIL currently.
-     * LightGBM categorical features are not supported
+     * A single row of data should fit into the shared memory of a thread block, 
+       which means that more than 12288 features are not supported.
+     * From sklearn.ensemble, only
+       {RandomForest,GradientBoosting}{Classifier,Regressor} models are
+       supported; other sklearn.ensemble models are currently not supported.
+     * Importing large SKLearn models can be slow, as it is done in Python.
+     * LightGBM categorical features are not supported.
      * Inference uses a dense matrix format, which is efficient for many
-       problems but will be suboptimal for sparse datasets.
+       problems but can be suboptimal for sparse datasets.
      * Only binary classification and regression are supported.
 
     Parameters
@@ -348,26 +349,32 @@ class ForestInference(Base):
 
     Examples
     --------
-    For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/forest_inference_demo.ipynb # noqa
 
     In the example below, synthetic data is copied to the host before
     inference. ForestInference can also accept a numpy array directly at the
     cost of a slight performance overhead.
 
-    >>> # Assume that the file 'xgb.model' contains a classifier model that was
-    >>> # previously saved by XGBoost's save_model function.
-    >>>
-    >>> import sklearn, sklearn.datasets, numpy as np
-    >>> from numba import cuda
-    >>> from cuml import ForestInference
-    >>> model_path = 'xgb.model'
-    >>> X_test, y_test = sklearn.datasets.make_classification()
-    >>> X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
-    >>> fm = ForestInference.load(model_path, output_class=True)
-    >>> fil_preds_gpu = fm.predict(X_gpu)
-    >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
-    >>>                np.asarray(fil_preds_gpu))
+    .. code-block:: python
+
+        # Assume that the file 'xgb.model' contains a classifier model that was
+        # previously saved by XGBoost's save_model function.
+
+        import sklearn, sklearn.datasets, numpy as np
+        from numba import cuda
+        from cuml import ForestInference
+
+        model_path = 'xgb.model'
+        X_test, y_test = sklearn.datasets.make_classification()
+        X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
+        fm = ForestInference.load(model_path, output_class=True)
+        fil_preds_gpu = fm.predict(X_gpu)
+        accuracy_score = sklearn.metrics.accuracy_score(y_test,
+                       np.asarray(fil_preds_gpu))
+
+    Notes
+    ------
+    For additional usage examples, see the sample notebook at
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/forest_inference_demo.ipynb # noqa
 
     """
     def __init__(self,

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,64 +18,81 @@ import numpy as np
 import pickle
 import pytest
 
-from cuml.test.utils import array_equal, unit_param, stress_param
+from cuml.test import test_arima
+from cuml.tsa.arima import ARIMAModel
+from cuml.test.utils import array_equal, unit_param, stress_param, \
+    ClassEnumerator, get_classes_from_package
 from cuml.test.test_svm import compare_svm
-
-from sklearn.datasets import load_iris, make_classification,\
-    make_regression
+from sklearn.base import clone
+from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
 
+regression_config = ClassEnumerator(module=cuml.linear_model)
+regression_models = regression_config.get_models()
 
-regression_models = {
-    "LinearRegression": lambda: cuml.LinearRegression(),
-    "Lasso": lambda: cuml.Lasso(),
-    "Ridge": lambda: cuml.Ridge(),
-    "ElasticNet": lambda: cuml.ElasticNet()
-}
+solver_config = ClassEnumerator(
+    module=cuml.solvers,
+    # QN uses softmax here because some of the tests uses multiclass
+    # logistic regression which requires a softmax loss
+    custom_constructors={"QN": lambda: cuml.QN(loss="softmax")}
+)
+solver_models = solver_config.get_models()
 
-solver_models = {
-    "CD": lambda: cuml.CD(),
-    "SGD": lambda: cuml.SGD(eta0=0.005)
-}
+cluster_config = ClassEnumerator(
+    module=cuml.cluster,
+    exclude_classes=[cuml.DBSCAN]
+)
+cluster_models = cluster_config.get_models()
 
-cluster_models = {
-    "KMeans": lambda: cuml.KMeans()
-}
+decomposition_config = ClassEnumerator(module=cuml.decomposition)
+decomposition_models = decomposition_config.get_models()
 
-decomposition_models = {
-    "PCA": lambda: cuml.PCA(),
-    "TruncatedSVD": lambda: cuml.TruncatedSVD(),
-}
+decomposition_config_xfail = ClassEnumerator(module=cuml.random_projection)
+decomposition_models_xfail = decomposition_config_xfail.get_models()
 
-decomposition_models_xfail = {
-    "GaussianRandomProjection": lambda: cuml.GaussianRandomProjection(),
-    "SparseRandomProjection": lambda: cuml.SparseRandomProjection()
-}
+neighbor_config = ClassEnumerator(module=cuml.neighbors)
+neighbor_models = neighbor_config.get_models()
 
-neighbor_models = {
-    "NearestNeighbors": lambda: cuml.NearestNeighbors()
-}
+dbscan_model = {"DBSCAN": cuml.DBSCAN}
 
-dbscan_model = {
-    "DBSCAN": lambda: cuml.DBSCAN()
-}
+umap_model = {"UMAP": cuml.UMAP}
 
-umap_model = {
-    "UMAP": lambda: cuml.UMAP()
-}
+rf_module = ClassEnumerator(module=cuml.ensemble)
+rf_models = rf_module.get_models()
 
-rf_classification_model = {
-    "rfc": lambda: cuml.RandomForestClassifier()
-}
+k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
+    cuml.neighbors.NearestNeighbors])
+k_neighbors_models = k_neighbors_config.get_models()
 
-rf_regression_model = {
-    "rfr": lambda: cuml.RandomForestRegressor()
-}
+unfit_pickle_xfail = ['ARIMAModel', 'KalmanFilter', 'ForestInference']
+unfit_clone_xfail = ['ARIMAModel', 'ExponentialSmoothing', 'KalmanFilter',
+                     'MBSGDClassifier', 'MBSGDRegressor']
+
+all_models = get_classes_from_package(cuml)
+all_models.update({
+    **regression_models,
+    **solver_models,
+    **cluster_models,
+    **decomposition_models,
+    **decomposition_models_xfail,
+    **neighbor_models,
+    **dbscan_model,
+    **umap_model,
+    **rf_models,
+    **k_neighbors_models,
+    'ARIMAModel': lambda: ARIMAModel((1, 1, 1),
+                                     np.array([-217.72, -206.77]),
+                                     [np.array([0.03]), np.array([-0.03])],
+                                     [np.array([-0.99]), np.array([-0.99])],
+                                     test_arima.get_data()[1]),
+    'ExponentialSmoothing':
+        lambda: cuml.ExponentialSmoothing(np.array([-217.72, -206.77])),
+    'KalmanFilter': lambda: cuml.KalmanFilter(1, 1),
+})
 
 
 def pickle_save_load(tmpdir, func_create_model, func_assert):
-
     model, X_test = func_create_model()
     pickle_file = tmpdir.join('cu_model.pickle')
 
@@ -90,6 +107,7 @@ def pickle_save_load(tmpdir, func_create_model, func_assert):
 
     with open(pickle_file, 'rb') as pf:
         cu_after_pickle_model = pickle.load(pf)
+
     func_assert(cu_after_pickle_model, X_test)
 
 
@@ -113,46 +131,34 @@ def make_dataset(datatype, nrows, ncols, n_info):
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('keys', rf_regression_model.keys())
+@pytest.mark.parametrize('key', rf_models.keys())
 @pytest.mark.parametrize('nrows', [unit_param(500)])
 @pytest.mark.parametrize('ncols', [unit_param(16)])
 @pytest.mark.parametrize('n_info', [unit_param(7)])
-def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, keys):
+def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info, key):
     result = {}
 
     def create_mod():
-        X_train, y_train, X_test = make_dataset(datatype, nrows,
-                                                ncols, n_info)
-        model = rf_regression_model[keys]()
+        if key == 'RandomForestRegressor':
+            X_train, y_train, X_test = make_dataset(datatype,
+                                                    nrows,
+                                                    ncols,
+                                                    n_info)
+        else:
+            X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                                   nrows,
+                                                                   ncols,
+                                                                   n_info)
+
+        model = rf_models[key]()
         model.fit(X_train, y_train)
-        result["rf_reg"] = model.predict(X_test)
+        result["rf_res"] = model.predict(X_test)
         return model, X_test
 
     def assert_model(pickled_model, X_test):
-        assert array_equal(result["rf_reg"], pickled_model.predict(X_test))
-
-    pickle_save_load(tmpdir, create_mod, assert_model)
-
-
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('keys', rf_classification_model.keys())
-@pytest.mark.parametrize('nrows', [unit_param(500)])
-@pytest.mark.parametrize('ncols', [unit_param(16)])
-@pytest.mark.parametrize('n_info', [unit_param(7)])
-def test_rf_classification_pickle(tmpdir, datatype, keys,
-                                  nrows, ncols, n_info):
-    result = {}
-
-    def create_mod():
-        X_train, y_train, X_test = make_classification_dataset(datatype, nrows,
-                                                               ncols, n_info)
-        model = rf_classification_model[keys]()
-        model.fit(X_train, y_train)
-        result["rf_class"] = model.predict(X_test)
-        return model, X_test
-
-    def assert_model(pickled_model, X_test):
-        assert array_equal(result["rf_class"], pickled_model.predict(X_test))
+        assert array_equal(result["rf_res"], pickled_model.predict(X_test))
+        # Confirm no crash from score
+        pickled_model.score(X_test, np.zeros(X_test.shape[0]))
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -160,15 +166,16 @@ def test_rf_classification_pickle(tmpdir, datatype, keys,
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', regression_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
-def test_regressor_pickle(tmpdir, datatype, keys, data_size):
+                                       stress_param([500000, 1000, 500])])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
     result = {}
 
     def create_mod():
         nrows, ncols, n_info = data_size
         X_train, y_train, X_test = make_dataset(datatype, nrows,
                                                 ncols, n_info)
-        model = regression_models[keys]()
+        model = regression_models[keys](fit_intercept=fit_intercept)
         model.fit(X_train, y_train)
         result["regressor"] = model.predict(X_test)
         return model, X_test
@@ -182,7 +189,7 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', solver_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 def test_solver_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
@@ -204,7 +211,7 @@ def test_solver_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', cluster_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 def test_cluster_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
@@ -226,7 +233,7 @@ def test_cluster_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', decomposition_models_xfail.values())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 @pytest.mark.xfail
 def test_decomposition_pickle(tmpdir, datatype, keys, data_size):
     result = {}
@@ -283,7 +290,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', decomposition_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 @pytest.mark.xfail
 def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
     result = {}
@@ -303,19 +310,50 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
+@pytest.mark.parametrize('model_name',
+                         all_models.keys())
+def test_unfit_pickle(model_name):
+    # Any model xfailed in this test cannot be used for hyperparameter sweeps
+    # with dask or sklearn
+    if (model_name in decomposition_models_xfail.keys() or
+            model_name in unfit_pickle_xfail):
+        pytest.xfail()
+
+    # Pickling should work even if fit has not been called
+    mod = all_models[model_name]()
+    mod_pickled_bytes = pickle.dumps(mod)
+    mod_unpickled = pickle.loads(mod_pickled_bytes)
+    assert mod_unpickled is not None
+
+
+@pytest.mark.parametrize('model_name',
+                         all_models.keys())
+def test_unfit_clone(model_name):
+    if model_name in unfit_clone_xfail:
+        pytest.xfail()
+
+    # Cloning runs into many of the same problems as pickling
+    mod = all_models[model_name]()
+    clone(mod)
+    # TODO: check parameters exactly?
+
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', neighbor_models.keys())
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
-                         stress_param([500000, 1000, 500, 50])])
+                                       stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
     result = {}
 
     def create_mod():
         nrows, ncols, n_info, k = data_info
-        X_train, _, X_test = make_dataset(datatype, nrows, ncols, n_info)
+        X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
         model = neighbor_models[keys]()
-        model.fit(X_train)
+        if keys in k_neighbors_models.keys():
+            model.fit(X_train, y_train)
+        else:
+            model.fit(X_train)
         result["neighbors_D"], result["neighbors_I"] = \
             model.kneighbors(X_test, n_neighbors=k)
         return model, X_test
@@ -331,7 +369,35 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
-                         stress_param([500000, 1000, 500, 50])])
+                                       stress_param([500000, 1000, 500, 50])])
+@pytest.mark.parametrize('keys', k_neighbors_models.keys())
+def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
+    result = {}
+
+    def create_mod():
+        nrows, ncols, n_info, k = data_info
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info)
+        model = k_neighbors_models[keys](n_neighbors=k)
+        model.fit(X_train, y_train)
+        result["neighbors"] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        D_after = pickled_model.predict(X_test)
+        assert array_equal(result["neighbors"], D_after)
+        state = pickled_model.__dict__
+        assert state["n_indices"] == 1
+        assert "X_m" in state
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
+                                       stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     result = {}
     """
@@ -365,7 +431,7 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', dbscan_model.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
-                         stress_param([500000, 1000, 500])])
+                                       stress_param([500000, 1000, 500])])
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
     result = {}
 
@@ -405,7 +471,7 @@ def test_tsne_pickle(tmpdir):
             new_keys -= set([key])
 
         # Check all keys have been checked
-        assert(len(new_keys) == 0)
+        assert (len(new_keys) == 0)
 
         # Transform data
         result["fit_model"] = pickled_model.fit(X)
@@ -425,7 +491,7 @@ def test_tsne_pickle(tmpdir):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_svm_pickle(tmpdir, datatype):
+def test_svc_pickle(tmpdir, datatype):
     result = {}
 
     def create_mod():
@@ -443,3 +509,78 @@ def test_svm_pickle(tmpdir, datatype):
     def assert_model(pickled_model, data):
         compare_svm(result["model"], pickled_model, data[0], data[1], cmp_sv=0,
                     dcoef_tol=0)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
+    result = {}
+
+    def create_mod():
+        X_train, y_train, X_test = make_dataset(datatype, nrows,
+                                                ncols, n_info)
+        model = cuml.svm.SVR()
+        model.fit(X_train, y_train)
+        result["svr"] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        assert array_equal(result["svr"], pickled_model.predict(X_test))
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
+    def create_mod():
+        X_train, y_train, X_test = make_dataset(datatype,
+                                                nrows,
+                                                ncols,
+                                                n_info)
+        model = cuml.svm.SVR()
+        return model, [X_train, y_train, X_test]
+
+    def assert_model(pickled_model, X):
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == -1
+
+        pickled_model.fit(X[0], X[1])
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == 0
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
+    def create_mod():
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info)
+        model = cuml.svm.SVC()
+        return model, [X_train, y_train, X_test]
+
+    def assert_model(pickled_model, X):
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == -1
+
+        pickled_model.fit(X[0], X[1])
+        state = pickled_model.__dict__
+
+        assert state["fit_status_"] == 0
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
