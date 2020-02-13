@@ -20,12 +20,22 @@
 
 namespace MLCommon {
 namespace Sparse {
+
+#if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
 #define CUSPARSE_CHECK(call)                                                   \
   do {                                                                         \
     cusparseStatus_t status = call;                                            \
     ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s' Reason='%s'\n", \
            #call, cusparseGetErrorString(status));                             \
   } while (0)
+#else
+#define CUSPARSE_CHECK(call)                                                 \
+  do {                                                                       \
+    cusparseStatus_t status = call;                                          \
+    ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s' Code='%d'\n", \
+           #call, int(status));                                              \
+  } while (0)
+#endif  // CUDART_VERSION
 
 /**
  * @defgroup gthr cusparse gather methods
