@@ -33,6 +33,7 @@
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/unary_op.h>
+#include <common/device_buffer.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -131,47 +132,24 @@ template <typename T>
 class Matrix {
  protected:
   /**
-   * @brief Allocation method used by the constructors
+   * @brief Initialization method
    * 
-   * @param[in]  setZero  Whether to initialize the allocated matrix with all zeros
+   * @param[in] setZero Whether to initialize the allocated matrix with zeros
    */
-  void allocate(bool setZero = false) {
-    int m = m_shape.first;
-    int n = m_shape.second;
-    auto& allocator = m_allocator;
-    auto& stream = m_stream;
-    auto batch_size = m_batch_size;
-
-    // Allocate dense batched matrix and possibly set to zero
-    T* A_dense =
-      (T*)allocator->allocate(sizeof(T) * m * n * m_batch_size, m_stream);
+  void initialize(bool setZero = false) {
+    // Fill with zeros if requested
     if (setZero)
-      CUDA_CHECK(cudaMemsetAsync(A_dense, 0, sizeof(T) * m * n * m_batch_size,
-                                 m_stream));
+      CUDA_CHECK(cudaMemsetAsync(
+        m_dense.data(), 0,
+        sizeof(T) * m_shape.first * m_shape.second * m_batch_size, m_stream));
 
-    // Allocate and fill array of pointers to each batch matrix
-    T** A_array = (T**)allocator->allocate(sizeof(T*) * m_batch_size, m_stream);
     // Fill array of pointers to each batch matrix.
     constexpr int TPB = 256;
-    fill_strided_pointers_kernel<<<ceildiv<int>(batch_size, TPB), TPB, 0,
-                                   m_stream>>>(A_dense, A_array, batch_size, m,
-                                               n);
+    fill_strided_pointers_kernel<<<ceildiv<int>(m_batch_size, TPB), TPB, 0,
+                                   m_stream>>>(m_dense.data(), m_batches.data(),
+                                               m_batch_size, m_shape.first,
+                                               m_shape.second);
     CUDA_CHECK(cudaPeekAtLastError());
-
-    /* Note: we create this "free" function with explicit copies to ensure that
-     * the deallocate function gets called with the correct values. */
-    auto f1 = [allocator, batch_size, m, n, stream](T* A) {
-      allocator->deallocate(A, batch_size * m * n * sizeof(T), stream);
-    };
-
-    auto f2 = [allocator, batch_size, stream](T** A) {
-      allocator->deallocate(A, sizeof(T*) * batch_size, stream);
-    };
-
-    // When this shared pointer count goes to 0, `f` is called to deallocate
-    // the memory
-    m_A_dense = std::shared_ptr<T>(A_dense, f1);
-    m_A_batches = std::shared_ptr<T*>(A_array, f2);
   }
 
  public:
@@ -193,9 +171,10 @@ class Matrix {
       m_allocator(allocator),
       m_cublasHandle(cublasHandle),
       m_stream(stream),
-      m_shape(std::make_pair(m, n)) {
-    // Allocate memory
-    allocate(setZero);
+      m_shape(m, n),
+      m_batches(allocator, stream, batch_size),
+      m_dense(allocator, stream, m * n * batch_size) {
+    initialize(setZero);
   }
 
   //! Destructor: nothing to destroy explicitely
@@ -207,12 +186,14 @@ class Matrix {
       m_allocator(other.m_allocator),
       m_cublasHandle(other.m_cublasHandle),
       m_stream(other.m_stream),
-      m_shape(other.m_shape) {
-    // Allocate memory
-    allocate(false);
+      m_shape(other.m_shape),
+      m_batches(other.m_allocator, other.m_stream, other.m_batch_size),
+      m_dense(other.m_allocator, other.m_stream,
+              other.m_shape.first * other.m_shape.second * other.m_batch_size) {
+    initialize(false);
 
     // Copy the raw data
-    copy(m_A_dense.get(), other.m_A_dense.get(),
+    copy(m_dense.data(), other.m_dense.data(),
          m_batch_size * m_shape.first * m_shape.second, m_stream);
   }
 
@@ -221,33 +202,13 @@ class Matrix {
     m_batch_size = other.m_batch_size;
     m_shape = other.m_shape;
 
-    // Allocate memory
-    allocate(false);
+    m_batches.resize(m_batch_size, m_stream);
+    m_dense.resize(m_batch_size * m_shape.first * m_shape.second, m_stream);
+    initialize(false);
 
     // Copy the raw data
-    copy(m_A_dense.get(), other.m_A_dense.get(),
+    copy(m_dense.data(), other.m_dense.data(),
          m_batch_size * m_shape.first * m_shape.second, m_stream);
-
-    return *this;
-  }
-
-  //! Move constructor
-  Matrix<T>(Matrix<T>&& other) noexcept
-    : m_batch_size(other.m_batch_size),
-      m_allocator(other.m_allocator),
-      m_cublasHandle(other.m_cublasHandle),
-      m_stream(other.m_stream),
-      m_shape(other.m_shape),
-      m_A_dense(std::move(other.m_A_dense)),
-      m_A_batches(std::move(other.m_A_batches)) {}
-
-  //! Move assignment operator
-  Matrix<T>& operator=(Matrix<T>&& other) noexcept {
-    m_batch_size = other.m_batch_size;
-    m_shape = other.m_shape;
-
-    m_A_dense = std::move(other.m_A_dense);
-    m_A_batches = std::move(other.m_A_batches);
 
     return *this;
   }
@@ -268,12 +229,12 @@ class Matrix {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return pointer array
-  T** data() { return m_A_batches.get(); }
-  const T** data() const { return m_A_batches.get(); }
+  T** data() { return m_batches.data(); }
+  const T** data() const { return m_batches.data(); }
 
   //! Return pointer to the underlying memory
-  T* raw_data() { return m_A_dense.get(); }
-  const T* raw_data() const { return m_A_dense.get(); }
+  T* raw_data() { return m_dense.data(); }
+  const T* raw_data() const { return m_dense.data(); }
 
   /**
    * @brief Return pointer to the data of a specific matrix
@@ -282,7 +243,7 @@ class Matrix {
    * @return         A pointer to the raw data of the matrix
    */
   T* operator[](int id) const {
-    return &(m_A_dense.get()[id * m_shape.first * m_shape.second]);
+    return &(m_dense.data()[id * m_shape.first * m_shape.second]);
   }
 
   /**
@@ -306,7 +267,7 @@ class Matrix {
     int r = m * n;
     Matrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                     false);
-    copy(toVec[0], m_A_dense.get(), m_batch_size * r, m_stream);
+    copy(toVec[0], m_dense.data(), m_batch_size * r, m_stream);
     return toVec;
   }
 
@@ -323,7 +284,7 @@ class Matrix {
            "ERROR: Size mismatch - Cannot reshape array into desired size");
     Matrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                     false);
-    copy(toMat[0], m_A_dense.get(), m_batch_size * r, m_stream);
+    copy(toMat[0], m_dense.data(), m_batch_size * r, m_stream);
 
     return toMat;
   }
@@ -332,7 +293,7 @@ class Matrix {
   void print(std::string name) const {
     size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
-    updateHost(A.data(), m_A_dense.get(), len, m_stream);
+    updateHost(A.data(), m_dense.data(), len, m_stream);
     std::cout << name << "=\n";
     for (int i = 0; i < m_shape.first; i++) {
       for (int j = 0; j < m_shape.second; j++) {
@@ -414,10 +375,10 @@ class Matrix {
    * 
    * @return A batched identity matrix
    */
-  static Matrix Identity(int m, int batch_size, cublasHandle_t cublasHandle,
-                         std::shared_ptr<ML::deviceAllocator> allocator,
-                         cudaStream_t stream) {
-    Matrix I(m, m, batch_size, cublasHandle, allocator, stream, true);
+  static Matrix<T> Identity(int m, int batch_size, cublasHandle_t cublasHandle,
+                            std::shared_ptr<ML::deviceAllocator> allocator,
+                            cudaStream_t stream) {
+    Matrix<T> I(m, m, batch_size, cublasHandle, allocator, stream, true);
 
     identity_matrix_kernel<T>
       <<<batch_size, std::min(1024, m), 0, stream>>>(I.raw_data(), m);
@@ -430,10 +391,10 @@ class Matrix {
   std::pair<int, int> m_shape;
 
   //! Array(pointer) to each matrix.
-  std::shared_ptr<T*> m_A_batches;
+  device_buffer<T*> m_batches;
 
   //! Data pointer to first element of dense matrix data.
-  std::shared_ptr<T> m_A_dense;
+  device_buffer<T> m_dense;
 
   //! Number of matrices in batch
   int m_batch_size;
