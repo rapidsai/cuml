@@ -624,8 +624,8 @@ class RandomForestClassifier(Base):
             will increase memory used for the method.
         fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. This variable is not
-            required while using predict_model='CPU'.
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
             'auto' - choose the storage type automatically
                      (currently True is chosen by auto)
              False - create a dense forest
@@ -721,7 +721,7 @@ class RandomForestClassifier(Base):
 
     def score(self, X, y, threshold=0.5,
               algo='auto', num_classes=2,
-              convert_dtype=True):
+              convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -752,6 +752,15 @@ class RandomForestClassifier(Base):
             number of different classes present in the dataset
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+                     (currently True is chosen by auto)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='naive'
+                    or algo='auto'
 
         Returns
         -------
@@ -767,7 +776,8 @@ class RandomForestClassifier(Base):
         preds = self.predict(X, output_class=True,
                              threshold=threshold, algo=algo,
                              num_classes=num_classes,
-                             convert_dtype=convert_dtype)
+                             convert_dtype=convert_dtype,
+                             fil_sparse_format=fil_sparse_format)
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
