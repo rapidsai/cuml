@@ -16,27 +16,27 @@
 
 #include <nvgraph.h>
 
+#include "common/device_buffer.hpp"
+#include "cuda_utils.h"
+#include "cuml/common/cuml_allocator.hpp"
+#include "cusparse_wrappers.h"
 #include "selection/knn.h"
 #include "sparse/coo.h"
-#include "common/device_buffer.hpp"
-#include "cuml/common/cuml_allocator.hpp"
-#include "cuda_utils.h"
-#include "cusparse_wrappers.h"
 
 namespace MLCommon {
 namespace Spectral {
 
-#define NVGRAPH_CHECK(call)                                             \
-  do {                                                                  \
-    nvgraphStatus_t status = call;                                      \
+#define NVGRAPH_CHECK(call)                                                    \
+  do {                                                                         \
+    nvgraphStatus_t status = call;                                             \
     ASSERT(status == NVGRAPH_STATUS_SUCCESS, "FAIL: call='%s', status='%d'\n", \
-           #call, status);                                              \
+           #call, status);                                                     \
   } while (0)
 
 template <typename T>
-void coo2csr(cusparseHandle_t handle, const int* srcRows, const int* srcCols,
-             const T* srcVals, int nnz, int m, int* dst_offsets, int* dstCols,
-             T* dstVals, std::shared_ptr<deviceAllocator> d_alloc,
+void coo2csr(cusparseHandle_t handle, const int *srcRows, const int *srcCols,
+             const T *srcVals, int nnz, int m, int *dst_offsets, int *dstCols,
+             T *dstVals, std::shared_ptr<deviceAllocator> d_alloc,
              cudaStream_t stream) {
   device_buffer<int> dstRows(d_alloc, stream, nnz);
   CUDA_CHECK(cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz,
@@ -99,8 +99,8 @@ void fit_clusters(cusparseHandle_t handle, int *rows, int *cols, T *vals,
   NVGRAPH_CHECK(nvgraphSetGraphStructure(graphHandle, graph, (void *)&CSR_input,
                                          NVGRAPH_CSR_32));
   NVGRAPH_CHECK(nvgraphAllocateEdgeData(graphHandle, graph, 1, &edge_dimT));
-  NVGRAPH_CHECK(nvgraphSetEdgeData(graphHandle, graph, (void *)dst_vals.data(),
-                                   0));
+  NVGRAPH_CHECK(
+    nvgraphSetEdgeData(graphHandle, graph, (void *)dst_vals.data(), 0));
 
   NVGRAPH_CHECK(nvgraphSpectralClustering(graphHandle, graph, weight_index,
                                           &clustering_params, out,
@@ -131,7 +131,7 @@ void fit_clusters(cusparseHandle_t handle, T *X, int m, int n, int n_neighbors,
                   cudaStream_t stream) {
   device_buffer<long> knn_indices(d_alloc, stream, m * n_neighbors);
   device_buffer<float> knn_dists(d_alloc, stream, m * n_neighbors);
-  std::vector<float*> ptrs(1);
+  std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
   ptrs[0] = X;
   sizes[0] = m;
