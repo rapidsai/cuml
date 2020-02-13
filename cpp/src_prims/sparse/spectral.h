@@ -143,8 +143,8 @@ void fit_clusters(cusparseHandle_t handle, T *X, int m, int n, int n_neighbors,
 }
 
 template <typename T>
-void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
-                   int n_components, T *out,
+void fit_embedding(cusparseHandle_t handle, int *rows, int *cols, T *vals,
+                   int nnz, int n, int n_components, T *out,
                    std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
   nvgraphHandle_t grapHandle;
@@ -152,23 +152,16 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
   NVGRAPH_CHECK(nvgraphCreate(&grapHandle));
 
   device_buffer<int> src_offsets(d_alloc, stream, n + 1);
-  device_buffer<int> dst_indices(d_alloc, stream, nnz);
+  device_buffer<int> dst_cols(d_alloc, stream, nnz);
+  device_buffer<T> dst_vals(d_alloc, stream, nnz);
+  coo2csr(handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(),
+          dst_vals.data(), d_alloc, stream);
 
-  nvgraphCOOTopology32I_st *COO_input = new nvgraphCOOTopology32I_st();
-  COO_input->nedges = nnz;
-  COO_input->nvertices = n;
-  COO_input->source_indices = rows;
-  COO_input->destination_indices = cols;
-
-  nvgraphCSRTopology32I_st *CSR_input = new nvgraphCSRTopology32I_st();
-  CSR_input->destination_indices = dst_indices.data();
-  CSR_input->nedges = nnz;
-  CSR_input->nvertices = n;
-  CSR_input->source_offsets = src_offsets.data();
-
-  NVGRAPH_CHECK(nvgraphConvertTopology(
-    grapHandle, NVGRAPH_COO_32, (void *)COO_input, (void *)vals, &edge_dimT,
-    NVGRAPH_CSR_32, (void *)CSR_input, (void *)vals));
+  nvgraphCSRTopology32I_st CSR_input;
+  CSR_input.destination_indices = dst_cols.data();
+  CSR_input.nedges = nnz;
+  CSR_input.nvertices = n;
+  CSR_input.source_offsets = src_offsets.data();
 
   int weight_index = 0;
 
@@ -190,7 +183,7 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
 
   nvgraphGraphDescr_t graph;
   NVGRAPH_CHECK(nvgraphCreateGraphDescr(grapHandle, &graph));
-  NVGRAPH_CHECK(nvgraphSetGraphStructure(grapHandle, graph, (void *)CSR_input,
+  NVGRAPH_CHECK(nvgraphSetGraphStructure(grapHandle, graph, (void *)&CSR_input,
                                          NVGRAPH_CSR_32));
   NVGRAPH_CHECK(nvgraphAllocateEdgeData(grapHandle, graph, 1, &edge_dimT));
   NVGRAPH_CHECK(nvgraphSetEdgeData(grapHandle, graph, (void *)vals, 0));
@@ -204,15 +197,12 @@ void fit_embedding(int *rows, int *cols, T *vals, int nnz, int n,
 
   MLCommon::copy<T>(out, eigVecs.data() + n, n * n_components, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  free(COO_input);
-  free(CSR_input);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename T>
-void fit_embedding(long *knn_indices, float *knn_dists, int m, int n_neighbors,
-                   int n_components, T *out,
+void fit_embedding(cusparseHandle_t handle, long *knn_indices, float *knn_dists,
+                   int m, int n_neighbors, int n_components, T *out,
                    std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
   device_buffer<int> rows(d_alloc, stream, m * n_neighbors);
@@ -222,13 +212,14 @@ void fit_embedding(long *knn_indices, float *knn_dists, int m, int n_neighbors,
   MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                              rows.data(), cols.data(), vals.data());
 
-  fit_embedding(rows.data(), cols.data(), vals.data(), m * n_neighbors, m,
-                n_components, out, d_alloc, stream);
+  fit_embedding(handle, rows.data(), cols.data(), vals.data(), m * n_neighbors,
+                m, n_components, out, d_alloc, stream);
 }
 
 template <typename T>
-void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
-                   T *out, std::shared_ptr<deviceAllocator> d_alloc,
+void fit_embedding(cusparseHandle_t handle, T *X, int m, int n, int n_neighbors,
+                   int n_components, T *out,
+                   std::shared_ptr<deviceAllocator> d_alloc,
                    cudaStream_t stream) {
   device_buffer<int64_t> knn_indices(d_alloc, stream, m * n_neighbors);
   device_buffer<float> knn_dists(d_alloc, stream, m * n_neighbors);
@@ -242,7 +233,7 @@ void fit_embedding(T *X, int m, int n, int n_neighbors, int n_components,
                                        knn_dists.data(), n_neighbors, d_alloc,
                                        stream);
 
-  fit_embedding(knn_indices.data(), knn_dists.data(), m, n_neighbors,
+  fit_embedding(handle, knn_indices.data(), knn_dists.data(), m, n_neighbors,
                 n_components, out, d_alloc, stream);
 }
 }  // namespace Spectral
