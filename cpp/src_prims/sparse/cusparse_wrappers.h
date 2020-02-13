@@ -20,11 +20,11 @@
 
 namespace MLCommon {
 namespace Sparse {
-#define CUSPARSE_CHECK(call)                                            \
-  do {                                                                  \
-    cusparseStatus_t status = call;                                     \
+#define CUSPARSE_CHECK(call)                                                   \
+  do {                                                                         \
+    cusparseStatus_t status = call;                                            \
     ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s' Reason='%s'\n", \
-           #call, cusparseGetErrorString(status));                      \
+           #call, cusparseGetErrorString(status));                             \
   } while (0)
 
 /**
@@ -32,13 +32,13 @@ namespace Sparse {
  * @{
  */
 template <typename T>
-cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz, const T *vals,
-                              T *vals_sorted, int *d_P, cudaStream_t stream);
+cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz, const T* vals,
+                              T* vals_sorted, int* d_P, cudaStream_t stream);
 
 template <>
 inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
-                                     const double *vals, double *vals_sorted,
-                                     int *d_P, cudaStream_t stream) {
+                                     const double* vals, double* vals_sorted,
+                                     int* d_P, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseDgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
@@ -46,8 +46,8 @@ inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
 
 template <>
 inline cusparseStatus_t cusparsegthr(cusparseHandle_t handle, int nnz,
-                                     const float *vals, float *vals_sorted,
-                                     int *d_P, cudaStream_t stream) {
+                                     const float* vals, float* vals_sorted,
+                                     int* d_P, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSgthr(handle, nnz, vals, vals_sorted, d_P,
                        CUSPARSE_INDEX_BASE_ZERO);
@@ -88,8 +88,8 @@ inline size_t cusparsecoosort_bufferSizeExt(cusparseHandle_t handle, int m,
                                             cudaStream_t stream) {
   size_t val;
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, cooRows,
-                                                cooCols, &val));
+  CUSPARSE_CHECK(
+    cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, cooRows, cooCols, &val));
   return val;
 }
 
@@ -103,8 +103,8 @@ inline void cusparsecoosortByRow(cusparseHandle_t handle, int m, int n, int nnz,
                                  int* cooRows, int* cooCols, int* P,
                                  void* pBuffer, cudaStream_t stream) {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  CUSPARSE_CHECK(cusparseXcoosortByRow(handle, m, n, nnz, cooRows, cooCols, P,
-                                       pBuffer));
+  CUSPARSE_CHECK(
+    cusparseXcoosortByRow(handle, m, n, nnz, cooRows, cooCols, P, pBuffer));
 }
 /** @} */
 
