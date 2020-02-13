@@ -135,7 +135,51 @@ class CSR {
       m_nnz(nnz),
       m_values(allocator, stream, nnz * batch_size),
       m_col_index(allocator, stream, nnz),
-      m_row_index(allocator, stream, m + 1) { }
+      m_row_index(allocator, stream, m + 1) {}
+
+  //! Destructor: nothing to destroy explicitely
+  ~CSR() {}
+
+  //! Copy constructor
+  CSR(const CSR<T>& other)
+    : m_batch_size(other.m_batch_size),
+      m_allocator(other.m_allocator),
+      m_cublasHandle(other.m_cublasHandle),
+      m_cusolverSpHandle(other.m_cusolverSpHandle),
+      m_stream(other.m_stream),
+      m_shape(other.m_shape),
+      m_nnz(other.m_nnz),
+      m_values(other.m_allocator, other.m_stream,
+               other.m_nnz * other.m_batch_size),
+      m_col_index(other.m_allocator, other.m_stream, other.m_nnz),
+      m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1) {
+    // Copy the raw data
+    copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+         m_stream);
+    copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
+    copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+         m_stream);
+  }
+
+  //! Copy assignment operator
+  CSR<T>& operator=(const CSR<T>& other) {
+    m_batch_size = other.m_batch_size;
+    m_shape = other.m_shape;
+    m_nnz = other.m_nnz;
+
+    m_values.resize(m_nnz * m_batch_size, m_stream);
+    m_col_index.resize(m_nnz, m_stream);
+    m_row_index.resize(m_shape.first + 1, m_stream);
+
+    // Copy the raw data
+    copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+         m_stream);
+    copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
+    copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+         m_stream);
+
+    return *this;
+  }
 
   /**
    * @brief Construct from a dense batched matrix and its mask
