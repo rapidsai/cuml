@@ -59,7 +59,6 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         int Q
         int s  # Seasonal period
         int k  # Fit intercept?
-        int complexity()
 
     cdef cppclass ARIMAParams[DataT]:
         DataT* mu
@@ -221,12 +220,15 @@ class ARIMA(Base):
                                "estimation.")
         super().__init__(handle)
 
-        self.order = order
-        self.seasonal_order = seasonal_order
+        cdef ARIMAOrder cpp_order
+        cpp_order.p, cpp_order.d, cpp_order.q = order
+        cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
         if fit_intercept is None:
             # by default, use an intercept only with non differenced models
             fit_intercept = (order[1] + seasonal_order[1] == 0)
-        self.intercept = int(fit_intercept)
+        cpp_order.k = int(fit_intercept)
+
+        self.order = cpp_order
 
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
@@ -241,7 +243,7 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. Required: d+D <= 2")
         if s != 0 and (p >= s or q >= s):
             raise ValueError("ERROR: Invalid order. Required: s > p, s > q")
-        if p + q + P + Q + self.intercept == 0:
+        if p + q + P + Q + cpp_order.k == 0:
             raise ValueError("ERROR: Invalid order. At least one parameter"
                              " among p, q, P, Q and fit_intercept must be"
                              " non-zero")
@@ -272,10 +274,7 @@ class ARIMA(Base):
         """
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef ARIMAOrder order
-        order.p, order.d, order.q = self.order
-        order.P, order.D, order.Q, order.s = self.seasonal_order
-        order.k = self.intercept
+        cdef ARIMAOrder order = self.order
 
         # Convert host parameters to device parameters
         cdef uintptr_t d_mu_ptr = <uintptr_t> NULL
@@ -346,9 +345,8 @@ class ARIMA(Base):
     @property
     def complexity(self):
         """Model complexity (number of parameters)"""
-        p, _, q = self.order
-        P, _, Q, s = self.seasonal_order
-        return p + P + q + Q + self.intercept + 1
+        cdef ARIMAOrder order = self.order
+        return order.p + order.P + order.q + order.Q + order.k + 1
 
     def get_params(self) -> Dict[str, np.ndarray]:
         """Get the parameters of the model
@@ -362,11 +360,10 @@ class ARIMA(Base):
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
+        cdef ARIMAOrder order = self.order
         params = dict()
         names = ["mu", "ar", "ma", "sar", "sma", "sigma2"]
-        criteria = [self.intercept, self.order[0], self.order[2],
-                    self.seasonal_order[0], self.seasonal_order[2],
-                    True]
+        criteria = [order.k, order.p, order.q, order.P, order.Q, True]
         for i in range(len(names)):
             if criteria[i] > 0:
                 params[names[i]] = getattr(self, names[i])
@@ -414,10 +411,7 @@ class ARIMA(Base):
             model.fit()
             y_pred = model.predict().copy_to_host()
         """
-        cdef ARIMAOrder order
-        order.p, order.d, order.q = self.order
-        order.P, order.D, order.Q, order.s = self.seasonal_order
-        order.k = self.intercept
+        cdef ARIMAOrder order = self.order
 
         if start < 0:
             raise ValueError("ERROR(`predict`): start < 0")
@@ -520,10 +514,7 @@ class ARIMA(Base):
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
-        cdef ARIMAOrder order
-        order.p, order.d, order.q = self.order
-        order.P, order.D, order.Q, order.s = self.seasonal_order
-        order.k = self.intercept
+        cdef ARIMAOrder order = self.order
 
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -614,9 +605,6 @@ class ARIMA(Base):
         maxiter : int
             Maximum number of iterations of L-BFGS-B
         """
-        p, d, q = self.order
-        P, D, Q, s = self.seasonal_order
-
         if start_params is None:
             self._estimate_x0()
         else:
@@ -677,10 +665,7 @@ class ARIMA(Base):
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
 
-        cdef ARIMAOrder order
-        order.p, order.d, order.q = self.order
-        order.P, order.D, order.Q, order.s = self.seasonal_order
-        order.k = self.intercept
+        cdef ARIMAOrder order = self.order
 
         cdef uintptr_t d_x_ptr
         d_x_array, d_x_ptr, _, _, _ = \
@@ -776,9 +761,8 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        p, _, q = self.order
-        P, _, Q, _ = self.seasonal_order
-        k = self.intercept
+        cdef ARIMAOrder order = self.order
+        p, q, P, Q, k = (order.p, order.q, order.P, order.Q, order.k)
         N = self.complexity
 
         if type(x) is list or x.shape != (N, self.batch_size):
@@ -813,9 +797,8 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        p, _, q = self.order
-        P, _, Q, _ = self.seasonal_order
-        k = self.intercept
+        cdef ARIMAOrder order = self.order
+        p, q, P, Q, k = (order.p, order.q, order.P, order.Q, order.k)
         N = self.complexity
 
         params = self.get_params()
@@ -853,13 +836,11 @@ class ARIMA(Base):
             Packed transformed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        cdef ARIMAOrder order
-        order.p, order.d, order.q = self.order
-        order.P, order.D, order.Q, order.s = self.seasonal_order
-        order.k = self.intercept
+        cdef ARIMAOrder order = self.order
+        N = self.complexity
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        Tx = np.zeros(self.batch_size * order.complexity())
+        Tx = np.zeros(self.batch_size * N)
 
         cdef uintptr_t x_ptr = x.ctypes.data
         cdef uintptr_t Tx_ptr = Tx.ctypes.data
