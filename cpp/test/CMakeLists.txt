@@ -70,7 +70,7 @@ if(BUILD_CUML_TESTS)
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
-        ${CUDA_nvgraph_LIBRARY}
+        #${CUDA_nvgraph_LIBRARY}
         faisslib
         treelite_runtimelib
         ${CUML_CPP_TARGET}
@@ -97,12 +97,12 @@ if(BUILD_CUML_TESTS)
       sg/ridge.cu
       sg/rproj_test.cu
       sg/sgd.cu
-      # sg/spectral_test.cu
+      #sg/spectral_test.cu
       sg/svc_test.cu
       sg/trustworthiness_test.cu
       sg/tsne_test.cu
       sg/tsvd_test.cu
-      # sg/umap_test.cu
+      #sg/umap_test.cu
       )
 
     if(CUDA_VERSION_MAJOR LESS 11)
@@ -136,7 +136,7 @@ if(BUILD_CUML_MG_TESTS)
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_CUDART_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
-        ${CUDA_nvgraph_LIBRARY}
+        #${CUDA_nvgraph_LIBRARY}
         faisslib
         ${CUML_CPP_TARGET}
         pthread

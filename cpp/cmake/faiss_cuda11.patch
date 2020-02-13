@@ -1,0 +1,58 @@
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Treelite requires protobuf during the build process. It generaly uses the
+# static protobuf present in its thirdparty folder. This patch enables
+# treelite to build with the protobuf installed using conda and not
+# the one present in its thirdparty folder.
+
+
+diff --git a/gpu/utils/DeviceDefs.cuh b/gpu/utils/DeviceDefs.cuh
+index 4e859ec..a93d636 100644
+--- a/gpu/utils/DeviceDefs.cuh
++++ b/gpu/utils/DeviceDefs.cuh
+@@ -11,7 +11,7 @@
+ namespace faiss { namespace gpu {
+ 
+ #ifdef __CUDA_ARCH__
+-#if __CUDA_ARCH__ <= 750
++#if __CUDA_ARCH__ <= 800
+ constexpr int kWarpSize = 32;
+ #else
+ #error Unknown __CUDA_ARCH__; please define parameters for compute capability
+diff --git a/gpu/utils/DeviceUtils.cu b/gpu/utils/DeviceUtils.cu
+index 5d8254a..48809ea 100644
+--- a/gpu/utils/DeviceUtils.cu
++++ b/gpu/utils/DeviceUtils.cu
+@@ -103,13 +103,18 @@ int getDeviceForAddress(const void* p) {
+   cudaError_t err = cudaPointerGetAttributes(&att, p);
+   FAISS_ASSERT(err == cudaSuccess ||
+          err == cudaErrorInvalidValue);
++#if CUDART_VERSION >= 11000
++  cudaMemoryType type = att.type;
++#else
++  cudaMemoryType type = att.memoryType;
++#endif
+ 
+   if (err == cudaErrorInvalidValue) {
+     // Make sure the current thread error status has been reset
+     err = cudaGetLastError();
+     FAISS_ASSERT(err == cudaErrorInvalidValue);
+     return -1;
+-  } else if (att.memoryType == cudaMemoryTypeHost) {
++  } else if (type == cudaMemoryTypeHost) {
+     return -1;
+   } else {
+     return att.device;
