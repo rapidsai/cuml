@@ -46,8 +46,8 @@ TEST_F(TestSpectralClustering, Fit) {
   int k = 3;
 
   float *X;
-  MLCommon::allocate(X, n * d);
   cumlHandle handle;
+  MLCommon::allocate(X, n * d);
 
   Random::Rng r(150, MLCommon::Random::GenTaps);
   r.uniform(X, n * d, -1.0f, 1.0f, handle.getStream());
@@ -78,6 +78,9 @@ TEST_F(TestSpectralEmbedding, Fit) {
   MLCommon::allocate(out, n * 2, true);
 
   ML::Spectral::fit_embedding(handle, X, n, d, k, 2, out);
+  CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+  CUDA_CHECK(cudaFree(out));
+  CUDA_CHECK(cudaFree(X));
 }
 
 }  // end namespace ML
