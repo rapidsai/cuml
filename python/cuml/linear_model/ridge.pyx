@@ -280,9 +280,9 @@ class Ridge(Base, RegressorMixin):
             raise TypeError(msg)
 
         if self.n_cols == 1 and self.algo != 0:
-            warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' solvers"
-                          "do not support training data with 1 column"
-                          "currently", UserWarning)
+            warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' " +
+                          "solvers do not support training data with 1 " +
+                          "column currently.", UserWarning)
             self.algo = 0
 
         self.n_alpha = 1
