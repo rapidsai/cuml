@@ -60,7 +60,7 @@ conda install -c rapidsai -c rapidsai-nightly -c nvidia -c conda-forge \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
-      "xgboost=1.0.0dev.rapidsai0.12"
+      "xgboost=1.0.0dev.rapidsai0.13"
 
 # Install the master version of dask, distributed, and dask-ml
 logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
