@@ -425,7 +425,7 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
+@pytest.mark.parametrize('fil_sparse_format', [True, 'auto'])
 @pytest.mark.parametrize('algo', ['auto', 'naive'])
 def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                   nrows, column_info, max_features,
@@ -448,8 +448,8 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16)
+                       n_estimators=50, handle=handle, max_leaves=-1,
+                       max_depth=40)
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
@@ -462,8 +462,8 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
     fil_acc = accuracy_score(y_test, fil_preds)
 
     if nrows < 500000:
-        sk_model = skrfc(n_estimators=40,
-                         max_depth=16,
+        sk_model = skrfc(n_estimators=50,
+                         max_depth=40,
                          min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
@@ -483,7 +483,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('fil_sparse_format', [True, False, 'AUTO'])
+@pytest.mark.parametrize('fil_sparse_format', [True, 'auto'])
 @pytest.mark.parametrize('algo', ['auto', 'naive'])
 def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                               max_features, rows_sample,
@@ -517,7 +517,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, seed=123, n_streams=1,
                        n_estimators=50, handle=handle, max_leaves=-1,
-                       max_depth=16, accuracy_metric='mse')
+                       max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU",
@@ -529,7 +529,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     # Initialize, fit and predict using
     # sklearn's random forest regression model
     if mode != "stress":
-        sk_model = skrfr(n_estimators=50, max_depth=16,
+        sk_model = skrfr(n_estimators=50, max_depth=40,
                          min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
