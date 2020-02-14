@@ -60,7 +60,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=0.12*" \
       "statsmodels" \
-      "rapids-xgboost>=0.12"
+      "rapids-xgboost>=0.13"
 
 
 # Install the master version of dask, distributed, and dask-ml
