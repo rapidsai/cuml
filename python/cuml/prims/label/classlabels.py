@@ -27,12 +27,11 @@ map_kernel_str = r'''
 
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid >= x_n) return;
-
   extern __shared__ {0} label_cache[];
   for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
     label_cache[i] = labels[i];
 
+  if(tid >= x_n) return;
   __syncthreads();
 
   {0} unmapped_label = x[tid];
@@ -50,11 +49,11 @@ validate_kernel_str = r'''
 ({0} *x, int x_n, {0} *labels, int n_labels, int *out) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid >= x_n) return;
-
   extern __shared__ {0} label_cache[];
   for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
     label_cache[i] = labels[i];
+
+  if(tid >= x_n) return;
 
   __syncthreads();
 
@@ -76,15 +75,28 @@ inverse_map_kernel_str = r'''
 ({0} *labels, int n_labels, {0} *x, int x_n) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid >= x_n) return;
 
   extern __shared__ {0} label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
+  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x) {
     label_cache[i] = labels[i];
+  }
 
+  if(tid >= x_n) return;
   __syncthreads();
 
-  x[tid] = label_cache[x[tid]];
+  {0} mapped_label = x[tid];
+
+  if(mapped_label < 0 || mapped_label >= n_labels) {
+     printf("OUT OF BOUNDS: %d=%d", tid, mapped_label);
+  } 
+
+  {0} original_label = label_cache[mapped_label];
+
+  x[tid] = original_label;
+  if(x[tid] < 0 || x[tid] >= n_labels) {
+    printf("OUT OF BOUNDS: %d=%d, %d, %d\n", tid, x[tid], original_label, mapped_label);
+    printf("LABELS: %d, %d, %d\n", labels[0], labels[1], labels[2]);
+  }
 }
 '''
 
@@ -223,16 +235,18 @@ def invert_labels(labels, classes, copy=False):
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
-    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
+    labels = cp.asarray( labels, dtype=labels.dtype)
+    classes = cp.asarray( classes, dtype=classes.dtype)
 
     if copy:
         labels = labels.copy()
 
-    smem = labels.dtype.itemsize * int(classes.shape[0])
+    smem = labels.dtype.itemsize * len(classes)
     inverse_map = _inverse_map_kernel(labels.dtype)
-    inverse_map((math.ceil(labels.shape[0] / 32),), (32,),
-                (classes, classes.shape[0],
-                labels, labels.shape[0]), shared_mem=smem)
+    inverse_map((math.ceil(len(labels) / 32),), (32,),
+                (classes, len(classes),
+                labels, len(labels)), shared_mem=smem)
+
+    cp.cuda.Stream.null.synchronize()
 
     return labels
