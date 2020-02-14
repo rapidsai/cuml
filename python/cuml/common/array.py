@@ -35,6 +35,10 @@ class Array(Buffer):
     the owner of the data referred to by the pointer should be specified
     explicitly.
 
+    To standardize our code, please import this using:
+
+    from cuml.common.array import Array as cumlArray
+
     Parameters
     ----------
 

@@ -34,7 +34,7 @@ from cuml.common.array import Array as cumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, numba_utils
+    input_to_cuml_array, zeros, numba_utils
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams":
@@ -294,10 +294,9 @@ class KMeans(Base):
         else:
             self.init = 'preset'
             params.init = Array
-            self._cluster_centers_, _, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(init, order='C',
-                                   check_dtype=[np.float32, np.float64],
-                                   legacy=False)
+            self._cluster_centers_, n_rows, self.n_cols, self.dtype = \
+                input_to_cuml_array(init, order='C',
+                                    check_dtype=[np.float32, np.float64])
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
@@ -325,8 +324,6 @@ class KMeans(Base):
 
         print(self.output_type)
 
-        cdef uintptr_t input_ptr
-
         if self.init == 'preset':
             check_cols = self.n_cols
             check_dtype = self.dtype
@@ -334,11 +331,12 @@ class KMeans(Base):
             check_cols = False
             check_dtype = [np.float32, np.float64]
 
-        X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C',
-                               check_cols=check_cols,
-                               check_dtype=check_dtype,
-                               legacy=False)
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, order='C',
+                                check_cols=check_cols,
+                                check_dtype=check_dtype)
+
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -438,13 +436,13 @@ class KMeans(Base):
 
         out_type = self._get_output_type(X)
 
-        cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols,
-                               legacy=False)
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -531,13 +529,13 @@ class KMeans(Base):
 
         out_type = self._get_output_type(X)
 
-        cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
-                               check_cols=self.n_cols,
-                               legacy=False)
+                               check_cols=self.n_cols)
+
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 

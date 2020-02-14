@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import Array
+from cuml.common.array import Array as cumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_cuml_array
 
 from collections import defaultdict
 
@@ -216,16 +216,15 @@ class DBSCAN(Base):
                              "Valid values are {'int32', 'int64', "
                              "np.int32, np.int64}")
 
-        cdef uintptr_t input_ptr
+        X_m, n_rows, n_cols, self.dtype = \
+            input_to_cuml_array(X, order='C',
+                               check_dtype=[np.float32, np.float64])
 
-        X_m, input_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, order='C',
-                               check_dtype=[np.float32, np.float64],
-                               legacy=False)
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self._labels_ = Array.empty(n_rows, dtype=out_dtype)
+        self._labels_ = cumlArray.empty(n_rows, dtype=out_dtype)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
         if self.dtype == np.float32:
