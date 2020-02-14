@@ -261,9 +261,9 @@ class LinearRegression(Base):
             raise TypeError(msg)
 
         if self.n_cols == 1 and self.algo != 0:
-            warnings.warn("Changing solver from 'eig' to 'svd' as eig solver"
-                          "does not support training data with 1 column"
-                          "currently", UserWarning)
+            warnings.warn("Changing solver from 'eig' to 'svd' as eig " +
+                          "solver does not support training data with 1 " +
+                          "column currently.", UserWarning)
             self.algo = 0
 
         self.coef_ = cudf.Series(zeros(self.n_cols,
