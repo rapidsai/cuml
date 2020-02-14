@@ -169,18 +169,29 @@ def test_homogeneity_score(datatype, use_handle):
         return cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
 
     # Perfect labelings are homogeneous
-    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [1, 1, 0, 0]), 1.0)
-    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 1]), 1.0)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [1, 1, 0, 0]),
+                                   1.0, decimal=7)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 1]),
+                                   1.0, decimal=7)
 
     # Non-perfect labelings that further split classes into more clusters can
     # be perfectly homogeneous
-    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 2]), 1.0)
-    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 1, 2, 3]), 1.0)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 2]),
+                                   1.0, decimal=7)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 1, 2, 3]),
+                                   1.0, decimal=7)
 
     # Clusters that include samples from different classes do not make for an
     # homogeneous labeling
-    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 1, 0, 1]), 0.0)
-    np.testing.assert_equal(score_labeling([0, 0, 1, 1], [0, 0, 0, 0]), 0.0)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 1, 0, 1]),
+                                   0.0, decimal=7)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 0, 0]),
+                                   0.0, decimal=7)
 
     # TODO: Test when all labels are not in the ground_truth/preds, especially
     #  the min/max label
+
+    # TODO: Test other data format (int32 Numba device or int32 cudf Series)
+
+    # TODO: Test with bigger arrays, like at least more than a
+    #  block's size (128)
