@@ -114,7 +114,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
     Parameters
     ----------
-    cudf_or_array : cuDF, array-like sparse / dense array, or
+    cudf_or_array : cuDF Dataframe, array-like sparse / dense array, or
                     Dask DataFrame/Array
     client : dask.distributed.Client (optional) Dask client
 
@@ -129,7 +129,12 @@ def to_sp_dask_array(cudf_or_array, client=None):
     shape = cudf_or_array.shape
     if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \
        isinstance(cudf_or_array, cudf.DataFrame):
-        dtype = cudf_or_array.dtypes[0]
+        dtypes = rmm_cupy_ary(cp.unique, cudf_or_array.dtypes[0])
+
+        if len(dtypes) > 1:
+            raise ValueError("DataFrame should contain only a single dtype")
+
+        dtype = dtypes[0]
     else:
         dtype = cudf_or_array.dtype
 

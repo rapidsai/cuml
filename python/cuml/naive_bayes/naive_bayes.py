@@ -362,13 +362,12 @@ class MultinomialNB(object):
             they appear in the attribute classes_.
         """
 
-        if isinstance(X, np.ndarray):
+        if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = rmm_cupy_ary(cp.asarray)
-        elif scipy.sparse.isspmatrix(X):
+        elif scipy.sparse.isspmatrix(X) or cupy.sparse.isspmatrix(X):
             inds = rmm_cupy_ary(cp.asarray, X.indices, dtype=X.indices.dtype)
             indptr = rmm_cupy_ary(cp.asarray, X.indptr, dtype=X.indptr.dtype)
             data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
-
             X = cp.sparse.csr_matrix((data, inds, indptr), shape=X.shape)
 
         jll = self._joint_log_likelihood(X)
