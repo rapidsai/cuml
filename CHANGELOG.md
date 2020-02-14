@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1644: Add `predict_proba()` for FIL binary classifier
 - PR #1620: Pickling tests now automatically finds all model classes inheriting from cuml.Base
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
@@ -19,6 +20,7 @@
 - PR #1654: Skip treelite patch if it's already been applied
 - PR #1661: Fix nvstring variable name
 - PR #1670: Lasso & ElasticNet - cuml Handle added
+- PR #1671: Update for accessing cuDF Series pointer
 
 # cuML 0.12.0 (Date TBD)
 
