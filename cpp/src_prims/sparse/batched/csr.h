@@ -13,6 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*
+ * This file contains an implementation of some batched sparse matrix
+ * operations in Compressed Sparse Row representation.
+ * 
+ * Important: the implementation is designed to give good performance on
+ * large batches of relatively small matrices (typically one or two
+ * elements per row). In other use cases it might be slower than using
+ * the dense counterparts!
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -37,10 +48,11 @@ namespace Batched {
 
 /**
  * Kernel to construct batched CSR sparse matrices from batched dense matrices
- * 
- * @note The construction could coalesce writes to the values array if we
- *       stored a mix of COO and CSR, but the performance gain is not
- *       significant enough to justify complexifying the class.
+ *
+ * @note This kernel is intended to give decent performance for large batches
+ *       of small matrices. For larger matrices you might want to store a COO
+ *       representation of the matrices and assign threads to the non-zero
+ *       elements of each matrix
  * 
  * @param[in]  dense      Batched dense matrices. Size: m * n * batch_size
  * @param[in]  col_index  CSR column index.       Size: nnz
@@ -71,6 +83,9 @@ static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
 
 /**
  * Kernel to construct batched dense matrices from batched CSR sparse matrices
+ * 
+ * @note This kernel is intended to give decent performance for large batches
+ *       of small matrices.
  * 
  * @param[out] dense      Batched dense matrices. Size: m * n * batch_size
  * @param[in]  col_index  CSR column index.       Size: nnz
