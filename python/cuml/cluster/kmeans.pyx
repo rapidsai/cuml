@@ -277,8 +277,8 @@ class KMeans(Base):
         self.max_samples_per_batch=int(max_samples_per_batch)
 
         # internal array attributes
-        self._labels_ = None # accessed via estimator.labels_
-        self._cluster_centers_ = None # accessed via estimator.cluster_centers_
+        self._labels_ = None  # accessed via estimator.labels_
+        self._cluster_centers_ = None  # accessed via estimator.cluster_centers_  # noqa
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
@@ -531,9 +531,9 @@ class KMeans(Base):
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
 
         cdef uintptr_t input_ptr = X_m.ptr
 
