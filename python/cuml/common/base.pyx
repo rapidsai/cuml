@@ -26,13 +26,13 @@ import inspect
 
 from cudf.core import Series, DataFrame
 from cuml.common.array import Array as cumlArray
-from cupy import ndarray as cupyarray
+from cupy import ndarray as cupyArray
 from numba.cuda import is_cuda_array
-from numpy import ndarray as numpyarray
+from numpy import ndarray as numpyArray
 
 _input_type_to_str = {
-    numpyarray: 'numpy',
-    cupyarray: 'cupy',
+    numpyArray: 'numpy',
+    cupyArray: 'cupy',
     Series: 'cudf',
     DataFrame: 'cudf'
 }
@@ -46,35 +46,71 @@ class Base:
 
     Typical estimator design using Base requires three main things:
 
-    1. Call the base init method explicitly from inheriting estimators in their
-        init
+    1. Call the base __init__ method explicitly from inheriting estimators in
+        their __init__.
+
     2. Attributes that users will want to acces, and are array-like should
         use cuml.common.Array, and have a preceding underscore `_` before
         the name the user expects. That way the __getattr__ of Base will
         convert it automatically to the appropriate output format for the
         user. For example in DBSCAN the user expects to be able to access
         model.labels_, so the code actually has an attribute
-        model._labals_ that gets converted at the moment the user accesses
-        labels_ automatically. No need for extra code in inheritting classes
-        as long as they follow that naming convention.
+        model._labels_ that gets converted at the moment the user accesses
+        labels_ automatically. No need for extra code in inheriting classes
+        as long as they follow that naming convention. It is recommended to
+        create the attributes in the constructor assigned to None, and
+        add a note for users that might look into the code to see what
+        attributes the class might have. For example in KMeans:
+
+        def __init__(...)
+            super(KMeans, self).__init__(handle, verbose, output_type)
+
+            # initialize numeric variables
+
+            # internal array attributes
+            self._labels_ = None # accessed via estimator.labels_
+            self._cluster_centers_ = None # accessed via estimator.cluster_centers_  # noqa
+
     3. To appropriately work for outputs mirroring the format of inputs of the
         user when appropriate, the code in the inheriting estimator must call
-        the method self._check_output_type(input) with input being the data
-        sent by the user that the method's output and model attributes
-        want to mirror. In general this means that the first call in an
-        estimator's predict(self, X), fit(self, X), transform etc. must be to
-        self._check_output_type(X).
+        the following methods, with input being the data sent by the user:
+        - self._set_output_type(input) in `fit` methods that modify internal
+        structures. This will make that if the user accesses internal
+        attributes of the class (like `labels_` in KMeans), the user receives
+        the correct format. For example in KMeans:
+
+        def fit(self, X):
+            self._set_output_type(X)
+            # rest of the fit code
+
+        - out_type = self._get_output in `predict`/`transform` style methods,
+        that don't modify class attributes. out_type then can be used to
+        return the correct format to the user. For example in KMeans:
+
+        def transform(self, X, convert_dtype=False):
+            out_type = self._get_output_type(X)
+            X_m, n_rows, n_cols, dtype = input_to_cuml_array(X ...)
+            preds = cumlArray.zeros(...)
+
+            # method code and call to C++ and whatever else is needed
+
+            return preds.to_output(out_type)
 
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created just for this class.
     verbose : bool
         Whether to print debug spews
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
-        the estimators. If None it'll inherit the output type set at the
-        module level, cuml.output_type. If set the estimator will override
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
         the global option for its behavior.
 
     Examples
@@ -209,10 +245,15 @@ class Base:
         self.handle = cuml.common.handle.Handle()
 
     def __getattr__(self, attr):
+        """
+        Method gives access to the correct format of cuml Array attribute to
+        the users. Any variable that starts with `_` and is a cuml Array
+        will return as the cuml Array converted to the appropriate format.
+        """
         real_name = '_' + attr
-        if real_name in self.__dict__.keys():
-            if isinstance(self.__dict__[real_name], cumlArray):
-                return self.__dict__[real_name].to_output(self.output_type)
+        if self.hasattr(real_name):
+            if isinstance(self.real_name, cumlArray):
+                return self.real_name.to_output(self.output_type)
 
     def _set_output_type(self, input):
         """

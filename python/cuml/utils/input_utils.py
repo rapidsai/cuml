@@ -104,11 +104,6 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
         Set to True if you want the method to raise a ValueError if X is not
         of order `order`.
 
-    legacy: boolean (default: True)
-        If true, return `inp_array` namedtuple, otherwiser return cuml Array.
-        This parameter will be dropped once cuml Array is adopted in all algos.
-
-
     Returns
     -------
     `cuml_array`: namedtuple('cuml_array', 'array n_rows n_cols dtype')
@@ -131,7 +126,8 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
-            raise ValueError("Error: cuDF Series has missing/null values")
+            raise ValueError("Error: cuDF Series has missing/null values, " +
+                             " which are not supported by cuML.")
 
     if isinstance(X, cudf.DataFrame):
         if order == 'F':
@@ -247,11 +243,6 @@ def input_to_dev_array(X, order='F', deepcopy=False,
     fail_on_order: boolean (default: False)
         Set to True if you want the method to raise a ValueError if X is not
         of order `order`.
-
-    legacy: boolean (default: True)
-        If true, return `inp_array` namedtuple, otherwiser return cuml Array.
-        This parameter will be dropped once cuml Array is adopted in all algos.
-
 
     Returns
     -------
