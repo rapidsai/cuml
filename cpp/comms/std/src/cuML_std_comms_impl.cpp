@@ -220,8 +220,8 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
     _ucp_handle(NULL) {
   initialize();
 
-  _ucp_handle = (void*)malloc(sizeof(struct comms_ucp_handle));
-  init_comms_ucp_handle((struct comms_ucp_handle*)_ucp_handle);
+  _ucp_handle = (void *)malloc(sizeof(struct comms_ucp_handle));
+  init_comms_ucp_handle((struct comms_ucp_handle *)_ucp_handle);
 }
 #endif
 
@@ -245,7 +245,7 @@ cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
   CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 
 #ifndef WITH_UCX
-  close_ucp_handle((struct comms_ucp_handle*)_ucp_handle);
+  close_ucp_handle((struct comms_ucp_handle *)_ucp_handle);
 #endif
 }
 
@@ -300,7 +300,8 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
   struct ucx_context *ucp_request =
-    ucp_isend((struct comms_ucp_handle*)_ucp_handle, ep_ptr, buf, size, tag, default_tag_mask, getRank());
+    ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
+              default_tag_mask, getRank());
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
@@ -322,8 +323,9 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   if (source == CUML_ANY_SOURCE) tag_mask = any_rank_tag_mask;
 
-  struct ucx_context *ucp_request = ucp_irecv((struct comms_ucp_handle*)_ucp_handle, _ucp_worker, ep_ptr,
-                                              buf, size, tag, tag_mask, source);
+  struct ucx_context *ucp_request =
+    ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
+              size, tag, tag_mask, source);
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_request));
 #endif
@@ -352,12 +354,13 @@ void cumlStdCommunicator_impl::waitall(int count,
   while (requests.size() > 0) {
     for (std::vector<struct ucx_context *>::iterator it = requests.begin();
          it != requests.end();) {
-      ucp_progress((struct comms_ucp_handle*)_ucp_handle, _ucp_worker);
+      ucp_progress((struct comms_ucp_handle *)_ucp_handle, _ucp_worker);
 
       auto req = *it;
       if (req->completed == 1) {
         req->completed = 0;
-        if (req->needs_release) free_ucp_request((struct comms_ucp_handle*)_ucp_handle, req);
+        if (req->needs_release)
+          free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
         it = requests.erase(it);
       } else
         ++it;
