@@ -16,6 +16,7 @@
 
 import cuml.utils.numba_utils
 
+import copy
 import cudf
 import cupy as cp
 import numpy as np
@@ -23,12 +24,14 @@ import warnings
 
 from collections import namedtuple
 from collections.abc import Collection
-from copy import deepcopy as deepcp
 
 from cuml.utils import rmm_cupy_ary
 from numba import cuda
 
 
+cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
+
+# inp_array is deprecated and will be dropped
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
 
 
@@ -50,11 +53,156 @@ def get_cudf_column_ptr(col):
     return cudf._lib.cudf.get_column_data_ptr(col._column)
 
 
+def input_to_cuml_array(X, order='F', deepcopy=False,
+                       check_dtype=False, convert_to_dtype=False,
+                       check_cols=False, check_rows=False,
+                       fail_on_order=False):
+
+    """
+    Convert input X to cuML Array.
+
+    Acceptable input formats:
+
+    * cuDF Dataframe - returns a deep copy always.
+    * cuDF Series - returns by reference or a deep copy depending on
+        `deepcopy`.
+    * Numpy array - returns a copy in device always
+    * cuda array interface compliant array (like Cupy) - returns a
+        reference unless `deepcopy`=True.
+    * numba device array - returns a reference unless deepcopy=True
+
+    Parameters
+    ----------
+
+    X : cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
+        cuda_array_interface compliant array like CuPy or pytorch.
+
+    order: string (default: 'F')
+        Whether to return a F-major or C-major array. Used to check the order
+        of the input. If fail_on_order=True method will raise ValueError,
+        otherwise it will convert X to be of order `order`.
+
+    deepcopy: boolean (default: False)
+        Set to True to always return a deep copy of X.
+
+    check_dtype: np.dtype (default: False)
+        Set to a np.dtype to throw an error if X is not of dtype `check_dtype`.
+
+    convert_to_dtype: np.dtype (default: False)
+        Set to a dtype if you want X to be converted to that dtype if it is
+        not that dtype already.
+
+    check_cols: int (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    check_rows: boolean (default: False)
+        Set to an int `i` to check that input X has `i` columns. Set to False
+        (default) to not check at all.
+
+    fail_on_order: boolean (default: False)
+        Set to True if you want the method to raise a ValueError if X is not
+        of order `order`.
+
+    legacy: boolean (default: True)
+        If true, return `inp_array` namedtuple, otherwiser return cuml Array.
+        This parameter will be dropped once cuml Array is adopted in all algos.
+
+
+    Returns
+    -------
+    `cuml_array`: namedtuple('cuml_array', 'array n_rows n_cols dtype')
+
+        A new cuML Array and associated data.
+
+    """
+
+    # temporarily importing here, until github issue #xx reorganizing utils
+    # is dealt with. Otherwise circular import causes issues
+    from cuml.common import Array
+
+    # dtype conversion
+
+    if convert_to_dtype:
+        X = convert_dtype(X, to_dtype=convert_to_dtype)
+        check_dtype = False
+
+    # format conversion
+
+    if (isinstance(X, cudf.Series)):
+        if X.null_count != 0:
+            raise ValueError("Error: cuDF Series has missing/null values")
+
+    if isinstance(X, cudf.DataFrame):
+        if order == 'F':
+            X_m = Array(data=X.as_gpu_matrix(order='F'))
+        elif order == 'C':
+            X_m = Array(data=cuml.utils.numba_utils.row_matrix(X))
+
+    elif cuda.is_cuda_array(X) or isinstance(X, np.ndarray):
+        X_m = Array(data=X)
+
+        if deepcopy:
+            X_m = copy.deepcopy(X_m)
+
+    else:
+        msg = "X matrix format " + str(X.__class__) + " not supported"
+        raise TypeError(msg)
+
+    if check_dtype:
+        if not isinstance(check_dtype, list):
+            check_dtype = [check_dtype]
+
+        check_dtype = [np.dtype(dtype) for dtype in check_dtype]
+
+        if X_m.dtype not in check_dtype:
+            type_str = X_m.dtype
+            del X_m
+            raise TypeError("Expected input to be of type in " +
+                            str(check_dtype) + " but got " + str(type_str))
+
+    # Checks based on parameters
+
+    n_rows = X_m.shape[0]
+    if len(X_m.shape) > 1:
+        n_cols = X_m.shape[1]
+    else:
+        n_cols = 1
+
+    if check_cols:
+        if n_cols != check_cols:
+            raise ValueError("Expected " + str(check_cols) +
+                             " columns but got " + str(n_cols) +
+                             " columns.")
+
+    if check_rows:
+        if n_rows != check_rows:
+            raise ValueError("Expected " + str(check_rows) +
+                             " rows but got " + str(n_rows) +
+                             " rows.")
+
+    if X_m.order != order:
+        if fail_on_order:
+            raise ValueError("Expected " + order_to_str(order) +
+                             " major order, but got the opposite.")
+        else:
+            warnings.warn("Expected " + order_to_str(order) + " major order, "
+                          "but got the opposite. Converting data, this will "
+                          "result in additional memory utilization.")
+            X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
+            X_m = Array(data=X_m)
+
+    return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
+
+
 def input_to_dev_array(X, order='F', deepcopy=False,
                        check_dtype=False, convert_to_dtype=False,
                        check_cols=False, check_rows=False,
-                       fail_on_order=False, legacy=True):
+                       fail_on_order=False):
     """
+    *** Deprecated, used in classes that have not migrated to use cuML Array
+    yet. Please use input_to_cuml_array instead for cuml Array. ***
+
     Convert input X to device array suitable for C++ methods.
 
     Acceptable input formats:
@@ -115,87 +263,20 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     """
 
-    # temporarily importing here, until github issue #xx reorganizing utils
-    # is dealt with. Otherwise circular import causes issues
-    from cuml.common import Array
+    ary_tuple = input_to_cuml_array(X,
+                                    order=order,
+                                    deepcopy=deepcopy,
+                                    check_dtype=check_dtype,
+                                    convert_to_dtype=convert_to_dtype,
+                                    check_cols=check_cols,
+                                    check_rows=check_rows,
+                                    fail_on_order=fail_on_order)
 
-    # dtype conversion
-
-    if convert_to_dtype:
-        X = convert_dtype(X, to_dtype=convert_to_dtype)
-        check_dtype = False
-
-    # format conversion
-
-    if (isinstance(X, cudf.Series)):
-        if X.null_count != 0:
-            raise ValueError("Error: cuDF Series has missing/null values")
-
-    if isinstance(X, cudf.DataFrame):
-        if order == 'F':
-            X_m = Array(data=X.as_gpu_matrix(order='F'))
-        elif order == 'C':
-            X_m = Array(data=cuml.utils.numba_utils.row_matrix(X))
-
-    elif cuda.is_cuda_array(X) or isinstance(X, np.ndarray):
-        X_m = Array(data=X)
-
-        if deepcopy:
-            X_m = deepcp(X_m)
-
-    else:
-        msg = "X matrix format " + str(X.__class__) + " not supported"
-        raise TypeError(msg)
-
-    if check_dtype:
-        if not isinstance(check_dtype, list):
-            check_dtype = [check_dtype]
-
-        check_dtype = [np.dtype(dtype) for dtype in check_dtype]
-
-        if X_m.dtype not in check_dtype:
-            type_str = X_m.dtype
-            del X_m
-            raise TypeError("Expected input to be of type in " +
-                            str(check_dtype) + " but got " + str(type_str))
-
-    # Checks based on parameters
-
-    n_rows = X_m.shape[0]
-    if len(X_m.shape) > 1:
-        n_cols = X_m.shape[1]
-    else:
-        n_cols = 1
-
-    if check_cols:
-        if n_cols != check_cols:
-            raise ValueError("Expected " + str(check_cols) +
-                             " columns but got " + str(n_cols) +
-                             " columns.")
-
-    if check_rows:
-        if n_rows != check_rows:
-            raise ValueError("Expected " + str(check_rows) +
-                             " rows but got " + str(n_rows) +
-                             " rows.")
-
-    if X_m.order != order:
-        if fail_on_order:
-            raise ValueError("Expected " + order_to_str(order) +
-                             " major order, but got the opposite.")
-        else:
-            warnings.warn("Expected " + order_to_str(order) + " major order, "
-                          "but got the opposite. Converting data, this will "
-                          "result in additional memory utilization.")
-            X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
-            X_m = Array(data=X_m)
-
-    ptr = X_m.ptr
-    if legacy:
-        X_m = cuda.as_cuda_array(X_m)
-
-    return inp_array(array=X_m, pointer=ptr, n_rows=n_rows, n_cols=n_cols,
-                     dtype=X_m.dtype)
+    return inp_array(array=cuda.as_cuda_array(ary_tuple.array),
+                     pointer=ary_tuple.array.ptr,
+                     n_rows=ary_tuple.n_rows,
+                     n_cols=ary_tuple.n_cols,
+                     dtype=ary_tuple.dtype)
 
 
 def convert_dtype(X, to_dtype=np.float32, legacy=True):
