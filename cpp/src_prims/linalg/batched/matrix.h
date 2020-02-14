@@ -23,9 +23,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/reduce.h>
 
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
@@ -34,6 +36,7 @@
 #include <linalg/cublas_wrappers.h>
 #include <linalg/unary_op.h>
 #include <matrix/matrix.h>
+#include <common/device_buffer.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -948,21 +951,21 @@ Matrix<T> b_2dcopy(const Matrix<T>& in, int starting_row, int starting_col,
  * @todo: docs
  */
 template <typename T>
-DI void generate_householder_vector(T* d_u, const T* d_x, int m) {
+DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
   // Compute norm of the vectors x and u
   T x_norm = (T)0, u_norm = (T)0;
   for (int i = 1; i < m; i++) {
-    u_norm += d_x[i] * d_x[i];
+    u_norm += d_xk[i] * d_xk[i];
   }
-  T x0 = d_x[0];
+  T x0 = d_xk[0];
   x_norm = sqrt(u_norm + x0 * x0);
   T u0 = x0 - (x0 < 0 ? 1 : -1) * x_norm;
   u_norm = sqrt(u_norm + u0 * u0);
 
   // Compute u
-  d_u[0] = u0 / u_norm;
+  d_uk[0] = u0 / u_norm;
   for (int i = 1; i < m; i++) {
-    d_u[i] = d_x[i] / u_norm;
+    d_uk[i] = d_xk[i] / u_norm;
   }
 }
 
@@ -1013,10 +1016,9 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
     // Generate the reflector
     thrust::for_each(thrust::cuda::par.on(A.stream()), counting,
                      counting + batch_size, [=] __device__(int ib) {
-                       T* b_u = d_u + u_size * ib;
-                       T* b_x = d_H + n2 * ib;
-                       generate_householder_vector(
-                         b_u + u_offset, b_x + (n + 1) * k + 1, n - k - 1);
+                       T* b_uk = d_u + u_size * ib + u_offset;
+                       T* b_xk = d_H + n2 * ib + (n + 1) * k + 1;
+                       generate_householder_vector(b_uk, b_xk, n - k - 1);
                      });
 
     // H[k+1:, k:] = H[k+1:, k:] - 2 * uk * (uk' * H[k+1:, k:])
@@ -1063,6 +1065,113 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
 }
 
 /**
+ * @todo: docs
+ */
+template <typename T>
+DI void generate_givens_rotation(T* d_G, T xi, T xj) {
+  T xij_norm = sqrt(xi * xi + xj * xj);
+  T c = xi / xij_norm;
+  T s = -xj / xij_norm;
+  d_G[0] = c;
+  d_G[1] = s;
+  d_G[2] = -s;
+  d_G[3] = c;
+  // TODO: specify template and vectorize?
+}
+
+/**
+ * @todo: docs
+ */
+template <typename T>
+void _hessenberg_qr_step(Matrix<T>& U, Matrix<T>& H) {
+  int n = U.shape().first;
+  int n2 = n * n;
+  int batch_size = U.batches();
+  auto stream = U.stream();
+  auto allocator = U.allocator();
+  auto cublasHandle = U.cublasHandle();
+  auto counting = thrust::make_counting_iterator(0);
+
+  // Givens rotation matrices (economic form)
+  device_buffer<T> G(allocator, stream, 4 * (n - 1) * batch_size);
+  T* d_G = G.data();
+
+  // Working buffer
+  int temp_size = 2 * n;
+  device_buffer<T> temp(allocator, stream, temp_size * batch_size);
+  T* d_temp = temp.data();
+
+  T* d_H = H.raw_data();
+  T* d_U = U.raw_data();
+
+  // TODO: see if I can accelerate this with custom kernels!
+  //       (with and without shared mem)
+  // TODO: stop working on batch elements that have already converged
+
+  // BLAS scalars
+  T one = (T)1, zero = (T)0;
+  CUBLAS_CHECK(cublasSetPointerMode(cublasHandle, CUBLAS_POINTER_MODE_HOST));
+
+  // Generate the Givens rotations and apply them to the left
+  for (int k = 0; k < n - 1; k++) {
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       const T* b_H = d_H + n2 * ib;
+                       T* b_Gk = d_G + 4 * ((n - 1) * ib + k);
+                       generate_givens_rotation(b_Gk, b_H[(n + 1) * k],
+                                                b_H[(n + 1) * k + 1]);
+                     });
+
+    // H[k:k+2, k:] = Gk * H[k:k+2, k:]
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, 2, n - k, 2, &one, d_G + 4 * k, 2,
+      4 * (n - 1), d_H + (n + 1) * k, n, n2, &zero, d_temp, 2, temp_size,
+      batch_size, stream));
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       const T* b_temp = d_temp + temp_size * ib;
+                       T* b_H = d_H + n2 * ib;
+                       for (int j = k; j < n; j++) {
+                         b_H[n * j + k] = b_temp[2 * (j - k)];
+                         b_H[n * j + k + 1] = b_temp[2 * (j - k) + 1];
+                       }
+                     });
+  }
+
+  // Apply the rotations to the right and update U
+  for (int k = 0; k < n - 1; k++) {
+    // H[:k+2, k:k+2] = H[:k+2, k:k+2] * Gk'
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_T, k + 2, 2, 2, &one, d_H + k * n, n,
+      n2, d_G + 4 * k, 2, 4 * (n - 1), &zero, d_temp, k + 2, temp_size,
+      batch_size, stream));
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       const T* b_temp = d_temp + temp_size * ib;
+                       T* b_H = d_H + n2 * ib;
+                       for (int i = 0; i < k + 2; i++) {
+                         b_H[n * k + i] = b_temp[i];
+                         b_H[n * (k + 1) + i] = b_temp[k + 2 + i];
+                       }
+                     });
+    // U[:n, k:k+2] = U[:n, k:k+2] * Gk'
+    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
+      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_T, n, 2, 2, &one, d_U + k * n, n, n2,
+      d_G + 4 * k, 2, 4 * (n - 1), &zero, d_temp, n, temp_size, batch_size,
+      stream));
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       const T* b_temp = d_temp + temp_size * ib;
+                       T* b_U = d_U + n2 * ib;
+                       for (int i = 0; i < n; i++) {
+                         b_U[n * k + i] = b_temp[i];
+                         b_U[n * (k + 1) + i] = b_temp[n + i];
+                       }
+                     });
+  }
+}
+
+/**
  * @brief Schur decomposition A = USU', where U is unitary and S is a
  *        block-upper triangular matrix with block size <= 2
  * @todo: docs
@@ -1073,11 +1182,52 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S) {
   int batch_size = A.batches();
   auto stream = A.stream();
   auto allocator = A.allocator();
-  // auto counting = thrust::make_counting_iterator(0);
+  auto counting = thrust::make_counting_iterator(0);
 
-  Matrix<T> H(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+  T near_zero = 1e-4;
 
-  b_hessenberg(A, U, H);
+  //
+  // Start with a Hessenberg decomposition
+  //
+
+  b_hessenberg(A, U, S);
+
+  //
+  // Hessenberg-QR algorithm (H stays in Hessenberg form)
+  //
+
+  bool converged;
+  device_buffer<bool> conv_buffer(allocator, stream, batch_size);
+  bool* d_conv = conv_buffer.data();
+  thrust::device_ptr<bool> conv_thrust = thrust::device_pointer_cast(d_conv);
+  T* d_S = S.raw_data();
+
+  int iter = 0;
+  do {
+    // Hessenberg QR step
+    _hessenberg_qr_step(U, S);
+
+    // Convergence test
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int ib) {
+                       const double* b_S = d_S + ib * n * n;
+                       bool conv = true;
+                       bool prev = false;
+                       for (int i = 0; i < n - 1; i++) {
+                         bool nonzero = (abs(b_S[(n + 1) * i + 1]) > near_zero);
+                         conv = conv && !(prev && nonzero);
+                         prev = nonzero;
+                       }
+                       d_conv[ib] = conv;
+                     });
+    // myPrintDevVector("converged", d_conv, batch_size);
+    // Reduction of the convergence flags
+    converged = thrust::reduce(thrust::cuda::par.on(stream), conv_thrust,
+                               conv_thrust + batch_size, true,
+                               thrust::logical_and<bool>());
+    iter++;
+  } while (!converged);
+  std::cout << "Iterations: " << iter << std::endl;
 }
 
 /**
@@ -1162,14 +1312,6 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     Matrix<T> mBt = B.transpose(-1.0);
     b_schur(B, U, R);
     b_schur(mBt, V, S);
-    /// TODO: clear prints
-    // MLCommon::Matrix::print(U.raw_data(), n, n * batch_size);
-    // std::cout << std::endl;
-    // MLCommon::Matrix::print(R.raw_data(), n, n * batch_size);
-    // std::cout << std::endl;
-    // MLCommon::Matrix::print(V.raw_data(), n, n * batch_size);
-    // std::cout << std::endl;
-    // MLCommon::Matrix::print(S.raw_data(), n, n * batch_size);
 
     // 2. F = -U'CV
     // Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator,
