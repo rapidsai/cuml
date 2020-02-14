@@ -24,6 +24,7 @@
 - PR #1672: Solver 'svd' in Linear and Ridge Regressors when n_cols=1
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
+- PR #1652: Support XGBoost 1.0+ models in FIL
 
 # cuML 0.12.0 (Date TBD)
 
