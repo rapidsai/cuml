@@ -132,13 +132,13 @@ class Base:
         self.verbose = verbose
 
         self.output_type = cuml.global_output_type if output_type is None \
-            else self._get_output_type(output_type)
+            else _check_output_type_str(output_type)
 
         self._mirror_input = True if self.output_type is 'input' else False
 
     def __repr__(self):
         """
-        Pretty prints the arguments of a class using Sklearn standard :)
+        Pretty prints the arguments of a class using Scikit-learn standard :)
         """
         cdef list signature = inspect.getfullargspec(self.__init__).args
         if signature[0] == 'self':
@@ -214,24 +214,44 @@ class Base:
             if isinstance(self.__dict__[real_name], Array):
                 return self.__dict__[real_name].to_output(self.output_type)
 
-    def _get_output_type(self, output_dtype):
-        if isinstance(output_dtype, str):
-            output_type = output_dtype.lower()
-            if output_type in ['numpy', 'cupy', 'cudf', 'numba']:
-                return output_dtype
-        else:
-            self.output_type = self.output_type
-
-    def _check_output_type(self, input):
+    def _set_output_type(self, input):
         """
-        Method to be called by fit/predict/etc. method of inheriting classes
+        Method to be called by fit methods of inheriting classes
         to correctly set the output type depending on the type of inputs,
         class output type and global output type
         """
+        print("base " + self.output_type)
         if self.output_type == 'input' or self._mirror_input:
-            if type(input) in _input_type_to_str.keys():
-                self.output_type = _input_type_to_str[type(input)]
-            elif is_cuda_array(input):
-                self.output_type = 'numba'
-            else:
-                self.output_type = 'cupy'
+            self.output_type = _input_to_type(input)
+
+    def _get_output_type(self, input):
+        """
+        Method to be called by predict/transform methods of inheriting classes
+        to correctly set the output type depending on the type of inputs,
+        class output type and global output type
+        """
+        if self._mirror_input:
+            return _input_type_to_str[type(input)]
+        else:
+            return self.output_type
+
+
+# Internal, non class owned helper functions
+
+def _input_to_type(input):
+    if type(input) in _input_type_to_str.keys():
+        return _input_type_to_str[type(input)]
+    elif is_cuda_array(input):
+        return 'numba'
+    else:
+        return 'cupy'
+
+def _check_output_type_str(output_str):
+    if isinstance(output_str, str):
+        output_type = output_str.lower()
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba']:
+            return output_str
+        else:
+            raise ValueError("output_type must be one of " +
+                             "'numpy', 'cupy', 'cudf' or 'numba'")
+

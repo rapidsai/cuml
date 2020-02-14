@@ -149,9 +149,10 @@ class DBSCAN(Base):
 
     Attributes
     -----------
-    labels_ : array
+    labels_ : array-like or cuDF series
         Which cluster each datapoint belongs to. Noisy samples are labeled as
-        -1.
+        -1. Format depends on cuml global output type and estimator
+        output_type.
 
     Notes
     ------
@@ -180,9 +181,11 @@ class DBSCAN(Base):
         super(DBSCAN, self).__init__(handle, verbose, output_type)
         self.eps = eps
         self.min_samples = min_samples
-        self._labels_ = None
         self.max_mbytes_per_batch = max_mbytes_per_batch
         self.verbose = verbose
+
+        # internal array attributes
+        self._labels_ = None # accessed via estimator.labels_
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
@@ -203,7 +206,7 @@ class DBSCAN(Base):
             "int64", np.int64}. When the number of samples exceed
         """
 
-        self._check_output_type(X)
+        self._set_output_type(X)
 
         if self._labels_ is not None:
             del self._labels_
