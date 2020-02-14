@@ -25,7 +25,7 @@ import cuml.common.cuda
 import inspect
 
 from cudf.core import Series, DataFrame
-from cuml.common.array import Array
+from cuml.common.array import Array as cumlArray
 from cupy import ndarray as cupyarray
 from numba.cuda import is_cuda_array
 from numpy import ndarray as numpyarray
@@ -49,7 +49,7 @@ class Base:
     1. Call the base init method explicitly from inheriting estimators in their
         init
     2. Attributes that users will want to acces, and are array-like should
-        use cuml.common.Array and have a preceding underscore `_` before
+        use cuml.common.Array, and have a preceding underscore `_` before
         the name the user expects. That way the __getattr__ of Base will
         convert it automatically to the appropriate output format for the
         user. For example in DBSCAN the user expects to be able to access
@@ -211,7 +211,7 @@ class Base:
     def __getattr__(self, attr):
         real_name = '_' + attr
         if real_name in self.__dict__.keys():
-            if isinstance(self.__dict__[real_name], Array):
+            if isinstance(self.__dict__[real_name], cumlArray):
                 return self.__dict__[real_name].to_output(self.output_type)
 
     def _set_output_type(self, input):
