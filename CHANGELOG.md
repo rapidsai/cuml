@@ -20,6 +20,7 @@
 - PR #1654: Skip treelite patch if it's already been applied
 - PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
 - PR #1661: Fix nvstring variable name
+- PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
 
 # cuML 0.12.0 (Date TBD)
