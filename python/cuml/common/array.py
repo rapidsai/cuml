@@ -29,8 +29,8 @@ class Array(Buffer):
     """
     Array represents an abstracted array allocation. It can be instantiated by
     itself, creating an rmm.DeviceBuffer underneath, or can be instantiated by
-    __cuda_array_interface__ or __array_interface__ compliant, in which case
-    it'll keep a reference to that data underneath. Also can be created
+    __cuda_array_interface__ or __array_interface__ compliant arrays, in which
+    case it'll keep a reference to that data underneath. Also can be created
     from a pointer, specifying the characteristics of the array, in that case
     the owner of the data referred to by the pointer should be specified
     explicitly.
@@ -174,14 +174,15 @@ class Array(Buffer):
         output_type : string
             Format to convert the array to. Acceptable formats are:
             'cupy' - to cupy array
-            'numpy' - to numpy (host ) array
+            'numpy' - to numpy (host) array
             'numba' - to numba device array
             'dataframe' - to cuDF DataFrame
             'series' - to cuDF Series
-            'cudf' - to cuDF Series if array in single dimensional, to
+            'cudf' - to cuDF Series if array is single dimensional, to
                 DataFrame otherwise
         """
 
+        # check to translate cudf to actual type converted
         if output_type == 'cudf':
             if len(self.shape) == 1:
                 output_type = 'series'
@@ -210,6 +211,8 @@ class Array(Buffer):
                 raise ValueError('cuDF unsupported Array dtype')
 
         elif output_type == 'series':
+            # check needed in case output_type was passed as 'series'
+            # directly instead of as 'cudf'
             if len(self.shape) == 1:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:
