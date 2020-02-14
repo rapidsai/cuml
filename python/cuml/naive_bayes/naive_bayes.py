@@ -226,7 +226,7 @@ class MultinomialNB(object):
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
 
-        if isinstance(X, np.ndarray):
+        if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = rmm_cupy_ary(cp.asarray, X, X.dtype)
         elif scipy.sparse.isspmatrix(X):
             inds = rmm_cupy_ary(cp.asarray, X.indices, dtype=X.indices.dtype)
@@ -234,7 +234,7 @@ class MultinomialNB(object):
             data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
             X = cp.sparse.csr_matrix((data, inds, indptr), shape=X.shape)
 
-        if isinstance(y, np.ndarray):
+        if isinstance(y, np.ndarray) or isinstance(y, cp.ndarray):
             y = rmm_cupy_ary(cp.asarray, y, y.dtype)
 
         Y, label_classes = make_monotonic(y, copy=True)
@@ -327,9 +327,9 @@ class MultinomialNB(object):
 
         """
 
-        if isinstance(X, np.ndarray):
+        if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = rmm_cupy_ary(cp.asarray)
-        elif scipy.sparse.isspmatrix(X):
+        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
             inds = rmm_cupy_ary(cp.asarray, X.indices, dtype=X.indices.dtype)
             indptr = rmm_cupy_ary(cp.asarray, X.indptr, dtype=X.indptr.dtype)
             data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
