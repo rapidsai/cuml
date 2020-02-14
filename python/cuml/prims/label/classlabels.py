@@ -151,7 +151,7 @@ def make_monotonic(labels, classes=None, copy=False):
         raise ValueError("Labels array must be 1D")
 
     if classes is None:
-        classes = cp.unique(labels)
+        classes = rmm_cupy_ary(cp.unique, labels)
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
 
@@ -235,8 +235,8 @@ def invert_labels(labels, classes, copy=False):
     if labels.dtype != classes.dtype:
         raise ValueError("Labels and classes must have same dtype (%s != %s" %
                          (labels.dtype, classes.dtype))
-    labels = cp.asarray( labels, dtype=labels.dtype)
-    classes = cp.asarray( classes, dtype=classes.dtype)
+    labels = rmm_cupy_ary(cp.asarray, labels, dtype=labels.dtype)
+    classes = rmm_cupy_ary(cp.asarray, classes, dtype=classes.dtype)
 
     if copy:
         labels = labels.copy()
@@ -246,7 +246,5 @@ def invert_labels(labels, classes, copy=False):
     inverse_map((math.ceil(len(labels) / 32),), (32,),
                 (classes, len(classes),
                 labels, len(labels)), shared_mem=smem)
-
-    cp.cuda.Stream.null.synchronize()
 
     return labels

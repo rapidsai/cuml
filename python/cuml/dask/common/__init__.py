@@ -34,15 +34,5 @@ from cuml.dask.common.part_utils import *
 
 from cuml.dask.common.utils import raise_exception_from_futures  # NOQA
 from cuml.dask.common.utils import raise_mg_import_exception  # NOQA
-
-import cupy as cp
-import copyreg
-
-
-def serialize_mat_descriptor(m):
-    return cp.cupy.cusparse.MatDescriptor.create, ()
-
-copyreg.pickle(cp.cupy.cusparse.MatDescriptor, serialize_mat_descriptor)
-
-
+from cuml.dask.common.utils import patch_cupy_sparse_serialization  # NOQA
 

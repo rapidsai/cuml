@@ -18,6 +18,9 @@ import numba.cuda
 
 from cuml.utils import device_of_gpu_matrix
 
+import cupy as cp
+import copyreg
+
 
 def get_visible_devices():
     """
@@ -136,3 +139,24 @@ def raise_mg_import_exception():
     raise Exception("cuML has not been built with multiGPU support "
                     "enabled. Build with the --multigpu flag to"
                     " enable multiGPU support.")
+
+
+def patch_cupy_sparse_serialization(client):
+    """
+    This function provides a temporary fix for a bug
+    in CuPy that doesn't properly serialize cuSPARSE handles.
+
+    Reference: https://github.com/cupy/cupy/issues/3061
+
+    Parameters
+    ----------
+
+    client : dask.distributed.Client client to use
+    """
+    def patch_func():
+        def serialize_mat_descriptor(m):
+            return cp.cupy.cusparse.MatDescriptor.create, ()
+
+        copyreg.pickle(cp.cupy.cusparse.MatDescriptor, serialize_mat_descriptor)
+
+    client.run(patch_func)

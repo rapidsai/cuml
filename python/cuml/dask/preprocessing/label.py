@@ -113,16 +113,16 @@ class LabelBinarizer(object):
 
     @staticmethod
     def _func_unique_classes(y):
-        return cp.unique(y)
+        return rmm_cupy_ary(cp.unique, y)
 
     @staticmethod
     def _func_xform(model, y):
-        xform_in = cp.asarray(y, dtype=y.dtype)
+        xform_in = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
         return model.transform(xform_in)
 
     @staticmethod
     def _func_inv_xform(model, y, threshold):
-        y = cp.asarray(y, dtype=y.dtype)
+        y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
         return model.inverse_transform(y, threshold)
 
     def fit(self, y):
