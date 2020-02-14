@@ -3,11 +3,13 @@
 ## New Features
 
 ## Improvements
+- PR #1644: Add `predict_proba()` for FIL binary classifier
 - PR #1620: Pickling tests now automatically finds all model classes inheriting from cuml.Base
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
 - PR #1647: storage_type=AUTO uses SPARSE for large models
+- PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
@@ -17,8 +19,11 @@
 - PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
 - PR #1654: Skip treelite patch if it's already been applied
+- PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
 - PR #1661: Fix nvstring variable name
 - PR #1672: Solver 'svd' in Linear and Ridge Regressors when n_cols=1
+- PR #1670: Lasso & ElasticNet - cuml Handle added
+- PR #1671: Update for accessing cuDF Series pointer
 
 # cuML 0.12.0 (Date TBD)
 
