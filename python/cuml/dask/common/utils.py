@@ -157,6 +157,7 @@ def patch_cupy_sparse_serialization(client):
         def serialize_mat_descriptor(m):
             return cp.cupy.cusparse.MatDescriptor.create, ()
 
-        copyreg.pickle(cp.cupy.cusparse.MatDescriptor, serialize_mat_descriptor)
+        copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
+                       serialize_mat_descriptor)
 
     client.run(patch_func)
