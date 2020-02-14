@@ -233,11 +233,12 @@ class MultinomialNB(object):
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = rmm_cupy_ary(cp.asarray, X, X.dtype)
-        elif scipy.sparse.isspmatrix(X):
-            inds = rmm_cupy_ary(cp.asarray, X.indices, dtype=X.indices.dtype)
-            indptr = rmm_cupy_ary(cp.asarray, X.indptr, dtype=X.indptr.dtype)
+        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+            rows = rmm_cupy_ary(cp.asarray, X.row, dtype=X.row.dtype)
+            cols = rmm_cupy_ary(cp.asarray, X.col, dtype=X.col.dtype)
             data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
-            X = cp.sparse.csr_matrix((data, inds, indptr), shape=X.shape)
+            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
 
         if isinstance(y, np.ndarray) or isinstance(y, cp.ndarray):
             y = rmm_cupy_ary(cp.asarray, y, y.dtype)
@@ -333,12 +334,13 @@ class MultinomialNB(object):
         """
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = rmm_cupy_ary(cp.asarray)
+            X = rmm_cupy_ary(cp.asarray, X, X.dtype)
         elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
-            inds = rmm_cupy_ary(cp.asarray, X.indices, dtype=X.indices.dtype)
-            indptr = rmm_cupy_ary(cp.asarray, X.indptr, dtype=X.indptr.dtype)
+            X = X.tocoo()
+            rows = rmm_cupy_ary(cp.asarray, X.row, dtype=X.row.dtype)
+            cols = rmm_cupy_ary(cp.asarray, X.col, dtype=X.col.dtype)
             data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
-            X = cp.sparse.csr_matrix((data, inds, indptr), shape=X.shape)
+            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
 
         jll = self._joint_log_likelihood(X)
         indices = rmm_cupy_ary(cp.argmax, jll, axis=1)\
@@ -368,12 +370,13 @@ class MultinomialNB(object):
         """
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = rmm_cupy_ary(cp.asarray)
-        elif scipy.sparse.isspmatrix(X) or cupy.sparse.isspmatrix(X):
-            inds = rmm_cupy_ary(cp.asarray, X.indices, dtype=X.indices.dtype)
-            indptr = rmm_cupy_ary(cp.asarray, X.indptr, dtype=X.indptr.dtype)
+            X = rmm_cupy_ary(cp.asarray, X, X.dtype)
+        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+            rows = rmm_cupy_ary(cp.asarray, X.row, dtype=X.row.dtype)
+            cols = rmm_cupy_ary(cp.asarray, X.col, dtype=X.col.dtype)
             data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
-            X = cp.sparse.csr_matrix((data, inds, indptr), shape=X.shape)
+            X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
 
         jll = self._joint_log_likelihood(X)
 
