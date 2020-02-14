@@ -69,9 +69,10 @@ pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
 logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
 
-# Install XGBoost snapshot
-logger "pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc1%2B5ca21f252a4b70795efc0895fbfbd385319223ce-py2.py3-none-manylinux1_x86_64.whl --no-deps"
-pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc1%2B5ca21f252a4b70795efc0895fbfbd385319223ce-py2.py3-none-manylinux1_x86_64.whl --upgrade --no-deps
+# Install XGBoost snapshot (1.0rc2)
+logger "pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc2%2B69fc8a632f5d6a8afc66135ad4d8f102bb4e0d47-py2.py3-none-manylinux1_x86_64.whl --upgrade --no-deps"
+pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc2%2B69fc8a632f5d6a8afc66135ad4d8f102bb4e0d47-py2.py3-none-manylinux1_x86_64.whl --upgrade --no-deps
+
 
 
 logger "Check versions..."
