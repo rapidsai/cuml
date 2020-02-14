@@ -22,7 +22,7 @@ dependencies:
 - dask-cuda=0.13*
 - dask-cudf=0.13*
 - ucx-py=0.13*
-- nccl>=2.4
+- nccl>=2.5
 - libcumlprims=0.13*
 - statsmodels
 - protobuf >=3.4.1,<4.0.0
