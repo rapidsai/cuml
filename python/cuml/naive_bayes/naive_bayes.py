@@ -197,6 +197,11 @@ class MultinomialNB(object):
 
         self.alpha = alpha
         self.fit_prior = fit_prior
+
+        if class_prior is not None:
+            class_prior = rmm_cupy_ary(cp.asarray, class_prior,
+                                       dtype=class_prior.dtype)
+
         self.class_prior = class_prior
 
         self.fit_called_ = False
