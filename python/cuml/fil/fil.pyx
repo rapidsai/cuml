@@ -58,6 +58,7 @@ cdef extern from "treelite/c_api.h":
                                        ModelHandle* out) except +
     cdef int TreeliteLoadProtobufModel(const char* filename,
                                        ModelHandle* out) except +
+    cdef const char* TreeliteGetLastError()
 
 
 cdef class TreeliteModel():
@@ -121,16 +122,19 @@ cdef class TreeliteModel():
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "protobuf":
             # XXX Not tested
             res = TreeliteLoadProtobufModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         else:
             raise ValueError("Unknown model type %s" % model_type)
         model = TreeliteModel()
