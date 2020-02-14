@@ -271,12 +271,14 @@ class KMeans(Base):
         self.random_state = random_state
         self.max_iter = max_iter
         self.tol = tol
-        self._labels_ = None
-        self._cluster_centers_ = None
         self.inertia_ = 0
         self.n_iter_ = 0
         self.oversampling_factor=oversampling_factor
         self.max_samples_per_batch=int(max_samples_per_batch)
+
+        # internal array attributes
+        self._labels_ = None # accessed via estimator.labels_
+        self._cluster_centers_ = None # accessed via estimator.cluster_centers_
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
@@ -319,7 +321,9 @@ class KMeans(Base):
 
         """
 
-        self._check_output_type(X)
+        self._set_output_type(X)
+
+        print(self.output_type)
 
         cdef uintptr_t input_ptr
 
@@ -432,7 +436,7 @@ class KMeans(Base):
         Sum of squared distances of samples to their closest cluster center.
         """
 
-        self._check_output_type(X)
+        out_type = self._get_output_type(X)
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, n_rows, n_cols, dtype = \
@@ -485,7 +489,7 @@ class KMeans(Base):
         self.handle.sync()
         del(X_m)
 
-        return self.labels_, inertia
+        return self._labels_.to_output(out_type), inertia
 
     def predict(self, X, convert_dtype=False):
         """
@@ -503,8 +507,6 @@ class KMeans(Base):
         labels : array
         Which cluster each datapoint belongs to.
         """
-
-        self._check_output_type(X)
 
         return self._predict_labels_inertia(X, convert_dtype=convert_dtype)[0]
 
@@ -527,7 +529,7 @@ class KMeans(Base):
 
         """
 
-        self._check_output_type(X)
+        out_type = self._get_output_type(X)
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, n_rows, n_cols, dtype = \
@@ -579,7 +581,7 @@ class KMeans(Base):
 
         del(X_m)
         print("kmeans.pyx transform ", self.output_type)
-        return preds.to_output(self.output_type)
+        return preds.to_output(out_type)
 
     def score(self, X):
         """
@@ -597,7 +599,6 @@ class KMeans(Base):
         score: float
                  Opposite of the value of X on the K-means objective.
         """
-        self._check_output_type(X)
 
         return -1 * self._predict_labels_inertia(X)[1]
 
