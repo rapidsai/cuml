@@ -287,6 +287,7 @@ def _input_to_type(input):
     else:
         return 'cupy'
 
+
 def _check_output_type_str(output_str):
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -295,4 +296,3 @@ def _check_output_type_str(output_str):
         else:
             raise ValueError("output_type must be one of " +
                              "'numpy', 'cupy', 'cudf' or 'numba'")
-

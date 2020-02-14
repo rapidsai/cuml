@@ -185,7 +185,7 @@ class DBSCAN(Base):
         self.verbose = verbose
 
         # internal array attributes
-        self._labels_ = None # accessed via estimator.labels_
+        self._labels_ = None  # accessed via estimator.labels_
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
@@ -218,7 +218,7 @@ class DBSCAN(Base):
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, order='C',
-                               check_dtype=[np.float32, np.float64])
+                                check_dtype=[np.float32, np.float64])
 
         cdef uintptr_t input_ptr = X_m.ptr
 

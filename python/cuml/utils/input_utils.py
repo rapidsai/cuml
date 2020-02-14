@@ -54,9 +54,9 @@ def get_cudf_column_ptr(col):
 
 
 def input_to_cuml_array(X, order='F', deepcopy=False,
-                       check_dtype=False, convert_to_dtype=False,
-                       check_cols=False, check_rows=False,
-                       fail_on_order=False):
+                        check_dtype=False, convert_to_dtype=False,
+                        check_cols=False, check_rows=False,
+                        fail_on_order=False):
 
     """
     Convert input X to cuML Array.
