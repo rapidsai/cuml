@@ -79,20 +79,28 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
-    sigmoid and applying threshold */
+    sigmoid and applying threshold. in case of predict_proba, skips threshold
+    and fills in the converse probability */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
-                            float global_bias) {
+                            float global_bias, bool predict_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  float result = preds[i];
+
+  float result = preds[predict_proba ? i * 2 : i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
-  if ((output & output_t::THRESHOLD) != 0) {
+  if ((output & output_t::THRESHOLD) && !predict_proba) {
     result = result > threshold ? 1.0f : 0.0f;
   }
-  preds[i] = result;
+  // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
+  // that is also the default order, so we should use the same one
+  if (predict_proba) {
+    preds[i * 2] = 1.f - result;
+    preds[i * 2 + 1] = result;
+  } else
+    preds[i] = result;
 }
 
 struct forest {
@@ -121,7 +129,7 @@ struct forest {
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
   void predict(const cumlHandle& h, float* preds, const float* data,
-               size_t num_rows) {
+               size_t num_rows, bool predict_proba) {
     // Initialize prediction parameters.
     predict_params params;
     params.num_cols = num_cols_;
@@ -130,16 +138,17 @@ struct forest {
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
+    params.num_output_classes = predict_proba ? 2 : 1;
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
     // Transform the output if necessary.
-    if (output_ != output_t::RAW || global_bias_ != 0.0f) {
+    if (output_ != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
       transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
         preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-        threshold_, global_bias_);
+        threshold_, global_bias_, predict_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -550,8 +559,8 @@ void free(const cumlHandle& h, forest_t f) {
 }
 
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows) {
-  f->predict(h, preds, data, num_rows);
+             size_t num_rows, bool predict_proba) {
+  f->predict(h, preds, data, num_rows, predict_proba);
 }
 
 }  // namespace fil
