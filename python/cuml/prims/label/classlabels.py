@@ -75,7 +75,6 @@ inverse_map_kernel_str = r'''
 ({0} *labels, int n_labels, {0} *x, int x_n) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-
   extern __shared__ {0} label_cache[];
   for(int i = threadIdx.x; i < n_labels; i+=blockDim.x) {
     label_cache[i] = labels[i];
@@ -85,18 +84,9 @@ inverse_map_kernel_str = r'''
   __syncthreads();
 
   {0} mapped_label = x[tid];
-
-  if(mapped_label < 0 || mapped_label >= n_labels) {
-     printf("OUT OF BOUNDS: %d=%d", tid, mapped_label);
-  } 
-
   {0} original_label = label_cache[mapped_label];
 
   x[tid] = original_label;
-  if(x[tid] < 0 || x[tid] >= n_labels) {
-    printf("OUT OF BOUNDS: %d=%d, %d, %d\n", tid, x[tid], original_label, mapped_label);
-    printf("LABELS: %d, %d, %d\n", labels[0], labels[1], labels[2]);
-  }
 }
 '''
 
