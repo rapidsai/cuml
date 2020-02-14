@@ -147,6 +147,7 @@ class LinearRegression(Base):
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
+        This parameter is ignored when `fit_intercept` is set to False.
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.

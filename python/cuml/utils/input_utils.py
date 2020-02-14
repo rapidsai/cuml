@@ -46,11 +46,11 @@ def get_dev_array_ptr(ary):
 
 def get_cudf_column_ptr(col):
     """
-    Returns ctype pointer of a cudf column
+    Returns pointer of a cudf Series
 
     Deprecated: will be removed once all codebase uses cuml Array
     """
-    return cudf._lib.cudf.get_column_data_ptr(col._column)
+    return col.__cuda_array_interface__['data'][0]
 
 
 def input_to_cuml_array(X, order='F', deepcopy=False,
