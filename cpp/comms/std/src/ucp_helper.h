@@ -23,19 +23,16 @@
 #include <utils.h>
 
 struct comms_ucp_handle {
+  void *ucp_handle;
 
-    void *ucp_handle;
-
-    ucs_status_ptr_t (*send_func)(ucp_ep_h, const void*,
-                                              size_t, ucp_datatype_t,
-                                              ucp_tag_t,
-                                              ucp_send_callback_t);
-    ucs_status_ptr_t (*recv_func)(ucp_worker_h, void *,                                              size_t count, ucp_datatype_t datatype,
-                                              ucp_tag_t, ucp_tag_t,
-                                              ucp_tag_recv_callback_t);
-    void (*print_info_func)(ucp_ep_h, FILE *);
-    void (*req_free_func)(void *);
-    void (*worker_progress_func)(ucp_worker_h);
+  ucs_status_ptr_t (*send_func)(ucp_ep_h, const void *, size_t, ucp_datatype_t,
+                                ucp_tag_t, ucp_send_callback_t);
+  ucs_status_ptr_t (*recv_func)(ucp_worker_h, void *, size_t count,
+                                ucp_datatype_t datatype, ucp_tag_t, ucp_tag_t,
+                                ucp_tag_recv_callback_t);
+  void (*print_info_func)(ucp_ep_h, FILE *);
+  void (*req_free_func)(void *);
+  void (*worker_progress_func)(ucp_worker_h);
 };
 
 static const ucp_tag_t default_tag_mask = -1;
@@ -43,7 +40,6 @@ static const ucp_tag_t default_tag_mask = -1;
 static const ucp_tag_t any_rank_tag_mask = 0x0000FFFF;
 
 static const int UCP_ANY_RANK = -1;
-
 
 /**
  * @brief Asynchronous send callback sets request to completed
@@ -62,8 +58,9 @@ static void recv_handle(void *request, ucs_status_t status,
   context->completed = 1;
 }
 
-void load_ucp_handle(struct comms_ucp_handle* ucp_handle ) {
-  ucp_handle->ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
+void load_ucp_handle(struct comms_ucp_handle *ucp_handle) {
+  ucp_handle->ucp_handle =
+    dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
   if (!ucp_handle->ucp_handle) {
     ucp_handle->ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NODELETE);
     if (!ucp_handle->ucp_handle) {
@@ -73,7 +70,6 @@ void load_ucp_handle(struct comms_ucp_handle* ucp_handle ) {
   }
   dlerror();
 }
-
 
 void close_ucp_handle(struct comms_ucp_handle *handle) {
   dlclose(handle->ucp_handle);
@@ -86,8 +82,8 @@ void assert_dlerror() {
 
 void load_send_func(struct comms_ucp_handle *ucp_handle) {
   ucp_handle->send_func = (ucs_status_ptr_t(*)(
-    ucp_ep_h, const void *, size_t, ucp_datatype_t,
-    ucp_tag_t, ucp_send_callback_t))dlsym(ucp_handle->ucp_handle, "ucp_tag_send_nb");
+    ucp_ep_h, const void *, size_t, ucp_datatype_t, ucp_tag_t,
+    ucp_send_callback_t))dlsym(ucp_handle->ucp_handle, "ucp_tag_send_nb");
   assert_dlerror();
 }
 
@@ -98,24 +94,23 @@ void load_free_req_func(struct comms_ucp_handle *ucp_handle) {
 }
 
 void load_print_info_func(struct comms_ucp_handle *ucp_handle) {
-  ucp_handle->print_info_func = (void(*)(ucp_ep_h, FILE *))dlsym(ucp_handle->ucp_handle, "ucp_ep_print_info");
+  ucp_handle->print_info_func = (void (*)(ucp_ep_h, FILE *))dlsym(
+    ucp_handle->ucp_handle, "ucp_ep_print_info");
   assert_dlerror();
 }
 
 void load_worker_progress_func(struct comms_ucp_handle *ucp_handle) {
-  ucp_handle->worker_progress_func =
-    (void (*)(ucp_worker_h))dlsym(ucp_handle->ucp_handle, "ucp_worker_progress");
+  ucp_handle->worker_progress_func = (void (*)(ucp_worker_h))dlsym(
+    ucp_handle->ucp_handle, "ucp_worker_progress");
   assert_dlerror();
 }
 
 void load_recv_func(struct comms_ucp_handle *ucp_handle) {
   ucp_handle->recv_func = (ucs_status_ptr_t(*)(
-    ucp_worker_h, void *, size_t, ucp_datatype_t,
-    ucp_tag_t, ucp_tag_t,
+    ucp_worker_h, void *, size_t, ucp_datatype_t, ucp_tag_t, ucp_tag_t,
     ucp_tag_recv_callback_t))dlsym(ucp_handle->ucp_handle, "ucp_tag_recv_nb");
   assert_dlerror();
 }
-
 
 void init_comms_ucp_handle(struct comms_ucp_handle *handle) {
   load_ucp_handle(handle);
@@ -141,14 +136,13 @@ void ucp_progress(struct comms_ucp_handle *ucp_handle, ucp_worker_h worker) {
 /**
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
-struct ucx_context *ucp_isend(struct comms_ucp_handle *ucp_handle, ucp_ep_h ep_ptr,
-                              const void *buf, int size, int tag,
-                              ucp_tag_t tag_mask, int rank) {
-
+struct ucx_context *ucp_isend(struct comms_ucp_handle *ucp_handle,
+                              ucp_ep_h ep_ptr, const void *buf, int size,
+                              int tag, ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
 
   ucs_status_ptr_t send_result = (*(ucp_handle->send_func))(
-      ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
+    ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
   struct ucx_context *ucp_request = (struct ucx_context *)send_result;
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
@@ -166,7 +160,6 @@ struct ucx_context *ucp_isend(struct comms_ucp_handle *ucp_handle, ucp_ep_h ep_p
     * and set it to completed to make the "waitall()" function work properly.
     */
   } else {
-
     ucp_request = (struct ucx_context *)malloc(sizeof(struct ucx_context));
     ucp_request->completed = 1;
     ucp_request->needs_release = false;
@@ -178,14 +171,15 @@ struct ucx_context *ucp_isend(struct comms_ucp_handle *ucp_handle, ucp_ep_h ep_p
 /**
  * @bried Asynchronously receive data from given endpoint with the given tag.
  */
-struct ucx_context *ucp_irecv(struct comms_ucp_handle *ucp_handle, ucp_worker_h worker,
-                              ucp_ep_h ep_ptr, void *buf, int size, int tag,
-                              ucp_tag_t tag_mask, int sender_rank) {
+struct ucx_context *ucp_irecv(struct comms_ucp_handle *ucp_handle,
+                              ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
+                              int size, int tag, ucp_tag_t tag_mask,
+                              int sender_rank) {
   ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
 
   ucs_status_ptr_t recv_result = (*(ucp_handle->recv_func))(
-      worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
-  struct ucx_context *ucp_request = (struct ucx_context *) recv_result;
+    worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
+  struct ucx_context *ucp_request = (struct ucx_context *)recv_result;
 
   if (UCS_PTR_IS_ERR(ucp_request)) {
     ASSERT(!UCS_PTR_IS_ERR(ucp_request),

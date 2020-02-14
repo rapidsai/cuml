@@ -18,6 +18,7 @@
 - PR #1627: Adding a check for multi-class data in RF classification
 - PR #1654: Skip treelite patch if it's already been applied
 - PR #1661: Fix nvstring variable name
+- PR #1673: Using struct for caching dlsym state in communicator
 
 # cuML 0.12.0 (Date TBD)
 
