@@ -17,8 +17,9 @@
 import dask.array as da
 import cupy as cp
 
+
 def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
-    tail_strength=0.5, random_state=None, n_parts=1):
+                         tail_strength=0.5, random_state=None, n_parts=1):
     """ Generate a mostly low rank matrix with bell-shaped singular values
 
     Parameters
@@ -38,12 +39,14 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
         The number of parts of work.
+
     Returns
     -------
     X : Dask-cuPy array of shape [n_samples, n_features]
         The matrix.
     """
-    rs = da.random.RandomState(seed=random_state, RandomState=cp.random.RandomState)
+    rs = da.random.RandomState(seed=random_state,
+                               RandomState=cp.random.RandomState)
     n = min(n_samples, n_features)
 
     def generate_chunks_for_qr(total_size, min_size, n_parts):
@@ -54,15 +57,19 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
 
         n_partitions = int(max(1, total_size / min_size))
         rest = total_size % (n_partitions * min_size)
-        l = [min_size for i in range(n_partitions-1)]
-        l.append(min_size + rest)
-        return tuple(l)
+        chunks_list = [min_size for i in range(n_partitions-1)]
+        chunks_list.append(min_size + rest)
+        return tuple(chunks_list)
 
     # Random (ortho normal) vectors
-    m1 = rs.standard_normal((n_samples, n), chunks=(generate_chunks_for_qr(n_samples, n, n_parts), -1))
+    m1 = rs.standard_normal((n_samples, n),
+                            chunks=(generate_chunks_for_qr(n_samples,
+                                                           n, n_parts), -1))
     u, _ = da.linalg.qr(m1)
 
-    m2 = rs.standard_normal((n, n_features), chunks=(-1, generate_chunks_for_qr(n_features, n, n_parts)))
+    m2 = rs.standard_normal((n, n_features),
+                            chunks=(-1, generate_chunks_for_qr(n_features,
+                                                               n, n_parts)))
     v, _ = da.linalg.qr(m2)
 
     # For final multiplication
@@ -71,21 +78,24 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     v = v.rechunk({0: n_samples_per_part, 1: -1})
 
     # Index of the singular values
-    singular_ind = cp.arange(n, dtype=cp.float64)
+    sing_ind = cp.arange(n, dtype=cp.float64)
 
     # Build the singular profile by assembling signal and noise components
-    low_rank = ((1 - tail_strength) * cp.exp(-1.0 * (singular_ind / effective_rank) ** 2))
-    tail = tail_strength * cp.exp(-0.1 * singular_ind / effective_rank)
+    low_rank = ((1 - tail_strength) * cp.exp(-1.0 *
+                                             (sing_ind / effective_rank) **
+                                             2))
+    tail = tail_strength * cp.exp(-0.1 * sing_ind / effective_rank)
     local_s = low_rank + tail
-    s = da.from_array(local_s, chunks=(int(n_samples_per_part),), asarray=False)
+    s = da.from_array(local_s,
+                      chunks=(int(n_samples_per_part),), asarray=False)
 
     return da.dot(u * s, v)
 
 
 def make_regression(n_samples=100, n_features=100, n_informative=10,
-    n_targets=1, bias=0.0, effective_rank=None,
-    tail_strength=0.5, noise=0.0, shuffle=False, coef=False,
-    random_state=None, n_parts=1):
+                    n_targets=1, bias=0.0, effective_rank=None,
+                    tail_strength=0.5, noise=0.0, shuffle=False, coef=False,
+                    random_state=None, n_parts=1):
     """Generate a random regression problem.
     The input set can either be well conditioned (by default) or have a low
     rank-fat tail singular profile.
@@ -94,6 +104,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     regression model with "n_informative" nonzero regressors to the previously
     generated input and some gaussian centered noise with some adjustable
     scale.
+
     Parameters
     ----------
     n_samples : int, optional (default=100)
@@ -131,44 +142,54 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
         The number of parts of work.
+
     Returns
     -------
     X : Dask-cuPy array of shape [n_samples, n_features]
         The input samples.
     y : Dask-cuPy array of shape [n_samples] or [n_samples, n_targets]
         The output values.
-    coef : Dask-cuPy array of shape [n_features] or [n_features, n_targets], optional
+    coef : Dask-cuPy array of shape [n_features]
+           or [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
     """
     n_informative = min(n_features, n_informative)
-    rs = da.random.RandomState(seed=random_state, RandomState=cp.random.RandomState)
+    rs = da.random.RandomState(seed=random_state,
+                               RandomState=cp.random.RandomState)
 
     n_samples_per_part = max(1, int(n_samples / n_parts))
 
     if effective_rank is None:
         # Randomly generate a well conditioned input set
-        X = rs.standard_normal((n_samples, n_features), chunks=(n_samples_per_part, (n_informative, n_features-n_informative)))
+        X = rs.standard_normal((n_samples, n_features),
+                               chunks=(n_samples_per_part, (n_informative,
+                                                            n_features -
+                                                            n_informative)))
 
     else:
         # Randomly generate a low rank, fat tail input set
         X = make_low_rank_matrix(n_samples=n_samples,
-                                n_features=n_features,
-                                effective_rank=effective_rank,
-                                tail_strength=tail_strength,
-                                random_state=random_state,
-                                n_parts=n_parts)
-        X = X.rechunk({0: n_samples_per_part, 1: (n_informative, n_features-n_informative)})
-    
+                                 n_features=n_features,
+                                 effective_rank=effective_rank,
+                                 tail_strength=tail_strength,
+                                 random_state=random_state,
+                                 n_parts=n_parts)
+        X = X.rechunk({0: n_samples_per_part,
+                       1: (n_informative, n_features-n_informative)})
+
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
     # by a sparsifying regularizers such as L1 or elastic net)
 
-    ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets), chunks=(n_samples_per_part, -1))
+    ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
+                                              chunks=(n_samples_per_part, -1))
     y = da.dot(X[:, :n_informative], ground_truth) + bias
 
     if n_informative != n_features:
-        zeroes =  0.0 * rs.standard_normal((n_features - n_informative, n_targets)) # for distributed initialization
+        zeroes = 0.0 * rs.standard_normal((n_features -
+                                           n_informative,
+                                           n_targets))
         ground_truth = da.concatenate([ground_truth, zeroes], axis=0)
 
     # Add noise
@@ -183,7 +204,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
         features_indices = rs.permutation(n_features)
         X = X[:, features_indices]
-        ground_truth = ground_truth[:, features_indices]
+        ground_truth = ground_truth[features_indices, :]
 
     y = cp.squeeze(y)
 
