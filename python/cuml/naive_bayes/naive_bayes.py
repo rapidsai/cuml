@@ -267,6 +267,15 @@ class MultinomialNB(object):
 
         return self
 
+    def update_log_probs(self):
+        """
+        Updates the log probabilities. This enables lazy update for applications
+        like distributed Naive Bayes, so that the model can be updated incrementally
+        without incurring this cost each time.
+        """
+        self._update_feature_log_prob(self.alpha)
+        self._update_class_log_prior(class_prior=self.class_prior)
+
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples.
