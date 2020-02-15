@@ -47,6 +47,10 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
     a permutation of the class or cluster label values won’t change the score
     value in any way.
 
+    The labels in labels_pred and labels_true are assumed to be drawn from a
+    contiguous set (Ex: drawn from { 2, 3, 4}, but not from { 2, 4 }). If your
+    set of labels looks like { 2, 4 }, convert them to something like { 0, 1 }.
+
     Parameters
     ----------
     handle : cuml.Handle
