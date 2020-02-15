@@ -43,7 +43,6 @@ using namespace MLCommon;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 
-
 class UMAPTest : public ::testing::Test {
  protected:
   void xformTest() {
@@ -72,7 +71,7 @@ class UMAPTest : public ::testing::Test {
                                     n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
-                              umap_params, embeddings.data());
+                               umap_params, embeddings.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -80,17 +79,15 @@ class UMAPTest : public ::testing::Test {
                                  handle.getStream(),
                                  n_samples * umap_params->n_components);
 
-
     UMAPAlgo::_transform<float, 256>(handle, X_d.data(), n_samples, n_features,
-                                    X_d.data(), n_samples, embeddings.data(),
-                                    n_samples, umap_params, xformed.data());
+                                     X_d.data(), n_samples, embeddings.data(),
+                                     n_samples, umap_params, xformed.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
       handle, X_d.data(), xformed.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
-
   }
 
   void fitTest() {
@@ -119,7 +116,7 @@ class UMAPTest : public ::testing::Test {
                                     n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
-                              umap_params, embeddings.data());
+                               umap_params, embeddings.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -153,8 +150,8 @@ class UMAPTest : public ::testing::Test {
                                     handle.getStream(),
                                     n_samples * umap_params->n_components);
 
-    UMAPAlgo::_fit<float, 256>(handle, X_d.data(), Y_d.data(), n_samples, n_features,
-                              umap_params, embeddings.data());
+    UMAPAlgo::_fit<float, 256>(handle, X_d.data(), Y_d.data(), n_samples,
+                               n_features, umap_params, embeddings.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -162,7 +159,6 @@ class UMAPTest : public ::testing::Test {
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
-
 
   void SetUp() override {
     fitTest();
@@ -173,7 +169,6 @@ class UMAPTest : public ::testing::Test {
   void TearDown() override {}
 
  protected:
-
   double fit_score;
   double xformed_score;
   double supervised_score;

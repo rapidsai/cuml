@@ -340,8 +340,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,
-                            params->repulsion_strength, params,
-                            n_epochs, d_alloc, stream);
+                            params->repulsion_strength, params, n_epochs,
+                            d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

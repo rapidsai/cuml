@@ -79,7 +79,6 @@ void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
                                embeddings);
 }
 
-
 /**
  * Project a set of X vectors into the embedding space.
  * @param X
