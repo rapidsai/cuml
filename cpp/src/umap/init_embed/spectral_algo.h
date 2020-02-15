@@ -26,8 +26,6 @@
 #include "linalg/transpose.h"
 #include "random/rng.h"
 
-#include "cuda_utils.h"
-
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>
 
