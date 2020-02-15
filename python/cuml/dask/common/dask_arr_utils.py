@@ -132,7 +132,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
     shape = cudf_or_array.shape
     if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \
        isinstance(cudf_or_array, cudf.DataFrame):
-        dtypes = rmm_cupy_ary(cp.unique, cudf_or_array.dtypes[0])
+        dtypes = np.unique(cudf_or_array.dtypes)
 
         if len(dtypes) > 1:
             raise ValueError("DataFrame should contain only a single dtype")
