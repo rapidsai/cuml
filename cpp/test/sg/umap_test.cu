@@ -52,14 +52,13 @@ class UMAPTest : public ::testing::Test {
 
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
+    umap_params->init = 1;
     umap_params->verbose = false;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
     device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
                              n_samples * n_features);
-    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
-                             n_samples * 2);
 
     MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
                            handle.getStream());
@@ -97,14 +96,13 @@ class UMAPTest : public ::testing::Test {
 
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
+    umap_params->init = 1;
     umap_params->verbose = false;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
     device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
                              n_samples * n_features);
-    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
-                             n_samples * 2);
 
     MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
                            handle.getStream());
@@ -132,6 +130,7 @@ class UMAPTest : public ::testing::Test {
 
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
+    umap_params->init = 1;
     umap_params->verbose = false;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
@@ -164,6 +163,11 @@ class UMAPTest : public ::testing::Test {
     fitTest();
     xformTest();
     supervisedTest();
+
+    std::cout << "fit_score=" << fit_score << std::endl;
+    std::cout << "xform_score=" << xformed_score << std::endl;
+    std::cout << "supervised_score=" << supervised_score << std::endl;
+
   }
 
   void TearDown() override {}
@@ -177,6 +181,6 @@ class UMAPTest : public ::testing::Test {
 typedef UMAPTest UMAPTestF;
 TEST_F(UMAPTestF, Result) {
   ASSERT_TRUE(fit_score > 0.98);
-  ASSERT_TRUE(xformed_score > 0.98);
+  ASSERT_TRUE(xformed_score > 0.975);
   ASSERT_TRUE(supervised_score > 0.98);
 }
