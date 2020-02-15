@@ -28,6 +28,7 @@ from numba import cuda
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
+from sklearn.metrics.cluster import homogeneity_score as sk_hom_score
 from sklearn.preprocessing import StandardScaler
 
 
@@ -188,10 +189,23 @@ def test_homogeneity_score(datatype, use_handle):
     np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 0, 0]),
                                    0.0, decimal=7)
 
-    # TODO: Test when all labels are not in the ground_truth/preds, especially
-    #  the min/max label
 
-    # TODO: Test other data format (int32 Numba device or int32 cudf Series)
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_homogeneity_score_big_array(use_handle):
+    def assert_ours_equal_sklearn(random_generation_lambda):
+        rng = np.random.RandomState(1234)  # makes it reproducible
+        a = random_generation_lambda(rng)
+        b = random_generation_lambda(rng)
 
-    # TODO: Test with bigger arrays, like at least more than a
-    #  block's size (128)
+        a_dev = cuda.to_device(a)
+        b_dev = cuda.to_device(b)
+
+        handle, stream = get_handle(use_handle)
+
+        score = cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
+        ref = sk_hom_score(a_dev, b_dev)
+
+        np.testing.assert_almost_equal(score, ref, decimal=7)
+
+    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4)))
+    assert_ours_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4)))
