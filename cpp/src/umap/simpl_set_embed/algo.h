@@ -330,7 +330,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   CUDA_CHECK(
     cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
 
-  make_epochs_per_sample(out.vals(), out.nnz, params->n_epochs,
+  make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
                          epochs_per_sample.data(), stream);
 
   if (params->verbose)
@@ -341,7 +341,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,
                             params->repulsion_strength, params,
-                            params->n_epochs, d_alloc, stream);
+                            n_epochs, d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
