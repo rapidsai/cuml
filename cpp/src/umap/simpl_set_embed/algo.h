@@ -217,10 +217,10 @@ __global__ void optimize_batch_kernel(
             grad_d = 4.0;
           atomicAdd(current + d, grad_d * alpha);
         }
-
-        epoch_of_next_negative_sample[row] +=
-          n_neg_samples * epochs_per_negative_sample[row];
       }
+
+      epoch_of_next_negative_sample[row] +=
+        n_neg_samples * epochs_per_negative_sample[row];
     }
   }
 }
@@ -264,11 +264,11 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  for (int n = 0; n < n_epochs; n++) {
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
+  for (int n = 0; n < n_epochs; n++) {
     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
       epochs_per_sample, n_vertices, move_other,
@@ -280,6 +280,8 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     if (params->callback) params->callback->on_epoch_end(head_embedding);
 
     alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
+
+    seed += 1;
   }
 }
 
@@ -330,7 +332,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   CUDA_CHECK(
     cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
 
-  make_epochs_per_sample(out.vals(), out.nnz, params->n_epochs,
+  make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
                          epochs_per_sample.data(), stream);
 
   if (params->verbose)
@@ -340,8 +342,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,
-                            params->repulsion_strength, params,
-                            params->n_epochs, d_alloc, stream);
+                            params->repulsion_strength, params, n_epochs,
+                            d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
