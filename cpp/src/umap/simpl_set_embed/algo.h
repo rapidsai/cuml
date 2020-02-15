@@ -264,11 +264,11 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  for (int n = 0; n < n_epochs; n++) {
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
+  for (int n = 0; n < n_epochs; n++) {
     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
       epochs_per_sample, n_vertices, move_other,
@@ -280,6 +280,8 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     if (params->callback) params->callback->on_epoch_end(head_embedding);
 
     alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
+
+    seed += 1;
   }
 }
 
