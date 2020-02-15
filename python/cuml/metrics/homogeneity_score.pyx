@@ -78,14 +78,11 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
         check_rows=n_rows,
     )
 
-    # TODO: Test when all labels are not in the ground_truth/preds, especially
-    #  the min/max label
     cp_ground_truth_m = cp.asarray(ground_truth_m)
     cp_preds_m = cp.asarray(preds_m)
-    inter_min = cp.asarray([cp.min(cp_ground_truth_m), cp.min(cp_preds_m)])
-    inter_max = cp.asarray([cp.max(cp_ground_truth_m), cp.max(cp_preds_m)])
-    lower_class_range = cp.min(inter_min)
-    upper_class_range = cp.max(inter_max)
+
+    lower_class_range = min(cp.min(cp_ground_truth_m), cp.min(cp_preds_m))
+    upper_class_range = max(cp.max(cp_ground_truth_m), cp.max(cp_preds_m))
 
     hom = homogeneityScore(handle_[0],
                            <int*> ground_truth_ptr,
