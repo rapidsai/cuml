@@ -15,3 +15,4 @@
 #
 
 from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.cluster.homogeneity_score import homogeneity_score
