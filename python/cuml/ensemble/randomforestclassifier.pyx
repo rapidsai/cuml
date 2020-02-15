@@ -23,7 +23,6 @@
 import ctypes
 import cudf
 import cupy as cp
-import dask
 import math
 import numpy as np
 import rmm
@@ -33,8 +32,6 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-
-from cython.operator cimport dereference as deref
 
 from cuml import ForestInference
 from cuml.common.base import Base
@@ -298,7 +295,6 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <size_t> rf_forest64
-        self.multi_class = 0
     """
     TODO:
         Add the preprocess and postprocess functions
@@ -386,34 +382,6 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
-    def _tl_model_handles(self, model_bytes):
-        task_category = 1
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> self.n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> model_bytes)
-        mod_handle = <size_t> cuml_model_ptr
-
-        return ctypes.c_void_p(mod_handle).value
-
-    def concatenate_treelite_bytes(self, treelite_handle):
-        cdef vector[ModelHandle] *mod_handle_vec \
-            = new vector[ModelHandle]()
-        cdef uintptr_t mod_ptr
-        for i in treelite_handle:
-            mod_ptr = <uintptr_t>i
-            mod_handle_vec.push_back((
-                <ModelHandle> mod_ptr))
-
-        concat_mod_bytes = \
-            concatenate_trees(deref(mod_handle_vec))
-
-        return concat_mod_bytes
-
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
@@ -431,6 +399,7 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
+        self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
@@ -448,9 +417,6 @@ class RandomForestClassifier(Base):
 
         unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
-
-        if num_unique_labels > 2:
-            self.multi_class = 1
 
         for i in range(num_unique_labels):
             if i not in unique_labels:
@@ -521,11 +487,8 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype, concat_mod_bytes):
+                              num_classes, convert_dtype):
         cdef ModelHandle cuml_model_ptr = NULL
-        if len(concat_mod_bytes) != 0:
-            self.model_pbuf_bytes = concat_mod_bytes
-
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
@@ -550,7 +513,7 @@ class RandomForestClassifier(Base):
                                              algo=algo)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
-        return preds.copy_to_host()
+        return preds
 
     def _predict_model_on_cpu(self, X, convert_dtype):
         cdef uintptr_t X_ptr
@@ -602,8 +565,7 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
-                num_classes=2, convert_dtype=True,
-                concat_mod_bytes=[]):
+                num_classes=2, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -614,9 +576,10 @@ class RandomForestClassifier(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
+            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
+            or convert_dtype is set to True. Also the 'GPU' should only be
+            used for binary classification problems.
         output_class: boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -648,7 +611,7 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
 
-        if predict_model == "CPU":
+        if predict_model == "CPU" or self.num_classes > 2:
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and not convert_dtype:
@@ -662,8 +625,7 @@ class RandomForestClassifier(Base):
         else:
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
-                                               num_classes, convert_dtype,
-                                               concat_mod_bytes)
+                                               num_classes, convert_dtype)
 
         return preds
 

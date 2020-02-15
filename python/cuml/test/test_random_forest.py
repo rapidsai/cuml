@@ -13,9 +13,11 @@
 # limitations under the License.
 #
 
+import cudf
 import numpy as np
 import pytest
 import random
+import rmm
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
@@ -257,7 +259,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_orig = cu_class.predict(X_test,
-                                          predict_model="GPU")
+                                          predict_model="GPU").copy_to_host()
         cu_preds_orig = cu_class.predict(X_test,
                                          predict_model="CPU")
         cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
@@ -270,7 +272,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_rerun = cu_class2.predict(X_test,
-                                            predict_model="GPU")
+                                            predict_model="GPU").copy_to_host()
         cu_preds_rerun = cu_class2.predict(X_test, predict_model="CPU")
         cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
         fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
@@ -365,3 +367,49 @@ def test_rf_regression_float64(datatype, column_info, nrows):
         fil_preds = cuml_model.predict(X_test, predict_model="GPU")
         fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
         assert fil_r2 >= (cu_r2 - 0.02)
+
+
+@pytest.mark.parametrize('datatype', [(np.float32, np.float32)])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_classes', [5, 10])
+@pytest.mark.parametrize('type', ['dataframe', 'numpy'])
+def test_rf_classification_multi_class(datatype, column_info, nrows,
+                                       n_classes, type):
+
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=0, n_classes=n_classes)
+    X = X.astype(datatype[0])
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    X_test = X_test.astype(datatype[1])
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc()
+    if type == 'dataframe':
+        X_train_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_train))
+        y_train_df = cudf.Series(y_train)
+        X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
+        cuml_model.fit(X_train_df, y_train_df)
+        cu_preds = cuml_model.predict(X_test_df)
+    else:
+        cuml_model.fit(X_train, y_train)
+        cu_preds = cuml_model.predict(X_test)
+
+    cu_acc = accuracy_score(y_test, cu_preds)
+
+    # sklearn random forest classification model
+    # initialization, fit and predict
+    if nrows < 500000:
+        sk_model = skrfc(max_depth=16, random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_predict = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_predict)
+        assert cu_acc >= (sk_acc - 0.07)
