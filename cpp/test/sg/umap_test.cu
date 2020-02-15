@@ -167,7 +167,6 @@ class UMAPTest : public ::testing::Test {
     std::cout << "fit_score=" << fit_score << std::endl;
     std::cout << "xform_score=" << xformed_score << std::endl;
     std::cout << "supervised_score=" << supervised_score << std::endl;
-
   }
 
   void TearDown() override {}
