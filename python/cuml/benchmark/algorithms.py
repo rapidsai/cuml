@@ -327,9 +327,9 @@ def all_algorithms():
         AlgorithmPair(
             treelite if has_treelite() else None,
             cuml.ForestInference,
-            shared_args=dict(num_rounds=10, max_depth=10),
+            shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                fil_algo="BATCH_TREE_REORG",
+                fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
                 storage_type="AUTO",
@@ -345,7 +345,7 @@ def all_algorithms():
         AlgorithmPair(
             treelite if has_treelite() else None,
             cuml.ForestInference,
-            shared_args=dict(n_estimators=10, max_leaf_nodes=2**10),
+            shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
             cuml_args=dict(
                 fil_algo="AUTO",
                 output_class=False,
