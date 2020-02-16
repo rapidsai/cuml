@@ -99,8 +99,7 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
     params = {
-        "n_estimators": 10,
-        #    "max_depth": 16,
+        "n_estimators": 100,
         "max_leaf_nodes": 2**10,
         "max_features": "sqrt",
         "n_jobs": -1,
