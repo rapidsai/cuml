@@ -22,14 +22,14 @@
 #include "utils.h"
 
 #ifndef ENABLE_MEMCPY_ASYNC
-#  if __CUDA_ARCH__ >= 800
-#    define ENABLE_MEMCPY_ASYNC 1
-#  endif
+#if __CUDA_ARCH__ >= 800
+#define ENABLE_MEMCPY_ASYNC 1
+#endif
 #else
-#  if __CUDA_ARCH__ < 800
-#    define ENABLE_MEMCPY_ASYNC 0
-#    warning "memcpy_async has been enabled for older GPUs! Disabling it."
-#  endif
+#if __CUDA_ARCH__ < 800
+#define ENABLE_MEMCPY_ASYNC 0
+#warning "memcpy_async has been enabled for older GPUs! Disabling it."
+#endif
 #endif
 
 namespace MLCommon {
