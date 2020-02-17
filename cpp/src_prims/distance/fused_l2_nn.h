@@ -305,8 +305,8 @@ struct FusedL2NN {
       }
     }
     stsXY();
-    pageWr ^= 1;
     __syncthreads();
+    pageWr ^= 1;
   }
 
   DI void loop() {
