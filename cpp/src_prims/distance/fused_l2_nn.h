@@ -496,7 +496,19 @@ struct FusedL2NN {
 #endif  // ENABLE_MEMCPY_ASYNC
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
-  DI void stsXY() {  // no-op in case memcpy-async is possible
+  ///@todo: fix this to be a no-op in case of memcpy_async
+  DI void stsXY() {
+    auto offset = pageWr * P::SmemPage + srowid * P::SmemStride + scolid;
+    auto* saddrx = sx + offset;
+#pragma unroll
+    for (int i = 0; i < P::LdgPerThX; ++i) {
+      sts(saddrx + i * P::LdgRowsX * P::SmemStride, ldgDataX[i]);
+    }
+    auto* saddry = sy + offset;
+#pragma unroll
+    for (int i = 0; i < P::LdgPerThY; ++i) {
+      sts(saddry + i * P::LdgRowsY * P::SmemStride, ldgDataY[i]);
+    }
   }
 #else  // ENABLE_MEMCPY_ASYNC
   DI void stsXY() {
