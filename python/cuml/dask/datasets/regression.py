@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,29 @@
 #
 
 import dask.array as da
+import numpy as np
 import cupy as cp
+from cuml.utils import rmm_cupy_ary
+
+
+def create_rs_generator(random_state):
+    if hasattr(random_state, '__module__'):
+        rs_type = random_state.__module__ + '.' + type(random_state).__name__
+    else:
+        rs_type = type(random_state).__name__
+
+    rs = None
+    if rs_type == "NoneType" or rs_type == "int":
+        rs = da.random.RandomState(seed=random_state,
+                                RandomState=cp.random.RandomState)
+    elif rs_type == "cupy.random.generator.RandomState":
+        rs = da.random.RandomState(RandomState=random_state)
+    elif rs_type == "dask.array.random.RandomState":
+        rs = random_state
+    else:
+        raise ValueError('random_state type must be int, CuPy RandomState \
+                          or Dask RandomState')
+    return rs
 
 
 def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
@@ -34,7 +56,7 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     tail_strength : float between 0.0 and 1.0, optional (default=0.5)
         The relative importance of the fat noisy tail of the singular values
         profile.
-    random_state : int
+    random_state : int, CuPy RandomState instance, Dask RandomState instance or None (default)
         Determines random number generation for dataset creation. Pass an int
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
@@ -42,11 +64,10 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
 
     Returns
     -------
-    X : Dask-cuPy array of shape [n_samples, n_features]
+    X : Dask-CuPy array of shape [n_samples, n_features]
         The matrix.
     """
-    rs = da.random.RandomState(seed=random_state,
-                               RandomState=cp.random.RandomState)
+    rs = create_rs_generator(random_state)
     n = min(n_samples, n_features)
 
     def generate_chunks_for_qr(total_size, min_size, n_parts):
@@ -87,7 +108,7 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     tail = tail_strength * cp.exp(-0.1 * sing_ind / effective_rank)
     local_s = low_rank + tail
     s = da.from_array(local_s,
-                      chunks=(int(n_samples_per_part),), asarray=False)
+                      chunks=(int(n_samples_per_part),))
 
     return da.dot(u * s, v)
 
@@ -137,7 +158,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         Shuffle the samples and the features.
     coef : boolean, optional (default=False)
         If True, the coefficients of the underlying linear model are returned.
-    random_state : int, RandomState instance or None (default)
+    random_state : int, CuPy RandomState instance, Dask RandomState instance or None (default)
         Determines random number generation for dataset creation. Pass an int
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
@@ -145,18 +166,17 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     Returns
     -------
-    X : Dask-cuPy array of shape [n_samples, n_features]
+    X : Dask-CuPy array of shape [n_samples, n_features]
         The input samples.
-    y : Dask-cuPy array of shape [n_samples] or [n_samples, n_targets]
+    y : Dask-CuPy array of shape [n_samples] or [n_samples, n_targets]
         The output values.
-    coef : Dask-cuPy array of shape [n_features]
+    coef : Dask-CuPy array of shape [n_features]
            or [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
     """
     n_informative = min(n_features, n_informative)
-    rs = da.random.RandomState(seed=random_state,
-                               RandomState=cp.random.RandomState)
+    rs = create_rs_generator(random_state)
 
     n_samples_per_part = max(1, int(n_samples / n_parts))
 
@@ -173,7 +193,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                  n_features=n_features,
                                  effective_rank=effective_rank,
                                  tail_strength=tail_strength,
-                                 random_state=random_state,
+                                 random_state=rs,
                                  n_parts=n_parts)
         X = X.rechunk({0: n_samples_per_part,
                        1: (n_informative, n_features-n_informative)})
@@ -198,11 +218,11 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     # Randomly permute samples and features
     if shuffle:
-        samples_indices = rs.permutation(n_samples)
+        samples_indices = np.random.permutation(n_samples)
         X = X[samples_indices, :]
         y = y[samples_indices, :]
 
-        features_indices = rs.permutation(n_features)
+        features_indices = np.random.permutation(n_features)
         X = X[:, features_indices]
         ground_truth = ground_truth[features_indices, :]
 
