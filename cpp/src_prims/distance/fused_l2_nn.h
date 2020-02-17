@@ -252,6 +252,7 @@ struct FusedL2NN {
   ReduceOpT redOp;
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
+  DataT zeros[P::Veclen];
   nvcuda::experimental::pipeline pipe;
 #endif
 
@@ -285,7 +286,14 @@ struct FusedL2NN {
       pageWr(0),
       pageRd(0),
       maxVal(_mv),
-      redOp(op) {}
+      redOp(op) {
+#if (ENABLE_MEMCPY_ASYNC == 1)
+#pragma unroll
+    for (int i = 0; i < P::Veclen; ++i) {
+      zeros[i] = Zero;
+    }
+#endif
+  }
 
   DI void run() {
     prolog();
@@ -448,24 +456,27 @@ struct FusedL2NN {
   ///@todo: fix this to use memcpy_async
   DI void ldgXY(IdxT kidx) {
     auto koffset = kidx + scolid;
+    auto offset = pageWr * P::SmemPage + srowid * P::SmemStride + scolid;
+    auto* saddrx = sx + offset;
     for (int i = 0; i < P::LdgPerThX; ++i) {
+      auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
+      auto* gax = x + i * P::LdgRowsX * k + koffset;
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        ldg(ldgDataX[i], x + i * P::LdgRowsX * k + koffset);
+        memcpy_async(segment<P::Veclen, DataT>(sax),
+                     segment<P::Veclen, DataT>(gax), pipe);
       } else {
-#pragma unroll
-        for (int j = 0; j < P::Veclen; ++j) {
-          ldgDataX[i][j] = Zero;
-        }
+        sts(sax, zeros);
       }
     }
+    auto* saddry = sy + offset;
     for (int i = 0; i < P::LdgPerThY; ++i) {
+      auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
+      auto* gay = y + i * P::LdgRowsY * k + koffset;
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        ldg(ldgDataY[i], y + i * P::LdgRowsY * k + koffset);
+        memcpy_async(segment<P::Veclen, DataT>(say),
+                     segment<P::Veclen, DataT>(gay), pipe);
       } else {
-#pragma unroll
-        for (int j = 0; j < P::Veclen; ++j) {
-          ldgDataY[i][j] = Zero;
-        }
+        sts(say, zeros);
       }
     }
   }
