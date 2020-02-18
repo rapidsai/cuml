@@ -405,7 +405,8 @@ def test_lightgbm(tmp_path):
     fil_preds = np.asarray(fm.predict(X))
     assert np.allclose(gbm_preds, fil_preds, 1e-3)
 
-    lcls = lgb.LGBMClassifier().set_params(objective='binary', metric='binary_logloss')
+    lcls = lgb.LGBMClassifier().set_params(objective='binary',
+                                           metric='binary_logloss')
     lcls.fit(X, y)
     gbm_proba = lcls.predict_proba(X)
 
