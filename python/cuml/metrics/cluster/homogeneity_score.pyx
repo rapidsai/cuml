@@ -25,7 +25,7 @@ import cupy as cp
 from libc.stdint cimport uintptr_t
 
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array
+from cuml.utils import input_to_dev_array, rmm_cupy_ary
 import cuml.common.handle
 cimport cuml.common.cuda
 
@@ -36,7 +36,9 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                             const int upper_class_range) except +
 
 
-def homogeneity_score(labels_true, labels_pred, handle=None):
+def homogeneity_score(labels_true, labels_pred,
+                      handle=None,
+                      convert_dtype=False):
     """
     Computes the homogeneity metric of a cluster labeling given a ground truth.
 
@@ -48,16 +50,26 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
     value in any way.
 
     The labels in labels_pred and labels_true are assumed to be drawn from a
-    contiguous set (Ex: drawn from { 2, 3, 4}, but not from { 2, 4 }). If your
-    set of labels looks like { 2, 4 }, convert them to something like { 0, 1 }.
+    contiguous set (Ex: drawn from {2, 3, 4}, but not from {2, 4}). If your
+    set of labels looks like {2, 4}, convert them to something like {0, 1}.
 
     Parameters
     ----------
+    labels_pred : array-like (device or host) shape = (n_samples,)
+        The labels predicted by the model for the test dataset.
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy
+    labels_true : array-like (device or host) shape = (n_samples,)
+        The ground truth labels (ints) of the test dataset.
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy
     handle : cuml.Handle
-    labels_pred : int32 NumPy ndarray, int32 Numba device or int32 cudf Series
-       The labels predicted by the model for the test dataset
-    labels_true : int32 NumPy ndarray, int32 Numba device or int32 cudf Series
-       The ground truth labels of the test dataset
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
@@ -73,20 +85,24 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
 
     preds_m, preds_ptr, n_rows, _, _ = input_to_dev_array(
         labels_pred,
-        convert_to_dtype=np.int32,
+        check_dtype=np.int32,
+        check_cols=1
     )
 
     ground_truth_m, ground_truth_ptr, _, _, _ = input_to_dev_array(
         labels_true,
-        convert_to_dtype=np.int32,
+        check_dtype=np.int32,
         check_rows=n_rows,
+        check_cols=1
     )
 
-    cp_ground_truth_m = cp.asarray(ground_truth_m)
-    cp_preds_m = cp.asarray(preds_m)
+    cp_ground_truth_m = rmm_cupy_ary(cp.asarray, ground_truth_m)
+    cp_preds_m = rmm_cupy_ary(cp.asarray, preds_m)
 
-    lower_class_range = min(cp.min(cp_ground_truth_m), cp.min(cp_preds_m))
-    upper_class_range = max(cp.max(cp_ground_truth_m), cp.max(cp_preds_m))
+    lower_class_range = min(rmm_cupy_ary(cp.min, cp_ground_truth_m),
+                            rmm_cupy_ary(cp.min, cp_preds_m))
+    upper_class_range = max(rmm_cupy_ary(cp.max, cp_ground_truth_m),
+                            rmm_cupy_ary(cp.max, cp_preds_m))
 
     hom = homogeneityScore(handle_[0],
                            <int*> ground_truth_ptr,
