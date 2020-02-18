@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1683: cuml.dask make_regression
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
