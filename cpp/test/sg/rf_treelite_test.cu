@@ -150,7 +150,6 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     TREELITE_CHECK(TreeliteDeleteDenseBatch(dense_batch));
     TREELITE_CHECK(TreelitePredictorFree(predictor));
     TREELITE_CHECK(TreeliteFreeModel(model));
-    //TREELITE_CHECK(TreeliteFreeModel(concatenated_forest_handle));
   }
 
   void getResultAndCheck() {
