@@ -59,7 +59,7 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
   math_t *sample_i = &ind_X[n_idx * n];
 
   // TODO: This could probably be binary searched, based on
-  // the distances, as well.
+  // the distances, as well. (re: https://github.com/rapidsai/cuml/issues/1698)
   for (int r = 1; r < n; r++) {
     if (sample_i[r] == idx) {
       int tmp = r - n_neighbors;
@@ -117,11 +117,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,
                              cudaStream_t stream, int batchSize = 512) {
-  std::cout << "BATCH_SIZE: " << batchSize << std::endl;
-
   const int TMP_SIZE = batchSize * n;
-
-  std::cout << "n_neighbros=" << n_neighbors << std::endl;
 
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
@@ -150,8 +146,6 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
       workspaceSize, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    std::cout << "workspaceSize=" << workspaceSize << std::endl;
-
     size_t colSortWorkspaceSize = 0;
     bool bAllocWorkspace = false;
     char *sortColsWorkspace;
@@ -159,8 +153,6 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     MLCommon::Selection::sortColumnsPerRow(
       d_pdist_tmp, d_ind_X_tmp, curBatchSize, n, bAllocWorkspace, nullptr,
       colSortWorkspaceSize, stream);
-
-    std::cout << "colSortWorkspaceSize: " << colSortWorkspaceSize << std::endl;
 
     if (bAllocWorkspace) {
       sortColsWorkspace =
