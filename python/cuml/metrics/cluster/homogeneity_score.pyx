@@ -19,15 +19,11 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import numpy as np
-import cupy as cp
-
-from libc.stdint cimport uintptr_t
-
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array, rmm_cupy_ary
+
+from cuml.metrics.cluster.mutual_info_utils import prepare_data
 import cuml.common.handle
-cimport cuml.common.cuda
+
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     double homogeneityScore(const cumlHandle & handle, const int *y,
@@ -77,32 +73,12 @@ def homogeneity_score(labels_true, labels_pred,
       The homogeneity of the predicted labeling given the ground truth.
       Score between 0.0 and 1.0. 1.0 stands for perfectly homogeneous labeling.
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle*handle_ = <cumlHandle*> <size_t> handle.getHandle()
-
-    cdef uintptr_t preds_ptr
-    cdef uintptr_t ground_truth_ptr
-
-    preds_m, preds_ptr, n_rows, _, _ = input_to_dev_array(
-        labels_pred,
-        check_dtype=np.int32,
-        check_cols=1
-    )
-
-    ground_truth_m, ground_truth_ptr, _, _, _ = input_to_dev_array(
-        labels_true,
-        check_dtype=np.int32,
-        check_rows=n_rows,
-        check_cols=1
-    )
-
-    cp_ground_truth_m = rmm_cupy_ary(cp.asarray, ground_truth_m)
-    cp_preds_m = rmm_cupy_ary(cp.asarray, preds_m)
-
-    lower_class_range = min(rmm_cupy_ary(cp.min, cp_ground_truth_m),
-                            rmm_cupy_ary(cp.min, cp_preds_m))
-    upper_class_range = max(rmm_cupy_ary(cp.max, cp_ground_truth_m),
-                            rmm_cupy_ary(cp.max, cp_preds_m))
+    (handle_,
+     ground_truth_ptr, preds_ptr,
+     n_rows,
+     lower_class_range, upper_class_range) = prepare_data(labels_true,
+                                                          labels_pred,
+                                                          handle)
 
     hom = homogeneityScore(handle_[0],
                            <int*> ground_truth_ptr,
