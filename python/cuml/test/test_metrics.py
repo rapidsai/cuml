@@ -156,12 +156,11 @@ def test_rand_index_score(name, nrows):
     assert array_equal(cu_score, cu_score_using_sk)
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64, np.int])
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_homogeneity_score(datatype, use_handle):
+def test_homogeneity_score(use_handle):
     def score_labeling(ground_truth, predictions):
-        a = np.array(ground_truth, dtype=datatype)
-        b = np.array(predictions, dtype=datatype)
+        a = np.array(ground_truth, dtype=np.int)
+        b = np.array(predictions, dtype=np.int)
 
         a_dev = cuda.to_device(a)
         b_dev = cuda.to_device(b)
