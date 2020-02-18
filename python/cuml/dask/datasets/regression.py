@@ -29,7 +29,7 @@ def create_rs_generator(random_state):
     rs = None
     if rs_type == "NoneType" or rs_type == "int":
         rs = da.random.RandomState(seed=random_state,
-                                RandomState=cp.random.RandomState)
+                                   RandomState=cp.random.RandomState)
     elif rs_type == "cupy.random.generator.RandomState":
         rs = da.random.RandomState(RandomState=random_state)
     elif rs_type == "dask.array.random.RandomState":
@@ -41,7 +41,8 @@ def create_rs_generator(random_state):
 
 
 def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
-                         tail_strength=0.5, random_state=None, n_parts=1):
+                         tail_strength=0.5, random_state=None, n_parts=1,
+                         n_samples_per_part=None):
     """ Generate a mostly low rank matrix with bell-shaped singular values
 
     Parameters
@@ -56,7 +57,8 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     tail_strength : float between 0.0 and 1.0, optional (default=0.5)
         The relative importance of the fat noisy tail of the singular values
         profile.
-    random_state : int, CuPy RandomState instance, Dask RandomState instance or None (default)
+    random_state : int, CuPy RandomState instance, Dask RandomState instance
+                   or None (default)
         Determines random number generation for dataset creation. Pass an int
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
@@ -94,29 +96,30 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     v, _ = da.linalg.qr(m2)
 
     # For final multiplication
-    n_samples_per_part = max(1, int(n_samples / n_parts))
+    if n_samples_per_part is None:
+        n_samples_per_part = max(1, int(n_samples / n_parts))
     u = u.rechunk({0: n_samples_per_part, 1: -1})
     v = v.rechunk({0: n_samples_per_part, 1: -1})
 
     # Index of the singular values
-    sing_ind = cp.arange(n, dtype=cp.float64)
+    sing_ind = rmm_cupy_ary(cp.arange, n, dtype=cp.float64)
 
     # Build the singular profile by assembling signal and noise components
-    low_rank = ((1 - tail_strength) * cp.exp(-1.0 *
-                                             (sing_ind / effective_rank) **
-                                             2))
-    tail = tail_strength * cp.exp(-0.1 * sing_ind / effective_rank)
+    tmp = sing_ind / effective_rank
+    low_rank = ((1 - tail_strength) * rmm_cupy_ary(cp.exp, -1.0 * tmp ** 2))
+    tail = tail_strength * rmm_cupy_ary(cp.exp, -0.1 * tmp)
     local_s = low_rank + tail
     s = da.from_array(local_s,
                       chunks=(int(n_samples_per_part),))
 
-    return da.dot(u * s, v)
+    u *= s
+    return da.dot(u, v)
 
 
 def make_regression(n_samples=100, n_features=100, n_informative=10,
                     n_targets=1, bias=0.0, effective_rank=None,
                     tail_strength=0.5, noise=0.0, shuffle=False, coef=False,
-                    random_state=None, n_parts=1):
+                    random_state=None, n_parts=1, n_samples_per_part=None):
     """Generate a random regression problem.
     The input set can either be well conditioned (by default) or have a low
     rank-fat tail singular profile.
@@ -158,7 +161,8 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         Shuffle the samples and the features.
     coef : boolean, optional (default=False)
         If True, the coefficients of the underlying linear model are returned.
-    random_state : int, CuPy RandomState instance, Dask RandomState instance or None (default)
+    random_state : int, CuPy RandomState instance, Dask RandomState instance
+                   or None (default)
         Determines random number generation for dataset creation. Pass an int
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
@@ -178,7 +182,8 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     n_informative = min(n_features, n_informative)
     rs = create_rs_generator(random_state)
 
-    n_samples_per_part = max(1, int(n_samples / n_parts))
+    if n_samples_per_part is None:
+        n_samples_per_part = max(1, int(n_samples / n_parts))
 
     if effective_rank is None:
         # Randomly generate a well conditioned input set
@@ -204,6 +209,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
                                               chunks=(n_samples_per_part, -1))
+
     y = da.dot(X[:, :n_informative], ground_truth) + bias
 
     if n_informative != n_features:
@@ -226,10 +232,10 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         X = X[:, features_indices]
         ground_truth = ground_truth[features_indices, :]
 
-    y = cp.squeeze(y)
+    y = da.squeeze(y)
 
     if coef:
-        ground_truth = cp.squeeze(ground_truth)
+        ground_truth = da.squeeze(ground_truth)
         return X, y, ground_truth
 
     else:
