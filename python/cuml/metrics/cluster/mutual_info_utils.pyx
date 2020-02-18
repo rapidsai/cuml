@@ -27,12 +27,6 @@ from libc.stdint cimport uintptr_t
 from cuml.utils import input_to_dev_array, rmm_cupy_ary
 
 
-data = namedtuple(
-    'data',
-    'handle pointer_ground pointer_preds n_rows lower upper'
-)
-
-
 def prepare_data(labels_true, labels_pred):
     """Helper function to avoid code duplication for homogeneity score, mutual
     info score and completeness score.
@@ -53,13 +47,13 @@ def prepare_data(labels_true, labels_pred):
         check_cols=1
     )
 
-    cp_ground_truth_m = rmm_cupy_ary(cp.asarray, ground_truth_m)
-    cp_preds_m = rmm_cupy_ary(cp.asarray, preds_m)
+    cp_ground_truth_m = cp.asarray(ground_truth_m)
+    cp_preds_m = cp.asarray(preds_m)
 
-    lower_class_range = min(rmm_cupy_ary(cp.min, cp_ground_truth_m),
-                            rmm_cupy_ary(cp.min, cp_preds_m))
-    upper_class_range = max(rmm_cupy_ary(cp.max, cp_ground_truth_m),
-                            rmm_cupy_ary(cp.max, cp_preds_m))
+    lower_class_range = min(cp.min(cp_ground_truth_m),
+                            cp.min(cp_preds_m))
+    upper_class_range = max(cp.max(cp_ground_truth_m),
+                            cp.max(cp_preds_m))
 
     return (ground_truth_ptr, preds_ptr,
             n_rows,

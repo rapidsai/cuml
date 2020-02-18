@@ -171,23 +171,23 @@ def test_homogeneity_score(use_handle):
 
     # Perfect labelings are homogeneous
     np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [1, 1, 0, 0]),
-                                   1.0, decimal=7)
+                                   1.0, decimal=4)
     np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 1]),
-                                   1.0, decimal=7)
+                                   1.0, decimal=4)
 
     # Non-perfect labelings that further split classes into more clusters can
     # be perfectly homogeneous
     np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 2]),
-                                   1.0, decimal=7)
+                                   1.0, decimal=4)
     np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 1, 2, 3]),
-                                   1.0, decimal=7)
+                                   1.0, decimal=4)
 
     # Clusters that include samples from different classes do not make for an
     # homogeneous labeling
     np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 1, 0, 1]),
-                                   0.0, decimal=7)
+                                   0.0, decimal=4)
     np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 0, 0]),
-                                   0.0, decimal=7)
+                                   0.0, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -205,7 +205,7 @@ def test_homogeneity_score_big_array(use_handle):
         score = cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
         ref = sk_hom_score(a_dev, b_dev)
 
-        np.testing.assert_almost_equal(score, ref, decimal=7)
+        np.testing.assert_almost_equal(score, ref, decimal=4)
 
     assert_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4),
                                                  dtype=np.int32))
@@ -221,7 +221,7 @@ def assert_mi_equal_sklearn(a, b, use_handle):
 
     score = cuml.metrics.mutual_info_score(a_dev, b_dev, handle=handle)
     ref = sk_mi_score(a_dev, b_dev)
-    np.testing.assert_almost_equal(score, ref, decimal=7)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
