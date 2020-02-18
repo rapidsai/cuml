@@ -316,7 +316,6 @@ class UMAP(Base):
             callback_ptr = callback.get_native_callback()
             umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
-
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
@@ -594,4 +593,3 @@ class UMAP(Base):
         ret = UMAP._prep_output(X, embedding)
         del X_m
         return ret
-;;p

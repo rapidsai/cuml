@@ -25,7 +25,6 @@ from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
 
-from cuml.metrics import trustworthiness as tw
 import joblib
 
 from sklearn import datasets
