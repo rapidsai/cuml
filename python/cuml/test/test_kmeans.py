@@ -15,7 +15,6 @@
 
 import cuml
 import numpy as np
-import cupy as cp
 import pytest
 
 from cuml.datasets import make_blobs

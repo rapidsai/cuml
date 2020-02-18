@@ -26,7 +26,7 @@
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
 - PR #1652: Support XGBoost 1.0+ models in FIL
-- PR #17-1: test_score kmeans test passing with newer cupy version
+- PR #1701: test_score kmeans test passing with newer cupy version
 
 
 # cuML 0.12.0 (Date TBD)
