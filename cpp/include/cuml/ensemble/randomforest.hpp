@@ -123,10 +123,10 @@ void build_treelite_forest(ModelHandle* model,
 std::vector<unsigned char> save_model(ModelHandle model);
 
 void concatenate_trees(ModelHandle* concat_mod_handle,
-  std::vector<ModelHandle> treelite_handles);
+                       std::vector<ModelHandle> treelite_handles);
 
-void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
-                                         std::vector<ModelHandle> treelite_handles);
+void compare_concat_forest_to_subforests(
+  ModelHandle concat_tree_handle, std::vector<ModelHandle> treelite_handles);
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
