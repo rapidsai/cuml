@@ -20,6 +20,7 @@
 # cython: language_level = 3
 
 from cuml.common.handle cimport cumlHandle
+from libc.stdint cimport uintptr_t
 
 from cuml.metrics.cluster.mutual_info_utils import prepare_data
 import cuml.common.handle
@@ -71,12 +72,16 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
     float
       Mutual information, a non-negative value
     """
-    (handle_,
-     ground_truth_ptr, preds_ptr,
+    cdef uintptr_t ground_truth_ptr
+    cdef uintptr_t preds_ptr
+
+    handle = cuml.common.handle.Handle() if handle is None else handle
+    cdef cumlHandle*handle_ = <cumlHandle*> <size_t> handle.getHandle()
+
+    (ground_truth_ptr, preds_ptr,
      n_rows,
      lower_class_range, upper_class_range) = prepare_data(labels_true,
-                                                          labels_pred,
-                                                          handle)
+                                                          labels_pred)
 
     mi = mutualInfoScore(handle_[0],
                          <int*> ground_truth_ptr,

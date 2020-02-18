@@ -18,23 +18,25 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
+from collections import namedtuple
 
-import cuml
 import numpy as np
 import cupy as cp
-from cuml.common.handle cimport cumlHandle
 from libc.stdint cimport uintptr_t
 
 from cuml.utils import input_to_dev_array, rmm_cupy_ary
 
 
-def prepare_data(labels_true, labels_pred, handle=None):
+data = namedtuple(
+    'data',
+    'handle pointer_ground pointer_preds n_rows lower upper'
+)
+
+
+def prepare_data(labels_true, labels_pred):
     """Helper function to avoid code duplication for homogeneity score, mutual
     info score and completeness score.
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle*handle_ = <cumlHandle*> <size_t> handle.getHandle()
-
     cdef uintptr_t preds_ptr
     cdef uintptr_t ground_truth_ptr
 
@@ -59,7 +61,6 @@ def prepare_data(labels_true, labels_pred, handle=None):
     upper_class_range = max(rmm_cupy_ary(cp.max, cp_ground_truth_m),
                             rmm_cupy_ary(cp.max, cp_preds_m))
 
-    return (handle_,
-            ground_truth_ptr, preds_ptr,
+    return (ground_truth_ptr, preds_ptr,
             n_rows,
             lower_class_range, upper_class_range)

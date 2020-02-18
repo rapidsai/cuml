@@ -159,8 +159,8 @@ def test_rand_index_score(name, nrows):
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_homogeneity_score(use_handle):
     def score_labeling(ground_truth, predictions):
-        a = np.array(ground_truth, dtype=np.int)
-        b = np.array(predictions, dtype=np.int)
+        a = np.array(ground_truth, dtype=np.int32)
+        b = np.array(predictions, dtype=np.int32)
 
         a_dev = cuda.to_device(a)
         b_dev = cuda.to_device(b)
@@ -192,7 +192,7 @@ def test_homogeneity_score(use_handle):
 
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_homogeneity_score_big_array(use_handle):
-    def assert_ours_equal_sklearn(random_generation_lambda):
+    def assert_equal_sklearn(random_generation_lambda):
         rng = np.random.RandomState(1234)  # makes it reproducible
         a = random_generation_lambda(rng)
         b = random_generation_lambda(rng)
@@ -207,8 +207,10 @@ def test_homogeneity_score_big_array(use_handle):
 
         np.testing.assert_almost_equal(score, ref, decimal=7)
 
-    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4)))
-    assert_ours_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4)))
+    assert_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4),
+                                                 dtype=np.int32))
+    assert_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4),
+                                                 dtype=np.int32))
 
 
 def assert_mi_equal_sklearn(a, b, use_handle):
@@ -239,11 +241,13 @@ def test_mutual_info_score(use_handle):
 
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_mutual_info_score_big_array(use_handle):
-    def assert_ours_equal_sklearn(random_generation_lambda):
+    def assert_equal_sklearn(random_generation_lambda):
         rng = np.random.RandomState(1234)  # makes it reproducible
         a = random_generation_lambda(rng)
         b = random_generation_lambda(rng)
         assert_mi_equal_sklearn(a, b, use_handle=use_handle)
 
-    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4)))
-    assert_ours_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4)))
+    assert_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4),
+                                                 dtype=np.int32))
+    assert_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4),
+                                                 dtype=np.int32))
