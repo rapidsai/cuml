@@ -23,7 +23,6 @@
 - PR #1661: Fix nvstring variable name
 - PR #1673: Using struct for caching dlsym state in communicator
 - PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
-- PR #1661: Fix nvstring variable name
 - PR #1672: Solver 'svd' in Linear and Ridge Regressors when n_cols=1
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
