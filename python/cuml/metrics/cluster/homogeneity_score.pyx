@@ -76,7 +76,7 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
       Score between 0.0 and 1.0. 1.0 stands for perfectly homogeneous labeling.
     """
     handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle*handle_ = <cumlHandle*> <size_t> handle.getHandle()
+    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
     cdef uintptr_t preds_ptr
     cdef uintptr_t ground_truth_ptr
