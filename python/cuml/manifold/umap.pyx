@@ -109,6 +109,9 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
                    UMAPParams * params,
                    float * out) except +
 
+    void find_ab(cumlHandle &handle,
+                 UMAPParams *params) except +
+
 
 class UMAP(Base):
     """Uniform Manifold Approximation and Projection
@@ -243,7 +246,7 @@ class UMAP(Base):
     def __init__(self,
                  n_neighbors=15,
                  n_components=2,
-                 n_epochs=500,
+                 n_epochs=0,
                  learning_rate=1.0,
                  min_dist=0.1,
                  spread=1.0,
@@ -312,6 +315,12 @@ class UMAP(Base):
         if callback:
             callback_ptr = callback.get_native_callback()
             umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
+
+
+        cdef cumlHandle * handle_ = \
+            <cumlHandle*> <size_t> self.handle.getHandle()
+
+        find_ab(handle_[0], umap_params)
 
         self.umap_params = <size_t> umap_params
 
@@ -399,7 +408,7 @@ class UMAP(Base):
             return cudf.DataFrame.from_gpu_matrix(embedding)
         elif isinstance(X, np.ndarray):
             return np.asarray(embedding)
-        elif isinstance(X, cuda.DeviceNDArray):
+        elif isinstance(X, cuda.cudadrv.devicearray.DeviceNDArray):
             return embedding
         elif isinstance(X, cupy.ndarray):
             return cupy.array(embedding)
@@ -585,3 +594,4 @@ class UMAP(Base):
         ret = UMAP._prep_output(X, embedding)
         del X_m
         return ret
+;;p
