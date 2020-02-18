@@ -1,7 +1,8 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
-- PR #1655: Adds python bindings for homogeneity score 
+- PR #1655: Adds python bindings for homogeneity score
+- PR #1687: Adds python bindings for mutual info score
 
 ## Improvements
 - PR #1620: Pickling tests now automatically finds all model classes inheriting from cuml.Base
