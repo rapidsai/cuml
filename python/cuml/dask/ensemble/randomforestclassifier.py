@@ -21,7 +21,6 @@ from cuml.dask.common import extract_ddf_partitions, \
 from cuml.ensemble import RandomForestClassifier as cuRFC
 
 from dask.distributed import default_client, wait
-from itertools import chain
 
 import math
 import random
@@ -172,7 +171,7 @@ class RandomForestClassifier:
 
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
-        self.multi_class = 0
+
         c = default_client()
         if workers is None:
             workers = c.has_what().keys()  # Default to all workers
@@ -291,64 +290,8 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict_gpu(model, X_test, concat_mod_bytes, r):
-        if len(X_test) == 1:
-            X_test_df = X_test[0]
-        else:
-            X_test_df = cudf.concat(X_test)
-        return model.predict(X_test_df, concat_mod_bytes=concat_mod_bytes)
-
-    @staticmethod
-    def _predict_cpu(model, X, r):
+    def _predict(model, X, r):
         return model._predict_get_all(X)
-
-    @staticmethod
-    def _tl_model_handles(model, model_bytes):
-        return model._tl_model_handles(model_bytes=model_bytes)
-
-    def print_summary(self):
-        """
-        prints the summary of the forest used to train and test the model
-        """
-        c = default_client()
-        futures = list()
-        workers = self.workers
-
-        for n, w in enumerate(workers):
-            futures.append(
-                c.submit(
-                    RandomForestClassifier._print_summary,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-
-        wait(futures)
-        raise_exception_from_futures(futures)
-        return self
-
-    def concat_treelite_models(self):
-        """
-        Convert the cuML Random Forest model present in different workers to
-        the treelite format and then concatenate the different treelite models
-        to create a single model. The concatenated model is then converted to
-        model bytes format.
-        """
-        mod_bytes = []
-        for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-
-        worker_numb = [i for i in self.workers]
-
-        list_mod_handles = []
-        model = self.rfs[worker_numb[0]].result()
-        for n in range(len(self.workers)):
-            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-
-        concat_mod_bytes = model.concatenate_treelite_bytes(
-            treelite_handle=list_mod_handles)
-
-        return concat_mod_bytes
 
     def fit(self, X, y):
         """
@@ -443,55 +386,6 @@ class RandomForestClassifier:
            Dense vector (int) of shape (n_samples, 1)
 
         """
-        for w in self.workers:
-            if self.rfs[w].result().multi_class == 1:
-                self.multi_class = 1
-
-        if self.multi_class == 1:
-            preds = self.predict_using_cpu(X)
-
-        else:
-            preds = self.predict_using_fil(X)
-
-        return preds
-
-    def predict_using_fil(self, X):
-        c = default_client()
-        preds = []
-        gpu_futures = c.sync(extract_ddf_partitions, X)
-        worker_to_parts = workers_to_parts(gpu_futures)
-
-        concat_mod_bytes = self.concat_treelite_models()
-
-        for idx, wf in enumerate(worker_to_parts.items()):
-            preds.append(
-                c.submit(
-                    RandomForestClassifier._predict_gpu,
-                    self.rfs[wf[0]],
-                    wf[1],
-                    concat_mod_bytes,
-                    random.random(),
-                    workers=[wf[0]]))
-
-        wait(preds)
-        raise_exception_from_futures(preds)
-        collected_preds = c.gather(preds)
-
-        return list(chain.from_iterable(collected_preds))
-
-    def predict_using_cpu(self, X):
-        """
-        Predicts the labels for X.
-        Parameters
-        ----------
-        X : np.array
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of examples to predict.
-        Returns
-        ----------
-        y: np.array
-           Dense vector (int) of shape (n_samples, 1)
-        """
         c = default_client()
         workers = self.workers
 
@@ -500,7 +394,7 @@ class RandomForestClassifier:
         for n, w in enumerate(workers):
             futures.append(
                 c.submit(
-                    RandomForestClassifier._predict_cpu,
+                    RandomForestClassifier._predict,
                     self.rfs[w],
                     X_Scattered,
                     random.random(),
