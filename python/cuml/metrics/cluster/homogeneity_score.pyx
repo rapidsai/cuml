@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,9 +32,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                             const int upper_class_range) except +
 
 
-def homogeneity_score(labels_true, labels_pred,
-                      handle=None,
-                      convert_dtype=False):
+def homogeneity_score(labels_true, labels_pred, handle=None):
     """
     Computes the homogeneity metric of a cluster labeling given a ground truth.
 
