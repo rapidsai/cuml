@@ -116,15 +116,12 @@ template <typename math_t, Distance::DistanceType distance_type>
 double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,
-                             cudaStream_t stream,
-                             int batchSize = 512) {
-
+                             cudaStream_t stream, int batchSize = 512) {
   std::cout << "BATCH_SIZE: " << batchSize << std::endl;
 
   const int TMP_SIZE = batchSize * n;
 
   std::cout << "n_neighbros=" << n_neighbors << std::endl;
-
 
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
@@ -159,20 +156,19 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     bool bAllocWorkspace = false;
     char *sortColsWorkspace;
 
-    MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, curBatchSize,
-                                           n, bAllocWorkspace, nullptr,
-                                           colSortWorkspaceSize, stream);
+    MLCommon::Selection::sortColumnsPerRow(
+      d_pdist_tmp, d_ind_X_tmp, curBatchSize, n, bAllocWorkspace, nullptr,
+      colSortWorkspaceSize, stream);
 
     std::cout << "colSortWorkspaceSize: " << colSortWorkspaceSize << std::endl;
 
-
-
     if (bAllocWorkspace) {
-      sortColsWorkspace = (char *)d_alloc->allocate(colSortWorkspaceSize, stream);
+      sortColsWorkspace =
+        (char *)d_alloc->allocate(colSortWorkspaceSize, stream);
 
-      MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, curBatchSize,
-                                             n, bAllocWorkspace, sortColsWorkspace,
-                                             colSortWorkspaceSize, stream);
+      MLCommon::Selection::sortColumnsPerRow(
+        d_pdist_tmp, d_ind_X_tmp, curBatchSize, n, bAllocWorkspace,
+        sortColsWorkspace, colSortWorkspaceSize, stream);
     }
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -189,10 +185,8 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
     updateHost(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    if(bAllocWorkspace) {
-      d_alloc->deallocate(sortColsWorkspace, colSortWorkspaceSize,
-                          stream);
-
+    if (bAllocWorkspace) {
+      d_alloc->deallocate(sortColsWorkspace, colSortWorkspaceSize, stream);
     }
 
     t += t_tmp;
