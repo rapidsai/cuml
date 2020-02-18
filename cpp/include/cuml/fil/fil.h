@@ -197,13 +197,16 @@ void free(const cumlHandle& h, forest_t f);
  *  the number of columns is stored in forest, and both preds and data point to GPU memory
  *  @param h cuML handle used by this function
  *  @param f forest used for predictions
- *  @param preds array of size n in GPU memory to store predictions into
+ *  @param preds array in GPU memory to store predictions into
+        size == predict_proba ? (2*num_rows) : num_rows
  *  @param data array of size n * cols (cols is the number of columns
  *      for the forest f) from which to predict
  *  @param num_rows number of data rows
+ *  @param predict_proba for classifier models, this forces to output both class probabilities
+ *      instead of binary class prediction. format matches scikit-learn API
  */
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows);
+             size_t num_rows, bool predict_proba = false);
 
 }  // namespace fil
 }  // namespace ML
