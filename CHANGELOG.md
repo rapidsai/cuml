@@ -11,6 +11,7 @@
 - PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
+- PR #1697: Making trustworthiness batchable and using proper workspace
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
