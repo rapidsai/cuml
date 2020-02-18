@@ -26,25 +26,25 @@ import cuml.common.handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double homogeneityScore(const cumlHandle & handle, const int *y,
-                            const int *y_hat, const int n,
-                            const int lower_class_range,
-                            const int upper_class_range) except +
+    double completenessScore(const cumlHandle & handle, const int *y,
+                             const int *y_hat, const int n,
+                             const int lower_class_range,
+                             const int upper_class_range) except +
 
 
-def homogeneity_score(labels_true, labels_pred, handle=None):
+def completeness_score(labels_true, labels_pred, handle=None):
     """
-    Computes the homogeneity metric of a cluster labeling given a ground truth.
+    Completeness metric of a cluster labeling given a ground truth.
 
-    A clustering result satisfies homogeneity if all of its clusters contain
-    only data points which are members of a single class.
+    A clustering result satisfies completeness if all the data points that are
+    members of a given class are elements of the same cluster.
 
     This metric is independent of the absolute values of the labels:
     a permutation of the class or cluster label values won’t change the score
     value in any way.
 
     This metric is not symmetric: switching label_true with label_pred will
-    return the completeness_score which will be different in general.
+    return the homogeneity_score which will be different in general.
 
     The labels in labels_pred and labels_true are assumed to be drawn from a
     contiguous set (Ex: drawn from {2, 3, 4}, but not from {2, 4}). If your
@@ -71,8 +71,8 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
     Returns
     -------
     float
-      The homogeneity of the predicted labeling given the ground truth.
-      Score between 0.0 and 1.0. 1.0 stands for perfectly homogeneous labeling.
+      The completeness of the predicted labeling given the ground truth.
+      Score between 0.0 and 1.0. 1.0 stands for perfectly complete labeling.
     """
     (handle_,
      ground_truth_ptr, preds_ptr,
@@ -81,11 +81,11 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
                                                           labels_pred,
                                                           handle)
 
-    hom = homogeneityScore(handle_[0],
-                           <int*> ground_truth_ptr,
-                           <int*> preds_ptr,
-                           <int> n_rows,
-                           <int> lower_class_range,
-                           <int> upper_class_range)
+    com = completenessScore(handle_[0],
+                            <int*> ground_truth_ptr,
+                            <int*> preds_ptr,
+                            <int> n_rows,
+                            <int> lower_class_range,
+                            <int> upper_class_range)
 
-    return hom
+    return com
