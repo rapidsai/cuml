@@ -30,6 +30,7 @@ from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_hom_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mi_score
+from sklearn.metrics.cluster import completeness_score as sk_com_score
 from sklearn.preprocessing import StandardScaler
 
 
@@ -190,15 +191,18 @@ def test_homogeneity_score(use_handle):
                                    0.0, decimal=4)
 
 
+def generate_random_labels(random_generation_lambda, seed=1234):
+    rng = np.random.RandomState(seed)  # makes it reproducible
+    a = random_generation_lambda(rng)
+    b = random_generation_lambda(rng)
+
+    return cuda.to_device(a), cuda.to_device(b)
+
+
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_homogeneity_score_big_array(use_handle):
     def assert_equal_sklearn(random_generation_lambda):
-        rng = np.random.RandomState(1234)  # makes it reproducible
-        a = random_generation_lambda(rng)
-        b = random_generation_lambda(rng)
-
-        a_dev = cuda.to_device(a)
-        b_dev = cuda.to_device(b)
+        a_dev, b_dev = generate_random_labels(random_generation_lambda)
 
         handle, stream = get_handle(use_handle)
 
@@ -251,3 +255,68 @@ def test_mutual_info_score_big_array(use_handle):
                                                  dtype=np.int32))
     assert_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4),
                                                  dtype=np.int32))
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_homogeneity_completeness_symmetry(use_handle):
+    def assert_hom_com_sym(random_generation_lambda, seed=1234):
+        a_dev, b_dev = generate_random_labels(random_generation_lambda)
+        handle, stream = get_handle(use_handle)
+        hom = cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
+        com = cuml.metrics.completeness_score(a_dev, b_dev, handle=handle)
+        np.testing.assert_almost_equal(hom, com, decimal=7)
+
+    assert_hom_com_sym(lambda rng: rng.randint(0, 2, int(10e3)))
+    assert_hom_com_sym(lambda rng: rng.randint(-5, 20, int(10e3)))
+    assert_hom_com_sym(lambda rng:
+                       rng.randint(int(-10e5), int(10e5), int(10e3)))
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_completeness_score(use_handle):
+    def score_labeling(ground_truth, predictions):
+        a = np.array(ground_truth, dtype=np.int)
+        b = np.array(predictions, dtype=np.int)
+
+        a_dev = cuda.to_device(a)
+        b_dev = cuda.to_device(b)
+
+        handle, stream = get_handle(use_handle)
+
+        return cuml.metrics.completeness_score(a_dev, b_dev, handle=handle)
+
+    # Perfect labelings are complete
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [1, 1, 0, 0]),
+                                   1.0, decimal=4)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 1]),
+                                   1.0, decimal=4)
+
+    # Non-perfect labelings that assign all classes members to the same
+    # clusters are still complete
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 0, 0]),
+                                   1.0, decimal=4)
+    np.testing.assert_almost_equal(score_labeling([0, 1, 2, 3], [0, 0, 1, 1]),
+                                   1.0, decimal=4)
+
+    # If classes members are split across different clusters, the assignment
+    # cannot be complete
+    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 1, 0, 1]),
+                                   0.0, decimal=4)
+    np.testing.assert_almost_equal(score_labeling([0, 0, 0, 0], [0, 1, 2, 3]),
+                                   0.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_completeness_score_big_array(use_handle):
+    def assert_ours_equal_sklearn(random_generation_lambda):
+        a_dev, b_dev = generate_random_labels(random_generation_lambda)
+
+        handle, stream = get_handle(use_handle)
+
+        score = cuml.metrics.completeness_score(a_dev, b_dev, handle=handle)
+        ref = sk_com_score(a_dev, b_dev)
+
+        np.testing.assert_almost_equal(score, ref, decimal=4)
+
+    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4)))
+    assert_ours_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4)))
