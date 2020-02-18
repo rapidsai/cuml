@@ -36,6 +36,7 @@ using namespace MLCommon;
 using namespace std;
 namespace tl = treelite;
 
+tl::Model concat_model;
 /**
  * @brief Set RF_metrics.
  * @param[in] rf_type: Random Forest type: classification or regression
@@ -350,8 +351,8 @@ std::vector<unsigned char> save_model(ModelHandle model) {
 /**
  * @brief Compares the trees present in concatenated treelite forest with the trees
  *   of the forests present in the different workers
- * @param[in] tree_from_concatenated_forest: Tree from the concatenated forest.
- * @param[in] tree_from_individual_forest: Tree from the forest present in each worker.
+ * @param[in] tree_from_concatenated_forest: Tree info from the concatenated forest.
+ * @param[in] tree_from_individual_forest: Tree info from the forest present in each worker.
  */
 void compare_trees(tl::Tree& tree_from_concatenated_forest,
                    tl::Tree& tree_from_individual_forest) {
@@ -362,31 +363,24 @@ void compare_trees(tl::Tree& tree_from_concatenated_forest,
   for (int each_node = 0; each_node < tree_from_concatenated_forest.num_nodes; each_node++) {
     tl::Tree::Node& node_from_concat = tree_from_concatenated_forest[each_node];
     tl::Tree::Node& node_from_indiv = tree_from_individual_forest[each_node];
-    std::cout << "is root concat : " << node_from_concat.is_root() << std::flush << std::endl;
     ASSERT(node_from_concat.is_root() == node_from_indiv.is_root(),
       "Error! root position mismatch between concatenated forest and the"
       " individual forests ");
-    std::cout << "is parent concat : " << node_from_concat.parent() << std::flush << std::endl;
     ASSERT(node_from_concat.parent() == node_from_indiv.parent(),
       "Error! node parent mismatch between concatenated forest and the"
       " individual forests ");
-    std::cout << "is is_leaf concat : " << node_from_concat.is_leaf() << std::flush << std::endl;
     ASSERT(node_from_concat.is_leaf() == node_from_indiv.is_leaf(),
       "Error! mismatch in the position of a leaf between concatenated forest and the"
       " individual forests ");
-    std::cout << "is leaf_value concat : " << node_from_concat.leaf_value() << std::flush << std::endl;
     ASSERT(node_from_concat.leaf_value() == node_from_indiv.leaf_value(),
       "Error! leaf value mismatch between concatenated forest and the"
       " individual forests ");
-    std::cout << "is cright concat : " << node_from_concat.cright() << std::flush << std::endl;
     ASSERT(node_from_concat.cright() == node_from_indiv.cright(),
       "Error! mismatch in the position of the node between concatenated forest and the"
       " individual forests ");
-    std::cout << "is cleft concat : " << node_from_concat.cleft() << std::flush << std::endl;
     ASSERT(node_from_concat.cleft() == node_from_indiv.cleft(),
       "Error! mismatch in the position of the node between concatenated forest and the"
       " individual forests ");
-    std::cout << "is split_index concat : " << node_from_concat.split_index() << std::flush << std::endl;
     ASSERT(node_from_concat.split_index() == node_from_indiv.split_index(),
       "Error! split index value mismatch between concatenated forest and the"
       " individual forests ");
@@ -400,11 +394,11 @@ void compare_trees(tl::Tree& tree_from_concatenated_forest,
  * @param[in] treelite_handles: List containing ModelHandles for the forest present in
  *   each worker.
  */
-void compare_concat_forest_to_subforests(ModelHandle* concat_tree_handle,
+void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
                                          std::vector<ModelHandle> treelite_handles) {
   size_t concat_forest;
   size_t total_num_trees = 0;
-  std::cout << "concat_tree_handle " << *concat_tree_handle << std::flush << std::endl;
+  std::cout << "concat_tree_handle " << concat_tree_handle << std::flush << std::endl;
   for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     size_t num_trees_each_forest;
     TREELITE_CHECK(
@@ -412,7 +406,7 @@ void compare_concat_forest_to_subforests(ModelHandle* concat_tree_handle,
     total_num_trees = total_num_trees + num_trees_each_forest;
   }
 
-  TREELITE_CHECK(TreeliteQueryNumTree(*concat_tree_handle, &concat_forest));
+  TREELITE_CHECK(TreeliteQueryNumTree(concat_tree_handle, &concat_forest));
   std::cout << "concat_mod_ num trees " << concat_forest << std::flush << std::endl;
 
   ASSERT(
@@ -421,7 +415,7 @@ void compare_concat_forest_to_subforests(ModelHandle* concat_tree_handle,
     "of the trees present in the forests present in each worker are not equal");
 
   int concat_mod_tree_num = 0;
-  tl::Model& concat_model = *(tl::Model*)(*concat_tree_handle);
+  tl::Model& concat_model = *(tl::Model*)(concat_tree_handle);
   for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     tl::Model& model = *(tl::Model*)(treelite_handles[forest_idx]);
 
@@ -442,6 +436,7 @@ void compare_concat_forest_to_subforests(ModelHandle* concat_tree_handle,
     }
     concat_mod_tree_num = concat_mod_tree_num + model.trees.size();
   }
+  concat_model.trees.clear();
 }
 
 /**
@@ -454,20 +449,17 @@ void compare_concat_forest_to_subforests(ModelHandle* concat_tree_handle,
 void concatenate_trees(ModelHandle* concat_mod_handle,
   std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
-  tl::Model concat_model;
+
   for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
     concat_model.trees.insert(concat_model.trees.end(),
                               model.trees.begin(), model.trees.end());
   }
-
-  *concat_mod_handle = &(concat_model);
   concat_model.num_feature = first_model.num_feature;
   concat_model.num_output_group = first_model.num_output_group;
   concat_model.random_forest_flag = first_model.random_forest_flag;
   concat_model.param = first_model.param;
-  compare_concat_forest_to_subforests(concat_mod_handle, treelite_handles);
-  std::cout << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << std::flush << std::endl;
+  *concat_mod_handle = &concat_model;
 }
 
 /**
