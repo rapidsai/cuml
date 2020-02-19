@@ -118,24 +118,29 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 class GaussianNB(object):
 
-    def __init__(self, priors, var_smoothing=1e-9):
+    def __init__(self, priors=None, var_smoothing=1e-9):
 
         self.priors = priors
         self.var_smoothing = var_smoothing
         self.fit_called = False
 
-    def _partial_fit(self, X, y, classes=None, _refit=False):
+    def fit(self, X, y, sample_weight=None):
+        return self._partial_fit(X, y, cp.unique(y), _refit=True,
+                                 sample_weight=sample_weight)
+
+    def _partial_fit(self, X, y, classes=None, _refit=False, sample_weight=None):
 
         if _refit:
             self.classes_ = None
 
-        self.epsilon_ = self.var_smoothing * cp.var(X, axis=0).max()
+            
+
+        self.epsilon_ = self.var_smoothing #* cp.var(X, axis=0).max()
 
         if not self.fit_called:
 
             n_features = X.shape[1]
             n_classes = len(self.classes_)
-
 
             self.theta_ = cp.zeros((n_classes, n_features))
             self.sigma_ = cp.zeros((n_classes, n_features))
@@ -154,19 +159,39 @@ class GaussianNB(object):
                              "in the initial classes %s" %
                              (unique_y[~unique_y_in_classes], classes))
 
-    def _update_mean_variance(self, n_past, mu, var, X, Y, sample_weight=None):
+        self.theta_, self.sigma_ = self._update_mean_variance(X, y,
+                                                              n_classes,
+                                                              n_features)
+
+        self.sigma_[:, :] += self.epsilon_
+
+        if self.priors is None:
+            self.class_prior_ = self.class_count_ / self.class_count_.sum()
+
+    def partial_fit(self, X, y, classes=None, sample_weight=None):
+        return self._partial_fit(X, y, classes, _refit=False,
+                                 sample_weight=sample_weight)
+
+    def _update_mean_variance(self, X, Y, n_classes, n_features, sample_weight=None):
 
         labels_dtype = self.classes_.dtype
 
+        mu = self.theta_
+        var = self.sigma_
+        n_past = self.class_count_
+
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
+
+            new_mu = rmm_cupy_ary(cp.zeros, (n_classes, n_features))
+            new_var = rmm_cupy_ary(cp.zeros, (n_classes, n_features))
 
             count_features_coo = count_features_coo_kernel(X.dtype,
                                                            labels_dtype)
 
             # Run once for averages
             count_features_coo((math.ceil(X.nnz / 32),), (32,),
-                               (mu,
+                               (new_mu,
                                 X.row,
                                 X.col,
                                 X.data,
@@ -178,7 +203,7 @@ class GaussianNB(object):
 
             # Run again for variance
             count_features_coo((math.ceil(X.nnz / 32),), (32,),
-                               (var,
+                               (new_var,
                                 X.row,
                                 X.col,
                                 X.data,
@@ -216,29 +241,34 @@ class GaussianNB(object):
                                   X.shape[1],
                                   Y,
                                   self.n_classes_,
-                                  False,
+                                  True,
                                   X.flags["C_CONTIGUOUS"]))
-
 
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
         count_classes((math.ceil(X.shape[0] / 32),), (32,),
                       (self.class_count_, X.shape[0], Y))
 
+        n_new = X.shape[0]
+
         class_counts = cp.expand_dims(self.class_count_, axis=1)
-        mu /= class_counts
+        new_mu /= class_counts
 
         # Construct variance from sum squares
-        var = (var / class_counts) - np.mean()**2
+        new_var = (var / class_counts) - np.mean()**2
 
-        if n_past == 0:
-            return mu, var
+        n_total = float(n_past + n_new)
 
-        n_total =
+        total_mu = (n_new + new_mu + n_past * mu) / n_total
 
+        old_ssd = n_past * var
+        new_ssd = n_new * new_var
+        total_ssd = (old_ssd + new_ssd +
+                     (n_new * n_past / n_total) *
+                     (mu - new_mu) ** 2)
 
+        total_var = total_ssd / n_total
 
-
-
+        return total_mu, total_var
 
     def _joint_log_likelihood(self, X):
         joint_log_likelihood = []

@@ -20,9 +20,11 @@ import pytest
 
 from sklearn.metrics import accuracy_score
 from cuml.naive_bayes import MultinomialNB
+from cuml.naive_bayes import GaussianNB
 
 from numpy.testing import assert_allclose
 from sklearn.naive_bayes import MultinomialNB as skNB
+from sklearn.naive_bayes import GaussianNB as skGNB
 
 import math
 
@@ -42,7 +44,7 @@ def scipy_to_cp(sp, dtype):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
+def test__multinomial_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
     """
     Cupy Test
     """
@@ -72,7 +74,37 @@ def test_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
+def test_gaussian_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
+    """
+    Cupy Test
+    """
+
+    X, y = nlp_20news
+
+    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    y = y.astype(y_dtype)
+
+    # Priming it seems to lower the end-to-end runtime
+    model = GaussianNB()
+    model.fit(X, y)
+
+    cp.cuda.Stream.null.synchronize()
+
+    with cp.prof.time_range(message="start", color_id=10):
+        model = GaussianNB()
+        model.fit(X, y)
+
+    y_hat = model.predict(X)
+
+    y_hat = cp.asnumpy(y_hat)
+    y = cp.asnumpy(y)
+
+    assert accuracy_score(y, y_hat) >= 0.924
+
+
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_multinomial_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
     """
     Cupy Test
     """
@@ -97,7 +129,7 @@ def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_partial_fit(x_dtype, y_dtype, nlp_20news):
+def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
 
     X, y = nlp_20news
@@ -143,7 +175,7 @@ def test_partial_fit(x_dtype, y_dtype, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_predict_proba(x_dtype, y_dtype, nlp_20news):
+def test_multinomial_predict_proba(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
@@ -169,7 +201,7 @@ def test_predict_proba(x_dtype, y_dtype, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_predict_log_proba(x_dtype, y_dtype, nlp_20news):
+def test_multinomial_predict_log_proba(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
@@ -195,7 +227,7 @@ def test_predict_log_proba(x_dtype, y_dtype, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_score(x_dtype, y_dtype, nlp_20news):
+def test_multinomial_score(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
