@@ -15,6 +15,7 @@
 
 import cuml
 import numpy as np
+import cupy as cp
 import pytest
 
 from cuml.datasets import make_blobs
@@ -171,9 +172,7 @@ def test_score(nrows, ncols, nclusters):
 
     predictions = cuml_kmeans.predict(X)
 
-    centers = np.asarray(cuml_kmeans.cluster_centers_.as_gpu_matrix())
-
-    X = np.asarray(X)
+    centers = cp.asarray(cuml_kmeans.cluster_centers_.as_gpu_matrix())
 
     expected_score = 0
     for idx, label in enumerate(predictions):
