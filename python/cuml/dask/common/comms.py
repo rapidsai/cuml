@@ -309,7 +309,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     worker_state(sessionId)["ucp_eps"] = eps
 
 
-async def _func_destroy_all(sessionId, comms_p2p):
+async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
     worker_state(sessionId)["nccl"].destroy()
     del worker_state(sessionId)["nccl"]
 
@@ -465,8 +465,12 @@ class CommsContext:
         self.client.run(_func_destroy_all,
                         self.sessionId,
                         self.comms_p2p,
+                        self.verbose,
                         wait=True,
                         workers=self.worker_addresses)
+
+        if self.verbose:
+            print("Destroying comms.")
 
         if self.comms_p2p:
             self.stop_ucp_listeners()
