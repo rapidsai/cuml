@@ -308,10 +308,10 @@ class LogisticRegression(Base):
             will increase memory used for the method.
         Returns
         ----------
-        y: cuDF DataFrame
-           Dense matrix (floats or doubles) of shape (n_samples, C)
+        y: array-like (device)
+           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        return self.qn.decision_function(X, convert_dtype=convert_dtype)
+        return self.qn._decision_function(X, convert_dtype=convert_dtype)
 
     def predict(self, X, convert_dtype=False):
         """
@@ -339,7 +339,7 @@ class LogisticRegression(Base):
 
     def predict_proba(self, X, convert_dtype=False):
         """
-        Predicts the class probabilities for X
+        Predicts the class probabilities for each class in X
 
         Parameters
         ----------
@@ -354,20 +354,22 @@ class LogisticRegression(Base):
             will increase memory used for the method.
         Returns
         ----------
-        y: cuDF DataFrame
-           Dense matrix (floats or doubles) of shape (n_samples, C)
+        y: array-like (device)
+           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        proba = self.decision_function(X, convert_dtype=convert_dtype)
-        proba = cp.asarray(proba.to_gpu_matrix())
+        scores = cp.asarray(self.decision_function(X,
+                            convert_dtype=convert_dtype))
         if self.num_classes == 2:
+            proba = cp.zeros((scores.shape[0], 2))
+            proba[:, 1] = scores.ravel()
             proba = 1 / (1 + cp.exp(-proba))
-            proba = cp.column_stack((proba, proba))
-            proba[:, 0] = 1 - proba[:, 0]
+            proba[:, 0] = 1 - proba[:, 1]
         elif self.num_classes > 2:
+            proba = cp.exp(scores)
             row_sum = cp.sum(proba, axis=1)
             proba = proba / row_sum[:, None]
 
-        return cudf.DataFrame.from_gpu_matrix(proba)
+        return proba
 
     def score(self, X, y, convert_dtype=False):
         """
