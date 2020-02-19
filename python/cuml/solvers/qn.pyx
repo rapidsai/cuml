@@ -313,14 +313,14 @@ class QN(Base):
                              "than 2 classes.")
 
         if self.loss_type == 0:
-            coef_col_dim = self.num_classes - 1
+            self.num_classes_dim = self.num_classes - 1
         else:
-            coef_col_dim = self.num_classes
+            self.num_classes_dim = self.num_classes
 
         if self.fit_intercept:
-            coef_size = (self.n_cols + 1, coef_col_dim)
+            coef_size = (self.n_cols + 1, self.num_classes_dim)
         else:
-            coef_size = (self.n_cols, coef_col_dim)
+            coef_size = (self.n_cols, self.num_classes_dim)
 
         self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
@@ -414,15 +414,16 @@ class QN(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        preds = rmm.to_device(zeros(n_rows, dtype=self.dtype))
+        scores = rmm.to_device(zeros((n_rows, self.num_classes_dim),
+                                     dtype=self.dtype, order='F'))
 
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
-        cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
+        cdef uintptr_t scores_ptr = get_dev_array_ptr(scores)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-            qnPredict(handle_[0],
+            qnDecisionFunction(handle_[0],
                       <float*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
@@ -431,10 +432,10 @@ class QN(Base):
                       <float*> coef_ptr,
                       <bool> True,
                       <int> self.loss_type,
-                      <float*> pred_ptr)
+                      <float*> scores_ptr)
 
         else:
-            qnPredict(handle_[0],
+            qnDecisionFunction(handle_[0],
                       <double*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
@@ -443,13 +444,13 @@ class QN(Base):
                       <double*> coef_ptr,
                       <bool> True,
                       <int> self.loss_type,
-                      <double*> pred_ptr)
+                      <double*> scores_ptr)
 
         self.handle.sync()
 
         del X_m
 
-        return cudf.Series(preds)
+        return cudf.DataFrame.from_gpu_matrix(scores)
 
     def predict(self, X, convert_dtype=False):
         """
