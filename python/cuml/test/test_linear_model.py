@@ -215,8 +215,10 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
 
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
+    cu_preds = np.array(culog.predict(X_test))
 
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.06
+    assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])

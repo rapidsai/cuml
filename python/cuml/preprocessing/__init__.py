@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,3 +15,4 @@
 #
 from cuml.preprocessing.model_selection import train_test_split
 from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing.label import LabelBinarizer, label_binarize
