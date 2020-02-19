@@ -40,6 +40,8 @@ struct CSRInputs {
   int nnz;  // Number of non-zero elements in A
   int p;    // Dimensions of B or x
   int q;
+  T alpha;  // Scalars
+  T beta;
   T tolerance;
 };
 
@@ -92,8 +94,10 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
       }
     }
 
-    // Generate a random dense matrix/vector
+    // Generate random dense matrices/vectors
     for (int i = 0; i < Bx.size(); i++) Bx[i] = udis(gen);
+    res_h.resize(params.batch_size * m_r * n_r);
+    for (int i = 0; i < res_h.size(); i++) res_h[i] = udis(gen);
 
     // Create handles, stream, allocator
     CUBLAS_CHECK(cublasCreate(&handle));
@@ -107,35 +111,36 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     LinAlg::Batched::Matrix<T> BxbM(params.p, params.q, params.batch_size,
                                     handle, allocator, stream);
 
-    // Copy the data to the device
-    updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
-    updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
-
-    // Create sparse matrix A from the dense A and the mask
-    CSR<T> AbS = CSR<T>::from_dense(AbM, mask, cusolverSpHandle);
-
     // Create matrix that will hold the results
     res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle,
                                             allocator, stream);
 
+    // Copy the data to the device
+    updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
+    updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
+    updateDevice(res_bM->raw_data(), res_h.data(), res_h.size(), stream);
+
+    // Create sparse matrix A from the dense A and the mask
+    CSR<T> AbS = CSR<T>::from_dense(AbM, mask, cusolverSpHandle);
+
     // Compute the tested results
     switch (params.operation) {
       case SpMV_op:
-        b_spmv((T)1.0, AbS, BxbM, (T)0.0, *res_bM);
+        b_spmv(params.alpha, AbS, BxbM, params.beta, *res_bM);
         break;
       case SpMM_op:
-        b_spmm((T)1.0, AbS, BxbM, (T)0.0, *res_bM);
+        b_spmm(params.alpha, AbS, BxbM, params.beta, *res_bM);
         break;
     }
 
     // Compute the expected results
-    res_h.resize(params.batch_size * m_r * n_r);
     switch (params.operation) {
       case SpMV_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          LinAlg::Naive::matMul(
-            res_h.data() + bid * m_r, A.data() + bid * params.m * params.n,
-            Bx.data() + bid * params.p, params.m, params.n, 1);
+          LinAlg::Naive::matMul(res_h.data() + bid * m_r,
+                                A.data() + bid * params.m * params.n,
+                                Bx.data() + bid * params.p, params.m, params.n,
+                                1, params.alpha, params.beta);
         }
         break;
       case SpMM_op:
@@ -143,7 +148,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
           LinAlg::Naive::matMul(res_h.data() + bid * m_r * n_r,
                                 A.data() + bid * params.m * params.n,
                                 Bx.data() + bid * params.p * params.q, params.m,
-                                params.n, params.q);
+                                params.n, params.q, params.alpha, params.beta);
         }
         break;
     }
@@ -169,23 +174,23 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
 const std::vector<CSRInputs<double>> inputsd = {
-  {SpMV_op, 1, 90, 150, 440, 150, 1, 1e-6},
-  {SpMV_op, 5, 13, 12, 75, 12, 1, 1e-6},
-  {SpMV_op, 15, 8, 4, 6, 4, 1, 1e-6},
-  {SpMV_op, 33, 7, 7, 23, 7, 1, 1e-6},
-  {SpMM_op, 1, 20, 15, 55, 15, 30, 1e-6},
-  {SpMM_op, 9, 10, 9, 31, 9, 11, 1e-6},
-  {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-6}};
+  {SpMV_op, 1, 90, 150, 440, 150, 1, 1.0, 0.0, 1e-6},
+  {SpMV_op, 5, 13, 12, 75, 12, 1, -1.0, 1.0, 1e-6},
+  {SpMV_op, 15, 8, 4, 6, 4, 1, 0.5, 0.5, 1e-6},
+  {SpMV_op, 33, 7, 7, 23, 7, 1, -0.5, -0.5, 1e-6},
+  {SpMM_op, 1, 20, 15, 55, 15, 30, 1.0, 0.0, 1e-6},
+  {SpMM_op, 9, 10, 9, 31, 9, 11, -1.0, 0.5, 1e-6},
+  {SpMM_op, 20, 7, 12, 11, 12, 13, 0.5, 0.5, 1e-6}};
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
 const std::vector<CSRInputs<float>> inputsf = {
-  {SpMV_op, 1, 90, 150, 440, 150, 1, 1e-2},
-  {SpMV_op, 5, 13, 12, 75, 12, 1, 1e-2},
-  {SpMV_op, 15, 8, 4, 6, 4, 1, 1e-2},
-  {SpMV_op, 33, 7, 7, 23, 7, 1, 1e-2},
-  {SpMM_op, 1, 20, 15, 55, 15, 30, 1e-2},
-  {SpMM_op, 9, 10, 9, 31, 9, 11, 1e-2},
-  {SpMM_op, 20, 7, 12, 11, 12, 13, 1e-2}};
+  {SpMV_op, 1, 90, 150, 440, 150, 1, 1.0f, 0.0f, 1e-2},
+  {SpMV_op, 5, 13, 12, 75, 12, 1, -1.0f, 1.0f, 1e-2},
+  {SpMV_op, 15, 8, 4, 6, 4, 1, 0.5f, 0.5f, 1e-2},
+  {SpMV_op, 33, 7, 7, 23, 7, 1, -0.5f, -0.5f, 1e-2},
+  {SpMM_op, 1, 20, 15, 55, 15, 30, 1.0f, 0.0f, 1e-2},
+  {SpMM_op, 9, 10, 9, 31, 9, 11, -1.0f, 0.5f, 1e-2},
+  {SpMM_op, 20, 7, 12, 11, 12, 13, 0.5f, 0.5f, 1e-2}};
 
 using BatchedCSRTestD = CSRTest<double>;
 using BatchedCSRTestF = CSRTest<float>;
