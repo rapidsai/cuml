@@ -53,7 +53,7 @@ void kronecker(DataT *K, const DataT *A, const DataT *B, int m, int n, int p,
 }
 
 /**
- * @brief CPU sequential matrix multiplication A*B
+ * @brief CPU sequential matrix multiplication out = alpha * A*B + beta * out
  * 
  * @note All the matrices are in column-major order
  * 
@@ -64,9 +64,12 @@ void kronecker(DataT *K, const DataT *A, const DataT *B, int m, int n, int p,
  * @param[in]   m      Rows of A
  * @param[in]   k      Columns of A / rows of B
  * @param[in]   n      Columns of B
+ * @param[in]   alpha  Scalar alpha
+ * @param[in]   beta   Scalar beta
  */
 template <typename DataT>
-void matMul(DataT *out, const DataT *A, const DataT *B, int m, int k, int n) {
+void matMul(DataT *out, const DataT *A, const DataT *B, int m, int k, int n,
+            DataT alpha = 1, DataT beta = 0) {
 #pragma omp parallel for collapse(2)
   for (int j = 0; j < n; j++) {
     for (int i = 0; i < m; i++) {
@@ -74,7 +77,7 @@ void matMul(DataT *out, const DataT *A, const DataT *B, int m, int k, int n) {
       for (int r = 0; r < k; r++) {
         s += A[i + r * m] * B[r + j * k];
       }
-      out[i + j * m] = s;
+      out[i + j * m] = alpha * s + beta * out[i + j * m];
     }
   }
 }

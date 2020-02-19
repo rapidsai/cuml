@@ -252,9 +252,11 @@ void _batched_kalman_loop_large(
 
     // 3. K = 1/Fs[it] * T*P*Z'
     // TP = T*P (also used later)
-    MLCommon::Sparse::Batched::b_spmm(1.0, T_sparse, P, 0.0, TP);
-    // MLCommon::LinAlg::Batched::b_gemm(false, false, r, r, r, 1.0, T, P, 0.0,
-    //                                   TP);  // dense
+    if (r <= 32)
+      MLCommon::Sparse::Batched::b_spmm(1.0, T_sparse, P, 0.0, TP);
+    else
+      MLCommon::LinAlg::Batched::b_gemm(false, false, r, r, r, 1.0, T, P, 0.0,
+                                        TP);
     // K = 1/Fs[it] * TP*Z' ; optimized for Z = (1 0 ... 0)
     thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
                      [=] __device__(int bid) {

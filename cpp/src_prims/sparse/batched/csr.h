@@ -13,6 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*
+ * This file contains an implementation of some batched sparse matrix
+ * operations in Compressed Sparse Row representation.
+ * 
+ * Important: the implementation is designed to give good performance on
+ * large batches of relatively small matrices (typically one or two
+ * elements per row). In other use cases it might be slower than using
+ * the dense counterparts!
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -26,6 +37,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
+#include "common/device_buffer.hpp"
 #include "linalg/batched/matrix.h"
 #include "linalg/cusolver_wrappers.h"
 #include "matrix/matrix.h"
@@ -36,10 +48,11 @@ namespace Batched {
 
 /**
  * Kernel to construct batched CSR sparse matrices from batched dense matrices
- * 
- * @note The construction could coalesce writes to the values array if we
- *       stored a mix of COO and CSR, but the performance gain is not
- *       significant enough to justify complexifying the class.
+ *
+ * @note This kernel is intended to give decent performance for large batches
+ *       of small matrices. For larger matrices you might want to store a COO
+ *       representation of the matrices and assign threads to the non-zero
+ *       elements of each matrix
  * 
  * @param[in]  dense      Batched dense matrices. Size: m * n * batch_size
  * @param[in]  col_index  CSR column index.       Size: nnz
@@ -70,6 +83,9 @@ static __global__ void dense_to_csr_kernel(const T* dense, const int* col_index,
 
 /**
  * Kernel to construct batched dense matrices from batched CSR sparse matrices
+ * 
+ * @note This kernel is intended to give decent performance for large batches
+ *       of small matrices.
  * 
  * @param[out] dense      Batched dense matrices. Size: m * n * batch_size
  * @param[in]  col_index  CSR column index.       Size: nnz
@@ -102,6 +118,10 @@ static __global__ void csr_to_dense_kernel(T* dense, const int* col_index,
  * @brief The Batched::CSR class provides storage and a few operations for
  *        a batch of matrices in Compressed Sparse Row representation, that
  *        share a common structure (index arrays) but different values.
+ * 
+ * @note Most of the operations are asynchronous, using the stream that
+ *       is given in the constructor (or, if constructing from a dense matrix,
+ *       the stream attached to this matrix)
  */
 template <typename T>
 class CSR {
@@ -126,37 +146,54 @@ class CSR {
       m_cublasHandle(cublasHandle),
       m_cusolverSpHandle(cusolverSpHandle),
       m_stream(stream),
-      m_shape(std::pair<int, int>(m, n)),
-      m_nnz(nnz) {
-    // Allocate the values
-    T* values =
-      (T*)m_allocator->allocate(sizeof(T) * m_nnz * m_batch_size, m_stream);
-    // Allocate the index arrays
-    int* col_index = (int*)m_allocator->allocate(sizeof(int) * m_nnz, m_stream);
-    int* row_index =
-      (int*)m_allocator->allocate(sizeof(int) * (m_shape.first + 1), m_stream);
+      m_shape(m, n),
+      m_nnz(nnz),
+      m_values(allocator, stream, nnz * batch_size),
+      m_col_index(allocator, stream, nnz),
+      m_row_index(allocator, stream, m + 1) {}
 
-    /* Take these references to extract them from member-storage for the
-     * lambda below. There are better C++14 ways to do this, but I'll keep
-     * it C++11 for now. */
-    auto& shape = m_shape;
+  //! Destructor: nothing to destroy explicitely
+  ~CSR() {}
 
-    /* Note: we create these "free" functions with explicit copies to ensure
-     * that the deallocate function gets called with the correct values. */
-    auto deallocate_values = [allocator, batch_size, nnz, stream](T* A) {
-      allocator->deallocate(A, batch_size * nnz * sizeof(T), stream);
-    };
-    auto deallocate_col = [allocator, nnz, stream](int* A) {
-      allocator->deallocate(A, sizeof(int) * nnz, stream);
-    };
-    auto deallocate_row = [allocator, shape, stream](int* A) {
-      allocator->deallocate(A, sizeof(int) * (shape.first + 1), stream);
-    };
+  //! Copy constructor
+  CSR(const CSR<T>& other)
+    : m_batch_size(other.m_batch_size),
+      m_allocator(other.m_allocator),
+      m_cublasHandle(other.m_cublasHandle),
+      m_cusolverSpHandle(other.m_cusolverSpHandle),
+      m_stream(other.m_stream),
+      m_shape(other.m_shape),
+      m_nnz(other.m_nnz),
+      m_values(other.m_allocator, other.m_stream,
+               other.m_nnz * other.m_batch_size),
+      m_col_index(other.m_allocator, other.m_stream, other.m_nnz),
+      m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1) {
+    // Copy the raw data
+    copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+         m_stream);
+    copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
+    copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+         m_stream);
+  }
 
-    // When the shared pointers go to 0, the memory is deallocated
-    m_values = std::shared_ptr<T>(values, deallocate_values);
-    m_col_index = std::shared_ptr<int>(col_index, deallocate_col);
-    m_row_index = std::shared_ptr<int>(row_index, deallocate_row);
+  //! Copy assignment operator
+  CSR<T>& operator=(const CSR<T>& other) {
+    m_batch_size = other.m_batch_size;
+    m_shape = other.m_shape;
+    m_nnz = other.m_nnz;
+
+    m_values.resize(m_nnz * m_batch_size, m_stream);
+    m_col_index.resize(m_nnz, m_stream);
+    m_row_index.resize(m_shape.first + 1, m_stream);
+
+    // Copy the raw data
+    copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+         m_stream);
+    copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
+    copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+         m_stream);
+
+    return *this;
   }
 
   /**
@@ -225,7 +262,7 @@ class CSR {
     constexpr int TPB = 256;
     csr_to_dense_kernel<<<MLCommon::ceildiv<int>(m_batch_size, TPB), TPB, 0,
                           m_stream>>>(
-      dense.raw_data(), m_col_index.get(), m_row_index.get(), m_values.get(),
+      dense.raw_data(), m_col_index.data(), m_row_index.data(), m_values.data(),
       m_batch_size, m_shape.first, m_shape.second, m_nnz);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -254,16 +291,16 @@ class CSR {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return values array
-  T* get_values() { return m_values.get(); }
-  const T* get_values() const { return m_values.get(); }
+  T* get_values() { return m_values.data(); }
+  const T* get_values() const { return m_values.data(); }
 
   //! Return columns index array
-  int* get_col_index() { return m_col_index.get(); }
-  const int* get_col_index() const { return m_col_index.get(); }
+  int* get_col_index() { return m_col_index.data(); }
+  const int* get_col_index() const { return m_col_index.data(); }
 
   //! Return rows index array
-  int* get_row_index() { return m_row_index.get(); }
-  const int* get_row_index() const { return m_row_index.get(); }
+  int* get_row_index() { return m_row_index.data(); }
+  const int* get_row_index() const { return m_row_index.data(); }
 
  protected:
   //! Shape (rows, cols) of matrices.
@@ -273,13 +310,13 @@ class CSR {
   int m_nnz;
 
   //! Array(pointer) to the values in all the batched matrices.
-  std::shared_ptr<T> m_values;
+  device_buffer<T> m_values;
 
   //! Array(pointer) to the column index of the CSR.
-  std::shared_ptr<int> m_col_index;
+  device_buffer<int> m_col_index;
 
   //! Array(pointer) to the row index of the CSR.
-  std::shared_ptr<int> m_row_index;
+  device_buffer<int> m_row_index;
 
   //! Number of matrices in batch
   size_t m_batch_size;
@@ -367,6 +404,7 @@ void b_spmv(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& x,
                         A.stream()>>>(
     alpha, A.get_col_index(), A.get_row_index(), A.get_values(), x.raw_data(),
     beta, y.raw_data(), m, n, A.batches());
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
