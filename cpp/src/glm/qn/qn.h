@@ -64,7 +64,8 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
   int C_len = (loss_type == 0) ? (C - 1) : C;
 
-  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C_len * N);
+  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+                                 C_len * N);
   SimpleMat<T> z(tmp.data(), C_len, N);
 
   switch (loss_type) {
@@ -107,7 +108,8 @@ void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
   SimpleMat<T> X(Xptr, N, D, ordX);
   SimpleMat<T> P(preds, 1, N);
 
-  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C_len * N);
+  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+                                 C_len * N);
   SimpleMat<T> Z(tmp.data(), C_len, N);
 
   SimpleMat<T> W(params, C_len, dims.dims);
