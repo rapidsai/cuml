@@ -78,9 +78,6 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
     cdef uintptr_t preds_ptr
     cdef uintptr_t ground_truth_ptr
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
-
     (ground_truth_ptr, preds_ptr,
      n_rows,
      lower_class_range, upper_class_range) = prepare_data(labels_true,
