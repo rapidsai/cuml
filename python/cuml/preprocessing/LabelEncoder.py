@@ -35,7 +35,7 @@ def _enforce_npint32(y: cudf.Series) -> cudf.Series:
 
 
 def _get_nvstring_from_series(y: cudf.Series):
-    return y._data[list(y._data.keys())[0]]._nvstrings
+    return y._data[list(y._data.keys())[0]].nvstrings
 
 
 class LabelEncoder(object):
