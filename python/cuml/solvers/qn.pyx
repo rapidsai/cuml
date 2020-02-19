@@ -79,6 +79,29 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type) except +
 
+    void qnDecisionFunction(cumlHandle& cuml_handle,
+                            float *X,
+                            int N,
+                            int D,
+                            int C,
+                            bool fit_intercept,
+                            float *params,
+                            bool X_col_major,
+                            int loss_type,
+                            float *scores) except +
+
+    void qnDecisionFunction(cumlHandle& cuml_handle,
+                            double *X,
+                            int N,
+                            int D,
+                            int C,
+                            bool fit_intercept,
+                            double *params,
+                            bool X_col_major,
+                            int loss_type,
+                            double *scores) except +
+
+
     void qnPredict(cumlHandle& cuml_handle,
                    float *X,
                    int N,
@@ -362,6 +385,71 @@ class QN(Base):
         del y_m
 
         return self
+
+    def decision_function(self, X, convert_dtype=False):
+        """
+        Gives confidence score for X
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y: cuDF DataFrame
+           Dense vector (floats or doubles) of shape (n_samples, C)
+        """
+
+        cdef uintptr_t X_ptr
+        X_m, X_ptr, n_rows, n_cols, self.dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
+
+        preds = rmm.to_device(zeros(n_rows, dtype=self.dtype))
+
+        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
+        cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        if self.dtype == np.float32:
+            qnPredict(handle_[0],
+                      <float*> X_ptr,
+                      <int> n_rows,
+                      <int> n_cols,
+                      <int> self.num_classes,
+                      <bool> self.fit_intercept,
+                      <float*> coef_ptr,
+                      <bool> True,
+                      <int> self.loss_type,
+                      <float*> pred_ptr)
+
+        else:
+            qnPredict(handle_[0],
+                      <double*> X_ptr,
+                      <int> n_rows,
+                      <int> n_cols,
+                      <int> self.num_classes,
+                      <bool> self.fit_intercept,
+                      <double*> coef_ptr,
+                      <bool> True,
+                      <int> self.loss_type,
+                      <double*> pred_ptr)
+
+        self.handle.sync()
+
+        del X_m
+
+        return cudf.Series(preds)
 
     def predict(self, X, convert_dtype=False):
         """
