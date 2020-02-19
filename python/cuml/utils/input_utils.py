@@ -24,6 +24,7 @@ import warnings
 
 from collections import namedtuple
 from collections.abc import Collection
+from cuml.utils import rmm_cupy_ary
 from numba import cuda
 
 
@@ -39,9 +40,9 @@ def get_dev_array_ptr(ary):
 
 def get_cudf_column_ptr(col):
     """
-    Returns ctype pointer of a cudf column
+    Returns pointer of a cudf Series
     """
-    return cudf._lib.cudf.get_column_data_ptr(col._column)
+    return col.__cuda_array_interface__['data'][0]
 
 
 def get_dtype(X):
@@ -221,7 +222,8 @@ def input_to_dev_array(X, order='F', deepcopy=False,
             warnings.warn("Expected " + order_to_str(order) + " major order, "
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
-            X_m = cuda.as_cuda_array(cp.array(X_m, copy=False, order=order))
+            X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
+            X_m = cuda.as_cuda_array(X_m)
 
     X_ptr = get_dev_array_ptr(X_m)
 

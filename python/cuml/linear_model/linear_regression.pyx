@@ -147,6 +147,7 @@ class LinearRegression(Base):
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
+        This parameter is ignored when `fit_intercept` is set to False.
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.
@@ -156,7 +157,7 @@ class LinearRegression(Base):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept_` is False, will be 0.
 
     Notes
     ------
@@ -174,11 +175,11 @@ class LinearRegression(Base):
         tasks. This model should be first tried if the machine learning problem
         is a regression task (predicting a continuous variable).
 
-    For additional docs, see `scikitlearn's OLS
+    For additional information, see `scikitlearn's OLS documentation
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb>`_.
+    <https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/linear_regression_demo.ipynb>`_.
 
 
     """
@@ -261,9 +262,9 @@ class LinearRegression(Base):
             raise TypeError(msg)
 
         if self.n_cols == 1 and self.algo != 0:
-            # TODO: Throw exception when this changes algorithm from the user's
-            # choice. Github issue #602
-            # eig based method doesn't work when there is only one column.
+            warnings.warn("Changing solver from 'eig' to 'svd' as eig " +
+                          "solver does not support training data with 1 " +
+                          "column currently.", UserWarning)
             self.algo = 0
 
         self.coef_ = cudf.Series(zeros(self.n_cols,
@@ -311,7 +312,8 @@ class LinearRegression(Base):
 
     def predict(self, X, convert_dtype=False):
         """
-        Predicts the y for X.
+        Predicts `y` values for `X`.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -367,7 +369,7 @@ class LinearRegression(Base):
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------

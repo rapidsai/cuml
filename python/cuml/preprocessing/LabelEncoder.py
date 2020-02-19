@@ -35,7 +35,7 @@ def _enforce_npint32(y: cudf.Series) -> cudf.Series:
 
 
 def _get_nvstring_from_series(y: cudf.Series):
-    return y._data[list(y._data.keys())[0]]._nvstrings
+    return y._data[list(y._data.keys())[0]].nvstrings
 
 
 class LabelEncoder(object):
@@ -116,7 +116,7 @@ class LabelEncoder(object):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
         self._fitted: bool = False
@@ -221,7 +221,8 @@ class LabelEncoder(object):
         return cudf.Series(arr)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
-        ''' Revert ordinal label to original label
+        """
+        Revert ordinal label to original label
 
         Parameters
         ----------
@@ -232,7 +233,7 @@ class LabelEncoder(object):
         -------
         reverted : cudf.Series
             Reverted labels
-        '''
+        """
         # check LabelEncoder is fitted
         self._check_is_fitted()
         # check input type is cudf.Series

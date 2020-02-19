@@ -32,6 +32,7 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 @pytest.mark.parametrize("nparts", [unit_param(1), unit_param(7),
                                     quality_param(100),
                                     stress_param(1000)])
+@pytest.mark.parametrize("order", ['F', 'C'])
 @pytest.mark.parametrize("output", ['array', 'dataframe'])
 def test_make_blobs(nrows,
                     ncols,
@@ -40,6 +41,7 @@ def test_make_blobs(nrows,
                     dtype,
                     nparts,
                     cluster,
+                    order,
                     output):
 
     c = Client(cluster)
@@ -51,7 +53,8 @@ def test_make_blobs(nrows,
                           cluster_std=cluster_std,
                           dtype=dtype,
                           n_parts=nparts,
-                          output=output)
+                          output=output,
+                          order=order)
 
         assert X.npartitions == nparts
         assert y.npartitions == nparts
