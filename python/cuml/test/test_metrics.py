@@ -264,19 +264,22 @@ def test_homogeneity_completeness_symmetry(use_handle):
         handle, stream = get_handle(use_handle)
         hom = cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
         com = cuml.metrics.completeness_score(a_dev, b_dev, handle=handle)
-        np.testing.assert_almost_equal(hom, com, decimal=7)
+        np.testing.assert_almost_equal(hom, com, decimal=3)
 
-    assert_hom_com_sym(lambda rng: rng.randint(0, 2, int(10e3)))
-    assert_hom_com_sym(lambda rng: rng.randint(-5, 20, int(10e3)))
+    assert_hom_com_sym(lambda rng: rng.randint(0, 2, int(10e3),
+                                               dtype=np.int32))
+    assert_hom_com_sym(lambda rng: rng.randint(-5, 20, int(10e3),
+                                               dtype=np.int32))
     assert_hom_com_sym(lambda rng:
-                       rng.randint(int(-10e5), int(10e5), int(10e3)))
+                       rng.randint(int(-10e3), int(10e3), int(10e3),
+                                   dtype=np.int32))
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_completeness_score(use_handle):
     def score_labeling(ground_truth, predictions):
-        a = np.array(ground_truth, dtype=np.int)
-        b = np.array(predictions, dtype=np.int)
+        a = np.array(ground_truth, dtype=np.int32)
+        b = np.array(predictions, dtype=np.int32)
 
         a_dev = cuda.to_device(a)
         b_dev = cuda.to_device(b)
@@ -318,5 +321,7 @@ def test_completeness_score_big_array(use_handle):
 
         np.testing.assert_almost_equal(score, ref, decimal=4)
 
-    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4)))
-    assert_ours_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4)))
+    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4),
+                                                      dtype=np.int32))
+    assert_ours_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4),
+                                                      dtype=np.int32))
