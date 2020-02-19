@@ -153,7 +153,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_b[0], &b_l1_b, w0.data, loss_b,
                                compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 0, 2, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
                w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
@@ -169,7 +169,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_b[0], &b_l2_b, w0.data, loss_b,
                                compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 0, 2, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
                w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
@@ -183,7 +183,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_no_b[0], nobptr, w0.data,
                                loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 0, 2, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
                w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
@@ -197,7 +197,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_no_b[0], nobptr, w0.data,
                                loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 0, 2, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
                w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
@@ -353,7 +353,7 @@ TEST_F(QuasiNewtonTest, predict) {
 
   updateDevice(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 0, preds.data,
+  qnPredict(handle, Xdev->data, N, D, 2, false, w.data, false, 0, preds.data,
             stream);
   updateHost(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
