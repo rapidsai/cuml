@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #1689: Add framework for cuML Dask serializers
+- PR #1709: Add `predict_proba` for LogisticRegression
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
