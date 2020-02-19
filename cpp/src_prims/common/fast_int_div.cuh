@@ -21,8 +21,20 @@
 
 namespace MLCommon {
 
-// Hacker's Delight, Second Edition, Chapter 10, Integer Division By Constants
+/**
+ * @brief Perform fast integer division and modulo using a known divisor
+ *
+ * @note This currently only supports 32b signed integers
+ * @todo Extend support for signed divisors
+ * @ref Hacker's Delight, Second Edition, Chapter 10
+ */
 struct FastIntDiv {
+  /**
+   * @defgroup HostMethods Ctor's that are accessible only from host
+   * @{
+   * @brief Host-only ctor's
+   * @param _d the divisor
+   */
   FastIntDiv(int _d) : d(_d) {
     computeScalars();
   }
@@ -31,7 +43,14 @@ struct FastIntDiv {
     computeScalars();
     return *this;
   }
+  /** @} */
 
+  /**
+   * @defgroup DeviceMethods Ctor's which even the device-side can access
+   * @{
+   * @brief host and device ctor's
+   * @param other source object to be copied from
+   */
   HDI FastIntDiv(const FastIntDiv& other) : d(other.d), m(other.m), p(other.p) {
   }
   HDI FastIntDiv& operator=(const FastIntDiv& other) {
@@ -40,9 +59,13 @@ struct FastIntDiv {
     p = other.p;
     return *this;
   }
+  /** @} */
 
+  /** divisor */
   int d;
+  /** the term 'm' as found in the reference chapter */
   unsigned m;
+  /** the term 'p' as found in the reference chapter */
   int p;
 
  private:
@@ -68,11 +91,25 @@ struct FastIntDiv {
   }
 };  // struct FastIntDiv
 
+/**
+ * @brief Division overload, so that FastIntDiv can be transparently switched
+ *        to even on device
+ * @param n numerator
+ * @param divisor the denominator
+ * @return the quotient
+ */
 HDI int operator/(int n, const FastIntDiv& divisor) {
   if (divisor.d == 1) return n;
   return (int64_t(divisor.m) * int64_t(n)) >> divisor.p;
 }
 
+/**
+ * @brief Modulo overload, so that FastIntDiv can be transparently switched
+ *        to even on device
+ * @param n numerator
+ * @param divisor the denominator
+ * @return the remainder
+ */
 HDI int operator%(int n, const FastIntDiv& divisor) {
   int quotient = n / divisor;
   int remainder = n - quotient * divisor.d;
