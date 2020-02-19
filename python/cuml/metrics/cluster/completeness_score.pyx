@@ -20,7 +20,7 @@
 # cython: language_level = 3
 
 from cuml.common.handle cimport cumlHandle
-
+from libc.stdint cimport uintptr_t
 from cuml.metrics.cluster.mutual_info_utils import prepare_data
 import cuml.common.handle
 
