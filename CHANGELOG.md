@@ -1,6 +1,8 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1683: cuml.dask make_regression
+- PR #1689: Add framework for cuML Dask serializers
 - PR #1612: Created a function to check the concatenated forest 
 
 ## Improvements
@@ -11,6 +13,7 @@
 - PR #1628: Remove submodules from cuML
 - PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
+- PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
 
 ## Bug Fixes
@@ -27,6 +30,8 @@
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
 - PR #1652: Support XGBoost 1.0+ models in FIL
+- PR #1706: Remove multi-class bug from QuasiNewton
+- PR #1699: Limit CuPy to <7.2 temporarily
 
 # cuML 0.12.0 (Date TBD)
 
