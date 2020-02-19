@@ -172,7 +172,7 @@ def test_score(nrows, ncols, nclusters):
 
     predictions = cuml_kmeans.predict(X)
 
-    centers = cp.array(cuml_kmeans.cluster_centers_.as_gpu_matrix())
+    centers = cp.asarray(cuml_kmeans.cluster_centers_.as_gpu_matrix())
 
     expected_score = 0
     for idx, label in enumerate(predictions):

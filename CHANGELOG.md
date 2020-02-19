@@ -22,13 +22,15 @@
 - PR #1617: Fixing pickling issues for SVC and SVR
 - PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
-- PR #1654: Skip treelite patch if it's already been applied
-- PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
+- PR #1654: Skip treelite patch if its already been applied
 - PR #1661: Fix nvstring variable name
+- PR #1673: Using struct for caching dlsym state in communicator
+- PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
 - PR #1672: Solver 'svd' in Linear and Ridge Regressors when n_cols=1
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
 - PR #1652: Support XGBoost 1.0+ models in FIL
+- PR #1701: test_score kmeans test passing with newer cupy version
 - PR #1706: Remove multi-class bug from QuasiNewton
 - PR #1699: Limit CuPy to <7.2 temporarily
 
