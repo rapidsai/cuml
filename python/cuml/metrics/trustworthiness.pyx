@@ -117,7 +117,6 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                                       n_components,
                                                       n_neighbors,
                                                       batch_size)
-        print(str(res))
         del X_m
         del X_m2
     else:
