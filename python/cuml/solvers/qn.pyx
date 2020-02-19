@@ -404,7 +404,7 @@ class QN(Base):
         Returns
         ----------
         y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, C)
+           Dense matrix (floats or doubles) of shape (n_samples, C)
         """
 
         cdef uintptr_t X_ptr
