@@ -23,6 +23,7 @@ import cupy as cp
 import numpy as np
 import pprint
 import rmm
+import cudf
 
 from cuml.solvers import QN
 from cuml.common.base import Base
@@ -254,9 +255,9 @@ class LogisticRegression(Base):
         y_m, _, _, _, _ = input_to_dev_array(y)
 
         unique_labels = rmm_cupy_ary(cp.unique, y_m)
-        num_classes = len(unique_labels)
+        self.num_classes = len(unique_labels)
 
-        if num_classes > 2:
+        if self.num_classes > 2:
             loss = 'softmax'
         else:
             loss = 'sigmoid'
@@ -290,6 +291,28 @@ class LogisticRegression(Base):
 
         return self
 
+    def decision_function(self, X, convert_dtype=False):
+        """
+        Gives confidence score for X
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y: cuDF DataFrame
+           Dense matrix (floats or doubles) of shape (n_samples, C)
+        """
+        return self.qn.decision_function(X, convert_dtype=convert_dtype)
+
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
@@ -313,6 +336,38 @@ class LogisticRegression(Base):
 
         """
         return self.qn.predict(X, convert_dtype=convert_dtype)
+
+    def predict_proba(self, X, convert_dtype=False):
+        """
+        Predicts the class probabilities for X
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y: cuDF DataFrame
+           Dense matrix (floats or doubles) of shape (n_samples, C)
+        """
+        proba = self.decision_function(X, convert_dtype=convert_dtype)
+        proba = cp.asarray(proba.to_gpu_matrix())
+        if self.num_classes == 2:
+            proba = 1 / (1 + cp.exp(-proba))
+            proba = cp.column_stack((proba, proba))
+            proba[:, 0] = 1 - proba[:, 0]
+        elif self.num_classes > 2:
+            row_sum = cp.sum(proba, axis=1)
+            proba = proba / row_sum[:, None]
+
+        return cudf.DataFrame.from_gpu_matrix(proba)
 
     def score(self, X, y, convert_dtype=False):
         """
