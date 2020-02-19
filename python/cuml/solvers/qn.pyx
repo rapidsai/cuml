@@ -101,7 +101,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                             int loss_type,
                             double *scores) except +
 
-
     void qnPredict(cumlHandle& cuml_handle,
                    float *X,
                    int N,
@@ -424,27 +423,27 @@ class QN(Base):
 
         if self.dtype == np.float32:
             qnDecisionFunction(handle_[0],
-                      <float*> X_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <int> self.num_classes,
-                      <bool> self.fit_intercept,
-                      <float*> coef_ptr,
-                      <bool> True,
-                      <int> self.loss_type,
-                      <float*> scores_ptr)
+                               <float*> X_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int> self.num_classes,
+                               <bool> self.fit_intercept,
+                               <float*> coef_ptr,
+                               <bool> True,
+                               <int> self.loss_type,
+                               <float*> scores_ptr)
 
         else:
             qnDecisionFunction(handle_[0],
-                      <double*> X_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <int> self.num_classes,
-                      <bool> self.fit_intercept,
-                      <double*> coef_ptr,
-                      <bool> True,
-                      <int> self.loss_type,
-                      <double*> scores_ptr)
+                               <double*> X_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int> self.num_classes,
+                               <bool> self.fit_intercept,
+                               <double*> coef_ptr,
+                               <bool> True,
+                               <int> self.loss_type,
+                               <double*> scores_ptr)
 
         self.handle.sync()
 
