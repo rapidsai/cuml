@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
 
 ## Improvements
