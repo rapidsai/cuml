@@ -373,11 +373,11 @@ class Matrix {
   }
 
   /**
-   * @brief Compute alpha*A' for a batched matrix A
+   * @brief Compute A' for a batched matrix A
    *
-   * @return alpha*A'
+   * @return A'
    */
-  Matrix<T> transpose(double alpha = 1.0) const {
+  Matrix<T> transpose() const {
     int m = m_shape.first;
     int n = m_shape.second;
 
@@ -395,7 +395,7 @@ class Matrix {
                        const double* b_A = d_A + bid * m * n;
                        double* b_At = d_At + bid * m * n;
                        for (int j = 0; j < n; j++) {
-                         b_At[i * n + j] = alpha * b_A[j * m + i];
+                         b_At[i * n + j] = b_A[j * m + i];
                        }
                      });
     return At;
@@ -928,9 +928,9 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
   u_norm = sqrt(u_norm + u0 * u0);
 
   // Compute u
-  d_uk[0] = u0 / u_norm;
+  d_uk[0] = u_norm != (T)0 ? (u0 / u_norm) : (T)1;
   for (int i = 1; i < m; i++) {
-    d_uk[i] = d_xk[i] / u_norm;
+    d_uk[i] = u_norm != (T)0 ? (d_xk[i] / u_norm) : (T)0;
   }
 }
 
@@ -939,6 +939,7 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
  *        Hessenberg form (no zeros below the subdiagonal), using Householder
  *        reflections
  * @todo: docs
+ *        unit tests!
  */
 template <typename T>
 void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
@@ -1048,80 +1049,16 @@ DI void generate_givens(T h0, T h1, T& c, T& s) {
 }
 
 /**
- * @todo: remove this kernel
- */
-template <typename T>
-__global__ void hessenberg_qr_step_kernel(T* const* d_U, T* const* d_H, T* d_G,
-                                          int n, int batch_size) {
-  typedef typename std::conditional<std::is_same<T, float>::value, float4,
-                                    double4>::type T4;
-  int ib = blockDim.x * blockIdx.x + threadIdx.x;
-
-  // TODO: don't store a 2x2 matrix, only store c and s!!
-
-  if (ib < batch_size) {
-    T* b_U = d_U[ib];
-    T* b_H = d_H[ib];
-    T* b_G = d_G + ib * 4 * (n - 1);
-
-    T Gk[4];
-
-    // Generate the Givens rotations and apply them to the left
-    for (int k = 0; k < n - 1; k++) {
-      // Givens rotation
-      {
-        // TODO: more stable way to compute the rotations?
-        T h0 = b_H[(n + 1) * k];
-        T h1 = b_H[(n + 1) * k + 1];
-        T c, s;
-        generate_givens(h0, h1, c, s);
-        Gk[0] = c;
-        Gk[1] = s;
-        Gk[2] = -s;
-        Gk[3] = c;
-        reinterpret_cast<T4*>(b_G)[k] = reinterpret_cast<T4*>(Gk)[0];
-      }
-
-      // H[k:k+2, k:] = Gk * H[k:k+2, k:]
-      for (int j = k; j < n; j++) {
-        T h0 = b_H[n * j + k];
-        T h1 = b_H[n * j + k + 1];
-        b_H[n * j + k] = Gk[0] * h0 + Gk[2] * h1;
-        b_H[n * j + k + 1] = Gk[1] * h0 + Gk[3] * h1;
-      }
-    }
-
-    // Apply the rotations to the right and update U
-    for (int k = 0; k < n - 1; k++) {
-      reinterpret_cast<T4*>(Gk)[0] = reinterpret_cast<T4*>(b_G)[k];
-
-      // H[:k+2, k:k+2] = H[:k+2, k:k+2] * Gk'
-      for (int i = 0; i < k + 2; i++) {
-        T h0 = b_H[n * k + i];
-        T h1 = b_H[n * (k + 1) + i];
-        b_H[n * k + i] = h0 * Gk[0] + h1 * Gk[2];
-        b_H[n * (k + 1) + i] = h0 * Gk[1] + h1 * Gk[3];
-      }
-
-      // U[:n, k:k+2] = U[:n, k:k+2] * Gk'
-      for (int i = 0; i < n; i++) {
-        T u0 = b_U[n * k + i];
-        T u1 = b_U[n * (k + 1) + i];
-        b_U[n * k + i] = u0 * Gk[0] + u1 * Gk[2];
-        b_U[n * (k + 1) + i] = u0 * Gk[1] + u1 * Gk[3];
-      }
-    }
-  }
-}
-
-/**
  * @todo: - docs
  *        - try to write a shared-mem version and benchmark both
  *        - add more comments
+ * @note: from Matrix Computations 3rd ed (Golub and Van Loan, 1996),
+ *        algorithms 7.5.1 and 7.5.2
  */
 template <typename T>
 __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
-                                       int n, int p, int reduced_batch_size) {
+                                       int n, int p, int reduced_batch_size,
+                                       bool force_convergence) {
   int ib = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (ib < reduced_batch_size) {
@@ -1129,6 +1066,7 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
     T* b_U = d_U + original_id * n * n;
     T* b_H = d_H + original_id * n * n;
 
+    // Compute first column of (H-aI)(H-bI)
     T v[3];
     {
       T x00 = b_H[(p - 2) * n + p - 2];
@@ -1221,21 +1159,31 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
     }
 
     // Convergence test
-    constexpr T eps = (T)1e-4;
-    // |H[p-1, p-2]| < eps * (|H[p-2, p-2]| + |H[p-1, p-1]|)
-    if (abs(b_H[(p - 2) * n + p - 1]) <
-        eps * (abs(b_H[(p - 2) * n + p - 2]) + abs(b_H[(p - 1) * n + p - 1]))) {
-      // H[p-1, p-2] = 0
-      b_H[(p - 2) * n + p - 1] = (T)0;
-      d_p[original_id] = p - 1;
-    }
-    // |H[p-2, p-3]| < eps * (|H[p-3, p-3]| + |H[p-2, p-2]|)
-    else if (abs(b_H[(p - 3) * n + p - 2]) <
-             eps * (abs(b_H[(p - 3) * n + p - 3]) +
-                    abs(b_H[(p - 2) * n + p - 2]))) {
-      // H[p-2, p-3] = 0
-      b_H[(p - 3) * n + p - 2] = (T)0;
-      d_p[original_id] = p - 2;
+    {
+      T h0 = abs(b_H[(p - 2) * n + p - 1]);
+      T h1 = abs(b_H[(p - 3) * n + p - 2]);
+
+      int8_t which_conv = !force_convergence ? 0 : (h0 < h1 ? 1 : 2);
+
+      constexpr T eps = (T)1e-6;
+      constexpr T near_zero = (T)1e-6;
+      // |H[p-1, p-2]| < eps * (|H[p-2, p-2]| + |H[p-1, p-1]|)
+      if (which_conv == 1 || h0 < max(eps * (abs(b_H[(p - 2) * n + p - 2]) +
+                                             abs(b_H[(p - 1) * n + p - 1])),
+                                      near_zero)) {
+        // H[p-1, p-2] = 0
+        b_H[(p - 2) * n + p - 1] = (T)0;
+        d_p[original_id] = p - 1;
+      }
+      // |H[p-2, p-3]| < eps * (|H[p-3, p-3]| + |H[p-2, p-2]|)
+      else if (which_conv == 2 ||
+               h1 < max(eps * (abs(b_H[(p - 3) * n + p - 3]) +
+                               abs(b_H[(p - 2) * n + p - 2])),
+                        near_zero)) {
+        // H[p-2, p-3] = 0
+        b_H[(p - 3) * n + p - 2] = (T)0;
+        d_p[original_id] = p - 2;
+      }
     }
   }
 }
@@ -1256,7 +1204,7 @@ struct unary_eq : public thrust::unary_function<T1, T2> {
  */
 template <typename T>
 void francis_qr_step(Matrix<T>& U, Matrix<T>& H, thrust::device_ptr<int>& p_ptr,
-                     int max_p) {
+                     int max_p, bool force_convergence = false) {
   int n = U.shape().first;
   int batch_size = U.batches();
   auto stream = U.stream();
@@ -1283,7 +1231,6 @@ void francis_qr_step(Matrix<T>& U, Matrix<T>& H, thrust::device_ptr<int>& p_ptr,
   int reduced_batch_size;
   copy(&reduced_batch_size, cumul_buffer.data() + batch_size - 1, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  std::cout << reduced_batch_size << " ";
 
   // 3. Now we "reverse" the array and compute the indices in the old batch
   //    of the matrices in the reduced batch
@@ -1308,7 +1255,8 @@ void francis_qr_step(Matrix<T>& U, Matrix<T>& H, thrust::device_ptr<int>& p_ptr,
   constexpr int TPB = 256;
   francis_qr_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
                            stream>>>(U.raw_data(), H.raw_data(), p_ptr.get(),
-                                     d_index, n, max_p, reduced_batch_size);
+                                     d_index, n, max_p, reduced_batch_size,
+                                     force_convergence);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -1316,9 +1264,11 @@ void francis_qr_step(Matrix<T>& U, Matrix<T>& H, thrust::device_ptr<int>& p_ptr,
  * @brief Schur decomposition A = USU', where U is unitary and S is a
  *        block-upper triangular matrix with block size <= 2
  * @todo: docs
+ *        unit tests!!
  */
 template <typename T>
-void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S) {
+void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
+             int max_iter_per_step = 20) {
   int n = A.shape().first;
   int batch_size = A.batches();
   auto stream = A.stream();
@@ -1339,24 +1289,45 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S) {
   thrust::device_ptr<int> p_ptr = thrust::device_pointer_cast(p_buffer.data());
   thrust::fill(thrust::cuda::par.on(stream), p_ptr, p_ptr + batch_size, n);
 
-  int maxiter = 1000;  // TODO: remove
-
   int iter = 0;
+  int step_iter = 0;
   int max_p = n;
-  while (max_p > 2 && iter < maxiter) {
-    francis_qr_step(U, S, p_ptr, max_p);
+  int prev_max_p = max_p;
+  while (max_p > 2) {
+    francis_qr_step(U, S, p_ptr, max_p, step_iter == max_iter_per_step);
 
     max_p = thrust::reduce(thrust::cuda::par.on(stream), p_ptr,
                            p_ptr + batch_size, 0, thrust::maximum<int>());
 
+    if (max_p < prev_max_p) {
+      step_iter = 0;
+      prev_max_p = max_p;
+    } else
+      step_iter++;
+
     iter++;
   }
+  std::cout << "Iterations: " << iter << std::endl;  // TODO: remove
+}
 
-  std::cout << std::endl << "Iterations: " << iter << std::endl;
-  if (iter == maxiter) {
-    std::cout << "Iteration limit reached. p buffer:" << std::endl;
-    myPrintDevVector("p", p_ptr.get(), batch_size);
-  }
+/**
+ * @todo: remove (temporary for debug)
+ */
+template <typename T>
+void compare_mat(const Matrix<T>& A, const Matrix<T>& B) {
+  Matrix<T> abs_diff =
+    b_aA_op_B(A, B, [] __device__(T a, T b) { return abs(a - b); });
+  int total_size = A.batches() * A.shape().first * A.shape().second;
+  thrust::device_ptr<T> diff_ptr =
+    thrust::device_pointer_cast(abs_diff.raw_data());
+  T mean_diff = thrust::reduce(thrust::cuda::par.on(A.stream()), diff_ptr,
+                               diff_ptr + total_size, (T)0, thrust::plus<T>()) /
+                static_cast<T>(total_size);
+  T max_diff =
+    thrust::reduce(thrust::cuda::par.on(A.stream()), diff_ptr,
+                   diff_ptr + total_size, (T)0, thrust::maximum<T>());
+  std::cout << "Abs diff: mean " << mean_diff << " -  max " << max_diff
+            << std::endl;
 }
 
 /**
@@ -1378,7 +1349,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
   int n2 = n * n;
   auto counting = thrust::make_counting_iterator(0);
 
-  bool small = false;
+  bool small = false;  // TODO: heuristics
 
   if (small) {
     //
@@ -1390,7 +1361,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
                      counting + batch_size, [=] __device__(int ib) {
                        double* b_I_m_AxA = d_I_m_AxA + ib * n2 * n2;
                        for (int i = 0; i < n * n; i++) {
-                         b_I_m_AxA[(n2 + 1) * i] += 1.0;
+                         b_I_m_AxA[(n2 + 1) * i] += (T)1;
                        }
                      });
     Q.reshape(n2, 1);
@@ -1406,31 +1377,31 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     Matrix<T> C(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     {
       Matrix<T> ApI(A);
-      Matrix<T> AmI(A);
       Matrix<T> AtpI = A.transpose();
+      Matrix<T> AtmI(AtpI);
       double* d_ApI = ApI.raw_data();
-      double* d_AmI = AmI.raw_data();
       double* d_AtpI = AtpI.raw_data();
+      double* d_AtmI = AtmI.raw_data();
       thrust::for_each(thrust::cuda::par.on(stream), counting,
                        counting + batch_size, [=] __device__(int ib) {
                          int idx = ib * n2;
                          for (int i = 0; i < n; i++) {
-                           d_ApI[idx] += 1.0;
-                           d_AmI[idx] -= 1.0;
-                           d_AtpI[idx] += 1.0;
+                           d_ApI[idx] += (T)1;
+                           d_AtpI[idx] += (T)1;
+                           d_AtmI[idx] -= (T)1;
                            idx += n + 1;
                          }
                        });
-      Matrix<T> ApI_inv = ApI.inv();
+      Matrix<T> AtpI_inv = AtpI.inv();
 
-      // B = (A-I)*(A+I)^{-1}
-      b_gemm(false, false, n, n, n, 1.0, AmI, ApI_inv, 0.0, B);
-      // C = 2*(A'+I)^{-1}*Q*(A+I)^{-1}
-      b_gemm(false, false, n, n, n, -2.0, AtpI.inv(), Q * ApI_inv, 0.0, C);
+      // B = (A'-I)*(A'+I)^{-1}
+      b_gemm(false, false, n, n, n, (T)1, AtmI, AtpI_inv, 0.0, B);
+      // C = 2*(A+I)^{-1}*Q*(A'+I)^{-1}
+      b_gemm(false, false, n, n, n, 2.0, ApI.inv(), Q * AtpI_inv, 0.0, C);
     }
 
     //
-    // Solve Sylvester equation BX + XB' = -C with Bartels-Stewart algorithm
+    // Solve Sylvester equation B'X + XB = -C with Bartels-Stewart algorithm
     //
 
     // 1. Shur decomposition
@@ -1438,36 +1409,27 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     Matrix<T> U(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     Matrix<T> S(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     Matrix<T> V(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    Matrix<T> mBt = B.transpose(-1.0);
-    // b_schur(B, U, R);
-    b_schur(mBt, V, S);
-    /// TODO: clear prints
+    Matrix<T> Bt = B.transpose();
+    b_schur(Bt, U, R);
+    b_schur(B, V, S);
 
-    // std::cout << "V" << std::endl;
-    // MLCommon::Matrix::print(V.raw_data(), n, n * batch_size, ',');
-    // std::cout << std::endl;
-
-    // std::cout << "S" << std::endl;
-    // MLCommon::Matrix::print(S.raw_data(), n, n * batch_size, ',');
-    // std::cout << std::endl;
-
-    // std::cout << "VV'" << std::endl;
-    // MLCommon::Matrix::print(b_gemm(V, V, false, true).raw_data(), n,
-    //                         n * batch_size, ',');
-    // std::cout << std::endl;
-
-    // std::cout << "-B' - VSV'" << std::endl;
-    // MLCommon::Matrix::print(
-    //   (mBt - b_gemm(b_gemm(V, S, false, false), V, false, true)).raw_data(), n,
-    //   n * batch_size, ',');
-    // std::cout << std::endl;
+    /// TODO: cleanup
+    Matrix<T> In =
+      Matrix<T>::Identity(n, batch_size, A.cublasHandle(), allocator, stream);
+    std::cout << "I | UU': ";
+    compare_mat(In, b_gemm(U, U, false, true));
+    std::cout << "I | VV': ";
+    compare_mat(In, b_gemm(V, V, false, true));
+    std::cout << "B' | URU': ";
+    compare_mat(Bt, b_gemm(b_gemm(U, R, false, false), U, false, true));
+    std::cout << "B | VSV': ";
+    compare_mat(B, b_gemm(b_gemm(V, S, false, false), V, false, true));
 
     // 2. F = -U'CV
-    // Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator,
-    //                    stream, false);
-    // b_gemm(true, false, n, n, n, -1.0, U, C * V, 0.0, F);
+    Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    b_gemm(true, false, n, n, n, -1.0, U, C * V, 0.0, F);
 
-    // 3. Solve RY-YS'=F (where Y=U'XV)
+    // 3. Solve RY+YS'=F (where Y=U'XV)
     /// TODO: solve using forward substitution on the blocks
 
     // 4. X = UYV'
