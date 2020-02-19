@@ -116,6 +116,144 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
+class GaussianNB(object):
+
+    def __init__(self, priors, var_smoothing=1e-9):
+
+        self.priors = priors
+        self.var_smoothing = var_smoothing
+        self.fit_called = False
+
+    def _partial_fit(self, X, y, classes=None, _refit=False):
+
+        if _refit:
+            self.classes_ = None
+
+        self.epsilon_ = self.var_smoothing * cp.var(X, axis=0).max()
+
+        if not self.fit_called:
+
+            n_features = X.shape[1]
+            n_classes = len(self.classes_)
+
+
+            self.theta_ = cp.zeros((n_classes, n_features))
+            self.sigma_ = cp.zeros((n_classes, n_features))
+
+            self.class_count_ = cp.zeros(n_classes, dtype=cp.float64)
+        else:
+            self.sigma_[:, :] -= self.epsilon_
+
+        classes = self.classes_
+
+        unique_y = cp.unique(y)
+        unique_y_in_classes = cp.in1d(unique_y, classes)
+
+        if not cp.all(unique_y_in_classes):
+            raise ValueError("The target label(s) %s in y do not exist "
+                             "in the initial classes %s" %
+                             (unique_y[~unique_y_in_classes], classes))
+
+    def _update_mean_variance(self, n_past, mu, var, X, Y, sample_weight=None):
+
+        labels_dtype = self.classes_.dtype
+
+        if cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+
+            count_features_coo = count_features_coo_kernel(X.dtype,
+                                                           labels_dtype)
+
+            # Run once for averages
+            count_features_coo((math.ceil(X.nnz / 32),), (32,),
+                               (mu,
+                                X.row,
+                                X.col,
+                                X.data,
+                                X.nnz,
+                                X.shape[0],
+                                X.shape[1],
+                                Y,
+                                self.n_classes_, False))
+
+            # Run again for variance
+            count_features_coo((math.ceil(X.nnz / 32),), (32,),
+                               (var,
+                                X.row,
+                                X.col,
+                                X.data,
+                                X.nnz,
+                                X.shape[0],
+                                X.shape[1],
+                                Y,
+                                self.n_classes_, True))
+
+        else:
+
+            count_features_dense = count_features_dense_kernel(X.dtype,
+                                                               labels_dtype)
+
+            # Run once for averages
+            count_features_dense((math.ceil(X.shape[0] / 32),
+                                  math.ceil(X.shape[1] / 32), 1),
+                                 (32, 32, 1),
+                                 (mu,
+                                  X,
+                                  X.shape[0],
+                                  X.shape[1],
+                                  Y,
+                                  self.n_classes_,
+                                  False,
+                                  X.flags["C_CONTIGUOUS"]))
+
+            # Run again for variance
+            count_features_dense((math.ceil(X.shape[0] / 32),
+                                  math.ceil(X.shape[1] / 32), 1),
+                                 (32, 32, 1),
+                                 (var,
+                                  X,
+                                  X.shape[0],
+                                  X.shape[1],
+                                  Y,
+                                  self.n_classes_,
+                                  False,
+                                  X.flags["C_CONTIGUOUS"]))
+
+
+        count_classes = count_classes_kernel(X.dtype, labels_dtype)
+        count_classes((math.ceil(X.shape[0] / 32),), (32,),
+                      (self.class_count_, X.shape[0], Y))
+
+        class_counts = cp.expand_dims(self.class_count_, axis=1)
+        mu /= class_counts
+
+        # Construct variance from sum squares
+        var = (var / class_counts) - np.mean()**2
+
+        if n_past == 0:
+            return mu, var
+
+        n_total =
+
+
+
+
+
+
+    def _joint_log_likelihood(self, X):
+        joint_log_likelihood = []
+
+        for i in range(cp.size(self.classes_)):
+            joint1 = cp.log(self.class_prior_[i])
+
+            n_ij = -0.5 * cp.sum(cp.log(2. * cp.pi * self.sigma_[i, :]))
+            n_ij -= 0.5 * cp.sum(((X - self.theta_[i, :]) ** 2) \
+                                     (self.sigma_[i, :]), 1)
+            joint_log_likelihood.append(joint1 + n_ij)
+
+        return cp.array(joint_log_likelihood).T
+
+
 class MultinomialNB(object):
 
     """
