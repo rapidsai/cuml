@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #1683: cuml.dask make_regression
+- PR #1689: Add framework for cuML Dask serializers
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -9,7 +10,9 @@
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
+- PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
+- PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
@@ -21,8 +24,11 @@
 - PR #1654: Skip treelite patch if it's already been applied
 - PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
 - PR #1661: Fix nvstring variable name
+- PR #1672: Solver 'svd' in Linear and Ridge Regressors when n_cols=1
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
+- PR #1652: Support XGBoost 1.0+ models in FIL
+- PR #1699: Limit CuPy to <7.2 temporarily
 
 # cuML 0.12.0 (Date TBD)
 
@@ -44,6 +50,7 @@
 - PR #1488: Add codeowners
 - PR #1432: Row-major (C-style) GPU arrays for benchmarks
 - PR #1490: Use dask master instead of conda package for testing
+- PR #1375: Naive Bayes & Distributed Naive Bayes
 - PR #1377: Add GPU array support for FIL benchmarking
 - PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
 - PR #1532: Update CuPy to >= 6.6 and allow 7.0
