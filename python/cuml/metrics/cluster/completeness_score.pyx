@@ -83,8 +83,7 @@ def completeness_score(labels_true, labels_pred, handle=None):
     (ground_truth_ptr, preds_ptr,
      n_rows,
      lower_class_range, upper_class_range) = prepare_data(labels_true,
-                                                          labels_pred,
-                                                          handle)
+                                                          labels_pred)
 
     com = completenessScore(handle_[0],
                             <int*> ground_truth_ptr,
