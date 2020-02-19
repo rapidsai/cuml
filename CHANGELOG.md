@@ -26,6 +26,7 @@
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
 - PR #1652: Support XGBoost 1.0+ models in FIL
+- PR #1706: Remove multi-class bug from QuasiNewton
 
 # cuML 0.12.0 (Date TBD)
 
