@@ -1,4 +1,4 @@
-#
+ #
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -63,7 +63,7 @@ cdef class Handle:
     def __cinit__(self, n_streams=0):
         self.h = <size_t>(new cumlHandle(n_streams))
 
-    def __dealloc_(self):
+    def __dealloc__(self):
         h_ = <cumlHandle*>self.h
         del h_
 
