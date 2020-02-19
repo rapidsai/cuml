@@ -219,8 +219,7 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
     cu_preds = np.array(culog.predict(X_test))
     sk_preds = sklog.predict(X_test)
 
-    assert accuracy_score(cu_preds, y_test) >= accuracy_score(sk_preds,
-                                                              y_test) - 0.06
+    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.06
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
 
