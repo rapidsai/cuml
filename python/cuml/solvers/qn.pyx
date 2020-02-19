@@ -385,7 +385,7 @@ class QN(Base):
 
         return self
 
-    def decision_function(self, X, convert_dtype=False):
+    def _decision_function(self, X, convert_dtype=False):
         """
         Gives confidence score for X
 
@@ -402,8 +402,8 @@ class QN(Base):
             will increase memory used for the method.
         Returns
         ----------
-        y: cuDF DataFrame
-           Dense matrix (floats or doubles) of shape (n_samples, C)
+        y: array-like (device)
+            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
 
         cdef uintptr_t X_ptr
@@ -449,7 +449,7 @@ class QN(Base):
 
         del X_m
 
-        return cudf.DataFrame.from_gpu_matrix(scores)
+        return scores
 
     def predict(self, X, convert_dtype=False):
         """
