@@ -153,13 +153,13 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
  * @param scores                device pointer to confidence scores of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  */
-void qnDecisionFunction(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
-               bool fit_intercept, float *params, bool X_col_major,
-               int loss_type, float *scores);
+void qnDecisionFunction(const cumlHandle &cuml_handle, float *X, int N, int D,
+                        int C, bool fit_intercept, float *params,
+                        bool X_col_major, int loss_type, float *scores);
 
-void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
-               bool fit_intercept, double *params, bool X_col_major,
-               int loss_type, double *scores);
+void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
+                        int C, bool fit_intercept, double *params,
+                        bool X_col_major, int loss_type, double *scores);
 /** @} */
 
 /**
