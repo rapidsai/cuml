@@ -49,4 +49,14 @@ TEST(FastIntDiv, Test) {
   }
 }
 
+FastIntDiv dummyFunc(int num) {
+  FastIntDiv fd(num);
+  return fd;
+}
+
+TEST(FastIntDiv, IncorrectUsage) {
+  ASSERT_THROW(dummyFunc(-1), MLCommon::Exception);
+  ASSERT_THROW(dummyFunc(0), MLCommon::Exception);
+}
+
 }  // namespace MLCommon
