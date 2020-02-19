@@ -28,6 +28,7 @@
 - PR #1671: Update for accessing cuDF Series pointer
 - PR #1652: Support XGBoost 1.0+ models in FIL
 - PR #1699: Limit CuPy to <7.2 temporarily
+- PR #1708: Correctly deallocate cuML handles in Cython
 
 # cuML 0.12.0 (Date TBD)
 
