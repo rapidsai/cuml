@@ -20,7 +20,7 @@
 namespace MLCommon {
 
 TEST(FastIntDiv, Test) {
-  for (int i = 0; i < 50; ++i) {
+  for (int i = 0; i < 100; ++i) {
     // get a positive divisor
     int divisor;
     do {
@@ -32,6 +32,14 @@ TEST(FastIntDiv, Test) {
       auto num = rand();
       auto correct = num / divisor;
       auto computed = num / fid;
+      ASSERT_EQ(correct, computed) << " divisor=" << divisor << " num=" << num;
+      num = rand();
+      correct = num % divisor;
+      computed = num % fid;
+      ASSERT_EQ(correct, computed) << " divisor=" << divisor << " num=" << num;
+      num = -num;
+      correct = num / divisor;
+      computed = num / fid;
       ASSERT_EQ(correct, computed) << " divisor=" << divisor << " num=" << num;
       num = rand();
       correct = num % divisor;

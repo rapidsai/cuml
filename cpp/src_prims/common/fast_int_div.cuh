@@ -100,7 +100,9 @@ struct FastIntDiv {
  */
 HDI int operator/(int n, const FastIntDiv& divisor) {
   if (divisor.d == 1) return n;
-  return (int64_t(divisor.m) * int64_t(n)) >> divisor.p;
+  int ret = (int64_t(divisor.m) * int64_t(n)) >> divisor.p;
+  if (n < 0) ++ret;
+  return ret;
 }
 
 /**
