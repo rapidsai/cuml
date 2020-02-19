@@ -208,7 +208,6 @@ void _fit(const cumlHandle &handle,
   COO<T> ocoo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, d_alloc,
                                                stream);
-
   /**
    * Initialize embeddings
    */
