@@ -322,8 +322,6 @@ class KMeans(Base):
 
         self._set_output_type(X)
 
-        print(self.output_type)
-
         if self.init == 'preset':
             check_cols = self.n_cols
             check_dtype = self.dtype
@@ -578,7 +576,6 @@ class KMeans(Base):
         self.handle.sync()
 
         del(X_m)
-        print("kmeans.pyx transform ", self.output_type)
         return preds.to_output(out_type)
 
     def score(self, X):
