@@ -257,9 +257,9 @@ class Base:
         will return as the cuml Array converted to the appropriate format.
         """
         real_name = '_' + attr
-        if self.hasattr(real_name):
-            if isinstance(self.real_name, cumlArray):
-                return self.real_name.to_output(self.output_type)
+        if hasattr(self, real_name):
+            if isinstance(self.__dict__[real_name], cumlArray):
+                return self.__dict__[real_name].to_output(self.output_type)
 
     def _set_output_type(self, input):
         """
