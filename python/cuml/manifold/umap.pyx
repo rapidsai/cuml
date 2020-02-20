@@ -41,6 +41,7 @@ import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libc.stdint cimport uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
@@ -79,6 +80,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         int target_n_neighbors,
         float target_weights,
         MetricType target_metric,
+        uint64_t random_state,
         GraphBasedDimRedCallback* callback
 
 
@@ -194,6 +196,9 @@ class UMAP(Base):
                 feature is made optional in the GPU version due to the
                 significant overhead in copying memory to the host for
                 computing the hash. (default = False)
+    random_state : int (default=None)
+        random_state is the seed used by the random number generator during
+        embedding initialization and during sampling used by the optimizer
     callback: An instance of GraphBasedDimRedCallback class to intercept
               the internal state of embeddings while they are being trained.
               Example of callback usage:
@@ -261,6 +266,7 @@ class UMAP(Base):
                  target_metric="categorical",
                  handle=None,
                  hash_input=False,
+                 random_state=None,
                  callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
@@ -300,6 +306,7 @@ class UMAP(Base):
 
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
+        umap_params.random_state = random_state or 0
 
         if target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
