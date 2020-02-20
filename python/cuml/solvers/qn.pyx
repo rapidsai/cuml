@@ -413,7 +413,7 @@ class QN(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        scores = rmm.to_device(zeros((n_rows, self.num_classes_dim),
+        scores = rmm.to_device(zeros((self.num_classes_dim, n_rows),
                                      dtype=self.dtype, order='F'))
 
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
