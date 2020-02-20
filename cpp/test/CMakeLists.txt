@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -171,10 +171,11 @@ if(BUILD_PRIMS_TESTS)
       prims/add.cu
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
-      prims/batched_matrix.cu
+      prims/batched/csr.cu
+      prims/batched/gemv.cu
       prims/batched/information_criterion.cu
       prims/batched/make_symm.cu
-      prims/batched/gemv.cu
+      prims/batched/matrix.cu
       prims/binary_op.cu
       prims/ternary_op.cu
       prims/cache.cu
