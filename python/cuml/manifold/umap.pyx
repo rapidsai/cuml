@@ -407,7 +407,7 @@ class UMAP(Base):
             return cudf.DataFrame.from_gpu_matrix(embedding)
         elif isinstance(X, np.ndarray):
             return np.asarray(embedding)
-        elif isinstance(X, cuda.cudadrv.devicearray.DeviceNDArray):
+        elif isinstance(X, cuda.is_cuda_array(X)):
             return embedding
         elif isinstance(X, cupy.ndarray):
             return cupy.array(embedding)
