@@ -23,7 +23,6 @@ import cupy as cp
 import numpy as np
 import pprint
 import rmm
-import cudf
 
 from cuml.solvers import QN
 from cuml.common.base import Base
