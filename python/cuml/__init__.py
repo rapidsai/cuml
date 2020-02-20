@@ -54,8 +54,10 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 from cuml.preprocessing.model_selection import train_test_split
 
-from cuml.random_projection.random_projection import GaussianRandomProjection, \
-    SparseRandomProjection, johnson_lindenstrauss_min_dim
+from cuml.random_projection.random_projection import GaussianRandomProjection,
+from cuml.random_projection.random_projection import SparseRandomProjection
+from cuml.random_projection.random_projection import \
+    johnson_lindenstrauss_min_dim
 
 from cuml.solvers.cd import CD
 from cuml.solvers.sgd import SGD
