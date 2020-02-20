@@ -14,6 +14,7 @@
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
+- PR #1721: Improving UMAP pytests
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
