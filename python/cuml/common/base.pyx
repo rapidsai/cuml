@@ -267,7 +267,6 @@ class Base:
         to correctly set the output type depending on the type of inputs,
         class output type and global output type
         """
-        print("base " + self.output_type)
         if self.output_type == 'input' or self._mirror_input:
             self.output_type = _input_to_type(input)
 
