@@ -31,7 +31,8 @@ from numba import cuda
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
-# inp_array is deprecated and will be dropped
+# inp_array is deprecated and will be dropped once cuml array is adopted
+# in all algos. Github issue #1716
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
 
 
@@ -40,6 +41,7 @@ def get_dev_array_ptr(ary):
     Returns ctype pointer of a numba style device array
 
     Deprecated: will be removed once all codebase uses cuml Array
+    See Github issue #1716
     """
     return ary.device_ctypes_pointer.value
 
@@ -49,6 +51,7 @@ def get_cudf_column_ptr(col):
     Returns pointer of a cudf Series
 
     Deprecated: will be removed once all codebase uses cuml Array
+    See Github issue #1716
     """
     return col.__cuda_array_interface__['data'][0]
 
@@ -112,7 +115,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     """
 
-    # temporarily importing here, until github issue #xx reorganizing utils
+    # temporarily importing here, until github issue #1681 reorganizing utils
     # is dealt with. Otherwise circular import causes issues
     from cuml.common import Array
 
@@ -197,7 +200,8 @@ def input_to_dev_array(X, order='F', deepcopy=False,
                        fail_on_order=False):
     """
     *** Deprecated, used in classes that have not migrated to use cuML Array
-    yet. Please use input_to_cuml_array instead for cuml Array. ***
+    yet. Please use input_to_cuml_array instead for cuml Array.
+    See Github issue #1716 ***
 
     Convert input X to device array suitable for C++ methods.
 
@@ -278,7 +282,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
     Todo: support other dtypes if needed.
     """
 
-    # temporarily importing here, until github issue #xx reorganizing utils
+    # temporarily importing here, until github issue #1681 reorganizing utils
     # is dealt with. Otherwise circular import causes issues
     from cuml.common import Array
 
