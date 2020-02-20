@@ -150,6 +150,8 @@ class UMAPParams {
 
   float target_weights = 0.5;
 
+  uint64_t random_state = 0;
+
   GraphBasedDimRedCallback* callback = nullptr;
 };
 

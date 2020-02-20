@@ -29,7 +29,6 @@
 #include <thrust/system/cuda/execution_policy.h>
 
 #include <math.h>
-#include <sys/time.h>
 #include <string>
 
 #include <internals/internals.h>
@@ -136,12 +135,13 @@ __global__ void optimize_batch_kernel(
   const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
   bool move_other, T *epochs_per_negative_sample,
   T *epoch_of_next_negative_sample, T *epoch_of_next_sample, double alpha,
-  int epoch, double gamma, uint64_t seed, UMAPParams params) {
+  int epoch, double gamma, uint64_t seed, T* embedding_updates, UMAPParams params) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
     /**
      * Positive sample stage (attractive forces)
      */
+
     if (epoch_of_next_sample[row] <= epoch) {
       int j = head[row];
       int k = tail[row];
@@ -168,12 +168,14 @@ __global__ void optimize_batch_kernel(
       for (int d = 0; d < params.n_components; d++) {
         double grad_d =
           clip(attractive_grad_coeff * (current[d] - other[d]), -4.0f, 4.0f);
-        atomicAdd(current + d, grad_d * alpha);
 
+
+        T tmp = grad_d * alpha;
+        atomicAdd(embedding_updates + (j * params.n_components) + d, tmp);
+        
         // happens only during unsupervised training
-
         if (move_other) {
-          atomicAdd(other + d, -grad_d * alpha);
+          atomicAdd(embedding_updates + (k * params.n_components) + d, -tmp);
         }
       }
 
@@ -215,7 +217,7 @@ __global__ void optimize_batch_kernel(
                    -4.0f, 4.0f);
           else
             grad_d = 4.0;
-          atomicAdd(current + d, grad_d * alpha);
+          atomicAdd(embedding_updates + (j * params.n_components) + d, T(grad_d * alpha));
         }
       }
 
@@ -224,6 +226,26 @@ __global__ void optimize_batch_kernel(
     }
   }
 }
+
+
+/**
+ * Kernel applying updates to embedding
+ */
+template <typename T, int TPB_X>
+__global__ void apply_optimization_kernel(
+  T *embedding, T *embedding_updates, int n_vertices, int n_components) {
+
+  int vertice_idx = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (vertice_idx < n_vertices) {
+    T* emb = embedding + (vertice_idx * n_components);
+    T* update = embedding_updates + (vertice_idx * n_components);
+    for (int d = 0; d < n_components; d++) {
+      T val = round(update[d] * T(100)) / T(100);
+      emb[d] += val;
+    }
+  }
+}
+
 
 /**
  * Runs gradient descent using sampling weights defined on
@@ -261,19 +283,29 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
   MLCommon::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
 
+  MLCommon::device_buffer<T> embedding_updates(d_alloc, stream, n_vertices * params->n_components);
+
   dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+  dim3 grid2(MLCommon::ceildiv(n_vertices, TPB_X), 1, 1);
+
+  uint64_t seed = params->random_state;
 
   for (int n = 0; n < n_epochs; n++) {
+    CUDA_CHECK(cudaMemsetAsync(embedding_updates.data(), 0,
+                               n_vertices * params->n_components * sizeof(T), stream));
+
     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
       epochs_per_sample, n_vertices, move_other,
       epochs_per_negative_sample.data(), epoch_of_next_negative_sample.data(),
-      epoch_of_next_sample.data(), alpha, n, gamma, seed, *params);
+      epoch_of_next_sample.data(), alpha, n, gamma, seed, embedding_updates.data(), *params);
+
+    CUDA_CHECK(cudaGetLastError());
+
+    apply_optimization_kernel<T, TPB_X><<<grid2, blk, 0, stream>>>(
+      head_embedding, embedding_updates.data(), n_vertices, params->n_components);
 
     CUDA_CHECK(cudaGetLastError());
 
