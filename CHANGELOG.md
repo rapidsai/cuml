@@ -3,6 +3,7 @@
 ## New Features
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
+- PR #1714: Add `print_env.sh` file to gather important environment details
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
