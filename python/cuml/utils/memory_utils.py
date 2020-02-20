@@ -20,6 +20,14 @@ import rmm
 
 from cuml.utils.import_utils import check_min_cupy_version
 
+try:
+    from cupy.cuda import using_allocator as cupy_using_allocator
+except ImportError:
+    try:
+        from cupy.cuda.memory import using_allocator as cupy_using_allocator
+    except ImportError:
+        pass
+
 
 def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     """
@@ -61,7 +69,7 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     # using_allocator was introduced in CuPy 7. Once 7+ is required,
     # this check can be removed alongside the else code path.
     if check_min_cupy_version("7.0"):
-        with cp.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
+        with cupy_using_allocator(rmm.rmm_cupy_allocator):
             result = cupy_fn(*args, **kwargs)
 
     else:
