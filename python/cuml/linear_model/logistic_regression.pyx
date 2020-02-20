@@ -45,7 +45,7 @@ class LogisticRegression(Base):
     NumPy arrays or in device (as Numba or `__cuda_array_interface__`
     compliant), in addition to cuDF objects.
     It provides both single-class (using sigmoid loss) and multiple-class
-    (using softmax loss) variants, depending on the input variables.
+    (using softmax loss) variants, depending on the input variables
 
     Only one solver option is currently available: Quasi-Newton (QN)
     algorithms. Even though it is presented as a single option, this solver
@@ -357,7 +357,7 @@ class LogisticRegression(Base):
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         scores = cp.asarray(self.decision_function(X,
-                            convert_dtype=convert_dtype), order='C')
+                            convert_dtype=convert_dtype), order='F').T
         if self.num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = scores.ravel()
