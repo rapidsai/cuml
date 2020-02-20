@@ -19,8 +19,10 @@ import numpy as np
 
 from rmm import DeviceBuffer
 from cudf.core import Buffer, Series, DataFrame
-from cuml.utils.memory_utils import _strides_to_order, _get_size_from_shape, \
-    _order_to_strides
+from cuml.utils import rmm_cupy_ary
+from cuml.utils.memory_utils import _get_size_from_shape
+from cuml.utils.memory_utils import _order_to_strides
+from cuml.utils.memory_utils import _strides_to_order
 from numba import cuda
 
 
@@ -113,7 +115,9 @@ class Array(Buffer):
 
         ary_interface = False
 
-        if isinstance(data, DeviceBuffer) or isinstance(data, int):
+        if isinstance(data, DeviceBuffer) or isinstance(data, int) or \
+            isinstance(data, Buffer):
+
             size, shape = _get_size_from_shape(shape, dtype)
             super(Array, self).__init__(data=data, owner=owner, size=size)
             self.shape = shape
