@@ -129,10 +129,8 @@ def test_umap_transform_on_iris():
 
     threshold = 0.85
 
-    trust = run_transform()
-    if trust < threshold:
-        trust = run_transform()
-        assert trust >= threshold
+    trust = np.mean([run_transform() for i in range(5)])
+    assert trust >= threshold
 
 
 def test_umap_transform_on_digits():
