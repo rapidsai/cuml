@@ -216,12 +216,10 @@ __global__ void optimize_batch_kernel(
             grad_d = 4.0;
           atomicAdd(current + d, grad_d * alpha);
         }
-
       }
 
       epoch_of_next_negative_sample[row] +=
         (n_neg_samples * epochs_per_negative_sample[row]);
-
     }
   }
 }
@@ -266,7 +264,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   dim3 blk(TPB_X, 1, 1);
 
   for (int n = 0; n < n_epochs; n++) {
-
     struct timeval tp;
     gettimeofday(&tp, NULL);
     long long seed = tp.tv_sec * 1000 + tp.tv_usec;

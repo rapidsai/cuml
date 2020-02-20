@@ -325,7 +325,8 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
     std::cout << "Smooth kNN Distances" << std::endl;
     std::cout << MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(rhos.data(), 25, "rhos", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(rhos.data(), 25, "rhos", stream)
+              << std::endl;
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
