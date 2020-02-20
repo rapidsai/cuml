@@ -46,8 +46,9 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
   if (tid < N) {
     if (labels[tid] == MAX_LABEL) {
       labels[tid] = -1;
+    } else {
+      --labels[tid];
     }
-    --labels[tid];
   }
 }
 
