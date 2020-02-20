@@ -95,9 +95,9 @@ class Array(Buffer):
     automatic output format conversion so that the users see the important
     attributes in whatever format they prefer.
 
-    Todo: support cuda streams in the constructor, particularly after
-
-
+    Todo: support cuda streams in the constructor. See:
+    https://github.com/rapidsai/cuml/issues/1712
+    https://github.com/rapidsai/cuml/pull/1396
 
     """
 
@@ -192,7 +192,7 @@ class Array(Buffer):
                 output_type = 'series'
 
         if output_type == 'cupy':
-            return cp.asarray(self)
+            return rmm_cupy_ary(cp.asarray, self)
 
         elif output_type == 'numba':
             return cuda.as_cuda_array(self)
@@ -249,6 +249,46 @@ class Array(Buffer):
         return Array(data=dbuf, shape=shape, dtype=dtype, order=order)
 
     @classmethod
+    def full(cls, shape, value, dtype, order='F'):
+        """
+        Create an Array with an allocated DeviceBuffer initialized to value.
+
+        Parameters
+        ----------
+        dtype : data-type, optional
+            Any object that can be interpreted as a numpy or cupy data type.
+        shape : int or tuple of ints, optional
+            Shape of created array.
+        order: string, optional
+            Whether to create a F-major or C-major array.
+        """
+        size, _ = _get_size_from_shape(shape, dtype)
+        dbuf = DeviceBuffer(size=size)
+        cp.asarray(dbuf).view(dtype=dtype).fill(value)
+        return Array(data=dbuf, shape=shape, dtype=dtype,
+                     order=order)
+
+    @classmethod
+    def full(cls, shape, value, dtype, order='F'):
+        """
+        Create an Array with an allocated DeviceBuffer initialized to value.
+
+        Parameters
+        ----------
+        dtype : data-type, optional
+            Any object that can be interpreted as a numpy or cupy data type.
+        shape : int or tuple of ints, optional
+            Shape of created array.
+        order: string, optional
+            Whether to create a F-major or C-major array.
+        """
+        size, _ = _get_size_from_shape(shape, dtype)
+        dbuf = DeviceBuffer(size=size)
+        cp.asarray(dbuf).view(dtype=dtype).fill(value)
+        return Array(data=dbuf, shape=shape, dtype=dtype,
+                     order=order)
+
+    @classmethod
     def zeros(cls, shape, dtype='float32', order='F'):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
@@ -262,8 +302,22 @@ class Array(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        size, _ = _get_size_from_shape(shape, dtype)
-        dbuf = DeviceBuffer(size=size)
-        cp.asarray(dbuf).fill(0)
-        return Array(data=dbuf, shape=shape, dtype=dtype,
+        return Array.full(value=0, shape=shape, dtype=dtype,
+                     order=order)
+
+    @classmethod
+    def ones(cls, shape, dtype='float32', order='F'):
+        """
+        Create an Array with an allocated DeviceBuffer initialized to zeros.
+
+        Parameters
+        ----------
+        dtype : data-type, optional
+            Any object that can be interpreted as a numpy or cupy data type.
+        shape : int or tuple of ints, optional
+            Shape of created array.
+        order: string, optional
+            Whether to create a F-major or C-major array.
+        """
+        return Array.full(value=1, shape=shape, dtype=dtype,
                      order=order)
