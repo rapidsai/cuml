@@ -36,7 +36,6 @@ using namespace MLCommon;
 using namespace std;
 namespace tl = treelite;
 
-tl::Model concat_model;
 /**
  * @brief Set RF_metrics.
  * @param[in] rf_type: Random Forest type: classification or regression
@@ -332,8 +331,6 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model) {
   // create a temp file
-  size_t nt;
-  TREELITE_CHECK(TreeliteQueryNumTree(model, &nt));
   const char* filename = std::tmpnam(nullptr);
   // export the treelite model to protobuf nd save it in the temp file
   TreeliteExportProtobufModel(filename, model);
@@ -349,7 +346,8 @@ std::vector<unsigned char> save_model(ModelHandle model) {
 
 /**
  * @brief Compares the trees present in concatenated treelite forest with the trees
- *   of the forests present in the different workers
+ *   of the forests present in the different workers. If there is a difference in the two
+ *   then an error statement will be thrown.
  * @param[in] tree_from_concatenated_forest: Tree info from the concatenated forest.
  * @param[in] tree_from_individual_forest: Tree info from the forest present in each worker.
  */
@@ -395,7 +393,8 @@ void compare_trees(tl::Tree& tree_from_concatenated_forest,
 
 /**
  * @brief Compares the concatenated treelite model with the information of the forest
- *   present in the different workers
+ *   present in the different workers. If there is a difference in the two then an error
+ *   statement will be thrown.
  * @param[in] concat_tree_handle: ModelHandle for the concatenated forest.
  * @param[in] treelite_handles: List containing ModelHandles for the forest present in
  *   each worker.
@@ -414,8 +413,6 @@ void compare_concat_forest_to_subforests(
   }
 
   TREELITE_CHECK(TreeliteQueryNumTree(concat_tree_handle, &concat_forest));
-  std::cout << "concat_mod_ num trees " << concat_forest << std::flush
-            << std::endl;
 
   ASSERT(
     concat_forest == total_num_trees,
@@ -446,7 +443,6 @@ void compare_concat_forest_to_subforests(
     }
     concat_mod_tree_num = concat_mod_tree_num + model.trees.size();
   }
-  concat_model.trees.clear();
 }
 
 /**
@@ -456,10 +452,9 @@ void compare_concat_forest_to_subforests(
  * @param[in] treelite_handles: List containing ModelHandles for the forest present in
  *   each worker.
  */
-void concatenate_trees(ModelHandle* concat_mod_handle,
-                       std::vector<ModelHandle> treelite_handles) {
+ModelHandle* concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
-
+  tl::Model concat_model;
   for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
     concat_model.trees.insert(concat_model.trees.end(), model.trees.begin(),
@@ -469,7 +464,9 @@ void concatenate_trees(ModelHandle* concat_mod_handle,
   concat_model.num_output_group = first_model.num_output_group;
   concat_model.random_forest_flag = first_model.random_forest_flag;
   concat_model.param = first_model.param;
-  *concat_mod_handle = &concat_model;
+  ModelHandle* concat_model_handle =  new ModelHandle;
+  *concat_model_handle = &concat_model;
+  return concat_model_handle;
 }
 
 /**
