@@ -2,8 +2,10 @@
 
 ## New Features
 - PR #1635: cuML Array shim and configurable output added to cluster methods
+- PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
+- PR #1714: Add `print_env.sh` file to gather important environment details
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -15,6 +17,7 @@
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
+- PR #1718: Import `using_allocator` from `cupy.cuda`
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
