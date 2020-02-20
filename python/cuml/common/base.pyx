@@ -49,18 +49,20 @@ class Base:
     1. Call the base __init__ method explicitly from inheriting estimators in
         their __init__.
 
-    2. Attributes that users will want to acces, and are array-like should
+    2. Attributes that users will want to access, and are array-like should
         use cuml.common.Array, and have a preceding underscore `_` before
         the name the user expects. That way the __getattr__ of Base will
         convert it automatically to the appropriate output format for the
-        user. For example in DBSCAN the user expects to be able to access
-        model.labels_, so the code actually has an attribute
-        model._labels_ that gets converted at the moment the user accesses
-        labels_ automatically. No need for extra code in inheriting classes
+        user. For example, in DBSCAN the user expects to be able to access
+        `model.labels_`, so the code actually has an attribute
+        `model._labels_` that gets converted at the moment the user accesses
+        `labels_` automatically. No need for extra code in inheriting classes
         as long as they follow that naming convention. It is recommended to
         create the attributes in the constructor assigned to None, and
         add a note for users that might look into the code to see what
-        attributes the class might have. For example in KMeans:
+        attributes the class might have. For example, in KMeans:
+
+    .. code-block:: python
 
         def __init__(...)
             super(KMeans, self).__init__(handle, verbose, output_type)
@@ -74,18 +76,22 @@ class Base:
     3. To appropriately work for outputs mirroring the format of inputs of the
         user when appropriate, the code in the inheriting estimator must call
         the following methods, with input being the data sent by the user:
-        - self._set_output_type(input) in `fit` methods that modify internal
-        structures. This will make that if the user accesses internal
-        attributes of the class (like `labels_` in KMeans), the user receives
-        the correct format. For example in KMeans:
+
+    - `self._set_output_type(input)` in `fit` methods that modify internal
+        structures. This will allow users to receive the correct format when
+        accessing internal attributes of the class (eg. labels_ in KMeans).:
+
+    .. code-block:: python
 
         def fit(self, X):
             self._set_output_type(X)
             # rest of the fit code
 
-        - out_type = self._get_output in `predict`/`transform` style methods,
-        that don't modify class attributes. out_type then can be used to
-        return the correct format to the user. For example in KMeans:
+    - `out_type = self._get_output_type(input)` in `predict`/`transform` style
+        methods, that don't modify class attributes. out_type then can be used
+        to return the correct format to the user. For example, in KMeans:
+
+    .. code-block:: python
 
         def transform(self, X, convert_dtype=False):
             out_type = self._get_output_type(X)
