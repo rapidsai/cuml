@@ -220,6 +220,18 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.06
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
+    cu_proba = culog.predict_proba(X_test).get()
+    sk_proba_clf = skLog()
+    sk_proba_clf.coef_ = culog.coef_.copy_to_host().T
+    if fit_intercept:
+        sk_proba_clf.intercept_ = culog.intercept_.copy_to_host()
+    else:
+        sk_proba_clf.intercept_ = 0
+    sk_proba_clf.classes_ = np.arange(num_classes)
+    sk_proba = sk_proba_clf.predict_proba(X_test)
+
+    assert array_equal(cu_proba, sk_proba)
+
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
 def test_logistic_regression_model_default(dtype):
