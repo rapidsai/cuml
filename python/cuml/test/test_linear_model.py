@@ -241,12 +241,13 @@ def test_logistic_regression_model_default(dtype):
 @pytest.mark.parametrize('column_info', [(20, 10)])
 @pytest.mark.parametrize('num_classes', [2, 10])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-def test_logistic_regression_decision_proba(dtype, nrows, column_info, num_classes, fit_intercept):
+def test_logistic_regression_decision_proba(dtype, nrows, column_info,
+                                            num_classes, fit_intercept):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = \
-    make_classification_dataset(datatype=dtype, nrows=nrows,
-                                ncols=ncols, n_info=n_info,
-                                num_classes=num_classes)
+        make_classification_dataset(datatype=dtype, nrows=nrows,
+                                    ncols=ncols, n_info=n_info,
+                                    num_classes=num_classes)
 
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
