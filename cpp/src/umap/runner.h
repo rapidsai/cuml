@@ -93,7 +93,6 @@ void _fit(const cumlHandle &handle,
     std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
   find_ab(params, d_alloc, stream);
 
-
   /**
    * Allocate workspace for kNN graph
    */
@@ -328,10 +327,6 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     graph_coo.cols(), vals_normed.data(), graph_coo.n_rows, embedding,
     embedding_n, params->n_components, transformed, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
-
-
-
-
 
   CUDA_CHECK(cudaMemsetAsync(ia.data(), 0.0, ia.size() * sizeof(int), stream));
 
