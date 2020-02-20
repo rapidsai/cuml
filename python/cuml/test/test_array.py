@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -170,7 +170,26 @@ def test_create_empty(shape, dtype, order):
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_create_zeros(shape, dtype, order):
     ary = Array.zeros(shape=shape, dtype=dtype, order=order)
-    test = cp.zeros(shape)
+    test = cp.zeros(shape).astype(dtype)
+    assert cp.all(test == cp.asarray(ary))
+
+
+@pytest.mark.parametrize('shape', test_shapes)
+@pytest.mark.parametrize('dtype', test_dtypes_all)
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_create_ones(shape, dtype, order):
+    ary = Array.ones(shape=shape, dtype=dtype, order=order)
+    test = cp.ones(shape).astype(dtype)
+    assert cp.all(test == cp.asarray(ary))
+
+
+@pytest.mark.parametrize('shape', test_shapes)
+@pytest.mark.parametrize('dtype', test_dtypes_all)
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_create_full(shape, dtype, order):
+    value = cp.array([cp.random.randint(100)]).astype(dtype)
+    ary = Array.full(value=value[0], shape=shape, dtype=dtype, order=order)
+    test = cp.zeros(shape).astype(dtype) + value[0]
     assert cp.all(test == cp.asarray(ary))
 
 
@@ -223,6 +242,15 @@ def test_output(output_type, dtype, order, shape):
             comp = cudf.DataFrame.from_gpu_matrix(mat)
             comp = comp == res
             assert np.all(comp.as_gpu_matrix().copy_to_host())
+
+        # check for e2e cartesian product:
+        if output_type not in ['dataframe', 'cudf']:
+            res2 = Array(res)
+            res2 = res2.to_output('numpy')
+            if output_type == 'series' and shape == (10, 1):
+                assert np.all(inp.reshape((1, 10)) == res2)
+            else:
+                assert np.all(inp == res2)
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)
