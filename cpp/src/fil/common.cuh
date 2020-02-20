@@ -79,6 +79,7 @@ struct dense_tree {
     return nodes_[i * node_pitch_];
   }
   dense_node* nodes_ = nullptr;
+  float* class_probs_ = nullptr;
   int node_pitch_ = 0;
 };
 
@@ -95,6 +96,7 @@ struct dense_storage {
     return dense_tree(nodes_ + i * tree_stride_, node_pitch_);
   }
   dense_node* nodes_ = nullptr;
+  float* class_probs_ = nullptr;
   int num_trees_ = 0;
   int tree_stride_ = 0;
   int node_pitch_ = 0;
