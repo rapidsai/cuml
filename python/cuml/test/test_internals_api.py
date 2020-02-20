@@ -39,12 +39,11 @@ class CustomCallback(GraphBasedDimRedCallback):
         self.train_event = True
 
 
-reducer = UMAP(n_components=2, callback=CustomCallback())
-
-
 @pytest.mark.parametrize('n_components', [2, 4, 8])
 def test_internals_api(n_components):
     callback = CustomCallback()
     reducer = UMAP(n_components=n_components, callback=callback)
     reducer.fit(data)
     callback.check()
+
+    assert True
