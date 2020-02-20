@@ -93,7 +93,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | Epsilon-Support Vector Regression (SVR) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
-|  | Auto-regressive Integrated Moving Average (ARIMA) | |
+|  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
 ---
 
 ## Installation
