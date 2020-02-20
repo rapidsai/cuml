@@ -278,7 +278,7 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        self.num_classes = len(rmm_cupy_ary(cp.unique, y_m)) - 1
+        self.num_classes = len(rmm_cupy_ary(cp.unique, y_m))
 
         self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self.num_classes > 2:
@@ -289,10 +289,15 @@ class QN(Base):
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
-        if self.fit_intercept:
-            coef_size = (self.n_cols + 1, self.num_classes)
+        if self.loss_type == 0:
+            coef_col_dim = self.num_classes - 1
         else:
-            coef_size = (self.n_cols, self.num_classes)
+            coef_col_dim = self.num_classes
+
+        if self.fit_intercept:
+            coef_size = (self.n_cols + 1, coef_col_dim)
+        else:
+            coef_size = (self.n_cols, coef_col_dim)
 
         self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)

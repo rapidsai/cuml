@@ -111,7 +111,8 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
-                                  num_rounds, classification)
+                                  num_rounds=num_rounds,
+                                  classification=classification)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
@@ -163,8 +164,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     model_path = os.path.join(tmp_path, 'xgb_reg.model')
     bst = _build_and_save_xgboost(model_path, X_train,
                                   y_train,
-                                  num_rounds,
-                                  classification,
+                                  classification=classification,
+                                  num_rounds=num_rounds,
                                   xgboost_params={'max_depth': max_depth})
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
@@ -301,7 +302,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse == pytest.approx(skl_mse, 1e-5)
+    assert fil_mse == pytest.approx(skl_mse, 1e-4)
     assert array_equal(fil_preds, skl_preds)
 
 
