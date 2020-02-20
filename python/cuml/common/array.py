@@ -116,8 +116,7 @@ class Array(Buffer):
         ary_interface = False
 
         if isinstance(data, DeviceBuffer) or isinstance(data, int) or \
-            isinstance(data, Buffer):
-
+                isinstance(data, Buffer):
             size, shape = _get_size_from_shape(shape, dtype)
             super(Array, self).__init__(data=data, owner=owner, size=size)
             self.shape = shape
@@ -283,26 +282,6 @@ class Array(Buffer):
                      order=order)
 
     @classmethod
-    def full(cls, shape, value, dtype, order='F'):
-        """
-        Create an Array with an allocated DeviceBuffer initialized to value.
-
-        Parameters
-        ----------
-        dtype : data-type, optional
-            Any object that can be interpreted as a numpy or cupy data type.
-        shape : int or tuple of ints, optional
-            Shape of created array.
-        order: string, optional
-            Whether to create a F-major or C-major array.
-        """
-        size, _ = _get_size_from_shape(shape, dtype)
-        dbuf = DeviceBuffer(size=size)
-        cp.asarray(dbuf).view(dtype=dtype).fill(value)
-        return Array(data=dbuf, shape=shape, dtype=dtype,
-                     order=order)
-
-    @classmethod
     def zeros(cls, shape, dtype='float32', order='F'):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
@@ -316,8 +295,7 @@ class Array(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return Array.full(value=0, shape=shape, dtype=dtype,
-                     order=order)
+        return Array.full(value=0, shape=shape, dtype=dtype, order=order)
 
     @classmethod
     def ones(cls, shape, dtype='float32', order='F'):
@@ -333,5 +311,4 @@ class Array(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return Array.full(value=1, shape=shape, dtype=dtype,
-                     order=order)
+        return Array.full(value=1, shape=shape, dtype=dtype, order=order)
