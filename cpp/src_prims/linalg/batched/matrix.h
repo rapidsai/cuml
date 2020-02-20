@@ -43,6 +43,8 @@
 #include <matrix/matrix.h>
 #include <common/device_buffer.hpp>
 
+#include "cuda_utils.h"
+
 namespace MLCommon {
 namespace LinAlg {
 namespace Batched {
@@ -1032,20 +1034,25 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
 
 /**
  * @todo: docs
- * @note From Golub and van Loan, Matrix Computations, 2nd ed., 1989
  */
 template <typename T>
-DI void generate_givens(T h0, T h1, T& c, T& s) {
-  if (abs(h1) > abs(h0)) {
-    T r = -h0 / h1;
-    s = (T)1 / sqrt((T)1 + r * r);
-    c = s * r;
+DI void generate_givens(T a, T b, T& c, T& s) {
+  if (b == 0) {
+    c = (a >= 0 ? 1 : -1);
+    s = 0;
+  } else if (a == 0) {
+    c = 0;
+    s = (b >= 0 ? 1 : -1);
+  } else if (abs(a) > abs(b)) {
+    T t = -b / a;
+    c = (T)1 / sqrt(1 + t * t);
+    s = c * t;
   } else {
-    T r = -h1 / h0;
-    c = (T)1 / sqrt((T)1 + r * r);
-    s = c * r;
+    T t = -a / b;
+    s = (T)1 / sqrt(1 + t * t);
+    c = s * t;
   }
-  // TODO: remove the if statements?
+  // TODO: remove divergence?
 }
 
 /**
@@ -1165,8 +1172,8 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
 
       int8_t which_conv = !force_convergence ? 0 : (h0 < h1 ? 1 : 2);
 
-      constexpr T eps = (T)1e-6;
-      constexpr T near_zero = (T)1e-6;
+      constexpr T eps = 1e-6;
+      constexpr T near_zero = 1e-6;
       // |H[p-1, p-2]| < eps * (|H[p-2, p-2]| + |H[p-1, p-1]|)
       if (which_conv == 1 || h0 < max(eps * (abs(b_H[(p - 2) * n + p - 2]) +
                                              abs(b_H[(p - 1) * n + p - 1])),
@@ -1189,8 +1196,7 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
 }
 
 /**
- * @todo: docs
- * (helper for _francis_qr_step)
+ * @todo: docs + move to other location?
  */
 template <typename T1, typename T2>
 struct unary_eq : public thrust::unary_function<T1, T2> {
@@ -1198,6 +1204,49 @@ struct unary_eq : public thrust::unary_function<T1, T2> {
   __host__ __device__ unary_eq(T1 v) : val(v) {}
   __host__ __device__ T2 operator()(T1 x) { return static_cast<T2>(x == val); }
 };
+
+/**
+ * @todo: docs + move somewhere?
+ */
+template <typename MaskT = bool>
+void create_index_from_mask(device_buffer<MaskT>& mask_buffer,
+                            device_buffer<int>& cumul_buffer,
+                            device_buffer<int>& index_buffer, int batch_size_in,
+                            int* batch_size_out, cudaStream_t stream) {
+  auto counting = thrust::make_counting_iterator(0);
+
+  /// TODO: take const mask_buffer!
+  thrust::device_ptr<MaskT> mask_thrust(mask_buffer.data());
+  thrust::device_ptr<int> cumul_thrust(cumul_buffer.data());
+
+  // Copy the mask as integers in the cumul buffer (to avoid problem of
+  // boolean sum)
+  thrust::copy(thrust::cuda::par.on(stream), mask_thrust,
+               mask_thrust + batch_size_in, cumul_thrust);
+  /// TODO: use integer masks to remove this copy?
+
+  // Cumulative sum of the mask (in-place)
+  thrust::inclusive_scan(thrust::cuda::par.on(stream), cumul_thrust,
+                         cumul_thrust + batch_size_in, cumul_thrust,
+                         thrust::plus<int>());
+
+  // Deduce the size of the reduced batch from that
+  copy(batch_size_out, cumul_buffer.data() + batch_size_in - 1, 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  // "Reverse" the array and compute the indices in the old batch of the
+  // matrices in the reduced batch
+  int* d_cumul = cumul_buffer.data();
+  int* d_index = index_buffer.data();
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size_in, [=] __device__(int ib) {
+                     int cumul_prv = ib == 0 ? -1 : (d_cumul[ib - 1] - 1);
+                     int cumul_cur = d_cumul[ib] - 1;
+                     if (cumul_cur > cumul_prv) {
+                       d_index[cumul_cur] = ib;
+                     }
+                   });
+}
 
 /**
  * @todo: docs
@@ -1211,53 +1260,39 @@ void francis_qr_step(Matrix<T>& U, Matrix<T>& H, thrust::device_ptr<int>& p_ptr,
   auto allocator = U.allocator();
   auto counting = thrust::make_counting_iterator(0);
 
+  /// TODO: it is a waste to recreate all these buffers each time! -> reuse them
+
   //
   // Extract a reduced batch with only the matrices with the largest
   // working area (value of p)
   //
 
-  // 1. Create a mask of the batch members with max p value and the cumulative
-  //    sum of this mask
-  device_buffer<int> cumul_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<int> cumul_thrust =
-    thrust::device_pointer_cast(cumul_buffer.data());
+  // Create a mask of the batch members with max p value and the cumulative
+  // sum of this mask
+  device_buffer<bool> mask_buffer(allocator, stream, batch_size);
+  thrust::device_ptr<bool> mask_thrust(mask_buffer.data());
   thrust::transform(thrust::cuda::par.on(stream), p_ptr, p_ptr + batch_size,
-                    cumul_thrust, unary_eq<int, int>(max_p));
-  thrust::inclusive_scan(thrust::cuda::par.on(stream), cumul_thrust,
-                         cumul_thrust + batch_size, cumul_thrust,
-                         thrust::plus<int>());
+                    mask_thrust, unary_eq<int, bool>(max_p));
 
-  // 2. We can deduce the size of the reduced batch from that
   int reduced_batch_size;
-  copy(&reduced_batch_size, cumul_buffer.data() + batch_size - 1, 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  device_buffer<int> cumul_buffer(allocator, stream, batch_size);
+  device_buffer<int> index_buffer(allocator, stream, batch_size);
 
-  // 3. Now we "reverse" the array and compute the indices in the old batch
-  //    of the matrices in the reduced batch
-  device_buffer<int> index_buffer(allocator, stream, reduced_batch_size);
-  int* d_cumul = cumul_buffer.data();
-  int* d_index = index_buffer.data();
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int ib) {
-                     int cumul_prv = ib == 0 ? -1 : (d_cumul[ib - 1] - 1);
-                     int cumul_cur = d_cumul[ib] - 1;
-                     if (cumul_cur > cumul_prv) {
-                       d_index[cumul_cur] = ib;
-                     }
-                   });
-
-  // myPrintDevVector("index", d_index, reduced_batch_size); // TODO: cleanup
+  create_index_from_mask(mask_buffer, cumul_buffer, index_buffer, batch_size,
+                         &reduced_batch_size, stream);
 
   //
   // Execute a Francis QR step
   //
 
-  constexpr int TPB = 256;
-  francis_qr_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
-                           stream>>>(U.raw_data(), H.raw_data(), p_ptr.get(),
-                                     d_index, n, max_p, reduced_batch_size,
-                                     force_convergence);
-  CUDA_CHECK(cudaPeekAtLastError());
+  if (reduced_batch_size > 0) {
+    constexpr int TPB = 256;
+    francis_qr_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
+                             stream>>>(U.raw_data(), H.raw_data(), p_ptr.get(),
+                                       index_buffer.data(), n, max_p,
+                                       reduced_batch_size, force_convergence);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 }
 
 /**
@@ -1298,6 +1333,7 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
 
     max_p = thrust::reduce(thrust::cuda::par.on(stream), p_ptr,
                            p_ptr + batch_size, 0, thrust::maximum<int>());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     if (max_p < prev_max_p) {
       step_iter = 0;
@@ -1308,6 +1344,222 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
     iter++;
   }
   std::cout << "Iterations: " << iter << std::endl;  // TODO: remove
+}
+
+/**
+ * @todo docs + move to other location?
+ */
+template <typename T1 = bool, typename T2 = bool>
+struct logical_and_not : public thrust::binary_function<T1, T1, T2> {
+  __host__ __device__ T2 operator()(T1 x, T1 y) {
+    return static_cast<T2>(x && !y);
+  }
+};
+
+/**
+ * @todo docs
+ * @tparam  p  Number of columns to solve
+ */
+template <int p, typename T>
+DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n) {
+  constexpr T near_zero = 1e-6;
+
+  // Reduce the system to upper triangular
+  for (int k = 0; k < n - 1; k++) {
+    T s0 = d_scratch[(n + 1) * k];
+    T s1 = d_scratch[(n + 1) * k + 1];
+    T a0, a1, b0, b1;
+    if (abs(s1) < near_zero) {  // don't change anything
+      a0 = (T)1;
+      b0 = (T)0;
+      a1 = (T)0;
+      b1 = (T)1;
+    } else if (abs(s0) < near_zero) {  // permute rows
+      a0 = (T)0;
+      b0 = (T)1;
+      a1 = (T)1;
+      b1 = (T)0;
+    } else {  // Gaussian elimination
+      a0 = (T)1;
+      b0 = (T)0;
+      a1 = -s1 / s0;
+      b1 = (T)1;
+    }
+    for (int j = k; j < n + p; j++) {
+      s0 = d_scratch[n * j + k];
+      s1 = d_scratch[n * j + k + 1];
+      d_scratch[n * j + k] = a0 * s0 + b0 * s1;
+      d_scratch[n * j + k + 1] = a1 * s0 + b1 * s1;
+    }
+  }
+
+  // Solve the upper triangular system with back substitution
+  {
+    T acc[p];
+    for (int k = n - 1; k >= 0; k--) {
+      for (int j = 0; j < p; j++) {
+        acc[j] = d_scratch[(n + j) * n + k];
+      }
+      for (int i = k + 1; i < n; i++) {
+        T s_ki = d_scratch[i * n + k];
+        for (int j = 0; j < p; j++) {
+          acc[j] -= s_ki * d_x[j * n + i];
+        }
+      }
+      for (int j = 0; j < p; j++) {
+        d_x[j * n + k] = acc[j] / d_scratch[(n + 1) * k];
+      }
+    }
+  }
+}
+
+/**
+ * @todo docs + shared memory version?
+ */
+template <typename T>
+__global__ void trsyl_single_step_kernel(const T* d_R, const T* d_S,
+                                         const T* d_F, T* d_Y, int* d_k,
+                                         T* d_scratch, int* d_index, int k,
+                                         int n, int reduced_batch_size) {
+  int ib = blockIdx.x * blockDim.x + threadIdx.x;
+  int n2 = n * n;
+
+  // The scratch buffer is organized as follows:
+  //    __________
+  //   |      |   |
+  //   |  A   | b | n
+  //   |______|___|
+  //      n     1
+  //
+  // Where A and b are the matrices of the system to solve to deduce the
+  // k-th column of Y.
+  // The quasi-triangular solver works in-place (overwrites A and b)
+
+  if (ib < reduced_batch_size) {
+    int original_id = d_index[ib];
+    const T* b_R = d_R + n2 * original_id;
+    const T* b_S = d_S + n2 * original_id;
+    const T* b_F = d_F + n2 * original_id;
+    T* b_Y = d_Y + n2 * original_id;
+    T* b_scratch = d_scratch + n * (n + 1) * ib;
+
+    // Write A = R + S[k, k] * In on the left side of the scratch
+    // Note: we don't write elements below the subdiagonal (zeros)
+    {
+      T skk = b_S[(n + 1) * k];
+      for (int i = 0; i < n; i++) {
+        for (int j = max(0, i - 1); j < n; j++) {
+          b_scratch[n * j + i] = b_R[n * j + i] + (i == j ? skk : (T)0);
+        }
+      }
+    }
+
+    // Write b = F[:, k] - Y[:, k+1:] * S[k+1:, k] on the right side
+    for (int i = 0; i < n; i++) {
+      T acc = (T)0;
+      for (int j = k + 1; j < n; j++) {
+        acc += b_Y[n * j + i] * b_S[n * k + j];
+      }
+      b_scratch[n2 + i] = b_F[k * n + i] - acc;
+    }
+
+    // Solve on the k-th column of Y
+    quasi_triangular_solver<1>(b_scratch, b_Y + n * k, n);
+
+    // Update k
+    d_k[original_id] = k - 1;
+  }
+}
+
+/**
+ * @todo docs + shared memory version?
+ */
+template <typename T>
+__global__ void trsyl_double_step_kernel(const T* d_R, const T* d_R2,
+                                         const T* d_S, const T* d_F, T* d_Y,
+                                         int* d_k, T* d_scratch, int* d_index,
+                                         int k, int n, int reduced_batch_size) {
+  int ib = blockIdx.x * blockDim.x + threadIdx.x;
+  int n2 = n * n;
+
+  // The scratch buffer is organized as follows:
+  //    ______________
+  //   |      |   |   |
+  //   |  A   | b | c | n
+  //   |______|___|___|
+  //      n     2   2
+  //
+  // Where A and b are the matrices of the system to solve to deduce the
+  // (k-1)-th and k-th columns of Y, and c is a temporary working area.
+  // The quasi-triangular solver works in-place (overwrites A and b)
+
+  if (ib < reduced_batch_size) {
+    int original_id = d_index[ib];
+    const T* b_R = d_R + n2 * original_id;
+    const T* b_R2 = d_R2 + n2 * original_id;
+    const T* b_S = d_S + n2 * original_id;
+    const T* b_F = d_F + n2 * original_id;
+    T* b_Y = d_Y + n2 * original_id;
+    T* b_scratch = d_scratch + n * (n + 4) * ib;
+
+    T s00 = b_S[(k - 1) * n + k - 1];
+    T s10 = b_S[(k - 1) * n + k];
+    T s01 = b_S[k * n + k - 1];
+    T s11 = b_S[k * n + k];
+
+    // Write R2 + (s00+s11)*R + (s00*s11-s01*s10)*In on the left side of the
+    // scratch ; note: we don't write elements below the subdiagonal (zeros)
+    {
+      T a = s00 + s11;
+      T b = s00 * s11 - s01 * s10;
+      for (int i = 0; i < n; i++) {
+        for (int j = max(0, i - 1); j < n; j++) {
+          b_scratch[n * j + i] =
+            b_R2[n * j + i] + a * b_R[n * j + i] + (i == j ? b : (T)0);
+        }
+      }
+    }
+
+    // Temporary write b = F[:, k-1:k+1] - Y[:, k+1:] * S[k+1:, k-1:k+1] in the
+    // middle part of the scratch
+    for (int i = 0; i < n; i++) {
+      T acc[2];
+      acc[0] = b_F[(k - 1) * n + i];
+      acc[1] = b_F[k * n + i];
+      for (int j = k + 1; j < n; j++) {
+        T y_ij = b_Y[n * j + i];
+        acc[0] -= y_ij * b_S[n * (k - 1) + j];
+        acc[1] -= y_ij * b_S[n * k + j];
+      }
+      b_scratch[n2 + i] = acc[0];
+      b_scratch[n2 + n + i] = acc[1];
+    }
+    // Write c = R*b on the right part of the scratch
+    for (int i = 0; i < n; i++) {
+      T acc[2] = {(T)0, (T)0};
+      for (int j = 0; j < n; j++) {
+        T r_ij = b_R[j * n + i];
+        acc[0] += r_ij * b_scratch[n2 + j];
+        acc[1] += r_ij * b_scratch[n2 + n + j];
+      }
+      b_scratch[n2 + 2 * n + i] = acc[0];
+      b_scratch[n2 + 3 * n + i] = acc[1];
+    }
+    // Overwrite the middle part of the scratch with the two columns:
+    // b = c[:,0] + s11*b[:,0] - s10*b[:,1] | c[:,1] + s00*b[:,1] - s01*b[:,0]
+    for (int i = 0; i < n; i++) {
+      T b0 = b_scratch[n2 + i];
+      T b1 = b_scratch[n2 + n + i];
+      b_scratch[n2 + i] = b_scratch[n2 + 2 * n + i] + s11 * b0 - s10 * b1;
+      b_scratch[n2 + n + i] = b_scratch[n2 + 3 * n + i] + s00 * b1 - s01 * b0;
+    }
+
+    // Solve on the (k-1)-th and k-th columns of Y
+    quasi_triangular_solver<2>(b_scratch, b_Y + n * (k - 1), n);
+
+    // Update k
+    d_k[original_id] = k - 2;
+  }
 }
 
 /**
@@ -1326,8 +1578,128 @@ void compare_mat(const Matrix<T>& A, const Matrix<T>& B) {
   T max_diff =
     thrust::reduce(thrust::cuda::par.on(A.stream()), diff_ptr,
                    diff_ptr + total_size, (T)0, thrust::maximum<T>());
+  CUDA_CHECK(cudaStreamSynchronize(A.stream()));
   std::cout << "Abs diff: mean " << mean_diff << " -  max " << max_diff
             << std::endl;
+}
+
+/**
+ * Solves RX + XS = F, where R upper quasi-triangular, S lower quasi-triangular
+ * Special case of LAPACK's real variant of the routine TRSYL
+ * 
+ * @note From algorithm 2.1 in Direct Methods for Matrix Sylvester and Lyapunov
+ *       equations (Sorensen and Zhou, 2003)
+ * 
+ * @todo docs
+ */
+template <typename T>
+Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
+                       const Matrix<T>& F) {
+  int batch_size = R.batches();
+  auto stream = R.stream();
+  auto allocator = R.allocator();
+  int n = R.shape().first;
+  int n2 = n * n;
+  auto counting = thrust::make_counting_iterator(0);
+
+  Matrix<T> R2 = b_gemm(R, R);
+  Matrix<T> Y(n, n, batch_size, R.cublasHandle(), allocator, stream, false);
+
+  // Buffer to keep track of the progress of the substitution in each batch member
+  device_buffer<int> k_buffer(allocator, stream, batch_size);
+  thrust::device_ptr<int> k_ptr = thrust::device_pointer_cast(k_buffer.data());
+  thrust::fill(thrust::cuda::par.on(stream), k_ptr, k_ptr + batch_size, n - 1);
+  int max_k = n - 1;
+
+  // Buffers for the masks, cumulative sum and index
+  device_buffer<bool> k_mask_buffer(allocator, stream, batch_size);
+  thrust::device_ptr<bool> k_mask_ptr =
+    thrust::device_pointer_cast(k_mask_buffer.data());
+  device_buffer<bool> step_mask_buffer(allocator, stream, batch_size);
+  thrust::device_ptr<bool> step_mask_ptr =
+    thrust::device_pointer_cast(step_mask_buffer.data());
+  device_buffer<bool> op_mask_buffer(allocator, stream, batch_size);
+  thrust::device_ptr<bool> op_mask_ptr =
+    thrust::device_pointer_cast(op_mask_buffer.data());
+  device_buffer<int> cumul_buffer(allocator, stream, batch_size);
+  thrust::device_ptr<int> cumul_ptr =
+    thrust::device_pointer_cast(cumul_buffer.data());
+  device_buffer<int> index_buffer(allocator, stream, batch_size);
+
+  // Scratch buffer for the solver
+  device_buffer<T> scratch_buffer(allocator, stream, batch_size * n * (n + 4));
+  // Note: technically half of each scratch will be filled with zeros but it is
+  // a necessary evil to avoid making the index computations unreadable
+
+  // Pointers
+  const T* d_S = S.raw_data();
+  bool* d_step_mask = step_mask_buffer.data();
+
+  int reduced_batch_size;
+
+  while (max_k >= 0) {
+    // Create a mask of all the batch members with max k value
+    thrust::transform(thrust::cuda::par.on(stream), k_ptr, k_ptr + batch_size,
+                      k_mask_ptr, unary_eq<int, bool>(max_k));
+
+    // Create a mask of the members that would need a simple step if k == max_k
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size,
+      [=] __device__(int ib) {
+        d_step_mask[ib] =
+          (max_k == 0 ? true
+                      : (abs(d_S[n2 * ib + max_k * n + max_k - 1]) < 1e-6));
+      });
+
+    // Create a mask of the batch members on which to perform a simple step
+    // at this iteration
+    thrust::transform(thrust::cuda::par.on(stream), k_mask_ptr,
+                      k_mask_ptr + batch_size, step_mask_ptr, op_mask_ptr,
+                      thrust::logical_and<bool>());
+
+    // Generate the index from the mask
+    create_index_from_mask(op_mask_buffer, cumul_buffer, index_buffer,
+                           batch_size, &reduced_batch_size, stream);
+
+    // Run a simple step
+    if (reduced_batch_size > 0) {
+      int TPB = 256;  // TODO: heuristics
+      trsyl_single_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
+                                 stream>>>(
+        R.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(), k_buffer.data(),
+        scratch_buffer.data(), index_buffer.data(), max_k, n,
+        reduced_batch_size);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
+
+    // Create a mask of the batch members on which to perform a double step
+    // at this iteration
+    thrust::transform(thrust::cuda::par.on(stream), k_mask_ptr,
+                      k_mask_ptr + batch_size, step_mask_ptr, op_mask_ptr,
+                      logical_and_not<bool>());
+
+    // Generate the index from the mask
+    create_index_from_mask(op_mask_buffer, cumul_buffer, index_buffer,
+                           batch_size, &reduced_batch_size, stream);
+
+    // Run a double step
+    if (reduced_batch_size > 0) {
+      int TPB = 256;
+      trsyl_double_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
+                                 stream>>>(
+        R.raw_data(), R2.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(),
+        k_buffer.data(), scratch_buffer.data(), index_buffer.data(), max_k, n,
+        reduced_batch_size);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
+
+    // Update max k
+    max_k = thrust::reduce(thrust::cuda::par.on(stream), k_ptr,
+                           k_ptr + batch_size, -1, thrust::maximum<int>());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
+
+  return Y;
 }
 
 /**
@@ -1407,36 +1779,40 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     // 1. Shur decomposition
     Matrix<T> R(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     Matrix<T> U(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    Matrix<T> S(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    Matrix<T> V(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    Matrix<T> Bt = B.transpose();
-    b_schur(Bt, U, R);
-    b_schur(B, V, S);
+    b_schur(B.transpose(), U, R);
 
-    /// TODO: cleanup
-    Matrix<T> In =
-      Matrix<T>::Identity(n, batch_size, A.cublasHandle(), allocator, stream);
-    std::cout << "I | UU': ";
-    compare_mat(In, b_gemm(U, U, false, true));
-    std::cout << "I | VV': ";
-    compare_mat(In, b_gemm(V, V, false, true));
-    std::cout << "B' | URU': ";
-    compare_mat(Bt, b_gemm(b_gemm(U, R, false, false), U, false, true));
-    std::cout << "B | VSV': ";
-    compare_mat(B, b_gemm(b_gemm(V, S, false, false), V, false, true));
+    std::cout << "UU' | In: ";
+    compare_mat(
+      b_gemm(U, U, false, true),
+      Matrix<T>::Identity(n, batch_size, A.cublasHandle(), allocator, stream));
 
-    // 2. F = -U'CV
+    std::cout << "URU' | B': ";
+    compare_mat(b_gemm(U, b_gemm(R, U, false, true)), B.transpose());
+
+    // 2. F = -U'CU
     Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    b_gemm(true, false, n, n, n, -1.0, U, C * V, 0.0, F);
+    b_gemm(true, false, n, n, n, -1.0, U, C * U, 0.0, F);
 
-    // 3. Solve RY+YS'=F (where Y=U'XV)
-    /// TODO: solve using forward substitution on the blocks
+    // 3. Solve RY+YR'=F (where Y=U'XU)
+    Matrix<T> Y = b_trsyl_uplo(R, R.transpose(), F);
 
-    // 4. X = UYV'
-    /// TODO: simple matmul
+    std::cout << "RY + YR' | F: ";
+    compare_mat(R * Y + b_gemm(Y, R, false, true), F);
 
-    Matrix<T> X =
-      Matrix<T>::Identity(n, batch_size, A.cublasHandle(), allocator, stream);
+    // 4. X = UYU'
+    Matrix<T> X = b_gemm(U, b_gemm(Y, U, false, true));
+
+    /// TODO: the solution is symmetric, investigate to which extent we can
+    ///       use that information!
+
+    std::cout << "B'X + XB | -C: ";
+    compare_mat(b_gemm(B, X, true, false) + X * B, -C);
+
+    std::cout << "AXA'-X+Q | 0: ";
+    compare_mat(
+      b_gemm(A, b_gemm(X, A, false, true)) - X + Q,
+      Matrix<T>(n, n, batch_size, A.cublasHandle(), allocator, stream, true));
+
     return X;
   }
 }
