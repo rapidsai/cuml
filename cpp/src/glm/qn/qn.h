@@ -100,6 +100,10 @@ template <typename T>
 void qnDecisionFunction(const cumlHandle_impl &handle, T *Xptr, int N, int D,
                         int C, bool fit_intercept, T *params, bool X_col_major,
                         int loss_type, T *scores, cudaStream_t stream) {
+  // NOTE: While gtests pass X as row-major, and python API passes X as
+  // col-major, no extensive testing has been done to ensure that
+  // this function works correctly for both input types
+
   STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
   int C_len = (loss_type == 0) ? (C - 1) : C;
 
