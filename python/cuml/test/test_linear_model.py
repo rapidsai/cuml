@@ -241,8 +241,8 @@ def test_logistic_regression_model_default(dtype):
 @pytest.mark.parametrize('column_info', [(20, 10)])
 @pytest.mark.parametrize('num_classes', [2, 10])
 @pytest.mark.parametrize('fit_intercept', [True, False])
-def test_logistic_regression_decision_proba(dtype, nrows, column_info,
-                                            num_classes, fit_intercept):
+def test_logistic_regression_decision_function(dtype, nrows, column_info,
+                                               num_classes, fit_intercept):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = \
         make_classification_dataset(datatype=dtype, nrows=nrows,
@@ -268,8 +268,41 @@ def test_logistic_regression_decision_proba(dtype, nrows, column_info,
         cu_dec_func = cu_dec_func.T
     sk_dec_func = sklog.decision_function(X_test)
 
+    assert array_equal(cu_dec_func, sk_dec_func)
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [10, 100])
+@pytest.mark.parametrize('column_info', [(20, 10)])
+@pytest.mark.parametrize('num_classes', [2, 10])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_logistic_regression_predict_proba(dtype, nrows, column_info,
+                                           num_classes, fit_intercept):
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = \
+        make_classification_dataset(datatype=dtype, nrows=nrows,
+                                    ncols=ncols, n_info=n_info,
+                                    num_classes=num_classes)
+
+    y_train = y_train.astype(dtype)
+    y_test = y_test.astype(dtype)
+
+    culog = cuLog(fit_intercept=fit_intercept)
+    culog.fit(X_train, y_train)
+
+    sklog = skLog(fit_intercept=fit_intercept)
+    sklog.coef_ = culog.coef_.copy_to_host().T
+    if fit_intercept:
+        sklog.intercept_ = culog.intercept_.copy_to_host()
+    else:
+        skLog.intercept_ = 0
+    sklog.classes_ = np.arange(num_classes)
+
     cu_proba = culog.predict_proba(X_test).get()
     sk_proba = sklog.predict_proba(X_test)
 
-    assert array_equal(cu_dec_func, sk_dec_func)
+    cu_log_proba = culog.predict_log_proba(X_test).get()
+    sk_log_proba = sklog.predict_log_proba(X_test)
+
     assert array_equal(cu_proba, sk_proba)
+    assert array_equal(cu_log_proba, sk_log_proba)
