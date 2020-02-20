@@ -300,26 +300,26 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        self.num_classes = len(rmm_cupy_ary(cp.unique, y_m))
+        self._num_classes = len(rmm_cupy_ary(cp.unique, y_m))
 
         self.loss_type = self._get_loss_int(self.loss)
-        if self.loss_type != 2 and self.num_classes > 2:
+        if self.loss_type != 2 and self._num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
-        if self.loss_type == 2 and self.num_classes <= 2:
+        if self.loss_type == 2 and self._num_classes <= 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
         if self.loss_type == 0:
-            self.num_classes_dim = self.num_classes - 1
+            self._num_classes_dim = self._num_classes - 1
         else:
-            self.num_classes_dim = self.num_classes
+            self._num_classes_dim = self._num_classes
 
         if self.fit_intercept:
-            coef_size = (self.n_cols + 1, self.num_classes_dim)
+            coef_size = (self.n_cols + 1, self._num_classes_dim)
         else:
-            coef_size = (self.n_cols, self.num_classes_dim)
+            coef_size = (self.n_cols, self._num_classes_dim)
 
         self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
@@ -336,7 +336,7 @@ class QN(Base):
                   <float*>y_ptr,
                   <int>n_rows,
                   <int>self.n_cols,
-                  <int> self.num_classes,
+                  <int> self._num_classes,
                   <bool> self.fit_intercept,
                   <float> self.l1_strength,
                   <float> self.l2_strength,
@@ -359,7 +359,7 @@ class QN(Base):
                   <double*>y_ptr,
                   <int>n_rows,
                   <int>self.n_cols,
-                  <int> self.num_classes,
+                  <int> self._num_classes,
                   <bool> self.fit_intercept,
                   <double> self.l1_strength,
                   <double> self.l2_strength,
@@ -413,7 +413,7 @@ class QN(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        scores = rmm.to_device(zeros((self.num_classes_dim, n_rows),
+        scores = rmm.to_device(zeros((self._num_classes_dim, n_rows),
                                      dtype=self.dtype, order='F'))
 
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
@@ -426,7 +426,7 @@ class QN(Base):
                                <float*> X_ptr,
                                <int> n_rows,
                                <int> n_cols,
-                               <int> self.num_classes,
+                               <int> self._num_classes,
                                <bool> self.fit_intercept,
                                <float*> coef_ptr,
                                <bool> True,
@@ -438,7 +438,7 @@ class QN(Base):
                                <double*> X_ptr,
                                <int> n_rows,
                                <int> n_cols,
-                               <int> self.num_classes,
+                               <int> self._num_classes,
                                <bool> self.fit_intercept,
                                <double*> coef_ptr,
                                <bool> True,
@@ -491,7 +491,7 @@ class QN(Base):
                       <float*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
-                      <int> self.num_classes,
+                      <int> self._num_classes,
                       <bool> self.fit_intercept,
                       <float*> coef_ptr,
                       <bool> True,
@@ -503,7 +503,7 @@ class QN(Base):
                       <double*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
-                      <int> self.num_classes,
+                      <int> self._num_classes,
                       <bool> self.fit_intercept,
                       <double*> coef_ptr,
                       <bool> True,
