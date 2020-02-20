@@ -358,16 +358,18 @@ class LogisticRegression(Base):
            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
         scores = cp.asarray(self.decision_function(X,
-                            convert_dtype=convert_dtype))
+                            convert_dtype=convert_dtype), order='C')
         if self.num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = scores.ravel()
             proba = 1 / (1 + cp.exp(-proba))
             proba[:, 0] = 1 - proba[:, 1]
         elif self.num_classes > 2:
+            max_scores = cp.max(scores, axis=1).reshape((-1, 1))
+            scores -= max_scores
             proba = cp.exp(scores)
-            row_sum = cp.sum(proba, axis=1)
-            proba = proba / row_sum[:, None]
+            row_sum = cp.sum(proba, axis=1).reshape((-1, 1))
+            proba /= row_sum
 
         return proba
 
