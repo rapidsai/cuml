@@ -331,8 +331,8 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-                 * Compute graph of membership strengths
-                 */
+   * Compute graph of membership strengths
+   */
   compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(
     knn_indices, knn_dists, sigmas.data(), rhos.data(), in.vals(), in.rows(),
     in.cols(), in.n_rows, n_neighbors);

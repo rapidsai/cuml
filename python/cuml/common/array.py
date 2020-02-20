@@ -229,6 +229,16 @@ class Array(Buffer):
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
 
+    def serialize(self):
+        header, frames = super(Array, self).serialize()
+        header["constructor-kwargs"] = {
+            "dtype": self.dtype.str,
+            "shape": self.shape,
+            "order": self.order,
+        }
+        frames = [Buffer(f) for f in frames]
+        return header, frames
+
     @classmethod
     def empty(cls, shape, dtype, order='F'):
         """
