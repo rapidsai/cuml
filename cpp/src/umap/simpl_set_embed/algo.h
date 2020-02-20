@@ -160,7 +160,7 @@ __global__ void optimize_batch_kernel(
 
       /**
        * Apply attractive force between `current` and `other`
-       * by updating their 'weights' to please them relative
+       * by updating their 'weights' to place them relative
        * to their weight in the 1-skeleton.
        * (update `other` embedding only if we are
        * performing unsupervised training).
@@ -171,7 +171,6 @@ __global__ void optimize_batch_kernel(
         atomicAdd(current + d, grad_d * alpha);
 
         // happens only during unsupervised training
-
         if (move_other) {
           atomicAdd(other + d, -grad_d * alpha);
         }
@@ -217,10 +216,12 @@ __global__ void optimize_batch_kernel(
             grad_d = 4.0;
           atomicAdd(current + d, grad_d * alpha);
         }
+
       }
 
       epoch_of_next_negative_sample[row] +=
-        n_neg_samples * epochs_per_negative_sample[row];
+        (n_neg_samples * epochs_per_negative_sample[row]);
+
     }
   }
 }
@@ -264,11 +265,12 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
-
   for (int n = 0; n < n_epochs; n++) {
+
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+
     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
       epochs_per_sample, n_vertices, move_other,
@@ -280,8 +282,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     if (params->callback) params->callback->on_epoch_end(head_embedding);
 
     alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
-
-    seed += 1;
   }
 }
 

@@ -51,6 +51,8 @@ UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
   orig_n = 0;
 };
 
+
+
 UMAP_API::~UMAP_API() {}
 
 /**
@@ -71,6 +73,7 @@ void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
                                embeddings);
 }
 
+
 void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
   this->orig_X = X;
   this->orig_n = n;
@@ -78,6 +81,8 @@ void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
   UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, y, n, d, get_params(),
                                embeddings);
 }
+
+
 
 /**
  * Project a set of X vectors into the embedding space.
@@ -99,6 +104,8 @@ void UMAP_API::transform(float *X, int n, int d, float *embedding,
   UMAPAlgo::_transform<float, TPB_X>(*this->handle, X, n, d, this->orig_X,
                                      this->orig_n, embedding, embedding_n,
                                      get_params(), out);
+
+
 }
 
 /**
