@@ -358,7 +358,6 @@ void compare_trees(tl::Tree& tree_from_concatenated_forest,
          "Error! Mismatch the number of nodes present in a tree in the "
          "concatenated forest and"
          " the tree present in the individual forests");
-
   for (int each_node = 0; each_node < tree_from_concatenated_forest.num_nodes;
        each_node++) {
     tl::Tree::Node& node_from_concat = tree_from_concatenated_forest[each_node];
@@ -403,8 +402,6 @@ void compare_concat_forest_to_subforests(
   ModelHandle concat_tree_handle, std::vector<ModelHandle> treelite_handles) {
   size_t concat_forest;
   size_t total_num_trees = 0;
-  std::cout << "concat_tree_handle " << concat_tree_handle << std::flush
-            << std::endl;
   for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     size_t num_trees_each_forest;
     TREELITE_CHECK(TreeliteQueryNumTree(treelite_handles[forest_idx],
@@ -452,21 +449,21 @@ void compare_concat_forest_to_subforests(
  * @param[in] treelite_handles: List containing ModelHandles for the forest present in
  *   each worker.
  */
-ModelHandle* concatenate_trees(std::vector<ModelHandle> treelite_handles) {
+ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   tl::Model& first_model = *(tl::Model*)treelite_handles[0];
-  tl::Model concat_model;
+  tl::Model* concat_model = new tl::Model;
   for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     tl::Model& model = *(tl::Model*)treelite_handles[forest_idx];
-    concat_model.trees.insert(concat_model.trees.end(), model.trees.begin(),
-                              model.trees.end());
+    concat_model->trees.insert(concat_model->trees.end(), model.trees.begin(),
+                               model.trees.end());
   }
-  concat_model.num_feature = first_model.num_feature;
-  concat_model.num_output_group = first_model.num_output_group;
-  concat_model.random_forest_flag = first_model.random_forest_flag;
-  concat_model.param = first_model.param;
-  ModelHandle* concat_model_handle =  new ModelHandle;
-  *concat_model_handle = &concat_model;
-  return concat_model_handle;
+  concat_model->num_feature = first_model.num_feature;
+  concat_model->num_output_group = first_model.num_output_group;
+  concat_model->random_forest_flag = first_model.random_forest_flag;
+  concat_model->param = first_model.param;
+  ModelHandle* concat_model_handle = new ModelHandle;
+  *concat_model_handle = concat_model;
+  return *concat_model_handle;
 }
 
 /**
