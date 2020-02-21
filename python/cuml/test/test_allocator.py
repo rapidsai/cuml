@@ -27,10 +27,7 @@ from cuml.test.test_naive_bayes import scipy_to_cp
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
 except ImportError:
-    try:
-        from cupy.cuda.memory import using_allocator as cupy_using_allocator
-    except ImportError:
-        pass
+    from cupy.cuda.memory import using_allocator as cupy_using_allocator
 
 
 def dummy_allocator(nbytes):
@@ -64,8 +61,6 @@ def test_naive_bayes(nlp_20news):
     with cupy_using_allocator(dummy_allocator):
         model = MultinomialNB()
         model.fit(X, y)
-
-        cp.cuda.Stream.null.synchronize()
 
         y_hat = model.predict(X)
         y_hat = model.predict(X)
