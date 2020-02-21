@@ -135,7 +135,7 @@ __global__ void optimize_batch_kernel(
   const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
   bool move_other, T *epochs_per_negative_sample,
   T *epoch_of_next_negative_sample, T *epoch_of_next_sample, double alpha,
-  int epoch, double gamma, uint64_t seed, T* embedding_updates, UMAPParams params) {
+  int epoch, double gamma, uint64_t seed, double* embedding_updates, UMAPParams params) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
     /**
@@ -233,15 +233,14 @@ __global__ void optimize_batch_kernel(
  */
 template <typename T, int TPB_X>
 __global__ void apply_optimization_kernel(
-  T *embedding, T *embedding_updates, int n_vertices, int n_components) {
+  T *embedding, double *embedding_updates, int n_vertices, int n_components) {
 
   int vertice_idx = (blockIdx.x * TPB_X) + threadIdx.x;
   if (vertice_idx < n_vertices) {
     T* emb = embedding + (vertice_idx * n_components);
-    T* update = embedding_updates + (vertice_idx * n_components);
+    double* update = embedding_updates + (vertice_idx * n_components);
     for (int d = 0; d < n_components; d++) {
-      T val = round(update[d] * T(100)) / T(100);
-      emb[d] += val;
+      emb[d] += update[d];
     }
   }
 }
@@ -283,7 +282,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
   MLCommon::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
 
-  MLCommon::device_buffer<T> embedding_updates(d_alloc, stream, n_vertices * params->n_components);
+  MLCommon::device_buffer<double> embedding_updates(d_alloc, stream, n_vertices * params->n_components);
 
   dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -294,7 +293,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 
   for (int n = 0; n < n_epochs; n++) {
     CUDA_CHECK(cudaMemsetAsync(embedding_updates.data(), 0,
-                               n_vertices * params->n_components * sizeof(T), stream));
+                               n_vertices * params->n_components * sizeof(double), stream));
 
     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,

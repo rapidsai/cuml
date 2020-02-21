@@ -34,6 +34,7 @@ import numba.cuda as cuda
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from sklearn.utils import check_random_state
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, row_matrix
 
@@ -196,7 +197,7 @@ class UMAP(Base):
                 feature is made optional in the GPU version due to the
                 significant overhead in copying memory to the host for
                 computing the hash. (default = False)
-    random_state : int (default=None)
+    random_state : int, RandomState instance or None, optional (default=None)
         random_state is the seed used by the random number generator during
         embedding initialization and during sampling used by the optimizer
     callback: An instance of GraphBasedDimRedCallback class to intercept
@@ -306,7 +307,8 @@ class UMAP(Base):
 
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
-        umap_params.random_state = random_state or 0
+        rs = check_random_state(random_state)
+        umap_params.random_state = int(rs.randint(low=0, high=np.iinfo(np.uint64).max, dtype=np.uint64))
 
         if target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN

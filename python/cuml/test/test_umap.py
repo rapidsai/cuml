@@ -253,3 +253,29 @@ def test_umap_fit_transform_against_fit_and_transform():
     fit_embedding_diff_input = cuml_model.transform(data[1:],
                                                     convert_dtype=True)
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
+
+
+@pytest.mark.parametrize('random_state', [None, 5, np.random.RandomState(5)])
+def test_umap_fit_transform_reproducibility(random_state):
+
+    n_samples = 800
+    n_features = 20
+
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
+                              centers=10, random_state=42)
+
+    cuml_model1 = cuUMAP(verbose=False, random_state=random_state)
+    cuml_embedding1 = cuml_model1.fit_transform(data, convert_dtype=True)
+
+    if isinstance(random_state, np.random.RandomState):
+        random_state = np.random.RandomState(5)
+
+    cuml_model2 = cuUMAP(verbose=False, random_state=random_state)
+    cuml_embedding2 = cuml_model2.fit_transform(data, convert_dtype=True)
+
+    if random_state is not None:
+        assert array_equal(cuml_embedding1, cuml_embedding2,
+                           1e-8, with_sign=True)
+    else:
+        assert not array_equal(cuml_embedding1, cuml_embedding2,
+                               1e-8, with_sign=True)
