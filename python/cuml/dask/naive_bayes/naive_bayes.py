@@ -183,10 +183,6 @@ class MultinomialNB(object):
             workers=[w]
         ) for w, p in worker_parts.items()]
 
-        counts1 = self.client_.compute(counts, sync=True)
-
-        print("COUNTS: "+ str(counts1))
-
         class_counts = self.client_.compute([self.client_.submit(MultinomialNB._get_class_counts, c) for c in counts], sync=True)
         feature_counts = self.client_.compute([self.client_.submit(MultinomialNB._get_feature_counts, c) for c in counts], sync=True)
 
