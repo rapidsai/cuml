@@ -134,8 +134,8 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   }
 
   DI void epilog() {
-    IdxT startx = blockIdx.x * P::Mblk;
-    IdxT starty = blockIdx.y * P::Nblk;
+    IdxT startx = blockIdx.x * P::Mblk + this->accrowid;
+    IdxT starty = blockIdx.y * P::Nblk + this->acccolid;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       auto xid = startx + i * P::AccThRows;
