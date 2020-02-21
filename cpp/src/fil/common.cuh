@@ -46,17 +46,28 @@ struct base_node {
   static const int FID_MASK = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
   static const int IS_LEAF_MASK = 1 << 31;
-  float val;
+  union {
+    /// threshold value for branch node or output value (e.g. class
+    /// probability or regression summand) for leaf node
+    float f;
+    unsigned int idx;
+    ///< class label or index of the float vector
+    ///< vector can be used for class probabilities or regression
+  } val;
   int bits;
-  __host__ __device__ float output() const { return val; }
-  __host__ __device__ float thresh() const { return val; }
+  template<Tval> __host__ __device__ Tval  output() const;
+  template<> __host__ __device__ 
+  float output<float>() const { return val.f; }
+  template<> __host__ __device__ 
+  unsigned int output<unsigned int>() const { return val.idx; }
+  __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
-  __host__ __device__ base_node() : val(0.0f), bits(0) {}
-  base_node(dense_node_t node) : val(node.val), bits(node.bits) {}
+  __host__ __device__ base_node() : val.f(0.0f), bits(0) {}
+  base_node(dense_node_t node) : val.f(node.val), bits(node.bits) {}
   base_node(float output, float thresh, int fid, bool def_left, bool is_leaf)
-    : val(is_leaf ? output : thresh),
+    : val.f(is_leaf ? output : thresh),
       bits((fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
            (is_leaf ? IS_LEAF_MASK : 0)) {}
 };
@@ -150,6 +161,8 @@ struct predict_params {
   int num_output_classes;
   // so far, only 1 or 2 is supported, and only used to output probabilities
   // from classifier models
+  // TODO doc
+  leaf_value_t leaf_payload_type;
 
   // Data parameters.
   float* preds;
