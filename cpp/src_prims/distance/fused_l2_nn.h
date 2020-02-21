@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <common/device_ld_st.cuh>
 #include <cuda_utils.h>
 #include <stdint.h>
+#include <common/device_ld_st.cuh>
 #include <cub/cub.cuh>
 #include <limits>
 #include <linalg/contractions.cuh>
