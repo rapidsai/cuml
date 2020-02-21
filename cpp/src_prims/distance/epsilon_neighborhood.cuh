@@ -35,7 +35,8 @@ namespace Distance {
  *
  * @param a         first matrix [row-major] [on device] [dim = m x k]
  * @param b         second matrix [row-major] [on device] [dim = n x k]
- * @param adj       a boolean output adjacency matrix
+ * @param adj       a boolean output adjacency matrix [row-major] [on device]
+ *                  [dim = m x n]
  * @param m         number of points in a
  * @param n         number of points in b
  * @param k         dimensionality
