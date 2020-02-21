@@ -48,38 +48,6 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
 
   value_t eps2 = data.eps * data.eps;
 
-  // MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
-  // size_t workspaceSize = 0;
-
-  // constexpr auto distance_type =
-  //   MLCommon::Distance::DistanceType::EucUnexpandedL2;
-
-  // workspaceSize = MLCommon::Distance::getWorkspaceSize<distance_type, value_t,
-  //                                                      value_t, bool, index_t>(
-  //   data.x, data.x + startVertexId * k, m, n, k);
-
-  // if (workspaceSize != 0) workspace.resize(workspaceSize, stream);
-
-  // auto fused_op = [vd, n] __device__(index_t global_c_idx, bool in_neigh) {
-  //   // fused construction of vertex degree
-  //   index_t batch_vertex = global_c_idx % n;
-
-  //   if (sizeof(index_t) == 4) {
-  //     atomicAdd((unsigned int *)(vd + batch_vertex), in_neigh);
-  //     atomicAdd((unsigned int *)(vd + n), in_neigh);
-  //   } else if (sizeof(index_t) == 8) {
-  //     atomicAdd((unsigned long long int *)(vd + batch_vertex), in_neigh);
-  //     atomicAdd((unsigned long long int *)(vd + n), in_neigh);
-  //   }
-  // };
-
-  // MLCommon::Distance::epsilon_neighborhood<distance_type, value_t,
-  //                                          decltype(fused_op), index_t>(
-  //   data.x, data.x + startVertexId * k, data.adj, m, n, k, eps2,
-  //   (void *)workspace.data(), workspaceSize, stream, fused_op);
-
-  // CUDA_CHECK(cudaPeekAtLastError());
-
   auto fused_op = [vd, n] __device__(bool is_neigh, index_t row, index_t col) {
     if (sizeof(index_t) == 4) {
       atomicAdd((unsigned int *)(vd + col), is_neigh);
