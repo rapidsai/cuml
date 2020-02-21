@@ -94,6 +94,10 @@ struct KernelPolicy {
   };  // enum
 };    // struct KernelPolicy
 
+/**
+ * @defgroup Policy4x4 16 elements per thread Policy with k-block = 32
+ * @{
+ */
 template <typename DataT, int _veclen>
 struct Policy4x4 {};
 
@@ -106,6 +110,7 @@ template <int _veclen>
 struct Policy4x4<double, _veclen> {
   typedef KernelPolicy<double, _veclen, 16, 4, 4, 16, 16> Policy;
 };
+/** @} */
 
 /**
  * @brief Base class for gemm-like NT contractions
