@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "distance/distance.h"
+#include <distance/epsilon_neighborhood.cuh>
 
 #include <cuda_utils.h>
 #include "test_utils.h"

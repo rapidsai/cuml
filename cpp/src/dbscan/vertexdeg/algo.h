@@ -21,7 +21,7 @@
 #include <common/device_buffer.hpp>
 #include "cuda_runtime.h"
 #include "cuda_utils.h"
-#include "distance/distance.h"
+#include <distance/epsilon_neighborhood.cuh>
 
 #include "pack.h"
 
