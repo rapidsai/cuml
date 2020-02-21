@@ -81,7 +81,7 @@ size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
 }
 /** @} */
 
-template <typename DataT, typename IdxT, typename Policy, typename FusedOp,
+template <typename DataT, typename IdxT, typename Policy,
           typename BaseClass = LinAlg::Contractions_NT<DataT, IdxT, Policy>>
 struct EpsUnexpL2SqNeighborhood : public BaseClass {
  private:
@@ -89,16 +89,15 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
 
   bool* adj;
   DataT eps;
-
-  FusedOp fusedOp;
+  IdxT* vd;
 
   DataT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
  public:
-  DI EpsUnexpL2SqNeighborhood(bool* _adj, const DataT* _x, const DataT* _y,
-                              IdxT _m, IdxT _n, IdxT _k, DataT _eps,
-                              FusedOp fop, char* _smem)
-    : BaseClass(_x, _y, _m, _n, _k, _smem), adj(_adj), eps(_eps), fusedOp(fop) {
+  DI EpsUnexpL2SqNeighborhood(bool* _adj, IdxT* _vd, const DataT* _x,
+                              const DataT* _y, IdxT _m, IdxT _n, IdxT _k,
+                              DataT _eps, char* _smem)
+    : BaseClass(_x, _y, _m, _n, _k, _smem), adj(_adj), eps(_eps), vd(_vd) {
   }
 
   DI void run() {
@@ -139,15 +138,19 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       auto xid = startx + i * P::AccThRows;
+      IdxT sum = 0;
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto is_neigh = acc[i][j] <= eps;
+        sum += is_neigh;
         auto yid = starty + j * P::AccThCols;
         ///@todo: fix uncoalesced writes using shared mem
         if (xid < this->m && yid < this->n) {
           adj[xid * this->n + yid] = is_neigh;
-          fusedOp(is_neigh, xid, yid);
         }
+      }
+      // perform reduction of adjacency values to compute vertex degrees
+      if (vd != nullptr) {
       }
     }
   }
@@ -171,25 +174,25 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   }
 };  // struct EpsUnexpL2SqNeighborhood
 
-template <typename DataT, typename IdxT, typename Policy, typename FusedOp>
+template <typename DataT, typename IdxT, typename Policy>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void epsUnexpL2SqNeighKernel(
-  bool* adj, const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k, DataT eps,
-  FusedOp fop) {
+  bool* adj, IdxT* vd, const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k,
+  DataT eps) {
   extern __shared__ char smem[];
-  EpsUnexpL2SqNeighborhood<DataT, IdxT, Policy, FusedOp> obj(
-    adj, x, y, m, n, k, eps, fop, smem);
+  EpsUnexpL2SqNeighborhood<DataT, IdxT, Policy> obj(
+    adj, vd, x, y, m, n, k, eps, smem);
   obj.run();
 }
 
-template <typename DataT, typename IdxT, int VecLen, typename FusedOp>
-void epsUnexpL2SqNeighImpl(bool* adj, const DataT* x, const DataT* y, IdxT m,
-                           IdxT n, IdxT k, DataT eps, FusedOp fop,
+template <typename DataT, typename IdxT, int VecLen>
+void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
+                           IdxT m, IdxT n, IdxT k, DataT eps,
                            cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
-  epsUnexpL2SqNeighKernel<DataT, IdxT, Policy, FusedOp>
-    <<<grid, blk, Policy::SmemSize, stream>>>(adj, x, y, m, n, k, eps, fop);
+  epsUnexpL2SqNeighKernel<DataT, IdxT, Policy>
+    <<<grid, blk, Policy::SmemSize, stream>>>(adj, vd, x, y, m, n, k, eps);
   CUDA_CHECK(cudaGetLastError());
 }
 
@@ -209,20 +212,20 @@ void epsUnexpL2SqNeighImpl(bool* adj, const DataT* x, const DataT* y, IdxT m,
  * @param[in]  fop    device lambda to do any other custom functions
  * @param[in]  stream cuda stream
  */
-template <typename DataT, typename IdxT, typename FusedOp>
-void epsUnexpL2SqNeighborhood(bool* adj, const DataT* x, const DataT* y, IdxT m,
-                              IdxT n, IdxT k, DataT eps, FusedOp fop,
+template <typename DataT, typename IdxT>
+void epsUnexpL2SqNeighborhood(bool* adj, IdxT* vd, const DataT* x,
+                              const DataT* y, IdxT m, IdxT n, IdxT k, DataT eps,
                               cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT), FusedOp>(
-      adj, x, y, m, n, k, eps, fop, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT)>(
+      adj, vd, x, y, m, n, k, eps, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 8 / sizeof(DataT), FusedOp>(
-      adj, x, y, m, n, k, eps, fop, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 8 / sizeof(DataT)>(
+      adj, vd, x, y, m, n, k, eps, stream);
   } else {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 1, FusedOp>(
-      adj, x, y, m, n, k, eps, fop, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 1>(
+      adj, vd, x, y, m, n, k, eps, stream);
   }
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
