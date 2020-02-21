@@ -372,7 +372,7 @@ struct FusedL2NN {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        MLCommon::ldg(data[i], x + i * P::LdgRowsX * k + koffset);
+        ldg(data[i], x + i * P::LdgRowsX * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
@@ -384,7 +384,7 @@ struct FusedL2NN {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThX; ++i) {
-      MLCommon::sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
+      sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
     }
   }
 
@@ -394,7 +394,7 @@ struct FusedL2NN {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        MLCommon::ldg(data[i], y + i * P::LdgRowsY * k + koffset);
+        ldg(data[i], y + i * P::LdgRowsY * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
@@ -406,7 +406,7 @@ struct FusedL2NN {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
-      MLCommon::sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
+      sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
     }
   }
 
@@ -419,7 +419,7 @@ struct FusedL2NN {
     auto* saddr = smem + accrowid * P::SmemStride + kidx;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      MLCommon::lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
+      lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
     }
   }
 
@@ -427,7 +427,7 @@ struct FusedL2NN {
     auto* saddr = smem + acccolid * P::SmemStride + kidx;
 #pragma unroll
     for (int i = 0; i < P::AccColsPerTh; ++i) {
-      MLCommon::lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
+      lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
     }
   }
 };  // struct FusedL2NN
