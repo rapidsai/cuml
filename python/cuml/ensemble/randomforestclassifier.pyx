@@ -648,7 +648,7 @@ class RandomForestClassifier(Base):
 
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
-                warnings.warn(" Switching over to use the CPU predict since "
+                warnings.warn("Switching over to use the CPU predict since "
                               "the GPU predict currently cannot perform "
                               "multi-class classification.")
             preds = self._predict_model_on_cpu(X, convert_dtype)
