@@ -283,6 +283,10 @@ struct Contractions_NT {
     }
   }
 
+  ///@todo: splitting ldg/sts phases can give more latency hiding opportunity
+  ///       thereby improving perf. However the below code is causing kmeans
+  ///       unit-tests to fail. Will need to fix this issue to enable the below
+  ///       code-blocks here and also in FusedL2NN class
 //   DI void ldgXY(IdxT kidx) {
 //     auto koffset = kidx + scolid;
 //     for (int i = 0; i < P::LdgPerThX; ++i) {
