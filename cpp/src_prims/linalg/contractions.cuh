@@ -176,6 +176,15 @@ struct Contractions_NT {
   static const DataT Zero = (DataT)0;
 
  public:
+  /**
+   * @brief Ctor
+   * @param _x X matrix. [on device] [dim = _m x _k] [row-major]
+   * @param _y Y matrix. [on device] [dim = _n x _k] [row-major]
+   * @param _m number of rows of X
+   * @param _n number of rows of Y
+   * @param _k number of cols of X and Y
+   * @param _smem shared memory region used during computations
+   */
   DI Contractions_NT(DataT* _x, DataT* _y, IdxT _m, IdxT _n, IdxT _k,
                      char* _smem)
     : m(_m),
