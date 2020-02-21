@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/device_ld_st.cuh>
 #include <cuda_utils.h>
 #include <stdint.h>
 #include <cub/cub.cuh>
@@ -23,79 +24,6 @@
 
 namespace MLCommon {
 namespace Distance {
-
-DI void sts(float* addr, const float& x) { *addr = x; }
-DI void sts(float* addr, const float (&x)[1]) { *addr = x[0]; }
-DI void sts(float* addr, const float (&x)[2]) {
-  float2 v2 = make_float2(x[0], x[1]);
-  auto* s2 = reinterpret_cast<float2*>(addr);
-  *s2 = v2;
-}
-DI void sts(float* addr, const float (&x)[4]) {
-  float4 v4 = make_float4(x[0], x[1], x[2], x[3]);
-  auto* s4 = reinterpret_cast<float4*>(addr);
-  *s4 = v4;
-}
-DI void sts(double* addr, const double& x) { *addr = x; }
-DI void sts(double* addr, const double (&x)[1]) { *addr = x[0]; }
-DI void sts(double* addr, const double (&x)[2]) {
-  double2 v2 = make_double2(x[0], x[1]);
-  auto* s2 = reinterpret_cast<double2*>(addr);
-  *s2 = v2;
-}
-
-DI void lds(float& x, float* addr) { x = *addr; }
-DI void lds(float (&x)[1], float* addr) { x[0] = *addr; }
-DI void lds(float (&x)[2], float* addr) {
-  auto* s2 = reinterpret_cast<float2*>(addr);
-  auto v2 = *s2;
-  x[0] = v2.x;
-  x[1] = v2.y;
-}
-DI void lds(float (&x)[4], float* addr) {
-  auto* s4 = reinterpret_cast<float4*>(addr);
-  auto v4 = *s4;
-  x[0] = v4.x;
-  x[1] = v4.y;
-  x[2] = v4.z;
-  x[3] = v4.w;
-}
-DI void lds(double& x, double* addr) { x = *addr; }
-DI void lds(double (&x)[1], double* addr) { x[0] = *addr; }
-DI void lds(double (&x)[2], double* addr) {
-  auto* s2 = reinterpret_cast<double2*>(addr);
-  auto v2 = *s2;
-  x[0] = v2.x;
-  x[1] = v2.y;
-}
-
-DI void ldg(float& x, float* addr) {
-  asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x) : "l"(addr));
-}
-DI void ldg(float (&x)[1], float* addr) {
-  asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x[0]) : "l"(addr));
-}
-DI void ldg(float (&x)[2], float* addr) {
-  asm volatile("ld.global.cg.v2.f32 {%0, %1}, [%2];"
-               : "=f"(x[0]), "=f"(x[1])
-               : "l"(addr));
-}
-DI void ldg(float (&x)[4], float* addr) {
-  asm volatile("ld.global.cg.v4.f32 {%0, %1, %2, %3}, [%4];"
-               : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3])
-               : "l"(addr));
-}
-DI void ldg(double& x, double* addr) {
-  asm volatile("ld.global.cg.f64 %0, [%1];" : "=d"(x) : "l"(addr));
-}
-DI void ldg(double (&x)[1], double* addr) {
-  asm volatile("ld.global.cg.f64 %0, [%1];" : "=d"(x[0]) : "l"(addr));
-}
-DI void ldg(double (&x)[2], double* addr) {
-  asm volatile("ld.global.cg.v2.f64 {%0, %1}, [%2];"
-               : "=d"(x[0]), "=d"(x[1])
-               : "l"(addr));
-}
 
 template <typename LabelT, typename DataT>
 struct KVPMinReduce {
@@ -444,7 +372,7 @@ struct FusedL2NN {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThX; ++i) {
       if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        ldg(data[i], x + i * P::LdgRowsX * k + koffset);
+        MLCommon::ldg(data[i], x + i * P::LdgRowsX * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
@@ -456,7 +384,7 @@ struct FusedL2NN {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThX; ++i) {
-      sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
+      MLCommon::sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
     }
   }
 
@@ -466,7 +394,7 @@ struct FusedL2NN {
     auto koffset = kidx + scolid;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        ldg(data[i], y + i * P::LdgRowsY * k + koffset);
+        MLCommon::ldg(data[i], y + i * P::LdgRowsY * k + koffset);
       } else {
 #pragma unroll
         for (int j = 0; j < P::Veclen; ++j) {
@@ -478,7 +406,7 @@ struct FusedL2NN {
     auto* saddr = smem + srowid * P::SmemStride + scolid;
 #pragma unroll
     for (int i = 0; i < P::LdgPerThY; ++i) {
-      sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
+      MLCommon::sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
     }
   }
 
@@ -491,7 +419,7 @@ struct FusedL2NN {
     auto* saddr = smem + accrowid * P::SmemStride + kidx;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
+      MLCommon::lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
     }
   }
 
@@ -499,7 +427,7 @@ struct FusedL2NN {
     auto* saddr = smem + acccolid * P::SmemStride + kidx;
 #pragma unroll
     for (int i = 0; i < P::AccColsPerTh; ++i) {
-      lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
+      MLCommon::lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
     }
   }
 };  // struct FusedL2NN
