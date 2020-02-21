@@ -22,28 +22,34 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @brief Constructs an epsilon neighborhood adjacency matrix by
- * filtering the final distance by some epsilon.
- * @tparam distanceType: distance metric to compute between a and b matrices
- * @tparam T: the type of input matrices a and b
- * @tparam Lambda Lambda function
- * @tparam Index_ Index type
- * @tparam OutputTile_ output tile size per thread
- * @param a: row-major input matrix a
- * @param b: row-major input matrix b
- * @param adj: a boolean output adjacency matrix
- * @param m: number of points in a
- * @param n: number of points in b
- * @param k: dimensionality
- * @param eps: the epsilon value to use as a filter for neighborhood construction.
- *             it is important to note that if the distance type returns a squared
- *             variant for efficiency, the epsilon will need to be squared as well.
- * @param workspace: temporary workspace needed for computations
- * @param worksize: number of bytes of the workspace
- * @param stream cuda stream
- * @param fused_op: optional functor taking the output index into c
+ * @defgroup EpsNeigh Epsilon Neighborhood comptuation
+ * @{
+ * @brief Constructs an epsilon neighborhood adjacency matrix by filtering the
+ *        final distance by some epsilon.
+ *
+ * @tparam distanceType distance metric to compute between a and b matrices
+ * @tparam T            the type of input matrices a and b
+ * @tparam Lambda       Lambda function
+ * @tparam Index_       Index type
+ * @tparam OutputTile_  output tile size per thread
+ *
+ * @param a         first matrix [row-major] [on device] [dim = m x k]
+ * @param b         second matrix [row-major] [on device] [dim = n x k]
+ * @param adj       a boolean output adjacency matrix
+ * @param m         number of points in a
+ * @param n         number of points in b
+ * @param k         dimensionality
+ * @param eps       epsilon value to use as a filter for neighborhood
+ *                  construction. It is important to note that if the distance
+ *                  type returns a squared variant for efficiency, epsilon will
+ *                  need to be squared as well.
+ * @param workspace temporary workspace needed for computations
+ * @param worksize  number of bytes of the workspace
+ * @param stream    cuda stream
+ * @param fused_op  optional functor taking the output index into c
  *                  and a boolean denoting whether or not the inputs are part of
  *                  the epsilon neighborhood.
+ * @return          the workspace size in bytes
  */
 template <DistanceType distanceType, typename T, typename Lambda,
           typename Index_ = int, typename OutputTile_ = OutputTile_8x128x128>
@@ -63,26 +69,6 @@ size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
   return worksize;
 }
 
-/**
- * @brief Constructs an epsilon neighborhood adjacency matrix by
- * filtering the final distance by some epsilon.
- * @tparam distanceType: distance metric to compute between a and b matrices
- * @tparam T: the type of input matrices a and b
- * @tparam Index_ Index type
- * @tparam OutputTile_ output tile size per thread
- * @param a: row-major input matrix a
- * @param b: row-major input matrix b
- * @param adj: a boolean output adjacency matrix
- * @param m: number of points in a
- * @param n: number of points in b
- * @param k: dimensionality
- * @param eps: the epsilon value to use as a filter for neighborhood construction.
- *             it is important to note that if the distance type returns a squared
- *             variant for efficiency, the epsilon will need to be squared as well.
- * @param workspace: temporary workspace needed for computations
- * @param worksize: number of bytes of the workspace
- * @param stream cuda stream
- */
 template <DistanceType distanceType, typename T, typename Index_ = int,
           typename OutputTile_ = OutputTile_8x128x128>
 size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
@@ -93,6 +79,7 @@ size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
                               OutputTile_>(a, b, adj, m, n, k, eps, workspace,
                                            worksize, stream, lambda);
 }
+/** @} */
 
 }  // namespace Distance
 }  // namespace MLCommon
