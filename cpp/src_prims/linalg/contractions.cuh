@@ -131,17 +131,47 @@ struct Contractions_NT {
  protected:
   typedef Policy P;
 
-  IdxT m, n, k, xrowid, yrowid;
-  DataT *x, *y;
+  /** number of rows in X */
+  IdxT m;
+  /** number of rows in Y */
+  IdxT n;
+  /** number of columns in X and Y */
+  IdxT k;
+  /** current thread's global mem row id for X data */
+  IdxT xrowid;
+  /** current thread's global mem row id for Y data */
+  IdxT yrowid;
+  /** global memory pointer to X matrix */
+  DataT *x;
+  /** global memory pointer to Y matrix */
+  DataT *y;
 
-  int srowid, scolid;
-  int accrowid, acccolid;
+  /** current thread's smem row id */
+  int srowid;
+  /** current thread's smem column id */
+  int scolid;
+  /** current thread's accumulation row id */
+  int accrowid;
+  /** current thread's accumulation column id */
+  int acccolid;
 
-  DataT *sx, *sy;
-  int pageWr, pageRd;
+  /** base smem pointer for X data storage */
+  DataT *sx;
+  /** base smem pointer for Y data storage */
+  DataT *sy;
+  /** index pointing the correct smem page for writing after `ldgXY()` */
+  int pageWr;
+  /** index pointing the correct smem page for reading during `ldsXY()` */
+  int pageRd;
 
-  DataT regx[P::AccRowsPerTh][P::Veclen], regy[P::AccColsPerTh][P::Veclen];
-  DataT ldgDataX[P::LdgPerThX][P::Veclen], ldgDataY[P::LdgPerThY][P::Veclen];
+  /** block of X data loaded from smem after `ldsXY()` */
+  DataT regx[P::AccRowsPerTh][P::Veclen];
+  /** block of Y data loaded from smem after `ldsXY()` */
+  DataT regy[P::AccColsPerTh][P::Veclen];
+  /** block of X data loaded from global mem after `ldgXY()` */
+  DataT ldgDataX[P::LdgPerThX][P::Veclen];
+  /** block of Y data loaded from global mem after `ldgXY()` */
+  DataT ldgDataY[P::LdgPerThY][P::Veclen];
 
   static const DataT Zero = (DataT)0;
 
