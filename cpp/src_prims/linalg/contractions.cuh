@@ -195,11 +195,25 @@ struct Contractions_NT {
       pageRd(0) {}
 
  protected:
+  /**
+   * @brief Load current block of X/Y from global memory to smem
+   * @param kidx current start index of k to be loaded
+   */
   DI void ldgsts(IdxT kidx) {
     ldgstsX(kidx, sx + pageWr * P::SmemPage);
     ldgstsY(kidx, sy + pageWr * P::SmemPage);
   }
 
+  /**
+   * @brief Load X and Y block from shared memory to registers
+   * @param kidx k value from the current k-block to be loaded from smem
+   */
+  DI void ldsXY(int kidx) {
+    ldsX(kidx, sx + pageRd * P::SmemPage);
+    ldsY(kidx, sy + pageRd * P::SmemPage);
+  }
+
+ private:
   DI void ldgstsX(IdxT kidx, DataT* smem) {
     DataT data[P::LdgPerThX][P::Veclen];
     // LDG
@@ -242,11 +256,6 @@ struct Contractions_NT {
     for (int i = 0; i < P::LdgPerThY; ++i) {
       sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
     }
-  }
-
-  DI void ldsXY(int kidx) {
-    ldsX(kidx, sx + pageRd * P::SmemPage);
-    ldsY(kidx, sy + pageRd * P::SmemPage);
   }
 
   DI void ldsX(int kidx, DataT* smem) {
