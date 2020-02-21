@@ -227,7 +227,6 @@ void epsUnexpL2SqNeighborhood(bool* adj, IdxT* vd, const DataT* x,
     epsUnexpL2SqNeighImpl<DataT, IdxT, 1>(
       adj, vd, x, y, m, n, k, eps, stream);
   }
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 }  // namespace Distance
