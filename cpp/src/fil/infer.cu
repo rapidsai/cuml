@@ -142,7 +142,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   acc.finalize(params.preds, params.num_rows);
 }
 
-template <typename storage_type>
+template <typename storage_type, typename TOUTPUT>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   const int MAX_BATCH_ITEMS = 4;
   params.max_items =
