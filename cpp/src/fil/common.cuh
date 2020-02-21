@@ -46,7 +46,7 @@ struct base_node {
   static const int FID_MASK = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
   static const int IS_LEAF_MASK = 1 << 31;
-  union {
+  union Val {
     /// threshold value for branch node or output value (e.g. class
     /// probability or regression summand) for leaf node
     float f;
@@ -55,22 +55,24 @@ struct base_node {
     ///< vector can be used for class probabilities or regression
   } val;
   int bits;
-  template<Tval> __host__ __device__ Tval  output() const;
-  template<> __host__ __device__ 
-  float output<float>() const { return val.f; }
-  template<> __host__ __device__ 
-  unsigned int output<unsigned int>() const { return val.idx; }
+  template<typename T> __host__ __device__ T output() const;
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
-  __host__ __device__ base_node() : val.f(0.0f), bits(0) {}
-  base_node(dense_node_t node) : val.f(node.val), bits(node.bits) {}
+  __host__ __device__ base_node() : bits(0) { val.f = 0.0f; }
+  base_node(dense_node_t node) : bits(node.bits) { val.f = node.val; }
   base_node(float output, float thresh, int fid, bool def_left, bool is_leaf)
-    : val.f(is_leaf ? output : thresh),
-      bits((fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
-           (is_leaf ? IS_LEAF_MASK : 0)) {}
+    : bits((fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
+           (is_leaf ? IS_LEAF_MASK : 0))
+  { val.f = is_leaf ? output : thresh; }
 };
+
+template<> __host__ __device__ 
+unsigned int base_node::output<unsigned int>() const { return val.idx; }
+
+template<> __host__ __device__
+       float base_node::output<float       >() const { return val.f; }
 
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
