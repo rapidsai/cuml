@@ -360,8 +360,7 @@ class LogisticRegression(Base):
                             convert_dtype=convert_dtype), order='F').T
         if self._num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
-            proba[:, 1] = scores.ravel()
-            proba = 1 / (1 + cp.exp(-proba))
+            proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
             proba[:, 0] = 1 - proba[:, 1]
         elif self._num_classes > 2:
             max_scores = cp.max(scores, axis=1).reshape((-1, 1))
