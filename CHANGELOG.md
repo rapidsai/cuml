@@ -17,6 +17,7 @@
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
 - PR #1718: Import `using_allocator` from `cupy.cuda`
+- PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
