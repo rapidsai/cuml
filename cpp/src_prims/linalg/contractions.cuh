@@ -114,6 +114,17 @@ struct Policy4x4<double, _veclen> {
 
 /**
  * @brief Base class for gemm-like NT contractions
+ *
+ * This class does not provide any arithmetic operations, but only provides the
+ * memory-related operations of loading the `x` and `y` matrix blocks from the
+ * global memory into shared memory and then from shared into registers. Thus,
+ * this class acts as a basic building block for further composing gemm-like NT
+ * contractions on input matrices which are row-major (and so does the output)
+ *
+ * @tparam DataT IO and math data type
+ * @tparam IdxT indexing type
+ * @tparam Policy policy used to customize memory access behavior.
+ *                See documentation for `KernelPolicy` to know more.
  */
 template <typename DataT, typename IdxT, typename Policy>
 struct Contractions_NT {
