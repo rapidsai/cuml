@@ -124,6 +124,9 @@ struct Contractions_NT {
   DataT *sx, *sy;
   int pageWr, pageRd;
 
+  DataT regx[P::AccRowsPerTh][P::Veclen], regy[P::AccColsPerTh][P::Veclen];
+  DataT ldgDataX[P::LdgPerThX][P::Veclen], ldgDataY[P::LdgPerThY][P::Veclen];
+
   static const DataT Zero = (DataT)0;
 
  public:
