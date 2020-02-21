@@ -22,7 +22,7 @@ namespace MLCommon {
 namespace Distance {
 
 /**
- * @defgroup EpsNeigh Epsilon Neighborhood comptuation
+ * @defgroup EpsNeigh Epsilon Neighborhood computation
  * @{
  * @brief Constructs an epsilon neighborhood adjacency matrix by filtering the
  *        final distance by some epsilon.
