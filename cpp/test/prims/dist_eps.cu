@@ -33,6 +33,13 @@ class EpsilonNeighborhoodTest : public ::testing::Test {
   void TearDown() override {}
 };
 
+void epsNeigh(float *data, int m, int k, bool *adj, float eps,
+              cudaStream_t stream) {
+  auto fop = [] __device__(bool a, int b, int c) {};
+  epsUnexpL2SqNeighborhood<float, int, decltype(fop)>(adj, data, data, m, m, k,
+                                                      eps * eps, fop, stream);
+}
+
 typedef EpsilonNeighborhoodTest TestNeighborhoodsNoFunctor;
 TEST_F(TestNeighborhoodsNoFunctor, Result) {
   cudaStream_t stream;
@@ -42,10 +49,11 @@ TEST_F(TestNeighborhoodsNoFunctor, Result) {
   int k = 2;
 
   float *data;
-  bool *adj, *expected;
+  bool *adj, *adj1, *expected;
 
   allocate(data, m * k, true);
   allocate(adj, m * m, true);
+  allocate(adj1, m * m, true);
   allocate(expected, m * m, true);
 
   std::vector<float> data_h = {1.0, 2.0, 2.0, 2.0, 2.0,  3.0,
@@ -75,14 +83,17 @@ TEST_F(TestNeighborhoodsNoFunctor, Result) {
 
   epsilon_neighborhood<distance_type, float>(
     data, data, adj, m, m, k, eps, (void *)workspace, workspaceSize, stream);
-
   CUDA_CHECK(cudaStreamSynchronize(stream));
-
   ASSERT_TRUE(devArrMatch(adj, expected, m * m, Compare<bool>(), stream));
+
+  epsNeigh(data, m, k, adj1, eps, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  ASSERT_TRUE(devArrMatch(adj1, expected, m * m, Compare<bool>(), stream));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   CUDA_CHECK(cudaFree(data));
   CUDA_CHECK(cudaFree(adj));
+  CUDA_CHECK(cudaFree(adj1));
 
   delete expected_h;
 }
