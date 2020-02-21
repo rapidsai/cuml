@@ -19,6 +19,7 @@ import numpy as np
 import rmm
 
 from cuml.utils.import_utils import check_min_cupy_version
+from functools import wraps
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -27,6 +28,29 @@ except ImportError:
         from cupy.cuda.memory import using_allocator as cupy_using_allocator
     except ImportError:
         pass
+
+
+def with_cupy_rmm(func):
+    """
+
+    Decorator to call CuPy functions with RMM memory management. Use it
+    to decorate any function that will call CuPy functions. This will ensure
+    that those calls use RMM for memory allocation instead of the default
+    CuPy pool. Example:
+
+    .. code-block:: python
+
+        @with_cupy_rmm
+        def fx(...):
+            a = cp.arange(10) # uses RMM for allocation
+
+    """
+    @wraps(func)
+    def cupy_rmm_wrapper(*args, **kwargs):
+        with cupy_using_allocator(rmm.rmm_cupy_allocator):
+            return func(*args, **kwargs)
+
+    return cupy_rmm_wrapper
 
 
 def rmm_cupy_ary(cupy_fn, *args, **kwargs):

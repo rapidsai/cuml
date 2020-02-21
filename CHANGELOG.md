@@ -20,6 +20,7 @@
 - PR #1721: Improving UMAP pytests
 - PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
 - PR #1718: Import `using_allocator` from `cupy.cuda`
+- PR #1726: Decorator to allocate CuPy arrays with RMM
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
