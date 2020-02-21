@@ -253,6 +253,7 @@ void find_kalman_gain(Variables<T> &var, cublasHandle_t handle,
   CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_z,
                           var.dim_z, var.dim_x, &alfa, var.H, var.dim_z, var.K,
                           var.dim_x, &beta, var.R_cpy, var.dim_z, stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   CUSOLVER_CHECK(cusolverDngetrf(handle_sol, var.dim_z, var.dim_z, var.R_cpy,
                                  var.dim_z, var.workspace_lu, var.piv, var.info,
                                  stream));
@@ -265,6 +266,7 @@ void find_kalman_gain(Variables<T> &var, cublasHandle_t handle,
     CUDA_CHECK(cudaMemcpy(var.placeHolder2, var.placeHolder0,
                           var.dim_z * var.dim_z * sizeof(T),
                           cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUSOLVER_CHECK(cusolverDngetrs(handle_sol, CUBLAS_OP_N, var.dim_z,
                                    var.dim_z, (const T *)var.R_cpy, var.dim_z,
                                    (const int *)var.piv, var.placeHolder0,
