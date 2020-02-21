@@ -112,8 +112,43 @@ template <int NITEMS> class AggregateTrees<NITEMS, FLOAT_SCALAR, float> {
       if (threadIdx.x == 0) {
         for (int i = 0; i < NITEMS; ++i) {
           int row = blockIdx.x * NITEMS + i;
-          if (row < num_rows)
+          if (row < params.num_rows)
             out[row * num_output_classes] = acc[i];
+            //TODO for 2 output values, will need to change the above line
+            // to fix regression
+        }
+      }
+    }
+};
+
+template <> class AggregateTrees<INT_CLASS_LABEL, unsigned int> {
+  typedef unsigned int VoteCount;
+  // can switch to unsigned short to save shared memory
+  // provided atomicInc(short*) simulated with atomicAdd with appropriate shifts
+  VoteCount* votes;
+  public:
+    __device__ __forceinline__ AggregateTrees(int num_classes, void* shared_workspace) {
+      votes = (VoteCount*)shared_workspace;
+      for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
+        #pragma unroll
+        for (int i = 0; i < NITEMS; ++i)
+          votes[i * num_classes + c] = 0;
+      //__syncthreads(); // happening outside
+    }
+    template<NITEMS>
+    __device__ __forceinline__ void accumulate(vec<NITEMS, unsigned int> out) {
+      #pragma unroll
+      for (int i = 0; i < NITEMS; ++i)
+        atomicInc(votes + i * num_classes + acc[i]);
+    }
+    __device__ __forceinline__ void finalize(float* out) {
+      __syncthreads();
+      if (threadIdx.x == 0) {
+        for (int i = 0; i < NITEMS; ++i) {
+          int row = blockIdx.x * NITEMS + i;
+          if (row < params.num_rows)
+            for (int c = 0; c < num_classes; ++c)
+              out[row * num_classes + c] = votes[i * num_classes + c];
         }
       }
     }
@@ -132,9 +167,12 @@ __global__ void infer_k(storage_type forest, predict_params params) {
         row < params.num_rows ? params.data[row * params.num_cols + i] : 0.0f;
     }
   }
-  __syncthreads();
+  
+  AggregateTrees<NITEMS, leaf_payload, TOUTPUT>
+    acc(params.num_output_classes, sdata + params.num_cols * NITEMS);
 
-  AggregateTrees<NITEMS, leaf_payload_type, TOUTPUT> acc(params.num_output_classes, nullptr);
+  __syncthreads(); // for both row cache init and acc init
+
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
     acc.accumulate(infer_one_tree<NITEMS, TOUTPUT>(forest[j], sdata, params.num_cols));
