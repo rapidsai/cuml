@@ -79,10 +79,6 @@ def test_umap_fit_transform_score(nrows, n_feats):
         assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
-# Allow slight deviation from expected trust due to numerical error
-TRUST_TOLERANCE_THRESH = 0.005
-
-
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
@@ -90,7 +86,7 @@ def test_supervised_umap_trustworthiness_on_iris():
                        verbose=False).fit_transform(data, iris.target,
                                                     convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
-    assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
+    assert trust >= 0.97
 
 
 def test_semisupervised_umap_trustworthiness_on_iris():
@@ -103,7 +99,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
                                                     convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, 10)
-    assert trust >= 0.97 - TRUST_TOLERANCE_THRESH
+    assert trust >= 0.97
 
 
 def test_umap_trustworthiness_on_iris():
@@ -112,28 +108,47 @@ def test_umap_trustworthiness_on_iris():
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
                        verbose=False).fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
-
-    # We are doing a spectral embedding but not a
-    # multi-component layout (which is marked experimental).
-    # As a result, our score drops by 0.006.
-    assert trust >= 0.964 - TRUST_TOLERANCE_THRESH
+    assert trust >= 0.97
 
 
 def test_umap_transform_on_iris():
 
     iris = datasets.load_iris()
+
     iris_selection = np.random.RandomState(42).choice(
         [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
-    fitter = cuUMAP(n_neighbors=10, min_dist=0.01, verbose=False)
+    def run_transform():
+        fitter = cuUMAP(n_neighbors=10, n_epochs=800, min_dist=0.01,
+                        verbose=False)
+        fitter.fit(data, convert_dtype=True)
+        new_data = iris.data[~iris_selection]
+        embedding = fitter.transform(new_data, convert_dtype=True)
+        return trustworthiness(new_data, embedding, 10)
+
+    threshold = 0.85
+
+    trust = np.mean([run_transform() for i in range(5)])
+    assert trust >= threshold
+
+
+def test_umap_transform_on_digits():
+
+    digits = datasets.load_digits()
+
+    digits_selection = np.random.RandomState(42).choice(
+        [True, False], 1797, replace=True, p=[0.75, 0.25])
+    data = digits.data[digits_selection]
+
+    fitter = cuUMAP(n_neighbors=15, n_epochs=0, min_dist=0.01, verbose=False)
     fitter.fit(data, convert_dtype=True)
-    new_data = iris.data[~iris_selection]
+    new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
-
     trust = trustworthiness(new_data, embedding, 10)
+    print(trust)
 
-    assert trust >= 0.89
+    assert trust >= 0.965
 
 
 @pytest.mark.parametrize('name', dataset_names)
