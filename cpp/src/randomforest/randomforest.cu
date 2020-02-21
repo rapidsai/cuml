@@ -460,9 +460,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
   concat_model->num_output_group = first_model.num_output_group;
   concat_model->random_forest_flag = first_model.random_forest_flag;
   concat_model->param = first_model.param;
-  ModelHandle* concat_model_handle = new ModelHandle;
-  *concat_model_handle = concat_model;
-  return *concat_model_handle;
+  return concat_model;
 }
 
 /**
