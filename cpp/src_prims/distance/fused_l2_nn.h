@@ -86,9 +86,9 @@ struct FusedL2NN : public BaseClass {
   static const DataT Two = (DataT)2.0;
 
  public:
-  DI FusedL2NN(OutT* _min, DataT* _x, DataT* _y, DataT* _xn, DataT* _yn,
-               IdxT _m, IdxT _n, IdxT _k, char* _smem, DataT _mv, int* _mut,
-               ReduceOpT op)
+  DI FusedL2NN(OutT* _min, const DataT* _x, const DataT* _y, DataT* _xn,
+               DataT* _yn, IdxT _m, IdxT _n, IdxT _k, char* _smem, DataT _mv,
+               int* _mut, ReduceOpT op)
     : BaseClass(_x, _y, _m, _n, _k, _smem),
       xn(_xn),
       yn(_yn),
@@ -259,8 +259,8 @@ struct FusedL2NN : public BaseClass {
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
           typename Policy, typename ReduceOpT>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2NNkernel(
-  OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m, IdxT n, IdxT k,
-  DataT maxVal, int* mutex, ReduceOpT redOp) {
+  OutT* min, const DataT* x, const DataT* y, DataT* xn, DataT* yn, IdxT m,
+  IdxT n, IdxT k, DataT maxVal, int* mutex, ReduceOpT redOp) {
   extern __shared__ char smem[];
   FusedL2NN<DataT, OutT, IdxT, Sqrt, Policy, ReduceOpT> obj(
     min, x, y, xn, yn, m, n, k, smem, maxVal, mutex, redOp);
@@ -277,9 +277,10 @@ __global__ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp) {
 
 template <typename DataT, typename OutT, typename IdxT, int VecLen,
           typename ReduceOpT>
-void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
-                   IdxT n, IdxT k, int* workspace, ReduceOpT redOp, bool sqrt,
-                   bool initOutBuffer, cudaStream_t stream) {
+void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, DataT* xn,
+                   DataT* yn, IdxT m, IdxT n, IdxT k, int* workspace,
+                   ReduceOpT redOp, bool sqrt, bool initOutBuffer,
+                   cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
@@ -332,9 +333,9 @@ void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
  * @param[in] stream cuda stream
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-void fusedL2NN(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
-               IdxT n, IdxT k, void* workspace, ReduceOpT redOp, bool sqrt,
-               bool initOutBuffer, cudaStream_t stream) {
+void fusedL2NN(OutT* min, const DataT* x, const DataT* y, DataT* xn, DataT* yn,
+               IdxT m, IdxT n, IdxT k, void* workspace, ReduceOpT redOp,
+               bool sqrt, bool initOutBuffer, cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     fusedL2NNImpl<DataT, OutT, IdxT, 16 / sizeof(DataT), ReduceOpT>(

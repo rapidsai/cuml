@@ -142,9 +142,9 @@ struct Contractions_NT {
   /** current thread's global mem row id for Y data */
   IdxT yrowid;
   /** global memory pointer to X matrix */
-  DataT* x;
+  const DataT* x;
   /** global memory pointer to Y matrix */
-  DataT* y;
+  const DataT* y;
 
   /** current thread's smem row id */
   int srowid;
@@ -185,8 +185,8 @@ struct Contractions_NT {
    * @param _k number of cols of X and Y
    * @param _smem shared memory region used during computations
    */
-  DI Contractions_NT(DataT* _x, DataT* _y, IdxT _m, IdxT _n, IdxT _k,
-                     char* _smem)
+  DI Contractions_NT(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
+                     IdxT _k, char* _smem)
     : m(_m),
       n(_n),
       k(_k),

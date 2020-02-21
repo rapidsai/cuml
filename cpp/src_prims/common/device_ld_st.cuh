@@ -65,29 +65,29 @@ DI void lds(double (&x)[2], double* addr) {
   x[1] = v2.y;
 }
 
-DI void ldg(float& x, float* addr) {
+DI void ldg(float& x, const float* addr) {
   asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x) : "l"(addr));
 }
-DI void ldg(float (&x)[1], float* addr) {
+DI void ldg(float (&x)[1], const float* addr) {
   asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x[0]) : "l"(addr));
 }
-DI void ldg(float (&x)[2], float* addr) {
+DI void ldg(float (&x)[2], const float* addr) {
   asm volatile("ld.global.cg.v2.f32 {%0, %1}, [%2];"
                : "=f"(x[0]), "=f"(x[1])
                : "l"(addr));
 }
-DI void ldg(float (&x)[4], float* addr) {
+DI void ldg(float (&x)[4], const float* addr) {
   asm volatile("ld.global.cg.v4.f32 {%0, %1, %2, %3}, [%4];"
                : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3])
                : "l"(addr));
 }
-DI void ldg(double& x, double* addr) {
+DI void ldg(double& x, const double* addr) {
   asm volatile("ld.global.cg.f64 %0, [%1];" : "=d"(x) : "l"(addr));
 }
-DI void ldg(double (&x)[1], double* addr) {
+DI void ldg(double (&x)[1], const double* addr) {
   asm volatile("ld.global.cg.f64 %0, [%1];" : "=d"(x[0]) : "l"(addr));
 }
-DI void ldg(double (&x)[2], double* addr) {
+DI void ldg(double (&x)[2], const double* addr) {
   asm volatile("ld.global.cg.v2.f64 {%0, %1}, [%2];"
                : "=d"(x[0]), "=d"(x[1])
                : "l"(addr));
