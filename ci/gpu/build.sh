@@ -61,9 +61,11 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "ucx-py=0.12*" \
       "statsmodels" \
       "rapids-xgboost>=0.13" \
+      "lightgbm" \
       "seaborn" \
       "ipython=7.3*" \
       "jupyterlab"
+      
 
 
 # Install the master version of dask, distributed, and dask-ml

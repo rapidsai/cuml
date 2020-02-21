@@ -16,9 +16,11 @@
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
+- PR #1697: Making trustworthiness batchable and using proper workspace
 - PR #1721: Improving UMAP pytests
 - PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
 - PR #1718: Import `using_allocator` from `cupy.cuda`
+- PR #1726: Decorator to allocate CuPy arrays with RMM
 - PR #1728 Added notebook testing to gpuCI gpu build
 
 ## Bug Fixes
@@ -36,6 +38,7 @@
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
 - PR #1652: Support XGBoost 1.0+ models in FIL
+- PR #1702: Fix LightGBM-FIL validation test
 - PR #1701: test_score kmeans test passing with newer cupy version
 - PR #1706: Remove multi-class bug from QuasiNewton
 - PR #1699: Limit CuPy to <7.2 temporarily
