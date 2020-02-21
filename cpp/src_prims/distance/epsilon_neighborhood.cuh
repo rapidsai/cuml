@@ -201,10 +201,9 @@ void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
  *
  * @tparam DataT   IO and math type
  * @tparam IdxT    Index type
- * @tparam FusedOp device lambda `(bool is_neigh, IdxT row, IdxT col) -> void`
- *                 to compute anything else in the epilogue
  *
  * @param[out] adj    adjacency matrix [row-major] [on device] [dim = m x n]
+ * @param[out] vd     vertex degree array [on device] [len = n + 1]
  * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  y      second matrix [row-major] [on device] [dim = n x k]
  * @param[in]  eps    defines epsilon neighborhood radius (should be passed as
