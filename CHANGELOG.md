@@ -40,6 +40,7 @@
 - PR #1706: Remove multi-class bug from QuasiNewton
 - PR #1699: Limit CuPy to <7.2 temporarily
 - PR #1708: Correctly deallocate cuML handles in Cython
+- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2) 
 
 # cuML 0.12.0 (Date TBD)
 
