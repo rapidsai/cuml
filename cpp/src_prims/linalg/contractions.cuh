@@ -121,8 +121,8 @@ struct Policy4x4<double, _veclen> {
  * this class acts as a basic building block for further composing gemm-like NT
  * contractions on input matrices which are row-major (and so does the output)
  *
- * @tparam DataT IO and math data type
- * @tparam IdxT indexing type
+ * @tparam DataT  IO and math data type
+ * @tparam IdxT   indexing type
  * @tparam Policy policy used to customize memory access behavior.
  *                See documentation for `KernelPolicy` to know more.
  */
@@ -178,12 +178,12 @@ struct Contractions_NT {
  public:
   /**
    * @brief Ctor
-   * @param _x X matrix. [on device] [dim = _m x _k] [row-major]
-   * @param _y Y matrix. [on device] [dim = _n x _k] [row-major]
-   * @param _m number of rows of X
-   * @param _n number of rows of Y
-   * @param _k number of cols of X and Y
-   * @param _smem shared memory region used during computations
+   * @param[in] _x X matrix. [on device] [dim = _m x _k] [row-major]
+   * @param[in] _y Y matrix. [on device] [dim = _n x _k] [row-major]
+   * @param[in] _m number of rows of X
+   * @param[in] _n number of rows of Y
+   * @param[in] _k number of cols of X and Y
+   * @param[in] _smem shared memory region used during computations
    */
   DI Contractions_NT(const DataT* _x, const DataT* _y, IdxT _m, IdxT _n,
                      IdxT _k, char* _smem)
@@ -206,7 +206,7 @@ struct Contractions_NT {
  protected:
   /**
    * @brief Load current block of X/Y from global memory to smem
-   * @param kidx current start index of k to be loaded
+   * @param[in] kidx current start index of k to be loaded
    */
   DI void ldgsts(IdxT kidx) {
     ldgstsX(kidx, sx + pageWr * P::SmemPage);
@@ -215,7 +215,7 @@ struct Contractions_NT {
 
   /**
    * @brief Load X and Y block from shared memory to registers
-   * @param kidx k value from the current k-block to be loaded from smem
+   * @param[in] kidx k value from the current k-block to be loaded from smem
    */
   DI void ldsXY(int kidx) {
     ldsX(kidx, sx + pageRd * P::SmemPage);
