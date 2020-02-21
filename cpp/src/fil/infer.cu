@@ -28,9 +28,9 @@ struct vec {
   T data[N];
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
-  friend __host__ __device__ vec<N> operator+(const vec<N>& a,
-                                              const vec<N>& b) {
-    vec<N> r;
+  friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
+                                                 const vec<N, T>& b) {
+    vec<N, T> r;
 #pragma unroll
     for (int i = 0; i < N; ++i) r[i] = a[i] + b[i];
     return r;
@@ -80,43 +80,42 @@ __device__ __forceinline__ vec<1, TOUTPUT> infer_one_tree(tree_type tree, float*
   return out;
 }
 
-template <leaf_value_t leaf_payload, typename TNODE_PAYLOAD>
+template <int NITEMS, leaf_value_t leaf_payload_type, typename TNODE_PAYLOAD>
 class AggregateTrees {
   public:
-    __device__ __forceinline__ AggregateTrees(int num_classes, void* shared_workspaces);
-    template<NITEMS>
+    __device__ __forceinline__ AggregateTrees(int num_output_classes, void* smem_workspace);
     __device__ __forceinline__ void accumulate(vec<NITEMS, TNODE_PAYLOAD> out);
-    __device__ __forceinline__ void finalize(float* out);
+    __device__ __forceinline__ void finalize(float* out, int num_rows);
 };
 
-template <> class AggregateTrees<FLOAT_SCALAR, float> {
+template <int NITEMS> class AggregateTrees<NITEMS, FLOAT_SCALAR, float> {
   vec<NITEMS, float> acc;
+  int num_output_classes;
   public:
-    __device__ __forceinline__ AggregateTrees(int num_classes, void* shared_workspaces) {
-      ASSERT(num_classes <= 2, "wrong leaf payload for multi-class (>2) inference");
-      // TODO: even if num_classes == 2, in regression, this needs to change
+    __device__ __forceinline__ AggregateTrees(int num_output_classes_, void*):
+    num_output_classes(num_output_classes_) {
+      // TODO: even if num_output_classes == 2, in regression, this needs to change
       #pragma unroll
       for (int i = 0; i < NITEMS; ++i) acc[i] = 0.0f;
     }
-    template<NITEMS>
     __device__ __forceinline__ void accumulate(vec<NITEMS, float> out) {
       acc += out;
     }
-    __device__ __forceinline__ void finalize(float* out) {
-      using BlockReduce = cub::BlockReduce<vec<NITEMS>, FIL_TPB>;
+    __device__ __forceinline__ void finalize(float* out, int num_rows) {
+      using BlockReduce = cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
       __shared__ typename BlockReduce::TempStorage tmp_storage;
       acc = BlockReduce(tmp_storage).Sum(acc);
       if (threadIdx.x == 0) {
         for (int i = 0; i < NITEMS; ++i) {
           int row = blockIdx.x * NITEMS + i;
-          if (row < params.num_rows)
-            out[row * num_classes] = acc[i];
+          if (row < num_rows)
+            out[row * num_output_classes] = acc[i];
         }
       }
     }
 };
 
-template <int NITEMS, typename storage_type, leaf_value_t leaf_payload, typename TOUTPUT>
+template <int NITEMS, leaf_value_t leaf_payload_type, typename TOUTPUT, typename storage_type>
 __global__ void infer_k(storage_type forest, predict_params params) {
   // cache the row for all threads to reuse
   extern __shared__ char smem[];
@@ -131,12 +130,12 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   }
   __syncthreads();
 
-  AggregateTrees<NITEMS, leaf_payload, TOUTPUT> acc;
+  AggregateTrees<NITEMS, leaf_payload_type, TOUTPUT> acc(params.num_output_classes, nullptr);
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
     acc.accumulate(infer_one_tree<NITEMS>(forest[j], sdata, params.num_cols));
   }
-  acc.finalize(params.preds);
+  acc.finalize(params.preds, params.num_rows);
 }
 
 template <typename storage_type>
@@ -155,39 +154,43 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   int shm_sz = num_items * sizeof(float) * params.num_cols;
   switch (num_items) {
     case 1:
-      switch (leaf_payload) {
+      switch (params.leaf_payload_type) {
         case FLOAT_SCALAR:
+          ASSERT(params.num_output_classes <= 2, "wrong leaf payload for multi-class (>2) inference");
           infer_k<1, FLOAT_SCALAR, float><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
           break;
         default:
-          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload so far");
+          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload_type so far");
       }
       break;
     case 2:
-      switch (leaf_payload) {
+      switch (params.leaf_payload_type) {
         case FLOAT_SCALAR:
+          ASSERT(params.num_output_classes <= 2, "wrong leaf payload for multi-class (>2) inference");
           infer_k<2, FLOAT_SCALAR, float><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
           break;
         default:
-          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload so far");
+          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload_type so far");
       }
       break;
     case 3:
-      switch (leaf_payload) {
+      switch (params.leaf_payload_type) {
         case FLOAT_SCALAR:
+          ASSERT(params.num_output_classes <= 2, "wrong leaf payload for multi-class (>2) inference");
           infer_k<3, FLOAT_SCALAR, float><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
           break;
         default:
-          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload so far");
+          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload_type so far");
       }
       break;
     case 4:
-      switch (leaf_payload) {
+      switch (params.leaf_payload_type) {
         case FLOAT_SCALAR:
+          ASSERT(params.num_output_classes <= 2, "wrong leaf payload for multi-class (>2) inference");
           infer_k<4, FLOAT_SCALAR, float><<<num_blocks, FIL_TPB, shm_sz, stream>>>(forest, params);
           break;
         default:
-          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload so far");
+          ASSERT(false, "only FLOAT_SCALAR supported as leaf_payload_type so far");
       }
       break;
     default:
