@@ -285,8 +285,6 @@ class KalmanFilter(Base):
                                              dtype=self.dtype))
         self._workspace_size = workspace_size
 
-    
-
     def predict(self, B=None, F=None, Q=None):
         """
         Predict next state (prior) using the Kalman filter state propagation
@@ -420,7 +418,7 @@ class KalmanFilter(Base):
 
         cdef uintptr_t z_ptr
 
-        cdef Option algo 
+        cdef Option algo
         algo = _get_algorithm_c_name(self.algorithm)
 
         if isinstance(z, cudf.Series):
