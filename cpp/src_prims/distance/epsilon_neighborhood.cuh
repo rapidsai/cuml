@@ -182,9 +182,9 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void epsUnexpL2SqNeighKernel(
 }
 
 template <typename DataT, typename IdxT, int VecLen, typename FusedOp>
-void espUnexpL2SqNeighImpl(bool* adj, const DataT* x, const DataT* y, IdxT m,
-                           IdxT n, IdxT k, DataT eps, FusedOp fop,
-                           cudaStream_t stream) {
+void epsUnexpL2SqNeighborhood(bool* adj, const DataT* x, const DataT* y, IdxT m,
+                              IdxT n, IdxT k, DataT eps, FusedOp fop,
+                              cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
