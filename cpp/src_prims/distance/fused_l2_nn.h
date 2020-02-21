@@ -109,7 +109,7 @@ struct FusedL2NN : public BaseClass {
 
  private:
   DI void prolog() {
-    this->ldgXY(0);
+    this->ldgsts(0);
     this->pageWr ^= 1;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
@@ -118,15 +118,13 @@ struct FusedL2NN : public BaseClass {
         acc[i][j] = BaseClass::Zero;
       }
     }
-    this->stsXY();
     __syncthreads();
   }
 
   DI void loop() {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgXY(kidx);
+      this->ldgsts(kidx);
       accumulate();  // on the previous k-block
-      this->stsXY();
       __syncthreads();
       this->pageWr ^= 1;
       this->pageRd ^= 1;
