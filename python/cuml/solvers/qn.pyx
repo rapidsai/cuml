@@ -33,7 +33,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, rmm_cupy_ary
+    input_to_dev_array, zeros, with_cupy_rmm
 from cuml.utils.import_utils import has_cupy
 from cuml.metrics import accuracy_score
 
@@ -267,6 +267,7 @@ class QN(Base):
             'normal': 1
         }[loss]
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
@@ -300,7 +301,7 @@ class QN(Base):
                                                  else None),
                                check_rows=n_rows, check_cols=1)
 
-        self._num_classes = len(rmm_cupy_ary(cp.unique, y_m))
+        self._num_classes = len(cp.unique(y_m))
 
         self.loss_type = self._get_loss_int(self.loss)
         if self.loss_type != 2 and self._num_classes > 2:

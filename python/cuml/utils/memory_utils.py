@@ -29,6 +29,28 @@ except ImportError:
         pass
 
 
+def with_cupy_rmm(func):
+    """
+
+    Decorator to call CuPy functions with RMM memory management. Use it
+    to decorate any function that will call CuPy functions, this will ensure
+    that those calls use RMM for memory allocation instead of the default
+    CuPy pool. Example:
+
+    .. code-block:: python
+
+        @with_cupy_rmm
+        def fx(...):
+            a = cp.arange(10) # uses RMM for allocation
+
+    """
+    def cupy_rmm_wrapper(*args, **kwargs):
+        with cupy_using_allocator(rmm.rmm_cupy_allocator):
+            return func(*args, **kwargs)
+
+    return cupy_rmm_wrapper
+
+
 def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     """
 
