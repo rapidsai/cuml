@@ -25,7 +25,6 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <typeinfo>  // operator typeid
 #include <vector>
 
 #include "randomforest_impl.cuh"
