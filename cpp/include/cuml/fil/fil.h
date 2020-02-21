@@ -121,6 +121,12 @@ struct forest;
 /** forest_t is the predictor handle */
 typedef forest* forest_t;
 
+enum leaf_value_t {
+    FLOAT_SCALAR,
+    INT_CLASS_LABEL,
+    FLOAT_VECTOR
+};
+
 /** forest_params_t are the trees to initialize the predictor */
 struct forest_params_t {
   // total number of nodes; ignored for dense forests
@@ -131,6 +137,8 @@ struct forest_params_t {
   int num_trees;
   // num_cols is the number of columns in the data
   int num_cols;
+  // TODO doc
+  leaf_value_t leaf_payload_type;
   // algo is the inference algorithm;
   // sparse forests do not distinguish between NAIVE and TREE_REORG
   algo_t algo;
@@ -156,6 +164,8 @@ struct treelite_params_t {
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
   storage_type_t storage_type;
+  // TODO doc
+  leaf_value_t leaf_payload_type;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
