@@ -63,10 +63,8 @@ size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
     fused_op(global_c_idx, acc);
     return acc;
   };
-
   distance<distanceType, T, T, bool, OutputTile_, decltype(epsilon_op), Index_>(
     a, b, adj, m, n, k, (void *)workspace, worksize, epsilon_op, stream);
-
   return worksize;
 }
 
