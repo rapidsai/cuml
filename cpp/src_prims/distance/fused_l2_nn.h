@@ -307,10 +307,11 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
 
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
- *        The benefits of such a call are 2-fold: 1) eliminate the need for an
- *        intermediate buffer to store the output of gemm 2) reduce the memory
- *        read traffic on this intermediate buffer, otherwise needed during the
- *        reduction phase for 1-NN.
+ *
+ * The benefits of such a call are 2-fold: 1) eliminate the need for an
+ * intermediate buffer to store the output of gemm 2) reduce the memory read
+ * traffic on this intermediate buffer, otherwise needed during the reduction
+ * phase for 1-NN.
  *
  * @tparam DataT     data type
  * @tparam OutT      output type to either store 1-NN indices and their minimum
