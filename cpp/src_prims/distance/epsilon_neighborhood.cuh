@@ -193,6 +193,22 @@ void epsUnexpL2SqNeighImpl(bool* adj, const DataT* x, const DataT* y, IdxT m,
   CUDA_CHECK(cudaGetLastError());
 }
 
+/**
+ * @brief Computes epsilon neighborhood for the L2-Squared distance metric
+ *
+ * @tparam DataT   IO and math type
+ * @tparam IdxT    Index type
+ * @tparam FusedOp device lambda `(bool is_neigh, IdxT row, IdxT col) -> void`
+ *                 to compute anything else in the epilogue
+ *
+ * @param[out] adj    adjacency matrix [row-major] [on device] [dim = m x n]
+ * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
+ * @param[in]  y      second matrix [row-major] [on device] [dim = n x k]
+ * @param[in]  eps    defines epsilon neighborhood radius (should be passed as
+ *                    squared as we compute L2-squared distance in this method)
+ * @param[in]  fop    device lambda to do any other custom functions
+ * @param[in]  stream cuda stream
+ */
 template <typename DataT, typename IdxT, typename FusedOp>
 void epsUnexpL2SqNeighborhood(bool* adj, const DataT* x, const DataT* y, IdxT m,
                               IdxT n, IdxT k, DataT eps, FusedOp fop,
