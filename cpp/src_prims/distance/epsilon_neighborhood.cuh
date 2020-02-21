@@ -182,15 +182,33 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void epsUnexpL2SqNeighKernel(
 }
 
 template <typename DataT, typename IdxT, int VecLen, typename FusedOp>
-void epsUnexpL2SqNeighborhood(bool* adj, const DataT* x, const DataT* y, IdxT m,
-                              IdxT n, IdxT k, DataT eps, FusedOp fop,
-                              cudaStream_t stream) {
+void epsUnexpL2SqNeighImpl(bool* adj, const DataT* x, const DataT* y, IdxT m,
+                           IdxT n, IdxT k, DataT eps, FusedOp fop,
+                           cudaStream_t stream) {
   typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   epsUnexpL2SqNeighKernel<DataT, IdxT, Policy, FusedOp>
     <<<grid, blk, Policy::SmemSize, stream>>>(adj, x, y, m, n, k, eps, fop);
   CUDA_CHECK(cudaGetLastError());
+}
+
+template <typename DataT, typename IdxT, typename FusedOp>
+void epsUnexpL2SqNeighborhood(bool* adj, const DataT* x, const DataT* y, IdxT m,
+                              IdxT n, IdxT k, DataT eps, FusedOp fop,
+                              cudaStream_t stream) {
+  size_t bytes = sizeof(DataT) * k;
+  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT), FusedOp>(
+      adj, x, y, m, n, k, eps, fop, stream);
+  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 8 / sizeof(DataT), FusedOp>(
+      adj, x, y, m, n, k, eps, fop, stream);
+  } else {
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 1, FusedOp>(
+      adj, x, y, m, n, k, eps, fop, stream);
+  }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 }  // namespace Distance
