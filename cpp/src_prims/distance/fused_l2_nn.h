@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <cub/cub.cuh>
 #include <limits>
+#include <linalg/contractions.cuh>
 
 namespace MLCommon {
 namespace Distance {
@@ -62,147 +63,40 @@ struct MinReduceOp {
   DI void init(DataT* out, DataT maxVal) { *out = maxVal; }
 };
 
-/**
- * @brief This is the central enum that should be used to configure the perf
- *        landscape of the fused kernel.
- * @tparam DataT the IO and math datatype
- * @tparam _veclen number of k-elements loaded by each thread for every LDG call
- *                 it makes. This should be configured based on the input 'k'
- *                 value and the input data type. For eg: if DataT = float and
- *                 k is multiples of 4, then setting this to 4 gives the best
- *                 LDG pattern. Possible values are {1, 2, 4}.
- * @tparam _kblk number of k-elements operated upon per main-loop iteration.
- *               Therefore total number of main-loop iterations will be
- *               ceil(k / _kblk). This must be multiples of `_veclen`. Do note
- *               that bigger this value, the greater shared mem requirement.
- * @tparam _rpt Defines the number of rows that a given thread accumulates on.
- *              This directly results in increased register pressure. This also
- *              is used to compute the number of m-elements worked upon by each
- *              thread block.
- * @tparam _rpt Defines the number of cols that a given thread accumulates on.
- *              This directly results in increased register pressure. This also
- *              is used to compute the number of n-elements worked upon by each
- *              thread block.
- * @tparam _tr Number of threads working on the same output column. This is used
- *             to compute the number of m-elements worked upon by each threadblk
- *             This also determines the number of threads per thread block
- * @tparam _tc Number of threads working on the same output row. This is used to
- *             compute the number of m-elements worked upon by each threadblk
- *             This also determines the number of threads per thread block
- */
-template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr,
-          int _tc>
-struct KernelPolicy {
-  enum {
-    /** number of elements along K worked upon per main loop iteration */
-    Kblk = _kblk,
-    /** number of elements loaded per LDG */
-    Veclen = _veclen,
-    /** number of rows a thread works on for accumulation */
-    AccRowsPerTh = _rpt,
-    /** number of cols a thread works on for accumulation */
-    AccColsPerTh = _cpt,
-    /** number of threads working the same output col */
-    AccThRows = _tr,
-    /** number of threads working the same output row */
-    AccThCols = _tc,
-    /** total threads per block */
-    Nthreads = AccThRows * AccThCols,
-    /** output tile size along rows */
-    Mblk = AccRowsPerTh * AccThRows,
-    /** output tile size along cols */
-    Nblk = AccColsPerTh * AccThCols,
-    /** number of threads loading a single row */
-    LdgThK = Kblk / Veclen,
-    /** number of LDGs issued by a single thread for X */
-    LdgPerThX = Mblk * LdgThK / Nthreads,
-    /** number of LDGs issued by a single thread for Y */
-    LdgPerThY = Nblk * LdgThK / Nthreads,
-    /** number of rows of X covered per LDG */
-    LdgRowsX = Mblk / LdgPerThX,
-    /** number of rows of Y covered per LDG */
-    LdgRowsY = Nblk / LdgPerThY,
-    /** stride for accessing X/Y data in shared mem */
-    SmemStride = Kblk + Veclen,
-    /** size of one page for storing X data */
-    SmemPageX = SmemStride * Mblk,
-    /** size of one page for storing Y data */
-    SmemPageY = SmemStride * Nblk,
-    /** size of one smem page */
-    SmemPage = SmemPageX + SmemPageY,
-    /** size (in B) for smem needed */
-    SmemSize = 2 * SmemPage * sizeof(DataT),
-  };  // enum
-};    // struct KernelPolicy
-
-template <typename DataT, int _veclen>
-struct Policy4x4 {};
-
-template <int _veclen>
-struct Policy4x4<float, _veclen> {
-  typedef KernelPolicy<float, _veclen, 32, 4, 4, 16, 16> Policy;
-};
-
-template <int _veclen>
-struct Policy4x4<double, _veclen> {
-  typedef KernelPolicy<double, _veclen, 16, 4, 4, 16, 16> Policy;
-};
-
 template <typename DataT, typename OutT, typename IdxT, bool Sqrt,
-          typename Policy, typename ReduceOpT>
-struct FusedL2NN {
+          typename Policy, typename ReduceOpT,
+          typename BaseClass = LinAlg::Contractions_NT<DataT, IdxT, Policy>>
+struct FusedL2NN : public BaseClass {
  private:
   typedef Policy P;
 
-  IdxT m, n, k, xrowid, yrowid;
-  DataT *x, *y, *xn, *yn;
+  DataT *xn, *yn;
   OutT* min;
   int* mutex;
 
-  int srowid, scolid;
-  int accrowid, acccolid;
-
-  DataT *sx, *sy;
   DataT *sxNorm, *syNorm;
   cub::KeyValuePair<IdxT, DataT>* sRed;
-  int pageWr, pageRd;
 
   DataT maxVal;
 
   DataT acc[P::AccRowsPerTh][P::AccColsPerTh];
-  DataT regx[P::AccRowsPerTh][P::Veclen], regy[P::AccColsPerTh][P::Veclen];
 
   ReduceOpT redOp;
 
-  static const DataT Zero = (DataT)0;
   static const DataT Two = (DataT)2.0;
 
  public:
   DI FusedL2NN(OutT* _min, DataT* _x, DataT* _y, DataT* _xn, DataT* _yn,
                IdxT _m, IdxT _n, IdxT _k, char* _smem, DataT _mv, int* _mut,
                ReduceOpT op)
-    : m(_m),
-      n(_n),
-      k(_k),
-      xrowid(IdxT(blockIdx.x) * P::Mblk + threadIdx.x / P::LdgThK),
-      yrowid(IdxT(blockIdx.y) * P::Nblk + threadIdx.x / P::LdgThK),
-      x(_x + xrowid * k),
-      y(_y + yrowid * k),
+    : BaseClass(_x, _y, _m, _n, _k, _smem),
       xn(_xn),
       yn(_yn),
       min(_min),
       mutex(_mut),
-      srowid(threadIdx.x / P::LdgThK),
-      scolid((threadIdx.x % P::LdgThK) * P::Veclen),
-      accrowid(threadIdx.x / P::AccThCols),
-      acccolid(threadIdx.x % P::AccThCols),
-      sx((DataT*)_smem),
-      sy(&(sx[P::SmemPageX])),
       sxNorm((DataT*)_smem),
       syNorm(&(sxNorm[P::Mblk])),
       sRed((cub::KeyValuePair<IdxT, DataT>*)_smem),
-      pageWr(0),
-      pageRd(0),
       maxVal(_mv),
       redOp(op) {}
 
@@ -215,25 +109,27 @@ struct FusedL2NN {
 
  private:
   DI void prolog() {
-    ldgsts(0);
-    pageWr ^= 1;
+    this->ldgXY(0);
+    this->pageWr ^= 1;
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        acc[i][j] = Zero;
+        acc[i][j] = BaseClass::Zero;
       }
     }
+    this->stsXY();
     __syncthreads();
   }
 
   DI void loop() {
-    for (int kidx = P::Kblk; kidx < k; kidx += P::Kblk) {
-      ldgsts(kidx);
-      accumulate();
+    for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
+      this->ldgXY(kidx);
+      accumulate();  // on the previous k-block
+      this->stsXY();
       __syncthreads();
-      pageWr ^= 1;
-      pageRd ^= 1;
+      this->pageWr ^= 1;
+      this->pageRd ^= 1;
     }
     accumulate();  // last iteration
   }
@@ -241,21 +137,21 @@ struct FusedL2NN {
   DI void epilog() {
     for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
       auto idx = blockIdx.x * P::Mblk + i;
-      sxNorm[i] = idx < m ? xn[idx] : maxVal;
+      sxNorm[i] = idx < this->m ? xn[idx] : maxVal;
     }
     for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
       auto idx = blockIdx.y * P::Nblk + i;
-      syNorm[i] = idx < n ? yn[idx] : maxVal;
+      syNorm[i] = idx < this->n ? yn[idx] : maxVal;
     }
     __syncthreads();
     DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      regxn[i] = sxNorm[i * P::AccThRows + accrowid];
+      regxn[i] = sxNorm[i * P::AccThRows + this->accrowid];
     }
 #pragma unroll
     for (int i = 0; i < P::AccColsPerTh; ++i) {
-      regyn[i] = syNorm[i * P::AccThCols + acccolid];
+      regyn[i] = syNorm[i * P::AccThCols + this->acccolid];
     }
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
@@ -282,9 +178,9 @@ struct FusedL2NN {
       val[i] = {-1, maxVal};
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        auto tmpkey = acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
+        auto tmpkey = this->acccolid + j * P::AccThCols + blockIdx.y * P::Nblk;
         cub::KeyValuePair<IdxT, DataT> tmp = {tmpkey, acc[i][j]};
-        if (tmpkey < n) val[i] = pairRedOp(tmp, val[i]);
+        if (tmpkey < this->n) val[i] = pairRedOp(tmp, val[i]);
       }
       __syncthreads();
 #pragma unroll
@@ -298,7 +194,7 @@ struct FusedL2NN {
     if (lid % P::AccThCols == 0) {
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        sRed[i * P::AccThCols + accrowid] = val[i];
+        sRed[i * P::AccThCols + this->accrowid] = val[i];
       }
     }
     __syncthreads();
@@ -331,7 +227,7 @@ struct FusedL2NN {
     if (lid == 0) {
       for (int i = threadIdx.x / WarpSize; i < P::Mblk; i += nWarps) {
         auto rid = ridx + i;
-        if (rid < m) {
+        if (rid < this->m) {
           auto val = sRed[i];
           while (atomicCAS(mutex + rid, 0, 1) == 1)
             ;
@@ -347,87 +243,17 @@ struct FusedL2NN {
   DI void accumulate() {
 #pragma unroll
     for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
-      ldsXY(ki);
+      this->ldsXY(ki);
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
 #pragma unroll
           for (int v = 0; v < P::Veclen; ++v) {
-            acc[i][j] += regx[i][v] * regy[j][v];
+            acc[i][j] += this->regx[i][v] * this->regy[j][v];
           }
         }
       }
-    }
-  }
-
-  DI void ldgsts(IdxT kidx) {
-    ldgstsX(kidx, sx + pageWr * P::SmemPage);
-    ldgstsY(kidx, sy + pageWr * P::SmemPage);
-  }
-
-  DI void ldgstsX(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
-    // LDG
-    auto koffset = kidx + scolid;
-    for (int i = 0; i < P::LdgPerThX; ++i) {
-      if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        ldg(data[i], x + i * P::LdgRowsX * k + koffset);
-      } else {
-#pragma unroll
-        for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
-        }
-      }
-    }
-    // STS
-    auto* saddr = smem + srowid * P::SmemStride + scolid;
-#pragma unroll
-    for (int i = 0; i < P::LdgPerThX; ++i) {
-      sts(saddr + i * P::LdgRowsX * P::SmemStride, data[i]);
-    }
-  }
-
-  DI void ldgstsY(IdxT kidx, DataT* smem) {
-    DataT data[P::LdgPerThX][P::Veclen];
-    // LDG
-    auto koffset = kidx + scolid;
-    for (int i = 0; i < P::LdgPerThY; ++i) {
-      if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        ldg(data[i], y + i * P::LdgRowsY * k + koffset);
-      } else {
-#pragma unroll
-        for (int j = 0; j < P::Veclen; ++j) {
-          data[i][j] = Zero;
-        }
-      }
-    }
-    // STS
-    auto* saddr = smem + srowid * P::SmemStride + scolid;
-#pragma unroll
-    for (int i = 0; i < P::LdgPerThY; ++i) {
-      sts(saddr + i * P::LdgRowsY * P::SmemStride, data[i]);
-    }
-  }
-
-  DI void ldsXY(int kidx) {
-    ldsX(kidx, sx + pageRd * P::SmemPage);
-    ldsY(kidx, sy + pageRd * P::SmemPage);
-  }
-
-  DI void ldsX(int kidx, DataT* smem) {
-    auto* saddr = smem + accrowid * P::SmemStride + kidx;
-#pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
-    }
-  }
-
-  DI void ldsY(int kidx, DataT* smem) {
-    auto* saddr = smem + acccolid * P::SmemStride + kidx;
-#pragma unroll
-    for (int i = 0; i < P::AccColsPerTh; ++i) {
-      lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
     }
   }
 };  // struct FusedL2NN
@@ -456,7 +282,7 @@ template <typename DataT, typename OutT, typename IdxT, int VecLen,
 void fusedL2NNImpl(OutT* min, DataT* x, DataT* y, DataT* xn, DataT* yn, IdxT m,
                    IdxT n, IdxT k, int* workspace, ReduceOpT redOp, bool sqrt,
                    bool initOutBuffer, cudaStream_t stream) {
-  typedef typename Policy4x4<DataT, VecLen>::Policy Policy;
+  typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(ceildiv<int>(m, Policy::Mblk), ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   auto nblks = ceildiv<int>(m, Policy::Nthreads);
