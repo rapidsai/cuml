@@ -320,28 +320,6 @@ struct Contractions_NT {
 //       sts(saddry + i * P::LdgRowsY * P::SmemStride, ldgDataY[i]);
 //     }
 //   }
-
-//   DI void ldsXY(int kidx) {
-//     ldsX(kidx, sx + pageRd * P::SmemPage);
-//     ldsY(kidx, sy + pageRd * P::SmemPage);
-//   }
-
-//  private:
-//   DI void ldsX(int kidx, DataT* smem) {
-//     auto* saddr = smem + accrowid * P::SmemStride + kidx;
-// #pragma unroll
-//     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-//       lds(regx[i], saddr + i * P::AccThRows * P::SmemStride);
-//     }
-//   }
-
-//   DI void ldsY(int kidx, DataT* smem) {
-//     auto* saddr = smem + acccolid * P::SmemStride + kidx;
-// #pragma unroll
-//     for (int i = 0; i < P::AccColsPerTh; ++i) {
-//       lds(regy[i], saddr + i * P::AccThCols * P::SmemStride);
-//     }
-//   }
 };  // struct Contractions_NT
 
 }  // namespace LinAlg
