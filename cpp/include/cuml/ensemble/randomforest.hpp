@@ -122,7 +122,7 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model);
 
-ModelHandle* concatenate_trees(std::vector<ModelHandle> treelite_handles);
+ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles);
 
 void compare_concat_forest_to_subforests(
   ModelHandle concat_tree_handle, std::vector<ModelHandle> treelite_handles);

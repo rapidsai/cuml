@@ -67,7 +67,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   void convertToTreelite() {
     // Test the implementation for converting fitted forest into treelite format.
     ModelHandle model;
-    ModelHandle* concatenated_forest_handle;
+    ModelHandle concatenated_forest_handle;
     std::vector<unsigned char> vec_data;
     build_treelite_forest(&model, forest, params.n_cols, task_category,
                           vec_data);
@@ -75,7 +75,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     std::vector<ModelHandle> individual_model_handles = {model, model};
     concatenated_forest_handle = concatenate_trees(individual_model_handles);
 
-    compare_concat_forest_to_subforests(*concatenated_forest_handle,
+    compare_concat_forest_to_subforests(concatenated_forest_handle,
                                         individual_model_handles);
     std::string test_name =
       ::testing::UnitTest::GetInstance()->current_test_info()->name();
