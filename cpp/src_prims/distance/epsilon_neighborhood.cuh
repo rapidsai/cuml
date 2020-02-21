@@ -91,13 +91,16 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   DataT eps;
   IdxT* vd;
 
+  IdxT* sRed;
+
   DataT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
  public:
   DI EpsUnexpL2SqNeighborhood(bool* _adj, IdxT* _vd, const DataT* _x,
                               const DataT* _y, IdxT _m, IdxT _n, IdxT _k,
                               DataT _eps, char* _smem)
-    : BaseClass(_x, _y, _m, _n, _k, _smem), adj(_adj), eps(_eps), vd(_vd) {
+    : BaseClass(_x, _y, _m, _n, _k, _smem), adj(_adj), eps(_eps), vd(_vd),
+      sRed((IdxT*)_smem) {
   }
 
   DI void run() {
@@ -135,14 +138,16 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   DI void epilog() {
     IdxT startx = blockIdx.x * P::Mblk + this->accrowid;
     IdxT starty = blockIdx.y * P::Nblk + this->acccolid;
+    auto lid = laneId();
+    IdxT sums[P::AccRowsPerTh];
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       auto xid = startx + i * P::AccThRows;
-      IdxT sum = 0;
+      sums[i] = 0;
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto is_neigh = acc[i][j] <= eps;
-        sum += is_neigh;
+        sums[i] += is_neigh;
         auto yid = starty + j * P::AccThCols;
         ///@todo: fix uncoalesced writes using shared mem
         if (xid < this->m && yid < this->n) {
@@ -151,8 +156,21 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       }
       // perform reduction of adjacency values to compute vertex degrees
       if (vd != nullptr) {
+        __syncthreads();
+#pragma unroll
+        for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
+          sums[i] += shfl(sums[i], lid + j);
+        }
       }
     }
+    if (lid % P::AccThCols == 0) {
+#pragma unroll
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
+        sRed[i * P::AccThCols + this->accrowid] = sums[i];
+      }
+    }
+    __syncthreads();
+    updateResults();
   }
 
   DI void accumulate() {
