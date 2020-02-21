@@ -94,6 +94,7 @@ if(BUILD_CUML_TESTS)
       sg/quasi_newton.cu
       sg/rf_test.cu
       sg/rf_treelite_test.cu
+      sg/rf_concat_test.cu
       sg/ridge.cu
       sg/rproj_test.cu
       sg/sgd.cu

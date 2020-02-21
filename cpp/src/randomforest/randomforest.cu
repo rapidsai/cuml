@@ -443,7 +443,8 @@ void compare_concat_forest_to_subforests(
 
 /**
  * @brief Concatenates the forest information present in different workers to
- *  create a single forest.
+ *  create a single forest. This concatenated forest is stored in a new treelite model.
+ *  The model created is owned by and must be freed by the user.
  * @param[in] concat_tree_handle: ModelHandle for the concatenated forest.
  * @param[in] treelite_handles: List containing ModelHandles for the forest present in
  *   each worker.
