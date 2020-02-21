@@ -35,9 +35,8 @@ class EpsilonNeighborhoodTest : public ::testing::Test {
 
 void epsNeigh(float *data, int m, int k, bool *adj, float eps,
               cudaStream_t stream) {
-  auto fop = [] __device__(bool a, int b, int c) {};
-  epsUnexpL2SqNeighborhood<float, int, decltype(fop)>(adj, data, data, m, m, k,
-                                                      eps * eps, fop, stream);
+  epsUnexpL2SqNeighborhood<float, int>(adj, nullptr, data, data, m, m, k,
+                                       eps * eps, stream);
 }
 
 typedef EpsilonNeighborhoodTest TestNeighborhoodsNoFunctor;

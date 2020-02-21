@@ -43,25 +43,11 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
   index_t m = data.N;
   index_t n = min(data.N - startVertexId, batchSize);
   index_t k = data.D;
-
-  index_t *vd = data.vd;
-
   value_t eps2 = data.eps * data.eps;
 
-  auto fused_op = [vd, n] __device__(bool is_neigh, index_t row, index_t col) {
-    if (sizeof(index_t) == 4) {
-      atomicAdd((unsigned int *)(vd + col), is_neigh);
-      atomicAdd((unsigned int *)(vd + n), is_neigh);
-    } else if (sizeof(index_t) == 8) {
-      atomicAdd((unsigned long long int *)(vd + col), is_neigh);
-      atomicAdd((unsigned long long int *)(vd + n), is_neigh);
-    }
-  };
-
-  MLCommon::Distance::epsUnexpL2SqNeighborhood
-    <value_t, index_t, decltype(fused_op)>(
-      data.adj, data.x, data.x + startVertexId * k, m, n, k, eps2, fused_op,
-      stream);
+  MLCommon::Distance::epsUnexpL2SqNeighborhood<value_t, index_t>(
+    data.adj, data.vd, data.x, data.x + startVertexId * k, m, n, k, eps2,
+    stream);
 }
 
 }  // namespace Algo
