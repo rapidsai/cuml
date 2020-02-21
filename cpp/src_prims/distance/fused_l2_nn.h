@@ -311,27 +311,32 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
  *        intermediate buffer to store the output of gemm 2) reduce the memory
  *        read traffic on this intermediate buffer, otherwise needed during the
  *        reduction phase for 1-NN.
- * @tparam DataT data type
- * @tparam OutT output type to either store 1-NN indices and their min distances
- *              or store only the min distances. Accordingly, one has to pass an
- *              appropriate `ReduceOpT`
- * @tparam IdxT indexing arithmetic type
+ *
+ * @tparam DataT     data type
+ * @tparam OutT      output type to either store 1-NN indices and their minimum
+ *                   distances or store only the min distances. Accordingly, one
+ *                   has to pass an appropriate `ReduceOpT`
+ * @tparam IdxT      indexing arithmetic type
  * @tparam ReduceOpT A struct to perform the final needed reduction operation
  *                   and also to initialize the output array elements with the
  *                   appropriate initial value needed for reduction.
- * @param[out] min will contain the reduced output (Length = `m`) (on device)
- * @param[in] x first matrix. Row major. Dim = `m x k`. (on device).
- * @param[in] y second matrix. Row major. Dim = `n x k`. (on device).
- * @param[in] xn L2 squared norm of `x`. Length = `m`. (on device).
- * @param[in] yn L2 squared norm of `y`. Length = `n`. (on device).
- * @param[in] m gemm m
- * @param[in] n gemm n
- * @param[in] k gemm k
- * @param[in] workspace temporary workspace. Size = sizeof(int)*m. (on device)
- * @param[in] sqrt Whether the output `minDist` should contain L2-sqrt or not
- * @param[in] initOutBuffer whether to initialize the output buffer before the
- *                          main kernel launch
- * @param[in] stream cuda stream
+ *
+ * @param[out] min           will contain the reduced output (Length = `m`)
+ *                           (on device)
+ * @param[in]  x             first matrix. Row major. Dim = `m x k`.
+ *                           (on device).
+ * @param[in]  y             second matrix. Row major. Dim = `n x k`.
+ *                           (on device).
+ * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
+ * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
+ * @param[in]  m             gemm m
+ * @param[in]  n             gemm n
+ * @param[in]  k             gemm k
+ * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
+ * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
+ * @param[in]  initOutBuffer whether to initialize the output buffer before the
+ *                           main kernel launch
+ * @param[in]  stream        cuda stream
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
 void fusedL2NN(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
