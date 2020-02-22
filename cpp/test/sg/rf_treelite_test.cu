@@ -70,6 +70,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     std::vector<unsigned char> vec_data;
     build_treelite_forest(&model, forest, params.n_cols, task_category,
                           vec_data);
+
     std::string test_name =
       ::testing::UnitTest::GetInstance()->current_test_info()->name();
     // Get the test index from Google current_test_info.
