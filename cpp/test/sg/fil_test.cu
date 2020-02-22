@@ -251,7 +251,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     bool def_left = false, is_leaf = false;
     for (;;) {
       fil::dense_node_decode(&root[curr], &output, &threshold, &fid, &def_left,
-                             &is_leaf);
+                             &is_leaf, fil::leaf_value_t::FLOAT_SCALAR);
       if (is_leaf) break;
       float val = data[fid];
       bool cond = isnan(val) ? !def_left : val >= threshold;
@@ -307,7 +307,7 @@ class PredictSparseFilTest : public BaseFilTest {
     int feature;
     bool def_left, is_leaf;
     dense_node_decode(&dense_root[i_dense], &output, &threshold, &feature,
-                      &def_left, &is_leaf);
+                      &def_left, &is_leaf, fil::leaf_value_t::FLOAT_SCALAR);
     if (is_leaf) {
       // leaf sparse node
       sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
@@ -370,7 +370,8 @@ class TreeliteFilTest : public BaseFilTest {
     float threshold, output;
     bool is_leaf, default_left;
     fil::dense_node_decode(&nodes[node], &output, &threshold, &feature,
-                           &default_left, &is_leaf);
+                           &default_left, &is_leaf,
+                           fil::leaf_value_t::FLOAT_SCALAR);
     if (is_leaf) {
       TL_CPP_CHECK(builder->SetLeafNode(key, output));
     } else {

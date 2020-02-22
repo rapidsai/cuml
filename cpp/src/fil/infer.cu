@@ -28,16 +28,20 @@ struct vec {
   T data[N];
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
+  friend __host__ __device__ void operator+=(vec<N, T>& a,
+                                             const vec<N, T>& b) {
+#pragma unroll
+    for (int i = 0; i < N; ++i) a[i] += b[i];
+  }
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
                                                  const vec<N, T>& b) {
-    vec<N, T> r;
-#pragma unroll
-    for (int i = 0; i < N; ++i) r[i] = a[i] + b[i];
+    vec<N, T> r = a;
+    r += b;
     return r;
-  }
+  }                                               
 };
 
-template <int NITEMS, typename tree_type, typename TOUTPUT>
+template <int NITEMS, typename TOUTPUT, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, TOUTPUT> infer_one_tree(tree_type tree, float* sdata,
                                                int cols) {
   int curr[NITEMS];
@@ -59,11 +63,12 @@ __device__ __forceinline__ vec<NITEMS, TOUTPUT> infer_one_tree(tree_type tree, f
   } while (mask != 0);
   vec<NITEMS, TOUTPUT> out;
 #pragma unroll
-  for (int j = 0; j < NITEMS; ++j) out[j] = tree[curr[j]].output<TOUTPUT>();
+  for (int j = 0; j < NITEMS; ++j)
+    out[j] = tree[curr[j]].base_node::output<TOUTPUT>();
   return out;
 }
 
-template <typename tree_type, typename TOUTPUT>
+template <typename TOUTPUT, typename tree_type>
 __device__ __forceinline__ vec<1, TOUTPUT> infer_one_tree(tree_type tree, float* sdata,
                                                int cols) {
   int curr = 0;
@@ -74,9 +79,8 @@ __device__ __forceinline__ vec<1, TOUTPUT> infer_one_tree(tree_type tree, float*
     bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
     curr = n.left(curr) + cond;
   }
-  return vec<1, TOUTPUT> out;
-  // TODO: why did the deleted line not increment but assign the value?
-  out[0] = tree[curr].output<TOUTPUT>();
+  vec<1, TOUTPUT> out;
+  out[0] = tree[curr].base_node::output<TOUTPUT>();
   return out;
 }
 
@@ -133,7 +137,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   AggregateTrees<NITEMS, leaf_payload_type, TOUTPUT> acc(params.num_output_classes, nullptr);
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
-    acc.accumulate(infer_one_tree<NITEMS>(forest[j], sdata, params.num_cols));
+    acc.accumulate(infer_one_tree<NITEMS, TOUTPUT>(forest[j], sdata, params.num_cols));
   }
   acc.finalize(params.preds, params.num_rows);
 }
