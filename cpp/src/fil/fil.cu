@@ -38,15 +38,23 @@ namespace tl = treelite;
 
 void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
                      bool def_left, bool is_leaf) {
-  dense_node dn(output, thresh, fid, def_left, is_leaf);
-  n->bits = dn.bits;
-  n->val = dn.val;
+  *n = dense_node(output, thresh, fid, def_left, is_leaf);
 }
 
 void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
-                       int* fid, bool* def_left, bool* is_leaf) {
+                       int* fid, bool* def_left, bool* is_leaf, leaf_value_t leaf_payload_type) {
   dense_node dn(*n);
-  *output = dn.output();
+  // TODO: shouldn't it output a NAN in case the value is not applicable (e.g. leaf vs not a leaf)?
+  switch (leaf_payload_type) {
+    case INT_CLASS_LABEL:
+      *output = dn.output<unsigned int>();
+      break;
+    case FLOAT_SCALAR:
+      *output = dn.output<float>();
+      break;
+    default:
+      ASSERT(false, "vector-valued payload not supported yet");
+  }
   *thresh = dn.thresh();
   *fid = dn.fid();
   *def_left = dn.def_left();
@@ -56,17 +64,25 @@ void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
 void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
                       bool def_left, bool is_leaf, int left_index) {
   sparse_node n(output, thresh, fid, def_left, is_leaf, left_index);
-  node->bits = n.bits;
-  node->val = n.val;
-  node->left_idx = n.left_idx;
+
+  *node = sparse_node_t(n, n);
 }
 
 /** sparse_node_decode extracts individual members from node */
 void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
                         int* fid, bool* def_left, bool* is_leaf,
-                        int* left_index) {
+                        int* left_index, leaf_value_t leaf_payload_type) {
   sparse_node n(*node);
-  *output = n.output();
+  switch (leaf_payload_type) {
+    case INT_CLASS_LABEL:
+      *output = n.output<unsigned int>();
+      break;
+    case FLOAT_SCALAR:
+      *output = n.output<float>();
+      break;
+    default:
+      ASSERT(false, "vector-valued payload not supported yet");
+  }
   *thresh = n.thresh();
   *fid = n.fid();
   *def_left = n.def_left();
@@ -360,14 +376,15 @@ void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
   }
 }
 
-void tl2fil_leaf_payload(base_node_t* node, const tl::Tree::Node& node,
+template<typename fil_node_t>
+void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree::Node& tl_node,
                     leaf_value_t leaf_payload_type) {
     switch (leaf_payload_type) {
         case INT_CLASS_LABEL:
-            node.val.idx = node.leaf_value();
+            fil_node->val.idx = tl_node.leaf_value();
             break;
         case FLOAT_SCALAR:
-            node.val.f = node.leaf_value();
+            fil_node->val.f = tl_node.leaf_value();
             break;
         default:
             ASSERT(false, "vector-payload nodes not supported yet");
@@ -376,10 +393,10 @@ void tl2fil_leaf_payload(base_node_t* node, const tl::Tree::Node& node,
 
 void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
                     const tl::Tree& tree, const tl::Tree::Node& node,
-                    const treelite_params_t tl_params) {
+                    const treelite_params_t* tl_params) {
   if (node.is_leaf()) {
-    dense_node_init(&(*pnodes)[root + cur], nan, nan, 0, false, true);
-    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, tl_params.leaf_payload_type);
+    dense_node_init(&(*pnodes)[root + cur], NAN, NAN, 0, false, true);
+    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, tl_params->leaf_payload_type);
     return;
   }
 
@@ -393,17 +410,17 @@ void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
   dense_node_init(&(*pnodes)[root + cur], 0, threshold, node.split_index(),
                   default_left, false);
   int left = 2 * cur + 1;
-  node2fil_dense(pnodes, root, left, tree, tl_node_at(tree, tl_left));
-  node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right));
+  node2fil_dense(pnodes, root, left, tree, tl_node_at(tree, tl_left), tl_params);
+  node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right), tl_params);
 }
 
 void node2fil_sparse(std::vector<sparse_node_t>* pnodes, int root, int cur,
                      const tl::Tree& tree, const tl::Tree::Node& node,
-                     const treelite_params_t tl_params) {
+                     const treelite_params_t* tl_params) {
   if (node.is_leaf()) {
-    sparse_node_init(&(*pnodes)[root + cur], nan, nan, 0, false,
+    sparse_node_init(&(*pnodes)[root + cur], NAN, NAN, 0, false,
                      true, 0);
-    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, tl_params.leaf_payload_type);
+    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, tl_params->leaf_payload_type);
     return;
   }
 
@@ -427,17 +444,17 @@ void node2fil_sparse(std::vector<sparse_node_t>* pnodes, int root, int cur,
                    default_left, false, left);
 
   // init child nodes
-  node2fil_sparse(pnodes, root, left, tree, tl_node_at(tree, tl_left));
-  node2fil_sparse(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right));
+  node2fil_sparse(pnodes, root, left, tree, tl_node_at(tree, tl_left), tl_params);
+  node2fil_sparse(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right), tl_params);
 }
 
 void tree2fil_dense(std::vector<dense_node_t>* pnodes, int root,
-                    const tl::Tree& tree, const treelite_params_t tl_params) {
+                    const tl::Tree& tree, const treelite_params_t* tl_params) {
   node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)), tl_params);
 }
 
 int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree,
-                    const treelite_params_t tl_params) {
+                    const treelite_params_t* tl_params) {
   int root = pnodes->size();
   pnodes->push_back(sparse_node_t());
   node2fil_sparse(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)), tl_params);
