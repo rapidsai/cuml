@@ -15,6 +15,7 @@
  */
 
 /** @file common.cuh Common GPU functionality */
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,44 +43,36 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
 const int FIL_TPB = 256;
 
 /** base_node contains common implementation details for dense and sparse nodes */
-struct base_node {
+struct base_node : dense_node_t {
   static const int FID_MASK = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
   static const int IS_LEAF_MASK = 1 << 31;
-  union Val {
-    /// threshold value for branch node or output value (e.g. class
-    /// probability or regression summand) for leaf node
-    float f;
-    unsigned int idx;
-    ///< class label or index of the float vector
-    ///< vector can be used for class probabilities or regression
-  } val;
-  int bits;
-  template<typename T> __host__ __device__ T output() const;
+  template<typename T> inline T output() const;
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
-  __host__ __device__ base_node() : bits(0) { val.f = 0.0f; }
-  base_node(dense_node_t node) : bits(node.bits) { val.f = node.val; }
-  base_node(float output, float thresh, int fid, bool def_left, bool is_leaf)
-    : bits((fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
-           (is_leaf ? IS_LEAF_MASK : 0))
-  { val.f = is_leaf ? output : thresh; }
+ base_node() = default;
+  base_node(dense_node_t node) : dense_node_t(node) {}
+  base_node(float output_, float thresh, int fid, bool def_left, bool is_leaf) { 
+    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
+           (is_leaf ? IS_LEAF_MASK : 0);
+    val.f = is_leaf ? output_ : thresh;
+  }
 };
 
 template<> __host__ __device__ 
-unsigned int base_node::output<unsigned int>() const { return val.idx; }
+inline unsigned int base_node::output<unsigned int>() const { return val.idx; }
 
 template<> __host__ __device__
-       float base_node::output<float       >() const { return val.f; }
+inline        float base_node::output<float       >() const { return val.f; }
 
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
-  __host__ __device__ dense_node() : base_node() {}
+  dense_node() = default;
   dense_node(dense_node_t node) : base_node(node) {}
-  dense_node(float output, float thresh, int fid, bool def_left, bool is_leaf)
-    : base_node(output, thresh, fid, def_left, is_leaf) {}
+  dense_node(float output_, float thresh, int fid, bool def_left, bool is_leaf)
+    : base_node(output_, thresh, fid, def_left, is_leaf) {}
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
 };
@@ -116,16 +109,15 @@ struct dense_storage {
 };
 
 /** sparse_node is a single node in a sparse forest */
-struct alignas(16) sparse_node : base_node {
-  int left_idx;
-  // pad the size to 16 bytes to match sparse_node_t (in fil.h)
-  int dummy;
-  __host__ __device__ sparse_node() : left_idx(0), base_node() {}
+struct alignas(16) sparse_node : base_node, sparse_node_extra_data {
+  //__host__ __device__ sparse_node() : left_idx(0), base_node() {}
   sparse_node(sparse_node_t node)
-    : base_node(dense_node_t{node.val, node.bits}), left_idx(node.left_idx) {}
-  sparse_node(float output, float thresh, int fid, bool def_left, bool is_leaf,
+    : base_node(node), sparse_node_extra_data(node) {}
+  sparse_node(float output_, float thresh, int fid, bool def_left, bool is_leaf,
               int left_index)
-    : base_node(output, thresh, fid, def_left, is_leaf), left_idx(left_index) {}
+    : base_node(output_, thresh, fid, def_left, is_leaf),
+      sparse_node_extra_data({.left_idx = left_index, .dummy = 0})
+      {}
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_idx; }

@@ -85,19 +85,30 @@ enum storage_type_t {
 
 /** dense_node_t is a node in a densely-stored forest */
 struct dense_node_t {
-  float val;
+  union Val {
+    /// threshold value for branch node or output value (e.g. class
+    /// probability or regression summand) for leaf node
+    float f;
+    unsigned int idx;
+    ///< class label or index of the float vector
+    ///< vector can be used for class probabilities or regression
+  } val;
   int bits;
 };
 
-/** sparse_node_t is a node in a sparsely-stored forest */
-struct sparse_node_t {
-  float val;
-  int bits;
+struct sparse_node_extra_data {
   int left_idx;
-  // pad the size to 16 bytes to match sparse_node
-  // (in cpp/src/fil/common.cuh)
-  int dummy;
+  int dummy;  // make alignment explicit and reserve for future use
 };
+
+/** sparse_node_t is a node in a sparsely-stored forest */
+struct sparse_node_t : dense_node_t, sparse_node_extra_data {
+  sparse_node_t() = default;
+  sparse_node_t(dense_node_t dn, sparse_node_extra_data ed)
+    : dense_node_t(dn), sparse_node_extra_data(ed) {}
+};
+
+enum leaf_value_t { FLOAT_SCALAR, INT_CLASS_LABEL, FLOAT_VECTOR };
 
 /** dense_node_init initializes node from paramters */
 void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
@@ -105,7 +116,8 @@ void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
 
 /** dense_node_decode extracts individual members from node */
 void dense_node_decode(const dense_node_t* node, float* output, float* thresh,
-                       int* fid, bool* def_left, bool* is_leaf);
+                       int* fid, bool* def_left, bool* is_leaf,
+                       leaf_value_t leaf_payload_type);
 
 /** sparse_node_init initializes node from parameters */
 void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
@@ -114,18 +126,12 @@ void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
 /** sparse_node_decode extracts individual members from node */
 void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
                         int* fid, bool* def_left, bool* is_leaf,
-                        int* left_index);
+                        int* left_index, leaf_value_t leaf_payload_type);
 
 struct forest;
 
 /** forest_t is the predictor handle */
 typedef forest* forest_t;
-
-enum leaf_value_t {
-    FLOAT_SCALAR,
-    INT_CLASS_LABEL,
-    FLOAT_VECTOR
-};
 
 /** forest_params_t are the trees to initialize the predictor */
 struct forest_params_t {
