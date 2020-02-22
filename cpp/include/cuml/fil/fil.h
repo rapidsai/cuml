@@ -86,12 +86,12 @@ enum storage_type_t {
 /** dense_node_t is a node in a densely-stored forest */
 struct dense_node_t {
   union Val {
-    /// threshold value for branch node or output value (e.g. class
-    /// probability or regression summand) for leaf node
+    /** threshold value for branch node or output value (e.g. class
+        probability or regression summand) for leaf node */
     float f;
+    /** class label or index of the float vector
+        vector can be used for class probabilities or regression */
     unsigned int idx;
-    ///< class label or index of the float vector
-    ///< vector can be used for class probabilities or regression
   } val;
   int bits;
 };
@@ -108,7 +108,15 @@ struct sparse_node_t : dense_node_t, sparse_node_extra_data {
     : dense_node_t(dn), sparse_node_extra_data(ed) {}
 };
 
-enum leaf_value_t { FLOAT_SCALAR, INT_CLASS_LABEL, FLOAT_VECTOR };
+enum leaf_value_t { 
+  /** storing a clas probability or regression summand */
+  FLOAT_SCALAR,
+  /** storing a class label */
+  INT_CLASS_LABEL,
+  /** storing an index of the float vector which contains
+      class probabilities or regression summands */
+  FLOAT_VECTOR
+};
 
 /** dense_node_init initializes node from paramters */
 void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
