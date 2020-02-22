@@ -173,6 +173,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 
   __syncthreads(); // for both row cache init and acc init
 
+  AggregateTrees<NITEMS, leaf_payload_type, TOUTPUT> acc(params.num_output_classes, nullptr);
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
     acc.accumulate(infer_one_tree<NITEMS, TOUTPUT>(forest[j], sdata, params.num_cols));
