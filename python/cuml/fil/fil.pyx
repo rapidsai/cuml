@@ -165,6 +165,11 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         DENSE,
         SPARSE
 
+    cdef enum leaf_value_t:
+        FLOAT_SCALAR,
+        INT_CLASS_LABEL,
+        FLOAT_VECTOR
+
     cdef struct forest:
         pass
 
