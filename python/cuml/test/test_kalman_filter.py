@@ -104,8 +104,7 @@ def test_linear_kalman_filter(precision, dim_x, dim_z):
     for i in range(n):
         f.predict()
 
-        z = np.full(dim_z, i*2, dtype=dt)
-        z = cuda.to_device(z)
+        z = cuda.to_device(np.full(dim_z, i*2, dtype=dt))
 
         f.update(z)
 
