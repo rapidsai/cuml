@@ -147,7 +147,7 @@ def test_umap_transform_on_digits():
     embedding = fitter.transform(new_data, convert_dtype=True)
     trust = trustworthiness(new_data, embedding, 10)
     print(trust)
-    
+
     # This should be raised once UMAP is reproducible
     assert trust >= 0.92
 
