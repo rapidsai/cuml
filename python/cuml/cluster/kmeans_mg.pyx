@@ -114,9 +114,10 @@ class KMeansMG(KMeans):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
-            self._cluster_centers_ = \
-CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
-                                dtype=self.dtype, order='C')
+            self._cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,
+                                                            self.n_cols),
+                                                     dtype=self.dtype,
+                                                     order='C')
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
