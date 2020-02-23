@@ -27,11 +27,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import Array as cumlArray
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array
+from cuml.utils import input_to_cuml_array
 
 from collections import defaultdict
 
@@ -224,7 +223,7 @@ class DBSCAN(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self._labels_ = cumlArray.empty(n_rows, dtype=out_dtype)
+        self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
         if self.dtype == np.float32:

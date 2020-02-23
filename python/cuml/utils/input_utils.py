@@ -62,7 +62,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                         fail_on_order=False):
 
     """
-    Convert input X to cuML Array.
+    Convert input X to CumlArray.
 
     Acceptable input formats:
 
@@ -111,13 +111,13 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
     -------
     `cuml_array`: namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
-        A new cuML Array and associated data.
+        A new CumlArray and associated data.
 
     """
 
     # temporarily importing here, until github issue #1681 reorganizing utils
     # is dealt with. Otherwise circular import causes issues
-    from cuml.common import Array
+    from cuml.common import CumlArray
 
     # dtype conversion
 
@@ -134,12 +134,12 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
 
     if isinstance(X, cudf.DataFrame):
         if order == 'F':
-            X_m = Array(data=X.as_gpu_matrix(order='F'))
+            X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
         elif order == 'C':
-            X_m = Array(data=cuml.utils.numba_utils.row_matrix(X))
+            X_m = CumlArray(data=cuml.utils.numba_utils.row_matrix(X))
 
     elif cuda.is_cuda_array(X) or isinstance(X, np.ndarray):
-        X_m = Array(data=X)
+        X_m = CumlArray(data=X)
 
         if deepcopy:
             X_m = copy.deepcopy(X_m)
@@ -189,7 +189,7 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
                           "but got the opposite. Converting data, this will "
                           "result in additional memory utilization.")
             X_m = rmm_cupy_ary(cp.array, X_m, copy=False, order=order)
-            X_m = Array(data=X_m)
+            X_m = CumlArray(data=X_m)
 
     return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
 
@@ -284,7 +284,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
 
     # temporarily importing here, until github issue #1681 reorganizing utils
     # is dealt with. Otherwise circular import causes issues
-    from cuml.common import Array
+    from cuml.common import CumlArray
 
     if isinstance(X, np.ndarray):
         dtype = X.dtype
@@ -304,7 +304,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
         if legacy:
             return cuda.as_cuda_array(X_m)
         else:
-            return Array(data=X_m)
+            return CumlArray(data=X_m)
 
     else:
         raise TypeError("Received unsupported input type " % type(X))

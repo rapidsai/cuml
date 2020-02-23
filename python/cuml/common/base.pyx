@@ -25,17 +25,10 @@ import cuml.common.cuda
 import inspect
 
 from cudf.core import Series, DataFrame
-from cuml.common.array import Array as cumlArray
+from cuml.common.array import CumlArray
 from cupy import ndarray as cupyArray
 from numba.cuda import is_cuda_array
 from numpy import ndarray as numpyArray
-
-_input_type_to_str = {
-    numpyArray: 'numpy',
-    cupyArray: 'cupy',
-    Series: 'cudf',
-    DataFrame: 'cudf'
-}
 
 
 class Base:
@@ -96,7 +89,7 @@ class Base:
         def transform(self, X, convert_dtype=False):
             out_type = self._get_output_type(X)
             X_m, n_rows, n_cols, dtype = input_to_cuml_array(X ...)
-            preds = cumlArray.zeros(...)
+            preds = CumlArray.zeros(...)
 
             # method code and call to C++ and whatever else is needed
 
@@ -258,8 +251,10 @@ class Base:
         """
         real_name = '_' + attr
         if hasattr(self, real_name):
-            if isinstance(self.__dict__[real_name], cumlArray):
+            if isinstance(self.__dict__[real_name], CumlArray):
                 return self.__dict__[real_name].to_output(self.output_type)
+            else:
+                return self.__dict__[real_name]
 
     def _set_output_type(self, input):
         """
@@ -272,9 +267,9 @@ class Base:
 
     def _get_output_type(self, input):
         """
-        Method to be called by predict/transform methods of inheriting classes
-        to correctly set the output type depending on the type of inputs,
-        class output type and global output type
+        Method to be called by predict/transform methods of inheriting classes.
+        Returns the appropriate output type depending on the type of the input,
+        class output type and global output type.
         """
         if self._mirror_input:
             return _input_type_to_str[type(input)]
@@ -284,7 +279,17 @@ class Base:
 
 # Internal, non class owned helper functions
 
+_input_type_to_str = {
+    numpyArray: 'numpy',
+    cupyArray: 'cupy',
+    Series: 'cudf',
+    DataFrame: 'cudf'
+}
+
+
 def _input_to_type(input):
+    # function to access _input_to_str, while still using the correct
+    # numba check for a numba device_array
     if type(input) in _input_type_to_str.keys():
         return _input_type_to_str[type(input)]
     elif is_cuda_array(input):
