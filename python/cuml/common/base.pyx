@@ -25,7 +25,7 @@ import cuml.common.cuda
 import inspect
 
 from cudf.core import Series, DataFrame
-from cuml.common.array import Array as cumlArray
+from cuml.common.array import CumlArray
 from cupy import ndarray as cupyArray
 from numba.cuda import is_cuda_array
 from numpy import ndarray as numpyArray
@@ -96,7 +96,7 @@ class Base:
         def transform(self, X, convert_dtype=False):
             out_type = self._get_output_type(X)
             X_m, n_rows, n_cols, dtype = input_to_cuml_array(X ...)
-            preds = cumlArray.zeros(...)
+            preds = CumlArray.zeros(...)
 
             # method code and call to C++ and whatever else is needed
 
@@ -258,7 +258,7 @@ class Base:
         """
         real_name = '_' + attr
         if hasattr(self, real_name):
-            if isinstance(self.__dict__[real_name], cumlArray):
+            if isinstance(self.__dict__[real_name], CumlArray):
                 return self.__dict__[real_name].to_output(self.output_type)
 
     def _set_output_type(self, input):

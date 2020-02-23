@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.common.array import Array
+from cuml.common.array import CumlArray

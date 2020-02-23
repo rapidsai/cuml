@@ -30,11 +30,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import Array as cumlArray
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array, zeros, numba_utils
+from cuml.utils import input_to_cuml_array
 
 from cuml.cluster import KMeans
 
@@ -116,7 +115,7 @@ class KMeansMG(KMeans):
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self._cluster_centers_ = \
-                cumlArray.zeros(shape=(self.n_clusters, self.n_cols),
+CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
                                 dtype=self.dtype, order='C')
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
