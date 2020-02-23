@@ -16,8 +16,10 @@
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
-from cuml.utils.memory_utils import rmm_cupy_ary, set_global_output_type, \
-    using_output_type
+from cuml.utils.memory_utils import rmm_cupy_ary
+from cuml.util.memory_utils import set_global_output_type
+from cuml.util.memory_utils import using_output_type
+from cuml.utils.memory_utils import with_cupy_rmm
 
 from cuml.utils.numba_utils import row_matrix, zeros, device_array_from_ptr
 
