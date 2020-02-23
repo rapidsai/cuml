@@ -393,7 +393,6 @@ def test_lightgbm(tmp_path):
     num_round = 5
     bst = lgb.train(param, train_data, num_round)
     gbm_preds = bst.predict(X)
-    gbm_proba = bst.predict_proba(X)
 
     model_path = str(os.path.join(tmp_path,
                                   'lgb.model'))
@@ -404,6 +403,18 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
 
     fil_preds = np.asarray(fm.predict(X))
-    fil_proba = np.asarray(fm.predict_proba(X))
     assert np.allclose(gbm_preds, fil_preds, 1e-3)
+
+    lcls = lgb.LGBMClassifier().set_params(objective='binary',
+                                           metric='binary_logloss')
+    lcls.fit(X, y)
+    gbm_proba = lcls.predict_proba(X)
+
+    lcls.booster_.save_model(model_path)
+    fm = ForestInference.load(model_path,
+                              algo='TREE_REORG',
+                              output_class=False,
+                              model_type="lightgbm")
+
+    fil_proba = np.asarray(fm.predict_proba(X))
     assert np.allclose(gbm_proba, fil_proba, 1e-3)
