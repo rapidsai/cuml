@@ -26,7 +26,7 @@ from cuml.utils.memory_utils import _strides_to_order
 from numba import cuda
 
 
-class Array(Buffer):
+class CumlArray(Buffer):
 
     """
     Array represents an abstracted array allocation. It can be instantiated by
@@ -85,6 +85,10 @@ class Array(Buffer):
     -------------
 
     Array.empty : Create an empty array, allocating a DeviceBuffer.
+    Array.full : Create an Array with allocated DeviceBuffer initialized with
+        a particular value.
+    Array.ones : Create an Array with allocated DeviceBuffer initialized with
+        ones.
     Array.zeros : Create an Array with allocated DeviceBuffer initialized with
         zeros.
 
@@ -118,7 +122,7 @@ class Array(Buffer):
         if isinstance(data, DeviceBuffer) or isinstance(data, int) or \
                 isinstance(data, Buffer):
             size, shape = _get_size_from_shape(shape, dtype)
-            super(Array, self).__init__(data=data, owner=owner, size=size)
+            super(CumlArray, self).__init__(data=data, owner=owner, size=size)
             self.shape = shape
             self.dtype = np.dtype(dtype)
             self.order = order
@@ -134,7 +138,7 @@ class Array(Buffer):
             raise TypeError("Unrecognized data type.")
 
         if ary_interface:
-            super(Array, self).__init__(data=data, owner=owner)
+            super(CumlArray, self).__init__(data=data, owner=owner)
             self.shape = ary_interface['shape']
             self.dtype = np.dtype(data.dtype)
             if ary_interface['strides'] is None:
@@ -146,7 +150,7 @@ class Array(Buffer):
                 self.order = _strides_to_order(self.strides, data.dtype)
 
     def __getitem__(self, slice):
-        return Array(data=cp.asarray(self).__getitem__(slice))
+        return CumlArray(data=cp.asarray(self).__getitem__(slice))
 
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
@@ -233,7 +237,7 @@ class Array(Buffer):
                     raise ValueError('cuDF unsupported Array dtype')
 
     def serialize(self):
-        header, frames = super(Array, self).serialize()
+        header, frames = super(CumlArray, self).serialize()
         header["constructor-kwargs"] = {
             "dtype": self.dtype.str,
             "shape": self.shape,
@@ -259,7 +263,7 @@ class Array(Buffer):
 
         size, _ = _get_size_from_shape(shape, dtype)
         dbuf = DeviceBuffer(size=size)
-        return Array(data=dbuf, shape=shape, dtype=dtype, order=order)
+        return CumlArray(data=dbuf, shape=shape, dtype=dtype, order=order)
 
     @classmethod
     def full(cls, shape, value, dtype, order='F'):
@@ -278,8 +282,8 @@ class Array(Buffer):
         size, _ = _get_size_from_shape(shape, dtype)
         dbuf = DeviceBuffer(size=size)
         cp.asarray(dbuf).view(dtype=dtype).fill(value)
-        return Array(data=dbuf, shape=shape, dtype=dtype,
-                     order=order)
+        return CumlArray(data=dbuf, shape=shape, dtype=dtype,
+                         order=order)
 
     @classmethod
     def zeros(cls, shape, dtype='float32', order='F'):
@@ -295,7 +299,7 @@ class Array(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return Array.full(value=0, shape=shape, dtype=dtype, order=order)
+        return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order)
 
     @classmethod
     def ones(cls, shape, dtype='float32', order='F'):
@@ -311,4 +315,4 @@ class Array(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return Array.full(value=1, shape=shape, dtype=dtype, order=order)
+        return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order)

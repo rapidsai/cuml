@@ -22,19 +22,17 @@
 import ctypes
 import cudf
 import numpy as np
-import warnings
-
 import rmm
+import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import Array as cumlArray
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array, zeros, numba_utils
+from cuml.utils import input_to_cuml_array
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams":
@@ -338,12 +336,12 @@ class KMeans(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self._labels_ = cumlArray.zeros(shape=n_rows, dtype=np.int32)
+        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self._cluster_centers_ = \
-                cumlArray.zeros(shape=(self.n_clusters, self.n_cols),
+                CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
                                 dtype=self.dtype, order='C')
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
@@ -446,7 +444,7 @@ class KMeans(Base):
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        self._labels_ = cumlArray.zeros(shape=n_rows, dtype=np.int32)
+        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.
@@ -539,7 +537,7 @@ class KMeans(Base):
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        preds = cumlArray.zeros(shape=(n_rows, self.n_clusters),
+        preds = CumlArray.zeros(shape=(n_rows, self.n_clusters),
                                 dtype=self.dtype,
                                 order='C')
 
