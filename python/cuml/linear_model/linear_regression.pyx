@@ -185,7 +185,7 @@ class LinearRegression(Base):
     """
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
-                 handle=None):
+                 handle=None, verbose=False, output_type=None):
 
         """
         Initializes the linear regression class.
@@ -200,7 +200,8 @@ class LinearRegression(Base):
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
         """
-        super(LinearRegression, self).__init__(handle=handle, verbose=False)
+        super(LinearRegression, self).__init__(handle=handle, verbose=verbose,
+                                               output_type=output_type)
         self.coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept

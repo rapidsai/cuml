@@ -113,9 +113,7 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
 
 class LinearRegressionMG(LinearRegression):
 
-    def __init__(self, output_type=None, **kwargs):
-        # todo: remove explicit output_type from constructor once single GPU
-        # OLS is updated with output_type and CumlArray
+    def __init__(self, **kwargs):
         super(LinearRegressionMG, self).__init__(**kwargs)
 
     def fit(self, X, y, n_rows, n_cols, partsToSizes, rank):
