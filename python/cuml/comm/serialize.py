@@ -22,7 +22,7 @@ import cuml
 
 
 # all (de-)serializtion are attached to cuML Objects
-serializable_classes = (cuml.common.Array,)
+serializable_classes = (cuml.common.CumlArray,)
 
 
 try:

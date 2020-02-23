@@ -78,7 +78,7 @@ def test_array_init(input_type, dtype, shape, order):
         inp = create_input('cupy', dtype, shape, order)
         ptr = inp.__cuda_array_interface__['data'][0]
         ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
-                    order=order)
+                        order=order)
 
     if shape == (10, 5):
         assert ary.order == order
