@@ -250,7 +250,9 @@ class Base:
         will return as the cuml Array converted to the appropriate format.
         """
         real_name = '_' + attr
-        if hasattr(self, real_name):
+        # using __dict__ due to a bug with scikit-learn hyperparam
+        # when doing hasattr. github issue #1736
+        if real_name in self.__dict__.keys():
             if isinstance(self.__dict__[real_name], CumlArray):
                 return self.__dict__[real_name].to_output(self.output_type)
             else:
