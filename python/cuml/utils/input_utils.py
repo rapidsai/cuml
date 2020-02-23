@@ -304,7 +304,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True):
         if legacy:
             return cuda.as_cuda_array(X_m)
         else:
-            return Array(data=X_m)
+            return CumlArray(data=X_m)
 
     else:
         raise TypeError("Received unsupported input type " % type(X))
