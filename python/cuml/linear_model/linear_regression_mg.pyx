@@ -31,10 +31,10 @@ from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
 from cuml.common.base import Base
+from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
 from cuml.linear_model import LinearRegression
 
@@ -113,82 +113,26 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
 
 class LinearRegressionMG(LinearRegression):
 
-    def __init__(self, **kwargs):
+    def __init__(self, output_type=None, **kwargs):
+        # todo: remove explicit output_type from constructor once single GPU
+        # OLS is updated with output_type and CumlArray
         super(LinearRegressionMG, self).__init__(**kwargs)
-
-    def _build_dataFloat(self, arr_interfaces):
-        cdef floatData_t **dataF = <floatData_t **> \
-            malloc(sizeof(floatData_t *)
-                   * len(arr_interfaces))
-
-        cdef uintptr_t input_ptr
-        for x_i in range(len(arr_interfaces)):
-            x = arr_interfaces[x_i]
-            input_ptr = x["data"]
-            dataF[x_i] = <floatData_t *> malloc(sizeof(floatData_t))
-            dataF[x_i].ptr = <float *> input_ptr
-            dataF[x_i].totalSize = <size_t> x["shape"][0]
-        return <size_t>dataF
-
-    def _build_dataDouble(self, arr_interfaces):
-        cdef doubleData_t **dataD = <doubleData_t **> \
-            malloc(sizeof(doubleData_t *)
-                   * len(arr_interfaces))
-
-        cdef uintptr_t input_ptr
-        for x_i in range(len(arr_interfaces)):
-            x = arr_interfaces[x_i]
-            input_ptr = x["data"]
-            dataD[x_i] = <doubleData_t *> malloc(sizeof(doubleData_t))
-            dataD[x_i].ptr = <double *> input_ptr
-            dataD[x_i].totalSize = <size_t> x["shape"][0]
-        return <size_t>dataD
-
-    def _freeDoubleD(self, data, arr_interfaces):
-        cdef uintptr_t data_ptr = data
-        cdef doubleData_t **d = <doubleData_t**>data_ptr
-        for x_i in range(len(arr_interfaces)):
-            free(d[x_i])
-        free(d)
-
-    def _freeFloatD(self, data, arr_interfaces):
-        cdef uintptr_t data_ptr = data
-        cdef floatData_t **d = <floatData_t**>data_ptr
-        for x_i in range(len(arr_interfaces)):
-            free(d[x_i])
-        free(d)
-
-    def _build_predData(self, partsToSizes, rank, n_cols, dtype):
-        arr_interfaces_trans = []
-        for idx, rankSize in enumerate(partsToSizes):
-            rk, size = rankSize
-            if rank == rk:
-                trans_ary = rmm.to_device(zeros((size, n_cols),
-                                                order="F",
-                                                dtype=dtype))
-
-                trans_ptr = get_dev_array_ptr(trans_ary)
-                arr_interfaces_trans.append({"obj": trans_ary,
-                                             "data": trans_ptr,
-                                             "shape": (size, n_cols)})
-
-        return arr_interfaces_trans
 
     def fit(self, X, y, n_rows, n_cols, partsToSizes, rank):
         arr_interfaces = []
         for arr in X:
-            X_m, input_ptr, n_rows_X, self.n_cols, self.dtype = \
-                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+            X_m, n_rows_X, self.n_cols, self.dtype = \
+                input_to_cuml_array(arr, check_dtype=[np.float32, np.float64])
             arr_interfaces.append({"obj": X_m,
-                                   "data": input_ptr,
+                                   "data": X_m.ptr,
                                    "shape": (n_rows_X, self.n_cols)})
 
         arr_interfaces_y = []
         for arr in y:
-            y_m, input_ptr, n_rows_y, n_cols_y, self.dtype = \
-                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+            y_m, n_rows_y, n_cols_y, self.dtype = \
+                input_to_cuml_array(arr, check_dtype=[np.float32, np.float64])
             arr_interfaces_y.append({"obj": y_m,
-                                     "data": input_ptr,
+                                     "data": y_m.ptr,
                                      "shape": (n_rows_y, n_cols_y)})
 
         n_total_parts = 0
@@ -214,9 +158,8 @@ class LinearRegressionMG(LinearRegression):
                 n_part_row = n_part_row + rankSizePair[indx].size
                 indx = indx + 1
 
-        self.coef_ = cudf.Series(zeros(self.n_cols,
-                                       dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float float_intercept
         cdef double double_intercept
@@ -225,8 +168,8 @@ class LinearRegressionMG(LinearRegression):
         cdef uintptr_t labels
 
         if self.dtype == np.float32:
-            data = self._build_dataFloat(arr_interfaces)
-            labels = self._build_dataFloat(arr_interfaces_y)
+            data = _build_dataFloat(arr_interfaces)
+            labels = _build_dataFloat(arr_interfaces_y)
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -244,8 +187,8 @@ class LinearRegressionMG(LinearRegression):
 
             self.intercept_ = float_intercept
         else:
-            data = self._build_dataDouble(arr_interfaces)
-            labels = self._build_dataDouble(arr_interfaces_y)
+            data = _build_dataDouble(arr_interfaces)
+            labels = _build_dataDouble(arr_interfaces_y)
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -267,17 +210,16 @@ class LinearRegressionMG(LinearRegression):
 
         del(X_m)
         del(y_m)
-
         for idx in range(n_total_parts):
             free(<RankSizePair*>rankSizePair[idx])
         free(<RankSizePair**>rankSizePair)
 
         if self.dtype == np.float32:
-            self._freeFloatD(data, arr_interfaces)
-            self._freeFloatD(labels, arr_interfaces_y)
+            _freeFloatD(data, arr_interfaces)
+            _freeFloatD(labels, arr_interfaces_y)
         else:
-            self._freeDoubleD(data, arr_interfaces)
-            self._freeDoubleD(labels, arr_interfaces_y)
+            _freeDoubleD(data, arr_interfaces)
+            _freeDoubleD(labels, arr_interfaces_y)
 
     def fit_colocated(self, input_data, n_rows, n_cols, partsToSizes, rank):
         """
@@ -291,24 +233,26 @@ class LinearRegressionMG(LinearRegression):
         :return: self
         """
 
+        self._set_output_type(input_data[0][0])
+
         arr_interfaces = []
         arr_interfaces_y = []
 
         for i in range(len(input_data)):
-            X_m, input_ptr, n_rows_X, self.n_cols, self.dtype = \
-                input_to_dev_array(input_data[i][0],
+            X_m, n_rows_X, self.n_cols, self.dtype = \
+                input_to_cuml_array(input_data[i][0],
                                    check_dtype=[np.float32, np.float64])
 
             arr_interfaces.append({"obj": X_m,
-                                   "data": input_ptr,
+                                   "data": X_m.ptr,
                                    "shape": (n_rows_X, self.n_cols)})
 
-            y_m, input_ptr, n_rows_y, n_cols_y, self.dtype = \
-                input_to_dev_array(input_data[i][1],
+            y_m, n_rows_y, n_cols_y, self.dtype = \
+                input_to_cuml_array(input_data[i][1],
                                    check_dtype=[np.float32, np.float64])
 
             arr_interfaces_y.append({"obj": y_m,
-                                     "data": input_ptr,
+                                     "data": y_m.ptr,
                                      "shape": (n_rows_y, n_cols_y)})
 
         n_total_parts = len(input_data)
@@ -322,9 +266,9 @@ class LinearRegressionMG(LinearRegression):
             rankSizePair[i].rank = <int>rank
             rankSizePair[i].size = <size_t>len(input_data[i][0])
 
-        self.coef_ = cudf.Series(zeros(self.n_cols,
-                                       dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        self._coef_ = CumlArray.zeros(self.n_cols,
+                                      dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float float_intercept
         cdef double double_intercept
@@ -333,8 +277,9 @@ class LinearRegressionMG(LinearRegression):
         cdef uintptr_t labels
 
         if self.dtype == np.float32:
-            data = self._build_dataFloat(arr_interfaces)
-            labels = self._build_dataFloat(arr_interfaces_y)
+            data = _build_dataFloat(arr_interfaces)
+            labels = _build_dataFloat(arr_interfaces_y)
+
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -352,8 +297,8 @@ class LinearRegressionMG(LinearRegression):
 
             self.intercept_ = float_intercept
         else:
-            data = self._build_dataDouble(arr_interfaces)
-            labels = self._build_dataDouble(arr_interfaces_y)
+            data = _build_dataDouble(arr_interfaces)
+            labels = _build_dataDouble(arr_interfaces_y)
 
             fit(handle_[0],
                 <RankSizePair**>rankSizePair,
@@ -378,11 +323,11 @@ class LinearRegressionMG(LinearRegression):
         free(<RankSizePair**>rankSizePair)
 
         if self.dtype == np.float32:
-            self._freeFloatD(data, arr_interfaces)
-            self._freeFloatD(labels, arr_interfaces_y)
+            _freeFloatD(data, arr_interfaces)
+            _freeFloatD(labels, arr_interfaces_y)
         else:
-            self._freeDoubleD(data, arr_interfaces)
-            self._freeDoubleD(labels, arr_interfaces_y)
+            _freeDoubleD(data, arr_interfaces)
+            _freeDoubleD(labels, arr_interfaces_y)
 
     def predict(self, X, n_rows, n_cols, partsToSizes, rank):
         """
@@ -396,16 +341,18 @@ class LinearRegressionMG(LinearRegression):
         :return: self
         """
 
+        out_type = self._get_output_type(X[0])
+
         if n_cols != self.n_cols:
             raise Exception("Number of columns of the X has to match with "
                             "number of columns of the data was fit to model.")
 
         arr_interfaces = []
         for arr in X:
-            X_m, input_ptr, n_rows_X, n_cols_X, self.dtype = \
-                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
+            X_m, n_rows_X, n_cols_X, self.dtype = \
+                input_to_cuml_array(arr, check_dtype=[np.float32, np.float64])
             arr_interfaces.append({"obj": X_m,
-                                   "data": input_ptr,
+                                   "data": X_m.ptr,
                                    "shape": (n_rows_X, n_cols_X)})
 
         n_total_parts = 0
@@ -428,7 +375,7 @@ class LinearRegressionMG(LinearRegression):
                 rankSizePair[indx].size = <size_t>size
                 indx = indx + 1
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef uintptr_t data
@@ -436,12 +383,12 @@ class LinearRegressionMG(LinearRegression):
         arr_interfaces_pred = []
 
         if self.dtype == np.float32:
-            data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_pred = self._build_predData(partsToSizes,
+            data = _build_dataFloat(arr_interfaces)
+            arr_interfaces_pred = _build_predData(partsToSizes,
                                                        rank,
                                                        1,
                                                        np.float32)
-            pred_data = self._build_dataFloat(arr_interfaces_pred)
+            pred_data = _build_dataFloat(arr_interfaces_pred)
 
             predict(handle_[0],
                     <RankSizePair**>rankSizePair,
@@ -455,12 +402,12 @@ class LinearRegressionMG(LinearRegression):
                     False)
 
         else:
-            data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_pred = self._build_predData(partsToSizes,
+            data = _build_dataDouble(arr_interfaces)
+            arr_interfaces_pred = _build_predData(partsToSizes,
                                                        rank,
                                                        1,
                                                        np.float64)
-            pred_data = self._build_dataDouble(arr_interfaces_pred)
+            pred_data = _build_dataDouble(arr_interfaces_pred)
 
             predict(handle_[0],
                     <RankSizePair**>rankSizePair,
@@ -481,15 +428,81 @@ class LinearRegressionMG(LinearRegression):
 
         del(X_m)
 
-        pred_cudf = []
+        preds = []
         for x_i in arr_interfaces_pred:
-            pred_cudf.append(cudf.DataFrame.from_gpu_matrix(x_i["obj"]))
+            preds.append(x_i["obj"].to_output(self.output_type))
 
         if self.dtype == np.float32:
-            self._freeFloatD(pred_data, arr_interfaces_pred)
-            self._freeFloatD(data, arr_interfaces)
+            _freeFloatD(pred_data, arr_interfaces_pred)
+            _freeFloatD(data, arr_interfaces)
         else:
-            self._freeDoubleD(pred_data, arr_interfaces_pred)
-            self._freeDoubleD(data, arr_interfaces)
+            _freeDoubleD(pred_data, arr_interfaces_pred)
+            _freeDoubleD(data, arr_interfaces)
 
-        return pred_cudf
+        return preds
+
+
+# Util functions, will be moved to their own file as the other methods are
+# refactored
+# todo: use cuda_array_interface instead of arr_interfaces for building this
+
+def _build_dataFloat(arr_interfaces):
+    cdef floatData_t **dataF = <floatData_t **> \
+        malloc(sizeof(floatData_t *)
+               * len(arr_interfaces))
+
+    cdef uintptr_t input_ptr
+    for x_i in range(len(arr_interfaces)):
+        x = arr_interfaces[x_i]
+        input_ptr = x["data"]
+        dataF[x_i] = <floatData_t *> malloc(sizeof(floatData_t))
+        dataF[x_i].ptr = <float *> input_ptr
+        dataF[x_i].totalSize = <size_t> x["shape"][0]
+    return <size_t>dataF
+
+
+def _build_dataDouble(arr_interfaces):
+    cdef doubleData_t **dataD = <doubleData_t **> \
+        malloc(sizeof(doubleData_t *)
+               * len(arr_interfaces))
+
+    cdef uintptr_t input_ptr
+    for x_i in range(len(arr_interfaces)):
+        x = arr_interfaces[x_i]
+        input_ptr = x["data"]
+        dataD[x_i] = <doubleData_t *> malloc(sizeof(doubleData_t))
+        dataD[x_i].ptr = <double *> input_ptr
+        dataD[x_i].totalSize = <size_t> x["shape"][0]
+    return <size_t>dataD
+
+
+def _freeDoubleD(data, arr_interfaces):
+    cdef uintptr_t data_ptr = data
+    cdef doubleData_t **d = <doubleData_t**>data_ptr
+    for x_i in range(len(arr_interfaces)):
+        free(d[x_i])
+    free(d)
+
+
+def _freeFloatD(data, arr_interfaces):
+    cdef uintptr_t data_ptr = data
+    cdef floatData_t **d = <floatData_t**>data_ptr
+    for x_i in range(len(arr_interfaces)):
+        free(d[x_i])
+    free(d)
+
+
+def _build_predData(partsToSizes, rank, n_cols, dtype):
+    arr_interfaces_trans = []
+    for idx, rankSize in enumerate(partsToSizes):
+        rk, size = rankSize
+        if rank == rk:
+            trans_ary = CumlArray.zeros((size, n_cols),
+                                        order="F",
+                                        dtype=dtype)
+
+            arr_interfaces_trans.append({"obj": trans_ary,
+                                         "data": trans_ary.ptr,
+                                         "shape": (size, n_cols)})
+
+    return arr_interfaces_trans
