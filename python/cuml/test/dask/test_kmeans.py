@@ -69,7 +69,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         cumlPred = cumlLabels.compute().to_pandas().values
 
         assert cumlPred.shape[0] == nrows
-        assert np.max(cumlPred) == nclusters-1
+        assert np.max(cumlPred) == nclusters - 1
         assert np.min(cumlPred) == 0
 
         labels = y.compute().to_pandas().values
@@ -185,7 +185,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
             expected_score += dist**2
 
         assert actual_score + SCORE_EPS \
-            >= (-1*expected_score) \
+            >= (-1 * expected_score) \
             >= actual_score - SCORE_EPS
 
     finally:
