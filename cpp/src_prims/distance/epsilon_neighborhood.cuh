@@ -190,6 +190,20 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       }
     }
   }
+
+  DI void updateResults() {
+    auto nWarps = blockDim.x / WarpSize;
+    auto lid = laneId();
+    auto ridx = IdxT(blockIdx.x) * P::Mblk;
+    if (lid == 0) {
+      for (int i = threadIdx.x / WarpSize; i < P::Mblk; i += nWarps) {
+        auto rid = ridx + i;
+        if (rid < this->m) {
+          myAtomicAdd(vd + rid, sRed[i]);
+        }
+      }
+    }
+  }
 };  // struct EpsUnexpL2SqNeighborhood
 
 template <typename DataT, typename IdxT, typename Policy>
