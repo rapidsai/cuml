@@ -20,6 +20,7 @@ import cupy as cp
 import dask.array as da
 
 from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.utils.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
 from cudf.core import DataFrame
@@ -36,21 +37,35 @@ from dask.array.core import Array as daskArray
 
 class MGData:
 
-    def __init__(self, client, data, gpu_futures=None, worker_to_parts=None,
-                 workers=None):
-        self.gpu_futures = client.sync(_extract_partitions, data, client) if \
-            gpu_futures is None else gpu_futures
+    def __init__(self, gpu_futures=None, worker_to_parts=None, workers=None,
+                 datatype=None):
+        self.gpu_futures = gpu_futures
+        self.worker_to_parts = worker_to_parts
+        self.workers = workers
+        self.datatype = datatype
 
-        self.worker_to_parts = _workers_to_parts(self.gpu_futures) if \
-            worker_to_parts is None else worker_to_parts
+    @classmethod
+    def single(cls, data, client=None):
+        client = default_client() if client is None else client
 
-        self.workers = list(map(lambda x: x[0],
-                                self.worker_to_parts.items())) if \
-            workers is None else workers
+        gpu_futures = client.sync(_extract_partitions, data, client)
 
-        self.datatype = 'cudf' if isinstance(data, dcDataFrame) else 'cupy'
+        worker_to_parts = _workers_to_parts(gpu_futures)
+
+        workers = list(map(lambda x: x[0], worker_to_parts.items()))
+
+        datatype = 'cudf' if isinstance(data, dcDataFrame) else 'cupy'
+
+        return MGData(gpu_futures=gpu_futures, worker_to_parts=worker_to_parts,
+                      workers=workers, datatype=datatype)
+
+    @classmethod
+    def collocated(cls, data, client=None):
+        client = default_client() if client is None else client
+        print(client)
 
 
+@with_cupy_rmm
 def concatenate(objs, axis=0):
     if isinstance(objs[0], DataFrame):
         if len(objs) == 1:

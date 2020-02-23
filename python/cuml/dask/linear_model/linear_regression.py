@@ -168,7 +168,7 @@ class LinearRegression(object):
             for idx, wf in enumerate(X_futures)]
 
         n_cols = X.shape[1]
-        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
+        n_rows = reduce(lambda a, b: a + b, map(lambda x: x[1], partsToSizes))
 
         key = uuid1()
         self.linear_models = [(wf[0], self.client.submit(
@@ -260,7 +260,7 @@ class LinearRegression(object):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
-    def fit(self, X, y, force_colocality=False):
+    def fit(self, X, y, force_colocality=True):
         """
         Fit the model with X and y. If force_colocality is set to True,
         the partitions of X and y will be re-distributed to force the

@@ -16,7 +16,6 @@
 
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import MGData
-from cuml.dask.common.input_utils import to_dask_cupy
 from cuml.dask.common.input_utils import to_output
 
 from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
@@ -176,7 +175,7 @@ class KMeans(object):
         self: KMeans model
         """
 
-        data = MGData(self.client, X)
+        data = MGData.single(X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False)
@@ -218,7 +217,7 @@ class KMeans(object):
             Dataframe containing label predictions
         """
 
-        data = MGData(self.client, X, workers=[])
+        data = MGData.single(X, client=self.client)
 
         key = uuid1()
         kmeans_predict = [self.client.submit(
