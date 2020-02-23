@@ -45,5 +45,3 @@ def test_internals_api(n_components):
     reducer = UMAP(n_components=n_components, callback=callback)
     reducer.fit(data)
     callback.check()
-
-    assert True

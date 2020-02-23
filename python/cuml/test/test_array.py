@@ -23,7 +23,7 @@ import pickle
 
 from copy import deepcopy
 from numba import cuda
-from cuml.common.array import Array
+from cuml.common.array import CumlArray
 from rmm import DeviceBuffer
 
 test_input_types = [
@@ -73,12 +73,12 @@ def test_array_init(input_type, dtype, shape, order):
 
     if input_type is not None:
         inp = create_input(input_type, dtype, shape, order)
-        ary = Array(data=inp)
+        ary = CumlArray(data=inp)
     else:
         inp = create_input('cupy', dtype, shape, order)
         ptr = inp.__cuda_array_interface__['data'][0]
-        ary = Array(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
-                    order=order)
+        ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
+                        order=order)
 
     if shape == (10, 5):
         assert ary.order == order
@@ -123,7 +123,7 @@ def test_array_init(input_type, dtype, shape, order):
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_get_set_item(slice, order):
     inp = create_input('numpy', 'float32', (10, 10), order)
-    ary = Array(data=inp)
+    ary = CumlArray(data=inp)
 
     if isinstance(slice, int):
         assert np.array_equal(inp[slice], ary[slice].to_output('numpy'))
@@ -155,7 +155,7 @@ def test_get_set_item(slice, order):
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_create_empty(shape, dtype, order):
-    ary = Array.empty(shape=shape, dtype=dtype, order=order)
+    ary = CumlArray.empty(shape=shape, dtype=dtype, order=order)
     assert isinstance(ary.ptr, int)
     if shape == 10:
         assert ary.shape == (shape,)
@@ -169,7 +169,7 @@ def test_create_empty(shape, dtype, order):
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_create_zeros(shape, dtype, order):
-    ary = Array.zeros(shape=shape, dtype=dtype, order=order)
+    ary = CumlArray.zeros(shape=shape, dtype=dtype, order=order)
     test = cp.zeros(shape).astype(dtype)
     assert cp.all(test == cp.asarray(ary))
 
@@ -178,7 +178,7 @@ def test_create_zeros(shape, dtype, order):
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_create_ones(shape, dtype, order):
-    ary = Array.ones(shape=shape, dtype=dtype, order=order)
+    ary = CumlArray.ones(shape=shape, dtype=dtype, order=order)
     test = cp.ones(shape).astype(dtype)
     assert cp.all(test == cp.asarray(ary))
 
@@ -188,7 +188,7 @@ def test_create_ones(shape, dtype, order):
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_create_full(shape, dtype, order):
     value = cp.array([cp.random.randint(100)]).astype(dtype)
-    ary = Array.full(value=value[0], shape=shape, dtype=dtype, order=order)
+    ary = CumlArray.full(value=value[0], shape=shape, dtype=dtype, order=order)
     test = cp.zeros(shape).astype(dtype) + value[0]
     assert cp.all(test == cp.asarray(ary))
 
@@ -199,7 +199,7 @@ def test_create_full(shape, dtype, order):
 @pytest.mark.parametrize('shape', test_shapes)
 def test_output(output_type, dtype, order, shape):
     inp = create_input('numpy', dtype, shape, order)
-    ary = Array(inp)
+    ary = CumlArray(inp)
 
     if dtype in unsupported_cudf_dtypes and \
             output_type in ['series', 'dataframe', 'cudf']:
@@ -245,7 +245,7 @@ def test_output(output_type, dtype, order, shape):
 
         # check for e2e cartesian product:
         if output_type not in ['dataframe', 'cudf']:
-            res2 = Array(res)
+            res2 = CumlArray(res)
             res2 = res2.to_output('numpy')
             if output_type == 'series' and shape == (10, 1):
                 assert np.all(inp.reshape((1, 10)) == res2)
@@ -258,7 +258,7 @@ def test_output(output_type, dtype, order, shape):
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_cuda_array_interface(dtype, shape, order):
     inp = create_input('numba', dtype, shape, 'F')
-    ary = Array(inp)
+    ary = CumlArray(inp)
 
     if isinstance(shape, tuple):
         assert ary.__cuda_array_interface__['shape'] == shape
@@ -288,7 +288,7 @@ def test_pickle(input_type):
         inp = create_input(input_type, np.float32, (10, 1), 'C')
     else:
         inp = create_input(input_type, np.float32, (10, 5), 'F')
-    ary = Array(data=inp)
+    ary = CumlArray(data=inp)
     a = pickle.dumps(ary)
     b = pickle.loads(a)
     if input_type == 'numpy':
@@ -316,7 +316,7 @@ def test_deepcopy(input_type):
         inp = create_input(input_type, np.float32, (10, 1), 'C')
     else:
         inp = create_input(input_type, np.float32, (10, 5), 'F')
-    ary = Array(data=inp)
+    ary = CumlArray(data=inp)
     b = deepcopy(ary)
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
