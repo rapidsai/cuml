@@ -27,7 +27,6 @@ from cuml.test.utils import get_handle, get_pattern, array_equal, \
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
-import cupy as cp
 
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
