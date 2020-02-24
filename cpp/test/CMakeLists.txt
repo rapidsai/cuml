@@ -187,6 +187,7 @@ if(BUILD_PRIMS_TESTS)
       prims/cov.cu
       prims/csr.cu
       prims/decoupled_lookback.cu
+      prims/device_utils.cu
       prims/dispersion.cu
       prims/dist_adj.cu
       prims/dist_cos.cu
