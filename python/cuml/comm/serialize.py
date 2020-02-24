@@ -18,10 +18,11 @@
 import pickle
 
 import cudf
+import cuml
 
 
 # all (de-)serializtion are attached to cuML Objects
-serializable_classes = ()
+serializable_classes = (cuml.common.CumlArray,)
 
 
 try:

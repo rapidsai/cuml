@@ -185,6 +185,7 @@ class LogisticRegression(Base):
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
+        self.l1_ratio = None
         if self.penalty == 'elasticnet':
             if l1_ratio is None:
                 raise ValueError("l1_ratio has to be specified for"
