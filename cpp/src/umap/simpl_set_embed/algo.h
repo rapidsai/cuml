@@ -160,7 +160,7 @@ __global__ void optimize_batch_kernel(
 
       /**
        * Apply attractive force between `current` and `other`
-       * by updating their 'weights' to please them relative
+       * by updating their 'weights' to place them relative
        * to their weight in the 1-skeleton.
        * (update `other` embedding only if we are
        * performing unsupervised training).
@@ -171,7 +171,6 @@ __global__ void optimize_batch_kernel(
         atomicAdd(current + d, grad_d * alpha);
 
         // happens only during unsupervised training
-
         if (move_other) {
           atomicAdd(other + d, -grad_d * alpha);
         }
@@ -217,10 +216,10 @@ __global__ void optimize_batch_kernel(
             grad_d = 4.0;
           atomicAdd(current + d, grad_d * alpha);
         }
-
-        epoch_of_next_negative_sample[row] +=
-          n_neg_samples * epochs_per_negative_sample[row];
       }
+
+      epoch_of_next_negative_sample[row] +=
+        (n_neg_samples * epochs_per_negative_sample[row]);
     }
   }
 }
@@ -330,7 +329,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   CUDA_CHECK(
     cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
 
-  make_epochs_per_sample(out.vals(), out.nnz, params->n_epochs,
+  make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
                          epochs_per_sample.data(), stream);
 
   if (params->verbose)
@@ -340,8 +339,8 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,
-                            params->repulsion_strength, params,
-                            params->n_epochs, d_alloc, stream);
+                            params->repulsion_strength, params, n_epochs,
+                            d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
