@@ -18,6 +18,7 @@
 
 #include "distance.h"
 #include <linalg/contractions.cuh>
+#include <common/device_utils.cuh>
 
 namespace MLCommon {
 namespace Distance {
@@ -91,7 +92,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   DataT eps;
   IdxT* vd;
 
-  IdxT* sRed;
+  char* smem;  // for final reductions
 
   DataT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
@@ -100,7 +101,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
                               const DataT* _y, IdxT _m, IdxT _n, IdxT _k,
                               DataT _eps, char* _smem)
     : BaseClass(_x, _y, _m, _n, _k, _smem), adj(_adj), eps(_eps), vd(_vd),
-      sRed((IdxT*)_smem) {
+      smem(_smem) {
   }
 
   DI void run() {
@@ -139,40 +140,28 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     IdxT startx = blockIdx.x * P::Mblk + this->accrowid;
     IdxT starty = blockIdx.y * P::Nblk + this->acccolid;
     auto lid = laneId();
-    IdxT sums[P::AccRowsPerTh];
+    IdxT sums[P::AccColsPerTh];
+#pragma unroll
+    for (int j = 0; j < P::AccColsPerTh; ++j) {
+      sums[j] = 0;
+    }
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
       auto xid = startx + i * P::AccThRows;
-      sums[i] = 0;
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        auto is_neigh = acc[i][j] <= eps;
         auto yid = starty + j * P::AccThCols;
+        auto is_neigh = acc[i][j] <= eps;
         ///@todo: fix uncoalesced writes using shared mem
         if (xid < this->m && yid < this->n) {
           adj[xid * this->n + yid] = is_neigh;
-          sums[i] += is_neigh;
+          sums[j] += is_neigh;
         }
       }
     }
     // perform reduction of adjacency values to compute vertex degrees
     if (vd != nullptr) {
-      __syncthreads();
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-#pragma unroll
-        for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
-          sums[i] += shfl(sums[i], lid + j);
-        }
-      }
-      if (lid % P::AccThCols == 0) {
-#pragma unroll
-        for (int i = 0; i < P::AccRowsPerTh; ++i) {
-          sRed[i * P::AccThCols + this->accrowid] = sums[i];
-        }
-      }
-      __syncthreads();
-      updateResults();
+      updateVertexDegree(sums);
     }
   }
 
@@ -194,34 +183,34 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     }
   }
 
-  DI void updateResults() {
-    auto wid = threadIdx.x / WarpSize;
-    if (wid == 0) {
-      IdxT sum = 0;
-      auto ridx = IdxT(blockIdx.x) * P::Mblk;
-      auto lid = laneId();
-      // update the individual vertex degrees
-      for (int i = lid; i < P::Mblk; i += WarpSize) {
-        auto rid = ridx + i;
-        if (rid < this->m) {
-          auto val = sRed[i];
-          if (sizeof(IdxT) == 4) {
-            myAtomicAdd((unsigned*)(vd + rid), val);
-          } else if (sizeof(IdxT) == 8) {
-            myAtomicAdd((unsigned long long*)(vd + rid), val);
-          }
-          sum += val;
-        }
-      }
-      // update the edge count
-      warpFence();
-      sum = warpReduce<IdxT>(sum);
-      if (lid == 0) {
+  DI void updateVertexDegree(IdxT (&sums)[P::AccColsPerTh]) {
+    __syncthreads();
+    int gid = threadIdx.x / P::AccThCols;
+    int lid = threadIdx.x % P::AccThCols;
+    auto cidx = IdxT(blockIdx.y) * P::Nblk + lid;
+    IdxT totalSum = 0;
+    // update the individual vertex degrees
+#pragma unroll
+    for (int i = 0; i < P::AccColsPerTh; ++i) {
+      sums[i] = batchedBlockReduce<IdxT, P::AccThCols>(sums[i], smem);
+      auto cid = cidx + i * P::AccThCols;
+      if (gid == 0 && cid < this->n) {
         if (sizeof(IdxT) == 4) {
-          myAtomicAdd((unsigned*)(vd + this->m), sum);
-        } else if(sizeof(IdxT) == 8) {
-          myAtomicAdd((unsigned long long*)(vd + this->m), sum);
+          myAtomicAdd((unsigned*)(vd + cid), sums[i]);
+        } else if (sizeof(IdxT) == 8) {
+          myAtomicAdd((unsigned long long*)(vd + cid), sums[i]);
         }
+        totalSum += sums[i];
+      }
+      __syncthreads();  // for safe smem reuse
+    }
+    // update the total edge count
+    totalSum = blockReduce<IdxT>(totalSum, smem);
+    if (threadIdx.x == 0) {
+      if (sizeof(IdxT) == 4) {
+        myAtomicAdd((unsigned*)(vd + this->n), totalSum);
+      } else if (sizeof(IdxT) == 8) {
+        myAtomicAdd((unsigned long long*)(vd + this->n), totalSum);
       }
     }
   }

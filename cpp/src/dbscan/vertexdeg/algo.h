@@ -46,7 +46,7 @@ void launcher(const ML::cumlHandle_impl &handle, Pack<value_t, index_t> data,
   value_t eps2 = data.eps * data.eps;
 
   MLCommon::Distance::epsUnexpL2SqNeighborhood<value_t, index_t>(
-    data.adj, data.vd, data.x + startVertexId * k, data.x, n, m, k, eps2,
+    data.adj, data.vd, data.x, data.x + startVertexId * k, m, n, k, eps2,
     stream);
 }
 
