@@ -150,6 +150,8 @@ void grow_deep_tree_classification(
                      split_algo, d_split_colidx, d_split_binidx,
                      d_new_node_flags, flagsptr, tempmem);
 
+    ASSERT(2 * n_nodes * n_unique_labels <= tempmem->h_parent_hist->size(),
+           "Copying histogram too large for h_parent_hist");
     memcpy(h_parent_hist, h_child_hist,
            2 * n_nodes * n_unique_labels * sizeof(unsigned int));
   }

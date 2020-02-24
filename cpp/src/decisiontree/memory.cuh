@@ -229,15 +229,15 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     h_histogram = new MLCommon::host_buffer<unsigned int>(host_allocator,
                                                           stream, histcount);
     h_parent_hist = new MLCommon::host_buffer<unsigned int>(
-      host_allocator, stream, maxnodes * n_unique);
+      host_allocator, stream, 2 * maxnodes * n_unique);
     h_child_hist = new MLCommon::host_buffer<unsigned int>(
       host_allocator, stream, 2 * maxnodes * n_unique);
     d_parent_hist = new MLCommon::device_buffer<unsigned int>(
-      device_allocator, stream, maxnodes * n_unique);
+      device_allocator, stream, 2 * maxnodes * n_unique);
     d_child_hist = new MLCommon::device_buffer<unsigned int>(
       device_allocator, stream, 2 * maxnodes * n_unique);
     totalmem += histcount * sizeof(unsigned int);
-    totalmem += n_unique * maxnodes * 3 * sizeof(unsigned int);
+    totalmem += n_unique * maxnodes * 4 * sizeof(unsigned int);
   }
   //Calculate Max nodes in shared memory.
   if (typeid(L) == typeid(int)) {
