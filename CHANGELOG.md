@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
@@ -43,6 +44,7 @@
 - PR #1706: Remove multi-class bug from QuasiNewton
 - PR #1699: Limit CuPy to <7.2 temporarily
 - PR #1708: Correctly deallocate cuML handles in Cython
+- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2) 
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
 
 # cuML 0.12.0 (Date TBD)
