@@ -235,7 +235,9 @@ void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
  * @tparam IdxT    Index type
  *
  * @param[out] adj    adjacency matrix [row-major] [on device] [dim = m x n]
- * @param[out] vd     vertex degree array [on device] [len = n + 1]
+ * @param[out] vd     vertex degree array [on device] [len = m + 1]
+ *                    `vd + m` stores the total number of edges in the adjacency
+ *                    matrix. Pass a nullptr if you don't need this info.
  * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  y      second matrix [row-major] [on device] [dim = n x k]
  * @param[in]  eps    defines epsilon neighborhood radius (should be passed as
