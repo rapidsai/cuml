@@ -20,6 +20,7 @@
 # cython: language_level = 3
 
 import numpy as np
+import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
@@ -97,3 +98,91 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
     del y_m2
 
     return result
+
+
+def mean_squared_error(y_true, y_pred,
+                       sample_weight=None,
+                       multioutput='uniform_average', squared=True,
+                       handle=None):
+    """Mean squared error regression loss
+
+    Parameters
+    ----------
+    y_true : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Ground truth (correct) target values.
+    y_pred : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Estimated target values.
+    sample_weight : array-like (device or host) shape = (n_samples,), optional
+        Sample weights.
+    multioutput : string in ['raw_values', 'uniform_average']
+        or array-like of shape (n_outputs)
+        Defines aggregating of multiple output values.
+        Array-like value defines weights used to average errors.
+        'raw_values' :
+            Returns a full set of errors in case of multioutput input.
+        'uniform_average' :
+            Errors of all outputs are averaged with uniform weight.
+    squared : boolean value, optional (default = True)
+        If True returns MSE value, if False returns RMSE value.
+    handle : cuml.Handle, optional
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this function. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so users
+        can run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+
+    Returns
+    -------
+    loss : float or ndarray of floats
+        A non-negative floating point value (the best value is 0.0), or an
+        array of floating point values, one for each individual target.
+    """
+    handle = cuml.common.handle.Handle() if handle is None else handle
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    y_true, _, n_rows, n_cols, ytype = \
+        input_to_dev_array(y_true, check_dtype=[np.float32, np.float64,
+                                                np.int32, np.int64])
+    y_true = cp.asarray(y_true)
+
+    y_pred, _, _, _, _ = \
+        input_to_dev_array(y_pred, check_dtype=ytype,
+                           check_rows=n_rows, check_cols=n_cols)
+    y_pred = cp.asarray(y_pred)
+
+    if sample_weight is not None:
+        sample_weight, _, _, _, _ = \
+            input_to_dev_array(sample_weight, check_dtype=ytype,
+                               check_rows=n_rows, check_cols=n_cols)
+        sample_weight = cp.asarray(sample_weight)
+
+    allowed_multioutput_str = ('raw_values', 'uniform_average',
+                               'variance_weighted')
+    if isinstance(multioutput, str):
+        if multioutput not in allowed_multioutput_str:
+            raise ValueError("Allowed 'multioutput' string values are {}. "
+                             "You provided multioutput={!r}"
+                             .format(allowed_multioutput_str, multioutput))
+    elif multioutput is not None:
+        multioutput, _, _, _, _ = \
+            input_to_dev_array(multioutput, check_dtype=ytype)
+        multioutput = cp.asarray(multioutput)
+        if n_cols == 1:
+            raise ValueError("Custom weights are useful only in "
+                             "multi-output cases.")
+
+    output_errors = cp.average((y_true - y_pred) ** 2, axis=0,
+                               weights=sample_weight)
+
+    if isinstance(multioutput, str):
+        if multioutput == 'raw_values':
+            return output_errors
+        elif multioutput == 'uniform_average':
+            # pass None as weights to np.average: uniform mean
+            multioutput = None
+
+    mse = cp.average(output_errors, weights=multioutput)
+    return mse if squared else cp.sqrt(mse)
