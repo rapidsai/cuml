@@ -19,6 +19,7 @@ import numpy as np
 import rmm
 
 from cuml.utils.import_utils import check_min_cupy_version
+from functools import wraps
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -33,7 +34,7 @@ def with_cupy_rmm(func):
     """
 
     Decorator to call CuPy functions with RMM memory management. Use it
-    to decorate any function that will call CuPy functions, this will ensure
+    to decorate any function that will call CuPy functions. This will ensure
     that those calls use RMM for memory allocation instead of the default
     CuPy pool. Example:
 
@@ -44,6 +45,7 @@ def with_cupy_rmm(func):
             a = cp.arange(10) # uses RMM for allocation
 
     """
+    @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
         with cupy_using_allocator(rmm.rmm_cupy_allocator):
             return func(*args, **kwargs)
