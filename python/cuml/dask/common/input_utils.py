@@ -33,21 +33,32 @@ from tornado import gen
 from toolz import first
 from collections.abc import Iterable
 from dask.array.core import Array as daskArray
+from uuid import uuid1
+
+from collections import defaultdict
+from functools import reduce
 
 
 class MGData:
 
     def __init__(self, gpu_futures=None, worker_to_parts=None, workers=None,
-                 datatype=None):
+                 datatype=None, multiple=False, client=None):
+        self.client = default_client() if client is None else client
         self.gpu_futures = gpu_futures
         self.worker_to_parts = worker_to_parts
         self.workers = workers
         self.datatype = datatype
+        self.multiple = multiple
+        self.worker_info = None
+        self.total_rows = None
+        self.ranks = None
+        self.parts_to_sizes = None
+        self.total_rows = None
+
+    """ Class methods for initalization """
 
     @classmethod
     def single(cls, data, client=None):
-        client = default_client() if client is None else client
-
         gpu_futures = client.sync(_extract_partitions, data, client)
 
         worker_to_parts = _workers_to_parts(gpu_futures)
@@ -57,12 +68,69 @@ class MGData:
         datatype = 'cudf' if isinstance(data, dcDataFrame) else 'cupy'
 
         return MGData(gpu_futures=gpu_futures, worker_to_parts=worker_to_parts,
-                      workers=workers, datatype=datatype)
+                      workers=workers, datatype=datatype, multiple=False,
+                      client=client)
 
     @classmethod
-    def collocated(cls, data, client=None):
-        client = default_client() if client is None else client
-        print(client)
+    def colocated(cls, data, force=False, client=None):
+        gpu_futures = client.sync(_extract_colocated_partitions,
+                                  data[0], data[1], client)
+
+        workers = list(gpu_futures.keys())
+
+        datatype = 'cudf' if isinstance(data[0], dcDataFrame) else 'cupy'
+
+        return MGData(gpu_futures=gpu_futures, workers=workers,
+                      datatype=datatype, multiple=True, client=client)
+
+    """ Methods to calculate further attributes """
+
+    def calculate_worker_and_rank_info(self, comms):
+        self.worker_info = comms.worker_info(comms.worker_addresses)
+        self.ranks = dict()
+        for w, futures in self.gpu_futures.items():
+                self.ranks[w] = self.worker_info[w]["r"]
+
+    def calculate_parts_to_sizes(self, comms=None, ranks=None):
+        if self.worker_info is None and comms is not None:
+            self.calculate_worker_and_rank_info(comms)
+
+        ranks = self.ranks if ranks is None else ranks
+
+        self.total_rows = 0
+
+        self.parts_to_sizes = dict()
+
+        # func = _get_rows_from_colocated_tuple if self.multiple is True else \
+        #     _get_rows_from_single_obj
+
+        key = uuid1()
+
+        if self.multiple:
+            for w, futures in self.gpu_futures.items():
+                parts = [(self.client.submit(
+                    _get_rows_from_colocated_tuple,
+                    future,
+                    workers=[w],
+                    key="%s-%s" % (key, idx)).result())
+                    for idx, future in enumerate(futures)]
+
+                self.parts_to_sizes[self.worker_info[w]["r"]] = parts
+                for p in parts:
+                    self.total_rows = self.total_rows + p
+
+        else:
+                self.parts_to_sizes = [(ranks[wf[0]], self.client.submit(
+                                       _get_rows_from_single_obj,
+                                       wf[1],
+                                       workers=[wf[0]],
+                                       key="%s-%s" % (key, idx)).result())
+                                       for idx,
+                                       wf in enumerate(self.gpu_futures)]
+
+                self.total_rows = reduce(lambda a, b:
+                                         a + b, map(lambda x: x[1],
+                                                    self.parts_to_sizes))
 
 
 @with_cupy_rmm
@@ -75,6 +143,16 @@ def concatenate(objs, axis=0):
 
     elif isinstance(objs[0], cp.ndarray):
         return cp.concatenate(objs, axis=axis)
+
+
+def to_output(futures, type, client=None, verbose=False):
+    if type == 'cupy':
+        return to_dask_cupy(futures, client=client, verbose=verbose)
+    else:
+        return to_dask_cudf(futures, client=client, verbose=verbose)
+
+
+""" Internal methods, API subject to change """
 
 
 @gen.coroutine
@@ -119,6 +197,75 @@ def _extract_partitions(dask_obj, client=None):
     raise gen.Return(worker_to_parts)
 
 
+@gen.coroutine
+def _extract_colocated_partitions(X_ddf, y_ddf, client=None):
+    """
+    Given Dask cuDF input X and y, return an OrderedDict mapping
+    'worker -> [list of futures] of X and y' with the enforced
+     co-locality for each partition in ddf.
+
+    :param X_ddf: Dask.dataframe
+    :param y_ddf: Dask.dataframe
+    :param client: dask.distributed.Client
+    """
+
+    print("COLOCATED::::::::")
+
+    # print(X_ddf)
+    # print(y_ddf)
+
+    client = default_client() if client is None else client
+
+    if isinstance(X_ddf, dcDataFrame):
+        data_parts = X_ddf.to_delayed()
+        label_parts = y_ddf.to_delayed()
+
+    else:
+        data_arr = X_ddf.to_delayed().ravel()
+        to_map = data_arr
+        data_parts = list(map(delayed, to_map))
+        label_arr = y_ddf.to_delayed().ravel()
+        to_map2 = label_arr
+        label_parts = list(map(delayed, to_map2))
+        # data_parts = X_ddf.to_delayed().ravel()
+        # label_parts = y_ddf.to_delayed().ravel()
+
+    # wait(data_parts)
+    print(data_parts)
+
+
+    # if not isinstance(X_ddf, dcDataFrame):
+    #     wait(data_parts[0][1])
+    #     print(data_parts[0][1].compute())
+    #     data_parts = [dp[0] for dp in data_parts]
+        # label_parts = [lp[0] for lp in label_parts]
+
+    parts = list(map(delayed, zip(data_parts, label_parts)))
+    parts = client.compute(parts)
+    yield wait(parts)
+
+    print("::::B")
+    print(parts)
+
+    key_to_part_dict = dict([(part.key, part) for part in parts])
+    who_has = yield client.scheduler.who_has(
+        keys=[part.key for part in parts]
+    )
+
+    print(key_to_part_dict)
+    print(who_has)
+
+    worker_map = defaultdict(list)
+    for key, workers in who_has.items():
+        worker_map[first(workers)].append(key_to_part_dict[key])
+
+    print(worker_map)
+
+    print("::::::::COLOCATED")
+
+    return worker_map
+
+
 def _workers_to_parts(futures):
     """
     Builds an ordered dict mapping each worker to their list
@@ -134,14 +281,25 @@ def _workers_to_parts(futures):
     return w_to_p_map
 
 
-def get_ary_meta(ary):
+def _get_ary_meta(ary):
+    print(ary)
     return ary.shape, ary.dtype
+
+
+def _get_rows_from_colocated_tuple(obj):
+    return obj[0].shape[0]
+
+
+def _get_rows_from_single_obj(obj):
+    return obj.shape[0]
 
 
 def to_dask_cupy(futures, dtype=None, shapes=None, client=None, verbose=False):
 
+    wait(futures)
+
     c = default_client() if client is None else client
-    meta = [c.submit(get_ary_meta, future) for future in futures]
+    meta = [c.submit(_get_ary_meta, future) for future in futures]
 
     objs = []
     for i in range(len(futures)):
@@ -152,10 +310,3 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None, verbose=False):
             objs.append(obj)
 
     return da.concatenate(objs, axis=0)
-
-
-def to_output(futures, type, client=None, verbose=False):
-    if type == 'cupy':
-        return to_dask_cupy(futures, client=client, verbose=verbose)
-    else:
-        return to_dask_cudf(futures, client=client, verbose=verbose)
