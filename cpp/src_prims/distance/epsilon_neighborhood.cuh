@@ -147,30 +147,33 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
         auto is_neigh = acc[i][j] <= eps;
-        sums[i] += is_neigh;
         auto yid = starty + j * P::AccThCols;
         ///@todo: fix uncoalesced writes using shared mem
         if (xid < this->m && yid < this->n) {
           adj[xid * this->n + yid] = is_neigh;
+          sums[i] += is_neigh;
         }
       }
-      // perform reduction of adjacency values to compute vertex degrees
-      if (vd != nullptr) {
-        __syncthreads();
+    }
+    // perform reduction of adjacency values to compute vertex degrees
+    if (vd != nullptr) {
+      __syncthreads();
+#pragma unroll
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
           sums[i] += shfl(sums[i], lid + j);
         }
       }
-    }
-    if (lid % P::AccThCols == 0) {
+      if (lid % P::AccThCols == 0) {
 #pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        sRed[i * P::AccThCols + this->accrowid] = sums[i];
+        for (int i = 0; i < P::AccRowsPerTh; ++i) {
+          sRed[i * P::AccThCols + this->accrowid] = sums[i];
+        }
       }
+      __syncthreads();
+      updateResults();
     }
-    __syncthreads();
-    updateResults();
   }
 
   DI void accumulate() {
@@ -192,15 +195,25 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   }
 
   DI void updateResults() {
-    auto nWarps = blockDim.x / WarpSize;
-    auto lid = laneId();
-    auto ridx = IdxT(blockIdx.x) * P::Mblk;
-    if (lid == 0) {
-      for (int i = threadIdx.x / WarpSize; i < P::Mblk; i += nWarps) {
+    auto wid = threadIdx.x / WarpSize;
+    if (wid == 0) {
+      IdxT sum = 0;
+      auto ridx = IdxT(blockIdx.x) * P::Mblk;
+      auto lid = laneId();
+      // update the individual vertex degrees
+      for (int i = lid; i < P::Mblk; i += WarpSize) {
         auto rid = ridx + i;
         if (rid < this->m) {
-          myAtomicAdd(vd + rid, sRed[i]);
+          auto val = sRed[i];
+          myAtomicAdd(vd + rid, val);
+          sum += val;
         }
+      }
+      // update the edge count
+      warpFence();
+      sum = warpReduce<IdxT>(sum);
+      if (lid == 0) {
+        myAtomicAdd(vd + this->m, sum);
       }
     }
   }
