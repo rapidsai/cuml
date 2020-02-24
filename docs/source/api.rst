@@ -227,7 +227,7 @@ Nearest Neighbors Classification
 .. autoclass:: cuml.neighbors.KNeighborsClassifier
     :members:
 
-Nearest Neighbors Classification
+Nearest Neighbors Regression
 --------------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
@@ -251,7 +251,7 @@ Kalman Filter
 ARIMA
 -----
 
-.. autoclass:: cuml.tsa.ARIMAModel
+.. autoclass:: cuml.tsa.ARIMA
     :members:
 
 Multi-Node, Multi-GPU Algorithms
