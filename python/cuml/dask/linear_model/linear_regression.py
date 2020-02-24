@@ -13,19 +13,12 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions
-from cuml.dask.common import extract_colocated_ddf_partitions
-from cuml.dask.common import to_dask_cudf
+from cuml.dask.common.input_utils import MGData
+from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
-
-from collections import OrderedDict
-
 from dask.distributed import default_client
 from dask.distributed import wait
-
-from functools import reduce
-
 from uuid import uuid1
 
 
@@ -78,7 +71,7 @@ class LinearRegression(object):
         self._consec_call = 0
 
     @staticmethod
-    def _func_create_model(sessionId, **kwargs):
+    def _func_create_model(sessionId, datatype, **kwargs):
         try:
             from cuml.linear_model.linear_regression_mg \
                import LinearRegressionMG as cumlLinearRegression
@@ -88,15 +81,14 @@ class LinearRegression(object):
                             " enable multiGPU support.")
 
         handle = worker_state(sessionId)["handle"]
-        return cumlLinearRegression(handle=handle, **kwargs)
+        return cumlLinearRegression(handle=handle, output_type=datatype,
+                                    **kwargs)
 
     @staticmethod
-    def _func_fit_colocated(f, data, n_rows, n_cols, partsToSizes, rank):
-        return f.fit_colocated(data, n_rows, n_cols, partsToSizes, rank)
-
-    @staticmethod
-    def _func_fit(f, X, y, n_rows, n_cols, partsToSizes, rank):
-        return f.fit(X, y, n_rows, n_cols, partsToSizes, rank)
+    def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
+        print("dask")
+        print(data)
+        return f.fit(data, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
     def _func_predict(f, df, n_rows, n_cols, partsToSizes, rank):
@@ -122,145 +114,7 @@ class LinearRegression(object):
     def _func_get_size(df):
         return df.shape[0]
 
-    def _fit(self, X, y):
-        X_futures = self.client.sync(extract_ddf_partitions, X)
-        y_futures = self.client.sync(extract_ddf_partitions, y)
-
-        X_partition_workers = [w for w, xc in X_futures]
-        y_partition_workers = [w for w, xc in y_futures]
-
-        if set(X_partition_workers) != set(y_partition_workers):
-            raise ValueError("""
-              X  and y are not partitioned on the same workers expected \n_cols
-              Linear Regression""")
-
-        self.rnks = dict()
-        rnk_counter = 0
-        worker_to_parts = OrderedDict()
-        for w, p in X_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            if w not in self.rnks.keys():
-                self.rnks[w] = rnk_counter
-                rnk_counter = rnk_counter + 1
-            worker_to_parts[w].append(p)
-
-        # Future TODO: add a DefaultOrderedDict to utils
-        worker_to_parts_y = OrderedDict()
-        for w, p in y_futures:
-            if w not in worker_to_parts_y:
-                worker_to_parts_y[w] = []
-            worker_to_parts_y[w].append(p)
-
-        workers = list(map(lambda x: x[0], X_futures))
-
-        comms = CommsContext(comms_p2p=False)
-        comms.init(workers=workers)
-
-        worker_info = comms.worker_info(comms.worker_addresses)
-
-        key = uuid1()
-        partsToSizes = [(worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_get_size,
-            wf[1],
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)).result())
-            for idx, wf in enumerate(X_futures)]
-
-        n_cols = X.shape[1]
-        n_rows = reduce(lambda a, b: a + b, map(lambda x: x[1], partsToSizes))
-
-        key = uuid1()
-        self.linear_models = [(wf[0], self.client.submit(
-            LinearRegression._func_create_model,
-            comms.sessionId,
-            **self.kwargs,
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)))
-            for idx, wf in enumerate(worker_to_parts.items())]
-
-        key = uuid1()
-        linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_fit,
-            wf[1],
-            worker_to_parts[wf[0]],
-            worker_to_parts_y[wf[0]],
-            n_rows, n_cols,
-            partsToSizes,
-            worker_info[wf[0]]["r"],
-            key="%s-%s" % (key, idx),
-            workers=[wf[0]]))
-            for idx, wf in enumerate(self.linear_models)])
-
-        wait(list(linear_fit.values()))
-        raise_exception_from_futures(list(linear_fit.values()))
-
-        comms.destroy()
-
-        self.local_model = self.linear_models[0][1].result()
-        self.coef_ = self.local_model.coef_
-        self.intercept_ = self.local_model.intercept_
-
-    def _fit_with_colocality(self, X, y):
-        input_futures = self.client.sync(extract_colocated_ddf_partitions,
-                                         X, y, self.client)
-        workers = list(input_futures.keys())
-
-        comms = CommsContext(comms_p2p=False)
-        comms.init(workers=workers)
-
-        worker_info = comms.worker_info(comms.worker_addresses)
-
-        n_cols = X.shape[1]
-        n_rows = 0
-
-        self.rnks = dict()
-        partsToSizes = dict()
-        key = uuid1()
-        for w, futures in input_futures.items():
-            self.rnks[w] = worker_info[w]["r"]
-            parts = [(self.client.submit(
-                LinearRegression._func_get_size_cl,
-                future,
-                workers=[w],
-                key="%s-%s" % (key, idx)).result())
-                for idx, future in enumerate(futures)]
-
-            partsToSizes[worker_info[w]["r"]] = parts
-            for p in parts:
-                n_rows = n_rows + p
-
-        key = uuid1()
-        self.linear_models = [(w, self.client.submit(
-            LinearRegression._func_create_model,
-            comms.sessionId,
-            **self.kwargs,
-            workers=[w],
-            key="%s-%s" % (key, idx)))
-            for idx, w in enumerate(workers)]
-
-        key = uuid1()
-        linear_fit = dict([(worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_fit_colocated,
-            wf[1],
-            input_futures[wf[0]],
-            n_rows, n_cols,
-            partsToSizes,
-            worker_info[wf[0]]["r"],
-            key="%s-%s" % (key, idx),
-            workers=[wf[0]]))
-            for idx, wf in enumerate(self.linear_models)])
-
-        wait(list(linear_fit.values()))
-        raise_exception_from_futures(list(linear_fit.values()))
-
-        comms.destroy()
-
-        self.local_model = self.linear_models[0][1].result()
-        self.coef_ = self.local_model.coef_
-        self.intercept_ = self.local_model.intercept_
-
-    def fit(self, X, y, force_colocality=True):
+    def fit(self, X, y, force_colocality=False):
         """
         Fit the model with X and y. If force_colocality is set to True,
         the partitions of X and y will be re-distributed to force the
@@ -294,10 +148,53 @@ class LinearRegression(object):
                           the partitions)
         """
 
-        if force_colocality:
-            self._fit_with_colocality(X, y)
-        else:
-            self._fit(X, y)
+        # todo: add check for colocality in case force_colocality=False
+
+        X = self.client.persist(X)
+        y = self.client.persist(y)
+
+        data = MGData.colocated(data=(X, y), client=self.client)
+        self.datatype = data.datatype
+
+        comms = CommsContext(comms_p2p=False)
+        comms.init(workers=data.workers)
+
+        data.calculate_parts_to_sizes(comms)
+        self.ranks = data.ranks
+
+        n_cols = X.shape[1]
+
+        key = uuid1()
+        self.linear_models = [(w, self.client.submit(
+            LinearRegression._func_create_model,
+            comms.sessionId,
+            self.datatype,
+            **self.kwargs,
+            workers=[w],
+            key="%s-%s" % (key, idx)))
+            for idx, w in enumerate(data.workers)]
+
+        key = uuid1()
+        linear_fit = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
+            LinearRegression._func_fit,
+            wf[1],
+            data.gpu_futures[wf[0]],
+            data.total_rows,
+            n_cols,
+            data.parts_to_sizes,
+            data.worker_info[wf[0]]["r"],
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]]))
+            for idx, wf in enumerate(self.linear_models)])
+
+        wait(list(linear_fit.values()))
+        raise_exception_from_futures(list(linear_fit.values()))
+
+        comms.destroy()
+
+        # self.local_model = self.linear_models[0][1].result()
+        # self.coef_ = self.local_model.coef_
+        # self.intercept_ = self.local_model.intercept_
 
     def predict(self, X):
         """
@@ -311,33 +208,21 @@ class LinearRegression(object):
         -------
         y : dask cuDF (n_rows, 1)
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
-
-        worker_to_parts = OrderedDict()
-        for w, p in gpu_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            worker_to_parts[w].append(p)
-
-        key = uuid1()
-        partsToSizes = [(self.rnks[wf[0]], self.client.submit(
-            LinearRegression._func_get_size,
-            wf[1],
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)).result())
-            for idx, wf in enumerate(gpu_futures)]
-
+        X = X.persist()
         n_cols = X.shape[1]
-        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
+
+        data = MGData.single(X, client=self.client)
+        data.calculate_parts_to_sizes(ranks=self.ranks)
 
         key = uuid1()
-        linear_pred = dict([(self.rnks[wf[0]], self.client.submit(
+        linear_pred = dict([(self.ranks[wf[0]], self.client.submit(
             LinearRegression._func_predict,
             wf[1],
-            worker_to_parts[wf[0]],
-            n_rows, n_cols,
-            partsToSizes,
-            self.rnks[wf[0]],
+            data.worker_to_parts[wf[0]],
+            data.total_rows,
+            n_cols,
+            data.parts_to_sizes,
+            self.ranks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
             for idx, wf in enumerate(self.linear_models)])
@@ -347,7 +232,7 @@ class LinearRegression(object):
 
         out_futures = []
         completed_part_map = {}
-        for rank, size in partsToSizes:
+        for rank, size in data.parts_to_sizes:
             if rank not in completed_part_map:
                 completed_part_map[rank] = 0
 
@@ -357,7 +242,7 @@ class LinearRegression(object):
 
             completed_part_map[rank] += 1
 
-        return to_dask_cudf(out_futures)
+        return to_output(out_futures, self.datatype)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
