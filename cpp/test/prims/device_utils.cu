@@ -20,7 +20,21 @@
 
 namespace MLCommon {
 
-// assumed to have been launched with only one block
+/*
+ * Testing Methodology:
+ * 0. Testing with a kernel of only one block is enough to verify this prim
+ * 1. Assume that the threads in the block contain the following values:
+ *       0         1   2  ....  NThreads - 1
+ *       NThreads  ......................
+ *       ................................
+ *       ...................... blockDim.x - 1
+ * 2. This means, the resulting output of batchedBlockReduce<int, NThreads>
+ *    will be NThreads values and each of them is just a column-wise sum of
+ *    the above matrix
+ * 3. Repeat this for different block dimensions
+ * 4. Repeat this for different values of NThreads
+ */
+
 template <int NThreads>
 __global__ void batchedBlockReduceTestKernel(int* out) {
   extern __shared__ char smem[];
