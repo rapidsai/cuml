@@ -71,13 +71,14 @@ DI T batchedBlockReduce(T val, char *smem) {
   constexpr int nGroupsPerWarp = WarpSize / NThreads;
   static_assert(isPo2(nGroupsPerWarp), "nGroupsPerWarp must be a PO2!");
   const int nGroups = (blockDim.x + NThreads - 1) / NThreads;
-  int lid = laneId();
-  int lgid = lid % NThreads;
-  int gid = threadIdx.x / NThreads;
+  const int lid = laneId();
+  const int lgid = lid % NThreads;
+  const int gid = threadIdx.x / NThreads;
   const auto wrIdx = (gid / nGroupsPerWarp) * NThreads + lgid;
   const auto rdIdx = gid * NThreads + lgid;
   for (int i = nGroups; i > 0; ) {
-    if (gid < i) {
+    auto iAligned = ((i + nGroupsPerWarp - 1) / nGroupsPerWarp) * nGroupsPerWarp;
+    if (gid < iAligned) {
       val = batchedWarpReduce<T, NThreads>(val);
       if (lid < NThreads) sTemp[wrIdx] = val;
     }
