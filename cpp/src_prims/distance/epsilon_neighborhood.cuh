@@ -195,11 +195,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       sums[i] = batchedBlockReduce<IdxT, P::AccThCols>(sums[i], smem);
       auto cid = cidx + i * P::AccThCols;
       if (gid == 0 && cid < this->n) {
-        if (sizeof(IdxT) == 4) {
-          myAtomicAdd((unsigned*)(vd + cid), sums[i]);
-        } else if (sizeof(IdxT) == 8) {
-          myAtomicAdd((unsigned long long*)(vd + cid), sums[i]);
-        }
+        atomicUpdate(cid, sums[i]);
         totalSum += sums[i];
       }
       __syncthreads();  // for safe smem reuse
@@ -207,11 +203,15 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     // update the total edge count
     totalSum = blockReduce<IdxT>(totalSum, smem);
     if (threadIdx.x == 0) {
-      if (sizeof(IdxT) == 4) {
-        myAtomicAdd((unsigned*)(vd + this->n), totalSum);
-      } else if (sizeof(IdxT) == 8) {
-        myAtomicAdd((unsigned long long*)(vd + this->n), totalSum);
-      }
+      atomicUpdate(this->n, totalSum);
+    }
+  }
+
+  DI void atomicUpdate(IdxT addrId, IdxT val) {
+    if (sizeof(IdxT) == 4) {
+      myAtomicAdd((unsigned*)(vd + addrId), val);
+    } else if (sizeof(IdxT) == 8) {
+      myAtomicAdd((unsigned long long*)(vd + addrId), val);
     }
   }
 };  // struct EpsUnexpL2SqNeighborhood
