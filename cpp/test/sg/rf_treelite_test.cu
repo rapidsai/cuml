@@ -232,8 +232,11 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
   void TearDown() override {
     CUDA_CHECK(cudaStreamDestroy(stream));
+
     CUDA_CHECK(cudaFree(data_d));
+    CUDA_CHECK(cudaFree(inference_data_d));
     CUDA_CHECK(cudaFree(labels_d));
+    CUDA_CHECK(cudaFree(predicted_labels_d));
 
     delete[] forest->trees;
     delete forest;
