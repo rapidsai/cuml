@@ -24,6 +24,7 @@ import cudf
 import numpy as np
 from collections import defaultdict
 from numba import cuda
+import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -278,9 +279,10 @@ class Ridge(Base, RegressorMixin):
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1:
-            # TODO: Throw algorithm when this changes algorithm from the user's
-            # choice. Github issue #602
+        if self.n_cols == 1 and self.algo != 0:
+            warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' " +
+                          "solvers do not support training data with 1 " +
+                          "column currently.", UserWarning)
             self.algo = 0
 
         self.n_alpha = 1

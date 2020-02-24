@@ -17,6 +17,7 @@
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
 from cuml.utils.memory_utils import rmm_cupy_ary
+from cuml.utils.memory_utils import with_cupy_rmm
 
 from cuml.utils.numba_utils import row_matrix, zeros, device_array_from_ptr
 
@@ -25,3 +26,6 @@ from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 from cuml.utils.import_utils import has_cupy, has_dask, \
     check_min_numba_version, check_min_cupy_version, has_scipy
+
+from cuml.utils.kernel_utils import get_dtype_str
+from cuml.utils.kernel_utils import cuda_kernel_factory
