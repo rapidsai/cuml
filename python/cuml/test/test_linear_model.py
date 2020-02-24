@@ -290,7 +290,10 @@ def test_logistic_regression_predict_proba(dtype, nrows, column_info,
     culog = cuLog(fit_intercept=fit_intercept)
     culog.fit(X_train, y_train)
 
-    sklog = skLog(fit_intercept=fit_intercept)
+    if num_classes > 2:
+        sklog = skLog(fit_intercept=fit_intercept, solver="lbfgs", multi_class="multinomial")
+    else:
+        sklog=skLog(fit_intercept=fit_intercept)
     sklog.coef_ = culog.coef_.copy_to_host().T
     if fit_intercept:
         sklog.intercept_ = culog.intercept_.copy_to_host()
