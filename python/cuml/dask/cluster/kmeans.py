@@ -18,8 +18,7 @@ from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import MGData
 from cuml.dask.common.input_utils import to_output
 
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
-    workers_to_parts, raise_mg_import_exception
+from cuml.dask.common import raise_mg_import_exception
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
@@ -109,10 +108,10 @@ class KMeans(object):
 
         handle = worker_state(sessionId)["handle"]
 
-        df = concatenate(objs)
+        inp_data = concatenate(objs)
 
         return cumlKMeans(handle=handle, output_type=datatype,
-                          **kwargs).fit(df)
+                          **kwargs).fit(inp_data)
 
     @staticmethod
     def _func_transform(model, dfs):
@@ -229,10 +228,6 @@ class KMeans(object):
             for idx, wf in enumerate(data.worker_to_parts.items())]
         self.raise_exception_from_futures(kmeans_predict)
 
-        print("_parallell_func:::::")
-        print(kmeans_predict)
-        print(self.local_model.dtype)
-
         return to_output(kmeans_predict, self.datatype)
 
     def predict(self, X):
@@ -301,6 +296,8 @@ class KMeans(object):
         return self.fit(X).transform(X)
 
     def score(self, X):
+
+        # todo: update score
 
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
