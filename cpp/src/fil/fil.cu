@@ -79,20 +79,28 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
-    sigmoid and applying threshold */
+    sigmoid and applying threshold. in case of predict_proba, skips threshold
+    and fills in the converse probability */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
-                            float global_bias) {
+                            float global_bias, bool predict_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  float result = preds[i];
+
+  float result = preds[predict_proba ? i * 2 : i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
-  if ((output & output_t::THRESHOLD) != 0) {
+  if ((output & output_t::THRESHOLD) && !predict_proba) {
     result = result > threshold ? 1.0f : 0.0f;
   }
-  preds[i] = result;
+  // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
+  // that is also the default order, so we should use the same one
+  if (predict_proba) {
+    preds[i * 2] = 1.f - result;
+    preds[i * 2 + 1] = result;
+  } else
+    preds[i] = result;
 }
 
 struct forest {
@@ -121,7 +129,7 @@ struct forest {
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
   void predict(const cumlHandle& h, float* preds, const float* data,
-               size_t num_rows) {
+               size_t num_rows, bool predict_proba) {
     // Initialize prediction parameters.
     predict_params params;
     params.num_cols = num_cols_;
@@ -130,16 +138,17 @@ struct forest {
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
+    params.num_output_classes = predict_proba ? 2 : 1;
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
     // Transform the output if necessary.
-    if (output_ != output_t::RAW || global_bias_ != 0.0f) {
+    if (output_ != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
       transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
         preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-        threshold_, global_bias_);
+        threshold_, global_bias_, predict_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -316,6 +325,12 @@ int max_depth(const tl::Tree& tree) {
                           RECURSION_LIMIT);
 }
 
+int max_depth(const tl::Model& model) {
+  int depth = 0;
+  for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
+  return depth;
+}
+
 void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
                       bool* default_left, const tl::Tree::Node& node) {
   // in treelite (take left node if val [op] threshold),
@@ -441,10 +456,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
            param.pred_transform.c_str());
   }
   params->num_trees = model.trees.size();
-
-  int depth = 0;
-  for (const auto& tree : model.trees) depth = std::max(depth, max_depth(tree));
-  params->depth = depth;
+  params->depth = max_depth(model);
 }
 
 // uses treelite model with additional tl_params to initialize FIL params
@@ -496,15 +508,29 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
+  const tl::Model& model_ref = *(tl::Model*)model;
   if (storage_type == storage_type_t::AUTO) {
-    storage_type = storage_type_t::DENSE;
+    if (tl_params->algo == algo_t::ALGO_AUTO ||
+        tl_params->algo == algo_t::NAIVE) {
+      int depth = max_depth(model_ref);
+      // max 2**25 dense nodes, 256 MiB dense model size
+      const int LOG2_MAX_DENSE_NODES = 25;
+      int log2_num_dense_nodes =
+        depth + 1 + int(ceil(std::log2(model_ref.trees.size())));
+      storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES
+                       ? storage_type_t::SPARSE
+                       : storage_type_t::DENSE;
+    } else {
+      // only dense storage is supported for other algorithms
+      storage_type = storage_type_t::DENSE;
+    }
   }
 
   switch (storage_type) {
     case storage_type_t::DENSE: {
       forest_params_t params;
       std::vector<dense_node_t> nodes;
-      tl2fil_dense(&nodes, &params, *(tl::Model*)model, tl_params);
+      tl2fil_dense(&nodes, &params, model_ref, tl_params);
       init_dense(handle, pforest, nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
@@ -515,7 +541,7 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       forest_params_t params;
       std::vector<int> trees;
       std::vector<sparse_node_t> nodes;
-      tl2fil_sparse(&trees, &nodes, &params, *(tl::Model*)model, tl_params);
+      tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
@@ -533,8 +559,8 @@ void free(const cumlHandle& h, forest_t f) {
 }
 
 void predict(const cumlHandle& h, forest_t f, float* preds, const float* data,
-             size_t num_rows) {
-  f->predict(h, preds, data, num_rows);
+             size_t num_rows, bool predict_proba) {
+  f->predict(h, preds, data, num_rows, predict_proba);
 }
 
 }  // namespace fil

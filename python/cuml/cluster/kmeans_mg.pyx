@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, numba_utils
+from cuml.utils import input_to_cuml_array
 
 from cuml.cluster import KMeans
 
@@ -106,20 +106,20 @@ class KMeansMG(KMeans):
 
         """
 
-        cdef uintptr_t input_ptr
+        X_m, self.n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, order='C')
 
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
-            clust_cent = zeros(self.n_clusters * self.n_cols,
-                               dtype=self.dtype)
-            self.cluster_centers_ = rmm.to_device(clust_cent)
+            self._cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,
+                                                            self.n_cols),
+                                                     dtype=self.dtype,
+                                                     order='C')
 
-        cdef uintptr_t cluster_centers_ptr = \
-            get_dev_array_ptr(self.cluster_centers_)
+        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
         cdef size_t n_rows = self.n_rows
         cdef size_t n_cols = self.n_cols
@@ -164,11 +164,6 @@ class KMeansMG(KMeans):
                             ' passed.')
 
         self.handle.sync()
-        cc_df = cudf.DataFrame()
-        cc_df = cc_df.from_gpu_matrix(
-            self.cluster_centers_.reshape(self.n_clusters,
-                                          self.n_cols))
-        self.cluster_centers_ = cc_df
 
         del(X_m)
 

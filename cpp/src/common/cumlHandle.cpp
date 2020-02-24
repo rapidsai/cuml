@@ -191,6 +191,7 @@ cumlHandle_impl::cumlHandle_impl(int n_streams)
     _num_streams(n_streams),
     _cublasInitialized(false),
     _cusolverDnInitialized(false),
+    _cusolverSpInitialized(false),
     _cusparseInitialized(false),
     _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
     _hostAllocator(std::make_shared<defaultHostAllocator>()),
@@ -247,6 +248,14 @@ cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const {
     _cusolverDnInitialized = true;
   }
   return _cusolverDn_handle;
+}
+
+cusolverSpHandle_t cumlHandle_impl::getcusolverSpHandle() const {
+  if (!_cusolverSpInitialized) {
+    CUSOLVER_CHECK(cusolverSpCreate(&_cusolverSp_handle));
+    _cusolverSpInitialized = true;
+  }
+  return _cusolverSp_handle;
 }
 
 cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
@@ -322,6 +331,13 @@ void cumlHandle_impl::destroyResources() {
   }
   if (_cusolverDnInitialized) {
     cusolverStatus_t status = cusolverDnDestroy(_cusolverDn_handle);
+    if (CUSOLVER_STATUS_SUCCESS != status) {
+      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+      // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.
+    }
+  }
+  if (_cusolverSpInitialized) {
+    cusolverStatus_t status = cusolverSpDestroy(_cusolverSp_handle);
     if (CUSOLVER_STATUS_SUCCESS != status) {
       //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
       // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.

@@ -27,7 +27,8 @@ import rmm
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
-from cuml.utils import input_to_dev_array, rmm_cupy_ary
+from cuml.utils import input_to_dev_array
+from cuml.utils import with_cupy_rmm
 
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
@@ -184,6 +185,7 @@ class LogisticRegression(Base):
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
+        self.l1_ratio = None
         if self.penalty == 'elasticnet':
             if l1_ratio is None:
                 raise ValueError("l1_ratio has to be specified for"
@@ -225,6 +227,7 @@ class LogisticRegression(Base):
         else:
             self.verb_prefix = ""
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
@@ -253,7 +256,7 @@ class LogisticRegression(Base):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
-        unique_labels = rmm_cupy_ary(cp.unique, y_m)
+        unique_labels = cp.unique(y_m)
         num_classes = len(unique_labels)
 
         if num_classes > 2:
