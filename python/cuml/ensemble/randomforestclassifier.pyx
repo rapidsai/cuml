@@ -373,7 +373,8 @@ class RandomForestClassifier(Base):
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
                                       "classification models is currently not "
-                                      "implemented.")
+                                      "implemented. Please check cuml issue "
+                                      "#1679 for more information.")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
