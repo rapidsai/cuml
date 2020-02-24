@@ -432,6 +432,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                   fil_sparse_format, algo):
     use_handle = True
     ncols, n_info = column_info
+    numb_treees = 50
 
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
@@ -448,7 +449,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=50, handle=handle, max_leaves=-1,
+                       n_estimators=numb_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test,
@@ -502,6 +503,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
 
     ncols, n_info = column_info
     use_handle = True
+    numb_treees = 50
 
     if mode == 'unit':
         X, y = make_regression(n_samples=500, n_features=ncols,
@@ -527,7 +529,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=50, handle=handle, max_leaves=-1,
+                       n_estimators=numb_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     # predict using FIL
@@ -541,7 +543,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     fil_model = cuml_model.convert_to_fil_model()
     fil_model_preds = fil_model.predict(X_test)
     fil_model_r2 = r2_score(y_test, fil_model_preds, convert_dtype=datatype)
-    assert fil_acc == fil_model_r2
+    assert fil_r2 == fil_model_r2
 
     tl_model = cuml_model.convert_to_treelite_model()
 
