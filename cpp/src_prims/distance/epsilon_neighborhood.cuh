@@ -205,7 +205,11 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
         auto rid = ridx + i;
         if (rid < this->m) {
           auto val = sRed[i];
-          myAtomicAdd(vd + rid, val);
+          if (sizeof(IdxT) == 4) {
+            myAtomicAdd((unsigned*)(vd + rid), val);
+          } else if (sizeof(IdxT) == 8) {
+            myAtomicAdd((unsigned long long*)(vd + rid), val);
+          }
           sum += val;
         }
       }
@@ -213,7 +217,11 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       warpFence();
       sum = warpReduce<IdxT>(sum);
       if (lid == 0) {
-        myAtomicAdd(vd + this->m, sum);
+        if (sizeof(IdxT) == 4) {
+          myAtomicAdd((unsigned*)(vd + this->m), sum);
+        } else if(sizeof(IdxT) == 8) {
+          myAtomicAdd((unsigned long long*)(vd + this->m), sum);
+        }
       }
     }
   }
