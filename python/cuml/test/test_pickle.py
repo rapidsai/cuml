@@ -139,6 +139,7 @@ def make_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize('n_classes', [unit_param(2), unit_param(5)])
 def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                               n_classes, key):
+
     result = {}
 
     def create_mod():
@@ -160,16 +161,16 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
         return model, X_test
 
     def assert_model(pickled_model, X_test):
+
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
         # Confirm no crash from score
         pickled_model.score(X_test, np.zeros(X_test.shape[0]))
 
-    try:
+    if (n_classes > 2 and key != 'RandomForestRegressor'):
+        with pytest.raises(NotImplementedError):
+            pickle_save_load(tmpdir, create_mod, assert_model)
+    else:
         pickle_save_load(tmpdir, create_mod, assert_model)
-
-    except NotImplementedError:
-        pytest.xfail("Pickling for multi-class classification is not "
-                     "implemented.")
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
