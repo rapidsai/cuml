@@ -107,7 +107,6 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   DI void run() {
     prolog();
     loop();
-    __syncthreads();  // so that we can safely reuse smem
     epilog();
   }
 
@@ -184,7 +183,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   }
 
   DI void updateVertexDegree(IdxT (&sums)[P::AccColsPerTh]) {
-    __syncthreads();
+    __syncthreads();  // so that we can safely reuse smem
     int gid = threadIdx.x / P::AccThCols;
     int lid = threadIdx.x % P::AccThCols;
     auto cidx = IdxT(blockIdx.y) * P::Nblk + lid;
