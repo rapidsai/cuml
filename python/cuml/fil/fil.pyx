@@ -229,7 +229,7 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        preds = cudf.Series(zeros(n_rows, dtype=np.float32))
+        #preds = cudf.Series(zeros(n_rows, dtype=np.float32))
 
         if preds is None:
             preds = rmm.device_array(n_rows, dtype=np.float32)
@@ -238,7 +238,12 @@ cdef class ForestInference_impl():
             raise ValueError("Invalid type for output preds,"
                              " need GPU array")
 
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        #cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+
+        cdef uintptr_t preds_ptr
+        preds_m, preds_ptr, _, _, _ = input_to_dev_array(
+            preds, order='C',
+            check_dtype=np.float32)
 
         predict(handle_[0],
                 self.forest_data,

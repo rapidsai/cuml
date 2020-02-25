@@ -297,7 +297,7 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <size_t> rf_forest64
-        self._multi_class = False
+        self.num_classes = 2
     """
     TODO:
         Add the preprocess and postprocess functions
@@ -319,6 +319,7 @@ class RandomForestClassifier(Base):
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*>params_t64
 
+        state["num_classes"] = self.num_classes
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self._model_pbuf_bytes
 
@@ -338,7 +339,7 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[double, int]()
 
         self._model_pbuf_bytes = state["model_pbuf_bytes"]
-
+        self.num_classes = state["num_classes"]
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
             state["rf_forest"] = <size_t>rf_forest
@@ -399,9 +400,8 @@ class RandomForestClassifier(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def concatenate_treelite_bytes(self, treelite_handle, deep_check):
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+    def concatenate_treelite_handle(self, treelite_handle):
+        cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
         cdef uintptr_t mod_ptr
@@ -410,12 +410,16 @@ class RandomForestClassifier(Base):
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
-        concat_mod_bytes = \
-            concatenate_trees(handle_[0],
-                              deref(model_handles),
-                              <bool> deep_check)
+        concat_model_handle = concatenate_trees(deref(model_handles))
 
-        return concat_mod_bytes
+        concat_model_ptr = <size_t> concat_model_handle
+        return ctypes.c_void_p(concat_model_ptr).value
+
+    def concatenate_model_bytes(self, concat_model_handle):
+        cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
+        concat_model_bytes = save_model(<ModelHandle> model_ptr)
+        self._model_pbuf_bytes = concat_model_bytes
+        return concat_model_bytes
 
     def fit(self, X, y):
         """
@@ -453,7 +457,7 @@ class RandomForestClassifier(Base):
         num_unique_labels = len(unique_labels)
 
         if num_unique_labels > 2:
-            self._multi_class = True
+            self.num_classes = num_unique_labels
 
         for i in range(num_unique_labels):
             if i not in unique_labels:
@@ -524,10 +528,8 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype, concat_mod_bytes):
+                              num_classes, convert_dtype):
         cdef ModelHandle cuml_model_ptr = NULL
-        if len(concat_mod_bytes) != 0:
-            self._model_pbuf_bytes = concat_mod_bytes
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
@@ -544,6 +546,7 @@ class RandomForestClassifier(Base):
                               <vector[unsigned char] &> self._model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
+        print("goes to FIL")
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
@@ -563,6 +566,7 @@ class RandomForestClassifier(Base):
                                check_cols=self.n_cols)
 
         preds = cudf.Series(zeros(n_rows, dtype=np.int32))
+        print(" ERROR SEEN IN CUML CPU PREDICT")
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
         cdef cumlHandle* handle_ =\
@@ -604,8 +608,7 @@ class RandomForestClassifier(Base):
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
                 algo='BATCH_TREE_REORG',
-                num_classes=2, convert_dtype=True,
-                concat_mod_bytes=[]):
+                num_classes=2, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -625,14 +628,17 @@ class RandomForestClassifier(Base):
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
-        algo : string (default = 'BATCH_TREE_REORG')
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'NAIVE' - simple inference using shared memory
-            'TREE_REORG' - similar to naive but trees rearranged to be more
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
                            coalescing-friendly
-            'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+            'batch_tree_reorg' - similar to tree_reorg but predicting
                                  multiple rows per thread block
+            `algo` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -664,8 +670,7 @@ class RandomForestClassifier(Base):
         else:
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
-                                               num_classes, convert_dtype,
-                                               concat_mod_bytes)
+                                               num_classes, convert_dtype)
 
         return preds
 

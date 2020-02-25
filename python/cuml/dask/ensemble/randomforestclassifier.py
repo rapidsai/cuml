@@ -294,13 +294,18 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict_gpu(model, X_test, concat_mod_bytes):
-        preds = []
-        for i in range(len(X_test)):
-            X_test_df = X_test[i]
-            preds.append(model.predict(X_test_df,
-                                       concat_mod_bytes=concat_mod_bytes))
-        return preds
+    def _predict_gpu(X_test, model, output_class, algo,
+                     threshold, num_classes,
+                     convert_dtype, concat_mod_bytes):
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(" type pf X_test in _predict_gpu : ", type(X_test))
+        print("X_TEST : ", X_test)
+
+        predicted_labels = model.predict(X=X_test, output_class=output_class,
+                             algo=algo, threshold=threshold,
+                             convert_dtype=convert_dtype,
+                             concat_mod_bytes=concat_mod_bytes)
+        return predicted_labels
 
     @staticmethod
     def _predict_cpu(model, X, r):
@@ -339,27 +344,40 @@ class RandomForestClassifier:
         raise_exception_from_futures(futures)
         return self
 
-    def _concat_treelite_models(self, deep_check):
+    def _concat_treelite_models(self):
         """
         Convert the cuML Random Forest model present in different workers to
         the treelite format and then concatenate the different treelite models
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
+        for w in self.workers:
+            if self.rfs[w].result().num_classes > 2:
+                self._multi_class = True
+                break
+
         mod_bytes = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
+        print("self. workers : ", self.workers)
+
         worker_tcp_info = [i for i in self.workers]
+
+        print("worker_tcp_info : ", worker_tcp_info)
+        print("self.rfs : ", self.rfs)
         all_tl_mod_handles = []
         model = self.rfs[worker_tcp_info[0]].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_mod_bytes = model.concatenate_treelite_bytes(
-            treelite_handle=all_tl_mod_handles, deep_check=deep_check)
-
-        return concat_mod_bytes
+        concat_model_handle = model.concatenate_treelite_handle(
+            treelite_handle=all_tl_mod_handles)
+        concatenated_model_bytes = model.concatenate_model_bytes(concat_model_handle)
+        for w in self.workers:
+            print("each_worker_bytes : ", len(self.rfs[w].result()._model_pbuf_bytes))
+            self.rfs[w].result()._model_pbuf_bytes = concatenated_model_bytes
+        #return concat_model_bytes
 
     def fit(self, X, y):
         """
@@ -434,59 +452,84 @@ class RandomForestClassifier:
             )
 
         wait(futures)
-        raise_exception_from_futures(futures)
-
+        raise_exception_from_futures(futures)        
+        
         return self
 
-    def predict(self, X, deep_check=False):
+    def predict(self, X, output_class=True, algo='auto', threshold=0.5,
+                num_classes=2, convert_dtype=False,
+                predict_model="GPU"):
         """
         Predicts the labels for X.
 
         Parameters
         ----------
         X : dask cuDF dataframe or numpy array (n_samples, n_features)
-        deep_check : boolean (default = False)
-                     This is used to check if the concatenated forest used to
-                     predict the labels in GPU, have the right forest
-                     information.
-                     Set it to True if you want to run an extensive check of
-                     the concatenated treelite forest created. It will compare
-                     the position and value of each node present in each tree
-                     of the concatenated forest with respect to the original
-                     forests present in the different workers.
-                     Required only while using predict for binary
-                     classification.
+        output_class: boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+                           coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+                                 multiple rows per thread block
+            `algo` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
+        threshold : float (default = 0.5)
+            Threshold used for classification. Optional and required only
+            while performing the predict operation on the GPU.
+            It is applied if output_class == True, else it is ignored
+        num_classes : int (default = 2)
+                      number of different classes present in the dataset
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        predict_model : String (default = 'GPU')
+            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
+            be used if the model was trained on float32 data and `X` is float32
+            or convert_dtype is set to True.
         Returns
         ----------
         y: dask cuDF or numpy array of shape (n_samples, 1)
 
         """
-        for w in self.workers:
-            if self.rfs[w].result()._multi_class:
-                self._multi_class = True
 
-        if self._multi_class:
+        if self._multi_class or predict_model == "CPU":
             preds = self._predict_using_cpu(X)
 
         else:
-            preds = self._predict_using_fil(X, deep_check)
+            preds = self._predict_using_fil(X, output_class=True, algo='auto', threshold=0.5,
+                                            num_classes=2, convert_dtype=False,
+                                            predict_model="GPU")
 
         return preds
 
-    def _predict_using_fil(self, X, deep_check):
+    def _predict_using_fil(self, X, output_class=True, algo='auto', threshold=0.5,
+                           num_classes=2, convert_dtype=False,
+                           predict_model="GPU"):
 
-        concat_mod_bytes = self._concat_treelite_models(deep_check)
+        self._concat_treelite_models()
 
         c = default_client()
+        print("***************************************")
+        print(" X type : ", type(X))
+
         key = uuid1()
+        """
         gpu_futures = c.sync(extract_ddf_partitions, X)
         worker_to_parts = OrderedDict()
         for w, p in gpu_futures:
             if w not in worker_to_parts:
                 worker_to_parts[w] = []
             worker_to_parts[w].append(p)
-
-        workers = set(map(lambda x: x[0], gpu_futures))
 
         comms = CommsContext(comms_p2p=True)
         comms.init(workers=workers)
@@ -502,10 +545,16 @@ class RandomForestClassifier:
             for idx, wf in enumerate(gpu_futures)]
 
         key = uuid1()
+
         preds = dict([(worker_info[wf[0]]["r"], c.submit(
             RandomForestClassifier._predict_gpu,
             self.rfs[wf[0]],
             wf[1],
+            output_class,
+            algo,
+            threshold,
+            num_classes,
+            convert_dtype,
             concat_mod_bytes,
             workers=[wf[0]],
             key="%s-%s" % (key, idx)))
@@ -525,6 +574,37 @@ class RandomForestClassifier:
             completed_part_map[rank] += 1
 
         return to_dask_cudf(out_futures)
+
+        num_partitions = X.npartitions
+        num_workers = len(self.workers)
+        parts_per_worker = np.floor(num_partitions/num_workers)
+        preds = []
+        import numpy as np
+        X_dask = X.to_dask_dataframe()
+        print(" X_dask type : ", type(X_dask))
+        len_each_worker_data = np.floor(len(X)/len(self.workers))
+
+        print("length of X : ",len(X))
+        print("length o self.workers : ", len(self.workers))
+        print("len_each_worker_data : ", len_each_worker_data)
+        start_posi = 0
+        end_posi = parts_per_worker
+        for w in self.workers:
+        """
+        preds = X.partition[start_posi:end_posi].map_partitions(
+                self.rfs[w].result().predict,
+                predict_model,
+                output_class, threshold, algo,
+                num_classes, convert_dtype)
+        """
+            start_posi = end_posi
+            end_posi = end_posi + parts_per_worker
+            if idx == len_each_worker_data-2:
+                end_posi = num_partitions - end_posi
+            print("preds in dask : ", preds)
+        """
+        return preds
+
 
     def _predict_using_cpu(self, X):
         """

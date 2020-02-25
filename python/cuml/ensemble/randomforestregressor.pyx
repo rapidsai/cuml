@@ -388,8 +388,7 @@ class RandomForestRegressor(Base):
         return ctypes.c_void_p(mod_handle).value
 
     def concatenate_treelite_bytes(self, treelite_handle, deep_check):
-        cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+        cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
         cdef uintptr_t mod_ptr
@@ -398,12 +397,16 @@ class RandomForestRegressor(Base):
             model_handles.push_back((
                 <ModelHandle> mod_ptr))
 
-        concat_mod_bytes = \
-            concatenate_trees(handle_[0],
-                              deref(model_handles),
-                              <bool> deep_check)
+        concat_model_handle = concatenate_trees(deref(model_handles))
 
-        return concat_mod_bytes
+        concat_model_ptr = <size_t> concat_model_handle
+        return ctypes.c_void_p(concat_model_ptr).value
+
+    def concatenate_model_bytes(self, concat_model_handle):
+        cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
+        concat_model_bytes = save_model(<ModelHandle> model_ptr)
+        self._model_pbuf_bytes = concat_model_bytes
+        return concat_model_bytes
 
     def fit(self, X, y):
         """
