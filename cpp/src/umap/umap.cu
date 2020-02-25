@@ -44,6 +44,12 @@ void fit(const cumlHandle &handle,
          UMAPParams *params, float *embeddings) {
   UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, params, embeddings);
 }
+
+void find_ab(const cumlHandle &handle, UMAPParams *params) {
+  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.getDeviceAllocator();
+  UMAPAlgo::find_ab(params, d_alloc, stream);
+}
 UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
   : params(params) {
   this->handle = const_cast<cumlHandle *>(&handle);
