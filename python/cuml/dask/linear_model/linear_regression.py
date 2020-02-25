@@ -86,13 +86,12 @@ class LinearRegression(object):
 
     @staticmethod
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
-        print("dask")
-        print(data)
         return f.fit(data, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
-    def _func_predict(f, df, n_rows, n_cols, partsToSizes, rank):
-        return f.predict(df, n_rows, n_cols, partsToSizes, rank)
+    def _func_predict(f, df):
+        res = [f.predict(d) for d in df]
+        return res
 
     @staticmethod
     def _func_get_first(f):
@@ -165,7 +164,7 @@ class LinearRegression(object):
         n_cols = X.shape[1]
 
         key = uuid1()
-        self.linear_models = [(w, self.client.submit(
+        linear_models = [(w, self.client.submit(
             LinearRegression._func_create_model,
             comms.sessionId,
             self.datatype,
@@ -185,16 +184,16 @@ class LinearRegression(object):
             data.worker_info[wf[0]]["r"],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(self.linear_models)])
+            for idx, wf in enumerate(linear_models)])
 
         wait(list(linear_fit.values()))
         raise_exception_from_futures(list(linear_fit.values()))
 
         comms.destroy()
 
-        # self.local_model = self.linear_models[0][1].result()
-        # self.coef_ = self.local_model.coef_
-        # self.intercept_ = self.local_model.intercept_
+        self.local_model = linear_models[0][1].result()
+        self.coef_ = self.local_model.coef_
+        self.intercept_ = self.local_model.intercept_
 
     def predict(self, X):
         """
@@ -209,40 +208,35 @@ class LinearRegression(object):
         y : dask cuDF (n_rows, 1)
         """
         X = X.persist()
-        n_cols = X.shape[1]
 
         data = MGData.single(X, client=self.client)
-        data.calculate_parts_to_sizes(ranks=self.ranks)
 
         key = uuid1()
-        linear_pred = dict([(self.ranks[wf[0]], self.client.submit(
+        linear_pred = dict([(wf[0], self.client.submit(
             LinearRegression._func_predict,
-            wf[1],
+            self.local_model,
             data.worker_to_parts[wf[0]],
-            data.total_rows,
-            n_cols,
-            data.parts_to_sizes,
-            self.ranks[wf[0]],
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(self.linear_models)])
+            for idx, wf in enumerate(data.gpu_futures)])
 
-        wait(list(linear_pred.values()))
-        raise_exception_from_futures(list(linear_pred.values()))
+        raise_exception_from_futures(linear_pred.values())
 
-        out_futures = []
-        completed_part_map = {}
-        for rank, size in data.parts_to_sizes:
-            if rank not in completed_part_map:
-                completed_part_map[rank] = 0
 
-            f = linear_pred[rank]
-            out_futures.append(self.client.submit(
-                LinearRegression._func_get_idx, f, completed_part_map[rank]))
+        # loop to order the futures correctly to build the
+        # dask-dataframe/array
+        # todo: move this to util file
+        results = []
+        counters = dict.fromkeys(data.workers, 0)
+        for idx, part in enumerate(data.gpu_futures):
+            results.append(self.client.submit(
+                LinearRegression._func_get_idx,
+                linear_pred[part[0]],
+                counters[part[0]])
+            )
+            counters[part[0]] = counters[part[0]] + 1
 
-            completed_part_map[rank] += 1
-
-        return to_output(out_futures, self.datatype)
+        return to_output(results, self.datatype)
 
     def get_param_names(self):
         return list(self.kwargs.keys())

@@ -88,28 +88,6 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                   int algo,
                   bool verbose) except +
 
-    cdef void predict(cumlHandle& handle,
-                      RankSizePair **rank_sizes,
-                      size_t n_parts,
-                      floatData_t **input,
-                      size_t n_rows,
-                      size_t n_cols,
-                      float *coef,
-                      float intercept,
-                      floatData_t **preds,
-                      bool verbose) except +
-
-    cdef void predict(cumlHandle& handle,
-                      RankSizePair **rank_sizes,
-                      size_t n_parts,
-                      doubleData_t **input,
-                      size_t n_rows,
-                      size_t n_cols,
-                      double *coef,
-                      double intercept,
-                      doubleData_t **preds,
-                      bool verbose) except +
-
 
 class LinearRegressionMG(LinearRegression):
 
@@ -130,16 +108,6 @@ class LinearRegressionMG(LinearRegression):
 
         self._set_output_type(input_data[0][0])
 
-        print("::::CY")
-
-        print(n_rows)
-        print(n_cols)
-        print(partsToSizes)
-        print(rank)
-        print(self.output_type)
-
-
-
         arr_interfaces = []
         arr_interfaces_y = []
 
@@ -159,9 +127,6 @@ class LinearRegressionMG(LinearRegression):
             arr_interfaces_y.append({"obj": y_m,
                                      "data": y_m.ptr,
                                      "shape": (n_rows_y, n_cols_y)})
-
-        print(arr_interfaces)
-        print("::::CY")
 
         n_total_parts = len(input_data)
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
@@ -235,118 +200,6 @@ class LinearRegressionMG(LinearRegression):
         else:
             _freeDoubleD(data, arr_interfaces)
             _freeDoubleD(labels, arr_interfaces_y)
-
-    def predict(self, X, n_rows, n_cols, partsToSizes, rank):
-        """
-        Transform function for Linear Regression MG.
-        This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param n_rows: total number of rows
-        :param n_cols: total number of cols
-        :param partsToSizes: array of tuples in the format: [(rank,size)]
-        :return: self
-        """
-
-        out_type = self._get_output_type(X[0])
-
-        if n_cols != self.n_cols:
-            raise Exception("Number of columns of the X has to match with "
-                            "number of columns of the data was fit to model.")
-
-        arr_interfaces = []
-        for arr in X:
-            X_m, n_rows_X, n_cols_X, self.dtype = \
-                input_to_cuml_array(arr, check_dtype=[np.float32, np.float64])
-            arr_interfaces.append({"obj": X_m,
-                                   "data": X_m.ptr,
-                                   "shape": (n_rows_X, n_cols_X)})
-
-        n_total_parts = 0
-        for idx, rankSize in enumerate(partsToSizes):
-            rk, size = rankSize
-            if rank == rk:
-                n_total_parts = n_total_parts + 1
-
-        cdef RankSizePair **rankSizePair = <RankSizePair**> \
-            malloc(sizeof(RankSizePair**)
-                   * n_total_parts)
-
-        indx = 0
-        for idx, rankSize in enumerate(partsToSizes):
-            rk, size = rankSize
-            if rank == rk:
-                rankSizePair[indx] = <RankSizePair*> \
-                    malloc(sizeof(RankSizePair))
-                rankSizePair[indx].rank = <int>rank
-                rankSizePair[indx].size = <size_t>size
-                indx = indx + 1
-
-        cdef uintptr_t coef_ptr = self._coef_.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        cdef uintptr_t data
-        cdef uintptr_t pred_data
-        arr_interfaces_pred = []
-
-        if self.dtype == np.float32:
-            data = _build_dataFloat(arr_interfaces)
-            arr_interfaces_pred = _build_predData(partsToSizes,
-                                                       rank,
-                                                       1,
-                                                       np.float32)
-            pred_data = _build_dataFloat(arr_interfaces_pred)
-
-            predict(handle_[0],
-                    <RankSizePair**>rankSizePair,
-                    <size_t> n_total_parts,
-                    <floatData_t**> data,
-                    <size_t>n_rows,
-                    <size_t>n_cols,
-                    <float*> coef_ptr,
-                    <float>self.intercept_,
-                    <floatData_t**> pred_data,
-                    False)
-
-        else:
-            data = _build_dataDouble(arr_interfaces)
-            arr_interfaces_pred = _build_predData(partsToSizes,
-                                                       rank,
-                                                       1,
-                                                       np.float64)
-            pred_data = _build_dataDouble(arr_interfaces_pred)
-
-            predict(handle_[0],
-                    <RankSizePair**>rankSizePair,
-                    <size_t> n_total_parts,
-                    <doubleData_t**> data,
-                    <size_t>n_rows,
-                    <size_t>n_cols,
-                    <double*> coef_ptr,
-                    <double>self.intercept_,
-                    <doubleData_t**> pred_data,
-                    False)
-
-        self.handle.sync()
-
-        for idx in range(n_total_parts):
-            free(<RankSizePair*>rankSizePair[idx])
-        free(<RankSizePair**>rankSizePair)
-
-        del(X_m)
-
-        preds = []
-        for x_i in arr_interfaces_pred:
-            preds.append(x_i["obj"].to_output(self.output_type))
-
-        if self.dtype == np.float32:
-            _freeFloatD(pred_data, arr_interfaces_pred)
-            _freeFloatD(data, arr_interfaces)
-        else:
-            _freeDoubleD(pred_data, arr_interfaces_pred)
-            _freeDoubleD(data, arr_interfaces)
-
-        return preds
 
 
 # Util functions, will be moved to their own file as the other methods are
