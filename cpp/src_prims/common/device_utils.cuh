@@ -87,6 +87,7 @@ DI T batchedBlockReduce(T val, char *smem) {
     if (i > 0) {
       val = gid < i ? sTemp[rdIdx] : T(0);
     }
+    __syncthreads();
   }
   return val;
 }
