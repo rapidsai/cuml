@@ -202,8 +202,9 @@ class UMAP(Base):
         random_state is the seed used by the random number generator during
         embedding initialization and during sampling used by the optimizer.
         CAUTION : When random_state == None, the algorithm will run
-        a fully optimised version that produces inconsistent results across runs.
-        To produce consistent results, please specify a random_state value.
+        a fully optimised version that produces inconsistent
+        results across runs. To produce consistent results,
+        please specify a random_state value.
     callback: An instance of GraphBasedDimRedCallback class to intercept
               the internal state of embeddings while they are being trained.
               Example of callback usage:
@@ -314,7 +315,9 @@ class UMAP(Base):
 
         umap_params.multicore_implem = random_state is None
         rs = check_random_state(random_state)
-        umap_params.random_state = int(rs.randint(low=0, high=np.iinfo(np.uint64).max, dtype=np.uint64))
+        umap_params.random_state = int(rs.randint(low=0,
+                                                  high=np.iinfo(np.uint64).max,
+                                                  dtype=np.uint64))
 
         if target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
