@@ -14,7 +14,7 @@
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
-- PR #1639: Expose the build_treelite function for python
+- PR #1755: Expose the build_treelite function for python
 - PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
@@ -47,7 +47,6 @@
 - PR #1708: Correctly deallocate cuML handles in Cython
 - PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2) 
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
-- PR #1751: UpdateD the rf_reg `max_features` documentation
 
 # cuML 0.12.0 (Date TBD)
 
