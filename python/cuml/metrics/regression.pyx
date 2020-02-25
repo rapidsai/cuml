@@ -27,7 +27,9 @@ from libc.stdint cimport uintptr_t
 import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
 from cuml.metrics cimport regression
-from cuml.utils import input_to_dev_array
+from cuml.utils import input_to_dev_array, input_to_cuml_array
+
+from cuml.utils.memory_utils import with_cupy_rmm
 
 
 def r2_score(y, y_hat, convert_dtype=False, handle=None):
@@ -100,6 +102,7 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
     return result
 
 
+@with_cupy_rmm
 def mean_squared_error(y_true, y_pred,
                        sample_weight=None,
                        multioutput='uniform_average', squared=True,
@@ -143,22 +146,20 @@ def mean_squared_error(y_true, y_pred,
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    y_true, _, n_rows, n_cols, ytype = \
-        input_to_dev_array(y_true, check_dtype=[np.float32, np.float64,
+    y_true, n_rows, n_cols, ytype = \
+        input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
                                                 np.int32, np.int64])
-    y_true = cp.asarray(y_true)
 
-    y_pred, _, _, _, _ = \
-        input_to_dev_array(y_pred, check_dtype=ytype,
+    y_pred, _, _, _ = \
+        input_to_cuml_array(y_pred, check_dtype=ytype,
                            check_rows=n_rows, check_cols=n_cols)
-    y_pred = cp.asarray(y_pred)
 
     if sample_weight is not None:
-        sample_weight, _, _, _, _ = \
-            input_to_dev_array(sample_weight, check_dtype=ytype,
+        sample_weight, _, _, _ = \
+            input_to_cuml_array(sample_weight, check_dtype=ytype,
                                check_rows=n_rows, check_cols=n_cols)
-        sample_weight = cp.asarray(sample_weight)
 
+    raw_multioutput = False
     allowed_multioutput_str = ('raw_values', 'uniform_average',
                                'variance_weighted')
     if isinstance(multioutput, str):
@@ -166,23 +167,26 @@ def mean_squared_error(y_true, y_pred,
             raise ValueError("Allowed 'multioutput' string values are {}. "
                              "You provided multioutput={!r}"
                              .format(allowed_multioutput_str, multioutput))
+        elif multioutput == 'raw_values':
+            raw_multioutput = True
+        elif multioutput == 'uniform_average':
+            # pass None as weights to np.average: uniform mean
+            multioutput = None
     elif multioutput is not None:
-        multioutput, _, _, _, _ = \
-            input_to_dev_array(multioutput, check_dtype=ytype)
-        multioutput = cp.asarray(multioutput)
+        multioutput, _, _, _ = \
+            input_to_cuml_array(multioutput, check_dtype=ytype)
         if n_cols == 1:
             raise ValueError("Custom weights are useful only in "
                              "multi-output cases.")
 
-    output_errors = cp.average((y_true - y_pred) ** 2, axis=0,
-                               weights=sample_weight)
+    # (y_true - y_pred) ** 2
+    output_errors = cp.subtract(y_true, y_pred)
+    output_errors = cp.multiply(output_errors, output_errors)
 
-    if isinstance(multioutput, str):
-        if multioutput == 'raw_values':
-            return output_errors
-        elif multioutput == 'uniform_average':
-            # pass None as weights to np.average: uniform mean
-            multioutput = None
+    output_errors = cp.average(output_errors, axis=0, weights=sample_weight)
+
+    if raw_multioutput:
+        return output_errors
 
     mse = cp.average(output_errors, weights=multioutput)
     return mse if squared else cp.sqrt(mse)
