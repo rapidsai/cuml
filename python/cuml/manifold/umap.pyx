@@ -200,7 +200,10 @@ class UMAP(Base):
                 computing the hash. (default = False)
     random_state : int, RandomState instance or None, optional (default=None)
         random_state is the seed used by the random number generator during
-        embedding initialization and during sampling used by the optimizer
+        embedding initialization and during sampling used by the optimizer.
+        CAUTION : When random_state == None, the algorithm will run
+        a fully optimised version that produces inconsistent results across runs.
+        To produce consistent results, please specify a random_state value.
     callback: An instance of GraphBasedDimRedCallback class to intercept
               the internal state of embeddings while they are being trained.
               Example of callback usage:
