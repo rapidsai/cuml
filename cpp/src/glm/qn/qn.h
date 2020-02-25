@@ -62,14 +62,15 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
            T *f, int *num_iters, bool X_col_major, int loss_type,
            cudaStream_t stream) {
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
+  int C_len = (loss_type == 0) ? (C - 1) : C;
 
-  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C * N);
-
-  SimpleMat<T> z(tmp.data(), C, N);
+  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+                                 C_len * N);
+  SimpleMat<T> z(tmp.data(), C_len, N);
 
   switch (loss_type) {
     case 0: {
-      ASSERT(C == 1, "qn.h: logistic loss invalid C");
+      ASSERT(C == 2, "qn.h: logistic loss invalid C");
       LogisticLoss<T> loss(handle, D, fit_intercept);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
                                 grad_tol, linesearch_max_iter, lbfgs_memory,
@@ -83,7 +84,7 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
                                 verbosity, w0, f, num_iters, ord, stream);
     } break;
     case 2: {
-      ASSERT(C > 1, "qn.h: softmax invalid C");
+      ASSERT(C > 2, "qn.h: softmax invalid C");
       Softmax<T> loss(handle, D, C, fit_intercept);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
                                 grad_tol, linesearch_max_iter, lbfgs_memory,
@@ -96,25 +97,40 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
 }
 
 template <typename T>
+void qnDecisionFunction(const cumlHandle_impl &handle, T *Xptr, int N, int D,
+                        int C, bool fit_intercept, T *params, bool X_col_major,
+                        int loss_type, T *scores, cudaStream_t stream) {
+  // NOTE: While gtests pass X as row-major, and python API passes X as
+  // col-major, no extensive testing has been done to ensure that
+  // this function works correctly for both input types
+
+  STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
+  int C_len = (loss_type == 0) ? (C - 1) : C;
+
+  GLMDims dims(C_len, D, fit_intercept);
+
+  SimpleMat<T> X(Xptr, N, D, ordX);
+
+  SimpleMat<T> W(params, C_len, dims.dims);
+  SimpleMat<T> Z(scores, C_len, N);
+  linearFwd(handle, Z, X, W, stream);
+}
+
+template <typename T>
 void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
                bool fit_intercept, T *params, bool X_col_major, int loss_type,
                T *preds, cudaStream_t stream) {
-  STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
-
-  GLMDims dims(C, D, fit_intercept);
-
-  SimpleMat<T> X(Xptr, N, D, ordX);
+  int C_len = (loss_type == 0) ? (C - 1) : C;
+  MLCommon::device_buffer<T> scores(handle.getDeviceAllocator(), stream,
+                                    C_len * N);
+  qnDecisionFunction<T>(handle, Xptr, N, D, C, fit_intercept, params,
+                        X_col_major, loss_type, scores.data(), stream);
+  SimpleMat<T> Z(scores.data(), C_len, N);
   SimpleMat<T> P(preds, 1, N);
-
-  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C * N);
-  SimpleMat<T> Z(tmp.data(), C, N);
-
-  SimpleMat<T> W(params, C, dims.dims);
-  linearFwd(handle, Z, X, W, stream);
 
   switch (loss_type) {
     case 0: {
-      ASSERT(C == 1, "qn.h: logistic loss invalid C");
+      ASSERT(C == 2, "qn.h: logistic loss invalid C");
       auto thresh = [] __device__(const T z) {
         if (z > 0.0) return T(1);
         return T(0);
@@ -126,7 +142,7 @@ void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
       P.copy_async(Z, stream);
     } break;
     case 2: {
-      ASSERT(C > 1, "qn.h: softmax invalid C");
+      ASSERT(C > 2, "qn.h: softmax invalid C");
       MLCommon::Matrix::argmax(Z.data, C, N, preds, stream);
     } break;
     default: {

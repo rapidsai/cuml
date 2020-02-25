@@ -19,7 +19,7 @@ import pickle
 import pytest
 
 from cuml.test import test_arima
-from cuml.tsa.arima import ARIMAModel
+from cuml.tsa.arima import ARIMA
 from cuml.test.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package
 from cuml.test.test_svm import compare_svm
@@ -65,8 +65,8 @@ k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
     cuml.neighbors.NearestNeighbors])
 k_neighbors_models = k_neighbors_config.get_models()
 
-unfit_pickle_xfail = ['ARIMAModel', 'KalmanFilter', 'ForestInference']
-unfit_clone_xfail = ['ARIMAModel', 'ExponentialSmoothing', 'KalmanFilter',
+unfit_pickle_xfail = ['ARIMA', 'KalmanFilter', 'ForestInference']
+unfit_clone_xfail = ['ARIMA', 'ExponentialSmoothing', 'KalmanFilter',
                      'MBSGDClassifier', 'MBSGDRegressor']
 
 all_models = get_classes_from_package(cuml)
@@ -81,11 +81,11 @@ all_models.update({
     **umap_model,
     **rf_models,
     **k_neighbors_models,
-    'ARIMAModel': lambda: ARIMAModel((1, 1, 1),
-                                     np.array([-217.72, -206.77]),
-                                     [np.array([0.03]), np.array([-0.03])],
-                                     [np.array([-0.99]), np.array([-0.99])],
-                                     test_arima.get_data()[1]),
+    'ARIMA': lambda: ARIMA((1, 1, 1),
+                           np.array([-217.72, -206.77]),
+                           [np.array([0.03]), np.array([-0.03])],
+                           [np.array([-0.99]), np.array([-0.99])],
+                           test_arima.get_data()[1]),
     'ExponentialSmoothing':
         lambda: cuml.ExponentialSmoothing(np.array([-217.72, -206.77])),
     'KalmanFilter': lambda: cuml.KalmanFilter(1, 1),
@@ -439,11 +439,11 @@ def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
         nrows, ncols, n_info = data_size
         X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
         model = dbscan_model[keys]()
-        result["dbscan"] = model.fit_predict(X_train).to_array()
+        result["dbscan"] = model.fit_predict(X_train)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
-        pickle_after_predict = pickled_model.fit_predict(X_train).to_array()
+        pickle_after_predict = pickled_model.fit_predict(X_train)
         assert array_equal(result["dbscan"], pickle_after_predict)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
