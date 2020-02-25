@@ -68,16 +68,16 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
 }
 
 /**
- * @brief Compute a kNN and returns the indexes of the nearest neighbors
+ * @brief Compute a kNN and returns the indices of the nearest neighbors
  * @param input Input matrix holding the dataset
  * @param n Number of samples
  * @param d Number of features
  * @param d_alloc the device allocator to use for temp device memory
  * @param stream cuda stream to use
- * @return Matrix holding the indexes of the nearest neighbors
+ * @return Matrix holding the indices of the nearest neighbors
  */
 template <typename math_t>
-long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
+long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
                       std::shared_ptr<deviceAllocator> d_alloc,
                       cudaStream_t stream) {
   long *d_pred_I =
@@ -127,7 +127,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
 
   int64_t *ind_X_embedded =
-    get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
+    get_knn_indices(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
 
   double t_tmp = 0.0;
   double t = 0.0;

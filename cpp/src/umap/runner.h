@@ -51,8 +51,8 @@ using namespace MLCommon::Sparse;
 
 template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
-                               const T *embeddings, int embeddings_n,
-                               int n_components, T *result, int n_neighbors) {
+                               const double *embeddings, int embeddings_n,
+                               int n_components, double *result, int n_neighbors) {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   int i =
@@ -64,6 +64,24 @@ __global__ void init_transform(int *indices, T *weights, int n,
         result[row * n_components + d] +=
           weights[i + j] * embeddings[indices[i + j] * n_components + d];
       }
+    }
+  }
+}
+
+
+/**
+ * Kernel upcasting embeddings from floats to doubles
+ */
+template <int TPB_X>
+__global__ void apply_upcasting_kernel(
+  float *before, double *after, int n_vertices, int n_components) {
+
+  int vertice_idx = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (vertice_idx < n_vertices) {
+    before += vertice_idx * n_components;
+    after += vertice_idx * n_components;
+    for (int d = 0; d < n_components; d++) {
+      after[d] = before[d];
     }
   }
 }
@@ -83,9 +101,15 @@ void _fit(const cumlHandle &handle,
           T *X,   // input matrix
           int n,  // rows
           int d,  // cols
-          UMAPParams *params, T *embeddings) {
+          UMAPParams *params, double *embeddings_storage) {
   cudaStream_t stream = handle.getStream();
   auto d_alloc = handle.getDeviceAllocator();
+
+  /**
+   * Allocate temporary embedding for initialization
+   */
+  MLCommon::device_buffer<float> embeddings_buf(d_alloc, stream, n * params->n_components);
+  float* embeddings = embeddings_buf.data();
 
   int k = params->n_neighbors;
 
@@ -121,15 +145,23 @@ void _fit(const cumlHandle &handle,
   InitEmbed::run(handle, X, n, d, knn_indices.data(), knn_dists.data(),
                  &cgraph_coo, params, embeddings, stream, params->init);
 
+  /**
+   * Upcast embedding before optimization (fixes atomicAdd problem)
+   */
+  dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+  apply_upcasting_kernel<TPB_X><<<grid, blk, 0, stream>>>(
+      embeddings, embeddings_storage, n, params->n_components);
+
   if (params->callback) {
-    params->callback->setup<T>(n, params->n_components);
-    params->callback->on_preprocess_end(embeddings);
+    params->callback->setup<double>(n, params->n_components);
+    params->callback->on_preprocess_end(embeddings_storage);
   }
 
   /**
-		 * Run simplicial set embedding to approximate low-dimensional representation
-		 */
-  SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
+   * Run simplicial set embedding to approximate low-dimensional representation
+   */
+  SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings_storage,
                                d_alloc, stream);
 
   if (params->callback) params->callback->on_train_end(embeddings);
@@ -139,9 +171,15 @@ template <typename T, int TPB_X>
 void _fit(const cumlHandle &handle,
           T *X,  // input matrix
           T *y,  // labels
-          int n, int d, UMAPParams *params, T *embeddings) {
+          int n, int d, UMAPParams *params, double *embeddings_storage) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
+
+  /**
+   * Allocate temporary embedding for initialization
+   */
+  MLCommon::device_buffer<float> embeddings_buf(d_alloc, stream, n * params->n_components);
+  float* embeddings = embeddings_buf.data();
 
   int k = params->n_neighbors;
 
@@ -214,12 +252,23 @@ void _fit(const cumlHandle &handle,
   InitEmbed::run(handle, X, n, d, knn_indices.data(), knn_dists.data(), &ocoo,
                  params, embeddings, stream, params->init);
 
-  if (params->callback) params->callback->on_preprocess_end(embeddings);
+  /**
+   * Upcast embedding before optimization (fixes atomicAdd problem)
+   */
+  dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+  apply_upcasting_kernel<TPB_X><<<grid, blk, 0, stream>>>(
+      embeddings, embeddings_storage, n, params->n_components);
+
+  if (params->callback) {
+    params->callback->setup<double>(n, params->n_components);
+    params->callback->on_preprocess_end(embeddings_storage);
+  }
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
-  SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, d_alloc,
+  SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings_storage, d_alloc,
                                stream);
 
   if (params->callback) params->callback->on_train_end(embeddings);
@@ -232,8 +281,8 @@ void _fit(const cumlHandle &handle,
 	 */
 template <typename T, int TPB_X>
 void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
-                int orig_n, T *embedding, int embedding_n, UMAPParams *params,
-                T *transformed) {
+                int orig_n, double *embedding, int embedding_n, UMAPParams *params,
+                double *transformed) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -386,10 +435,19 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     std::cout << "Performing optimization" << std::endl;
   }
 
-  SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
+  if (params->multicore_implem) {
+    SimplSetEmbedImpl::optimize_layout<TPB_X, T, true>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
     params, n_epochs, d_alloc, stream);
+  } else {
+    SimplSetEmbedImpl::optimize_layout<TPB_X, T, false>(
+    transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
+    comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
+    params, n_epochs, d_alloc, stream);
+  }
+
+  if (params->callback) params->callback->on_train_end(transformed);
 }
 
 }  // namespace UMAPAlgo

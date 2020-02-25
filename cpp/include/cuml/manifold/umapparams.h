@@ -152,6 +152,8 @@ class UMAPParams {
 
   uint64_t random_state = 0;
 
+  bool multicore_implem = true;
+
   GraphBasedDimRedCallback* callback = nullptr;
 };
 
