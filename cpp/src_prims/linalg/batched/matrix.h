@@ -1056,24 +1056,99 @@ DI void generate_givens(T a, T b, T& c, T& s) {
 }
 
 /**
+ * @todo: docs
+ */
+template <typename T>
+DI bool ahues_tisseur(const T* d_M, int i, int n, T eps = 1e-10,
+                      T near_zero = 1e-14) {
+  /// TODO: limits per type (float/double)
+  T h00 = d_M[(i - 1) * n + i - 1];
+  T h10 = d_M[(i - 1) * n + i];
+  T h01 = d_M[i * n + i - 1];
+  T h11 = d_M[i * n + i];
+
+  return (abs(h10) * abs(h01) <
+          max(eps * abs(h11) * abs(h11 - h00), near_zero));
+}
+
+/**
+ * @todo: - docs
+ *        - write a shared-mem version and benchmark both
+ */
+template <typename T>
+__global__ void francis_convergence_kernel(T* d_H, int* d_p, int n, int p,
+                                           int batch_size,
+                                           bool force_convergence) {
+  int ib = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if (ib < batch_size) {
+    T* b_H = d_H + ib * n * n;
+
+    // Set to zero all the subdiagonals elements that satisfy Ahues and
+    // Tisseur's criterion
+    for (int k = 1; k < p; k++) {
+      if (ahues_tisseur(b_H, k, n)) b_H[(k - 1) * n + k] = 0;
+    }
+
+    // Fake convergence if necessary
+    int forced = 0;
+    if (force_convergence) {
+      if (abs(b_H[(p - 2) * n + p - 1]) < abs(b_H[(p - 3) * n + p - 2]))
+        forced = 1;
+      else
+        forced = 2;
+    }
+
+    // Decrease p if possible
+    if (d_p[ib] == p && (forced == 1 || b_H[(p - 2) * n + p - 1] == 0))
+      d_p[ib] = p - 1;
+    else if (d_p[ib] == p && (forced == 2 || b_H[(p - 3) * n + p - 2] == 0))
+      d_p[ib] = p - 2;
+  }
+}
+
+/**
  * @todo: - docs
  *        - try to write a shared-mem version and benchmark both
  *        - add more comments
  * @note: from Matrix Computations 3rd ed (Golub and Van Loan, 1996),
- *        algorithms 7.5.1 and 7.5.2
+ *        algorithm 7.5.1
  */
 template <typename T>
-__global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
-                                       int n, int p, int reduced_batch_size,
+__global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_index, int n,
+                                       int p, int reduced_batch_size,
                                        bool force_convergence) {
   int ib = blockDim.x * blockIdx.x + threadIdx.x;
+
+  // H has the following form:
+  //  _________________
+  // | H11 | H12 | H13 |  q
+  // |_____|_____|_____|
+  // |  0  | H22 | H23 | p-q
+  // |_____|_____|_____|
+  // |  0  |  0  | H33 | n-p
+  // |_____|_____|_____|
+  //    q    p-q   n-p
+  //
+  // Where H22 is unreduced, H33 is upper quasi-triangular, and q and p as
+  // small as possible.
+  //
+  // We perform a Francis QR step on H22 = H[q:p, q:p] and update H and U
+  // accordingly.
 
   if (ib < reduced_batch_size) {
     int original_id = d_index[ib];
     T* b_U = d_U + original_id * n * n;
     T* b_H = d_H + original_id * n * n;
 
-    // Compute first column of (H-aI)(H-bI)
+    // Find q
+    int q = 0;
+    for (int k = p - 2; k > 0; k--) {
+      if (b_H[(k - 1) * n + k] == 0) q = max(q, k);
+    }
+
+    // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
+    // of the trailing matrix of H22
     T v[3];
     {
       T x00 = b_H[(p - 2) * n + p - 2];
@@ -1082,18 +1157,19 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
       T x11 = b_H[(p - 1) * n + p - 1];
       T s = x00 + x11;
       T t = x00 * x11 - x10 * x01;
-      T h00 = b_H[0];
-      T h10 = b_H[1];
-      T h01 = b_H[n];
-      T h11 = b_H[n + 1];
-      T h21 = b_H[n + 2];
+      T h00 = b_H[q * n + q];
+      T h10 = b_H[q * n + q + 1];
+      T h01 = b_H[(q + 1) * n + q];
+      T h11 = b_H[(q + 1) * n + q + 1];
+      T h21 = b_H[(q + 1) * n + q + 2];
 
       v[0] = (h00 - s) * h00 + h01 * h10 + t;
       v[1] = h10 * (h00 + h11 - s);
       v[2] = h10 * h21;
     }
 
-    for (int k = 0; k < p - 2; k++) {
+    /// TODO: check how thread divergence impacts performance
+    for (int k = q; k < p - 2; k++) {
       // Generate a reflector P such that Pv' = a e1
       T u[3];
       generate_householder_vector(u, v, 3);
@@ -1105,8 +1181,8 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
       P[4] = (T)-2 * u[1] * u[2];
       P[5] = (T)1 - (T)2 * u[2] * u[2];
 
-      // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(0, k - 1)
-      for (int j = max(0, k - 1); j < n; j++) {
+      // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1)
+      for (int j = max(q, k - 1); j < n; j++) {
         T h0 = b_H[j * n + k];
         T h1 = b_H[j * n + k + 1];
         T h2 = b_H[j * n + k + 2];
@@ -1162,34 +1238,6 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_p, int* d_index,
         T u1 = b_U[(p - 1) * n + i];
         b_U[(p - 2) * n + i] = u0 * c - u1 * s;
         b_U[(p - 1) * n + i] = u0 * s + u1 * c;
-      }
-    }
-
-    // Convergence test
-    {
-      T h0 = abs(b_H[(p - 2) * n + p - 1]);
-      T h1 = abs(b_H[(p - 3) * n + p - 2]);
-
-      int8_t which_conv = !force_convergence ? 0 : (h0 < h1 ? 1 : 2);
-
-      constexpr T eps = 1e-6;
-      constexpr T near_zero = 1e-6;
-      // |H[p-1, p-2]| < eps * (|H[p-2, p-2]| + |H[p-1, p-1]|)
-      if (which_conv == 1 || h0 < max(eps * (abs(b_H[(p - 2) * n + p - 2]) +
-                                             abs(b_H[(p - 1) * n + p - 1])),
-                                      near_zero)) {
-        // H[p-1, p-2] = 0
-        b_H[(p - 2) * n + p - 1] = (T)0;
-        d_p[original_id] = p - 1;
-      }
-      // |H[p-2, p-3]| < eps * (|H[p-3, p-3]| + |H[p-2, p-2]|)
-      else if (which_conv == 2 ||
-               h1 < max(eps * (abs(b_H[(p - 3) * n + p - 3]) +
-                               abs(b_H[(p - 2) * n + p - 2])),
-                        near_zero)) {
-        // H[p-2, p-3] = 0
-        b_H[(p - 3) * n + p - 2] = (T)0;
-        d_p[original_id] = p - 2;
       }
     }
   }
@@ -1249,53 +1297,6 @@ void create_index_from_mask(device_buffer<MaskT>& mask_buffer,
 }
 
 /**
- * @todo: docs
- */
-template <typename T>
-void francis_qr_step(Matrix<T>& U, Matrix<T>& H, thrust::device_ptr<int>& p_ptr,
-                     int max_p, bool force_convergence = false) {
-  int n = U.shape().first;
-  int batch_size = U.batches();
-  auto stream = U.stream();
-  auto allocator = U.allocator();
-  auto counting = thrust::make_counting_iterator(0);
-
-  /// TODO: it is a waste to recreate all these buffers each time! -> reuse them
-
-  //
-  // Extract a reduced batch with only the matrices with the largest
-  // working area (value of p)
-  //
-
-  // Create a mask of the batch members with max p value and the cumulative
-  // sum of this mask
-  device_buffer<bool> mask_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<bool> mask_thrust(mask_buffer.data());
-  thrust::transform(thrust::cuda::par.on(stream), p_ptr, p_ptr + batch_size,
-                    mask_thrust, unary_eq<int, bool>(max_p));
-
-  int reduced_batch_size;
-  device_buffer<int> cumul_buffer(allocator, stream, batch_size);
-  device_buffer<int> index_buffer(allocator, stream, batch_size);
-
-  create_index_from_mask(mask_buffer, cumul_buffer, index_buffer, batch_size,
-                         &reduced_batch_size, stream);
-
-  //
-  // Execute a Francis QR step
-  //
-
-  if (reduced_batch_size > 0) {
-    constexpr int TPB = 256;
-    francis_qr_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
-                             stream>>>(U.raw_data(), H.raw_data(), p_ptr.get(),
-                                       index_buffer.data(), n, max_p,
-                                       reduced_batch_size, force_convergence);
-    CUDA_CHECK(cudaPeekAtLastError());
-  }
-}
-
-/**
  * @brief Schur decomposition A = USU', where U is unitary and S is a
  *        block-upper triangular matrix with block size <= 2
  * @todo: docs
@@ -1318,22 +1319,75 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
 
   //
   // Francis QR algorithm
+  // From Matrix Computations 3rd ed (Golub and Van Loan, 1996), algo 7.5.2
   //
 
   device_buffer<int> p_buffer(allocator, stream, batch_size);
   thrust::device_ptr<int> p_ptr = thrust::device_pointer_cast(p_buffer.data());
   thrust::fill(thrust::cuda::par.on(stream), p_ptr, p_ptr + batch_size, n);
 
+  device_buffer<bool> mask_buffer(allocator, stream, batch_size);
+  device_buffer<int> cumul_buffer(allocator, stream, batch_size);
+  device_buffer<int> index_buffer(allocator, stream, batch_size);
+  thrust::device_ptr<bool> mask_thrust(mask_buffer.data());
+
+  /// TODO: general iteration limit?
+
   int iter = 0;
   int step_iter = 0;
   int max_p = n;
   int prev_max_p = max_p;
   while (max_p > 2) {
-    francis_qr_step(U, S, p_ptr, max_p, step_iter == max_iter_per_step);
+    //
+    // Set to zero all the subdiagonals elements that satisfy Ahues and
+    // Tisseur's criterion and test for convergence (update p)
+    // Fake convergence after the iteration limit
+    //
+    {
+      bool force_conv = (step_iter >= max_iter_per_step);
+      constexpr int TPB = 256;
+      francis_convergence_kernel<<<ceildiv<int>(batch_size, TPB), TPB, 0,
+                                   stream>>>(S.raw_data(), p_ptr.get(), n,
+                                             max_p, batch_size, force_conv);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
 
+    //
+    // Reduce the p buffer to compute the maximum value of p
+    //
     max_p = thrust::reduce(thrust::cuda::par.on(stream), p_ptr,
                            p_ptr + batch_size, 0, thrust::maximum<int>());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));  // TODO: sync unnecessary?
+
+    if (max_p <= 2) break;
+
+    //
+    // Extract a reduced batch with only the matrices with the largest
+    // working area (value of p)
+    //
+
+    // Create a mask of the batch members with max p value and the cumulative
+    // sum of this mask
+    thrust::transform(thrust::cuda::par.on(stream), p_ptr, p_ptr + batch_size,
+                      mask_thrust, unary_eq<int, bool>(max_p));
+
+    int reduced_batch_size;
+
+    create_index_from_mask(mask_buffer, cumul_buffer, index_buffer, batch_size,
+                           &reduced_batch_size, stream);
+
+    //
+    // Execute a Francis QR step
+    //
+
+    if (reduced_batch_size > 0) {
+      constexpr int TPB = 256;
+      francis_qr_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
+                               stream>>>(
+        U.raw_data(), S.raw_data(), index_buffer.data(), n, max_p,
+        reduced_batch_size, step_iter == max_iter_per_step);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
 
     if (max_p < prev_max_p) {
       step_iter = 0;
@@ -1812,6 +1866,26 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     compare_mat(
       b_gemm(A, b_gemm(X, A, false, true)) - X + Q,
       Matrix<T>(n, n, batch_size, A.cublasHandle(), allocator, stream, true));
+
+    /// TODO: remove
+    Matrix<T> schur_diff =
+      b_aA_op_B(b_gemm(U, b_gemm(R, U, false, true)), B.transpose(),
+                [] __device__(T a, T b) { return abs(a - b); });
+    Matrix<T> lyapu_diff = b_aA_op_B(
+      b_gemm(A, b_gemm(X, A, false, true)) - X + Q,
+      Matrix<T>(n, n, batch_size, A.cublasHandle(), allocator, stream, true),
+      [] __device__(T a, T b) { return abs(a - b); });
+    for (int ib = 0; ib < batch_size; ib++) {
+      thrust::device_ptr<T> schur_diff_ptr(schur_diff.raw_data() + n * n * ib);
+      T err_schur =
+        thrust::reduce(thrust::cuda::par.on(A.stream()), schur_diff_ptr,
+                       schur_diff_ptr + n * n, (T)0, thrust::maximum<T>());
+      thrust::device_ptr<T> lyapu_diff_ptr(lyapu_diff.raw_data() + n * n * ib);
+      T err_lyapu =
+        thrust::reduce(thrust::cuda::par.on(A.stream()), lyapu_diff_ptr,
+                       lyapu_diff_ptr + n * n, (T)0, thrust::maximum<T>());
+      std::cout << ib << "," << err_schur << "," << err_lyapu << std::endl;
+    }
 
     return X;
   }
