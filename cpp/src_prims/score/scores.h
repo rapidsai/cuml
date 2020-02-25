@@ -32,7 +32,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
-#define MAX_BATCH_SIZE 512
 #define N_THREADS 512
 
 namespace MLCommon {
@@ -58,6 +57,9 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
 
   knn_index_t idx = ind_X_embedded[n_idx * (n_neighbors + 1) + nn_idx];
   math_t *sample_i = &ind_X[n_idx * n];
+
+  // TODO: This could probably be binary searched, based on
+  // the distances, as well. (re: https://github.com/rapidsai/cuml/issues/1698)
   for (int r = 1; r < n; r++) {
     if (sample_i[r] == idx) {
       int tmp = r - n_neighbors;
@@ -114,13 +116,10 @@ template <typename math_t, Distance::DistanceType distance_type>
 double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
                              int n_neighbors,
                              std::shared_ptr<deviceAllocator> d_alloc,
-                             cudaStream_t stream) {
-  const int TMP_SIZE = MAX_BATCH_SIZE * n;
+                             cudaStream_t stream, int batchSize = 512) {
+  const int TMP_SIZE = batchSize * n;
 
-  size_t workspaceSize =
-    0;  // EucUnexpandedL2Sqrt does not require workspace (may need change for other distances)
   typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-  bool bAllocWorkspace = false;
 
   math_t *d_pdist_tmp =
     (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
@@ -135,36 +134,56 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
 
   int toDo = n;
   while (toDo > 0) {
-    int batchSize = min(toDo, MAX_BATCH_SIZE);
-    // Takes at most MAX_BATCH_SIZE vectors at a time
+    int curBatchSize = min(toDo, batchSize);
+
+    // Takes at most batchSize vectors at a time
+
+    size_t workspaceSize = 0;
 
     MLCommon::Distance::distance<distance_type, math_t, math_t, math_t,
                                  OutputTile_t>(
-      &X[(n - toDo) * m], X, d_pdist_tmp, batchSize, n, m, (void *)nullptr,
+      &X[(n - toDo) * m], X, d_pdist_tmp, curBatchSize, n, m, (void *)nullptr,
       workspaceSize, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    MLCommon::Selection::sortColumnsPerRow(d_pdist_tmp, d_ind_X_tmp, batchSize,
-                                           n, bAllocWorkspace, NULL,
-                                           workspaceSize, stream);
+    size_t colSortWorkspaceSize = 0;
+    bool bAllocWorkspace = false;
+    char *sortColsWorkspace;
+
+    MLCommon::Selection::sortColumnsPerRow(
+      d_pdist_tmp, d_ind_X_tmp, curBatchSize, n, bAllocWorkspace, nullptr,
+      colSortWorkspaceSize, stream);
+
+    if (bAllocWorkspace) {
+      sortColsWorkspace =
+        (char *)d_alloc->allocate(colSortWorkspaceSize, stream);
+
+      MLCommon::Selection::sortColumnsPerRow(
+        d_pdist_tmp, d_ind_X_tmp, curBatchSize, n, bAllocWorkspace,
+        sortColsWorkspace, colSortWorkspaceSize, stream);
+    }
     CUDA_CHECK(cudaPeekAtLastError());
 
     t_tmp = 0.0;
     updateDevice(d_t, &t_tmp, 1, stream);
 
-    int work = batchSize * n_neighbors;
-    int n_blocks = work / N_THREADS + 1;
+    int work = curBatchSize * n_neighbors;
+    int n_blocks = ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
       d_ind_X_tmp, &ind_X_embedded[(n - toDo) * (n_neighbors + 1)], n,
-      n_neighbors, batchSize * n_neighbors, d_t);
+      n_neighbors, curBatchSize * n_neighbors, d_t);
     CUDA_CHECK(cudaPeekAtLastError());
 
     updateHost(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
+    if (bAllocWorkspace) {
+      d_alloc->deallocate(sortColsWorkspace, colSortWorkspaceSize, stream);
+    }
+
     t += t_tmp;
 
-    toDo -= batchSize;
+    toDo -= curBatchSize;
   }
 
   t =

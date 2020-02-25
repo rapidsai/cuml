@@ -26,6 +26,8 @@ void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
                int orig_n, double *embedding, int embedding_n,
                UMAPParams *params, double *transformed);
 
+void find_ab(const cumlHandle &handle, UMAPParams *params);
+
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          float *y,  // labels

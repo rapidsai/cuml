@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 #pragma once
 
 namespace MLCommon {
-namespace Matrix {
+namespace LinAlg {
+namespace Naive {
 
 /**
  * @brief CPU sequential version of the Kronecker product
@@ -34,8 +35,8 @@ namespace Matrix {
  * @param[in]   q      Columns of matrix B
  */
 template <typename DataT>
-void naiveKronecker(DataT *K, const DataT *A, const DataT *B, int m, int n,
-                    int p, int q) {
+void kronecker(DataT *K, const DataT *A, const DataT *B, int m, int n, int p,
+               int q) {
   int k_m = m * p;
 #pragma omp parallel for collapse(2)
   for (int i = 0; i < m; i++) {
@@ -52,7 +53,7 @@ void naiveKronecker(DataT *K, const DataT *A, const DataT *B, int m, int n,
 }
 
 /**
- * @brief CPU sequential matrix multiplication A*B
+ * @brief CPU sequential matrix multiplication out = alpha * A*B + beta * out
  * 
  * @note All the matrices are in column-major order
  * 
@@ -63,10 +64,12 @@ void naiveKronecker(DataT *K, const DataT *A, const DataT *B, int m, int n,
  * @param[in]   m      Rows of A
  * @param[in]   k      Columns of A / rows of B
  * @param[in]   n      Columns of B
+ * @param[in]   alpha  Scalar alpha
+ * @param[in]   beta   Scalar beta
  */
 template <typename DataT>
-void naiveMatMul(DataT *out, const DataT *A, const DataT *B, int m, int k,
-                 int n) {
+void matMul(DataT *out, const DataT *A, const DataT *B, int m, int k, int n,
+            DataT alpha = 1, DataT beta = 0) {
 #pragma omp parallel for collapse(2)
   for (int j = 0; j < n; j++) {
     for (int i = 0; i < m; i++) {
@@ -74,7 +77,7 @@ void naiveMatMul(DataT *out, const DataT *A, const DataT *B, int m, int k,
       for (int r = 0; r < k; r++) {
         s += A[i + r * m] * B[r + j * k];
       }
-      out[i + j * m] = s;
+      out[i + j * m] = alpha * s + beta * out[i + j * m];
     }
   }
 }
@@ -90,8 +93,8 @@ void naiveMatMul(DataT *out, const DataT *A, const DataT *B, int m, int k,
  * @param[in]   alpha  Coefficient to multiply the elements of v with
  */
 template <typename DataT>
-void naiveAdd(DataT *out, const DataT *u, const DataT *v, int len,
-              DataT alpha = 1.0) {
+void add(DataT *out, const DataT *u, const DataT *v, int len,
+         DataT alpha = 1.0) {
 #pragma omp parallel for
   for (int i = 0; i < len; i++) {
     out[i] = u[i] + alpha * v[i];
@@ -108,7 +111,7 @@ void naiveAdd(DataT *out, const DataT *u, const DataT *v, int len,
  * @param[in]   lags   Number of lags
  */
 template <typename DataT>
-void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
+void laggedMat(DataT *out, const DataT *in, int len, int lags) {
   int lagged_len = len - lags;
 #pragma omp parallel for
   for (int lag = 1; lag <= lags; lag++) {
@@ -133,8 +136,8 @@ void naiveLaggedMat(DataT *out, const DataT *in, int len, int lags) {
  * @param[in]   out_cols     Number of columns in the input matrix
  */
 template <typename DataT>
-void naive2DCopy(DataT *out, const DataT *in, int starting_row,
-                 int starting_col, int in_rows, int out_rows, int out_cols) {
+void copy2D(DataT *out, const DataT *in, int starting_row, int starting_col,
+            int in_rows, int out_rows, int out_cols) {
 #pragma omp parallel for collapse(2)
   for (int i = 0; i < out_rows; i++) {
     for (int j = 0; j < out_cols; j++) {
@@ -153,12 +156,13 @@ void naive2DCopy(DataT *out, const DataT *in, int starting_row,
  * @param[in]   len          Length of the input vector
  */
 template <typename DataT>
-void naiveDiff(DataT *out, const DataT *in, int len) {
+void diff(DataT *out, const DataT *in, int len) {
 #pragma omp parallel for
   for (int i = 0; i < len - 1; i++) {
     out[i] = in[i + 1] - in[i];
   }
 }
 
-}  // namespace Matrix
+}  // namespace Naive
+}  // namespace LinAlg
 }  // namespace MLCommon

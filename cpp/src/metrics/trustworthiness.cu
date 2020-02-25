@@ -35,18 +35,19 @@ namespace Metrics {
         */
 template <typename math_t, MLCommon::Distance::DistanceType distance_type>
 double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
-                             int n, int m, int d, int n_neighbors) {
+                             int n, int m, int d, int n_neighbors,
+                             int batchSize) {
   cudaStream_t stream = h.getStream();
   auto d_alloc = h.getDeviceAllocator();
 
   return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
-    X, X_embedded, n, m, d, n_neighbors, d_alloc, stream);
+    X, X_embedded, n, m, d, n_neighbors, d_alloc, stream, batchSize);
 }
 
 template double
 trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
   const cumlHandle& h, float* X, float* X_embedded, int n, int m, int d,
-  int n_neighbors);
+  int n_neighbors, int batchSize);
 
 };  //end namespace Metrics
 };  //end namespace ML
