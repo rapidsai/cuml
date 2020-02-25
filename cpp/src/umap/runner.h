@@ -52,7 +52,8 @@ using namespace MLCommon::Sparse;
 template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
                                const double *embeddings, int embeddings_n,
-                               int n_components, double *result, int n_neighbors) {
+                               int n_components, double *result,
+                               int n_neighbors) {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   int i =
@@ -68,14 +69,12 @@ __global__ void init_transform(int *indices, T *weights, int n,
   }
 }
 
-
 /**
  * Kernel upcasting embeddings from floats to doubles
  */
 template <int TPB_X>
-__global__ void apply_upcasting_kernel(
-  float *before, double *after, int n_vertices, int n_components) {
-
+__global__ void apply_upcasting_kernel(float *before, double *after,
+                                       int n_vertices, int n_components) {
   int vertice_idx = (blockIdx.x * TPB_X) + threadIdx.x;
   if (vertice_idx < n_vertices) {
     before += vertice_idx * n_components;
@@ -108,16 +107,16 @@ void _fit(const cumlHandle &handle,
   /**
    * Allocate temporary embedding for initialization
    */
-  MLCommon::device_buffer<float> embeddings_buf(d_alloc, stream, n * params->n_components);
-  float* embeddings = embeddings_buf.data();
+  MLCommon::device_buffer<float> embeddings_buf(d_alloc, stream,
+                                                n * params->n_components);
+  float *embeddings = embeddings_buf.data();
 
   int k = params->n_neighbors;
 
   if (params->verbose)
     std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
 
-  if (params->a == -1. || params->b == -1.)
-    find_ab(params, d_alloc, stream);
+  if (params->a == -1. || params->b == -1.) find_ab(params, d_alloc, stream);
 
   /**
    * Allocate workspace for kNN graph
@@ -153,7 +152,7 @@ void _fit(const cumlHandle &handle,
   dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   apply_upcasting_kernel<TPB_X><<<grid, blk, 0, stream>>>(
-      embeddings, embeddings_storage, n, params->n_components);
+    embeddings, embeddings_storage, n, params->n_components);
 
   if (params->callback) {
     params->callback->setup<double>(n, params->n_components);
@@ -180,16 +179,16 @@ void _fit(const cumlHandle &handle,
   /**
    * Allocate temporary embedding for initialization
    */
-  MLCommon::device_buffer<float> embeddings_buf(d_alloc, stream, n * params->n_components);
-  float* embeddings = embeddings_buf.data();
+  MLCommon::device_buffer<float> embeddings_buf(d_alloc, stream,
+                                                n * params->n_components);
+  float *embeddings = embeddings_buf.data();
 
   int k = params->n_neighbors;
 
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
 
-  if (params->a == -1. || params->b == -1.)
-    find_ab(params, d_alloc, stream);
+  if (params->a == -1. || params->b == -1.) find_ab(params, d_alloc, stream);
 
   /**
    * Allocate workspace for kNN graph
@@ -261,7 +260,7 @@ void _fit(const cumlHandle &handle,
   dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   apply_upcasting_kernel<TPB_X><<<grid, blk, 0, stream>>>(
-      embeddings, embeddings_storage, n, params->n_components);
+    embeddings, embeddings_storage, n, params->n_components);
 
   if (params->callback) {
     params->callback->setup<double>(n, params->n_components);
@@ -271,8 +270,8 @@ void _fit(const cumlHandle &handle,
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
-  SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings_storage, d_alloc,
-                               stream);
+  SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings_storage,
+                               d_alloc, stream);
 
   if (params->callback) params->callback->on_train_end(embeddings);
 
@@ -284,8 +283,8 @@ void _fit(const cumlHandle &handle,
 	 */
 template <typename T, int TPB_X>
 void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
-                int orig_n, double *embedding, int embedding_n, UMAPParams *params,
-                double *transformed) {
+                int orig_n, double *embedding, int embedding_n,
+                UMAPParams *params, double *transformed) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -440,14 +439,14 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   if (params->multicore_implem) {
     SimplSetEmbedImpl::optimize_layout<TPB_X, T, true>(
-    transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
-    comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
-    params, n_epochs, d_alloc, stream);
+      transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
+      comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
+      params, n_epochs, d_alloc, stream);
   } else {
     SimplSetEmbedImpl::optimize_layout<TPB_X, T, false>(
-    transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
-    comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
-    params, n_epochs, d_alloc, stream);
+      transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
+      comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
+      params, n_epochs, d_alloc, stream);
   }
 
   if (params->callback) params->callback->on_train_end(transformed);
