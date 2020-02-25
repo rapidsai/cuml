@@ -370,6 +370,12 @@ class RandomForestClassifier(Base):
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
+        if self.num_classes > 2:
+            raise NotImplementedError("Pickling for multi-class "
+                                      "classification models is currently not "
+                                      "implemented. Please check cuml issue "
+                                      "#1679 for more information.")
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -642,6 +648,10 @@ class RandomForestClassifier(Base):
         """
 
         if predict_model == "CPU" or self.num_classes > 2:
+            if self.num_classes > 2 and predict_model == "GPU":
+                warnings.warn("Switching over to use the CPU predict since "
+                              "the GPU predict currently cannot perform "
+                              "multi-class classification.")
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and not convert_dtype:

@@ -22,6 +22,7 @@
 - PR #1721: Improving UMAP pytests
 - PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
 - PR #1718: Import `using_allocator` from `cupy.cuda`
+- PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 - PR #1726: Decorator to allocate CuPy arrays with RMM
 - PR #1748: Test serializing `CumlArray` objects
 
