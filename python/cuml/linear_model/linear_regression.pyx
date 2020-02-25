@@ -333,6 +333,8 @@ class LinearRegression(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
+
+
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, dtype = \
             input_to_dev_array(X, check_dtype=self.dtype,
@@ -340,7 +342,7 @@ class LinearRegression(Base):
                                                  else None),
                                check_cols=self.n_cols)
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self._coef_.to_output('cudf'))
         preds = cudf.Series(zeros(n_rows, dtype=dtype))
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()

@@ -38,6 +38,8 @@ from uuid import uuid1
 from collections import defaultdict
 from functools import reduce
 
+import dask.dataframe as dd
+
 
 class MGData:
 
@@ -152,6 +154,32 @@ def to_output(futures, type, client=None, verbose=False):
         return to_dask_cudf(futures, client=client, verbose=verbose)
 
 
+def _get_meta(df):
+    """
+    Return the metadata from a single dataframe
+    :param df: cudf.dataframe
+    :return: Row data from the first row of the dataframe
+    """
+    ret = df[0].iloc[:0]
+    return ret
+
+
+def _to_dask_cudf(futures, client=None, verbose=False):
+    """
+    Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
+    :param futures: list[cudf.Dataframe] list of futures containing dataframes
+    :param client: dask.distributed.Client Optional client to use
+    :return: dask.Dataframe a dask.Dataframe
+    """
+    c = default_client() if client is None else client
+    # Convert a list of futures containing dfs back into a dask_cudf
+    dfs = [d for d in futures if d.type != type(None)]  # NOQA
+    if verbose:
+        print("to_dask_cudf dfs=%s" % str(dfs))
+    meta = c.submit(_get_meta, dfs[0]).result()
+    return dd.from_delayed(dfs, meta=meta)
+
+
 """ Internal methods, API subject to change """
 
 
@@ -209,11 +237,6 @@ def _extract_colocated_partitions(X_ddf, y_ddf, client=None):
     :param client: dask.distributed.Client
     """
 
-    print("COLOCATED::::::::")
-
-    # print(X_ddf)
-    # print(y_ddf)
-
     client = default_client() if client is None else client
 
     if isinstance(X_ddf, dcDataFrame):
@@ -230,38 +253,18 @@ def _extract_colocated_partitions(X_ddf, y_ddf, client=None):
         # data_parts = X_ddf.to_delayed().ravel()
         # label_parts = y_ddf.to_delayed().ravel()
 
-    # wait(data_parts)
-    print(data_parts)
-
-
-    # if not isinstance(X_ddf, dcDataFrame):
-    #     wait(data_parts[0][1])
-    #     print(data_parts[0][1].compute())
-    #     data_parts = [dp[0] for dp in data_parts]
-        # label_parts = [lp[0] for lp in label_parts]
-
     parts = list(map(delayed, zip(data_parts, label_parts)))
     parts = client.compute(parts)
     yield wait(parts)
-
-    print("::::B")
-    print(parts)
 
     key_to_part_dict = dict([(part.key, part) for part in parts])
     who_has = yield client.scheduler.who_has(
         keys=[part.key for part in parts]
     )
 
-    print(key_to_part_dict)
-    print(who_has)
-
     worker_map = defaultdict(list)
     for key, workers in who_has.items():
         worker_map[first(workers)].append(key_to_part_dict[key])
-
-    print(worker_map)
-
-    print("::::::::COLOCATED")
 
     return worker_map
 
@@ -282,7 +285,6 @@ def _workers_to_parts(futures):
 
 
 def _get_ary_meta(ary):
-    print(ary)
     return ary.shape, ary.dtype
 
 
