@@ -23,6 +23,7 @@
 - PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
 - PR #1718: Import `using_allocator` from `cupy.cuda`
 - PR #1726: Decorator to allocate CuPy arrays with RMM
+- PR #1748: Test serializing `CumlArray` objects
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
