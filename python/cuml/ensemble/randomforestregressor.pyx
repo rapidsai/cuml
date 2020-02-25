@@ -176,7 +176,7 @@ class RandomForestRegressor(Base):
         per node split.
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
-        If 'auto' then max_features=1.0 .
+        If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins :  int (default = 8)
@@ -389,13 +389,64 @@ class RandomForestRegressor(Base):
         return treelite_model
 
     def convert_to_fil_model(self, output_class=False,
-                             algo='BATCH_TREE_REORG'):
+                             algo='auto',
+                             fil_sparse_format='auto'):
+        """
+        Create a Forest Inference (FIL) model from the trained cuML
+        Random Forest model.
+
+        Parameters
+        ----------
+        output_class: boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+                           coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+                                 multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+                     (currently True is chosen by auto)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='naive'
+                    or algo='auto'
+        Returns
+        ----------
+        fil_model :
+           A Forest Inference model which can be used to perform
+           inferencing on the random forest model.
+        """
+        if fil_sparse_format:
+            storage_type = 'SPARSE'
+        elif not fil_sparse_format:
+            storage_type = 'DENSE'
+        elif fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
+        else:
+            raise ValueError("The value entered for spares_forest is wrong."
+                             " Please refer to the documentation to see the"
+                             " accepted values.")
+
         treelite_handle = self._obtain_treelite_handle()
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
                                              output_class=output_class,
-                                             algo=algo)
+                                             algo=algo,
+                                             storage_type=storage_type)
         return tl_to_fil_model
 
     def fit(self, X, y):
@@ -483,7 +534,7 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format, task_category=REGRESSION_MODEL):
+                              fil_sparse_format):
 
         cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, _ = \
@@ -495,7 +546,7 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
-        task_category = 1  # for regression
+        task_category=REGRESSION_MODEL
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
@@ -633,8 +684,7 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               fil_sparse_format,
-                                               task_category=1)
+                                               fil_sparse_format)
 
         return preds
 
