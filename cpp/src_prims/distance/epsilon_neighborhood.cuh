@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "distance.h"
-#include <linalg/contractions.cuh>
 #include <common/device_utils.cuh>
+#include <linalg/contractions.cuh>
+#include "distance.h"
 
 namespace MLCommon {
 namespace Distance {
@@ -56,8 +56,8 @@ namespace Distance {
  */
 template <DistanceType distanceType, typename T, typename Lambda,
           typename Index_ = int, typename OutputTile_ = OutputTile_8x128x128>
-size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
-                            Index_ n, Index_ k, T eps, void *workspace,
+size_t epsilon_neighborhood(const T* a, const T* b, bool* adj, Index_ m,
+                            Index_ n, Index_ k, T eps, void* workspace,
                             size_t worksize, cudaStream_t stream,
                             Lambda fused_op) {
   auto epsilon_op = [n, eps, fused_op] __device__(T val, Index_ global_c_idx) {
@@ -66,14 +66,14 @@ size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
     return acc;
   };
   distance<distanceType, T, T, bool, OutputTile_, decltype(epsilon_op), Index_>(
-    a, b, adj, m, n, k, (void *)workspace, worksize, epsilon_op, stream);
+    a, b, adj, m, n, k, (void*)workspace, worksize, epsilon_op, stream);
   return worksize;
 }
 
 template <DistanceType distanceType, typename T, typename Index_ = int,
           typename OutputTile_ = OutputTile_8x128x128>
-size_t epsilon_neighborhood(const T *a, const T *b, bool *adj, Index_ m,
-                            Index_ n, Index_ k, T eps, void *workspace,
+size_t epsilon_neighborhood(const T* a, const T* b, bool* adj, Index_ m,
+                            Index_ n, Index_ k, T eps, void* workspace,
                             size_t worksize, cudaStream_t stream) {
   auto lambda = [] __device__(Index_ c_idx, bool acc) {};
   return epsilon_neighborhood<distanceType, T, decltype(lambda), Index_,
@@ -100,9 +100,11 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   DI EpsUnexpL2SqNeighborhood(bool* _adj, IdxT* _vd, const DataT* _x,
                               const DataT* _y, IdxT _m, IdxT _n, IdxT _k,
                               DataT _eps, char* _smem)
-    : BaseClass(_x, _y, _m, _n, _k, _smem), adj(_adj), eps(_eps), vd(_vd),
-      smem(_smem) {
-  }
+    : BaseClass(_x, _y, _m, _n, _k, _smem),
+      adj(_adj),
+      eps(_eps),
+      vd(_vd),
+      smem(_smem) {}
 
   DI void run() {
     prolog();
@@ -220,8 +222,8 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void epsUnexpL2SqNeighKernel(
   bool* adj, IdxT* vd, const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k,
   DataT eps) {
   extern __shared__ char smem[];
-  EpsUnexpL2SqNeighborhood<DataT, IdxT, Policy> obj(
-    adj, vd, x, y, m, n, k, eps, smem);
+  EpsUnexpL2SqNeighborhood<DataT, IdxT, Policy> obj(adj, vd, x, y, m, n, k, eps,
+                                                    smem);
   obj.run();
 }
 
@@ -260,14 +262,13 @@ void epsUnexpL2SqNeighborhood(bool* adj, IdxT* vd, const DataT* x,
                               cudaStream_t stream) {
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT)>(
-      adj, vd, x, y, m, n, k, eps, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT)>(adj, vd, x, y, m, n,
+                                                           k, eps, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 8 / sizeof(DataT)>(
-      adj, vd, x, y, m, n, k, eps, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 8 / sizeof(DataT)>(adj, vd, x, y, m, n,
+                                                          k, eps, stream);
   } else {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 1>(
-      adj, vd, x, y, m, n, k, eps, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 1>(adj, vd, x, y, m, n, k, eps, stream);
   }
 }
 

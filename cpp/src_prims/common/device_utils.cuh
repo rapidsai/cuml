@@ -76,8 +76,9 @@ DI T batchedBlockReduce(T val, char *smem) {
   const int gid = threadIdx.x / NThreads;
   const auto wrIdx = (gid / nGroupsPerWarp) * NThreads + lgid;
   const auto rdIdx = gid * NThreads + lgid;
-  for (int i = nGroups; i > 0; ) {
-    auto iAligned = ((i + nGroupsPerWarp - 1) / nGroupsPerWarp) * nGroupsPerWarp;
+  for (int i = nGroups; i > 0;) {
+    auto iAligned =
+      ((i + nGroupsPerWarp - 1) / nGroupsPerWarp) * nGroupsPerWarp;
     if (gid < iAligned) {
       val = batchedWarpReduce<T, NThreads>(val);
       if (lid < NThreads) sTemp[wrIdx] = val;

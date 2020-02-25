@@ -39,7 +39,7 @@ template <int NThreads>
 __global__ void batchedBlockReduceTestKernel(int* out) {
   extern __shared__ char smem[];
   int val = threadIdx.x;
-  val = batchedBlockReduce<int, NThreads>(val, reinterpret_cast<char *>(smem));
+  val = batchedBlockReduce<int, NThreads>(val, reinterpret_cast<char*>(smem));
   int gid = threadIdx.x / NThreads;
   int lid = threadIdx.x % NThreads;
   if (gid == 0) {
@@ -66,8 +66,8 @@ void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param,
 }
 
 template <int NThreads>
-class BatchedBlockReduceTest :
-    public ::testing::TestWithParam<BatchedBlockReduceInputs> {
+class BatchedBlockReduceTest
+  : public ::testing::TestWithParam<BatchedBlockReduceInputs> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
@@ -96,7 +96,7 @@ class BatchedBlockReduceTest :
     }
     updateDevice(refOut, ref, NThreads, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    delete [] ref;
+    delete[] ref;
   }
 
  protected:
