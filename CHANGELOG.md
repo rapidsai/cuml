@@ -5,6 +5,7 @@
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
+- PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 
 ## Improvements
