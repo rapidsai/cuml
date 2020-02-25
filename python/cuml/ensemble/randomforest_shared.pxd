@@ -121,7 +121,5 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef vector[unsigned char] save_model(ModelHandle)
 
-    cdef vector[unsigned char] concatenate_trees(
-        const cumlHandle& handle,
-        vector[ModelHandle] &treelite_handles,
-        bool deep_check) except +
+    cdef ModelHandle concatenate_trees(
+        vector[ModelHandle] &treelite_handles) except +
