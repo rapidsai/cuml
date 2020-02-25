@@ -544,9 +544,9 @@ class QN(Base):
 
         if 'coef_' in state and state['coef_'] is not None:
             if 'fit_intercept' in state and state['fit_intercept']:
-                coef_size = (state['n_cols'] + 1, state['num_classes'])
+                coef_size = (state['n_cols'] + 1, state['_num_classes'])
             else:
-                coef_size = (state['n_cols'], state['num_classes'])
+                coef_size = (state['n_cols'], state['_num_classes'])
             state['coef_'] = state['coef_'].to_gpu_array().reshape(coef_size)
 
         self.__dict__.update(state)
