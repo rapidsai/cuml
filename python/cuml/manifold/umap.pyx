@@ -82,6 +82,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float target_weights,
         MetricType target_metric,
         uint64_t random_state,
+        bool multicore_implem,
         GraphBasedDimRedCallback* callback
 
 
@@ -91,7 +92,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              int n,
              int d,
              UMAPParams * params,
-             float * embeddings) except +
+             double * embeddings) except +
 
     void fit(cumlHandle & handle,
              float * X,
@@ -99,7 +100,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              int n,
              int d,
              UMAPParams * params,
-             float * embeddings) except +
+             double * embeddings) except +
 
     void transform(cumlHandle & handle,
                    float * X,
@@ -107,10 +108,10 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
                    int d,
                    float * orig_X,
                    int orig_n,
-                   float * embedding,
+                   double * embedding,
                    int embedding_n,
                    UMAPParams * params,
-                   float * out) except +
+                   double * out) except +
 
 
 class UMAP(Base):
@@ -307,6 +308,8 @@ class UMAP(Base):
 
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
+
+        umap_params.multicore_implem = random_state is None
         rs = check_random_state(random_state)
         umap_params.random_state = int(rs.randint(low=0, high=np.iinfo(np.uint64).max, dtype=np.uint64))
 
@@ -447,7 +450,7 @@ class UMAP(Base):
 
         self.embedding_ = rmm.to_device(zeros((self.n_rows,
                                               umap_params.n_components),
-                                              order="C", dtype=np.float32))
+                                              order="C", dtype=np.float64))
 
         if self.hash_input:
             self.input_hash = joblib.hash(self.X_m.copy_to_host())
@@ -475,7 +478,7 @@ class UMAP(Base):
                 <int> self.n_rows,
                 <int> self.n_dims,
                 <UMAPParams*>umap_params,
-                <float*>embed_raw)
+                <double*>embed_raw)
 
         else:
 
@@ -484,7 +487,7 @@ class UMAP(Base):
                 <int> self.n_rows,
                 <int> self.n_dims,
                 <UMAPParams*>umap_params,
-                <float*>embed_raw)
+                <double*>embed_raw)
 
         self.handle.sync()
 
@@ -569,7 +572,7 @@ class UMAP(Base):
             <UMAPParams*> <size_t> self.umap_params
         embedding = rmm.to_device(zeros((X_m.shape[0],
                                          umap_params.n_components),
-                                        order="C", dtype=np.float32))
+                                        order="C", dtype=np.float64))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle *handle_ = \
@@ -585,10 +588,10 @@ class UMAP(Base):
                   <int> X_m.shape[1],
                   <float*>orig_x_raw,
                   <int> self.n_rows,
-                  <float*> embed_ptr,
+                  <double*> embed_ptr,
                   <int> self.n_rows,
                   <UMAPParams*> umap_params,
-                  <float*> xformed_ptr)
+                  <double*> xformed_ptr)
         self.handle.sync()
 
         ret = UMAP._prep_output(X, embedding)
