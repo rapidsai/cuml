@@ -272,7 +272,7 @@ __global__ void csr_row_normalize_l1_kernel(
 
     T sum = T(0.0);
     for (int j = start_idx; j < stop_idx; j++) {
-      sum = sum + vals[j];
+      sum = sum + fabs(vals[j]);
     }
 
     for (int j = start_idx; j < stop_idx; j++) {

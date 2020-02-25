@@ -66,7 +66,7 @@ cdef class Handle:
         cdef size_t s = <size_t>user_stream.getStream()
         self.h = <size_t>(new cumlHandle(<_Stream>s, n_streams))
 
-    def __dealloc_(self):
+    def __dealloc__(self):
         h_ = <cumlHandle*>self.h
         del h_
 
