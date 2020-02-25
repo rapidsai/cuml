@@ -23,7 +23,7 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
-    unit_param, quality_param, stress_param
+    unit_param, quality_param, stress_param, generate_random_labels
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
@@ -160,11 +160,20 @@ def test_rand_index_score(name, nrows):
     assert array_equal(cu_score, cu_score_using_sk)
 
 
-@pytest.mark.parametrize('n_samples', [50, 100, 2000])
-def test_mean_squared_error(n_samples):
-    y_true = np.arange(n_samples, dtype=np.int)
+def test_mean_squared_error():
+    y_true = np.arange(50, dtype=np.int)
     y_pred = y_true + 1
     assert_almost_equal(mean_squared_error(y_true, y_pred), 1.)
+
+
+@pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_mean_squared_error_random(n_samples, dtype):
+    y_true, y_pred = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
+    mse = mean_squared_error(y_true, y_pred, multioutput='raw_values')
+    skl_mse = sklearn_mse(y_true, y_pred, multioutput='raw_values')
+    cp.testing.assert_array_almost_equal(mse, skl_mse, decimal=2)
 
 
 def test_mean_squared_error_at_limits():
