@@ -78,14 +78,21 @@ const std::vector<EpsInputs<float, int>> inputsfi = {
   {14000, 18, 5, 1, 2.f},
   {15000, 32, 5, 1, 2.f},
   {14000, 32, 5, 1, 2.f},
+  {20000, 10000, 10, 1, 2.f},
+  {20000, 10000, 10, 2, 2.f},
 };
 typedef EpsNeighTest<float, int> EpsNeighTestFI;
 TEST_P(EpsNeighTestFI, Result) {
-  epsUnexpL2SqNeighborhood<float, int>(
-    adj, vd, data, data, param.n_row, batchSize, param.n_col,
-    param.eps * param.eps, stream);
-  ASSERT_TRUE(devArrMatch(param.n_row / param.n_centers, vd, batchSize,
-                          Compare<int>(), stream));
+  for (int i = 0; i < param.n_batches; ++i) {
+    CUDA_CHECK(cudaMemsetAsync(adj, 0, sizeof(bool) * param.n_row * batchSize,
+                               stream));
+    CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(int) * (batchSize + 1), stream));
+    epsUnexpL2SqNeighborhood<float, int>(
+      adj, vd, data, data + (i * batchSize * param.n_col), param.n_row,
+      batchSize, param.n_col, param.eps * param.eps, stream);
+    ASSERT_TRUE(devArrMatch(param.n_row / param.n_centers, vd, batchSize,
+                            Compare<int>(), stream));
+  }
 }
 INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI,
                         ::testing::ValuesIn(inputsfi));
