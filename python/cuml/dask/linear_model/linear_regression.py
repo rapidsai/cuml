@@ -93,25 +93,10 @@ class LinearRegression(object):
         res = [f.predict(d) for d in df]
         return res
 
-    @staticmethod
-    def _func_get_first(f):
-        return f[0]
-
+    #todo: move to utils
     @staticmethod
     def _func_get_idx(f, idx):
         return f[idx]
-
-    @staticmethod
-    def _func_xform(model, df):
-        return model.transform(df)
-
-    @staticmethod
-    def _func_get_size_cl(df):
-        return df[0].shape[0]
-
-    @staticmethod
-    def _func_get_size(df):
-        return df.shape[0]
 
     def fit(self, X, y, force_colocality=False):
         """
