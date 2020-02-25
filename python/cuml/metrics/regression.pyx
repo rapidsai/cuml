@@ -148,16 +148,16 @@ def mean_squared_error(y_true, y_pred,
 
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
-                                                np.int32, np.int64])
+                                                 np.int32, np.int64])
 
     y_pred, _, _, _ = \
         input_to_cuml_array(y_pred, check_dtype=ytype,
-                           check_rows=n_rows, check_cols=n_cols)
+                            check_rows=n_rows, check_cols=n_cols)
 
     if sample_weight is not None:
         sample_weight, _, _, _ = \
             input_to_cuml_array(sample_weight, check_dtype=ytype,
-                               check_rows=n_rows, check_cols=n_cols)
+                                check_rows=n_rows, check_cols=n_cols)
 
     raw_multioutput = False
     allowed_multioutput_str = ('raw_values', 'uniform_average',
