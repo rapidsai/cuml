@@ -7,6 +7,7 @@
 - PR #1689: Add framework for cuML Dask serializers
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
+- PR #1750: LinearRegression CumlArray for configurable output
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -46,7 +47,7 @@
 - PR #1706: Remove multi-class bug from QuasiNewton
 - PR #1699: Limit CuPy to <7.2 temporarily
 - PR #1708: Correctly deallocate cuML handles in Cython
-- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2) 
+- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
 
 # cuML 0.12.0 (Date TBD)
