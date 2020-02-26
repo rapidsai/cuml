@@ -1,4 +1,5 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 #
 
 import cuml
+import cupy as cp
 import numpy as np
 import pytest
 
@@ -149,10 +151,10 @@ def test_rand_index_score(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
+    cu_y_pred = cuml_kmeans.fit_predict(X)
 
     cu_score = cu_ars(y, cu_y_pred)
-    cu_score_using_sk = sk_ars(y, cu_y_pred)
+    cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
 
