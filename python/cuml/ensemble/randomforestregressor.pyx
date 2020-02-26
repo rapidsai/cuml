@@ -164,7 +164,7 @@ class RandomForestRegressor(Base):
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported with split_algo=1.
+        if -1. Unlimited depth is not supported.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
@@ -175,7 +175,7 @@ class RandomForestRegressor(Base):
         per node split.
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
-        If 'auto' then max_features=1/sqrt(n_features).
+        If 'auto' then max_features=1.0 .
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins :  int (default = 8)
