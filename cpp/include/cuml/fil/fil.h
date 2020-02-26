@@ -108,14 +108,12 @@ struct sparse_node_t : dense_node_t, sparse_node_extra_data {
     : dense_node_t(dn), sparse_node_extra_data(ed) {}
 };
 
-enum leaf_value_t { 
+enum leaf_value_t {
   /** storing a clas probability or regression summand */
   FLOAT_SCALAR,
   /** storing a class label */
-  INT_CLASS_LABEL,
-  /** storing an index of the float vector which contains
-      class probabilities or regression summands */
-  FLOAT_VECTOR
+  INT_CLASS_LABEL
+  // to be extended
 };
 
 /** dense_node_init initializes node from paramters */
