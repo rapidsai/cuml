@@ -141,7 +141,7 @@ class CumlArray(Buffer):
             super(CumlArray, self).__init__(data=data, owner=owner)
             self.shape = ary_interface['shape']
             self.dtype = np.dtype(data.dtype)
-            if ary_interface['strides'] is None:
+            if 'strides' not in ary_interface or ary_interface['strides'] is None:
                 self.order = 'C'
                 self.strides = _order_to_strides(self.order, self.shape,
                                                  self.dtype)
