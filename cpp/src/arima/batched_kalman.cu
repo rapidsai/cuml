@@ -453,7 +453,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   const double* d_R = Rb.raw_data();
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
-                     double sigma2 = d_sigma2[bid];
+                     double sigma2 =
+                       max(d_sigma2[bid], 1e-6);  // sigma2 must be > 0
                      for (int i = 0; i < r; i++) {
                        d_RQ[bid * r + i] = d_R[bid * r + i] * sigma2;
                      }
