@@ -23,6 +23,7 @@ import pickle
 
 from copy import deepcopy
 from numba import cuda
+from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from rmm import DeviceBuffer
 
@@ -280,6 +281,38 @@ def test_cuda_array_interface(dtype, shape, order):
     assert np.all(truth == cp.asnumpy(result))
 
     return True
+
+
+@pytest.mark.parametrize('input_type', test_input_types)
+def test_serialize(input_type):
+    if input_type == 'series':
+        inp = create_input(input_type, np.float32, (10, 1), 'C')
+    else:
+        inp = create_input(input_type, np.float32, (10, 5), 'F')
+    ary = CumlArray(data=inp)
+    header, frames = ary.serialize()
+    ary2 = CumlArray.deserialize(header, frames)
+
+    assert pickle.loads(header['type-serialized']) is CumlArray
+    assert all(isinstance(f, Buffer) for f in frames)
+
+    if input_type == 'numpy':
+        assert np.all(inp == ary2.to_output('numpy'))
+    elif input_type == 'series':
+        assert np.all(inp == ary2.to_output('series'))
+    else:
+        assert cp.all(inp == cp.asarray(ary2))
+
+    assert ary.__cuda_array_interface__['shape'] == \
+        ary2.__cuda_array_interface__['shape']
+    assert ary.__cuda_array_interface__['strides'] == \
+        ary2.__cuda_array_interface__['strides']
+    assert ary.__cuda_array_interface__['typestr'] == \
+        ary2.__cuda_array_interface__['typestr']
+
+    if input_type != 'series':
+        # skipping one dimensional ary order test
+        assert ary.order == ary2.order
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
