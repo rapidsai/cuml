@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1757: Add multi class inference in FIL for forests from cuML RF
 
 ## Improvements
 
@@ -20,9 +21,6 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
-- PR #1767: Single GPU decomposition models configurable output
-- PR #1778: Make cuML Handle picklable
-- PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
