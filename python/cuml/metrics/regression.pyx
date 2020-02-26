@@ -105,8 +105,8 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
 @with_cupy_rmm
 def mean_squared_error(y_true, y_pred,
                        sample_weight=None,
-                       multioutput='uniform_average', squared=True,
-                       handle=None):
+                       multioutput='uniform_average',
+                       squared=True):
     """Mean squared error regression loss
 
     Parameters
@@ -129,13 +129,6 @@ def mean_squared_error(y_true, y_pred,
             Errors of all outputs are averaged with uniform weight.
     squared : boolean value, optional (default = True)
         If True returns MSE value, if False returns RMSE value.
-    handle : cuml.Handle, optional
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this function. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so users
-        can run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
 
     Returns
     -------
@@ -143,9 +136,6 @@ def mean_squared_error(y_true, y_pred,
         A non-negative floating point value (the best value is 0.0), or an
         array of floating point values, one for each individual target.
     """
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
                                                  np.int32, np.int64])
