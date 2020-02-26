@@ -323,6 +323,7 @@ cdef class ForestInference_impl():
         treelite_params.threshold = threshold
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
+        treelite_params.leaf_payload = leaf_value_t.INT_CLASS_LABEL
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()

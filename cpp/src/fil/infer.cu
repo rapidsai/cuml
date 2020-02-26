@@ -243,6 +243,7 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
         forest, params, stream);
       break;
     default:
+      printf("%s line %d: leaf_payload_type %d\n", __FILE__, __LINE__, params.leaf_payload_type);
       ASSERT(false, "unknown leaf_payload_type");
   }
 }
