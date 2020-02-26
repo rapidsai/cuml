@@ -167,8 +167,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
 
     cdef enum leaf_value_t:
         FLOAT_SCALAR,
-        INT_CLASS_LABEL,
-        FLOAT_VECTOR
+        INT_CLASS_LABEL
 
     cdef struct forest:
         pass
