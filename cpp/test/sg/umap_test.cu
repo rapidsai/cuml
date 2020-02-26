@@ -43,7 +43,6 @@ using namespace MLCommon;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 
-
 class UMAPTest : public ::testing::Test {
  protected:
   void xformTest() {
@@ -67,8 +66,8 @@ class UMAPTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     device_buffer<float> embeddings(handle.getDeviceAllocator(),
-                                     handle.getStream(),
-                                     n_samples * umap_params->n_components);
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
                                umap_params, embeddings.data());
@@ -76,8 +75,8 @@ class UMAPTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     device_buffer<float> xformed(handle.getDeviceAllocator(),
-                                  handle.getStream(),
-                                  n_samples * umap_params->n_components);
+                                 handle.getStream(),
+                                 n_samples * umap_params->n_components);
 
     UMAPAlgo::_transform<float, 256>(handle, X_d.data(), n_samples, n_features,
                                      X_d.data(), n_samples, embeddings.data(),
@@ -111,8 +110,8 @@ class UMAPTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     device_buffer<float> embeddings(handle.getDeviceAllocator(),
-                                     handle.getStream(),
-                                     n_samples * umap_params->n_components);
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
                                umap_params, embeddings.data());
@@ -147,8 +146,8 @@ class UMAPTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     device_buffer<float> embeddings(handle.getDeviceAllocator(),
-                                     handle.getStream(),
-                                     n_samples * umap_params->n_components);
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), Y_d.data(), n_samples,
                                n_features, umap_params, embeddings.data());

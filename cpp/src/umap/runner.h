@@ -52,8 +52,7 @@ using namespace MLCommon::Sparse;
 template <int TPB_X, typename T>
 __global__ void init_transform(int *indices, T *weights, int n,
                                const T *embeddings, int embeddings_n,
-                               int n_components, T *result,
-                               int n_neighbors) {
+                               int n_components, T *result, int n_neighbors) {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   int i =
@@ -224,8 +223,8 @@ void _fit(const cumlHandle &handle,
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
-  SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings,
-                               d_alloc, stream);
+  SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, d_alloc,
+                               stream);
 
   if (params->callback) params->callback->on_train_end(embeddings);
 
@@ -237,8 +236,8 @@ void _fit(const cumlHandle &handle,
 	 */
 template <typename T, int TPB_X>
 void _transform(const cumlHandle &handle, T *X, int n, int d, T *orig_X,
-                int orig_n, T *embedding, int embedding_n,
-                UMAPParams *params, T *transformed) {
+                int orig_n, T *embedding, int embedding_n, UMAPParams *params,
+                T *transformed) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
