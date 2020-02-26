@@ -97,23 +97,36 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
 }
 
 template <typename T>
-void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
-               bool fit_intercept, T *params, bool X_col_major, int loss_type,
-               T *preds, cudaStream_t stream) {
+void qnDecisionFunction(const cumlHandle_impl &handle, T *Xptr, int N, int D,
+                        int C, bool fit_intercept, T *params, bool X_col_major,
+                        int loss_type, T *scores, cudaStream_t stream) {
+  // NOTE: While gtests pass X as row-major, and python API passes X as
+  // col-major, no extensive testing has been done to ensure that
+  // this function works correctly for both input types
+
   STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
   int C_len = (loss_type == 0) ? (C - 1) : C;
 
   GLMDims dims(C_len, D, fit_intercept);
 
   SimpleMat<T> X(Xptr, N, D, ordX);
-  SimpleMat<T> P(preds, 1, N);
-
-  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
-                                 C_len * N);
-  SimpleMat<T> Z(tmp.data(), C_len, N);
 
   SimpleMat<T> W(params, C_len, dims.dims);
+  SimpleMat<T> Z(scores, C_len, N);
   linearFwd(handle, Z, X, W, stream);
+}
+
+template <typename T>
+void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
+               bool fit_intercept, T *params, bool X_col_major, int loss_type,
+               T *preds, cudaStream_t stream) {
+  int C_len = (loss_type == 0) ? (C - 1) : C;
+  MLCommon::device_buffer<T> scores(handle.getDeviceAllocator(), stream,
+                                    C_len * N);
+  qnDecisionFunction<T>(handle, Xptr, N, D, C, fit_intercept, params,
+                        X_col_major, loss_type, scores.data(), stream);
+  SimpleMat<T> Z(scores.data(), C_len, N);
+  SimpleMat<T> P(preds, 1, N);
 
   switch (loss_type) {
     case 0: {
