@@ -49,6 +49,7 @@
 - PR #1708: Correctly deallocate cuML handles in Cython
 - PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
+- PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 
 # cuML 0.12.0 (Date TBD)
