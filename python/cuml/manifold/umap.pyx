@@ -92,7 +92,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              int n,
              int d,
              UMAPParams * params,
-             double * embeddings) except +
+             float * embeddings) except +
 
     void fit(cumlHandle & handle,
              float * X,
@@ -100,7 +100,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              int n,
              int d,
              UMAPParams * params,
-             double * embeddings) except +
+             float * embeddings) except +
 
     void transform(cumlHandle & handle,
                    float * X,
@@ -108,10 +108,10 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
                    int d,
                    float * orig_X,
                    int orig_n,
-                   double * embedding,
+                   float * embedding,
                    int embedding_n,
                    UMAPParams * params,
-                   double * out) except +
+                   float * out) except +
 
     void find_ab(cumlHandle &handle,
                  UMAPParams *params) except +
@@ -464,7 +464,7 @@ class UMAP(Base):
 
         self.embedding_ = rmm.to_device(zeros((self.n_rows,
                                               umap_params.n_components),
-                                              order="C", dtype=np.float64))
+                                              order="C", dtype=np.float32))
 
         if self.hash_input:
             self.input_hash = joblib.hash(self.X_m.copy_to_host())
@@ -492,7 +492,7 @@ class UMAP(Base):
                 <int> self.n_rows,
                 <int> self.n_dims,
                 <UMAPParams*>umap_params,
-                <double*>embed_raw)
+                <float*>embed_raw)
 
         else:
 
@@ -501,7 +501,7 @@ class UMAP(Base):
                 <int> self.n_rows,
                 <int> self.n_dims,
                 <UMAPParams*>umap_params,
-                <double*>embed_raw)
+                <float*>embed_raw)
 
         self.handle.sync()
 
@@ -586,7 +586,7 @@ class UMAP(Base):
             <UMAPParams*> <size_t> self.umap_params
         embedding = rmm.to_device(zeros((X_m.shape[0],
                                          umap_params.n_components),
-                                        order="C", dtype=np.float64))
+                                        order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle *handle_ = \
@@ -602,10 +602,10 @@ class UMAP(Base):
                   <int> X_m.shape[1],
                   <float*>orig_x_raw,
                   <int> self.n_rows,
-                  <double*> embed_ptr,
+                  <float*> embed_ptr,
                   <int> self.n_rows,
                   <UMAPParams*> umap_params,
-                  <double*> xformed_ptr)
+                  <float*> xformed_ptr)
         self.handle.sync()
 
         ret = UMAP._prep_output(X, embedding)

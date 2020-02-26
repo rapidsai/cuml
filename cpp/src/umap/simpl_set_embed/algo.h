@@ -131,7 +131,7 @@ __device__ __host__ double attractive_grad(double dist_squared,
  */
 template <typename T, int TPB_X, bool multicore_implem>
 __global__ void optimize_batch_kernel(
-  double *head_embedding, int head_n, double *tail_embedding, int tail_n,
+  T *head_embedding, int head_n, T *tail_embedding, int tail_n,
   const int *head, const int *tail, int nnz, T *epochs_per_sample,
   int n_vertices, bool move_other, T *epochs_per_negative_sample,
   T *epoch_of_next_negative_sample, T *epoch_of_next_sample, double alpha,
@@ -147,15 +147,15 @@ __global__ void optimize_batch_kernel(
       int j = head[row];
       int k = tail[row];
 
-      double *current_read, *other_read, *current_write, *other_write;
+      T *current_read, *other_read, *current_write, *other_write;
       current_read = head_embedding + (j * params.n_components);
       other_read = tail_embedding + (k * params.n_components);
       if (multicore_implem) {
         current_write = current_read;
         other_write = other_read;
       } else {
-        current_write = embedding_updates + (j * params.n_components);
-        other_write = embedding_updates + (k * params.n_components);
+        current_write = (T*)(embedding_updates + (j * params.n_components));
+        other_write = (T*)(embedding_updates + (k * params.n_components));
       }
 
       double dist_squared =
@@ -181,11 +181,19 @@ __global__ void optimize_batch_kernel(
                4.0f);
 
         T tmp = grad_d * alpha;
-        atomicAdd(current_write + d, tmp);
+        if (multicore_implem) {
+          atomicAdd(current_write + d, tmp);
+        } else {
+          atomicAdd((double*)current_write + d, tmp);
+        }
 
         // happens only during unsupervised training
         if (move_other) {
-          atomicAdd(other_write + d, -tmp);
+          if (multicore_implem) {
+            atomicAdd(other_write + d, -tmp);
+          } else {
+            atomicAdd((double*)other_write + d, -tmp);
+          }
         }
       }
 
@@ -204,7 +212,7 @@ __global__ void optimize_batch_kernel(
         int r;
         gen.next(r);
         int t = r % tail_n;
-        double *negative_sample = tail_embedding + (t * params.n_components);
+        float *negative_sample = tail_embedding + (t * params.n_components);
         dist_squared =
           rdist(current_read, negative_sample, params.n_components);
 
@@ -228,7 +236,11 @@ __global__ void optimize_batch_kernel(
               -4.0f, 4.0f);
           else
             grad_d = 4.0;
-          atomicAdd(current_write + d, T(grad_d * alpha));
+          if (multicore_implem) {
+            atomicAdd(current_write + d, grad_d * alpha);
+          } else {
+            atomicAdd((double*)current_write + d, grad_d * alpha);
+          }
         }
       }
 
@@ -241,8 +253,8 @@ __global__ void optimize_batch_kernel(
 /**
  * Kernel applying updates to embedding
  */
-template <int TPB_X>
-__global__ void apply_optimization_kernel(double *embedding,
+template <typename T, int TPB_X>
+__global__ void apply_optimization_kernel(T *embedding,
                                           double *embedding_updates,
                                           int n_vertices, int n_components) {
   int vertice_idx = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -265,7 +277,7 @@ __global__ void apply_optimization_kernel(double *embedding,
  * negative weights (non-neighbors in the 1-skeleton).
  */
 template <int TPB_X, typename T, bool multicore_implem>
-void optimize_layout(double *head_embedding, int head_n, double *tail_embedding,
+void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      int tail_n, const int *head, const int *tail, int nnz,
                      T *epochs_per_sample, int n_vertices, float gamma,
                      UMAPParams *params, int n_epochs,
@@ -332,7 +344,7 @@ void optimize_layout(double *head_embedding, int head_n, double *tail_embedding,
 
       CUDA_CHECK(cudaGetLastError());
 
-      apply_optimization_kernel<TPB_X><<<grid2, blk, 0, stream>>>(
+      apply_optimization_kernel<T, TPB_X><<<grid2, blk, 0, stream>>>(
         head_embedding, embedding_updates, n_vertices, params->n_components);
 
       CUDA_CHECK(cudaGetLastError());
@@ -353,7 +365,7 @@ void optimize_layout(double *head_embedding, int head_n, double *tail_embedding,
  */
 template <int TPB_X, typename T>
 void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
-              double *embedding, std::shared_ptr<deviceAllocator> d_alloc,
+              T *embedding, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
   int nnz = in->nnz;
 

@@ -43,21 +43,6 @@ using namespace MLCommon;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 
-/**
-  * Kernel downcasting embeddings from doubles to floats
-  */
-template <int TPB_X>
-__global__ void apply_downcasting_kernel(double *before, float *after,
-                                         int n_vertices, int n_components) {
-  int vertice_idx = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (vertice_idx < n_vertices) {
-    before += vertice_idx * n_components;
-    after += vertice_idx * n_components;
-    for (int d = 0; d < n_components; d++) {
-      after[d] = before[d];
-    }
-  }
-}
 
 class UMAPTest : public ::testing::Test {
  protected:
@@ -81,7 +66,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<double> embeddings(handle.getDeviceAllocator(),
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
                                      handle.getStream(),
                                      n_samples * umap_params->n_components);
 
@@ -90,7 +75,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<double> xformed(handle.getDeviceAllocator(),
+    device_buffer<float> xformed(handle.getDeviceAllocator(),
                                   handle.getStream(),
                                   n_samples * umap_params->n_components);
 
@@ -100,16 +85,8 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Downcasting embedding for trustworthiness score
-    device_buffer<float> xformed_float(handle.getDeviceAllocator(),
-                                       handle.getStream(),
-                                       n_samples * umap_params->n_components);
-    apply_downcasting_kernel<256>
-      <<<grid, blk, 0, stream>>>(xformed.data(), xformed_float.data(),
-                                 n_samples, umap_params->n_components);
-
     xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      handle, X_d.data(), xformed_float.data(), n_samples, n_features,
+      handle, X_d.data(), xformed.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
 
@@ -133,7 +110,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<double> embeddings(handle.getDeviceAllocator(),
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
                                      handle.getStream(),
                                      n_samples * umap_params->n_components);
 
@@ -142,16 +119,8 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Downcasting embedding for trustworthiness score
-    device_buffer<float> embeddings_float(
-      handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * umap_params->n_components);
-    apply_downcasting_kernel<256>
-      <<<grid, blk, 0, stream>>>(embeddings.data(), embeddings_float.data(),
-                                 n_samples, umap_params->n_components);
-
     fit_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      handle, X_d.data(), embeddings_float.data(), n_samples, n_features,
+      handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
 
@@ -177,7 +146,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    device_buffer<double> embeddings(handle.getDeviceAllocator(),
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
                                      handle.getStream(),
                                      n_samples * umap_params->n_components);
 
@@ -186,23 +155,12 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    // Downcasting embedding for trustworthiness score
-    device_buffer<float> embeddings_float(
-      handle.getDeviceAllocator(), handle.getStream(),
-      n_samples * umap_params->n_components);
-    apply_downcasting_kernel<256>
-      <<<grid, blk, 0, stream>>>(embeddings.data(), embeddings_float.data(),
-                                 n_samples, umap_params->n_components);
-
     supervised_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      handle, X_d.data(), embeddings_float.data(), n_samples, n_features,
+      handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
 
   void SetUp() override {
-    grid = dim3(MLCommon::ceildiv(n_samples, 256), 1, 1);
-    blk = dim3(256, 1, 1);
-
     fitTest();
     xformTest();
     supervisedTest();
@@ -218,8 +176,6 @@ class UMAPTest : public ::testing::Test {
   double fit_score;
   double xformed_score;
   double supervised_score;
-  dim3 grid;
-  dim3 blk;
 };
 
 typedef UMAPTest UMAPTestF;
