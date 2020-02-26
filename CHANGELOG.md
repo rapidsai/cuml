@@ -6,6 +6,7 @@
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
+- PR #1612: Created a function to check the concatenated forest 
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
 

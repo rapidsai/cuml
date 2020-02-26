@@ -33,6 +33,8 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cython.operator cimport dereference as deref
+
 from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle import Handle
@@ -286,6 +288,7 @@ class RandomForestClassifier(Base):
         self.dtype = None
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
+        self.num_classes = 2
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results, n_streams==1 is "
                           "recommended. If n_streams is > 1, results may vary "
@@ -321,7 +324,7 @@ class RandomForestClassifier(Base):
 
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
-
+        #state["num_classes"] = self.num_classes
         if self.dtype == np.float32:
             state["rf_params"] = rf_forest.rf_params
         else:
@@ -338,7 +341,7 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[double, int]()
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
-
+        #self.num_classes = state["num_classes"]
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
             state["rf_forest"] = <size_t>rf_forest
@@ -411,6 +414,27 @@ class RandomForestClassifier(Base):
 
         return model_protobuf_bytes
 
+    def concatenate_treelite_handle(self, treelite_handle):
+        cdef ModelHandle concat_model_handle = NULL
+        cdef vector[ModelHandle] *model_handles \
+            = new vector[ModelHandle]()
+        cdef uintptr_t mod_ptr
+        for i in treelite_handle:
+            mod_ptr = <uintptr_t>i
+            model_handles.push_back((
+                <ModelHandle> mod_ptr))
+
+        concat_model_handle = concatenate_trees(deref(model_handles))
+
+        concat_model_ptr = <size_t> concat_model_handle
+        return ctypes.c_void_p(concat_model_ptr).value
+
+    def concatenate_model_bytes(self, concat_model_handle):
+        cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
+        concat_model_bytes = save_model(<ModelHandle> model_ptr)
+        self._model_pbuf_bytes = concat_model_bytes
+        return concat_model_bytes
+
     def fit(self, X, y):
         """
         Perform Random Forest Classification on the input data
@@ -428,7 +452,7 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
-        self.num_classes = len(np.unique(y))
+        #self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
@@ -446,6 +470,8 @@ class RandomForestClassifier(Base):
 
         unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
+        #print(" ")
+        self.num_classes = num_unique_labels
 
         for i in range(num_unique_labels):
             if i not in unique_labels:
