@@ -34,7 +34,6 @@ import numba.cuda as cuda
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from sklearn.utils import check_random_state
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, row_matrix
 
@@ -317,10 +316,13 @@ class UMAP(Base):
         umap_params.target_weights = target_weights
 
         umap_params.multicore_implem = random_state is None
-        rs = check_random_state(random_state)
-        umap_params.random_state = int(rs.randint(low=0,
-                                                  high=np.iinfo(np.uint64).max,
-                                                  dtype=np.uint64))
+        if isinstance(random_state, np.random.RandomState):
+            rs = random_state
+        else:
+            rs = np.random.RandomState(random_state)
+        umap_params.random_state = long(rs.randint(low=0,
+                                        high=np.iinfo(np.uint64).max,
+                                        dtype=np.uint64))
 
         if target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
