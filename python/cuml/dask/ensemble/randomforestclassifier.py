@@ -172,7 +172,7 @@ class RandomForestClassifier:
 
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
-        self._multi_class = True
+        self.num_classes = True
 
         c = default_client()
         if workers is None:
@@ -386,6 +386,42 @@ class RandomForestClassifier:
                 raise ValueError("The treelite handle obtained from each user"
                                  " are not right")
 
+    def _concat_treelite_models(self):
+        """
+        Convert the cuML Random Forest model present in different workers to
+        the treelite format and then concatenate the different treelite models
+        to create a single model. The concatenated model is then converted to
+        bytes format.
+        """
+        for w in self.workers:
+            if self.rfs[w].result().num_classes > 2:
+                self._multi_class = True
+                break
+
+        mod_bytes = []
+        for w in self.workers:
+            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+
+        for i in range(len(mod_bytes)):
+        	print("length of mod)bytes in concat : ",len(mod_bytes[i]))
+        print("self. workers : ", self.workers)
+
+        worker_tcp_info = [i for i in self.workers]
+
+        print("worker_tcp_info : ", worker_tcp_info)
+        print("self.rfs : ", self.rfs)
+        all_tl_mod_handles = []
+        model = self.rfs[worker_tcp_info[0]].result()
+        for n in range(len(self.workers)):
+            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+
+        concat_model_handle = model.concatenate_treelite_handle(
+            treelite_handle=all_tl_mod_handles)
+        concatenated_model_bytes = model.concatenate_model_bytes(concat_model_handle)
+        for w in self.workers:
+            #print("each_worker_bytes : ", len(self.rfs[w].result()._model_pbuf_bytes))
+            self.rfs[w].result()._model_pbuf_bytes = concatenated_model_bytes
+
     def fit(self, X, y):
         """
         Fit the input data with a Random Forest classifier
@@ -427,7 +463,7 @@ class RandomForestClassifier:
 
         """
         c = default_client()
-
+        self.num_classes = len(y.unique())
         X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
         y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
 
@@ -512,7 +548,7 @@ class RandomForestClassifier:
 
         """
 
-        if self._multi_class or predict_model == "CPU":
+        if self.num_classes > 2 or predict_model == "CPU":
             preds = self._predict_using_cpu(X)
 
         else:
@@ -533,87 +569,15 @@ class RandomForestClassifier:
         print(" X type : ", type(X))
 
         key = uuid1()
-        """
-        gpu_futures = c.sync(extract_ddf_partitions, X)
-        worker_to_parts = OrderedDict()
-        for w, p in gpu_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            worker_to_parts[w].append(p)
 
-        comms = CommsContext(comms_p2p=True)
-        comms.init(workers=workers)
-
-        worker_info = comms.worker_info(comms.worker_addresses)
-
-        key = uuid1()
-        parts_to_sizes = [(worker_info[wf[0]]["r"], c.submit(
-            RandomForestClassifier._func_get_size,
-            wf[1],
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)).result())
-            for idx, wf in enumerate(gpu_futures)]
-
-        key = uuid1()
-
-        preds = dict([(worker_info[wf[0]]["r"], c.submit(
-            RandomForestClassifier._predict_gpu,
-            self.rfs[wf[0]],
-            wf[1],
-            output_class,
-            algo,
-            threshold,
-            num_classes,
-            convert_dtype,
-            concat_mod_bytes,
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)))
-            for idx, wf in enumerate(worker_to_parts.items())])
-
-        out_futures = []
-
-        completed_part_map = {}
-        for rank, size in parts_to_sizes:
-            if rank not in completed_part_map:
-                completed_part_map[rank] = 0
-
-            f = preds[rank]
-            out_futures.append(c.submit(
-                RandomForestClassifier._func_get_idx, f,
-                completed_part_map[rank]))
-            completed_part_map[rank] += 1
-
-        return to_dask_cudf(out_futures)
-
-        num_partitions = X.npartitions
-        num_workers = len(self.workers)
-        parts_per_worker = np.floor(num_partitions/num_workers)
-        preds = []
-        import numpy as np
-        X_dask = X.to_dask_dataframe()
-        print(" X_dask type : ", type(X_dask))
-        len_each_worker_data = np.floor(len(X)/len(self.workers))
-
-        print("length of X : ",len(X))
-        print("length o self.workers : ", len(self.workers))
-        print("len_each_worker_data : ", len_each_worker_data)
-        start_posi = 0
-        end_posi = parts_per_worker
-        for w in self.workers:
-        """
-        preds = X.partition[start_posi:end_posi].map_partitions(
-                self.rfs[w].result().predict,
+        worker_tcp_info = [i for i in self.workers]
+        preds = X.map_partitions(
+                self.rfs[worker_tcp_info[0]].result().predict,
                 predict_model,
                 output_class, threshold, algo,
                 num_classes, convert_dtype)
-        """
-            start_posi = end_posi
-            end_posi = end_posi + parts_per_worker
-            if idx == len_each_worker_data-2:
-                end_posi = num_partitions - end_posi
-            print("preds in dask : ", preds)
-        """
-        return preds
+
+        return cudf.from_gpu_matrix(preds)
 
 
     def _predict_using_cpu(self, X):

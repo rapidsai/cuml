@@ -37,6 +37,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+from cython.operator cimport dereference as deref
 
 from numba import cuda
 
@@ -164,7 +165,7 @@ class RandomForestRegressor(Base):
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported.
+        if -1. Unlimited depth is not supported with split_algo=1.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
@@ -175,7 +176,7 @@ class RandomForestRegressor(Base):
         per node split.
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
-        If 'auto' then max_features=1.0 .
+        If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins :  int (default = 8)
@@ -373,25 +374,39 @@ class RandomForestRegressor(Base):
         return model_protobuf_bytes
 
     def _tl_model_handles(self, model_bytes):
-        cdef ModelHandle cuml_model_ptr = NULL
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         task_category = REGRESSION_CATEGORY
-        build_treelite_forest(& cuml_model_ptr,
+        cdef ModelHandle tl_model_ptr = NULL
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+        build_treelite_forest(& tl_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> model_bytes)
-        mod_handle = <size_t> cuml_model_ptr
+        mod_handle = <size_t> tl_model_ptr
 
         return ctypes.c_void_p(mod_handle).value
 
-    def _read_mod_handles(self, mod_handles):
+    def concatenate_treelite_handle(self, treelite_handle):
+        cdef ModelHandle concat_model_handle = NULL
+        cdef vector[ModelHandle] *model_handles \
+            = new vector[ModelHandle]()
+        cdef uintptr_t mod_ptr
+        for i in treelite_handle:
+            mod_ptr = <uintptr_t>i
+            model_handles.push_back((
+                <ModelHandle> mod_ptr))
 
-        cdef uintptr_t model_ptr = <uintptr_t> mod_handles
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
+        concat_model_handle = concatenate_trees(deref(model_handles))
 
-        return model_protobuf_bytes
+        concat_model_ptr = <size_t> concat_model_handle
+        return ctypes.c_void_p(concat_model_ptr).value
+
+    def concatenate_model_bytes(self, concat_model_handle):
+        cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
+        concat_model_bytes = save_model(<ModelHandle> model_ptr)
+        self._model_pbuf_bytes = concat_model_bytes
+        return concat_model_bytes
 
     def fit(self, X, y):
         """
@@ -477,11 +492,12 @@ class RandomForestRegressor(Base):
         del(y_m)
         return self
 
-    def _predict_model_on_gpu(self, X, algo,
-                              convert_dtype, fil_sparse_format, 
-                              task_category=REGRESSION_CATEGORY):
+    def _predict_model_on_gpu(self, X, algo, convert_dtype,
+                              fil_sparse_format, task_category=REGRESSION_CATEGORY):
 
         cdef ModelHandle cuml_model_ptr
+        #if len(concat_mod_bytes) != 0:
+        #    self.model_pbuf_bytes = concat_mod_bytes
         X_m, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
@@ -628,9 +644,9 @@ class RandomForestRegressor(Base):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(
-                X, algo, convert_dtype, fil_sparse_format,
-                task_category=REGRESSION_CATEGORY)
+            preds = self._predict_model_on_gpu(X, algo, convert_dtype,
+                                               fil_sparse_format,
+                                               task_category=REGRESSION_CATEGORY)
 
         return preds
 
