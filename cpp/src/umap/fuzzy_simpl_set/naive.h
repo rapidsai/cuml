@@ -323,16 +323,17 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
 
   if (params->verbose) {
     std::cout << "Smooth kNN Distances" << std::endl;
-    std::cout << MLCommon::arr2Str(sigmas.data(), n, "sigmas", stream)
+    std::cout << MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(rhos.data(), n, "rhos", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(rhos.data(), 25, "rhos", stream)
+              << std::endl;
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-                 * Compute graph of membership strengths
-                 */
+   * Compute graph of membership strengths
+   */
   compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(
     knn_indices, knn_dists, sigmas.data(), rhos.data(), in.vals(), in.rows(),
     in.cols(), in.n_rows, n_neighbors);

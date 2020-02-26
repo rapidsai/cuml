@@ -59,6 +59,7 @@ cdef extern from "treelite/c_api.h":
                                        ModelHandle* out) except +
     cdef int TreeliteLoadProtobufModel(const char* filename,
                                        ModelHandle* out) except +
+    cdef const char* TreeliteGetLastError()
 
 
 cdef class TreeliteModel():
@@ -122,16 +123,19 @@ cdef class TreeliteModel():
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "protobuf":
             # XXX Not tested
             res = TreeliteLoadProtobufModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         else:
             raise ValueError("Unknown model type %s" % model_type)
         model = TreeliteModel()
@@ -169,7 +173,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                       forest_t,
                       float*,
                       float*,
-                      size_t)
+                      size_t,
+                      bool)
 
     cdef forest_t from_treelite(cumlHandle& handle,
                                 forest_t*,
@@ -211,7 +216,7 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, preds=None):
+    def predict(self, X, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the exampes in X
 
@@ -221,6 +226,9 @@ cdef class ForestInference_impl():
             For optimal performance, pass a device array with C-style layout
 
         preds : float32 device array, shape = n_samples
+
+        predict_proba : bool, whether to output class probabilities(vs classes)
+        Supported only for binary classification. output format matches sklearn
         """
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, _, X_dtype = \
@@ -232,7 +240,10 @@ cdef class ForestInference_impl():
         #preds = cudf.Series(zeros(n_rows, dtype=np.float32))
 
         if preds is None:
-            preds = rmm.device_array(n_rows, dtype=np.float32)
+            shape = (n_rows,)
+            if predict_proba:
+                shape += (2,)
+            preds = rmm.device_array(shape, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
@@ -249,7 +260,8 @@ cdef class ForestInference_impl():
                 self.forest_data,
                 <float*> preds_ptr,
                 <float*> X_ptr,
-                <size_t> n_rows)
+                <size_t> n_rows,
+                <bool> predict_proba)
         self.handle.sync()
         # synchronous w/o a stream
         return preds
@@ -411,7 +423,31 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        return self._impl.predict(X, preds)
+        return self._impl.predict(X, False, preds)
+
+    def predict_proba(self, X, preds=None):
+        """
+        Predicts the class probabilities for X with the loaded forest model.
+        The result is the raw floating point output
+        from the model.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
+           For optimal performance, pass a device array with C-style layout
+        preds: gpuarray or cudf.Series, shape = (n_samples,2)
+           binary probability output
+           Optional 'out' location to store inference results
+
+        Returns
+        ----------
+        GPU array of shape (n_samples,2) with inference results
+        (or 'preds' filled with inference results if preds was specified)
+        """
+        return self._impl.predict(X, True, preds)
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='AUTO',
