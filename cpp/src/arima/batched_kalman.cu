@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <vector>
 
 #include <thrust/for_each.h>
@@ -453,8 +454,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   const double* d_R = Rb.raw_data();
   thrust::for_each(thrust::cuda::par.on(stream), counting,
                    counting + batch_size, [=] __device__(int bid) {
-                     double sigma2 =
-                       max(d_sigma2[bid], 1e-6);  // sigma2 must be > 0
+                     double sigma2 = d_sigma2[bid];
                      for (int i = 0; i < r; i++) {
                        d_RQ[bid * r + i] = d_R[bid * r + i] * sigma2;
                      }
@@ -470,6 +470,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
+  auto start = std::chrono::high_resolution_clock::now();
   // Use the dense version for small matrices, the sparse version otherwise
   // MLCommon::LinAlg::Batched::Matrix<double> P =
   //   (r <= 8 && batch_size <= 1024)
@@ -477,6 +478,10 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   //     : MLCommon::Sparse::Batched::b_lyapunov(T_sparse, T_mask, RRT);
   MLCommon::LinAlg::Batched::Matrix<double> P =
     MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT);
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto duration =
+    std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  std::cout << duration.count() << "ms" << std::endl;
   /// TODO: cleanup
   ML::POP_RANGE();
 

@@ -1344,7 +1344,7 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
     //
     {
       bool force_conv = (step_iter >= max_iter_per_step);
-      constexpr int TPB = 256;
+      constexpr int TPB = 32;
       francis_convergence_kernel<<<ceildiv<int>(batch_size, TPB), TPB, 0,
                                    stream>>>(S.raw_data(), p_ptr.get(), n,
                                              max_p, batch_size, force_conv);
@@ -1380,7 +1380,7 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
     //
 
     if (reduced_batch_size > 0) {
-      constexpr int TPB = 256;
+      constexpr int TPB = 32;
       francis_qr_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
                                stream>>>(
         U.raw_data(), S.raw_data(), index_buffer.data(), n, max_p,
@@ -1675,7 +1675,7 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
 
     // Run a simple step
     if (reduced_batch_size > 0) {
-      int TPB = 256;  // TODO: heuristics
+      int TPB = 32;  // TODO: heuristics
       trsyl_single_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
                                  stream>>>(
         R.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(), k_buffer.data(),
@@ -1696,7 +1696,7 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
 
     // Run a double step
     if (reduced_batch_size > 0) {
-      int TPB = 256;
+      int TPB = 32;
       trsyl_double_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
                                  stream>>>(
         R.raw_data(), R2.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(),
@@ -1733,7 +1733,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
   int n2 = n * n;
   auto counting = thrust::make_counting_iterator(0);
 
-  bool small = false;  // TODO: heuristics
+  bool small = (n <= 2);  // TODO: heuristics
 
   if (small) {
     //
