@@ -140,6 +140,8 @@ struct forest {
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
+    leaf_payload_type_ = params->leaf_payload_type;
+    printf("%s line %d: leaf_payload_type %d\n", __FILE__, __LINE__, params->leaf_payload_type);
     init_max_shm();
   }
 
@@ -156,6 +158,7 @@ struct forest {
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
     params.num_output_classes = predict_proba ? 2 : 1;
+    params.leaf_payload_type = leaf_payload_type_;
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
@@ -181,6 +184,7 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
+  leaf_value_t leaf_payload_type_ = FLOAT_SCALAR;
 };
 
 struct dense_forest : forest {
@@ -294,6 +298,14 @@ void check_params(const forest_params_t* params, bool dense) {
     default:
       ASSERT(false,
              "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
+  }
+  switch (params->leaf_payload_type) {
+    case leaf_value_t::FLOAT_SCALAR:
+    case leaf_value_t::INT_CLASS_LABEL:
+      break;
+    default:
+      ASSERT(false,
+             "leaf_payload_type should be FLOAT_SCALAR or INT_CLASS_LABEL");
   }
   // output_t::RAW == 0, and doesn't have a separate flag
   output_t all_set =
@@ -551,6 +563,7 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
+  printf("%s line %d: leaf_payload_type %d\n", __FILE__, __LINE__, tl_params->leaf_payload_type);
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
   const tl::Model& model_ref = *(tl::Model*)model;
