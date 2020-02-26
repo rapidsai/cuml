@@ -61,7 +61,7 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
 
         X, y = make_classification(n_samples=10000, n_features=20,
                                    n_clusters_per_class=1, n_informative=10,
-                                   random_state=123, n_classes=5)
+                                   random_state=123, n_classes=2)
 
         X = X.astype(np.float32)
         y = y.astype(np.int32)
