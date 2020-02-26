@@ -364,6 +364,40 @@ class RandomForestRegressor:
                 raise ValueError("The treelite handle obtained from each user"
                                  " are not right")
 
+    def _concat_treelite_models(self):
+        """
+        Convert the cuML Random Forest model present in different workers to
+        the treelite format and then concatenate the different treelite models
+        to create a single model. The concatenated model is then converted to
+        bytes format.
+        """
+
+        mod_bytes = []
+        for w in self.workers:
+            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+
+        for i in range(len(mod_bytes)):
+            print("length of mod)bytes in concat : ",len(mod_bytes[i]))
+        print("self. workers : ", self.workers)
+
+        worker_tcp_info = [i for i in self.workers]
+
+        print("worker_tcp_info : ", worker_tcp_info)
+        print("self.rfs : ", self.rfs)
+        all_tl_mod_handles = []
+        model = self.rfs[worker_tcp_info[0]].result()
+        for n in range(len(self.workers)):
+            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+            print("all_tl_mod_handles : ", all_tl_mod_handles)
+
+        concat_model_handle = model.concatenate_treelite_handle(
+            treelite_handle=all_tl_mod_handles)
+        print("concat_model_handle : ", concat_model_handle)
+        concatenated_model_bytes = model.concatenate_model_bytes(concat_model_handle)
+        for w in self.workers:
+            #print("each_worker_bytes : ", len(self.rfs[w].result()._model_pbuf_bytes))
+            self.rfs[w].result()._model_pbuf_bytes = concatenated_model_bytes
+
     def fit(self, X, y):
         """
         Fit the input data with a Random Forest regression model
@@ -435,7 +469,8 @@ class RandomForestRegressor:
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, predict_model="GPU", algo='auto',
+                convert_dtype=True, fil_sparse_format='auto'):
         """
         Predicts the regressor outputs for X.
 
@@ -449,42 +484,22 @@ class RandomForestRegressor:
            Dense vector (float) of shape (n_samples, 1)
 
         """
+        self._concat_treelite_models()
+
         c = default_client()
-        workers = self.workers
+        print("***************************************")
+        print(" X type : ", type(X))
 
-        X_Scattered = c.scatter(X)
+        key = uuid1()
 
-        futures = list()
-        for n, w in enumerate(workers):
-            futures.append(
-                c.submit(
-                    RandomForestRegressor._predict,
-                    self.rfs[w],
-                    X_Scattered,
-                    random.random(),
-                    workers=[w],
-                )
-            )
+        worker_tcp_info = [i for i in self.workers]
+        preds = X.map_partitions(
+                self.rfs[worker_tcp_info[0]].result().predict,
+                predict_model,
+                algo, convert_dtype,
+                fil_sparse_format)
 
-        wait(futures)
-        raise_exception_from_futures(futures)
-
-        indexes = list()
-        rslts = list()
-        for d in range(len(futures)):
-            rslts.append(futures[d].result())
-            indexes.append(0)
-
-        pred = list()
-
-        for i in range(len(X)):
-            pred_per_worker = 0.0
-            for d in range(len(rslts)):
-                pred_per_worker = pred_per_worker + rslts[d][i]
-
-            pred.append(pred_per_worker / len(rslts))
-
-        return pred
+        return cudf.from_gpu_matrix(preds)
 
     def get_params(self, deep=True):
         """

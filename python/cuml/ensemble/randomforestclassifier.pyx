@@ -468,11 +468,9 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = rmm_cupy_ary(cp.unique, y_m)
+        unique_labels = np.unique(y)
         num_unique_labels = len(unique_labels)
-        #print(" ")
-        self.num_classes = num_unique_labels
-
+        #self.num_classes = num_unique_labels
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
