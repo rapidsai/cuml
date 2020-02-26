@@ -109,6 +109,10 @@ def mean_squared_error(y_true, y_pred,
                        squared=True):
     """Mean squared error regression loss
 
+    Be careful when using this metric with float32 inputs as the result can be
+    slightly incorrect because of floating point precision if the input is
+    large enough. We recommend to use float64 instead.
+
     Parameters
     ----------
     y_true : array-like (device or host) shape = (n_samples,)
