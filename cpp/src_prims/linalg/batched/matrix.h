@@ -1333,7 +1333,6 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
 
   /// TODO: general iteration limit?
 
-  int iter = 0;
   int step_iter = 0;
   int max_p = n;
   int prev_max_p = max_p;
@@ -1394,10 +1393,7 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
       prev_max_p = max_p;
     } else
       step_iter++;
-
-    iter++;
   }
-  std::cout << "Iterations: " << iter << std::endl;  // TODO: remove
 }
 
 /**
@@ -1416,34 +1412,17 @@ struct logical_and_not : public thrust::binary_function<T1, T1, T2> {
  */
 template <int p, typename T>
 DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n) {
-  constexpr T near_zero = 1e-6;
-
-  // Reduce the system to upper triangular
+  // Reduce the system to upper triangular with Givens rotations
   for (int k = 0; k < n - 1; k++) {
-    T s0 = d_scratch[(n + 1) * k];
-    T s1 = d_scratch[(n + 1) * k + 1];
-    T a0, a1, b0, b1;
-    if (abs(s1) < near_zero) {  // don't change anything
-      a0 = (T)1;
-      b0 = (T)0;
-      a1 = (T)0;
-      b1 = (T)1;
-    } else if (abs(s0) < near_zero) {  // permute rows
-      a0 = (T)0;
-      b0 = (T)1;
-      a1 = (T)1;
-      b1 = (T)0;
-    } else {  // Gaussian elimination
-      a0 = (T)1;
-      b0 = (T)0;
-      a1 = -s1 / s0;
-      b1 = (T)1;
-    }
+    T c, s;
+    generate_givens(d_scratch[(n + 1) * k], d_scratch[(n + 1) * k + 1], c, s);
+
+    // scratch[k:k+2, k:] = P * scratch[k:k+2, k:]
     for (int j = k; j < n + p; j++) {
-      s0 = d_scratch[n * j + k];
-      s1 = d_scratch[n * j + k + 1];
-      d_scratch[n * j + k] = a0 * s0 + b0 * s1;
-      d_scratch[n * j + k + 1] = a1 * s0 + b1 * s1;
+      T h0 = d_scratch[j * n + k];
+      T h1 = d_scratch[j * n + k + 1];
+      d_scratch[j * n + k] = h0 * c - h1 * s;
+      d_scratch[j * n + k + 1] = h0 * s + h1 * c;
     }
   }
 
@@ -1617,27 +1596,6 @@ __global__ void trsyl_double_step_kernel(const T* d_R, const T* d_R2,
 }
 
 /**
- * @todo: remove (temporary for debug)
- */
-template <typename T>
-void compare_mat(const Matrix<T>& A, const Matrix<T>& B) {
-  Matrix<T> abs_diff =
-    b_aA_op_B(A, B, [] __device__(T a, T b) { return abs(a - b); });
-  int total_size = A.batches() * A.shape().first * A.shape().second;
-  thrust::device_ptr<T> diff_ptr =
-    thrust::device_pointer_cast(abs_diff.raw_data());
-  T mean_diff = thrust::reduce(thrust::cuda::par.on(A.stream()), diff_ptr,
-                               diff_ptr + total_size, (T)0, thrust::plus<T>()) /
-                static_cast<T>(total_size);
-  T max_diff =
-    thrust::reduce(thrust::cuda::par.on(A.stream()), diff_ptr,
-                   diff_ptr + total_size, (T)0, thrust::maximum<T>());
-  CUDA_CHECK(cudaStreamSynchronize(A.stream()));
-  std::cout << "Abs diff: mean " << mean_diff << " -  max " << max_diff
-            << std::endl;
-}
-
-/**
  * Solves RX + XS = F, where R upper quasi-triangular, S lower quasi-triangular
  * Special case of LAPACK's real variant of the routine TRSYL
  * 
@@ -1702,7 +1660,7 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
       [=] __device__(int ib) {
         d_step_mask[ib] =
           (max_k == 0 ? true
-                      : (abs(d_S[n2 * ib + max_k * n + max_k - 1]) < 1e-6));
+                      : (abs(d_S[n2 * ib + max_k * n + max_k - 1]) < 1e-14));
       });
 
     // Create a mask of the batch members on which to perform a simple step
@@ -1835,14 +1793,6 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     Matrix<T> U(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     b_schur(B.transpose(), U, R);
 
-    std::cout << "UU' | In: ";
-    compare_mat(
-      b_gemm(U, U, false, true),
-      Matrix<T>::Identity(n, batch_size, A.cublasHandle(), allocator, stream));
-
-    std::cout << "URU' | B': ";
-    compare_mat(b_gemm(U, b_gemm(R, U, false, true)), B.transpose());
-
     // 2. F = -U'CU
     Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     b_gemm(true, false, n, n, n, -1.0, U, C * U, 0.0, F);
@@ -1850,42 +1800,11 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     // 3. Solve RY+YR'=F (where Y=U'XU)
     Matrix<T> Y = b_trsyl_uplo(R, R.transpose(), F);
 
-    std::cout << "RY + YR' | F: ";
-    compare_mat(R * Y + b_gemm(Y, R, false, true), F);
-
     // 4. X = UYU'
     Matrix<T> X = b_gemm(U, b_gemm(Y, U, false, true));
 
     /// TODO: the solution is symmetric, investigate to which extent we can
     ///       use that information!
-
-    std::cout << "B'X + XB | -C: ";
-    compare_mat(b_gemm(B, X, true, false) + X * B, -C);
-
-    std::cout << "AXA'-X+Q | 0: ";
-    compare_mat(
-      b_gemm(A, b_gemm(X, A, false, true)) - X + Q,
-      Matrix<T>(n, n, batch_size, A.cublasHandle(), allocator, stream, true));
-
-    /// TODO: remove
-    Matrix<T> schur_diff =
-      b_aA_op_B(b_gemm(U, b_gemm(R, U, false, true)), B.transpose(),
-                [] __device__(T a, T b) { return abs(a - b); });
-    Matrix<T> lyapu_diff = b_aA_op_B(
-      b_gemm(A, b_gemm(X, A, false, true)) - X + Q,
-      Matrix<T>(n, n, batch_size, A.cublasHandle(), allocator, stream, true),
-      [] __device__(T a, T b) { return abs(a - b); });
-    for (int ib = 0; ib < batch_size; ib++) {
-      thrust::device_ptr<T> schur_diff_ptr(schur_diff.raw_data() + n * n * ib);
-      T err_schur =
-        thrust::reduce(thrust::cuda::par.on(A.stream()), schur_diff_ptr,
-                       schur_diff_ptr + n * n, (T)0, thrust::maximum<T>());
-      thrust::device_ptr<T> lyapu_diff_ptr(lyapu_diff.raw_data() + n * n * ib);
-      T err_lyapu =
-        thrust::reduce(thrust::cuda::par.on(A.stream()), lyapu_diff_ptr,
-                       lyapu_diff_ptr + n * n, (T)0, thrust::maximum<T>());
-      std::cout << ib << "," << err_schur << "," << err_lyapu << std::endl;
-    }
 
     return X;
   }
