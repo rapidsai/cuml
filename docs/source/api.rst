@@ -250,11 +250,6 @@ HoltWinters
 .. autoclass:: cuml.ExponentialSmoothing
     :members:
 
-Kalman Filter
--------------
-
-.. autoclass:: cuml.KalmanFilter
-    :members:
 
 ARIMA
 -----
