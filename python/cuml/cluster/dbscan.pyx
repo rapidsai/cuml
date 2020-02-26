@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
 from collections import defaultdict
 
@@ -138,12 +138,20 @@ class DBSCAN(Base):
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
+    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
+        Use it to control output type of the results and attributes.
+        If None it'll inherit the output type set at the
+        module level, cuml.output_type. If that has not been changed, by
+        default the estimator will mirror the type of the data used for each
+        fit or predict call.
+        If set, the estimator will override the global option for its behavior.
 
     Attributes
     -----------
-    labels_ : array
+    labels_ : array-like or cuDF series
         Which cluster each datapoint belongs to. Noisy samples are labeled as
-        -1.
+        -1. Format depends on cuml global output type and estimator
+        output_type.
 
     Notes
     ------
@@ -168,21 +176,19 @@ class DBSCAN(Base):
     """
 
     def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False,
-                 max_mbytes_per_batch=None):
-        super(DBSCAN, self).__init__(handle, verbose)
+                 max_mbytes_per_batch=None, output_type=None):
+        super(DBSCAN, self).__init__(handle, verbose, output_type)
         self.eps = eps
         self.min_samples = min_samples
-        self.labels_ = None
         self.max_mbytes_per_batch = max_mbytes_per_batch
         self.verbose = verbose
+
+        # internal array attributes
+        self._labels_ = None  # accessed via estimator.labels_
 
         # C++ API expects this to be numeric.
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
-
-    def __getattr__(self, attr):
-        if attr == 'labels_array':
-            return self.labels_._column._data.mem
 
     def fit(self, X, out_dtype="int32"):
         """
@@ -199,24 +205,26 @@ class DBSCAN(Base):
             "int64", np.int64}. When the number of samples exceed
         """
 
-        if self.labels_ is not None:
-            del self.labels_
+        self._set_output_type(X)
+
+        if self._labels_ is not None:
+            del self._labels_
 
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
             raise ValueError("Invalid value for out_dtype. "
                              "Valid values are {'int32', 'int64', "
                              "np.int32, np.int64}")
 
-        cdef uintptr_t input_ptr
+        X_m, n_rows, n_cols, self.dtype = \
+            input_to_cuml_array(X, order='C',
+                                check_dtype=[np.float32, np.float64])
 
-        X_m, input_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, order='C',
-                               check_dtype=[np.float32, np.float64])
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(zeros(n_rows, dtype=out_dtype))
-        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
+        self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        cdef uintptr_t labels_ptr = self._labels_.ptr
 
         if self.dtype == np.float32:
             if out_dtype is "int32" or out_dtype is np.int32:

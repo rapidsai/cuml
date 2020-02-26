@@ -111,11 +111,13 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     model_path = os.path.join(tmp_path, 'xgb_class.model')
 
     bst = _build_and_save_xgboost(model_path, X_train, y_train,
-                                  num_rounds, classification)
+                                  num_rounds=num_rounds,
+                                  classification=classification)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
     xgb_preds = bst.predict(dvalidation)
     xgb_preds_int = np.around(xgb_preds)
+    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
 
     xgb_acc = accuracy_score(y_validation, xgb_preds > 0.5)
 
@@ -124,10 +126,12 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
     assert array_equal(fil_preds, xgb_preds_int)
+    assert array_equal(fil_proba, xgb_proba)
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -160,8 +164,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     model_path = os.path.join(tmp_path, 'xgb_reg.model')
     bst = _build_and_save_xgboost(model_path, X_train,
                                   y_train,
-                                  num_rounds,
-                                  classification,
+                                  classification=classification,
+                                  num_rounds=num_rounds,
                                   xgboost_params={'max_depth': max_depth})
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
@@ -223,6 +227,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     skl_preds = skl_model.predict(X_validation)
     skl_preds_int = np.around(skl_preds)
+    skl_proba = skl_model.predict_proba(X_validation)
 
     skl_acc = accuracy_score(y_validation, skl_preds > 0.5)
 
@@ -234,10 +239,12 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                            threshold=0.50,
                                            storage_type=storage_type)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(skl_acc, 1e-5)
     assert array_equal(fil_preds, skl_preds_int)
+    assert array_equal(fil_proba, skl_proba)
 
 
 @pytest.mark.parametrize('n_rows', [1000])
@@ -295,7 +302,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse == pytest.approx(skl_mse, 1e-5)
+    assert fil_mse == pytest.approx(skl_mse, 1e-4)
     assert array_equal(fil_preds, skl_preds)
 
 
@@ -396,4 +403,19 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
 
     fil_preds = np.asarray(fm.predict(X))
-    assert array_equal(gbm_preds, fil_preds, 1e-3)
+
+    assert np.allclose(gbm_preds, fil_preds, 1e-3)
+
+    lcls = lgb.LGBMClassifier().set_params(objective='binary',
+                                           metric='binary_logloss')
+    lcls.fit(X, y)
+    gbm_proba = lcls.predict_proba(X)
+
+    lcls.booster_.save_model(model_path)
+    fm = ForestInference.load(model_path,
+                              algo='TREE_REORG',
+                              output_class=False,
+                              model_type="lightgbm")
+
+    fil_proba = np.asarray(fm.predict_proba(X))
+    assert np.allclose(gbm_proba, fil_proba, 1e-3)
