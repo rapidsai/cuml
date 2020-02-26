@@ -52,6 +52,9 @@
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 
+## Removals and deprecations
+- PR #1759: Remove Kalman Filter
+
 # cuML 0.12.0 (Date TBD)
 
 ## New Features
