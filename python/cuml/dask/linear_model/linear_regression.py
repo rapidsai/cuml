@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import default_client
 from dask.distributed import wait
 from uuid import uuid1
+import dask
 
+import numpy as np
 
 class LinearRegression(object):
     """
@@ -180,7 +182,7 @@ class LinearRegression(object):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
-    def predict(self, X):
+    def predict(self, X, delayed=False):
         """
         Make predictions for X and returns a y_pred.
 
@@ -192,36 +194,77 @@ class LinearRegression(object):
         -------
         y : dask cuDF (n_rows, 1)
         """
-        X = X.persist()
 
-        data = MGData.single(X, client=self.client)
+        if delayed:
 
-        key = uuid1()
-        linear_pred = dict([(wf[0], self.client.submit(
-            LinearRegression._func_predict,
-            self.local_model,
-            data.worker_to_parts[wf[0]],
-            key="%s-%s" % (key, idx),
-            workers=[wf[0]]))
-            for idx, wf in enumerate(data.gpu_futures)])
+            dtype = X.dtype
+            X = X.to_delayed()
 
-        raise_exception_from_futures(linear_pred.values())
+            model = dask.delayed(self.local_model, pure=True, nout=1)
 
+            print([part for part in X])
 
-        # loop to order the futures correctly to build the
-        # dask-dataframe/array
-        # todo: move this to util file
-        results = []
-        counters = dict.fromkeys(data.workers, 0)
-        for idx, part in enumerate(data.gpu_futures):
-            results.append(self.client.submit(
-                LinearRegression._func_get_idx,
-                linear_pred[part[0]],
-                counters[part[0]])
-            )
-            counters[part[0]] = counters[part[0]] + 1
+            preds = [_delayed_predict(model, part[0]) for part in X]
 
-        return to_output(results, self.datatype)
+            print("LLLLLLL")
+            print(preds)
+            print("LLLLLLLL")
+
+            preds_arr = [dask.array.from_delayed(pred, shape=(np.nan, 1),
+                                                 dtype=dtype)
+                         for pred in preds]
+
+            print("predsarr;;;;;;;;;;")
+            print(preds_arr[0].compute())
+            print(preds_arr[1].compute())
+            print("predsarr;;;;;;;;;;")
+
+            return dask.array.concatenate(preds_arr, axis=0,
+                                       allow_unknown_chunksizes=True)
+
+        else:
+            X = X.persist()
+
+            data = MGData.single(X, client=self.client)
+
+            key = uuid1()
+            linear_pred = dict([(wf[0], self.client.submit(
+                LinearRegression._func_predict,
+                self.local_model,
+                data.worker_to_parts[wf[0]],
+                key="%s-%s" % (key, idx),
+                workers=[wf[0]]))
+                for idx, wf in enumerate(data.gpu_futures)])
+
+            raise_exception_from_futures(linear_pred.values())
+
+            # loop to order the futures correctly to build the
+            # dask-dataframe/array
+            # todo: move this to util file
+            results = []
+            counters = dict.fromkeys(data.workers, 0)
+            for idx, part in enumerate(data.gpu_futures):
+                results.append(self.client.submit(
+                    LinearRegression._func_get_idx,
+                    linear_pred[part[0]],
+                    counters[part[0]])
+                )
+                counters[part[0]] = counters[part[0]] + 1
+
+            return to_output(results, self.datatype)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
+
+
+@dask.delayed(pure=True, nout=1)
+def _delayed_predict(model, data):
+    model = dask.compute(model)
+    data = dask.compute(data)
+    print(data[0])
+    return model[0].predict(data[0])
+
+
+@dask.delayed(pure=True, nout=1)
+def _delayed_get_ary_meta(ary):
+    return ary.shape, ary.dtype
