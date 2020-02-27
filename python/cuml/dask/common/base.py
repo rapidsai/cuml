@@ -16,24 +16,43 @@ class DelayedParallelFunc(object):
                            func,
                            X,
                            delayed=True,
-                           parallelism=25,
+                           parallelism=5,
                            output_futures=False):
         """
-        Make predictions for X and returns a y_pred.
+        Runs a function embarrassingly parallel on a set of workers while
+        reusing instances of models and constraining the number of
+        tasks that can execute concurrently on each worker.
+
+        Note that this mixin assumes the subclass has been trained and
+        includes a `self.local_model` attribute containing a subclass
+        of `cuml.Base`.
+
+        This is intended to abstract functions like predict, transform, and
+        score, which can execute embarrassingly parallel but need addition
+        execution constraints which result from the more limited GPU
+        resources.
 
         Parameters
         ----------
         func : dask.delayed function to propagate to the workers to execute
                embarrassingly parallel, shared between tasks on each worker
                and constrained by a holder lock
+
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
+
+        delayed : bool return a lazy (delayed) object?
+
         parallelism : int
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
             at any time.
+
+        output_futures : bool returns the futures pointing the to the resuls
+                         of the parallel function executions on the workers,
+                         rather than a dask collection object.
 
         Returns
         -------
@@ -106,13 +125,16 @@ class DelayedPredictionMixin(DelayedParallelFunc):
 
     def _predict(self, X, delayed=True, parallelism=25):
         """
-        Make predictions for X and returns a y_pred.
+        Make predictions for X and returns a dask collection.
 
         Parameters
         ----------
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
+
+        delayed : bool return lazy (delayed) result?
+
         parallelism : int
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
@@ -131,13 +153,16 @@ class DelayedTransformMixin(DelayedParallelFunc):
 
     def _transform(self, X, delayed=True, parallelism=25):
         """
-        Make predictions for X and returns a y_pred.
+        Call transform on the partitions of X and produce a dask collection.
 
         Parameters
         ----------
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
+
+        delayed : bool return lazy (delayed) result?
+
         parallelism : int
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
