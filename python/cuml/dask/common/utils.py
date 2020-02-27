@@ -17,6 +17,10 @@ import os
 import numba.cuda
 
 from cuml.utils import device_of_gpu_matrix
+from cuml import Base
+from cuml.naive_bayes import MultinomialNB
+
+from threading import Lock
 
 import cupy as cp
 import copyreg
@@ -159,9 +163,9 @@ def patch_cupy_sparse_serialization(client):
         def serialize_mat_descriptor(m):
             return cp.cupy.cusparse.MatDescriptor.create, ()
 
-        register_generic(cuml.Base)
+        register_generic(Base)
         # TODO: This should extend cuml.Base eventually
-        register_generic(cuml.MultinomialNB)
+        register_generic(MultinomialNB)
 
         copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
                        serialize_mat_descriptor)
@@ -169,7 +173,7 @@ def patch_cupy_sparse_serialization(client):
     patch_func()
     client.run(patch_func)
 
-from threading import Lock
+
 
 class ConcurrentPartitionLock:
    
@@ -187,7 +191,6 @@ class ConcurrentPartitionLock:
                 self.current_tasks += 1
                 lock_acquired = True
             self.lock.release()
-
 
     def __getstate__(self):
         d = self.__dict__.copy()
@@ -208,4 +211,3 @@ class ConcurrentPartitionLock:
         self.lock.acquire()
         self.current_tasks -= 1
         self.lock.release()
-
