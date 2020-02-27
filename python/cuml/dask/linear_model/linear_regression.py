@@ -17,12 +17,19 @@ from cuml.dask.common.input_utils import MGData
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
+from cuml.dask.common.utils import ConcurrentPartitionLock
 from dask.distributed import default_client
 from dask.distributed import wait
+
+from dask_cudf.core import DataFrame as dcDataFrame
+from dask.array.core import Array as daskArray
+
 from uuid import uuid1
 import dask
 
+import cupy as cp
 import numpy as np
+
 
 class LinearRegression(object):
     """
@@ -59,7 +66,7 @@ class LinearRegression(object):
     Attributes
     -----------
     coef_ : cuDF series, shape (n_features)
-        /delThe estimated coefficients for the linear regression model.
+        The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
     """
@@ -92,7 +99,7 @@ class LinearRegression(object):
 
     @staticmethod
     def _func_predict(f, df):
-        
+
         res = [f.predict(d) for d in df]
         return res
 
@@ -183,19 +190,20 @@ class LinearRegression(object):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
-        print("LOcalModel: "+ str(self.local_model))
-
     def predict(self, X, delayed=True, parallelism=25):
         """
         Make predictions for X and returns a y_pred.
 
         Parameters
         ----------
-        X : dask cuDF dataframe (n_rows, n_features)
-        parallelism : int amount of concurrent partitions that will be processed
-                      per worker. This bounds the total amount of temporary
-                      workspace memory on the GPU that will need to be allocated
-                      at any time.
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        parallelism : int
+            Amount of concurrent partitions that will be processed
+            per worker. This bounds the total amount of temporary
+            workspace memory on the GPU that will need to be allocated
+            at any time.
 
         Returns
         -------
@@ -203,37 +211,33 @@ class LinearRegression(object):
         """
 
         if delayed:
+            X_d = X.to_delayed()
 
-            from cuml.dask.common.utils import ConcurrentPartitionLock
-
-            dtype = X.dtype
-            X = X.to_delayed()
-
-            lock = dask.delayed(ConcurrentPartitionLock(parallelism), pure=True)
+            lock = dask.delayed(ConcurrentPartitionLock(parallelism),
+                                pure=True)
 
             model = dask.delayed(self.local_model, pure=True)
 
-            print([part for part in X])
+            if isinstance(X, dcDataFrame):
+                preds = [_delayed_predict(model, lock, part) for part in X_d]
+                return dask.dataframe.from_delayed(preds)
 
-            preds = [_delayed_predict(model, lock, part[0]) for part in X]
+            else:
+                preds = [_delayed_predict(model, lock, part[0])
+                         for part in X_d]
 
-            import cupy as cp
+                # todo: add parameter for option of not checking directly
+                dtype = X.dtype
 
-            print("LLLLLLL")
-            print(preds)
-            print("LLLLLLLL")
+                preds_arr = [
+                    dask.array.from_delayed(pred,
+                                            meta=cp.zeros(1, dtype=dtype),
+                                            shape=(np.nan,),
+                                            dtype=dtype)
+                    for pred in preds]
 
-            preds_arr = [dask.array.from_delayed(pred, meta=cp.zeros(1, dtype=dtype), shape=(np.nan,),
-                                                 dtype=dtype)
-                         for pred in preds]
-
-            print("predsarr;;;;;;;;;;")
-            print(preds_arr[0].compute())
-            print(preds_arr[1].compute())
-            print("predsarr;;;;;;;;;;")
-
-            return dask.array.concatenate(preds_arr, axis=0,
-                                       allow_unknown_chunksizes=True)
+                return dask.array.concatenate(preds_arr, axis=0,
+                                              allow_unknown_chunksizes=True)
 
         else:
             X = X.persist()
@@ -276,11 +280,6 @@ class LinearRegression(object):
 @dask.delayed(pure=False, nout=1)
 def _delayed_predict(model, lock, data):
     lock.acquire()
-    ret =  model.predict(data)
+    ret = model.predict(data)
     lock.release()
     return ret
-
-
-@dask.delayed(pure=False, nout=1)
-def _delayed_get_ary_meta(ary):
-    return ary.shape, ary.dtype
