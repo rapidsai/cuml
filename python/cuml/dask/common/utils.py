@@ -163,13 +163,12 @@ def patch_cupy_sparse_serialization(client):
     """
 
     from distributed.protocol import register_generic
+
     def patch_func():
         def serialize_mat_descriptor(m):
             return cp.cupy.cusparse.MatDescriptor.create, ()
 
         register_generic(Base)
-        # TODO: This should extend cuml.Base eventually
-        register_generic(MultinomialNB)
 
         copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
                        serialize_mat_descriptor)

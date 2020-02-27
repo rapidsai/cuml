@@ -222,6 +222,9 @@ class MultinomialNB(Base):
 
         self.n_features_ = None
 
+        # Needed until Base no longer assumed cumlHandle 
+        self.handle = None
+
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
     def fit(self, X, y, sample_weight=None):

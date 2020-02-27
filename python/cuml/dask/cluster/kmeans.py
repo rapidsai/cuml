@@ -167,36 +167,6 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
         return self
 
-    def _parallel_func(self, X, func):
-        """
-        Internal function that predicts the labels using a distributed
-        KMeans model.
-
-        Parameters
-        ----------
-        X : dask_cudf.Dataframe or CuPy backed dask.array
-            Data to predict
-
-        Returns
-        -------
-        result: dask_cudf.Dataframe
-            Dataframe containing label predictions
-        """
-
-        data = MGData.single(X, client=self.client)
-
-        key = uuid1()
-        kmeans_predict = [self.client.submit(
-            func,
-            self.local_model,
-            wf[1],
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(data.worker_to_parts.items())]
-        self.raise_exception_from_futures(kmeans_predict)
-
-        return to_output(kmeans_predict, self.datatype)
-
     def fit_predict(self, X, delayed=True, parallelism=5):
         """
         Compute cluster centers and predict cluster index for each sample.
@@ -214,6 +184,28 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         """
         return self.fit(X).predict(X, delayed, parallelism)
 
+    def predict(self, X, delayed=True, parallelism=5):
+        """
+        Predict labels for the input
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to transform
+
+        delayed : bool delay execution?
+
+        parallelism : integer number of concurrently executing partitions
+                              per worker
+
+        Returns
+        -------
+
+        result: dask_cudf.Dataframe
+            Dataframe containing transform
+        """
+        return self._predict(X, delayed, parallelism)
+
     def fit_transform(self, X, delayed=True, parallelism=5):
         """
         Calls fit followed by transform using a distributed KMeans model
@@ -230,7 +222,45 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         """
         return self.fit(X).transform(X, delayed, parallelism)
 
+    def transform(self, X, delayed=True, parallelism=5):
+        """
+        Transforms the input into the learned centroid space
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to transform
+
+        delayed : bool delay execution?
+
+        parallelism : integer number of concurrently executing partitions
+                              per worker
+
+        Returns
+        -------
+
+        result: dask_cudf.Dataframe
+            Dataframe containing transform
+        """
+        return self._transform(X, delayed, parallelism)
+
     def score(self, X, parallelism=5):
+        """
+        Computes the inertia score for the trained KMeans centroids.
+
+        Parameters
+        ----------
+        X : dask_cudf.Dataframe
+            Dataframe to compute score
+
+        parallelism : integer number of concurrently executing partitions
+                              per worker.
+
+        Returns
+        -------
+
+        Inertial score
+        """
 
         scores = self._run_parallel_func(KMeans._score, X, False, parallelism,
                                          output_futures=True)
