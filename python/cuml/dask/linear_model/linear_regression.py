@@ -59,7 +59,7 @@ class LinearRegression(object):
     Attributes
     -----------
     coef_ : cuDF series, shape (n_features)
-        The estimated coefficients for the linear regression model.
+        /delThe estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
     """
@@ -92,6 +92,7 @@ class LinearRegression(object):
 
     @staticmethod
     def _func_predict(f, df):
+        
         res = [f.predict(d) for d in df]
         return res
 
@@ -182,6 +183,8 @@ class LinearRegression(object):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
+        print("LOcalModel: "+ str(self.local_model))
+
     def predict(self, X, delayed=False):
         """
         Make predictions for X and returns a y_pred.
@@ -206,11 +209,13 @@ class LinearRegression(object):
 
             preds = [_delayed_predict(model, part[0]) for part in X]
 
+            import cupy as cp
+
             print("LLLLLLL")
             print(preds)
             print("LLLLLLLL")
 
-            preds_arr = [dask.array.from_delayed(pred, shape=(np.nan, 1),
+            preds_arr = [dask.array.from_delayed(pred, meta=cp.zeros(1, dtype=dtype), shape=(np.nan,),
                                                  dtype=dtype)
                          for pred in preds]
 
@@ -257,14 +262,15 @@ class LinearRegression(object):
         return list(self.kwargs.keys())
 
 
-@dask.delayed(pure=True, nout=1)
+@dask.delayed(pure=False, nout=1)
 def _delayed_predict(model, data):
-    model = dask.compute(model)
-    data = dask.compute(data)
-    print(data[0])
-    return model[0].predict(data[0])
+    #imodel = dask.compute(model)
+    print(str(hex(id(model))))
+    #data = dask.compute(data)
+    print(data)
+    return model.predict(data)
 
 
-@dask.delayed(pure=True, nout=1)
+@dask.delayed(pure=False, nout=1)
 def _delayed_get_ary_meta(ary):
     return ary.shape, ary.dtype
