@@ -1,13 +1,9 @@
 from cuml.dask.common.input_utils import MGData
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import raise_exception_from_futures
-from cuml.dask.common.comms import worker_state, CommsContext
-from cuml.dask.common.utils import ConcurrentPartitionLock
-from dask.distributed import default_client
-from dask.distributed import wait
+from cuml.dask.common.utils import MultiHolderLock
 
 from dask_cudf.core import DataFrame as dcDataFrame
-from dask.array.core import Array as daskArray
 
 from uuid import uuid1
 import dask
@@ -52,7 +48,7 @@ class DelayedPredictionMixin(object):
         if delayed:
             X_d = X.to_delayed()
 
-            lock = dask.delayed(ConcurrentPartitionLock(parallelism),
+            lock = dask.delayed(MultiHolderLock(parallelism),
                                 pure=True)
 
             model = dask.delayed(self.local_model, pure=True)
@@ -112,10 +108,10 @@ class DelayedPredictionMixin(object):
 
             return to_output(results, self.datatype)
 
+
 @dask.delayed(pure=False, nout=1)
 def _delayed_predict(model, lock, data):
     lock.acquire()
     ret = model.predict(data)
     lock.release()
     return ret 
- 
