@@ -20,7 +20,6 @@ class DelayedPredictionMixin(object):
         res = [f.predict(d) for d in df]
         return res
 
-    #todo: move to utils
     @staticmethod
     def _func_get_idx(f, idx):
         return f[idx]
