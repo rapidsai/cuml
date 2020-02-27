@@ -1,4 +1,5 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 #
 
 import cuml
+import cupy as cp
 import numpy as np
 import pytest
 
@@ -21,14 +23,18 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
-    unit_param, quality_param, stress_param
+    unit_param, quality_param, stress_param, generate_random_labels
 
 from numba import cuda
+from numpy.testing import assert_almost_equal
 
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.preprocessing import StandardScaler
+
+from cuml.metrics.regression import mean_squared_error
+from sklearn.metrics.regression import mean_squared_error as sklearn_mse
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -146,9 +152,68 @@ def test_rand_index_score(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
+    cu_y_pred = cuml_kmeans.fit_predict(X)
 
     cu_score = cu_ars(y, cu_y_pred)
-    cu_score_using_sk = sk_ars(y, cu_y_pred)
+    cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
+
+
+def test_mean_squared_error():
+    y_true = np.arange(50, dtype=np.int)
+    y_pred = y_true + 1
+    assert_almost_equal(mean_squared_error(y_true, y_pred), 1.)
+
+
+@pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+def test_mean_squared_error_random(n_samples, dtype):
+    if dtype == np.float32 and n_samples == 500000:
+        # stress test for float32 fails because of floating point precision
+        pytest.xfail()
+
+    y_true, y_pred = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
+    mse = mean_squared_error(y_true, y_pred, multioutput='raw_values')
+    skl_mse = sklearn_mse(y_true, y_pred, multioutput='raw_values')
+    cp.testing.assert_array_almost_equal(mse, skl_mse, decimal=2)
+
+
+def test_mean_squared_error_at_limits():
+    y_true = np.array([0.], dtype=np.float)
+    y_pred = np.array([0.], dtype=np.float)
+    assert_almost_equal(mean_squared_error(y_true, y_pred), 0.00, decimal=2)
+    assert_almost_equal(mean_squared_error(y_true, y_pred, squared=False),
+                        0.00, decimal=2)
+
+
+def test_mean_squared_error_multioutput_array():
+    y_true = np.array([[1, 2], [2.5, -1], [4.5, 3], [5, 7]], dtype=np.float)
+    y_pred = np.array([[1, 1], [2, -1], [5, 4], [5, 6.5]], dtype=np.float)
+
+    mse = mean_squared_error(y_true, y_pred, multioutput='raw_values')
+    cp.testing.assert_array_almost_equal(mse, [0.125, 0.5625], decimal=2)
+
+    weights = np.array([0.4, 0.6], dtype=np.float)
+    msew = mean_squared_error(y_true, y_pred, multioutput=weights)
+    rmsew = mean_squared_error(y_true, y_pred, multioutput=weights,
+                               squared=False)
+    assert_almost_equal(msew, 0.39, decimal=2)
+    assert_almost_equal(rmsew, 0.62, decimal=2)
+
+    y_true = np.array([[0, 0]] * 4, dtype=np.int)
+    y_pred = np.array([[1, 1]] * 4, dtype=np.int)
+    mse = mean_squared_error(y_true, y_pred, multioutput='raw_values')
+    cp.testing.assert_array_almost_equal(mse, [1., 1.], decimal=2)
+
+
+def test_mean_squared_error_custom_weights():
+    y_true = np.array([1, 2, 2.5, -1], dtype=np.float)
+    y_pred = np.array([1, 1, 2, -1], dtype=np.float)
+    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=np.float)
+
+    mse = mean_squared_error(y_true, y_pred, sample_weight=weights)
+    skl_mse = sklearn_mse(y_true, y_pred, sample_weight=weights)
+
+    assert_almost_equal(mse, skl_mse, decimal=2)
