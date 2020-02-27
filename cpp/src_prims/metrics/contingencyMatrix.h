@@ -64,8 +64,9 @@ __global__ void devConstructContingencyMatrixSmem(const T *groundTruth,
   }
   __syncthreads();
 
-  for (int elementId = threadIdx.x; elementId < nSamples;
-       elementId += blockDim.x) {
+  for (int elementId = blockIdx.x * blockDim.x + threadIdx.x;
+       elementId < nSamples;
+       elementId += blockDim.x * gridDim.x) {
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
 
