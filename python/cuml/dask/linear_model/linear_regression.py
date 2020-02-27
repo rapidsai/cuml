@@ -200,14 +200,18 @@ class LinearRegression(object):
 
         if delayed:
 
+            from cuml.dask.common.utils import ConcurrentPartitionLock
+
             dtype = X.dtype
             X = X.to_delayed()
 
-            model = dask.delayed(self.local_model, pure=True, nout=1)
+            lock = dask.delayed(ConcurrentPartitionLock(3), pure=True)
+
+            model = dask.delayed(self.local_model, pure=True)
 
             print([part for part in X])
 
-            preds = [_delayed_predict(model, part[0]) for part in X]
+            preds = [_delayed_predict(model, lock, part[0]) for part in X]
 
             import cupy as cp
 
@@ -263,12 +267,13 @@ class LinearRegression(object):
 
 
 @dask.delayed(pure=False, nout=1)
-def _delayed_predict(model, data):
-    #imodel = dask.compute(model)
-    print(str(hex(id(model))))
-    #data = dask.compute(data)
-    print(data)
-    return model.predict(data)
+def _delayed_predict(model, lock, data):
+
+    print("LOCK: "+ str(lock))
+    lock.acquire()
+    ret =  model.predict(data)
+    lock.release()
+    return ret
 
 
 @dask.delayed(pure=False, nout=1)
