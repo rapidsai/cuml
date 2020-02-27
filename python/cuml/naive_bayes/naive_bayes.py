@@ -130,19 +130,23 @@ class GaussianNB(object):
         return self._partial_fit(X, y, cp.unique(y), _refit=True,
                                  sample_weight=sample_weight)
 
+    @with_cupy_rmm
     def _partial_fit(self, X, y, classes=None, _refit=False, sample_weight=None):
 
         if _refit:
             self.classes_ = None
 
-            
-
         self.epsilon_ = self.var_smoothing #* cp.var(X, axis=0).max()
 
         if not self.fit_called:
 
+            if self.classes_ is None:
+                self.classes_ = cp.unique(y) if classes is None else classes
+
             n_features = X.shape[1]
             n_classes = len(self.classes_)
+
+            self.n_classes_ = n_classes
 
             self.theta_ = cp.zeros((n_classes, n_features))
             self.sigma_ = cp.zeros((n_classes, n_features))
@@ -185,8 +189,8 @@ class GaussianNB(object):
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
 
-            new_mu = rmm_cupy_ary(cp.zeros, (n_classes, n_features))
-            new_var = rmm_cupy_ary(cp.zeros, (n_classes, n_features))
+            new_mu = cp.zeros((n_classes, n_features))
+            new_var = cp.zeros((n_classes, n_features))
 
             count_features_coo = count_features_coo_kernel(X.dtype,
                                                            labels_dtype)
@@ -256,11 +260,11 @@ class GaussianNB(object):
         new_mu /= class_counts
 
         # Construct variance from sum squares
-        new_var = (var / class_counts) - np.mean()**2
+        new_var = (var / class_counts) - new_mu**2
 
-        n_total = float(n_past + n_new)
+        n_total = n_past + n_new
 
-        total_mu = (n_new + new_mu + n_past * mu) / n_total
+        total_mu = ((new_mu.T + (n_new + n_past)[:, cp.newaxis].T) * mu.T) #/ n_total
 
         old_ssd = n_past * var
         new_ssd = n_new * new_var
