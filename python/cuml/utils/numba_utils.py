@@ -18,11 +18,12 @@ import cupy as cp
 import numpy as np
 import rmm
 
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import with_cupy_rmm
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 
 
+@with_cupy_rmm
 def row_matrix(df):
     """Compute the C (row major) version gpu matrix of df
 
@@ -34,7 +35,7 @@ def row_matrix(df):
 
     col_major = df.as_gpu_matrix(order='F')
 
-    row_major = rmm_cupy_ary(cp.array, col_major, order='C')
+    row_major = cp.array(col_major, order='C')
 
     return cuda.as_cuda_array(row_major)
 
