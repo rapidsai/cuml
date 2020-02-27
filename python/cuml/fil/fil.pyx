@@ -34,7 +34,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_dev_array_ptr, input_to_dev_array, zeros
+from cuml.utils import get_dev_array_ptr, input_to_dev_array, zeros, \
+    get_cudf_column_ptr
 from cuml.utils.import_utils import has_treelite
 
 if has_treelite():
@@ -236,6 +237,8 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
+        #preds = cudf.Series(zeros(n_rows, dtype=np.float32))
+
         if preds is None:
             shape = (n_rows,)
             if predict_proba:
@@ -245,6 +248,8 @@ cdef class ForestInference_impl():
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
                              " need GPU array")
+
+        #cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = input_to_dev_array(
