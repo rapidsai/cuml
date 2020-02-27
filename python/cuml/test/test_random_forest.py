@@ -32,7 +32,7 @@ from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
-"""
+
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
@@ -232,7 +232,7 @@ def test_rf_regression_default(datatype, column_info, nrows):
         assert fil_r2 >= (sk_r2 - 0.08)
 
     assert fil_r2 >= (cu_r2 - 0.02)
-"""
+
 
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
@@ -372,6 +372,7 @@ def test_rf_regression_float64(datatype, column_info, nrows):
     else:
         with pytest.raises(TypeError):
             fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+
 
 @pytest.mark.parametrize('datatype', [(np.float32, np.float32)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
