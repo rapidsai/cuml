@@ -27,7 +27,8 @@ import rmm
 from cuml.solvers import QN
 from cuml.common.base import Base
 from cuml.metrics.accuracy import accuracy_score
-from cuml.utils import input_to_dev_array, rmm_cupy_ary
+from cuml.utils import input_to_dev_array
+from cuml.utils import with_cupy_rmm
 
 
 supported_penalties = ['l1', 'l2', 'none', 'elasticnet']
@@ -45,7 +46,7 @@ class LogisticRegression(Base):
     NumPy arrays or in device (as Numba or `__cuda_array_interface__`
     compliant), in addition to cuDF objects.
     It provides both single-class (using sigmoid loss) and multiple-class
-    (using softmax loss) variants, depending on the input variables.
+    (using softmax loss) variants, depending on the input variables
 
     Only one solver option is currently available: Quasi-Newton (QN)
     algorithms. Even though it is presented as a single option, this solver
@@ -184,6 +185,7 @@ class LogisticRegression(Base):
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
+        self.l1_ratio = None
         if self.penalty == 'elasticnet':
             if l1_ratio is None:
                 raise ValueError("l1_ratio has to be specified for"
@@ -225,6 +227,7 @@ class LogisticRegression(Base):
         else:
             self.verb_prefix = ""
 
+    @with_cupy_rmm
     def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
@@ -253,10 +256,10 @@ class LogisticRegression(Base):
         # Not needed to check dtype since qn class checks it already
         y_m, _, _, _, _ = input_to_dev_array(y)
 
-        unique_labels = rmm_cupy_ary(cp.unique, y_m)
-        num_classes = len(unique_labels)
+        unique_labels = cp.unique(y_m)
+        self._num_classes = len(unique_labels)
 
-        if num_classes > 2:
+        if self._num_classes > 2:
             loss = 'softmax'
         else:
             loss = 'sigmoid'
@@ -290,6 +293,28 @@ class LogisticRegression(Base):
 
         return self
 
+    def decision_function(self, X, convert_dtype=False):
+        """
+        Gives confidence score for X
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y: array-like (device)
+           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
+        """
+        return self.qn._decision_function(X, convert_dtype=convert_dtype)
+
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
@@ -313,6 +338,64 @@ class LogisticRegression(Base):
 
         """
         return self.qn.predict(X, convert_dtype=convert_dtype)
+
+    @with_cupy_rmm
+    def predict_proba(self, X, convert_dtype=False):
+        """
+        Predicts the class probabilities for each class in X
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y: array-like (device)
+           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
+        """
+        scores = cp.asarray(self.decision_function(X,
+                            convert_dtype=convert_dtype), order='F').T
+        if self._num_classes == 2:
+            proba = cp.zeros((scores.shape[0], 2))
+            proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
+            proba[:, 0] = 1 - proba[:, 1]
+        elif self._num_classes > 2:
+            max_scores = cp.max(scores, axis=1).reshape((-1, 1))
+            scores -= max_scores
+            proba = cp.exp(scores)
+            row_sum = cp.sum(proba, axis=1).reshape((-1, 1))
+            proba /= row_sum
+
+        return proba
+
+    def predict_log_proba(self, X, convert_dtype=False):
+        """
+        Predicts the log class probabilities for each class in X
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y: array-like (device)
+           Dense matrix (floats or doubles) of shape (n_samples, n_classes)
+        """
+        return cp.log(self.predict_proba(X, convert_dtype=convert_dtype))
 
     def score(self, X, y, convert_dtype=False):
         """

@@ -286,7 +286,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
   device_buffer<T> vals_sorted(d_alloc, stream, nnz);
 
   CUSPARSE_CHECK(
-    cusparse_gthr<T>(handle, nnz, vals, vals_sorted.data(), d_P.data()));
+    cusparsegthr<T>(handle, nnz, vals, vals_sorted.data(), d_P.data(), stream));
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
