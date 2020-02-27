@@ -72,16 +72,16 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
     float
       Mutual information, a non-negative value
     """
-    cdef uintptr_t ground_truth_ptr
-    cdef uintptr_t preds_ptr
-
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
-    (ground_truth_ptr, preds_ptr,
+    (ground_truth, preds,
      n_rows,
      lower_class_range, upper_class_range) = prepare_data(labels_true,
                                                           labels_pred)
+
+    cdef uintptr_t preds_ptr = preds.ptr
+    cdef uintptr_t ground_truth_ptr = ground_truth.ptr
 
     mi = mutualInfoScore(handle_[0],
                          <int*> ground_truth_ptr,
