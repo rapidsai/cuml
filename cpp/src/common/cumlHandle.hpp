@@ -44,7 +44,7 @@ using MLCommon::hostAllocator;
 class cumlHandle_impl {
  public:
   cumlHandle_impl(cudaStream_t stream = NULL,
-      int n_streams = cumlHandle::getDefaultNumWorkerStreams());
+      int n_streams = cumlHandle::getDefaultNumInternalStreams());
   ~cumlHandle_impl();
   int getDevice() const;
   void setStream(cudaStream_t stream);
@@ -59,13 +59,13 @@ class cumlHandle_impl {
   cusolverSpHandle_t getcusolverSpHandle() const;
   cusparseHandle_t getcusparseHandle() const;
 
-  cudaStream_t getWorkerStream(int sid) const;
-  int getNumWorkerStreams() const;
+  cudaStream_t getInternalStream(int sid) const;
+  int getNumInternalStreams() const;
 
-  std::vector<cudaStream_t> getWorkerStreams() const;
+  std::vector<cudaStream_t> getInternalStreams() const;
 
   void waitOnUserStream() const;
-  void waitOnWorkerStreams() const;
+  void waitOnInternalStreams() const;
 
   void setCommunicator(
     std::shared_ptr<MLCommon::cumlCommunicator> communicator);
@@ -155,7 +155,7 @@ class streamSyncer {
   streamSyncer(const cumlHandle_impl& handle) : _handle(handle) {
     _handle.waitOnUserStream();
   }
-  ~streamSyncer() { _handle.waitOnWorkerStreams(); }
+  ~streamSyncer() { _handle.waitOnInternalStreams(); }
 
   streamSyncer(const streamSyncer& other) = delete;
   streamSyncer& operator=(const streamSyncer& other) = delete;

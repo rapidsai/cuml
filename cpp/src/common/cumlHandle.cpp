@@ -136,8 +136,8 @@
 
 namespace ML {
 
-int cumlHandle::getDefaultNumWorkerStreams() {
-  return _default_num_worker_streams;
+int cumlHandle::getDefaultNumInternalStreams() {
+  return _default_num_internal_streams;
 }
 
 cumlHandle::cumlHandle(cudaStream_t stream, int n_streams):
@@ -153,8 +153,8 @@ const cudaDeviceProp& cumlHandle::getDeviceProperties() const {
   return _impl->getDeviceProperties();
 }
 
-std::vector<cudaStream_t> cumlHandle::getWorkerStreams() const {
-  return _impl->getWorkerStreams();
+std::vector<cudaStream_t> cumlHandle::getInternalStreams() const {
+  return _impl->getInternalStreams();
 }
 
 void cumlHandle::setDeviceAllocator(
@@ -173,8 +173,8 @@ void cumlHandle::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
 std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
   return _impl->getHostAllocator();
 }
-int cumlHandle::getNumWorkerStreams() {
-  return _impl->getNumWorkerStreams();
+int cumlHandle::getNumInternalStreams() {
+  return _impl->getNumInternalStreams();
 }
 
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
@@ -268,11 +268,11 @@ cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
   return _cusparse_handle;
 }
 
-cudaStream_t cumlHandle_impl::getWorkerStream(int sid) const {
+cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
   return _streams[sid];
 }
 
-std::vector<cudaStream_t> cumlHandle_impl::getWorkerStreams() const {
+std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
   std::vector<cudaStream_t> int_streams_vec(_num_streams);
   for (auto s : _streams) {
     int_streams_vec.push_back(s);
@@ -281,7 +281,7 @@ std::vector<cudaStream_t> cumlHandle_impl::getWorkerStreams() const {
   return int_streams_vec;
 }
 
-int cumlHandle_impl::getNumWorkerStreams() const { return _num_streams; }
+int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
 
 void cumlHandle_impl::waitOnUserStream() const {
   CUDA_CHECK(cudaEventRecord(_event, _userStream));
@@ -290,7 +290,7 @@ void cumlHandle_impl::waitOnUserStream() const {
   }
 }
 
-void cumlHandle_impl::waitOnWorkerStreams() const {
+void cumlHandle_impl::waitOnInternalStreams() const {
   for (auto s : _streams) {
     CUDA_CHECK(cudaEventRecord(_event, s));
     CUDA_CHECK(cudaStreamWaitEvent(_userStream, _event, 0));

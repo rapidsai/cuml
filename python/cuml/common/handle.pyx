@@ -107,9 +107,9 @@ cdef class Handle:
 
     def getNumWorkerStreams(self):
         cdef cumlHandle* h_ = <cumlHandle*>self.h
-        return h_.getNumWorkerStreams()
+        return h_.getNumInternalStreams()
 
-    def getWorkerStreamsAsHandles(self):
+    def getInternalStreamsAsHandles(self):
         """
         Returns the internal streams as separate single-stream handles
         that can be used to parallelize a set of tasks, giving each
@@ -143,7 +143,7 @@ cdef class Handle:
         """
         cdef cumlHandle* h_ = <cumlHandle*>self.h
 
-        cdef vector[_Stream] int_streams = h_.getWorkerStreams()
+        cdef vector[_Stream] int_streams = h_.getInternalStreams()
         handles = []
 
         cdef cumlHandle *new_handle
@@ -158,6 +158,6 @@ cdef class Handle:
         cdef cumlHandle * h_ = < cumlHandle * > self.h
         h_.waitOnUserStream()
 
-    def waitOnWorkerStreams(self):
+    def waitOnInternalStreams(self):
         cdef cumlHandle * h_ = < cumlHandle * > self.h
-        h_.waitOnWorkerStreams()
+        h_.waitOnInternalStreams()
