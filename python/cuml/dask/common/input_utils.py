@@ -91,7 +91,7 @@ class MGData:
         self.worker_info = comms.worker_info(comms.worker_addresses)
         self.ranks = dict()
         for w, futures in self.gpu_futures.items():
-                self.ranks[w] = self.worker_info[w]["r"]
+            self.ranks[w] = self.worker_info[w]["r"]
 
     def calculate_parts_to_sizes(self, comms=None, ranks=None):
         if self.worker_info is None and comms is not None:
@@ -122,17 +122,17 @@ class MGData:
                     self.total_rows = self.total_rows + p
 
         else:
-                self.parts_to_sizes = [(ranks[wf[0]], self.client.submit(
-                                       _get_rows_from_single_obj,
-                                       wf[1],
-                                       workers=[wf[0]],
-                                       key="%s-%s" % (key, idx)).result())
-                                       for idx,
-                                       wf in enumerate(self.gpu_futures)]
+            self.parts_to_sizes = [(ranks[wf[0]], self.client.submit(
+                                   _get_rows_from_single_obj,
+                                   wf[1],
+                                   workers=[wf[0]],
+                                   key="%s-%s" % (key, idx)).result())
+                                   for idx,
+                                   wf in enumerate(self.gpu_futures)]
 
-                self.total_rows = reduce(lambda a, b:
-                                         a + b, map(lambda x: x[1],
-                                                    self.parts_to_sizes))
+            self.total_rows = reduce(lambda a, b:
+                                     a + b, map(lambda x: x[1],
+                                                self.parts_to_sizes))
 
 
 @with_cupy_rmm

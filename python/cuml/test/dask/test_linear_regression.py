@@ -14,8 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
-
 from dask.distributed import Client
 from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
