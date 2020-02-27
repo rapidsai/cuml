@@ -24,6 +24,7 @@ namespace Metrics {
 
 template <typename math_t, MLCommon::Distance::DistanceType distance_type>
 double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
-                             int n, int m, int d, int n_neighbors);
+                             int n, int m, int d, int n_neighbors,
+                             int batchSize = 512);
 }
 }  // namespace ML

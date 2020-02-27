@@ -90,7 +90,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   }
   __syncthreads();
 
-  // one block works on a single row and the whole forest
+  // one block works on NITEMS rows and the whole forest
   vec<NITEMS> out;
   for (int i = 0; i < NITEMS; ++i) out[i] = 0.0f;
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
@@ -101,8 +101,9 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   out = BlockReduce(tmp_storage).Sum(out);
   if (threadIdx.x == 0) {
     for (int i = 0; i < NITEMS; ++i) {
-      int idx = blockIdx.x * NITEMS + i;
-      if (idx < params.num_rows) params.preds[idx] = out[i];
+      int row = blockIdx.x * NITEMS + i;
+      if (row < params.num_rows)
+        params.preds[row * params.num_output_classes] = out[i];
     }
   }
 }

@@ -208,7 +208,6 @@ void _fit(const cumlHandle &handle,
   COO<T> ocoo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, d_alloc,
                                                stream);
-
   /**
    * Initialize embeddings
    */
@@ -342,7 +341,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
   int n_epochs = params->n_epochs;
-  if (params->n_epochs <= 0) {
+  if (n_epochs <= 0) {
     if (n <= 10000)
       n_epochs = 100;
     else
