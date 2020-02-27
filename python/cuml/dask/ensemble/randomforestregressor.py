@@ -16,9 +16,12 @@
 
 import cudf
 
-from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
+    raise_exception_from_futures, workers_to_parts, to_dask_cudf
+from cuml.dask.common.comms import CommsContext
+from cuml.ensemble import RandomForestRegressor as cuRFR
+
+from collections import OrderedDict
 
 from dask.distributed import default_client, wait
 
@@ -291,12 +294,13 @@ class RandomForestRegressor:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, r):
-        return model.predict(X).copy_to_host()
-
-    @staticmethod
-    def _read_mod_handles(model, mod_handles):
-        return model._read_mod_handles(mod_handles=mod_handles)
+    def _predict(model, X_test, concat_mod_bytes):
+        preds = []
+        for i in range(len(X_test)):
+            X_test_df = X_test[i]
+            preds.append(model.predict(X_test_df,
+                                       concat_mod_bytes=concat_mod_bytes))
+        return preds
 
     @staticmethod
     def _tl_model_handles(model, model_bytes):
@@ -308,7 +312,7 @@ class RandomForestRegressor:
 
     def print_summary(self):
         """
-        prints the summary of the forest used to train and test the model
+        Print the summary of the forest used to train and test the model.
         """
         c = default_client()
         futures = list()
@@ -330,16 +334,16 @@ class RandomForestRegressor:
     def convert_to_treelite(self):
         """
         prints the summary of the forest used to train and test the model
+
         """
         mod_bytes = []
         size_of_mod_bytes_read = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
-        worker_numb = [i for i in self.workers]
-
-        list_mod_handles = []
-        model = self.rfs[worker_numb[0]].result()
+        worker_tcp_info = [i for i in self.workers]
+        all_tl_mod_handles = []
+        model = self.rfs[worker_tcp_info[0]].result()
         for n in range(len(self.workers)):
             list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
             size_of_mod_bytes_read.append(len(mod_bytes[n]))
@@ -477,7 +481,17 @@ class RandomForestRegressor:
         Parameters
         ----------
         X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
-
+        deep_check : boolean (default = False)
+                     This is used to check if the concatenated forest used to
+                     predict the labels in GPU, have the right forest
+                     information.
+                     Set it to True if you want to run an extensive check of
+                     the concatenated treelite forest created. It will compare
+                     the position and value of each node present in each tree
+                     of the concatenated forest with respect to the original
+                     forests present in the different workers.
+                     Required only while using predict for binary
+                     classification.
         Returns
         ----------
         y: NumPy
@@ -499,7 +513,7 @@ class RandomForestRegressor:
                 algo, convert_dtype,
                 fil_sparse_format)
 
-        return cudf.from_gpu_matrix(preds)
+        return preds
 
     def get_params(self, deep=True):
         """

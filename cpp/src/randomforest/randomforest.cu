@@ -330,7 +330,6 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model) {
   // create a temp file
-  std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::flush << std::endl;
   const char* filename = std::tmpnam(nullptr);
   // export the treelite model to protobuf nd save it in the temp file
   TreeliteExportProtobufModel(filename, model);

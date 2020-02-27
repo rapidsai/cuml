@@ -278,7 +278,7 @@ class RandomForestRegressor(Base):
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("Setting the random seed does not fully guarantee"
                           " the exact same results at this time.")
-        self.model_pbuf_bytes = []
+        self._model_pbuf_bytes = []
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
@@ -295,7 +295,7 @@ class RandomForestRegressor(Base):
         del state['handle']
         if self.n_cols:
             # only if model has been fit previously
-            self.model_pbuf_bytes = self._get_model_info()
+            self._model_pbuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*>params_t
@@ -305,7 +305,7 @@ class RandomForestRegressor(Base):
             <RandomForestMetaData[double, double]*>params_t64
 
         state['verbose'] = self.verbose
-        state["model_pbuf_bytes"] = self.model_pbuf_bytes
+        state["model_pbuf_bytes"] = self._model_pbuf_bytes
 
         if self.dtype == np.float32:
             state["rf_params"] = rf_forest.rf_params
@@ -322,7 +322,7 @@ class RandomForestRegressor(Base):
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
 
-        self.model_pbuf_bytes = state["model_pbuf_bytes"]
+        self._model_pbuf_bytes = state["model_pbuf_bytes"]
 
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
@@ -365,7 +365,7 @@ class RandomForestRegressor(Base):
                               rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
+                              <vector[unsigned char] &> self._model_pbuf_bytes)
 
         mod_ptr = <size_t> cuml_model_ptr
         fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
@@ -512,7 +512,7 @@ class RandomForestRegressor(Base):
                               rf_forest,
                               <int> n_cols,
                               <int> task_category,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
+                              <vector[unsigned char] &> self._model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 

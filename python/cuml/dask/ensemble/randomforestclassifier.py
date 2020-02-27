@@ -16,9 +16,13 @@
 
 import cudf
 
-from cuml.dask.common import extract_ddf_partitions, \
+from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
+
+from cuml.dask.common.comms import CommsContext
+
+from collections import OrderedDict
 
 from dask.distributed import default_client, wait
 
@@ -172,7 +176,7 @@ class RandomForestClassifier:
 
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
-        self.num_classes = True
+        self.num_classes = 2
 
         c = default_client()
         if workers is None:
@@ -293,21 +297,19 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, r):
-        return model._predict_get_all(X)
 
-    @staticmethod
-    def _tl_model_handles(model, model_bytes):
-        return model._tl_model_handles(model_bytes=model_bytes)
+    def _predict_gpu(X_test, model, output_class, algo,
+                     threshold, num_classes,
+                     convert_dtype, concat_mod_bytes):
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(" type pf X_test in _predict_gpu : ", type(X_test))
+        print("X_TEST : ", X_test)
 
-    @staticmethod
-    def _build_fil_model(model, model_handle):
-        print("model handels in dask func : ", model_handle)
-        return model._build_fil_model(model_handle=model_handle)
-
-    @staticmethod
-    def _read_mod_handles(model, mod_handles):
-        return model._read_mod_handles(mod_handles=mod_handles)
+        predicted_labels = model.predict(X=X_test, output_class=output_class,
+                             algo=algo, threshold=threshold,
+                             convert_dtype=convert_dtype,
+                             concat_mod_bytes=concat_mod_bytes)
+        return predicted_labels
 
     @staticmethod
     def _predict_cpu(model, X, r):
@@ -331,7 +333,7 @@ class RandomForestClassifier:
 
     def print_summary(self):
         """
-        prints the summary of the forest used to train and test the model
+        Print the summary of the forest used to train and test the model.
         """
         c = default_client()
         futures = list()
@@ -354,12 +356,17 @@ class RandomForestClassifier:
         """
         prints the summary of the forest used to train and test the model
         """
+        for w in self.workers:
+            if self.rfs[w].result().num_classes > 2:
+                self._multi_class = True
+                break
+        worker_numb = [i for i in self.workers]
         mod_bytes = []
         size_of_mod_bytes_read = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
-        worker_numb = [i for i in self.workers]
+        print("self. workers : ", self.workers)
 
         list_mod_handles = []
         model = self.rfs[worker_numb[0]].result()
@@ -496,10 +503,8 @@ class RandomForestClassifier:
             #print("print num classes in fit dask : ", self.rfs[w].result().num_classes)
 
         wait(futures)
-        raise_exception_from_futures(futures)
-
-        #for w in self.workers:
-        #    #print("print num classes in fit dask : ", self.rfs[w].result().num_classes)
+        raise_exception_from_futures(futures)        
+        
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
@@ -577,7 +582,8 @@ class RandomForestClassifier:
                 output_class, threshold, algo,
                 num_classes, convert_dtype)
 
-        return cudf.from_gpu_matrix(preds)
+        #preds_cudf = cudf.from_gpu_matrix()
+        return cudf.DataFrame.from_gpu_matrix(preds)
 
 
     def _predict_using_cpu(self, X):

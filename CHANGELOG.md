@@ -9,6 +9,7 @@
 - PR #1612: Created a function to check the concatenated forest 
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1646: Using FIL to predict in MNMG RF
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier

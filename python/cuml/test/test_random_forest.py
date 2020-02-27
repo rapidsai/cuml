@@ -73,7 +73,7 @@ def test_rf_classification(datatype, split_algo, rows_sample,
                                    algo='auto')
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
-    fil_acc = accuracy_score(y_test, fil_preds)
+    fil_acc = accuracy_score(y_test, fil_preds.to_array())
 
     if nrows < 500000:
         sk_model = skrfc(n_estimators=40,
@@ -170,7 +170,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    fil_acc = accuracy_score(y_test, fil_preds)
+    fil_acc = accuracy_score(y_test, fil_preds.to_array())
     cu_acc = accuracy_score(y_test, cu_preds)
 
     score_acc = cuml_model.score(X_test, y_test)
@@ -217,7 +217,7 @@ def test_rf_regression_default(datatype, column_info, nrows):
 
     # score function should be equivalent
     score_mse = cuml_model.score(X_test, y_test)
-    manual_mse = ((fil_preds - y_test)**2).mean()
+    manual_mse = ((fil_preds.to_array() - y_test)**2).mean()
     assert manual_mse == pytest.approx(score_mse)
 
     # Initialize, fit and predict using
@@ -263,7 +263,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
         cu_preds_orig = cu_class.predict(X_test,
                                          predict_model="CPU")
         cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
-        fil_acc_orig = accuracy_score(y_test, fil_preds_orig)
+        fil_acc_orig = accuracy_score(y_test, fil_preds_orig.to_array())
 
         # Initialize, fit and predict using cuML's
         # random forest classification model
@@ -275,7 +275,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
                                             predict_model="GPU").copy_to_host()
         cu_preds_rerun = cu_class2.predict(X_test, predict_model="CPU")
         cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
-        fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
+        fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun.to_array())
 
         assert fil_acc_orig == fil_acc_rerun
         assert cu_acc_orig == cu_acc_rerun
@@ -321,7 +321,7 @@ def test_rf_classification_float64(datatype, column_info, nrows):
     # predict using cuML's GPU based prediction
     if datatype[0] == np.float32:
         fil_preds = cuml_model.predict(X_test, predict_model="GPU")
-        fil_acc = accuracy_score(y_test, fil_preds)
+        fil_acc = accuracy_score(y_test, fil_preds.to_array())
         assert fil_acc >= (cu_acc - 0.02)
 
 
