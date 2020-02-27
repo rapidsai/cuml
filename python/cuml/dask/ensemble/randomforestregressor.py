@@ -17,11 +17,8 @@
 import cudf
 
 from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts, to_dask_cudf
-from cuml.dask.common.comms import CommsContext
+    raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestRegressor as cuRFR
-
-from collections import OrderedDict
 
 from dask.distributed import default_client, wait
 
@@ -331,43 +328,6 @@ class RandomForestRegressor:
         raise_exception_from_futures(futures)
         return self
 
-    def convert_to_treelite(self):
-        """
-        prints the summary of the forest used to train and test the model
-
-        """
-        mod_bytes = []
-        size_of_mod_bytes_read = []
-        for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-
-        worker_tcp_info = [i for i in self.workers]
-        all_tl_mod_handles = []
-        model = self.rfs[worker_tcp_info[0]].result()
-        for n in range(len(self.workers)):
-            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-            size_of_mod_bytes_read.append(len(mod_bytes[n]))
-
-        return list_mod_handles, size_of_mod_bytes_read
-
-    def check_treelite_handles(self):
-
-        list_mod_handles, size_of_mod_bytes_read = self.convert_to_treelite()
-        check_model_bytes = []
-        worker_numb = [i for i in self.workers]
-
-        model = self.rfs[worker_numb[0]].result()
-
-        for n in range(len(self.workers)):
-            check_model_bytes.append(model._read_mod_handles(
-                                         list_mod_handles[n]))
-
-        for i in range(len(size_of_mod_bytes_read)):
-            check_size_of_mod_bytes_read = len(check_model_bytes[i])
-            if check_size_of_mod_bytes_read != size_of_mod_bytes_read[i]:
-                raise ValueError("The treelite handle obtained from each user"
-                                 " are not right")
-
     def _concat_treelite_models(self):
         """
         Convert the cuML Random Forest model present in different workers to
@@ -380,27 +340,20 @@ class RandomForestRegressor:
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
-        for i in range(len(mod_bytes)):
-            print("length of mod)bytes in concat : ",len(mod_bytes[i]))
-        print("self. workers : ", self.workers)
-
         worker_tcp_info = [i for i in self.workers]
 
-        print("worker_tcp_info : ", worker_tcp_info)
-        print("self.rfs : ", self.rfs)
         all_tl_mod_handles = []
         model = self.rfs[worker_tcp_info[0]].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-            print("all_tl_mod_handles : ", all_tl_mod_handles)
 
         concat_model_handle = model.concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        print("concat_model_handle : ", concat_model_handle)
-        concatenated_model_bytes = model.concatenate_model_bytes(concat_model_handle)
+        concatenated_model_bytes = \
+            model.concatenate_model_bytes(concat_model_handle)
         for w in self.workers:
-            #print("each_worker_bytes : ", len(self.rfs[w].result()._model_pbuf_bytes))
-            self.rfs[w].result()._model_pbuf_bytes = concatenated_model_bytes
+            self.rfs[w].result()._model_pbuf_bytes = \
+                concatenated_model_bytes
 
     def fit(self, X, y):
         """
@@ -500,19 +453,12 @@ class RandomForestRegressor:
         """
         self._concat_treelite_models()
 
-        c = default_client()
-        print("***************************************")
-        print(" X type : ", type(X))
-
-        key = uuid1()
-
         worker_tcp_info = [i for i in self.workers]
         preds = X.map_partitions(
                 self.rfs[worker_tcp_info[0]].result().predict,
                 predict_model,
                 algo, convert_dtype,
                 fil_sparse_format)
-
         return preds
 
     def get_params(self, deep=True):
