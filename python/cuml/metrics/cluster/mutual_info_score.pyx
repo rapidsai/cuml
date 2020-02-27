@@ -27,22 +27,29 @@ import cuml.common.handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double homogeneityScore(const cumlHandle & handle, const int *y,
-                            const int *y_hat, const int n,
-                            const int lower_class_range,
-                            const int upper_class_range) except +
+    double mutualInfoScore(const cumlHandle &handle,
+                           const int *y,
+                           const int *y_hat,
+                           const int n,
+                           const int lower_class_range,
+                           const int upper_class_range) except +
 
 
-def homogeneity_score(labels_true, labels_pred, handle=None):
+def mutual_info_score(labels_true, labels_pred, handle=None):
     """
-    Computes the homogeneity metric of a cluster labeling given a ground truth.
+    Computes the Mutual Information between two clusterings.
 
-    A clustering result satisfies homogeneity if all of its clusters contain
-    only data points which are members of a single class.
+    The Mutual Information is a measure of the similarity between two labels of
+    the same data.
 
     This metric is independent of the absolute values of the labels:
     a permutation of the class or cluster label values won’t change the score
     value in any way.
+
+    This metric is furthermore symmetric: switching label_true with label_pred
+    will return the same score value. This can be useful to measure the
+    agreement of two independent label assignments strategies on the same
+    dataset when the real ground truth is not known.
 
     The labels in labels_pred and labels_true are assumed to be drawn from a
     contiguous set (Ex: drawn from {2, 3, 4}, but not from {2, 4}). If your
@@ -50,44 +57,37 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
 
     Parameters
     ----------
+    handle : cuml.Handle
     labels_pred : array-like (device or host) shape = (n_samples,)
-        The labels predicted by the model for the test dataset.
+        A clustering of the data (ints) into disjoint subsets.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
     labels_true : array-like (device or host) shape = (n_samples,)
-        The ground truth labels (ints) of the test dataset.
+        A clustering of the data (ints) into disjoint subsets.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
 
     Returns
     -------
     float
-      The homogeneity of the predicted labeling given the ground truth.
-      Score between 0.0 and 1.0. 1.0 stands for perfectly homogeneous labeling.
+      Mutual information, a non-negative value
     """
+    cdef uintptr_t ground_truth_ptr
+    cdef uintptr_t preds_ptr
+
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
-
-    cdef uintptr_t preds_ptr
-    cdef uintptr_t ground_truth_ptr
 
     (ground_truth_ptr, preds_ptr,
      n_rows,
      lower_class_range, upper_class_range) = prepare_data(labels_true,
                                                           labels_pred)
 
-    hom = homogeneityScore(handle_[0],
-                           <int*> ground_truth_ptr,
-                           <int*> preds_ptr,
-                           <int> n_rows,
-                           <int> lower_class_range,
-                           <int> upper_class_range)
+    mi = mutualInfoScore(handle_[0],
+                         <int*> ground_truth_ptr,
+                         <int*> preds_ptr,
+                         <int> n_rows,
+                         <int> lower_class_range,
+                         <int> upper_class_range)
 
-    return hom
+    return mi

@@ -115,6 +115,7 @@ class MultinomialNB(object):
 
         for x, y in Xy:
             model.partial_fit(x, y, classes=classes)
+
         return model.class_count_, model.feature_count_
 
     @staticmethod
@@ -124,6 +125,14 @@ class MultinomialNB(object):
     @staticmethod
     def _unique(x):
         return rmm_cupy_ary(cp.unique, x)
+
+    @staticmethod
+    def _get_class_counts(x):
+        return x[0]
+
+    @staticmethod
+    def _get_feature_counts(x):
+        return x[1]
 
     def fit(self, X, y, classes=None):
 
@@ -166,13 +175,20 @@ class MultinomialNB(object):
 
         n_classes = len(classes)
 
-        counts = self.client_.compute([self.client_.submit(
+        counts = [self.client_.submit(
             MultinomialNB._fit,
             p,
             classes,
             self.kwargs,
             workers=[w]
-        ) for w, p in worker_parts.items()], sync=True)
+        ) for w, p in worker_parts.items()]
+
+        class_counts = self.client_.compute(
+            [self.client_.submit(MultinomialNB._get_class_counts, c)
+             for c in counts], sync=True)
+        feature_counts = self.client_.compute(
+            [self.client_.submit(MultinomialNB._get_feature_counts, c)
+             for c in counts], sync=True)
 
         self.model_ = MNB(**self.kwargs)
         self.model_.classes_ = classes
@@ -188,8 +204,9 @@ class MultinomialNB(object):
                                                   order="F",
                                                   dtype=cp.float32)
 
-        for class_count_, feature_count_ in counts:
+        for class_count_ in class_counts:
             self.model_.class_count_ += class_count_
+        for feature_count_ in feature_counts:
             self.model_.feature_count_ += feature_count_
 
         self.model_.update_log_probs()
