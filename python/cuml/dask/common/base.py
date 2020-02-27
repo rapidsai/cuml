@@ -15,6 +15,7 @@ import dask
 import cupy as cp
 import numpy as np
 
+
 class DelayedPredictionMixin(object):
 
     @staticmethod
