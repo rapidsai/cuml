@@ -104,7 +104,7 @@ class DelayedParallelFunc(object):
 
 class DelayedPredictionMixin(DelayedParallelFunc):
 
-    def predict(self, X, delayed=True, parallelism=25):
+    def _predict(self, X, delayed=True, parallelism=25):
         """
         Make predictions for X and returns a y_pred.
 
@@ -124,12 +124,12 @@ class DelayedPredictionMixin(DelayedParallelFunc):
         y : dask cuDF (n_rows, 1)
         """
 
-        return self._run_parallel_func(_predict, X, delayed, parallelism)
+        return self._run_parallel_func(_predict_func, X, delayed, parallelism)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
-    def transform(self, X, delayed=True, parallelism=25):
+    def _transform(self, X, delayed=True, parallelism=25):
         """
         Make predictions for X and returns a y_pred.
 
@@ -149,17 +149,17 @@ class DelayedTransformMixin(DelayedParallelFunc):
         y : dask cuDF (n_rows, 1)
         """
 
-        return self._run_parallel_func(_transform, X, delayed, parallelism)
+        return self._run_parallel_func(_transform_func, X, delayed, parallelism)
 
 
-def _predict(model, lock, data):
+def _predict_func(model, lock, data):
     lock.acquire()
     ret = model.predict(data)
     lock.release()
     return ret 
 
 
-def _transform(model, lock, data):
+def _transform_func(model, lock, data):
     lock.acquire()
     ret = model.transform(data)
     lock.release()
