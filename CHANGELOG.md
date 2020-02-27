@@ -1,7 +1,13 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1635: cuML Array shim and configurable output added to cluster methods
+- PR #1586: Seasonal ARIMA
+- PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
+- PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
+- PR #1714: Add `print_env.sh` file to gather important environment details
+- PR #1750: LinearRegression CumlArray for configurable output
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -11,8 +17,16 @@
 - PR #1628: Remove submodules from cuML
 - PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
+- PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
 - PR #1747: C++: dbscan performance improvements and cleanup
+- PR #1697: Making trustworthiness batchable and using proper workspace
+- PR #1721: Improving UMAP pytests
+- PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
+- PR #1718: Import `using_allocator` from `cupy.cuda`
+- PR #1723: Update RF Classifier to throw an exception for multi-class pickling
+- PR #1726: Decorator to allocate CuPy arrays with RMM
+- PR #1748: Test serializing `CumlArray` objects
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
@@ -21,14 +35,23 @@
 - PR #1617: Fixing pickling issues for SVC and SVR
 - PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
-- PR #1654: Skip treelite patch if it's already been applied
-- PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
+- PR #1654: Skip treelite patch if its already been applied
 - PR #1661: Fix nvstring variable name
+- PR #1673: Using struct for caching dlsym state in communicator
+- PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
 - PR #1672: Solver 'svd' in Linear and Ridge Regressors when n_cols=1
 - PR #1670: Lasso & ElasticNet - cuml Handle added
 - PR #1671: Update for accessing cuDF Series pointer
 - PR #1652: Support XGBoost 1.0+ models in FIL
+- PR #1702: Fix LightGBM-FIL validation test
+- PR #1701: test_score kmeans test passing with newer cupy version
+- PR #1706: Remove multi-class bug from QuasiNewton
 - PR #1699: Limit CuPy to <7.2 temporarily
+- PR #1708: Correctly deallocate cuML handles in Cython
+- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
+- PR #1729: Fixing naive bayes UCX serialization problem in fit()
+- PR #1749: bug fix rf classifier/regressor on seg fault in bench
+- PR #1751: Updated RF documentation
 
 # cuML 0.12.0 (Date TBD)
 
