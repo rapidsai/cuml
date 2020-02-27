@@ -28,11 +28,14 @@ from cuml.dask.common.dask_df_utils import extract_ddf_partitions
 from cuml.dask.common.part_utils import workers_to_parts
 
 from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import DelayedTransformMixin
+
+from cuml.dask.common.utils import raise_exception_from_futures
 
 from uuid import uuid1
 
 
-class KMeans(DelayedPredictionMixin):
+class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
     """
     Multi-Node Multi-GPU implementation of KMeans.
 
@@ -119,40 +122,11 @@ class KMeans(DelayedPredictionMixin):
                           **kwargs).fit(inp_data)
 
     @staticmethod
-    def _func_transform(model, dfs):
-        """
-        Runs on each worker to call fit on local KMeans instance
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoizatiion caching
-        :return: The fit model
-        """
-
-        df = concatenate(dfs)
-        return model.transform(df)
-
-    @staticmethod
-    def _func_score(model, dfs):
-        """
-        Runs on each worker to call fit on local KMeans instance
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoization caching
-        :return: cudf.Series with predictions
-        """
-        df = concatenate(dfs)
-        return model.score(df)
-
-    def raise_exception_from_futures(self, futures):
-        """
-        Raises a RuntimeError if any of the futures indicates
-        an exception
-        """
-        errs = [f.exception() for f in futures if f.exception()]
-        if errs:
-            raise RuntimeError("%d of %d worker jobs failed: %s" % (
-                len(errs), len(futures), ", ".join(map(str, errs))
-            ))
+    def _score(model, lock, data):
+        lock.acquire()
+        ret = model.score(data)
+        lock.release()
+        return ret
 
     def fit(self, X):
         """
@@ -184,7 +158,7 @@ class KMeans(DelayedPredictionMixin):
                       for idx, wf in enumerate(data.worker_to_parts.items())]
 
         wait(kmeans_fit)
-        self.raise_exception_from_futures(kmeans_fit)
+        raise_exception_from_futures(kmeans_fit)
 
         comms.destroy()
 
@@ -223,7 +197,7 @@ class KMeans(DelayedPredictionMixin):
 
         return to_output(kmeans_predict, self.datatype)
 
-    def fit_predict(self, X):
+    def fit_predict(self, X, delayed=True, parallelism=5):
         """
         Compute cluster centers and predict cluster index for each sample.
 
@@ -238,25 +212,9 @@ class KMeans(DelayedPredictionMixin):
             Dataframe containing predictions
 
         """
-        return self.fit(X).predict(X)
+        return self.fit(X).predict(X, delayed, parallelism)
 
-    def transform(self, X):
-        """
-        Predicts the labels using a distributed KMeans model
-
-        Parameters
-        ----------
-        X : dask_cudf.Dataframe
-            Dataframe to predict
-
-        Returns
-        -------
-        result: dask_cudf.Dataframe
-            Dataframe containing predictions
-        """
-        return self._parallel_func(X, KMeans._func_transform)
-
-    def fit_transform(self, X):
+    def fit_transform(self, X, delayed=True, parallelism=5):
         """
         Calls fit followed by transform using a distributed KMeans model
 
@@ -270,24 +228,14 @@ class KMeans(DelayedPredictionMixin):
         result: dask_cudf.Dataframe
             Dataframe containing predictions
         """
-        return self.fit(X).transform(X)
+        return self.fit(X).transform(X, delayed, parallelism)
 
-    def score(self, X):
+    def score(self, X, parallelism=5):
 
-        # todo: update score
+        scores = self._run_parallel_func(KMeans._score, X, False, parallelism,
+                                         output_futures=True)
 
-        key = uuid1()
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
-        worker_to_parts = workers_to_parts(gpu_futures)
-        scores = [self.client.submit(
-            KMeans._func_score,
-            self.local_model,
-            wf[1],
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)).result()
-                  for idx, wf in enumerate(worker_to_parts.items())]
-
-        return -1 * np.sum(np.array(scores)*-1)
+        return -1 * np.sum(np.array([s.result() for s in scores])*-1)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
