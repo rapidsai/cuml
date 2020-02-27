@@ -184,7 +184,7 @@ class RandomForestClassifier(Base):
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported with split_algo=1.
+        if -1. Unlimited depth is not supported.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
@@ -287,7 +287,10 @@ class RandomForestClassifier(Base):
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
         if ((seed is not None) and (n_streams != 1)):
-            warnings.warn("Random seed requires n_streams=1.")
+            warnings.warn("For reproducible results, n_streams==1 is "
+                          "recommended. If n_streams is > 1, results may vary "
+                          "due to stream/thread timing differences, even when "
+                          "random_seed is set")
         self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -367,6 +370,12 @@ class RandomForestClassifier(Base):
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
+        if self.num_classes > 2:
+            raise NotImplementedError("Pickling for multi-class "
+                                      "classification models is currently not "
+                                      "implemented. Please check cuml issue "
+                                      "#1679 for more information.")
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -639,6 +648,10 @@ class RandomForestClassifier(Base):
         """
 
         if predict_model == "CPU" or self.num_classes > 2:
+            if self.num_classes > 2 and predict_model == "GPU":
+                warnings.warn("Switching over to use the CPU predict since "
+                              "the GPU predict currently cannot perform "
+                              "multi-class classification.")
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
         elif self.dtype == np.float64 and not convert_dtype:
