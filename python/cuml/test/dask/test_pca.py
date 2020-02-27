@@ -14,8 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
-
 from dask.distributed import Client, wait
 
 import numpy as np

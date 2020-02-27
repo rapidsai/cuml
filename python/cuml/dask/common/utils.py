@@ -18,7 +18,6 @@ import numba.cuda
 
 from cuml.utils import device_of_gpu_matrix
 from cuml import Base
-from cuml.naive_bayes import MultinomialNB
 
 from asyncio import InvalidStateError
 
@@ -189,7 +188,7 @@ class MultiHolderLock:
     Note that this lock is only intended to be used per-process and
     the underlying threading.Lock will not be serialized.
     """
-   
+
     def __init__(self, n):
         """
         Initialize the lock
@@ -254,7 +253,7 @@ class MultiHolderLock:
                          before failing.
         :return : True if lock was released successfully, False otherwise.
         """
-        
+
         if self.current_tasks == 0:
             raise InvalidStateError("Cannot release lock when no "
                                     "concurrent tasks are executing")

@@ -174,14 +174,15 @@ class DelayedTransformMixin(DelayedParallelFunc):
         y : dask cuDF (n_rows, 1)
         """
 
-        return self._run_parallel_func(_transform_func, X, delayed, parallelism)
+        return self._run_parallel_func(_transform_func, X, delayed,
+                                       parallelism)
 
 
 def _predict_func(model, lock, data):
     lock.acquire()
     ret = model.predict(data)
     lock.release()
-    return ret 
+    return ret
 
 
 def _transform_func(model, lock, data):

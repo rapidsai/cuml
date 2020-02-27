@@ -14,7 +14,6 @@
 #
 
 from cuml.dask.common.input_utils import MGData
-from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import default_client
@@ -199,4 +198,3 @@ class LinearRegression(DelayedPredictionMixin):
 
     def get_param_names(self):
         return list(self.kwargs.keys())
-
