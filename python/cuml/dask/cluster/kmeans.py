@@ -177,7 +177,7 @@ class KMeans(object):
         data = MGData.single(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        comms = CommsContext(comms_p2p=False, verbose=True)
         comms.init(workers=data.workers)
 
         key = uuid1()
