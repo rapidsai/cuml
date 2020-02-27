@@ -162,3 +162,44 @@ def patch_cupy_sparse_serialization(client):
 
     patch_func()
     client.run(patch_func)
+
+from threading import Lock
+
+class ConcurrentPartitionLock:
+   
+    def __init__(self, n):
+        self.n = n
+        self.current_tasks = 0
+        self.lock = Lock()
+
+    def acquire(self):
+        lock_acquired = False
+        while not lock_acquired:
+            self.lock.acquire()
+        
+            if self.current_tasks < self.n-1:
+                self.current_tasks += 1
+                lock_acquired = True
+            self.lock.release()
+
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        if "lock" in d:
+            del d["lock"]
+        return d
+
+    def __setstate__(self, d):
+        d["lock"] = Lock()
+        self.__dict__ = d
+
+
+    def release(self):
+        
+        if self.current_tasks == 0:
+            raise InvalidOperationException("Cannot release lock when no concurrent tasks are executing")
+
+        self.lock.acquire()
+        self.current_tasks -= 1
+        self.lock.release()
+
