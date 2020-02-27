@@ -13,6 +13,7 @@ from uuid import uuid1
 import dask
 
 import cupy as cp
+import numpy as np
 
 class DelayedPredictionMixin(object):
 
@@ -109,10 +110,6 @@ class DelayedPredictionMixin(object):
                 counters[part[0]] = counters[part[0]] + 1
 
             return to_output(results, self.datatype)
-
-    def get_param_names(self):
-        return list(self.kwargs.keys())
-
 
 @dask.delayed(pure=False, nout=1)
 def _delayed_predict(model, lock, data):
