@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -137,6 +137,7 @@ def test_batch_size(nrows, ncols, n_parts,
         cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
+
         cumlModel.fit(X_cudf)
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)
