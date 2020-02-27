@@ -251,3 +251,21 @@ def test_mutual_info_score_big_array(use_handle):
                                                  dtype=np.int32))
     assert_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4),
                                                  dtype=np.int32))
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_mutual_info_score_many_blocks(use_handle):
+    def assert_ours_equal_sklearn(random_generation_lambda):
+        rng = np.random.RandomState(1234)  # makes it reproducible
+        a = random_generation_lambda(rng)
+        b = random_generation_lambda(rng)
+        assert_mi_equal_sklearn(a, b, use_handle)
+
+    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 19, 129,
+                                                      dtype=np.int32))
+    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 2, 129,
+                                                      dtype=np.int32))
+    assert_ours_equal_sklearn(lambda rng: rng.randint(-5, 20, 129,
+                                                      dtype=np.int32))
+    assert_ours_equal_sklearn(lambda rng: rng.randint(-5, 20, 258,
+                                                      dtype=np.int32))
