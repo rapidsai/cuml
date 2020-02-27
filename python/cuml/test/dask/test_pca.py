@@ -25,13 +25,9 @@ import numpy as np
 @pytest.mark.parametrize("nrows", [6e5])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [67])
-def test_pca_fit(nrows, ncols, n_parts, client=None):
+def test_pca_fit(nrows, ncols, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     from cuml.dask.decomposition import PCA as daskPCA
     from sklearn.decomposition import PCA
@@ -57,9 +53,7 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
     all_attr = ['singular_values_', 'components_',
                 'explained_variance_', 'explained_variance_ratio_']
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
+    client.close()
 
     for attr in all_attr:
         with_sign = False if attr in ['components_'] else True
@@ -74,13 +68,9 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
 @pytest.mark.parametrize("nrows", [4e3, 7e5])
 @pytest.mark.parametrize("ncols", [100, 1000])
 @pytest.mark.parametrize("n_parts", [46])
-def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
+def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
@@ -94,22 +84,16 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
     cupca = daskPCA(n_components=20, whiten=True)
     cupca.fit_transform(X_cudf)
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
+    client.close()
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [7e5])
 @pytest.mark.parametrize("ncols", [200])
 @pytest.mark.parametrize("n_parts", [33])
-def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
+def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
@@ -123,6 +107,4 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
     cupca = daskPCA(n_components=30, whiten=False)
     cupca.fit_transform(X_cudf)
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
+    client.close()

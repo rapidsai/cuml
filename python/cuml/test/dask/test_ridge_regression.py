@@ -65,11 +65,9 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 def test_ridge(nrows, ncols, n_parts, fit_intercept,
-               normalize, datatype, client=None):
+               normalize, datatype, cluster):
 
-    if client is None:
-        cluster = LocalCUDACluster()
-        client = Client(cluster)
+    client = Client(cluster)
 
     try:
         from cuml.dask.linear_model import Ridge as cumlRidge_dask
@@ -95,4 +93,3 @@ def test_ridge(nrows, ncols, n_parts, fit_intercept,
 
     finally:
         client.close()
-        cluster.close()
