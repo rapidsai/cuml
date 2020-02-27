@@ -185,13 +185,17 @@ class LinearRegression(object):
 
         print("LOcalModel: "+ str(self.local_model))
 
-    def predict(self, X, delayed=False):
+    def predict(self, X, delayed=True, parallelism=25):
         """
         Make predictions for X and returns a y_pred.
 
         Parameters
         ----------
         X : dask cuDF dataframe (n_rows, n_features)
+        parallelism : int amount of concurrent partitions that will be processed
+                      per worker. This bounds the total amount of temporary
+                      workspace memory on the GPU that will need to be allocated
+                      at any time.
 
         Returns
         -------
@@ -205,7 +209,7 @@ class LinearRegression(object):
             dtype = X.dtype
             X = X.to_delayed()
 
-            lock = dask.delayed(ConcurrentPartitionLock(3), pure=True)
+            lock = dask.delayed(ConcurrentPartitionLock(parallelism), pure=True)
 
             model = dask.delayed(self.local_model, pure=True)
 
@@ -233,6 +237,9 @@ class LinearRegression(object):
 
         else:
             X = X.persist()
+
+            # todo: Push model as a future that will be shared per worker
+            # rodo: push lock as a future that will be shared per worker
 
             data = MGData.single(X, client=self.client)
 
@@ -268,8 +275,6 @@ class LinearRegression(object):
 
 @dask.delayed(pure=False, nout=1)
 def _delayed_predict(model, lock, data):
-
-    print("LOCK: "+ str(lock))
     lock.acquire()
     ret =  model.predict(data)
     lock.release()
