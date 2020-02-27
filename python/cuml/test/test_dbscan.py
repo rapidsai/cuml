@@ -53,7 +53,8 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
 
     handle, stream = get_handle(use_handle)
     cudbscan = cuDBSCAN(handle=handle, eps=1, min_samples=2,
-                        max_mbytes_per_batch=max_mbytes_per_batch)
+                        max_mbytes_per_batch=max_mbytes_per_batch,
+                        output_type='numpy')
 
     cu_labels = cudbscan.fit_predict(X, out_dtype=out_dtype)
 
@@ -90,7 +91,8 @@ def test_dbscan_sklearn_comparison(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5)
+    cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5,
+                           output_type='numpy')
     cu_y_pred = cuml_dbscan.fit_predict(X)
 
     if nrows < 500000:
@@ -119,7 +121,7 @@ def test_dbscan_default(name):
 
     X = StandardScaler().fit_transform(X)
 
-    cuml_dbscan = cuDBSCAN()
+    cuml_dbscan = cuDBSCAN(output_type='numpy')
     cu_y_pred = cuml_dbscan.fit_predict(X)
 
     dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
@@ -133,5 +135,5 @@ def test_dbscan_default(name):
 def test_dbscan_out_dtype_fails_invalid_input():
     X, _ = make_blobs(n_samples=500)
 
-    cudbscan = cuDBSCAN()
+    cudbscan = cuDBSCAN(output_type='numpy')
     cudbscan.fit_predict(X, out_dtype="bad_input")
