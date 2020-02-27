@@ -4,6 +4,7 @@
 - PR #1655: Adds python bindings for homogeneity score
 - PR #1687: Adds python bindings for mutual info score
 - PR #1704: Adds python bindings for completeness score
+- PR #1742: Mean squared error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
@@ -52,6 +53,7 @@
 - PR #1708: Correctly deallocate cuML handles in Cython
 - PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
+- PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 
 # cuML 0.12.0 (Date TBD)
