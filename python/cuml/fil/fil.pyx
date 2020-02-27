@@ -25,6 +25,7 @@ import ctypes
 import math
 import numpy as np
 import warnings
+import pandas as pd
 
 import rmm
 
@@ -237,8 +238,6 @@ cdef class ForestInference_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        #preds = cudf.Series(zeros(n_rows, dtype=np.float32))
-
         if preds is None:
             shape = (n_rows,)
             if predict_proba:
@@ -248,8 +247,6 @@ cdef class ForestInference_impl():
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
                              " need GPU array")
-
-        #cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = input_to_dev_array(
@@ -263,8 +260,9 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
+        preds_to_pd = pd.Series(preds.copy_to_host())
         # synchronous w/o a stream
-        return preds
+        return cudf.Series.from_pandas(preds_to_pd)
 
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,

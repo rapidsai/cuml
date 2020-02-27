@@ -340,8 +340,6 @@ std::vector<unsigned char> save_model(ModelHandle model) {
   vector<unsigned char> bytes_info(size_of_file, 0);
   ifstream infile(filename, ios::in | ios::binary);
   infile.read((char*)&bytes_info[0], bytes_info.size());
-  std::cout << "length of mod bytes in c++ : " << bytes_info.size()
-            << std::flush << std::endl;
   return bytes_info;
 }
 

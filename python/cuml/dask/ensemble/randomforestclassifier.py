@@ -16,14 +16,9 @@
 
 import cudf
 
-from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
+from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
-
-from cuml.dask.common.comms import CommsContext
-
-from collections import OrderedDict
-
 from dask.distributed import default_client, wait
 
 import math
@@ -297,18 +292,14 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-
     def _predict_gpu(X_test, model, output_class, algo,
                      threshold, num_classes,
                      convert_dtype, concat_mod_bytes):
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print(" type pf X_test in _predict_gpu : ", type(X_test))
-        print("X_TEST : ", X_test)
 
         predicted_labels = model.predict(X=X_test, output_class=output_class,
-                             algo=algo, threshold=threshold,
-                             convert_dtype=convert_dtype,
-                             concat_mod_bytes=concat_mod_bytes)
+                                         algo=algo, threshold=threshold,
+                                         convert_dtype=convert_dtype,
+                                         concat_mod_bytes=concat_mod_bytes)
         return predicted_labels
 
     @staticmethod
@@ -352,47 +343,6 @@ class RandomForestClassifier:
         raise_exception_from_futures(futures)
         return self
 
-    def convert_to_treelite(self):
-        """
-        prints the summary of the forest used to train and test the model
-        """
-        for w in self.workers:
-            if self.rfs[w].result().num_classes > 2:
-                self._multi_class = True
-                break
-        worker_numb = [i for i in self.workers]
-        mod_bytes = []
-        size_of_mod_bytes_read = []
-        for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-
-        print("self. workers : ", self.workers)
-
-        list_mod_handles = []
-        model = self.rfs[worker_numb[0]].result()
-        for n in range(len(self.workers)):
-            list_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-            size_of_mod_bytes_read.append(len(mod_bytes[n]))
-
-        return list_mod_handles, size_of_mod_bytes_read
-
-    def check_treelite_handles(self):
-
-        list_mod_handles, size_of_mod_bytes_read = self.convert_to_treelite()
-        check_model_bytes = []
-        worker_numb = [i for i in self.workers]
-
-        model = self.rfs[worker_numb[0]].result()
-        for n in range(len(self.workers)):
-            check_model_bytes.append(model._read_mod_handles(
-                                        list_mod_handles[n]))
-
-        for i in range(len(check_model_bytes)):
-            check_size_of_mod_bytes_read = len(check_model_bytes[i])
-            if check_size_of_mod_bytes_read != size_of_mod_bytes_read[i]:
-                raise ValueError("The treelite handle obtained from each user"
-                                 " are not right")
-
     def _concat_treelite_models(self):
         """
         Convert the cuML Random Forest model present in different workers to
@@ -409,14 +359,8 @@ class RandomForestClassifier:
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
 
-        for i in range(len(mod_bytes)):
-        	print("length of mod)bytes in concat : ",len(mod_bytes[i]))
-        print("self. workers : ", self.workers)
-
         worker_tcp_info = [i for i in self.workers]
 
-        print("worker_tcp_info : ", worker_tcp_info)
-        print("self.rfs : ", self.rfs)
         all_tl_mod_handles = []
         model = self.rfs[worker_tcp_info[0]].result()
         for n in range(len(self.workers)):
@@ -424,9 +368,9 @@ class RandomForestClassifier:
 
         concat_model_handle = model.concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        concatenated_model_bytes = model.concatenate_model_bytes(concat_model_handle)
+        concatenated_model_bytes = \
+            model.concatenate_model_bytes(concat_model_handle)
         for w in self.workers:
-            #print("each_worker_bytes : ", len(self.rfs[w].result()._model_pbuf_bytes))
             self.rfs[w].result()._model_pbuf_bytes = concatenated_model_bytes
 
     def fit(self, X, y):
@@ -500,16 +444,13 @@ class RandomForestClassifier:
                     workers=[w],
                 )
             )
-            #print("print num classes in fit dask : ", self.rfs[w].result().num_classes)
 
         wait(futures)
-        raise_exception_from_futures(futures)        
-        
+        raise_exception_from_futures(futures)
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
-                num_classes=2, convert_dtype=False,
-                predict_model="GPU"):
+                num_classes=2, convert_dtype=False, predict_model="GPU"):
         """
         Predicts the labels for X.
 
@@ -557,23 +498,18 @@ class RandomForestClassifier:
             preds = self._predict_using_cpu(X)
 
         else:
-            preds = self._predict_using_fil(X, output_class=True, algo='auto', threshold=0.5,
-                                            num_classes=2, convert_dtype=False,
+            preds = self._predict_using_fil(X, output_class=True, algo='auto',
+                                            threshold=0.5, num_classes=2,
+                                            convert_dtype=False,
                                             predict_model="GPU")
 
         return preds
 
-    def _predict_using_fil(self, X, output_class=True, algo='auto', threshold=0.5,
-                           num_classes=2, convert_dtype=False,
-                           predict_model="GPU"):
+    def _predict_using_fil(self, X, output_class=True, algo='auto',
+                           threshold=0.5, num_classes=2,
+                           convert_dtype=False, predict_model="GPU"):
 
         self._concat_treelite_models()
-
-        c = default_client()
-        print("***************************************")
-        print(" X type : ", type(X))
-
-        key = uuid1()
 
         worker_tcp_info = [i for i in self.workers]
         preds = X.map_partitions(
@@ -581,10 +517,7 @@ class RandomForestClassifier:
                 predict_model,
                 output_class, threshold, algo,
                 num_classes, convert_dtype)
-
-        #preds_cudf = cudf.from_gpu_matrix()
-        return cudf.DataFrame.from_gpu_matrix(preds)
-
+        return preds
 
     def _predict_using_cpu(self, X):
         """

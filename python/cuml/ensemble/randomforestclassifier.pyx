@@ -324,7 +324,6 @@ class RandomForestClassifier(Base):
 
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
-        #state["num_classes"] = self.num_classes
         if self.dtype == np.float32:
             state["rf_params"] = rf_forest.rf_params
         else:
@@ -341,7 +340,6 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[double, int]()
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
-        #self.num_classes = state["num_classes"]
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
             state["rf_forest"] = <size_t>rf_forest
@@ -452,7 +450,6 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
-        #self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:

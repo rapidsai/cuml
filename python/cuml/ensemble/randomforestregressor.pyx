@@ -493,11 +493,9 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format, task_category=REGRESSION_CATEGORY):
+                              fil_sparse_format):
 
         cdef ModelHandle cuml_model_ptr
-        #if len(concat_mod_bytes) != 0:
-        #    self.model_pbuf_bytes = concat_mod_bytes
         X_m, _, n_rows, n_cols, _ = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
@@ -645,8 +643,7 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               fil_sparse_format,
-                                               task_category=REGRESSION_CATEGORY)
+                                               fil_sparse_format)
 
         return preds
 
