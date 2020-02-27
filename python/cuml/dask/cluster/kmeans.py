@@ -24,10 +24,15 @@ from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 import numpy as np
 
+from cuml.dask.common.dask_df_utils import extract_ddf_partitions
+from cuml.dask.common.part_utils import workers_to_parts
+
+from cuml.dask.common.base import DelayedPredictionMixin
+
 from uuid import uuid1
 
 
-class KMeans(object):
+class KMeans(DelayedPredictionMixin):
     """
     Multi-Node Multi-GPU implementation of KMeans.
 
@@ -127,18 +132,6 @@ class KMeans(object):
         return model.transform(df)
 
     @staticmethod
-    def _func_predict(model, dfs):
-        """
-        Runs on each worker to call fit on local KMeans instance
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoization caching
-        :return: cudf.Series with predictions
-        """
-        df = concatenate(dfs)
-        return model.predict(df)
-
-    @staticmethod
     def _func_score(model, dfs):
         """
         Runs on each worker to call fit on local KMeans instance
@@ -229,22 +222,6 @@ class KMeans(object):
         self.raise_exception_from_futures(kmeans_predict)
 
         return to_output(kmeans_predict, self.datatype)
-
-    def predict(self, X):
-        """
-        Predict the labels using a distributed KMeans model.
-
-        Parameters
-        ----------
-        X : dask_cudf.Dataframe
-            Dataframe to predict
-
-        Returns
-        -------
-        result: dask_cudf.Dataframe
-            Dataframe containing label predictions
-        """
-        return self._parallel_func(X, KMeans._func_predict)
 
     def fit_predict(self, X):
         """
