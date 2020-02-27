@@ -20,13 +20,16 @@
 # cython: language_level = 3
 
 import numpy as np
+import cupy as cp
 
 from libc.stdint cimport uintptr_t
 
 import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
 from cuml.metrics cimport regression
-from cuml.utils import input_to_dev_array
+from cuml.utils import input_to_dev_array, input_to_cuml_array
+
+from cuml.utils.memory_utils import with_cupy_rmm
 
 
 def r2_score(y, y_hat, convert_dtype=False, handle=None):
@@ -97,3 +100,81 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
     del y_m2
 
     return result
+
+
+@with_cupy_rmm
+def mean_absolute_error(y_true, y_pred,
+                        sample_weight=None,
+                        multioutput='uniform_average'):
+    """Mean absolute error regression loss
+    Be careful when using this metric with float32 inputs as the result can be
+    slightly incorrect because of floating point precision if the input is
+    large enough. We recommend to use float64 instead.
+    Parameters
+    ----------
+    y_true : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Ground truth (correct) target values.
+    y_pred : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Estimated target values.
+    sample_weight : array-like (device or host) shape = (n_samples,), optional
+        Sample weights.
+    multioutput : string in ['raw_values', 'uniform_average']
+        or array-like of shape (n_outputs)
+        Defines aggregating of multiple output values.
+        Array-like value defines weights used to average errors.
+        'raw_values' :
+            Returns a full set of errors in case of multioutput input.
+        'uniform_average' :
+            Errors of all outputs are averaged with uniform weight.
+    Returns
+    -------
+    loss : float or ndarray of floats
+        If multioutput is ‘raw_values’, then mean absolute error is returned
+        for each output separately. If multioutput is ‘uniform_average’ or an
+        ndarray of weights, then the weighted average of all output errors is
+        returned.
+
+        MAE output is non-negative floating point. The best value is 0.0.
+    """
+    y_true, n_rows, n_cols, ytype = \
+        input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
+                                                 np.int32, np.int64])
+
+    y_pred, _, _, _ = \
+        input_to_cuml_array(y_pred, check_dtype=ytype,
+                            check_rows=n_rows, check_cols=n_cols)
+
+    if sample_weight is not None:
+        sample_weight, _, _, _ = \
+            input_to_cuml_array(sample_weight, check_dtype=ytype,
+                                check_rows=n_rows, check_cols=n_cols)
+
+    raw_multioutput = False
+    allowed_multioutput_str = ('raw_values', 'uniform_average',
+                               'variance_weighted')
+    if isinstance(multioutput, str):
+        if multioutput not in allowed_multioutput_str:
+            raise ValueError("Allowed 'multioutput' string values are {}. "
+                             "You provided multioutput={!r}"
+                             .format(allowed_multioutput_str, multioutput))
+        elif multioutput == 'raw_values':
+            raw_multioutput = True
+        elif multioutput == 'uniform_average':
+            # pass None as weights to np.average: uniform mean
+            multioutput = None
+    elif multioutput is not None:
+        multioutput, _, _, _ = \
+            input_to_cuml_array(multioutput, check_dtype=ytype)
+        if n_cols == 1:
+            raise ValueError("Custom weights are useful only in "
+                             "multi-output cases.")
+
+    output_errors = cp.abs(cp.subtract(y_pred, y_true))
+    output_errors = cp.average(output_errors, axis=0, weights=sample_weight)
+
+    if raw_multioutput:
+        return output_errors
+
+    return cp.average(output_errors, weights=multioutput)
