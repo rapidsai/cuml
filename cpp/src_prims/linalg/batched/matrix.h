@@ -385,8 +385,8 @@ class Matrix {
 
     Matrix<T> At(n, m, m_batch_size, m_cublasHandle, m_allocator, m_stream);
 
-    const double* d_A = m_dense.data();
-    double* d_At = At.m_dense.data();
+    const T* d_A = m_dense.data();
+    T* d_At = At.m_dense.data();
 
     // Naive batched transpose ; TODO: improve
     auto counting = thrust::make_counting_iterator<int>(0);
@@ -394,8 +394,8 @@ class Matrix {
                      counting + m_batch_size * m, [=] __device__(int tid) {
                        int bid = tid / m;
                        int i = tid % m;
-                       const double* b_A = d_A + bid * m * n;
-                       double* b_At = d_At + bid * m * n;
+                       const T* b_A = d_A + bid * m * n;
+                       T* b_At = d_At + bid * m * n;
                        for (int j = 0; j < n; j++) {
                          b_At[i * n + j] = b_A[j * m + i];
                        }
@@ -937,9 +937,9 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
 }
 
 /**
- * @brief Hessenberg decomposition A = UHU', where Q is unitary and H in
- *        Hessenberg form (no zeros below the subdiagonal), using Householder
- *        reflections
+ * @brief Hessenberg decomposition A = UHU' of a square matrix A, where Q is
+ *        unitary and H in Hessenberg form (no zeros below the subdiagonal),
+ *        using Householder reflections
  * @todo: docs
  *        unit tests!
  */
@@ -1059,9 +1059,10 @@ DI void generate_givens(T a, T b, T& c, T& s) {
  * @todo: docs
  */
 template <typename T>
-DI bool ahues_tisseur(const T* d_M, int i, int n, T eps = 1e-10,
-                      T near_zero = 1e-14) {
-  /// TODO: limits per type (float/double)
+DI bool ahues_tisseur(const T* d_M, int i, int n) {
+  constexpr T eps = std::is_same<T, double>::value ? 1e-10 : 1e-6f;
+  constexpr T near_zero = std::is_same<T, double>::value ? 1e-14 : 1e-8f;
+
   T h00 = d_M[(i - 1) * n + i - 1];
   T h10 = d_M[(i - 1) * n + i];
   T h01 = d_M[i * n + i - 1];
@@ -1297,8 +1298,8 @@ void create_index_from_mask(device_buffer<MaskT>& mask_buffer,
 }
 
 /**
- * @brief Schur decomposition A = USU', where U is unitary and S is a
- *        block-upper triangular matrix with block size <= 2
+ * @brief Schur decomposition A = USU' of a square matrix A, where U is
+ *        unitary and S is an upper quasi-triangular matrix
  * @todo: docs
  *        unit tests!!
  */
@@ -1649,6 +1650,8 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
 
   int reduced_batch_size;
 
+  constexpr T near_zero = std::is_same<T, double>::value ? 1e-14 : 1e-8f;
+
   while (max_k >= 0) {
     // Create a mask of all the batch members with max k value
     thrust::transform(thrust::cuda::par.on(stream), k_ptr, k_ptr + batch_size,
@@ -1659,8 +1662,9 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
       thrust::cuda::par.on(stream), counting, counting + batch_size,
       [=] __device__(int ib) {
         d_step_mask[ib] =
-          (max_k == 0 ? true
-                      : (abs(d_S[n2 * ib + max_k * n + max_k - 1]) < 1e-14));
+          (max_k == 0
+             ? true
+             : (abs(d_S[n2 * ib + max_k * n + max_k - 1]) < near_zero));
       });
 
     // Create a mask of the batch members on which to perform a simple step
@@ -1719,6 +1723,8 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
  * 
  * @note The content of Q isn't modified, but can be reshaped into a vector
  *       and back into a matrix
+ *       The precision of this algorithm for single-precision floating-point
+ *       numbers is not good, use double for better results.
  *
  * @param[in]  A       Batched matrix A
  * @param[in]  Q       Batched matrix Q
@@ -1740,10 +1746,10 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     // Use direct solution with Kronecker product
     //
     Matrix<T> I_m_AxA = b_kron(-A, A);
-    double* d_I_m_AxA = I_m_AxA.raw_data();
+    T* d_I_m_AxA = I_m_AxA.raw_data();
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + batch_size, [=] __device__(int ib) {
-                       double* b_I_m_AxA = d_I_m_AxA + ib * n2 * n2;
+                       T* b_I_m_AxA = d_I_m_AxA + ib * n2 * n2;
                        for (int i = 0; i < n * n; i++) {
                          b_I_m_AxA[(n2 + 1) * i] += (T)1;
                        }
@@ -1763,9 +1769,9 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
       Matrix<T> ApI(A);
       Matrix<T> AtpI = A.transpose();
       Matrix<T> AtmI(AtpI);
-      double* d_ApI = ApI.raw_data();
-      double* d_AtpI = AtpI.raw_data();
-      double* d_AtmI = AtmI.raw_data();
+      T* d_ApI = ApI.raw_data();
+      T* d_AtpI = AtpI.raw_data();
+      T* d_AtmI = AtmI.raw_data();
       thrust::for_each(thrust::cuda::par.on(stream), counting,
                        counting + batch_size, [=] __device__(int ib) {
                          int idx = ib * n2;
@@ -1779,9 +1785,9 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
       Matrix<T> AtpI_inv = AtpI.inv();
 
       // B = (A'-I)*(A'+I)^{-1}
-      b_gemm(false, false, n, n, n, (T)1, AtmI, AtpI_inv, 0.0, B);
+      b_gemm(false, false, n, n, n, (T)1, AtmI, AtpI_inv, (T)0, B);
       // C = 2*(A+I)^{-1}*Q*(A'+I)^{-1}
-      b_gemm(false, false, n, n, n, 2.0, ApI.inv(), Q * AtpI_inv, 0.0, C);
+      b_gemm(false, false, n, n, n, (T)2, ApI.inv(), Q * AtpI_inv, (T)0, C);
     }
 
     //
@@ -1795,7 +1801,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
 
     // 2. F = -U'CU
     Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    b_gemm(true, false, n, n, n, -1.0, U, C * U, 0.0, F);
+    b_gemm(true, false, n, n, n, (T)-1, U, C * U, (T)0, F);
 
     // 3. Solve RY+YR'=F (where Y=U'XU)
     Matrix<T> Y = b_trsyl_uplo(R, R.transpose(), F);
