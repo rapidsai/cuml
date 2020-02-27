@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,26 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, to_dask_cudf, \
-    workers_to_parts, raise_mg_import_exception
+
+from cuml.dask.common.input_utils import concatenate
+from cuml.dask.common.input_utils import MGData
+from cuml.dask.common.input_utils import to_output
+
+from cuml.dask.common import raise_mg_import_exception
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 import numpy as np
 
+from cuml.dask.common.dask_df_utils import extract_ddf_partitions
+from cuml.dask.common.part_utils import workers_to_parts
+
+from cuml.dask.common.base import DelayedPredictionMixin
+
 from uuid import uuid1
 
-import cudf
 
-
-def concat(dfs):
-    if len(dfs) == 1:
-        return dfs[0]
-    else:
-        return cudf.concat(dfs)
-
-
-class KMeans(object):
+class KMeans(DelayedPredictionMixin):
     """
     Multi-Node Multi-GPU implementation of KMeans.
 
@@ -96,7 +96,7 @@ class KMeans(object):
         self.kwargs = kwargs
 
     @staticmethod
-    def _func_fit(sessionId, dfs, **kwargs):
+    def _func_fit(sessionId, objs, datatype, **kwargs):
         """
         Runs on each worker to call fit on local KMeans instance.
         Extracts centroids
@@ -113,10 +113,10 @@ class KMeans(object):
 
         handle = worker_state(sessionId)["handle"]
 
-        df = concat(dfs)
+        inp_data = concatenate(objs)
 
-        return cumlKMeans(handle=handle, output_type='cudf',
-                          **kwargs).fit(df)
+        return cumlKMeans(handle=handle, output_type=datatype,
+                          **kwargs).fit(inp_data)
 
     @staticmethod
     def _func_transform(model, dfs):
@@ -128,20 +128,8 @@ class KMeans(object):
         :return: The fit model
         """
 
-        df = concat(dfs)
+        df = concatenate(dfs)
         return model.transform(df)
-
-    @staticmethod
-    def _func_predict(model, dfs):
-        """
-        Runs on each worker to call fit on local KMeans instance
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoization caching
-        :return: cudf.Series with predictions
-        """
-        df = concat(dfs)
-        return model.predict(df)
 
     @staticmethod
     def _func_score(model, dfs):
@@ -152,7 +140,7 @@ class KMeans(object):
         :param r: Stops memoization caching
         :return: cudf.Series with predictions
         """
-        df = concat(dfs)
+        df = concatenate(dfs)
         return model.score(df)
 
     def raise_exception_from_futures(self, futures):
@@ -178,24 +166,22 @@ class KMeans(object):
         -------
         self: KMeans model
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
 
-        worker_to_parts = workers_to_parts(gpu_futures)
+        data = MGData.single(X, client=self.client)
+        self.datatype = data.datatype
 
-        workers = list(map(lambda x: x[0], worker_to_parts.items()))
-
-        comms = CommsContext(comms_p2p=False)
-        comms.init(workers=workers)
+        comms = CommsContext(comms_p2p=False, verbose=True)
+        comms.init(workers=data.workers)
 
         key = uuid1()
-        kmeans_fit = [self.client.submit(
-            KMeans._func_fit,
-            comms.sessionId,
-            wf[1],
-            **self.kwargs,
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(worker_to_parts.items())]
+        kmeans_fit = [self.client.submit(KMeans._func_fit,
+                                         comms.sessionId,
+                                         wf[1],
+                                         self.datatype,
+                                         **self.kwargs,
+                                         workers=[wf[0]],
+                                         key="%s-%s" % (key, idx))
+                      for idx, wf in enumerate(data.worker_to_parts.items())]
 
         wait(kmeans_fit)
         self.raise_exception_from_futures(kmeans_fit)
@@ -214,8 +200,8 @@ class KMeans(object):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dataframe to predict
+        X : dask_cudf.Dataframe or CuPy backed dask.array
+            Data to predict
 
         Returns
         -------
@@ -223,36 +209,19 @@ class KMeans(object):
             Dataframe containing label predictions
         """
 
-        key = uuid1()
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
-        worker_to_parts = workers_to_parts(gpu_futures)
+        data = MGData.single(X, client=self.client)
 
+        key = uuid1()
         kmeans_predict = [self.client.submit(
             func,
             self.local_model,
             wf[1],
             workers=[wf[0]],
             key="%s-%s" % (key, idx))
-            for idx, wf in enumerate(worker_to_parts.items())]
+            for idx, wf in enumerate(data.worker_to_parts.items())]
         self.raise_exception_from_futures(kmeans_predict)
 
-        return to_dask_cudf(kmeans_predict)
-
-    def predict(self, X):
-        """
-        Predict the labels using a distributed KMeans model.
-
-        Parameters
-        ----------
-        X : dask_cudf.Dataframe
-            Dataframe to predict
-
-        Returns
-        -------
-        result: dask_cudf.Dataframe
-            Dataframe containing label predictions
-        """
-        return self._parallel_func(X, KMeans._func_predict)
+        return to_output(kmeans_predict, self.datatype)
 
     def fit_predict(self, X):
         """
@@ -304,6 +273,8 @@ class KMeans(object):
         return self.fit(X).transform(X)
 
     def score(self, X):
+
+        # todo: update score
 
         key = uuid1()
         gpu_futures = self.client.sync(extract_ddf_partitions, X)
