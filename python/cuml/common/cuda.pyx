@@ -19,6 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import functools
 from libcpp.string cimport string
 
 cdef extern from "common/nvtx.hpp" namespace "ML":
@@ -39,15 +40,14 @@ def nvtx_range_pop():
     POP_RANGE()
 
 
-def nvtx_range_wrap(msg):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            nvtx_range_push(msg)
-            result = func(*args, **kwargs)
-            nvtx_range_pop()
-            return result
-        return wrapper
-    return decorator
+def nvtx_range_wrap(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        nvtx_range_push(func.__name__)
+        result = func(*args, **kwargs)
+        nvtx_range_pop()
+        return result
+    return wrapper
 
 
 class CudaRuntimeError(RuntimeError):
