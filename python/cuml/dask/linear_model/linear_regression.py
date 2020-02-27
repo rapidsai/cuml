@@ -30,8 +30,10 @@ import dask
 import cupy as cp
 import numpy as np
 
+from cuml.dask.common.base import DelayedPredictionMixin
 
-class LinearRegression(object):
+
+class LinearRegression(DelayedPredictionMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -96,17 +98,6 @@ class LinearRegression(object):
     @staticmethod
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
         return f.fit(data, n_rows, n_cols, partsToSizes, rank)
-
-    @staticmethod
-    def _func_predict(f, df):
-
-        res = [f.predict(d) for d in df]
-        return res
-
-    #todo: move to utils
-    @staticmethod
-    def _func_get_idx(f, idx):
-        return f[idx]
 
     def fit(self, X, y, force_colocality=False):
         """

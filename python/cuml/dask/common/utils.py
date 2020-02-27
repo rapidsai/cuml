@@ -153,9 +153,15 @@ def patch_cupy_sparse_serialization(client):
 
     client : dask.distributed.Client client to use
     """
+
+    from distributed.protocol import register_generic
     def patch_func():
         def serialize_mat_descriptor(m):
             return cp.cupy.cusparse.MatDescriptor.create, ()
+
+        register_generic(cuml.Base)
+        # TODO: This should extend cuml.Base eventually
+        register_generic(cuml.MultinomialNB)
 
         copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
                        serialize_mat_descriptor)
