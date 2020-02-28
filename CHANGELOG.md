@@ -1,12 +1,14 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1742: Mean squared error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
+- PR #1750: LinearRegression CumlArray for configurable output
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -22,8 +24,12 @@
 - PR #1721: Improving UMAP pytests
 - PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
 - PR #1718: Import `using_allocator` from `cupy.cuda`
-- PR #1726: Decorator to allocate CuPy arrays with RMM
-- PR #1719: UMAP random seed reproducibility
+- PR #1723: Update RF Classifier to throw an exception for multi-class pickling
+- PR #1726: Decorator to allocate CuPy arrays with RMM=
+- PR #1719: UMAP random seed reproducibility=
+- PR #1748: Test serializing `CumlArray` objects
+- PR #1762: Update CuPy requirement to 7
+- PR #1768: C++: Different input and output types for add and subtract prims
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
@@ -45,8 +51,10 @@
 - PR #1706: Remove multi-class bug from QuasiNewton
 - PR #1699: Limit CuPy to <7.2 temporarily
 - PR #1708: Correctly deallocate cuML handles in Cython
-- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2) 
+- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
+- PR #1749: bug fix rf classifier/regressor on seg fault in bench
+- PR #1751: Updated RF documentation
 
 # cuML 0.12.0 (Date TBD)
 
