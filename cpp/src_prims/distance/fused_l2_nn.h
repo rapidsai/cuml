@@ -480,6 +480,7 @@ struct FusedL2NN {
         sts(say, zeros);
       }
     }
+    pipe.commit();
   }
 #else  // ENABLE_MEMCPY_ASYNC
   DI void ldgXY(IdxT kidx) {
