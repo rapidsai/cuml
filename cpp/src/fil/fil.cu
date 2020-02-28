@@ -36,32 +36,22 @@ namespace fil {
 using namespace MLCommon;
 namespace tl = treelite;
 
-void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
+void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
                      bool def_left, bool is_leaf) {
   *n = dense_node(output, thresh, fid, def_left, is_leaf);
 }
 
-void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
-                       int* fid, bool* def_left, bool* is_leaf, leaf_value_t leaf_payload_type) {
+void dense_node_decode(const dense_node_t* n, union val_t* output, float* thresh,
+                       int* fid, bool* def_left, bool* is_leaf) {
   dense_node dn(*n);
-  // TODO: shouldn't it output a NAN in case the value is not applicable (e.g. leaf vs not a leaf)?
-  switch (leaf_payload_type) {
-    case INT_CLASS_LABEL:
-      *output = dn.output<unsigned int>();
-      break;
-    case FLOAT_SCALAR:
-      *output = dn.output<float>();
-      break;
-    default:
-      ASSERT(false, "vector-valued payload not supported yet");
-  }
+  *output = dn.output();
   *thresh = dn.thresh();
   *fid = dn.fid();
   *def_left = dn.def_left();
   *is_leaf = dn.is_leaf();
 }
 
-void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
+void sparse_node_init(sparse_node_t* node, val_t output, float thresh, int fid,
                       bool def_left, bool is_leaf, int left_index) {
   sparse_node n(output, thresh, fid, def_left, is_leaf, left_index);
 
@@ -69,25 +59,11 @@ void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
 }
 
 /** sparse_node_decode extracts individual members from node */
-void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
+void sparse_node_decode(const sparse_node_t* node, union val_t* output, float* thresh,
                         int* fid, bool* def_left, bool* is_leaf,
-                        int* left_index, leaf_value_t leaf_payload_type) {
-  sparse_node n(*node);
-  switch (leaf_payload_type) {
-    case INT_CLASS_LABEL:
-      *output = n.output<unsigned int>();
-      break;
-    case FLOAT_SCALAR:
-      *output = n.output<float>();
-      break;
-    default:
-      ASSERT(false, "vector-valued payload not supported yet");
-  }
-  *thresh = n.thresh();
-  *fid = n.fid();
-  *def_left = n.def_left();
-  *is_leaf = n.is_leaf();
-  *left_index = n.left_index();
+                        int* left_index) {
+  dense_node_decode(node, output, thresh, fid, def_left, is_leaf);
+  *left_index = sparse_node(*node).left_index();
 }
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
@@ -140,7 +116,6 @@ struct forest {
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
     leaf_payload_type_ = params->leaf_payload_type;
-    printf("%s line %d: leaf_payload_type %d\n", __FILE__, __LINE__, params->leaf_payload_type);
     init_max_shm();
   }
 
@@ -183,7 +158,7 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  leaf_value_t leaf_payload_type_ = FLOAT_SCALAR;
+  leaf_value_desc_t leaf_payload_type_ = FLOAT_SCALAR;
 };
 
 struct dense_forest : forest {
@@ -299,8 +274,8 @@ void check_params(const forest_params_t* params, bool dense) {
              "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
   }
   switch (params->leaf_payload_type) {
-    case leaf_value_t::FLOAT_SCALAR:
-    case leaf_value_t::INT_CLASS_LABEL:
+    case leaf_value_desc_t::FLOAT_SCALAR:
+    case leaf_value_desc_t::INT_CLASS_LABEL:
       break;
     default:
       ASSERT(false,
@@ -388,27 +363,49 @@ void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
   }
 }
 
-template<typename fil_node_t>
+/** if the vector consists of zeros and a single one, return the position
+for the one (assumed class label). Else, return -1.
+If the vector contains a NAN, return -1. */
+int find_class_label_from_one_hot(float* vector, int len) {
+  bool found_label = false;
+  int out = -1; // in case all are 0.f
+  for(int i = 0; i < len; ++i)
+    if(vector[i] == 1.f) {
+      if(!found_label)
+        out = i;
+      else // more than one 1.f
+        return -1;
+      found_label = true;
+    } else if (vector[i] != 0.f) // NAN != 0.f
+      return -1;
+  return out;
+}
+
+template <typename fil_node_t>
 void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree::Node& tl_node,
-                    leaf_value_t leaf_payload_type) {
-    switch (leaf_payload_type) {
-        case INT_CLASS_LABEL:
-            fil_node->val.idx = tl_node.leaf_value();
-            break;
-        case FLOAT_SCALAR:
-            fil_node->val.f = tl_node.leaf_value();
-            break;
-        default:
-            ASSERT(false, "vector-payload nodes not supported yet");
-    };
+                         leaf_value_desc_t leaf_payload_type) {
+  switch (leaf_payload_type) {
+    case INT_CLASS_LABEL:
+      auto vec = tl_node.leaf_vector();
+      fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
+      ASSERT(fil_node->val.idx != -1, "a non-empty non-one-hot leaf vector");
+      break;
+    case FLOAT_SCALAR:
+      fil_node->val.f = tl_node.leaf_value();
+      ASSERT(tl_node.leaf_vector().size() == 0, "some but not all treelite leaves have leaf_vector()");
+      break;
+    default:
+      ASSERT(false, "unknown leaf_payload_type");
+  };
 }
 
 void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
                     const tl::Tree& tree, const tl::Tree::Node& node,
-                    const treelite_params_t* tl_params) {
+                    const leaf_value_desc_t leaf_payload_type) {
   if (node.is_leaf()) {
     dense_node_init(&(*pnodes)[root + cur], NAN, NAN, 0, false, true);
-    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, tl_params->leaf_payload_type);
+    tl2fil_leaf_payload(&(*pnodes)[root + cur], node,
+                        leaf_payload_type);
     return;
   }
 
@@ -422,17 +419,18 @@ void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
   dense_node_init(&(*pnodes)[root + cur], 0, threshold, node.split_index(),
                   default_left, false);
   int left = 2 * cur + 1;
-  node2fil_dense(pnodes, root, left, tree, tl_node_at(tree, tl_left), tl_params);
-  node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right), tl_params);
+  node2fil_dense(pnodes, root, left, tree, tl_node_at(tree, tl_left),
+                 leaf_payload_type);
+  node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right),
+                 leaf_payload_type);
 }
 
 void node2fil_sparse(std::vector<sparse_node_t>* pnodes, int root, int cur,
                      const tl::Tree& tree, const tl::Tree::Node& node,
-                     const treelite_params_t* tl_params) {
+                     const leaf_value_desc_t leaf_payload_type) {
   if (node.is_leaf()) {
-    sparse_node_init(&(*pnodes)[root + cur], NAN, NAN, 0, false,
-                     true, 0);
-    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, tl_params->leaf_payload_type);
+    sparse_node_init(&(*pnodes)[root + cur], NAN, NAN, 0, false, true, 0);
+    tl2fil_leaf_payload(&(*pnodes)[root + cur], node, leaf_payload_type);
     return;
   }
 
@@ -456,20 +454,24 @@ void node2fil_sparse(std::vector<sparse_node_t>* pnodes, int root, int cur,
                    default_left, false, left);
 
   // init child nodes
-  node2fil_sparse(pnodes, root, left, tree, tl_node_at(tree, tl_left), tl_params);
-  node2fil_sparse(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right), tl_params);
+  node2fil_sparse(pnodes, root, left, tree, tl_node_at(tree, tl_left),
+                  leaf_payload_type);
+  node2fil_sparse(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right),
+                  leaf_payload_type);
 }
 
 void tree2fil_dense(std::vector<dense_node_t>* pnodes, int root,
-                    const tl::Tree& tree, const treelite_params_t* tl_params) {
-  node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)), tl_params);
+                    const tl::Tree& tree, const leaf_value_desc_t leaf_payload_type) {
+  node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)),
+                 leaf_payload_type);
 }
 
 int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree,
-                    const treelite_params_t* tl_params) {
+                    const leaf_value_desc_t leaf_payload_type) {
   int root = pnodes->size();
   pnodes->push_back(sparse_node_t());
-  node2fil_sparse(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)), tl_params);
+  node2fil_sparse(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)),
+                  leaf_payload_type);
   return root;
 }
 
@@ -480,7 +482,17 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // fill in forest-indendent params
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
-  params->leaf_payload_type = tl_params->leaf_payload_type;
+  
+  // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
+  auto tree = model.trees[0];
+  auto vec = tl_node_at(tree, tree_root(tree)).leaf_vector();
+  if(vec.size()) {
+    if(find_class_label_from_one_hot(&vec[0], vec.size()) != -1)
+      params->leaf_payload_type = INT_CLASS_LABEL;
+    else
+      ASSERT(false, "unexpected: non-empty non-one-hot leaf vector");
+  } else
+      params->leaf_payload_type = FLOAT_SCALAR;
 
   // fill in forest-dependent params
   params->num_cols = model.num_feature;
@@ -517,7 +529,8 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
   int num_nodes = forest_num_nodes(params->num_trees, params->depth);
   pnodes->resize(num_nodes, dense_node_t{0, 0});
   for (int i = 0; i < model.trees.size(); ++i) {
-    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i], tl_params);
+    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i],
+                   params->leaf_payload_type);
   }
 }
 
@@ -530,7 +543,8 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<sparse_node_t>* pnodes,
 
   // convert the nodes
   for (int i = 0; i < model.trees.size(); ++i) {
-    int root = tree2fil_sparse(pnodes, model.trees[i], tl_params);
+    int root = tree2fil_sparse(pnodes, model.trees[i],
+                               params->leaf_payload_type);
     ptrees->push_back(root);
   }
   params->num_nodes = pnodes->size();
@@ -554,7 +568,6 @@ void init_sparse(const cumlHandle& h, forest_t* pf, const int* trees,
 
 void from_treelite(const cumlHandle& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
-  printf("%s line %d: leaf_payload_type %d\n", __FILE__, __LINE__, tl_params->leaf_payload_type);
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
   const tl::Model& model_ref = *(tl::Model*)model;
