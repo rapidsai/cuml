@@ -55,6 +55,7 @@
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
+- PR #1765: Update the checks for using RF GPU predict
 
 # cuML 0.12.0 (Date TBD)
 
