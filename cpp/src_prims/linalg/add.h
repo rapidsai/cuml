@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,21 +23,24 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
+ * @brief Elementwise scalar add operation on the input buffer
+ *
+ * @tparam InT     input data-type. Also the data-type upon which the math ops
+ *                 will be performed
+ * @tparam OutT    output data-type
  * @tparam IdxType Integer type used to for addressing
+ *
  * @param out the output buffer
  * @param in the input buffer
  * @param scalar the scalar used in the operations
  * @param len number of elements in the input buffer
  * @param stream cuda stream where to launch work
  */
-template <typename math_t, typename IdxType = int>
-void addScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void addScalar(OutT *out, const InT *in, InT scalar, IdxType len,
                cudaStream_t stream) {
-  unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in + scalar; },
-    stream);
+  auto op = [scalar] __device__(InT in) { return OutT(in + scalar); };
+  unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
 }
 
 /**
