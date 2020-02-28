@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <common/device_ld_st.cuh>
+#include <common/device_loads_stores.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
