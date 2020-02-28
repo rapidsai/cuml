@@ -259,6 +259,7 @@ struct FusedL2NN {
 
   static const DataT Zero = (DataT)0;
   static const DataT Two = (DataT)2.0;
+  static constexpr size_t SizeAndAlign = P::Veclen * sizeof(DataT);
 
  public:
   DI FusedL2NN(OutT* _min, DataT* _x, DataT* _y, DataT* _xn, DataT* _yn,
@@ -462,23 +463,17 @@ struct FusedL2NN {
     for (int i = 0; i < P::LdgPerThX; ++i) {
       auto* sax = saddrx + i * P::LdgRowsX * P::SmemStride;
       auto* gax = x + i * P::LdgRowsX * k + koffset;
-      if (koffset < k && (xrowid + i * P::LdgRowsX) < m) {
-        memcpy_async(segment<P::Veclen, DataT>(sax),
-                     segment<P::Veclen, DataT>(gax), pipe);
-      } else {
-        sts(sax, zeros);
-      }
+      auto inside = koffset < k && (xrowid + i * P::LdgRowsX) < m;
+      __pipeline_memcpy_async(sax, inside ? gax : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
     }
     auto* saddry = sy + offset;
     for (int i = 0; i < P::LdgPerThY; ++i) {
       auto* say = saddry + i * P::LdgRowsY * P::SmemStride;
       auto* gay = y + i * P::LdgRowsY * k + koffset;
-      if (koffset < k && (yrowid + i * P::LdgRowsY) < n) {
-        memcpy_async(segment<P::Veclen, DataT>(say),
-                     segment<P::Veclen, DataT>(gay), pipe);
-      } else {
-        sts(say, zeros);
-      }
+      auto inside = koffset < k && (yrowid + i * P::LdgRowsY) < n;
+      __pipeline_memcpy_async(say, inside ? gay : nullptr, SizeAndAlign,
+                              inside ? 0 : SizeAndAlign);
     }
     pipe.commit();
   }
