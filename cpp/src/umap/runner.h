@@ -390,17 +390,10 @@ void _transform(const cumlHandle &handle, T *X, int n, int d, T *orig_X,
     std::cout << "Performing optimization" << std::endl;
   }
 
-  if (params->multicore_implem) {
-    SimplSetEmbedImpl::optimize_layout<TPB_X, T, true>(
-      transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
-      comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
-      params, n_epochs, d_alloc, stream);
-  } else {
-    SimplSetEmbedImpl::optimize_layout<TPB_X, T, false>(
-      transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
-      comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
-      params, n_epochs, d_alloc, stream);
-  }
+  SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
+    transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
+    comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
+    params, n_epochs, params->multicore_implem, d_alloc, stream);
 
   if (params->callback) params->callback->on_train_end(transformed);
 }

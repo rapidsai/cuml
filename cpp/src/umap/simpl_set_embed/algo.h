@@ -129,155 +129,20 @@ __device__ __host__ double attractive_grad(double dist_squared,
  * weights in the 1-skeleton. Negative samples are drawn
  * randomly.
  */
-template <typename T, int TPB_X>
-__global__ void optimize_batch_kernel_on_shared_mem(
-  T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
-  const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
-  bool move_other, T *epochs_per_negative_sample,
-  T *epoch_of_next_negative_sample, T *epoch_of_next_sample, double alpha,
-  int epoch, double gamma, uint64_t seed, UMAPParams params) {
-  extern __shared__ T embedding_updates[];
-
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (row < nnz) {
-    /**
-     * Positive sample stage (attractive forces)
-     */
-
-    if (epoch_of_next_sample[row] <= epoch) {
-      int j = head[row];
-      int k = tail[row];
-
-      T *current = head_embedding + (j * params.n_components);
-      T *other = tail_embedding + (k * params.n_components);
-      T *current_buffer, *other_buffer;
-
-      if (move_other) {
-        current_buffer =
-          embedding_updates + ((threadIdx.x * 2) * params.n_components);
-        other_buffer =
-          embedding_updates + (((threadIdx.x * 2) + 1) * params.n_components);
-      } else {
-        current_buffer =
-          embedding_updates + (threadIdx.x * params.n_components);
-      }
-
-      // initialization of shared memory
-      for (int d = 0; d < params.n_components; d++) {
-        current_buffer[d] = 0;
-      }
-      if (move_other) {
-        for (int d = 0; d < params.n_components; d++) {
-          other_buffer[d] = 0;
-        }
-      }
-      __syncthreads();
-
-      double dist_squared = rdist(current, other, params.n_components);
-
-      // Attractive force between the two vertices, since they
-      // are connected by an edge in the 1-skeleton.
-      double attractive_grad_coeff = 0.0;
-      if (dist_squared > 0.0) {
-        attractive_grad_coeff = attractive_grad(dist_squared, params);
-      }
-
-      /**
-       * Apply attractive force between `current` and `other`
-       * by updating their 'weights' to please them relative
-       * to their weight in the 1-skeleton.
-       * (update `other` embedding only if we are
-       * performing unsupervised training).
-       */
-      for (int d = 0; d < params.n_components; d++) {
-        double grad_d =
-          clip(attractive_grad_coeff * (current[d] - other[d]), -4.0f, 4.0f);
-
-        grad_d *= alpha;
-
-        atomicAdd(current_buffer + d, grad_d);
-
-        // happens only during unsupervised training
-        if (move_other) {
-          atomicAdd(other_buffer + d, -grad_d);
-        }
-      }
-
-      epoch_of_next_sample[row] += epochs_per_sample[row];
-
-      // number of negative samples to choose
-      int n_neg_samples = int(T(epoch - epoch_of_next_negative_sample[row]) /
-                              epochs_per_negative_sample[row]);
-
-      /**
-       * Negative sampling stage
-       */
-      MLCommon::Random::detail::PhiloxGenerator gen((uint64_t)seed,
-                                                    (uint64_t)row, 0);
-      for (int p = 0; p < n_neg_samples; p++) {
-        int r;
-        gen.next(r);
-        int t = r % tail_n;
-        float *negative_sample = tail_embedding + (t * params.n_components);
-        dist_squared = rdist(current, negative_sample, params.n_components);
-
-        // repulsive force between two vertices
-        double repulsive_grad_coeff = 0.0;
-        if (dist_squared > 0.0) {
-          repulsive_grad_coeff = repulsive_grad(dist_squared, gamma, params);
-        } else if (j == t)
-          continue;
-
-        /**
-         * Apply repulsive force between `current` and `other`
-         * (which has been negatively sampled) by updating
-         * their 'weights' to push them farther in Euclidean space.
-         */
-        for (int d = 0; d < params.n_components; d++) {
-          double grad_d = 0.0;
-          if (repulsive_grad_coeff > 0.0)
-            grad_d =
-              clip(repulsive_grad_coeff * (current[d] - negative_sample[d]),
-                   -4.0f, 4.0f);
-          else
-            grad_d = 4.0;
-
-          grad_d *= alpha;
-
-          atomicAdd(current_buffer + d, grad_d);
-        }
-      }
-
-      // storing everything back to global memory
-      __syncthreads();
-      for (int d = 0; d < params.n_components; d++) {
-        atomicAdd(current + d, current_buffer[d]);
-      }
-      if (move_other) {
-        for (int d = 0; d < params.n_components; d++) {
-          atomicAdd(other + d, other_buffer[d]);
-        }
-      }
-
-      epoch_of_next_negative_sample[row] +=
-        n_neg_samples * epochs_per_negative_sample[row];
-    }
-  }
-}
-
-template <typename T, int TPB_X>
+template <typename T, int TPB_X, bool multicore_implem, bool use_shared_mem>
 __global__ void optimize_batch_kernel(
   T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
   const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
-  bool move_other, T *epochs_per_negative_sample,
-  T *epoch_of_next_negative_sample, T *epoch_of_next_sample, double alpha,
-  int epoch, double gamma, uint64_t seed, double *embedding_updates,
-  UMAPParams params) {
+  T *epochs_per_negative_sample, T *epoch_of_next_negative_sample,
+  T *epoch_of_next_sample, double alpha, int epoch, double gamma, uint64_t seed,
+  double *embedding_updates, bool move_other, UMAPParams params) {
+  extern __shared__ T embedding_shared_mem_updates[];
+
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) {
     /**
-     * Positive sample stage (attractive forces)
-     */
+       * Positive sample stage (attractive forces)
+       */
 
     if (epoch_of_next_sample[row] <= epoch) {
       int j = head[row];
@@ -285,8 +150,38 @@ __global__ void optimize_batch_kernel(
 
       T *current = head_embedding + (j * params.n_components);
       T *other = tail_embedding + (k * params.n_components);
-      double *current_buffer = embedding_updates + (j * params.n_components);
-      double *other_buffer = embedding_updates + (k * params.n_components);
+      T *current_shared_mem_buffer, *other_shared_mem_buffer;
+      double *current_buffer, *other_buffer;
+
+      if (
+        use_shared_mem) {  // do we use shared memory? If yes, means multicore_implem == true
+        if (move_other) {  // are we performing a fit (or transform)?
+          current_shared_mem_buffer = embedding_shared_mem_updates +
+                                      ((threadIdx.x * 2) * params.n_components);
+          other_shared_mem_buffer =
+            embedding_shared_mem_updates +
+            (((threadIdx.x * 2) + 1) * params.n_components);
+        } else {
+          current_shared_mem_buffer =
+            embedding_shared_mem_updates + (threadIdx.x * params.n_components);
+        }
+      } else if (
+        !multicore_implem) {  // do we use optimized but inconsistent multicore implementation?
+        current_buffer = embedding_updates + (j * params.n_components);
+        other_buffer = embedding_updates + (k * params.n_components);
+      }
+
+      if (use_shared_mem) {
+        // initialization of shared memory
+        for (int d = 0; d < params.n_components; d++) {
+          current_shared_mem_buffer[d] = 0;
+        }
+        if (move_other) {
+          for (int d = 0; d < params.n_components; d++) {
+            other_shared_mem_buffer[d] = 0;
+          }
+        }
+      }
 
       double dist_squared = rdist(current, other, params.n_components);
 
@@ -298,30 +193,34 @@ __global__ void optimize_batch_kernel(
       }
 
       /**
-       * Apply attractive force between `current` and `other`
-       * by updating their 'weights' to please them relative
-       * to their weight in the 1-skeleton.
-       * (update `other` embedding only if we are
-       * performing unsupervised training).
-       */
+         * Apply attractive force between `current` and `other`
+         * by updating their 'weights' to place them relative
+         * to their weight in the 1-skeleton.
+         * (update `other` embedding only if we are
+         * performing unsupervised training).
+         */
       for (int d = 0; d < params.n_components; d++) {
         double grad_d =
           clip(attractive_grad_coeff * (current[d] - other[d]), -4.0f, 4.0f);
 
         grad_d *= alpha;
 
-        if (embedding_updates) {
-          atomicAdd(current_buffer + d, grad_d);
+        if (use_shared_mem) {
+          current_shared_mem_buffer[d] += grad_d;
+          if (move_other) {  // happens only during unsupervised training
+            other_shared_mem_buffer[d] += -grad_d;
+          }
         } else {
-          atomicAdd(current + d, grad_d);
-        }
-
-        // happens only during unsupervised training
-        if (move_other) {
-          if (embedding_updates) {
-            atomicAdd(other_buffer + d, -grad_d);
+          if (multicore_implem) {
+            atomicAdd(current + d, grad_d);
+            if (move_other) {  // happens only during unsupervised training
+              atomicAdd(other + d, -grad_d);
+            }
           } else {
-            atomicAdd(other + d, -grad_d);
+            atomicAdd(current_buffer + d, grad_d);
+            if (move_other) {  // happens only during unsupervised training
+              atomicAdd(other_buffer + d, -grad_d);
+            }
           }
         }
       }
@@ -367,10 +266,27 @@ __global__ void optimize_batch_kernel(
 
           grad_d *= alpha;
 
-          if (embedding_updates) {
-            atomicAdd(current_buffer + d, grad_d);
+          if (use_shared_mem) {
+            current_shared_mem_buffer[d] += grad_d;
           } else {
-            atomicAdd(current + d, grad_d);
+            if (multicore_implem) {
+              atomicAdd(current + d, grad_d);
+            } else {
+              atomicAdd(current_buffer + d, grad_d);
+            }
+          }
+        }
+      }
+
+      if (use_shared_mem) {
+        // storing everything back to global memory
+        __syncthreads();
+        for (int d = 0; d < params.n_components; d++) {
+          atomicAdd(current + d, current_shared_mem_buffer[d]);
+        }
+        if (move_other) {
+          for (int d = 0; d < params.n_components; d++) {
+            atomicAdd(other + d, other_shared_mem_buffer[d]);
           }
         }
       }
@@ -386,15 +302,52 @@ __global__ void optimize_batch_kernel(
  */
 template <typename T, int TPB_X>
 __global__ void apply_optimization_kernel(T *embedding,
-                                          double *embedding_updates,
-                                          int n_vertices, int n_components) {
-  int vertice_idx = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (vertice_idx < n_vertices) {
-    embedding += vertice_idx * n_components;
-    embedding_updates += vertice_idx * n_components;
-    for (int d = 0; d < n_components; d++) {
-      embedding[d] += embedding_updates[d];
-    }
+                                          double *embedding_updates, int n) {
+  int idx = (blockIdx.x * TPB_X) + threadIdx.x;
+  if (idx < n) {
+    embedding[idx] += embedding_updates[idx];
+  }
+}
+
+template <typename T>
+inline void optimization_iteration_finalization(UMAPParams *params,
+                                                T *head_embedding, T &alpha,
+                                                int n, int n_epochs,
+                                                uint64_t &seed) {
+  if (params->callback) params->callback->on_epoch_end(head_embedding);
+  alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
+  seed += 1;
+}
+
+template <typename T, int TPB_X>
+inline void call_optimize_batch_kernel(
+  T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
+  const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
+  T *epochs_per_negative_sample, T *epoch_of_next_negative_sample,
+  T *epoch_of_next_sample, T alpha, int epoch, T gamma, uint64_t seed,
+  double *embedding_updates, bool move_other, bool use_shared_mem,
+  UMAPParams *params, int n, dim3 &grid, dim3 &blk, size_t requiredSize,
+  cudaStream_t &stream) {
+  if (use_shared_mem) {  // multicore implementation with shared memory
+    optimize_batch_kernel<T, TPB_X, true, true>
+      <<<grid, blk, requiredSize, stream>>>(
+        head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+        epochs_per_sample, n_vertices, epochs_per_negative_sample,
+        epoch_of_next_negative_sample, epoch_of_next_sample, alpha, n, gamma,
+        seed, nullptr, move_other, *params);
+  } else if (
+    !embedding_updates) {  // multicore implementation without shared memory
+    optimize_batch_kernel<T, TPB_X, true, false><<<grid, blk, 0, stream>>>(
+      head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+      epochs_per_sample, n_vertices, epochs_per_negative_sample,
+      epoch_of_next_negative_sample, epoch_of_next_sample, alpha, n, gamma,
+      seed, nullptr, move_other, *params);
+  } else {  // singlecore implementation with global memory buffer
+    optimize_batch_kernel<T, TPB_X, false, false><<<grid, blk, 0, stream>>>(
+      head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+      epochs_per_sample, n_vertices, epochs_per_negative_sample,
+      epoch_of_next_negative_sample, epoch_of_next_sample, alpha, n, gamma,
+      seed, embedding_updates, move_other, *params);
   }
 }
 
@@ -407,11 +360,11 @@ __global__ void apply_optimization_kernel(T *embedding,
  * positive weights (neighbors in the 1-skeleton) and repelling
  * negative weights (non-neighbors in the 1-skeleton).
  */
-template <int TPB_X, typename T, bool multicore_implem>
+template <int TPB_X, typename T>
 void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      int tail_n, const int *head, const int *tail, int nnz,
                      T *epochs_per_sample, int n_vertices, float gamma,
-                     UMAPParams *params, int n_epochs,
+                     UMAPParams *params, int n_epochs, bool multicore_implem,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
   // Are we doing a fit or a transform?
@@ -439,76 +392,54 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   uint64_t seed = params->random_state;
 
   if (multicore_implem) {
-    if (params->n_components <= 16) {
-      int shared_mem_size = TPB_X * params->n_components * sizeof(T);
-      if (move_other) shared_mem_size *= 2;
+    int requiredSize = TPB_X * params->n_components * sizeof(T);
+    if (move_other) requiredSize *= 2;
 
-      for (int n = 0; n < n_epochs; n++) {
-        optimize_batch_kernel_on_shared_mem<T, TPB_X>
-          <<<grid, blk, shared_mem_size, stream>>>(
-            head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
-            epochs_per_sample, n_vertices, move_other,
-            epochs_per_negative_sample.data(),
-            epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
-            alpha, n, gamma, seed, *params);
+    // checks if enough shared memory is available
+    bool use_shared_mem = requiredSize < MLCommon::getSharedMemPerBlock();
 
-        CUDA_CHECK(cudaGetLastError());
+    for (int n = 0; n < n_epochs; n++) {
+      call_optimize_batch_kernel<T, TPB_X>(
+        head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+        epochs_per_sample, n_vertices, epochs_per_negative_sample.data(),
+        epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
+        alpha, n, gamma, seed, nullptr, move_other, use_shared_mem, params, n,
+        grid, blk, requiredSize, stream);
 
-        if (params->callback) params->callback->on_epoch_end(head_embedding);
+      CUDA_CHECK(cudaGetLastError());
 
-        alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
-
-        seed += 1;
-      }
-    } else {
-      for (int n = 0; n < n_epochs; n++) {
-        optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
-          head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
-          epochs_per_sample, n_vertices, move_other,
-          epochs_per_negative_sample.data(),
-          epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
-          alpha, n, gamma, seed, nullptr, *params);
-
-        CUDA_CHECK(cudaGetLastError());
-
-        if (params->callback) params->callback->on_epoch_end(head_embedding);
-
-        alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
-
-        seed += 1;
-      }
+      optimization_iteration_finalization(params, head_embedding, alpha, n,
+                                          n_epochs, seed);
     }
   } else {
     MLCommon::device_buffer<double> embedding_updates_buf(
       d_alloc, stream, n_vertices * params->n_components);
     double *embedding_updates = embedding_updates_buf.data();
 
-    dim3 grid2(MLCommon::ceildiv(n_vertices, TPB_X), 1, 1);
+    dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X), 1,
+               1);
 
     for (int n = 0; n < n_epochs; n++) {
       CUDA_CHECK(cudaMemsetAsync(embedding_updates, 0,
                                  n_vertices * params->n_components * sizeof(T),
                                  stream));
 
-      optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
+      call_optimize_batch_kernel<T, TPB_X>(
         head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
-        epochs_per_sample, n_vertices, move_other,
-        epochs_per_negative_sample.data(), epoch_of_next_negative_sample.data(),
-        epoch_of_next_sample.data(), alpha, n, gamma, seed, embedding_updates,
-        *params);
+        epochs_per_sample, n_vertices, epochs_per_negative_sample.data(),
+        epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
+        alpha, n, gamma, seed, embedding_updates, move_other, false, params, n,
+        grid, blk, 0, stream);
 
       CUDA_CHECK(cudaGetLastError());
 
       apply_optimization_kernel<T, TPB_X><<<grid2, blk, 0, stream>>>(
-        head_embedding, embedding_updates, n_vertices, params->n_components);
+        head_embedding, embedding_updates, n_vertices * params->n_components);
 
       CUDA_CHECK(cudaGetLastError());
 
-      if (params->callback) params->callback->on_epoch_end(head_embedding);
-
-      alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
-
-      seed += 1;
+      optimization_iteration_finalization(params, head_embedding, alpha, n,
+                                          n_epochs, seed);
     }
   }
 }
@@ -568,17 +499,10 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
                                    "epochs_per_sample", stream)
               << std::endl;
 
-  if (params->multicore_implem) {
-    optimize_layout<TPB_X, T, true>(
-      embedding, m, embedding, m, out.rows(), out.cols(), out.nnz,
-      epochs_per_sample.data(), m, params->repulsion_strength, params, n_epochs,
-      d_alloc, stream);
-  } else {
-    optimize_layout<TPB_X, T, false>(
-      embedding, m, embedding, m, out.rows(), out.cols(), out.nnz,
-      epochs_per_sample.data(), m, params->repulsion_strength, params, n_epochs,
-      d_alloc, stream);
-  }
+  optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
+                            out.nnz, epochs_per_sample.data(), m,
+                            params->repulsion_strength, params, n_epochs,
+                            params->multicore_implem, d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
