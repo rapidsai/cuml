@@ -63,7 +63,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
 };
 
 const std::vector<AddInputs<float>> inputsf = {
-  {0.000001f, 1024 * 1024,     1234ULL},
+  {0.000001f, 1024 * 1024, 1234ULL},
   {0.000001f, 1024 * 1024 + 2, 1234ULL},
   {0.000001f, 1024 * 1024 + 1, 1234ULL},
 };
@@ -72,7 +72,7 @@ TEST_P(AddTestF, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(AddTests, AddTestF, ::testing::ValuesIn(inputsf));
 
 const std::vector<AddInputs<double>> inputsd = {
-  {0.00000001, 1024 * 1024,     1234ULL},
+  {0.00000001, 1024 * 1024, 1234ULL},
   {0.00000001, 1024 * 1024 + 2, 1234ULL},
   {0.00000001, 1024 * 1024 + 1, 1234ULL},
 };
@@ -81,7 +81,7 @@ TEST_P(AddTestD, Result) { compare(); }
 INSTANTIATE_TEST_CASE_P(AddTests, AddTestD, ::testing::ValuesIn(inputsd));
 
 const std::vector<AddInputs<float, double>> inputsfd = {
-  {0.00000001, 1024 * 1024,     1234ULL},
+  {0.00000001, 1024 * 1024, 1234ULL},
   {0.00000001, 1024 * 1024 + 2, 1234ULL},
   {0.00000001, 1024 * 1024 + 1, 1234ULL},
 };
