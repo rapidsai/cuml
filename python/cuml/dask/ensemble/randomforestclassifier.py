@@ -21,12 +21,15 @@ from cuml.dask.common import extract_ddf_partitions, \
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from dask.distributed import default_client, wait
 
+
+from cuml.dask.common.base import DelayedPredictionMixin
+
 import math
 import random
 from uuid import uuid1
 
 
-class RandomForestClassifier:
+class RandomForestClassifier(DelayedPredictionMixin):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -235,7 +238,6 @@ class RandomForestClassifier:
 
         wait(rfs_wait)
         raise_exception_from_futures(rfs_wait)
-        self.concat_model_bytes = []
 
     @staticmethod
     def _func_build_rf(
@@ -292,31 +294,8 @@ class RandomForestClassifier:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict_gpu(X_test, model, output_class, algo,
-                     threshold, num_classes,
-                     convert_dtype, concat_mod_bytes):
-
-        predicted_labels = model.predict(X=X_test, output_class=output_class,
-                                         algo=algo, threshold=threshold,
-                                         convert_dtype=convert_dtype,
-                                         concat_mod_bytes=concat_mod_bytes)
-        return predicted_labels
-
-    @staticmethod
     def _predict_cpu(model, X, r):
         return model._predict_get_all(X)
-
-    @staticmethod
-    def _func_get_size(df):
-        return df.shape[0]
-
-    @staticmethod
-    def _func_get_idx(f, idx):
-        return f[idx]
-
-    @staticmethod
-    def _tl_model_handles(model, model_bytes):
-        return model._tl_model_handles(model_bytes=model_bytes)
 
     @staticmethod
     def _print_summary(model):
@@ -370,8 +349,8 @@ class RandomForestClassifier:
             treelite_handle=all_tl_mod_handles)
         concatenated_model_bytes = \
             model.concatenate_model_bytes(concat_model_handle)
-        for w in self.workers:
-            self.rfs[w].result()._model_pbuf_bytes = concatenated_model_bytes
+
+        self.local_model = model
 
     def fit(self, X, y):
         """
@@ -450,7 +429,8 @@ class RandomForestClassifier:
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
-                num_classes=2, convert_dtype=False, predict_model="GPU"):
+                num_classes=2, convert_dtype=False, predict_model="GPU",
+                delayed=True, parallelism=25):
         """
         Predicts the labels for X.
 
@@ -501,16 +481,18 @@ class RandomForestClassifier:
             preds = self._predict_using_fil(X, output_class=True, algo='auto',
                                             threshold=0.5, num_classes=2,
                                             convert_dtype=False,
-                                            predict_model="GPU")
+                                            predict_model="GPU",
+                                            delayed=True, parallelism=5)
 
         return preds
 
     def _predict_using_fil(self, X, output_class=True, algo='auto',
                            threshold=0.5, num_classes=2,
-                           convert_dtype=False, predict_model="GPU"):
+                           convert_dtype=False, predict_model="GPU",
+                           delayed=True, parallelism=25):
 
         self._concat_treelite_models()
-
+        """
         worker_tcp_info = [i for i in self.workers]
         preds = X.map_partitions(
                 self.rfs[worker_tcp_info[0]].result().predict,
@@ -518,6 +500,9 @@ class RandomForestClassifier:
                 output_class, threshold, algo,
                 num_classes, convert_dtype)
         return preds
+        """
+        return self._predict(X, delayed, parallelism)
+
 
     def _predict_using_cpu(self, X):
         """

@@ -21,13 +21,14 @@ from cuml.dask.common import extract_ddf_partitions, \
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
+from cuml.dask.common.base import DelayedPredictionMixin
 
 import math
 import random
 from uuid import uuid1
 
 
-class RandomForestRegressor:
+class RandomForestRegressor(DelayedPredictionMixin):
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -291,19 +292,6 @@ class RandomForestRegressor:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X_test, concat_mod_bytes):
-        preds = []
-        for i in range(len(X_test)):
-            X_test_df = X_test[i]
-            preds.append(model.predict(X_test_df,
-                                       concat_mod_bytes=concat_mod_bytes))
-        return preds
-
-    @staticmethod
-    def _tl_model_handles(model, model_bytes):
-        return model._tl_model_handles(model_bytes=model_bytes)
-
-    @staticmethod
     def _print_summary(model):
         model.print_summary()
 
@@ -354,6 +342,9 @@ class RandomForestRegressor:
         for w in self.workers:
             self.rfs[w].result()._model_pbuf_bytes = \
                 concatenated_model_bytes
+
+        self.local_model = model
+
 
     def fit(self, X, y):
         """
@@ -427,7 +418,8 @@ class RandomForestRegressor:
         return self
 
     def predict(self, X, predict_model="GPU", algo='auto',
-                convert_dtype=True, fil_sparse_format='auto'):
+                convert_dtype=True, fil_sparse_format='auto',
+                delayed=True, parallelism=25):
         """
         Predicts the regressor outputs for X.
 
@@ -453,13 +445,8 @@ class RandomForestRegressor:
         """
         self._concat_treelite_models()
 
-        worker_tcp_info = [i for i in self.workers]
-        preds = X.map_partitions(
-                self.rfs[worker_tcp_info[0]].result().predict,
-                predict_model,
-                algo, convert_dtype,
-                fil_sparse_format)
-        return preds
+        return self._predict(X, delayed, parallelism)
+
 
     def get_params(self, deep=True):
         """
