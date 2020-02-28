@@ -45,6 +45,9 @@
 
 #include "cuda_utils.h"
 
+// TODO: remove
+#include <cuda_profiler_api.h>
+
 namespace MLCommon {
 namespace LinAlg {
 namespace Batched {
@@ -978,6 +981,8 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
   T one = (T)1, zero = (T)0, m_two = (T)-2;
   CUBLAS_CHECK(cublasSetPointerMode(cublasHandle, CUBLAS_POINTER_MODE_HOST));
 
+  /// TODO: single kernel? Would it be more performant than many BLAS calls?
+
   // Transform H to Hessenberg form in-place
   int u_offset = 0;
   for (int k = 0; k < n - 2; k++) {
@@ -1052,7 +1057,6 @@ DI void generate_givens(T a, T b, T& c, T& s) {
     s = (T)1 / sqrt(1 + t * t);
     c = s * t;
   }
-  // TODO: remove divergence?
 }
 
 /**
@@ -1110,16 +1114,18 @@ __global__ void francis_convergence_kernel(T* d_H, int* d_p, int n, int p,
 
 /**
  * @todo: - docs
- *        - try to write a shared-mem version and benchmark both
- *        - add more comments
+ *
  * @note: from Matrix Computations 3rd ed (Golub and Van Loan, 1996),
  *        algorithm 7.5.1
+ *        This version computes one batch member per thread block
  */
 template <typename T>
 __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_index, int n,
-                                       int p, int reduced_batch_size,
-                                       bool force_convergence) {
-  int ib = blockDim.x * blockIdx.x + threadIdx.x;
+                                       int p) {
+  int ib = blockIdx.x;
+
+  // Note: 1 batch member per block ; n threads, some of which might
+  // be inactive
 
   // H has the following form:
   //  _________________
@@ -1137,109 +1143,125 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_index, int n,
   // We perform a Francis QR step on H22 = H[q:p, q:p] and update H and U
   // accordingly.
 
-  if (ib < reduced_batch_size) {
-    int original_id = d_index[ib];
-    T* b_U = d_U + original_id * n * n;
-    T* b_H = d_H + original_id * n * n;
+  int original_id = d_index[ib];
+  T* b_U = d_U + original_id * n * n;
+  T* b_H = d_H + original_id * n * n;
 
-    // Find q
-    int q = 0;
-    for (int k = p - 2; k > 0; k--) {
-      if (b_H[(k - 1) * n + k] == 0) q = max(q, k);
+  /// TODO: figure out how to use shared mem
+
+  /// TODO: find q before this kernel?
+  ///       or do it here with reduction?
+  ///       note: first naive version: everybody computes it...
+  // Find q
+  int q = 0;
+  for (int k = p - 2; k > 0; k--) {
+    if (b_H[(k - 1) * n + k] == 0) q = max(q, k);
+  }
+
+  /// TODO: only 1 thread should do this work (or multiple for mem access)
+  ///       note: naive version, everybody computes it...
+  // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
+  // of the trailing matrix of H22
+  T v[3];
+  {
+    T x00 = b_H[(p - 2) * n + p - 2];
+    T x10 = b_H[(p - 2) * n + p - 1];
+    T x01 = b_H[(p - 1) * n + p - 2];
+    T x11 = b_H[(p - 1) * n + p - 1];
+    T s = x00 + x11;
+    T t = x00 * x11 - x10 * x01;
+    T h00 = b_H[q * n + q];
+    T h10 = b_H[q * n + q + 1];
+    T h01 = b_H[(q + 1) * n + q];
+    T h11 = b_H[(q + 1) * n + q + 1];
+    T h21 = b_H[(q + 1) * n + q + 2];
+
+    v[0] = (h00 - s) * h00 + h01 * h10 + t;
+    v[1] = h10 * (h00 + h11 - s);
+    v[2] = h10 * h21;
+  }
+
+  __syncthreads();
+  for (int k = q; k < p - 2; k++) {
+    // Generate a reflector P such that Pv' = a e1
+    T u[3];
+    generate_householder_vector(u, v, 3);
+    T P[6];  // P symmetric; P00 P01 P02 P11 P12 P22
+    P[0] = (T)1 - (T)2 * u[0] * u[0];
+    P[1] = (T)-2 * u[0] * u[1];
+    P[2] = (T)-2 * u[0] * u[2];
+    P[3] = (T)1 - (T)2 * u[1] * u[1];
+    P[4] = (T)-2 * u[1] * u[2];
+    P[5] = (T)1 - (T)2 * u[2] * u[2];
+
+    /// TODO: remove for loops! Replace with if
+
+    // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1)
+    int j = max(q, k - 1) + threadIdx.x;
+    if (j < n) {
+      T h0 = b_H[j * n + k];
+      T h1 = b_H[j * n + k + 1];
+      T h2 = b_H[j * n + k + 2];
+      b_H[j * n + k] = h0 * P[0] + h1 * P[1] + h2 * P[2];
+      b_H[j * n + k + 1] = h0 * P[1] + h1 * P[3] + h2 * P[4];
+      b_H[j * n + k + 2] = h0 * P[2] + h1 * P[4] + h2 * P[5];
     }
-
-    // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
-    // of the trailing matrix of H22
-    T v[3];
+    __syncthreads();
+    // H[:r, k:k+3] = H[:r, k:k+3] * P, r = min(k + 4, p)
+    const int& i = threadIdx.x;
+    if (i < min(k + 4, p)) {
+      T h0 = b_H[i + k * n];
+      T h1 = b_H[i + (k + 1) * n];
+      T h2 = b_H[i + (k + 2) * n];
+      b_H[i + k * n] = h0 * P[0] + h1 * P[1] + h2 * P[2];
+      b_H[i + (k + 1) * n] = h0 * P[1] + h1 * P[3] + h2 * P[4];
+      b_H[i + (k + 2) * n] = h0 * P[2] + h1 * P[4] + h2 * P[5];
+    }
+    // U[:, k:k+3] = U[:, k:k+3] * P
     {
-      T x00 = b_H[(p - 2) * n + p - 2];
-      T x10 = b_H[(p - 2) * n + p - 1];
-      T x01 = b_H[(p - 1) * n + p - 2];
-      T x11 = b_H[(p - 1) * n + p - 1];
-      T s = x00 + x11;
-      T t = x00 * x11 - x10 * x01;
-      T h00 = b_H[q * n + q];
-      T h10 = b_H[q * n + q + 1];
-      T h01 = b_H[(q + 1) * n + q];
-      T h11 = b_H[(q + 1) * n + q + 1];
-      T h21 = b_H[(q + 1) * n + q + 2];
-
-      v[0] = (h00 - s) * h00 + h01 * h10 + t;
-      v[1] = h10 * (h00 + h11 - s);
-      v[2] = h10 * h21;
+      T u0 = b_U[i + k * n];
+      T u1 = b_U[i + (k + 1) * n];
+      T u2 = b_U[i + (k + 2) * n];
+      b_U[i + k * n] = u0 * P[0] + u1 * P[1] + u2 * P[2];
+      b_U[i + (k + 1) * n] = u0 * P[1] + u1 * P[3] + u2 * P[4];
+      b_U[i + (k + 2) * n] = u0 * P[2] + u1 * P[4] + u2 * P[5];
     }
 
-    /// TODO: check how thread divergence impacts performance
-    for (int k = q; k < p - 2; k++) {
-      // Generate a reflector P such that Pv' = a e1
-      T u[3];
-      generate_householder_vector(u, v, 3);
-      T P[6];  // P symmetric; P00 P01 P02 P11 P12 P22
-      P[0] = (T)1 - (T)2 * u[0] * u[0];
-      P[1] = (T)-2 * u[0] * u[1];
-      P[2] = (T)-2 * u[0] * u[2];
-      P[3] = (T)1 - (T)2 * u[1] * u[1];
-      P[4] = (T)-2 * u[1] * u[2];
-      P[5] = (T)1 - (T)2 * u[2] * u[2];
+    __syncthreads();
+    v[0] = b_H[k * n + k + 1];
+    v[1] = b_H[k * n + k + 2];
+    if (k < p - 3) v[2] = b_H[k * n + k + 3];
+  }
 
-      // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1)
-      for (int j = max(q, k - 1); j < n; j++) {
-        T h0 = b_H[j * n + k];
-        T h1 = b_H[j * n + k + 1];
-        T h2 = b_H[j * n + k + 2];
-        b_H[j * n + k] = h0 * P[0] + h1 * P[1] + h2 * P[2];
-        b_H[j * n + k + 1] = h0 * P[1] + h1 * P[3] + h2 * P[4];
-        b_H[j * n + k + 2] = h0 * P[2] + h1 * P[4] + h2 * P[5];
-      }
-      // H[:r, k:k+3] = H[:r, k:k+3] * P, r = min(k + 4, p)
-      for (int i = 0; i < min(k + 4, p); i++) {
-        T h0 = b_H[i + k * n];
-        T h1 = b_H[i + (k + 1) * n];
-        T h2 = b_H[i + (k + 2) * n];
-        b_H[i + k * n] = h0 * P[0] + h1 * P[1] + h2 * P[2];
-        b_H[i + (k + 1) * n] = h0 * P[1] + h1 * P[3] + h2 * P[4];
-        b_H[i + (k + 2) * n] = h0 * P[2] + h1 * P[4] + h2 * P[5];
-      }
-      // U[:, k:k+3] = U[:, k:k+3] * P
-      for (int i = 0; i < n; i++) {
-        T u0 = b_U[i + k * n];
-        T u1 = b_U[i + (k + 1) * n];
-        T u2 = b_U[i + (k + 2) * n];
-        b_U[i + k * n] = u0 * P[0] + u1 * P[1] + u2 * P[2];
-        b_U[i + (k + 1) * n] = u0 * P[1] + u1 * P[3] + u2 * P[4];
-        b_U[i + (k + 2) * n] = u0 * P[2] + u1 * P[4] + u2 * P[5];
-      }
+  {
+    __syncthreads();
 
-      v[0] = b_H[k * n + k + 1];
-      v[1] = b_H[k * n + k + 2];
-      if (k < p - 3) v[2] = b_H[k * n + k + 3];
+    // Generate a Givens rotation such that P * v[0:2] = a e1
+    T c, s;
+    generate_givens(v[0], v[1], c, s);
+    // H[p-2:p, p-3:] = P * H[p-2:p, p-3:]
+    int j = p - 3 + threadIdx.x;
+    if (j < n) {
+      T h0 = b_H[j * n + p - 2];
+      T h1 = b_H[j * n + p - 1];
+      b_H[j * n + p - 2] = h0 * c - h1 * s;
+      b_H[j * n + p - 1] = h0 * s + h1 * c;
     }
-
+    __syncthreads();
+    // H[:p, p-2:p] = H[:p, p-2:p] * P'
+    const int& i = threadIdx.x;
+    if (i < p) {
+      T h0 = b_H[(p - 2) * n + i];
+      T h1 = b_H[(p - 1) * n + i];
+      b_H[(p - 2) * n + i] = h0 * c - h1 * s;
+      b_H[(p - 1) * n + i] = h0 * s + h1 * c;
+    }
+    // U[:, p-2:p] = U[:, p-2:p] * P'
     {
-      // Generate a Givens rotation such that P * v[0:2] = a e1
-      T c, s;
-      generate_givens(v[0], v[1], c, s);
-      // H[p-2:p, p-3:] = P * H[p-2:p, p-3:]
-      for (int j = p - 3; j < n; j++) {
-        T h0 = b_H[j * n + p - 2];
-        T h1 = b_H[j * n + p - 1];
-        b_H[j * n + p - 2] = h0 * c - h1 * s;
-        b_H[j * n + p - 1] = h0 * s + h1 * c;
-      }
-      // H[:p, p-2:p] = H[:p, p-2:p] * P'
-      for (int i = 0; i < p; i++) {
-        T h0 = b_H[(p - 2) * n + i];
-        T h1 = b_H[(p - 1) * n + i];
-        b_H[(p - 2) * n + i] = h0 * c - h1 * s;
-        b_H[(p - 1) * n + i] = h0 * s + h1 * c;
-      }
-      // U[:, p-2:p] = U[:, p-2:p] * P'
-      for (int i = 0; i < n; i++) {
-        T u0 = b_U[(p - 2) * n + i];
-        T u1 = b_U[(p - 1) * n + i];
-        b_U[(p - 2) * n + i] = u0 * c - u1 * s;
-        b_U[(p - 1) * n + i] = u0 * s + u1 * c;
-      }
+      T u0 = b_U[(p - 2) * n + i];
+      T u1 = b_U[(p - 1) * n + i];
+      b_U[(p - 2) * n + i] = u0 * c - u1 * s;
+      b_U[(p - 1) * n + i] = u0 * s + u1 * c;
     }
   }
 }
@@ -1380,14 +1402,15 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
     // Execute a Francis QR step
     //
 
+    // CUDA_CHECK(cudaProfilerStart());
+
     if (reduced_batch_size > 0) {
-      constexpr int TPB = 32;
-      francis_qr_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
-                               stream>>>(
-        U.raw_data(), S.raw_data(), index_buffer.data(), n, max_p,
-        reduced_batch_size, step_iter == max_iter_per_step);
+      francis_qr_step_kernel<<<reduced_batch_size, n, 0, stream>>>(
+        U.raw_data(), S.raw_data(), index_buffer.data(), n, max_p);
       CUDA_CHECK(cudaPeekAtLastError());
     }
+
+    // CUDA_CHECK(cudaProfilerStop());
 
     if (max_p < prev_max_p) {
       step_iter = 0;
@@ -1412,50 +1435,88 @@ struct logical_and_not : public thrust::binary_function<T1, T1, T2> {
  * @tparam  p  Number of columns to solve
  */
 template <int p, typename T>
-DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n) {
+DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, int thread_id,
+                                T* shared_mem) {
+  //
   // Reduce the system to upper triangular with Givens rotations
+  //
   for (int k = 0; k < n - 1; k++) {
     T c, s;
+    /// TODO: compute once for the block?
     generate_givens(d_scratch[(n + 1) * k], d_scratch[(n + 1) * k + 1], c, s);
+    __syncthreads();
 
     // scratch[k:k+2, k:] = P * scratch[k:k+2, k:]
-    for (int j = k; j < n + p; j++) {
+    int j = k + thread_id;
+    if (j < n + p) {
       T h0 = d_scratch[j * n + k];
       T h1 = d_scratch[j * n + k + 1];
       d_scratch[j * n + k] = h0 * c - h1 * s;
       d_scratch[j * n + k + 1] = h0 * s + h1 * c;
     }
+    __syncthreads();
   }
 
+  //
   // Solve the upper triangular system with back substitution
-  {
-    T acc[p];
-    for (int k = n - 1; k >= 0; k--) {
+  //
+
+  // The shared mem is used to reduce: sum W[k,i]*x[i,:], i from k+1 to n-1
+  // at each step k from n-1 to 0.
+  // Layout:
+  //  ___
+  // |   | n-k-1   (for the reduction)
+  // |___|
+  // |   |   k     (unused)
+  // |___|
+  //   p
+
+  for (int k = n - 1; k >= 0; k--) {
+    int i = k + 1 + thread_id;
+    if (i < n) {
+      T s_ki = d_scratch[i * n + k];
       for (int j = 0; j < p; j++) {
-        acc[j] = d_scratch[(n + j) * n + k];
-      }
-      for (int i = k + 1; i < n; i++) {
-        T s_ki = d_scratch[i * n + k];
-        for (int j = 0; j < p; j++) {
-          acc[j] -= s_ki * d_x[j * n + i];
-        }
-      }
-      for (int j = 0; j < p; j++) {
-        d_x[j * n + k] = acc[j] / d_scratch[(n + 1) * k];
+        shared_mem[j * (n - 1) + thread_id] = s_ki * d_x[j * n + i];
       }
     }
+    // Tree reduction
+    for (int red_size = n - k - 1; red_size > 1;
+         red_size = (red_size + 1) / 2) {
+      __syncthreads();
+      if (thread_id < red_size / 2) {
+        for (int j = 0; j < p; j++) {
+          shared_mem[j * (n - 1) + thread_id] +=
+            shared_mem[j * (n - 1) + thread_id + (red_size + 1) / 2];
+        }
+      }
+    }
+    __syncthreads();
+
+    // Finalize
+    if (thread_id < p) {
+      const int& j = thread_id;
+      if (k == n - 1) {
+        d_x[j * n + k] = d_scratch[(n + j) * n + k] / d_scratch[(n + 1) * k];
+      } else {
+        d_x[j * n + k] =
+          (d_scratch[(n + j) * n + k] - shared_mem[j * (n - 1)]) /
+          d_scratch[(n + 1) * k];
+      }
+    }
+    __syncthreads();
   }
 }
 
 /**
- * @todo docs + shared memory version?
+ * @todo docs
+ * @note 1 block per batch member ; block size: n + 1
  */
 template <typename T>
 __global__ void trsyl_single_step_kernel(const T* d_R, const T* d_S,
                                          const T* d_F, T* d_Y, int* d_k,
                                          T* d_scratch, int* d_index, int k,
-                                         int n, int reduced_batch_size) {
-  int ib = blockIdx.x * blockDim.x + threadIdx.x;
+                                         int n) {
+  int ib = blockIdx.x;
   int n2 = n * n;
 
   // The scratch buffer is organized as follows:
@@ -1469,131 +1530,144 @@ __global__ void trsyl_single_step_kernel(const T* d_R, const T* d_S,
   // k-th column of Y.
   // The quasi-triangular solver works in-place (overwrites A and b)
 
-  if (ib < reduced_batch_size) {
-    int original_id = d_index[ib];
-    const T* b_R = d_R + n2 * original_id;
-    const T* b_S = d_S + n2 * original_id;
-    const T* b_F = d_F + n2 * original_id;
-    T* b_Y = d_Y + n2 * original_id;
-    T* b_scratch = d_scratch + n * (n + 1) * ib;
+  // Shared memory (note: neutral type to prevent incompatible definition
+  //                      if using template argument T)
+  extern __shared__ int8_t shared_mem_single_step[];
+  T* shared_mem = (T*)(shared_mem_single_step);
 
-    // Write A = R + S[k, k] * In on the left side of the scratch
-    // Note: we don't write elements below the subdiagonal (zeros)
-    {
-      T skk = b_S[(n + 1) * k];
-      for (int i = 0; i < n; i++) {
-        for (int j = max(0, i - 1); j < n; j++) {
-          b_scratch[n * j + i] = b_R[n * j + i] + (i == j ? skk : (T)0);
-        }
-      }
-    }
+  int original_id = d_index[ib];
+  const T* b_R = d_R + n2 * original_id;
+  const T* b_S = d_S + n2 * original_id;
+  const T* b_F = d_F + n2 * original_id;
+  T* b_Y = d_Y + n2 * original_id;
+  T* b_scratch = d_scratch + n * (n + 1) * ib;
 
-    // Write b = F[:, k] - Y[:, k+1:] * S[k+1:, k] on the right side
-    for (int i = 0; i < n; i++) {
-      T acc = (T)0;
-      for (int j = k + 1; j < n; j++) {
-        acc += b_Y[n * j + i] * b_S[n * k + j];
-      }
-      b_scratch[n2 + i] = b_F[k * n + i] - acc;
-    }
-
-    // Solve on the k-th column of Y
-    quasi_triangular_solver<1>(b_scratch, b_Y + n * k, n);
-
-    // Update k
-    d_k[original_id] = k - 1;
+  // Write A = R + S[k, k] * In on the left side of the scratch
+  for (int idx = threadIdx.x; idx < n2; idx += blockDim.x) {
+    b_scratch[idx] = b_R[idx];
   }
+  __syncthreads();
+  if (threadIdx.x < n) {
+    b_scratch[(n + 1) * threadIdx.x] += b_S[(n + 1) * k];
+  }
+
+  // Write b = F[:, k] - Y[:, k+1:] * S[k+1:, k] on the right side
+  if (threadIdx.x < n) {
+    const int& i = threadIdx.x;
+    T acc = (T)0;
+    for (int j = k + 1; j < n; j++) {
+      acc += b_Y[n * j + i] * b_S[n * k + j];
+    }
+    b_scratch[n2 + i] = b_F[k * n + i] - acc;
+  }
+
+  // Solve on the k-th column of Y
+  __syncthreads();
+  quasi_triangular_solver<1>(b_scratch, b_Y + n * k, n, threadIdx.x,
+                             shared_mem);
+
+  // Update k
+  if (threadIdx.x == 0) d_k[original_id] = k - 1;
 }
 
 /**
  * @todo docs + shared memory version?
+ * @note 1 block per batch member ; block size: n + 2
+ *       (from Sorensen and Zhou, 2003, algorithm 2.1)
  */
 template <typename T>
 __global__ void trsyl_double_step_kernel(const T* d_R, const T* d_R2,
                                          const T* d_S, const T* d_F, T* d_Y,
                                          int* d_k, T* d_scratch, int* d_index,
-                                         int k, int n, int reduced_batch_size) {
-  int ib = blockIdx.x * blockDim.x + threadIdx.x;
+                                         int k, int n) {
+  int ib = blockIdx.x;
   int n2 = n * n;
 
   // The scratch buffer is organized as follows:
-  //    ______________
-  //   |      |   |   |
-  //   |  A   | b | c | n
-  //   |______|___|___|
-  //      n     2   2
+  //    __________
+  //   |      |   |
+  //   |  A   | b |
+  //   |______|___|
+  //      n     2
   //
   // Where A and b are the matrices of the system to solve to deduce the
-  // (k-1)-th and k-th columns of Y, and c is a temporary working area.
+  // (k-1)-th and k-th columns of Y.
   // The quasi-triangular solver works in-place (overwrites A and b)
 
-  if (ib < reduced_batch_size) {
-    int original_id = d_index[ib];
-    const T* b_R = d_R + n2 * original_id;
-    const T* b_R2 = d_R2 + n2 * original_id;
-    const T* b_S = d_S + n2 * original_id;
-    const T* b_F = d_F + n2 * original_id;
-    T* b_Y = d_Y + n2 * original_id;
-    T* b_scratch = d_scratch + n * (n + 4) * ib;
+  // Shared memory (note: neutral type to prevent incompatible definition
+  //                      if using template argument T)
+  extern __shared__ int8_t shared_mem_double_step[];
+  T* shared_mem = (T*)(shared_mem_double_step);
 
-    T s00 = b_S[(k - 1) * n + k - 1];
-    T s10 = b_S[(k - 1) * n + k];
-    T s01 = b_S[k * n + k - 1];
-    T s11 = b_S[k * n + k];
+  int original_id = d_index[ib];
+  const T* b_R = d_R + n2 * original_id;
+  const T* b_R2 = d_R2 + n2 * original_id;
+  const T* b_S = d_S + n2 * original_id;
+  const T* b_F = d_F + n2 * original_id;
+  T* b_Y = d_Y + n2 * original_id;
+  T* b_scratch = d_scratch + n * (n + 2) * ib;
 
-    // Write R2 + (s00+s11)*R + (s00*s11-s01*s10)*In on the left side of the
-    // scratch ; note: we don't write elements below the subdiagonal (zeros)
-    {
-      T a = s00 + s11;
-      T b = s00 * s11 - s01 * s10;
-      for (int i = 0; i < n; i++) {
-        for (int j = max(0, i - 1); j < n; j++) {
-          b_scratch[n * j + i] =
-            b_R2[n * j + i] + a * b_R[n * j + i] + (i == j ? b : (T)0);
-        }
-      }
+  T s00 = b_S[(k - 1) * n + k - 1];
+  T s10 = b_S[(k - 1) * n + k];
+  T s01 = b_S[k * n + k - 1];
+  T s11 = b_S[k * n + k];
+
+  // Write R2 + (s00+s11)*R + (s00*s11-s01*s10)*In on the left side of the
+  // scratch
+  {
+    T a = s00 + s11;
+    for (int idx = threadIdx.x; idx < n2; idx += blockDim.x) {
+      b_scratch[idx] = b_R2[idx] + a * b_R[idx];
     }
+    __syncthreads();
+    if (threadIdx.x < n) {
+      b_scratch[(n + 1) * threadIdx.x] += s00 * s11 - s01 * s10;
+    }
+  }
 
-    // Temporary write b = F[:, k-1:k+1] - Y[:, k+1:] * S[k+1:, k-1:k+1] in the
-    // middle part of the scratch
-    for (int i = 0; i < n; i++) {
-      T acc[2];
-      acc[0] = b_F[(k - 1) * n + i];
-      acc[1] = b_F[k * n + i];
+  // Temporary write b = F[:, k-1:k+1] - Y[:, k+1:] * S[k+1:, k-1:k+1] in the
+  // right part of the scratch
+  {
+    const int& i = threadIdx.x;
+    T b0, b1;
+    if (threadIdx.x < n) {
+      b0 = b_F[(k - 1) * n + i];
+      b1 = b_F[k * n + i];
       for (int j = k + 1; j < n; j++) {
         T y_ij = b_Y[n * j + i];
-        acc[0] -= y_ij * b_S[n * (k - 1) + j];
-        acc[1] -= y_ij * b_S[n * k + j];
+        b0 -= y_ij * b_S[n * (k - 1) + j];
+        b1 -= y_ij * b_S[n * k + j];
       }
-      b_scratch[n2 + i] = acc[0];
-      b_scratch[n2 + n + i] = acc[1];
+      b_scratch[n2 + i] = b0;
+      b_scratch[n2 + n + i] = b1;
     }
-    // Write c = R*b on the right part of the scratch
-    for (int i = 0; i < n; i++) {
-      T acc[2] = {(T)0, (T)0};
+    __syncthreads();
+    // Compute c = R*b in registers
+    T c0 = 0;
+    T c1 = 0;
+    if (threadIdx.x < n) {
       for (int j = 0; j < n; j++) {
         T r_ij = b_R[j * n + i];
-        acc[0] += r_ij * b_scratch[n2 + j];
-        acc[1] += r_ij * b_scratch[n2 + n + j];
+        c0 += r_ij * b_scratch[n2 + j];
+        c1 += r_ij * b_scratch[n2 + n + j];
       }
-      b_scratch[n2 + 2 * n + i] = acc[0];
-      b_scratch[n2 + 3 * n + i] = acc[1];
     }
-    // Overwrite the middle part of the scratch with the two columns:
+    __syncthreads();
+    // Overwrite the right side of the scratch with the following two columns:
     // b = c[:,0] + s11*b[:,0] - s10*b[:,1] | c[:,1] + s00*b[:,1] - s01*b[:,0]
-    for (int i = 0; i < n; i++) {
-      T b0 = b_scratch[n2 + i];
-      T b1 = b_scratch[n2 + n + i];
-      b_scratch[n2 + i] = b_scratch[n2 + 2 * n + i] + s11 * b0 - s10 * b1;
-      b_scratch[n2 + n + i] = b_scratch[n2 + 3 * n + i] + s00 * b1 - s01 * b0;
+    if (threadIdx.x < n) {
+      b_scratch[n2 + i] = c0 + s11 * b0 - s10 * b1;
+      b_scratch[n2 + n + i] = c1 + s00 * b1 - s01 * b0;
     }
-
-    // Solve on the (k-1)-th and k-th columns of Y
-    quasi_triangular_solver<2>(b_scratch, b_Y + n * (k - 1), n);
-
-    // Update k
-    d_k[original_id] = k - 2;
   }
+
+  // Solve on the (k-1)-th and k-th columns of Y
+  __syncthreads();
+  quasi_triangular_solver<2>(b_scratch, b_Y + n * (k - 1), n, threadIdx.x,
+                             shared_mem);
+
+  // Update k
+  if (threadIdx.x == 0) d_k[original_id] = k - 2;
 }
 
 /**
@@ -1640,9 +1714,9 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
   device_buffer<int> index_buffer(allocator, stream, batch_size);
 
   // Scratch buffer for the solver
-  device_buffer<T> scratch_buffer(allocator, stream, batch_size * n * (n + 4));
-  // Note: technically half of each scratch will be filled with zeros but it is
-  // a necessary evil to avoid making the index computations unreadable
+  device_buffer<T> scratch_buffer(allocator, stream, batch_size * n * (n + 2));
+  // Note: technically almost half of each scratch will be filled with zeros
+  // but it is probably better to keep it that way
 
   // Pointers
   const T* d_S = S.raw_data();
@@ -1679,13 +1753,14 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
 
     // Run a simple step
     if (reduced_batch_size > 0) {
-      int TPB = 32;  // TODO: heuristics
-      trsyl_single_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
+      int shared_mem_size = (n - 1) * sizeof(T);
+      CUDA_CHECK(cudaProfilerStart());
+      trsyl_single_step_kernel<<<reduced_batch_size, n + 1, shared_mem_size,
                                  stream>>>(
         R.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(), k_buffer.data(),
-        scratch_buffer.data(), index_buffer.data(), max_k, n,
-        reduced_batch_size);
+        scratch_buffer.data(), index_buffer.data(), max_k, n);
       CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaProfilerStop());
     }
 
     // Create a mask of the batch members on which to perform a double step
@@ -1700,13 +1775,14 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
 
     // Run a double step
     if (reduced_batch_size > 0) {
-      int TPB = 32;
-      trsyl_double_step_kernel<<<ceildiv<int>(reduced_batch_size, TPB), TPB, 0,
+      int shared_mem_size = (n - 1) * 2 * sizeof(T);
+      CUDA_CHECK(cudaProfilerStart());
+      trsyl_double_step_kernel<<<reduced_batch_size, n + 2, shared_mem_size,
                                  stream>>>(
         R.raw_data(), R2.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(),
-        k_buffer.data(), scratch_buffer.data(), index_buffer.data(), max_k, n,
-        reduced_batch_size);
+        k_buffer.data(), scratch_buffer.data(), index_buffer.data(), max_k, n);
       CUDA_CHECK(cudaPeekAtLastError());
+      CUDA_CHECK(cudaProfilerStop());
     }
 
     // Update max k
@@ -1763,41 +1839,39 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     //
     // Transform to Sylvester equation (Popov, 1964)
     //
-    Matrix<T> B(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> Bt(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     Matrix<T> C(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     {
       Matrix<T> ApI(A);
-      Matrix<T> AtpI = A.transpose();
-      Matrix<T> AtmI(AtpI);
+      Matrix<T> AmI(A);
       T* d_ApI = ApI.raw_data();
-      T* d_AtpI = AtpI.raw_data();
-      T* d_AtmI = AtmI.raw_data();
+      T* d_AmI = AmI.raw_data();
       thrust::for_each(thrust::cuda::par.on(stream), counting,
                        counting + batch_size, [=] __device__(int ib) {
                          int idx = ib * n2;
                          for (int i = 0; i < n; i++) {
                            d_ApI[idx] += (T)1;
-                           d_AtpI[idx] += (T)1;
-                           d_AtmI[idx] -= (T)1;
+                           d_AmI[idx] -= (T)1;
                            idx += n + 1;
                          }
                        });
-      Matrix<T> AtpI_inv = AtpI.inv();
+      Matrix<T> ApI_inv = ApI.inv();
 
-      // B = (A'-I)*(A'+I)^{-1}
-      b_gemm(false, false, n, n, n, (T)1, AtmI, AtpI_inv, (T)0, B);
-      // C = 2*(A+I)^{-1}*Q*(A'+I)^{-1}
-      b_gemm(false, false, n, n, n, (T)2, ApI.inv(), Q * AtpI_inv, (T)0, C);
+      // Bt = (A+I)^{-1}*(A-I)
+      b_gemm(false, false, n, n, n, (T)1, ApI_inv, AmI, (T)0, Bt);
+      // C = 2*(A+I)^{-1}*Q*(A+I)^{-1}'
+      b_gemm(false, false, n, n, n, (T)2, ApI_inv,
+             b_gemm(Q, ApI_inv, false, true), (T)0, C);
     }
 
     //
     // Solve Sylvester equation B'X + XB = -C with Bartels-Stewart algorithm
     //
 
-    // 1. Shur decomposition
+    // 1. Shur decomposition of B'
     Matrix<T> R(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
     Matrix<T> U(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    b_schur(B.transpose(), U, R);
+    b_schur(Bt, U, R);
 
     // 2. F = -U'CU
     Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
@@ -1809,7 +1883,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     // 4. X = UYU'
     Matrix<T> X = b_gemm(U, b_gemm(Y, U, false, true));
 
-    /// TODO: the solution is symmetric, investigate to which extent we can
+    /// TODO: C is symmetric, investigate to which extent we can
     ///       use that information!
 
     return X;
