@@ -370,14 +370,12 @@ class RandomForestClassifier(Base):
 
     def _obtain_treelite_handle(self):
         task_category = self.num_classes
-
-        cdef ModelHandle cuml_model_ptr = NULL
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
-
+        cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -390,9 +388,6 @@ class RandomForestClassifier(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
-        if self.num_classes > 2:
-            raise ValueError("Pickling support for multiclass "
-                             "classification models is not yet implemented.")
         fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
@@ -407,9 +402,6 @@ class RandomForestClassifier(Base):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        if self.num_classes > 2:
-            raise ValueError("GPU prediction cannot be used for multiclass "
-                             "classification models.")
         treelite_handle = self._obtain_treelite_handle()
         treelite_model = \
             TreeliteModel.from_treelite_model_handle(treelite_handle)
@@ -460,9 +452,7 @@ class RandomForestClassifier(Base):
            A Forest Inference model which can be used to perform
            inferencing on the random forest model.
         """
-        if self.num_classes > 2:
-            raise ValueError("FIL does not supported for multiclass "
-                             "classification models.")
+
         if fil_sparse_format:
             storage_type = 'SPARSE'
         elif not fil_sparse_format:
