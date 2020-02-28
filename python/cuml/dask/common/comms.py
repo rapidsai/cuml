@@ -481,9 +481,8 @@ class CommsContext:
         self.nccl_initialized = False
         self.ucx_initialized = False
 
-
-
-        print("Comms destroyed.")
+        if self.verbose:
+            print("Comms destroyed.")
 
     def print_session(self):
 
