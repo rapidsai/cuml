@@ -153,20 +153,13 @@ __global__ void optimize_batch_kernel(
       T *current_shared_mem_buffer, *other_shared_mem_buffer;
       double *current_buffer, *other_buffer;
 
-      if (
-        use_shared_mem) {  // do we use shared memory? If yes, means multicore_implem == true
-        if (move_other) {  // are we performing a fit (or transform)?
-          current_shared_mem_buffer = embedding_shared_mem_updates +
-                                      ((threadIdx.x * 2) * params.n_components);
-          other_shared_mem_buffer =
-            embedding_shared_mem_updates +
-            (((threadIdx.x * 2) + 1) * params.n_components);
-        } else {
-          current_shared_mem_buffer =
-            embedding_shared_mem_updates + (threadIdx.x * params.n_components);
-        }
-      } else if (
-        !multicore_implem) {  // do we use optimized but inconsistent multicore implementation?
+      if (use_shared_mem) {
+        // do we use shared memory? If yes, means multicore_implem == true
+        current_shared_mem_buffer = embedding_shared_mem_updates + threadIdx.x;
+        other_shared_mem_buffer = embedding_shared_mem_updates +
+                                  TPB_X * params.n_components + threadIdx.x;
+      } else if (!multicore_implem) {
+        // do we use optimized but inconsistent multicore implementation?
         current_buffer = embedding_updates + (j * params.n_components);
         other_buffer = embedding_updates + (k * params.n_components);
       }
@@ -174,11 +167,11 @@ __global__ void optimize_batch_kernel(
       if (use_shared_mem) {
         // initialization of shared memory
         for (int d = 0; d < params.n_components; d++) {
-          current_shared_mem_buffer[d] = 0;
+          current_shared_mem_buffer[d * TPB_X] = 0;
         }
         if (move_other) {
           for (int d = 0; d < params.n_components; d++) {
-            other_shared_mem_buffer[d] = 0;
+            other_shared_mem_buffer[d * TPB_X] = 0;
           }
         }
       }
@@ -206,9 +199,9 @@ __global__ void optimize_batch_kernel(
         grad_d *= alpha;
 
         if (use_shared_mem) {
-          current_shared_mem_buffer[d] += grad_d;
+          current_shared_mem_buffer[d * TPB_X] += grad_d;
           if (move_other) {  // happens only during unsupervised training
-            other_shared_mem_buffer[d] += -grad_d;
+            other_shared_mem_buffer[d * TPB_X] += -grad_d;
           }
         } else {
           if (multicore_implem) {
@@ -267,7 +260,7 @@ __global__ void optimize_batch_kernel(
           grad_d *= alpha;
 
           if (use_shared_mem) {
-            current_shared_mem_buffer[d] += grad_d;
+            current_shared_mem_buffer[d * TPB_X] += grad_d;
           } else {
             if (multicore_implem) {
               atomicAdd(current + d, grad_d);
@@ -282,11 +275,11 @@ __global__ void optimize_batch_kernel(
         // storing everything back to global memory
         __syncthreads();
         for (int d = 0; d < params.n_components; d++) {
-          atomicAdd(current + d, current_shared_mem_buffer[d]);
+          atomicAdd(current + d, current_shared_mem_buffer[d * TPB_X]);
         }
         if (move_other) {
           for (int d = 0; d < params.n_components; d++) {
-            atomicAdd(other + d, other_shared_mem_buffer[d]);
+            atomicAdd(other + d, other_shared_mem_buffer[d * TPB_X]);
           }
         }
       }
@@ -328,21 +321,23 @@ inline void call_optimize_batch_kernel(
   double *embedding_updates, bool move_other, bool use_shared_mem,
   UMAPParams *params, int n, dim3 &grid, dim3 &blk, size_t requiredSize,
   cudaStream_t &stream) {
-  if (use_shared_mem) {  // multicore implementation with shared memory
+  if (use_shared_mem) {
+    // multicore implementation with shared memory
     optimize_batch_kernel<T, TPB_X, true, true>
       <<<grid, blk, requiredSize, stream>>>(
         head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
         epochs_per_sample, n_vertices, epochs_per_negative_sample,
         epoch_of_next_negative_sample, epoch_of_next_sample, alpha, n, gamma,
         seed, nullptr, move_other, *params);
-  } else if (
-    !embedding_updates) {  // multicore implementation without shared memory
+  } else if (!embedding_updates) {
+    // multicore implementation without shared memory
     optimize_batch_kernel<T, TPB_X, true, false><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
       epochs_per_sample, n_vertices, epochs_per_negative_sample,
       epoch_of_next_negative_sample, epoch_of_next_sample, alpha, n, gamma,
       seed, nullptr, move_other, *params);
-  } else {  // singlecore implementation with global memory buffer
+  } else {
+    // synchronized implementation with global memory buffer
     optimize_batch_kernel<T, TPB_X, false, false><<<grid, blk, 0, stream>>>(
       head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
       epochs_per_sample, n_vertices, epochs_per_negative_sample,
