@@ -17,7 +17,8 @@ class DelayedParallelFunc(object):
                            X,
                            delayed=True,
                            parallelism=5,
-                           output_futures=False):
+                           output_futures=False,
+                           **kwargs):
         """
         Runs a function embarrassingly parallel on a set of workers while
         reusing instances of models and constraining the number of
@@ -115,6 +116,7 @@ class DelayedParallelFunc(object):
                 scattered,
                 lock,
                 p,
+                **kwargs,
                 key=key) for w, p in data.gpu_futures]
 
             return func_futures if output_futures \
@@ -123,7 +125,7 @@ class DelayedParallelFunc(object):
 
 class DelayedPredictionMixin(DelayedParallelFunc):
 
-    def _predict(self, X, delayed=True, parallelism=25):
+    def _predict(self, X, delayed=True, parallelism=25, **kwargs):
         """
         Make predictions for X and returns a dask collection.
 
@@ -146,12 +148,13 @@ class DelayedPredictionMixin(DelayedParallelFunc):
         y : dask cuDF (n_rows, 1)
         """
 
-        return self._run_parallel_func(_predict_func, X, delayed, parallelism)
+        return self._run_parallel_func(_predict_func, X, delayed, parallelism,
+                                       **kwargs)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
-    def _transform(self, X, delayed=True, parallelism=25):
+    def _transform(self, X, delayed=True, parallelism=25, **kwargs):
         """
         Call transform on the partitions of X and produce a dask collection.
 
@@ -175,18 +178,18 @@ class DelayedTransformMixin(DelayedParallelFunc):
         """
 
         return self._run_parallel_func(_transform_func, X, delayed,
-                                       parallelism)
+                                       parallelism, **kwargs)
 
 
-def _predict_func(model, lock, data):
+def _predict_func(model, lock, data, **kwargs):
     lock.acquire()
-    ret = model.predict(data)
+    ret = model.predict(data, **kwargs)
     lock.release()
     return ret
 
 
-def _transform_func(model, lock, data):
+def _transform_func(model, lock, data, **kwargs):
     lock.acquire()
-    ret = model.transform(data)
+    ret = model.transform(data, **kwargs)
     lock.release()
     return ret
