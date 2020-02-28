@@ -150,6 +150,8 @@ class LinearRegression(DelayedPredictionMixin):
             key="%s-%s" % (key, idx)))
             for idx, w in enumerate(data.workers)]
 
+        print(str(data.gpu_futures))
+
         key = uuid1()
         linear_fit = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
             LinearRegression._func_fit,

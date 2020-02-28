@@ -299,7 +299,6 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
-        return
 
     @property
     def Y(self):
