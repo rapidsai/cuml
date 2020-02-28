@@ -14,21 +14,12 @@
 #
 
 from cuml.dask.common.input_utils import MGData
-from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
-from cuml.dask.common.utils import ConcurrentPartitionLock
 from dask.distributed import default_client
 from dask.distributed import wait
 
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask.array.core import Array as daskArray
-
 from uuid import uuid1
-import dask
-
-import cupy as cp
-import numpy as np
 
 from cuml.dask.common.base import DelayedPredictionMixin
 
@@ -181,6 +172,29 @@ class LinearRegression(DelayedPredictionMixin):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
+    def predict(self, X, delayed=True, parallelism=5):
+        """
+        Make predictions for X and returns a dask collection.
+
+        Parameters
+        ----------
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+
+        delayed : bool return lazy (delayed) result?
+
+        parallelism : int
+            Amount of concurrent partitions that will be processed
+            per worker. This bounds the total amount of temporary
+            workspace memory on the GPU that will need to be allocated
+            at any time.
+
+        Returns
+        -------
+        y : dask cuDF (n_rows, 1)
+        """
+        return self._predict(X, delayed, parallelism)
+
     def get_param_names(self):
         return list(self.kwargs.keys())
-
