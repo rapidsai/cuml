@@ -166,11 +166,7 @@ class LinearRegression(DelayedPredictionMixin):
         wait(list(linear_fit.values()))
         raise_exception_from_futures(list(linear_fit.values()))
 
-        comms.print_session()
-
         comms.destroy()
-
-        comms.print_session()
 
         self.local_model = linear_models[0][1].result()
         self.coef_ = self.local_model.coef_
