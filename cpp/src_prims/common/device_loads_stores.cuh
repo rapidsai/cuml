@@ -81,6 +81,13 @@ DI void lds(double (&x)[2], double* addr) {
 }
 /** @} */
 
+/**
+ * @defgroup GlobalLoads Global cached load operations
+ * @{
+ * @brief Load from global memory with caching at L1 level
+ * @param[out] x    data to be loaded from global memory
+ * @param[in]  addr address in global memory from where to load
+ */
 DI void ldg(float& x, const float* addr) {
   asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(x) : "l"(addr));
 }
@@ -108,5 +115,6 @@ DI void ldg(double (&x)[2], const double* addr) {
                : "=d"(x[0]), "=d"(x[1])
                : "l"(addr));
 }
+/** @} */
 
 }  // namespace MLCommon
