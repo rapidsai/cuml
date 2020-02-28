@@ -203,7 +203,7 @@ class KalmanFilter(Base):
         warnings.warn("""KalmanFilter is deprecated and will be removed in an
                          upcoming release. The current version has known
                          numerical and performance issues (see issue #1754 and
-                         #1758)""")
+                         #1758)""", DeprecationWarning)
 
         cdef Option algo
 
