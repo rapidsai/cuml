@@ -244,15 +244,15 @@ class PCA(Base):
     ----------
     components_ : array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
-    _explained_variance_ : array
+    explained_variance_ : array
         How much each component explains the variance in the data given by S**2
-    _explained_variance_ratio_ : array
+    explained_variance_ratio_ : array
         How much in % the variance is explained given by S**2/sum(S**2)
-    _singular_values_ : array
+    singular_values_ : array
         The top K singular values. Remember all singular values >= 0
-    _mean_ : array
+    mean_ : array
         The column wise mean of X. Used to mean - center the data first.
-    _noise_variance_ : float
+    noise_variance_ : float
         From Bishop 1999's Textbook. Used in later tasks like calculating the
         estimated covariance of X.
 
@@ -291,14 +291,21 @@ class PCA(Base):
         self.tol = tol
         self.whiten = whiten
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
-        # attributes
-        self._components_ = None
-        self._trans_input_ = None
+
+        # internal array attributes
+        self._components_ = None  # accessed via estimator.components_
+        self._trans_input_ = None  # accessed via estimator.trans_input_
         self._explained_variance_ = None
+        # accessed via estimator.explained_variance_
+
         self._explained_variance_ratio_ = None
+        # accessed via estimator.explained_variance_ratio_
+
         self._singular_values_ = None
-        self._mean_ = None
-        self._noise_variance_ = None
+        # accessed via estimator.singular_values_
+
+        self._mean_ = None  # accessed via estimator.mean_
+        self._noise_variance_ = None  # accessed via estimator.noise_variance_
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -593,28 +600,3 @@ class PCA(Base):
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten"]
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
-        del state['c_algorithm']
-        if "_trans_input_" in state and state["_trans_input_"] is not None:
-            state['_trans_input_'] = cudf.Series(state['_trans_input_'])
-
-        if self._components_ is not None:
-            state['_components_'] = cudf.Series(self._components_)
-
-        return state
-
-    def __setstate__(self, state):
-        super(PCA, self).__init__(handle=None, verbose=state['verbose'])
-
-        if "_trans_input_" in state and state["_trans_input_"] is not None:
-            state['_trans_input_'] = state['_trans_input_'].to_gpu_array()
-
-        if "_components_" in state and state["_components_"] is not None:
-            state['_components_'] = state['_components_'].to_gpu_array()
-
-        self.__dict__.update(state)
-        self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
