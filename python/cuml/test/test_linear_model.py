@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 
     # fit and predict cuml linear regression model
     cuols.fit(X_train, y_train)
-    cuols_predict = cuols.predict(X_test).to_array()
+    cuols_predict = cuols.predict(X_test)
 
     if nrows < 500000:
         # sklearn linear regression model initialization, fit and predict
@@ -100,7 +100,7 @@ def test_linear_regression_model_default(datatype):
 
     # fit and predict cuml linear regression model
     cuols.fit(X_train, y_train)
-    cuols_predict = cuols.predict(X_test).to_array()
+    cuols_predict = cuols.predict(X_test)
 
     # sklearn linear regression model initialization and fit
     skols = skLinearRegression()
