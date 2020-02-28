@@ -296,3 +296,12 @@ def test_umap_fit_transform_reproducibility(random_state):
     else:
         assert not array_equal(cuml_embedding1, cuml_embedding2,
                                1e-3, with_sign=True)
+
+
+def test_umap_trustworthiness_with_consistency_enabled():
+    iris = datasets.load_iris()
+    data = iris.data
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42,
+                       verbose=False).fit_transform(data, convert_dtype=True)
+    trust = trustworthiness(iris.data, embedding, 10)
+    assert trust >= 0.97
