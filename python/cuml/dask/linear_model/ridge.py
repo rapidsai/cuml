@@ -15,7 +15,6 @@
 
 from cuml.dask.common import extract_ddf_partitions
 from cuml.dask.common import extract_colocated_ddf_partitions
-from cuml.dask.common import to_dask_cudf
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
 
@@ -28,8 +27,10 @@ from functools import reduce
 
 from uuid import uuid1
 
+from cuml.dask.common.base import DelayedPredictionMixin
 
-class Ridge(object):
+
+class Ridge(DelayedPredictionMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -106,20 +107,8 @@ class Ridge(object):
         return f.fit(X, y, n_rows, n_cols, partsToSizes, rank)
 
     @staticmethod
-    def _func_predict(f, df, n_rows, n_cols, partsToSizes, rank):
-        return f.predict(df, n_rows, n_cols, partsToSizes, rank)
-
-    @staticmethod
     def _func_get_first(f):
         return f[0]
-
-    @staticmethod
-    def _func_get_idx(f, idx):
-        return f[idx]
-
-    @staticmethod
-    def _func_xform(model, df):
-        return model.transform(df)
 
     @staticmethod
     def _func_get_size_cl(df):
@@ -305,7 +294,7 @@ class Ridge(object):
         else:
             self._fit(X, y)
 
-    def predict(self, X):
+    def predict(self, X, delayed=True, parallelism=5):
         """
         Make predictions for X and returns a y_pred.
 
@@ -317,53 +306,7 @@ class Ridge(object):
         -------
         y : dask cuDF (n_rows, 1)
         """
-        gpu_futures = self.client.sync(extract_ddf_partitions, X)
-
-        worker_to_parts = OrderedDict()
-        for w, p in gpu_futures:
-            if w not in worker_to_parts:
-                worker_to_parts[w] = []
-            worker_to_parts[w].append(p)
-
-        key = uuid1()
-        partsToSizes = [(self.rnks[wf[0]], self.client.submit(
-            Ridge._func_get_size,
-            wf[1],
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)).result())
-            for idx, wf in enumerate(gpu_futures)]
-
-        n_cols = X.shape[1]
-        n_rows = reduce(lambda a, b: a+b, map(lambda x: x[1], partsToSizes))
-
-        key = uuid1()
-        linear_pred = dict([(self.rnks[wf[0]], self.client.submit(
-            Ridge._func_predict,
-            wf[1],
-            worker_to_parts[wf[0]],
-            n_rows, n_cols,
-            partsToSizes,
-            self.rnks[wf[0]],
-            key="%s-%s" % (key, idx),
-            workers=[wf[0]]))
-            for idx, wf in enumerate(self.linear_models)])
-
-        wait(list(linear_pred.values()))
-        raise_exception_from_futures(list(linear_pred.values()))
-
-        out_futures = []
-        completed_part_map = {}
-        for rank, size in partsToSizes:
-            if rank not in completed_part_map:
-                completed_part_map[rank] = 0
-
-            f = linear_pred[rank]
-            out_futures.append(self.client.submit(
-                Ridge._func_get_idx, f, completed_part_map[rank]))
-
-            completed_part_map[rank] += 1
-
-        return to_dask_cudf(out_futures)
+        return self._predict(X, delayed, parallelism)
 
     def get_param_names(self):
         return list(self.kwargs.keys())

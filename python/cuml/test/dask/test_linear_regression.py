@@ -14,8 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
-
 from dask.distributed import Client
 from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
@@ -64,12 +62,11 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize("delayed", [True, False])
 def test_ols(nrows, ncols, n_parts, fit_intercept,
-             normalize, datatype, client=None):
+             normalize, datatype, delayed, cluster):
 
-    if client is None:
-        cluster = LocalCUDACluster()
-        client = Client(cluster)
+    client = Client(cluster)
 
     try:
         from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
@@ -88,7 +85,7 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
         else:
             lr.fit(X_df, y_df)
 
-        ret = lr.predict(X_df)
+        ret = lr.predict(X_df, delayed)
 
         error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
@@ -96,4 +93,3 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
 
     finally:
         client.close()
-        cluster.close()
