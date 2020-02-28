@@ -26,6 +26,7 @@
 - PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 - PR #1726: Decorator to allocate CuPy arrays with RMM
 - PR #1748: Test serializing `CumlArray` objects
+- PR #1771: Adding print for comms state on workers
 
 ## Bug Fixes
 - PR #1594: Train-test split is now reproducible
