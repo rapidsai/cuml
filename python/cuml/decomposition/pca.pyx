@@ -318,7 +318,7 @@ class PCA(Base):
         self._trans_input_ = CumlArray.zeros((n_rows, n_components),
                                              dtype=self.dtype)
         self._components_ = CumlArray.zeros((n_components, n_cols),
-                                               dtype=self.dtype)
+                                            dtype=self.dtype)
         self._explained_variance_ = CumlArray.zeros(n_components,
                                                     dtype=self.dtype)
         self._explained_variance_ratio_ = CumlArray.zeros(n_components,
