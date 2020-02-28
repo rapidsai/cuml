@@ -63,14 +63,12 @@ class MGData:
     def single(cls, data, client=None):
         gpu_futures = client.sync(_extract_partitions, data, client)
 
-        worker_to_parts = _workers_to_parts(gpu_futures)
-
-        workers = list(map(lambda x: x[0], worker_to_parts.items()))
+        workers = list(gpu_futures.keys())
 
         datatype = 'cudf' if isinstance(data, dcDataFrame) else 'cupy'
 
-        return MGData(gpu_futures=gpu_futures, worker_to_parts=worker_to_parts,
-                      workers=workers, datatype=datatype, multiple=False,
+        return MGData(gpu_futures=gpu_futures, workers=workers,
+                      datatype=datatype, multiple=False,
                       client=client)
 
     @classmethod
@@ -88,16 +86,17 @@ class MGData:
     """ Methods to calculate further attributes """
 
     def calculate_worker_and_rank_info(self, comms):
+
         self.worker_info = comms.worker_info(comms.worker_addresses)
         self.ranks = dict()
+
         for w, futures in self.gpu_futures.items():
             self.ranks[w] = self.worker_info[w]["r"]
 
     def calculate_parts_to_sizes(self, comms=None, ranks=None):
+
         if self.worker_info is None and comms is not None:
             self.calculate_worker_and_rank_info(comms)
-
-        ranks = self.ranks if ranks is None else ranks
 
         self.total_rows = 0
 
@@ -108,31 +107,24 @@ class MGData:
 
         key = uuid1()
 
-        if self.multiple:
-            for w, futures in self.gpu_futures.items():
-                parts = [(self.client.submit(
-                    _get_rows_from_colocated_tuple,
-                    future,
-                    workers=[w],
-                    key="%s-%s" % (key, idx)).result())
-                    for idx, future in enumerate(futures)]
+        func = _get_rows_from_colocated_tuple \
+            if self.multiple else _get_rows_from_single_obj
 
-                self.parts_to_sizes[self.worker_info[w]["r"]] = parts
-                for p in parts:
-                    self.total_rows = self.total_rows + p
+        parts = [(wf[0], self.client.submit(
+            func,
+            wf[1],
+            workers=[wf[0]],
+            key="%s-%s" % (key, idx)))
+            for idx, wf in enumerate(self.gpu_futures.items())]
 
-        else:
-            self.parts_to_sizes = [(ranks[wf[0]], self.client.submit(
-                                   _get_rows_from_single_obj,
-                                   wf[1],
-                                   workers=[wf[0]],
-                                   key="%s-%s" % (key, idx)).result())
-                                   for idx,
-                                   wf in enumerate(self.gpu_futures)]
+        sizes = self.client.compute(parts, sync=True)
 
-            self.total_rows = reduce(lambda a, b:
-                                     a + b, map(lambda x: x[1],
-                                                self.parts_to_sizes))
+        for w, sizes_parts in sizes:
+            sizes, total = sizes_parts
+            self.parts_to_sizes[self.worker_info[w]["r"]] = \
+                sizes
+
+            self.total_rows += total
 
 
 @with_cupy_rmm
@@ -190,7 +182,7 @@ def _extract_partitions(dask_obj, client=None):
 
     if isinstance(dask_obj, dcDataFrame):
         delayed_ddf = dask_obj.to_delayed()
-        parts = client.compute(delayed_ddf)
+        parts = delayed_ddf
 
     elif isinstance(dask_obj, daskArray):
         dist_arr = dask_obj.to_delayed().ravel()
@@ -211,18 +203,11 @@ def _extract_partitions(dask_obj, client=None):
     key_to_part_dict = dict([(str(part.key), part) for part in parts])
     who_has = yield client.who_has(parts)
 
-    worker_map = {}  # Map from part -> worker
+    worker_map = defaultdict(list)
     for key, workers in who_has.items():
-        worker = first(workers)
-        worker_map[key_to_part_dict[key]] = worker
+        worker_map[first(workers)].append(key_to_part_dict[key])
 
-    worker_to_parts = []
-    for part in parts:
-        worker = worker_map[part]
-        worker_to_parts.append((worker, part))
-
-    yield wait(worker_to_parts)
-    raise gen.Return(worker_to_parts)
+    raise gen.Return(worker_map)
 
 
 @gen.coroutine
@@ -266,7 +251,7 @@ def _extract_colocated_partitions(X_ddf, y_ddf, client=None):
     for key, workers in who_has.items():
         worker_map[first(workers)].append(key_to_part_dict[key])
 
-    return worker_map
+    raise gen.Return(worker_map)
 
 
 def _workers_to_parts(futures):
@@ -288,12 +273,14 @@ def _get_ary_meta(ary):
     return ary.shape, ary.dtype
 
 
-def _get_rows_from_colocated_tuple(obj):
-    return obj[0].shape[0]
+def _get_rows_from_colocated_tuple(objs):
+    total = list(map(lambda x: x[0].shape[0], objs))
+    return total, reduce(lambda a, b: a + b, total)
 
 
-def _get_rows_from_single_obj(obj):
-    return obj.shape[0]
+def _get_rows_from_single_obj(objs):
+    total = list(map(lambda x: x.shape[0], objs))
+    return total, reduce(lambda a, b: a + b, total)
 
 
 def to_dask_cupy(futures, dtype=None, shapes=None, client=None, verbose=False):

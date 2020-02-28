@@ -159,9 +159,12 @@ class PCAMG(PCA):
             malloc(sizeof(floatData_t *)
                    * len(arr_interfaces))
 
+
         cdef uintptr_t input_ptr
         for x_i in range(len(arr_interfaces)):
             x = arr_interfaces[x_i]
+
+            print("X: "+ str(x))
             input_ptr = x["data"]
             dataF[x_i] = < floatData_t * > malloc(sizeof(floatData_t))
             dataF[x_i].ptr = < float * > input_ptr
@@ -212,7 +215,7 @@ class PCAMG(PCA):
 
         return arr_interfaces_trans
 
-    def fit(self, X, M, N, partsToRanks, rnk, _transform=False):
+    def fit(self, X, M, N, partsToRanks, rank, _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
@@ -241,31 +244,26 @@ class PCAMG(PCA):
         params.tol = self.tol
         params.algorithm = self.c_algorithm
 
-        n_total_parts = 0
-        for idx, rankSize in enumerate(partsToRanks):
-            rank, size = rankSize
-            if rnk == rank:
-                n_total_parts = n_total_parts + 1
-
+        n_total_parts = len(X)
         cdef RankSizePair **rankSizePair = <RankSizePair**> \
             malloc(sizeof(RankSizePair**)
                    * n_total_parts)
 
-        indx = 0
-        n_part_row = 0
 
-        for idx, rankSize in enumerate(partsToRanks):
-            rank, size = rankSize
-            if rnk == rank:
-                rankSizePair[indx] = <RankSizePair*> \
-                    malloc(sizeof(RankSizePair))
-                rankSizePair[indx].rank = <int>rank
-                rankSizePair[indx].size = <size_t>size
-                n_part_row = n_part_row + rankSizePair[indx].size
-                indx = indx + 1
+        p2r = []
+
+        n_rows = 0
+        for i in range(len(X)):
+            rankSizePair[i] = <RankSizePair*> \
+                malloc(sizeof(RankSizePair))
+            rankSizePair[i].rank = <int>rank
+            n_rows += len(X[i])
+            rankSizePair[i].size = <size_t>len(X[i])
+            p2r.append((rank, len(X[i])))
+
 
         self._initialize_arrays(params.n_components,
-                                params.n_rows, params.n_cols, n_part_row)
+                                params.n_rows, params.n_cols, n_rows)
 
         cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
         cdef uintptr_t explained_var_ptr = \
@@ -281,12 +279,11 @@ class PCAMG(PCA):
 
         cdef uintptr_t data
         cdef uintptr_t trans_data
-        arr_interfaces_trans = []
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks,
-                                                         rnk,
+            arr_interfaces_trans = self._build_transData(p2r,
+                                                         rank,
                                                          self.n_components,
                                                          np.float32)
             trans_data = self._build_dataFloat(arr_interfaces_trans)
@@ -306,8 +303,8 @@ class PCAMG(PCA):
                           False)
         else:
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(partsToRanks,
-                                                         rnk,
+            arr_interfaces_trans = self._build_transData(p2r,
+                                                         rank,
                                                          self.n_components,
                                                          np.float64)
             trans_data = self._build_dataDouble(arr_interfaces_trans)
@@ -336,6 +333,7 @@ class PCAMG(PCA):
         for i in range(0, params.n_cols):
             n_c = params.n_components
             self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
+
 
         del(X_m)
 
