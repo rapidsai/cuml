@@ -322,6 +322,9 @@ async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
         del worker_state(sessionId)["ucp_eps"]
         del worker_state(sessionId)["handle"]
 
+    session = worker_state()
+    del session[sessionId]
+
 
 def _func_ucp_ports(sessionId, client, workers):
     return client.run(_func_ucp_listener_port,
@@ -478,4 +481,19 @@ class CommsContext:
         self.nccl_initialized = False
         self.ucx_initialized = False
 
+
+
         print("Comms destroyed.")
+
+    def print_session(self):
+
+        def print_info(sessionId):
+            session_state = worker_state()
+
+            if sessionId in session_state:
+                print(str(session_state[sessionId]))
+            else:
+                print("Comms session empty")
+
+        self.client.run(print_info, self.sessionId,
+                        workers=self.worker_addresses)
