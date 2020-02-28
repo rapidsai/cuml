@@ -192,11 +192,11 @@ class TruncatedSVD(Base):
     -----------
     components_ : array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
-    _explained_variance_ : array
+    explained_variance_ : array
         How much each component explains the variance in the data given by S**2
-    _explained_variance_ratio_ : array
+    explained_variance_ratio_ : array
         How much in % the variance is explained given by S**2/sum(S**2)
-    _singular_values_ : array
+    singular_values_ : array
         The top K singular values. Remember all singular values >= 0
 
     Notes
@@ -231,11 +231,17 @@ class TruncatedSVD(Base):
         self.random_state = random_state
         self.tol = tol
         self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
-        # atrributes
-        self._components_ = None
+
+        # internal array attributes
+        self._components_ = None  # accessed via estimator.components_
         self._explained_variance_ = None
+        # accessed via estimator.explained_variance_
+
         self._explained_variance_ratio_ = None
+        # accessed via estimator.explained_variance_ratio_
+
         self._singular_values_ = None
+        # accessed via estimator.singular_values_
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -482,29 +488,3 @@ class TruncatedSVD(Base):
 
     def get_param_names(self):
         return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
-        del state['c_algorithm']
-        if "_trans_input_" in state:
-            state['_trans_input_'] = cudf.Series(state['_trans_input_'])
-
-        if self._components_ is not None:
-            state['_components_'] = cudf.Series(self._components_)
-
-        return state
-
-    def __setstate__(self, state):
-        super(TruncatedSVD, self).__init__(handle=None,
-                                           verbose=state['verbose'])
-
-        if "_trans_input_" in state and state["_trans_input_"] is not None:
-            state['_trans_input_'] = state['_trans_input_'].to_gpu_array()
-
-        if "_components_" in state and state["_components_"] is not None:
-            state['_components_'] = state['_components_'].to_gpu_array()
-
-        self.__dict__.update(state)
-        self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
