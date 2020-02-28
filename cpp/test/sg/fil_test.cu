@@ -154,7 +154,15 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // initialize nodes
     nodes.resize(num_nodes);
     for (size_t i = 0; i < num_nodes; ++i) {
-      fil::dense_node_init(&nodes[i], weights_h[i], thresholds_h[i], fids_h[i],
+      val_t w;
+      switch (ps.leaf_payload_type) { 
+        case INT_CLASS_LABEL:
+          w.idx = (int)(weights_h[i] + 1.0f) % 2; // [0, 1]
+          break;
+        case FLOAT_SCALAR:
+          w.f = weights_h[i];
+      }
+      fil::dense_node_init(&nodes[i], w, thresholds_h[i], fids_h[i],
                            def_lefts_h[i], is_leafs_h[i]);
     }
 
@@ -298,7 +306,6 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.threshold = ps.threshold;
     fil_ps.global_bias = ps.global_bias;
     fil_ps.leaf_payload_type = ps.leaf_payload_type;
-    printf("%s line %d: leaf_payload_type %d\n", __FILE__, __LINE__, fil_ps.leaf_payload_type);
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
 };
@@ -307,11 +314,12 @@ class PredictSparseFilTest : public BaseFilTest {
  protected:
   void dense2sparse_node(const fil::dense_node_t* dense_root, int i_dense,
                          int i_sparse_root, int i_sparse) {
-    float output, threshold;
+    float threshold;
+    val_t output;
     int feature;
     bool def_left, is_leaf;
     dense_node_decode(&dense_root[i_dense], &output, &threshold, &feature,
-                      &def_left, &is_leaf, fil::leaf_value_t::FLOAT_SCALAR);
+                      &def_left, &is_leaf);
     if (is_leaf) {
       // leaf sparse node
       sparse_node_init(&sparse_nodes[i_sparse], output, threshold, feature,
@@ -372,13 +380,14 @@ class TreeliteFilTest : public BaseFilTest {
     int key = (*pkey)++;
     TL_CPP_CHECK(builder->CreateNode(key));
     int feature;
-    float threshold, output;
+    float threshold;
+    val_t output;
     bool is_leaf, default_left;
     fil::dense_node_decode(&nodes[node], &output, &threshold, &feature,
-                           &default_left, &is_leaf,
-                           fil::leaf_value_t::FLOAT_SCALAR);
+                           &default_left, &is_leaf);
     if (is_leaf) {
-      TL_CPP_CHECK(builder->SetLeafNode(key, output));
+      // default is fil::FLOAT_SCALAR
+      TL_CPP_CHECK(builder->SetLeafNode(key, output.f));
     } else {
       int left = root + 2 * (node - root) + 1;
       int right = root + 2 * (node - root) + 2;
@@ -449,8 +458,6 @@ class TreeliteFilTest : public BaseFilTest {
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::THRESHOLD) != 0;
     params.storage_type = storage_type;
-    params.leaf_payload_type = ps.leaf_payload_type;
-    printf("%s line %d: leaf_payload_type %d\n", __FILE__, __LINE__, params.leaf_payload_type);
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

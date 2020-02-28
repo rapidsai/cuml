@@ -47,31 +47,22 @@ struct base_node : dense_node_t {
   static const int FID_MASK = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
   static const int IS_LEAF_MASK = 1 << 31;
-  template <typename T>
-  inline T output() const;
+  inline val_t output() const { return val; }
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   base_node() = default;
   base_node(dense_node_t node) : dense_node_t(node) {}
-  base_node(float output_, float thresh, int fid, bool def_left, bool is_leaf) {
+  base_node(val_t output_, float thresh, int fid, bool def_left, bool is_leaf) {
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
            (is_leaf ? IS_LEAF_MASK : 0);
-    val.f = is_leaf ? output_ : thresh;
+    if (is_leaf)
+      val = output_;
+    else
+      val.f = thresh;
   }
 };
-
-template <>
-__host__ __device__ inline unsigned int base_node::output<unsigned int>()
-  const {
-  return val.idx;
-}
-
-template <>
-__host__ __device__ inline float base_node::output<float>() const {
-  return val.f;
-}
 
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
@@ -91,7 +82,6 @@ struct dense_tree {
     return nodes_[i * node_pitch_];
   }
   dense_node* nodes_ = nullptr;
-  float* class_probs_ = nullptr;
   int node_pitch_ = 0;
 };
 
@@ -108,7 +98,6 @@ struct dense_storage {
     return dense_tree(nodes_ + i * tree_stride_, node_pitch_);
   }
   dense_node* nodes_ = nullptr;
-  float* class_probs_ = nullptr;
   int num_trees_ = 0;
   int tree_stride_ = 0;
   int node_pitch_ = 0;
@@ -119,7 +108,7 @@ struct alignas(16) sparse_node : base_node, sparse_node_extra_data {
   //__host__ __device__ sparse_node() : left_idx(0), base_node() {}
   sparse_node(sparse_node_t node)
     : base_node(node), sparse_node_extra_data(node) {}
-  sparse_node(float output_, float thresh, int fid, bool def_left, bool is_leaf,
+  sparse_node(val_t output_, float thresh, int fid, bool def_left, bool is_leaf,
               int left_index)
     : base_node(output_, thresh, fid, def_left, is_leaf),
       sparse_node_extra_data({.left_idx = left_index, .dummy = 0}) {}
@@ -161,7 +150,7 @@ struct predict_params {
   // so far, only 1 or 2 is supported, and only used to output probabilities
   // from classifier models
   // TODO doc
-  leaf_value_t leaf_payload_type;
+  leaf_value_desc_t leaf_payload_type;
 
   // Data parameters.
   float* preds;
