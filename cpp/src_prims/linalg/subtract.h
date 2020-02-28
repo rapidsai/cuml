@@ -24,15 +24,18 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
+ * @brief Elementwise scalar subtraction operation on the input buffer
+ *
+ * @tparam InT     input data-type. Also the data-type upon which the math ops
+ *                 will be performed
+ * @tparam OutT    output data-type
  * @tparam IdxType Integer type used to for addressing
- * @param out the output buffer
- * @param in the input buffer
+ *
+ * @param out    the output buffer
+ * @param in     the input buffer
  * @param scalar the scalar used in the operations
- * @param len number of elements in the input buffer
+ * @param len    number of elements in the input buffer
  * @param stream cuda stream where to launch work
- * @{
  */
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtractScalar(OutT *out, const InT *in, InT scalar, IdxType len,
