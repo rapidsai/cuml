@@ -27,11 +27,11 @@ import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
@@ -124,10 +124,10 @@ class TruncatedSVD(Base):
         tsvd_float.fit(gdf_float)
 
         print(f'components: {tsvd_float.components_}')
-        print(f'explained variance: {tsvd_float.explained_variance_}')
-        exp_var = tsvd_float.explained_variance_ratio_
+        print(f'explained variance: {tsvd_float._explained_variance_}')
+        exp_var = tsvd_float._explained_variance_ratio_
         print(f'explained variance ratio: {exp_var}')
-        print(f'singular values: {tsvd_float.singular_values_}')
+        print(f'singular values: {tsvd_float._singular_values_}')
 
         trans_gdf_float = tsvd_float.transform(gdf_float)
         print(f'Transformed matrix: {trans_gdf_float}')
@@ -231,11 +231,17 @@ class TruncatedSVD(Base):
         self.random_state = random_state
         self.tol = tol
         self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
-        # atrributes
-        self.components_ary = None
-        self.explained_variance_ = None
-        self.explained_variance_ratio_ = None
-        self.singular_values_ = None
+
+        # internal array attributes
+        self._components_ = None  # accessed via estimator.components_
+        self._explained_variance_ = None
+        # accessed via estimator.explained_variance_
+
+        self._explained_variance_ratio_ = None
+        # accessed via estimator.explained_variance_ratio_
+
+        self._singular_values_ = None
+        # accessed via estimator.singular_values_
 
     def _get_algorithm_c_name(self, algorithm):
         algo_map = {
@@ -250,18 +256,18 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = rmm.to_device(zeros(n_rows*n_components,
-                                                dtype=self.dtype))
-        self.components_ary = rmm.to_device(zeros(n_components*n_cols,
-                                                  dtype=self.dtype))
-        self.explained_variance_ = cudf.Series(zeros(n_components,
-                                                     dtype=self.dtype))
-        self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
-                                                     dtype=self.dtype))
-        self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
-        self.singular_values_ = cudf.Series(zeros(n_components,
-                                                  dtype=self.dtype))
-        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
+        self._trans_input_ = CumlArray.zeros((n_rows, n_components),
+                                             dtype=self.dtype)
+        self._components_ = CumlArray.zeros((n_components, n_cols),
+                                            dtype=self.dtype)
+        self._explained_variance_ = CumlArray.zeros(n_components,
+                                                    dtype=self.dtype)
+        self._explained_variance_ratio_ = CumlArray.zeros(n_components,
+                                                          dtype=self.dtype)
+        self._mean_ = CumlArray.zeros(n_cols, dtype=self.dtype)
+        self._singular_values_ = CumlArray.zeros(n_components,
+                                                 dtype=self.dtype)
+        self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
     def fit(self, X, _transform=True):
         """
@@ -275,9 +281,11 @@ class TruncatedSVD(Base):
            ndarray, cuda array interface compliant array like CuPy
 
         """
-        cdef uintptr_t input_ptr
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
+        self._set_output_type(X)
+
+        X_m, self.n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -288,18 +296,18 @@ class TruncatedSVD(Base):
         params.algorithm = self.c_algorithm
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
-        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_ary)
+        cdef uintptr_t comp_ptr = self._components_.ptr
 
         cdef uintptr_t explained_var_ptr = \
-            get_cudf_column_ptr(self.explained_variance_)
+            self._explained_variance_.ptr
 
         cdef uintptr_t explained_var_ratio_ptr = \
-            get_cudf_column_ptr(self.explained_variance_ratio_)
+            self._explained_variance_ratio_.ptr
 
         cdef uintptr_t singular_vals_ptr = \
-            get_cudf_column_ptr(self.singular_values_)
+            self._singular_values_.ptr
 
-        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
+        cdef uintptr_t t_input_ptr = self._trans_input_.ptr
 
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
@@ -328,15 +336,6 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        self.components_ = cudf.DataFrame()
-        for i in range(0, params.n_cols):
-            n_c = params.n_components
-            self.components_[str(i)] = self.components_ary[i*n_c:(i+1)*n_c]
-
-        if not _transform:
-            del(self.trans_input_)
-
-        del(X_m)
         return self
 
     def fit_transform(self, X):
@@ -356,14 +355,8 @@ class TruncatedSVD(Base):
             Reduced version of X as a dense cuDF DataFrame
 
         """
-        self.fit(X, _transform=True)
-        X_new = cudf.DataFrame()
-        num_rows = self.n_rows
-
-        for i in range(0, self.n_components):
-            X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
-
-        return X_new
+        out_type = self._get_output_type(X)
+        return self.fit(X, _transform=True)._trans_input_.to_output(out_type)
 
     def inverse_transform(self, X, convert_dtype=False):
         """
@@ -389,35 +382,36 @@ class TruncatedSVD(Base):
             Note that this is always a dense cuDF DataFrame.
 
         """
+        out_type = self._get_output_type(X)
 
-        cdef uintptr_t trans_input_ptr
-        X_m, trans_input_ptr, n_rows, _, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None))
+        X_m, n_rows, _, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None))
+        cdef uintptr_t _trans_input_ptr = X_m.ptr
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = self.n_cols
 
-        input_data = rmm.to_device(zeros(params.n_rows*params.n_cols,
-                                         dtype=dtype.type))
+        input_data = CumlArray.zeros((params.n_rows, params.n_cols),
+                                     dtype=dtype.type)
 
-        cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
-        cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
+        cdef uintptr_t input_ptr = input_data.ptr
+        cdef uintptr_t components_ptr = self._components_.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
             tsvdInverseTransform(handle_[0],
-                                 <float*> trans_input_ptr,
+                                 <float*> _trans_input_ptr,
                                  <float*> components_ptr,
                                  <float*> input_ptr,
                                  params)
         else:
             tsvdInverseTransform(handle_[0],
-                                 <double*> trans_input_ptr,
+                                 <double*> _trans_input_ptr,
                                  <double*> components_ptr,
                                  <double*> input_ptr,
                                  params)
@@ -426,12 +420,7 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        X_original = cudf.DataFrame()
-        for i in range(0, params.n_cols):
-            n_r = params.n_rows
-            X_original[str(i)] = input_data[i*n_r:(i+1)*n_r]
-
-        return X_original
+        return input_data.to_output(out_type)
 
     def transform(self, X, convert_dtype=False):
         """
@@ -455,12 +444,14 @@ class TruncatedSVD(Base):
             Reduced version of X. This will always be a dense DataFrame.
 
         """
-        cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, _, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        out_type = self._get_output_type(X)
+
+        X_m, n_rows, _, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -468,11 +459,11 @@ class TruncatedSVD(Base):
         params.n_cols = self.n_cols
 
         t_input_data = \
-            rmm.to_device(zeros(params.n_rows*params.n_components,
-                                dtype=dtype.type))
+            CumlArray.zeros((params.n_rows, params.n_components),
+                            dtype=dtype.type)
 
-        cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
-        cdef uintptr_t components_ptr = get_dev_array_ptr(self.components_ary)
+        cdef uintptr_t _trans_input_ptr = t_input_data.ptr
+        cdef uintptr_t components_ptr = self._components_.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -480,51 +471,20 @@ class TruncatedSVD(Base):
             tsvdTransform(handle_[0],
                           <float*> input_ptr,
                           <float*> components_ptr,
-                          <float*> trans_input_ptr,
+                          <float*> _trans_input_ptr,
                           params)
         else:
             tsvdTransform(handle_[0],
                           <double*> input_ptr,
                           <double*> components_ptr,
-                          <double*> trans_input_ptr,
+                          <double*> _trans_input_ptr,
                           params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         self.handle.sync()
 
-        X_new = cudf.DataFrame()
-        for i in range(0, params.n_components):
-            X_new[str(i)] = t_input_data[i*params.n_rows:(i+1)*params.n_rows]
-
-        del(X_m)
-        return X_new
+        return X_m.to_output(out_type)
 
     def get_param_names(self):
         return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
-        del state['c_algorithm']
-        if "trans_input_" in state:
-            state['trans_input_'] = cudf.Series(state['trans_input_'])
-
-        if self.components_ary is not None:
-            state['components_ary'] = cudf.Series(self.components_ary)
-
-        return state
-
-    def __setstate__(self, state):
-        super(TruncatedSVD, self).__init__(handle=None,
-                                           verbose=state['verbose'])
-
-        if "trans_input_" in state and state["trans_input_"] is not None:
-            state['trans_input_'] = state['trans_input_'].to_gpu_array()
-
-        if "components_ary" in state and state["components_ary"] is not None:
-            state['components_ary'] = state['components_ary'].to_gpu_array()
-
-        self.__dict__.update(state)
-        self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
