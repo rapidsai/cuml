@@ -34,12 +34,11 @@ namespace LinAlg {
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void subtractScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void subtractScalar(OutT *out, const InT *in, InT scalar, IdxType len,
                     cudaStream_t stream) {
-  unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return in - scalar; },
-    stream);
+  auto op = [scalar] __device__(InT in) { return OutT(in - scalar); };
+  unaryOp<InT, decltype(op), OutT, IdxType>(out, in, len, op, stream);
 }
 
 /**
