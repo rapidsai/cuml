@@ -504,6 +504,14 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
+        if X_type == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -545,7 +553,6 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
-
         preds = cudf.Series(zeros(n_rows, dtype=np.int32))
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
