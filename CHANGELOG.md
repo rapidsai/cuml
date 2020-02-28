@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1742: Mean squared error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
@@ -8,6 +9,7 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1767: Single GPU decomposition models configurable output
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -49,6 +51,7 @@
 - PR #1708: Correctly deallocate cuML handles in Cython
 - PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
+- PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 
 # cuML 0.12.0 (Date TBD)
