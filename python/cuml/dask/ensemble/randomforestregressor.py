@@ -345,7 +345,6 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         self.local_model = model
 
-
     def fit(self, X, y):
         """
         Fit the input data with a Random Forest regression model
@@ -414,12 +413,11 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         wait(futures)
         raise_exception_from_futures(futures)
-
         return self
 
     def predict(self, X, predict_model="GPU", algo='auto',
                 convert_dtype=True, fil_sparse_format='auto',
-                delayed=True, parallelism=25):
+                output_class=False, delayed=True, parallelism=25):
         """
         Predicts the regressor outputs for X.
 
@@ -445,8 +443,10 @@ class RandomForestRegressor(DelayedPredictionMixin):
         """
         self._concat_treelite_models()
 
-        return self._predict(X, delayed, parallelism)
-
+        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+                  "predict_model": predict_model, "algo": algo,
+                  "fil_sparse_format": fil_sparse_format}
+        return self._predict(X, delayed, parallelism, **kwargs)
 
     def get_params(self, deep=True):
         """

@@ -349,6 +349,9 @@ class RandomForestClassifier(DelayedPredictionMixin):
             treelite_handle=all_tl_mod_handles)
         concatenated_model_bytes = \
             model.concatenate_model_bytes(concat_model_handle)
+        for w in self.workers:
+            self.rfs[w].result()._model_pbuf_bytes = \
+                concatenated_model_bytes
 
         self.local_model = model
 
@@ -430,7 +433,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
                 num_classes=2, convert_dtype=False, predict_model="GPU",
-                delayed=True, parallelism=25):
+                fil_sparse_format='auto', delayed=True, parallelism=25):
         """
         Predicts the labels for X.
 
@@ -482,6 +485,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
                                             threshold=0.5, num_classes=2,
                                             convert_dtype=False,
                                             predict_model="GPU",
+                                            fil_sparse_format='auto',
                                             delayed=True, parallelism=5)
 
         return preds
@@ -489,20 +493,16 @@ class RandomForestClassifier(DelayedPredictionMixin):
     def _predict_using_fil(self, X, output_class=True, algo='auto',
                            threshold=0.5, num_classes=2,
                            convert_dtype=False, predict_model="GPU",
-                           delayed=True, parallelism=25):
+                           delayed=True, parallelism=25,
+                           fil_sparse_format='auto'):
 
         self._concat_treelite_models()
-        """
-        worker_tcp_info = [i for i in self.workers]
-        preds = X.map_partitions(
-                self.rfs[worker_tcp_info[0]].result().predict,
-                predict_model,
-                output_class, threshold, algo,
-                num_classes, convert_dtype)
-        return preds
-        """
-        return self._predict(X, delayed, parallelism)
 
+        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+                  "predict_model": predict_model, "threshold": threshold,
+                  "num_classes": num_classes, "algo": algo,
+                  "fil_sparse_format": fil_sparse_format}
+        return self._predict(X, delayed, parallelism, **kwargs)
 
     def _predict_using_cpu(self, X):
         """
