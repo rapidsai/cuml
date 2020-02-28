@@ -41,7 +41,7 @@ template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtractScalar(OutT *out, const InT *in, InT scalar, IdxType len,
                     cudaStream_t stream) {
   auto op = [scalar] __device__(InT in) { return OutT(in - scalar); };
-  unaryOp<InT, decltype(op), OutT, IdxType>(out, in, len, op, stream);
+  unaryOp<InT, decltype(op), IdxType, OutT>(out, in, len, op, stream);
 }
 
 /**
