@@ -59,8 +59,10 @@ cdef class Handle:
     # python world cannot access to this raw object directly, hence use
     # 'size_t'!
     cdef size_t h
+    cdef int n_streams
 
     def __cinit__(self, n_streams=0):
+        self.n_streams = <int>n_streams
         self.h = <size_t>(new cumlHandle(n_streams))
 
     def __dealloc__(self):
@@ -105,3 +107,10 @@ cdef class Handle:
     def getNumInternalStreams(self):
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         return h_.getNumInternalStreams()
+
+    def __getstate__(self):
+        return self.n_streams
+
+    def __setstate__(self, state):
+        self.n_streams = state
+        self.h = <size_t>(new cumlHandle(self.n_streams))
