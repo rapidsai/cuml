@@ -237,9 +237,12 @@ class Base:
         # Remove the unpicklable handle.
         if 'handle' in state:
             del state['handle']
+
+        print(str(state))
         return state
 
     def __setstate__(self, state):
+        print(str(state))
         self.__dict__.update(state)
         self.handle = cuml.common.handle.Handle()
 

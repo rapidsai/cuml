@@ -25,6 +25,8 @@ import numpy as np
 
 import rmm
 
+import cuml
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -280,9 +282,9 @@ class PCA(Base):
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
                  n_components=1, random_state=None, svd_solver='auto',
-                 tol=1e-7, verbose=False, whiten=False):
+                 tol=1e-7, verbose=False, whiten=False, output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbose=verbose)
+        super(PCA, self).__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
@@ -600,3 +602,17 @@ class PCA(Base):
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten"]
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        if 'handle' in state:
+            del state['handle']
+
+        print(str(state))
+        return state
+
+    def __setstate__(self, state):
+        print(str(state))
+        self.__dict__.update(state)
+        self.handle = cuml.common.handle.Handle()
