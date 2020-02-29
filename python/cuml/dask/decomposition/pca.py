@@ -18,21 +18,18 @@ from cuml.dask.common.comms import worker_state, CommsContext
 
 from cuml.dask.common.input_utils import to_output
 
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
-
-
 from cuml.dask.common.input_utils import MGData
 
 
 from dask.distributed import default_client
 from dask.distributed import wait
 
-from functools import reduce
-
 from uuid import uuid1
 
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
+
+from cuml.dask.common.utils import patch_cupy_sparse_serialization
 
 
 class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
@@ -181,8 +178,9 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
 
         patch_cupy_sparse_serialization(self.client)
 
+
     @staticmethod
-    def _func_create_model(sessionId, dfs, **kwargs):
+    def _create_model(sessionId, datatype, **kwargs):
         try:
             from cuml.decomposition.pca_mg import PCAMG as cumlPCA
         except ImportError:
@@ -191,11 +189,10 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
                             " enable multiGPU support.")
 
         handle = worker_state(sessionId)["handle"]
-        return cumlPCA(handle=handle, **kwargs), dfs
+        return cumlPCA(handle=handle, output_type=datatype, **kwargs)
 
     @staticmethod
-    def _func_fit(f, M, N, partsToRanks, rank, transform):
-        m, dfs = f
+    def _func_fit(m, dfs, M, N, partsToRanks, rank, transform):
         return m.fit(dfs, M, N, partsToRanks, rank, transform)
 
     @staticmethod
@@ -210,7 +207,6 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
 
     @staticmethod
     def _func_get_first(f):
-        print(str(f))
         return f[0]
 
     @staticmethod
@@ -256,22 +252,20 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
         M = data.total_rows
         N = X.shape[1]
 
-
         key = uuid1()
-        pca_models = [(wf[0], self.client.submit(
-            PCA._func_create_model,
+        models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
+            PCA._create_model,
             comms.sessionId,
-            wf[1],
+            self.datatype,
             **self.kwargs,
-            workers=[wf[0]],
-            key="%s-%s" % (key, idx)))
-            for idx, wf in enumerate(data.gpu_futures.items())]
-
-        wait(pca_models)
+            key="%s-%s" % (key, idx),
+            workers=[wf[0]]))
+            for idx, wf in enumerate(data.gpu_futures.items())])
 
         key = uuid1()
         pca_fit = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
             PCA._func_fit,
+            models[data.worker_info[wf[0]]["r"]],
             wf[1],
             M, N,
             data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
@@ -279,15 +273,14 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
             _transform,
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(pca_models)])
+            for idx, wf in enumerate(data.gpu_futures.items())])
 
         wait(list(pca_fit.values()))
         raise_exception_from_futures(list(pca_fit.values()))
 
         comms.destroy()
 
-        self.local_model = self.client.submit(PCA._func_get_first,
-                                              pca_models[0][1]).result()
+        self.local_model = list(models.values())[0].result()
 
         self.components_ = self.local_model.components_
         self.explained_variance_ = self.local_model.explained_variance_
@@ -300,7 +293,7 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
         out_futures = []
         if _transform:
             completed_part_map = {}
-            for rank, size in data.parts_to_sizes:
+            for rank, size in data.gpu:
                 if rank not in completed_part_map:
                     completed_part_map[rank] = 0
 
