@@ -33,10 +33,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_dev_array_ptr, input_to_dev_array, zeros, \
-    get_cudf_column_ptr
+from cuml.utils import input_to_cuml_array
+
 from cuml.utils.import_utils import has_treelite
 
 if has_treelite():
@@ -231,27 +232,34 @@ cdef class ForestInference_impl():
         predict_proba : bool, whether to output class probabilities(vs classes)
         Supported only for binary classification. output format matches sklearn
         """
+        #out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, _, X_dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32)
+        print("type of X in fil : ", type(X))
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C',
+                                convert_to_dtype=np.float32,
+                                check_dtype=np.float32)
+        #X_m, n_rows, _, X_dtype = \
+        #    input_to_cuml_array(X, order='C', check_dtype=np.float32)
+        X_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            shape = (n_rows,)
+            shape = (n_rows,1)
             if predict_proba:
-                shape += (2,)
-            preds = rmm.device_array(shape, dtype=np.float32)
+                shape = (n_rows,2)
+            print("shape of preds in fil : ", shape)
+            print("type of shape in fil : ", type(shape))
+            preds = CumlArray.zeros(shape=shape, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
                              " need GPU array")
 
         cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = input_to_dev_array(
-            preds, order='C',
-            check_dtype=np.float32)
+        preds_ptr = preds.ptr
 
         predict(handle_[0],
                 self.forest_data,
@@ -260,9 +268,9 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
-        preds_to_pd = pd.Series(preds.copy_to_host())
+        #preds_to_pd = pd.Series(preds.copy_to_host())
         # synchronous w/o a stream
-        return cudf.Series.from_pandas(preds_to_pd)
+        return preds #cudf.Series.from_pandas(preds_to_pd)
 
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,

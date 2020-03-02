@@ -71,9 +71,10 @@ def test_rf_classification(datatype, split_algo, rows_sample,
                                    output_class=True,
                                    threshold=0.5,
                                    algo='auto')
+    #print("predicted result in test : ", fil_preds)
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
-    fil_acc = accuracy_score(y_test, fil_preds.to_array())
+    fil_acc = accuracy_score(y_test, fil_preds)
 
     if nrows < 500000:
         sk_model = skrfc(n_estimators=40,
@@ -170,7 +171,7 @@ def test_rf_classification_default(datatype, column_info, nrows):
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    fil_acc = accuracy_score(y_test, fil_preds.to_array())
+    fil_acc = accuracy_score(y_test, fil_preds)
     cu_acc = accuracy_score(y_test, cu_preds)
 
     score_acc = cuml_model.score(X_test, y_test)
@@ -212,12 +213,12 @@ def test_rf_regression_default(datatype, column_info, nrows):
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
-    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
+    cu_r2 = r2_score(y_test, cu_preds)
+    fil_r2 = r2_score(y_test, fil_preds)
 
     # score function should be equivalent
     score_mse = cuml_model.score(X_test, y_test)
-    manual_mse = ((fil_preds.to_array() - y_test)**2).mean()
+    manual_mse = ((fil_preds - y_test)**2).mean()
     assert manual_mse == pytest.approx(score_mse)
 
     # Initialize, fit and predict using
@@ -259,11 +260,11 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_orig = cu_class.predict(X_test,
-                                          predict_model="GPU").copy_to_host()
+                                          predict_model="GPU")
         cu_preds_orig = cu_class.predict(X_test,
                                          predict_model="CPU")
         cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
-        fil_acc_orig = accuracy_score(y_test, fil_preds_orig.to_array())
+        fil_acc_orig = accuracy_score(y_test, fil_preds_orig)
 
         # Initialize, fit and predict using cuML's
         # random forest classification model
@@ -272,10 +273,10 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_rerun = cu_class2.predict(X_test,
-                                            predict_model="GPU").copy_to_host()
+                                            predict_model="GPU")
         cu_preds_rerun = cu_class2.predict(X_test, predict_model="CPU")
         cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
-        fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun.to_array())
+        fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
 
         assert fil_acc_orig == fil_acc_rerun
         assert cu_acc_orig == cu_acc_rerun
@@ -321,7 +322,7 @@ def test_rf_classification_float64(datatype, column_info, nrows):
     # predict using cuML's GPU based prediction
     if datatype[0] == np.float32:
         fil_preds = cuml_model.predict(X_test, predict_model="GPU")
-        fil_acc = accuracy_score(y_test, fil_preds.to_array())
+        fil_acc = accuracy_score(y_test, fil_preds)
         assert fil_acc >= (cu_acc - 0.02)
 
 
@@ -398,11 +399,12 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         y_train_df = cudf.Series(y_train)
         X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cuml_model.fit(X_train_df, y_train_df)
-        cu_preds = cuml_model.predict(X_test_df)
+        cu_preds = cuml_model.predict(X_test_df, predict_model="CPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
-        cu_preds = cuml_model.predict(X_test)
+        cu_preds = cuml_model.predict(X_test, predict_model="CPU")
 
+    print("preds : ", cu_preds)
     cu_acc = accuracy_score(y_test, cu_preds)
 
     # sklearn random forest classification model
@@ -537,3 +539,75 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
         sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
         assert fil_r2 >= (sk_r2 - 0.07)
     assert fil_r2 >= (cu_r2 - 0.02)
+"""
+from numba import cuda
+def get_memsize(model):
+    # Calculates the memory occupied by the parameters of an SVC object
+    #Parameters
+    #----------
+    #svc : cuML SVC classifier object
+    #Return
+    #------
+    #The GPU memory usage in bytes.
+    
+    ms = 0
+    for a in ['rf_params']:
+        x = getattr(model, a)
+        print("type of x : ", type(x))
+        print("which param : ", a)
+        ms += np.prod(x.shape)*x.dtype.itemsize
+    print("ms in the get_memsize func : ")
+    return ms
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('n_iter', [100])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+def test_rf_class_mem_leak(datatype, column_info, nrows, n_iter):
+
+    use_handle = True
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=0, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    base_model = curfc(handle=handle)
+    base_model.fit(X_train, y_train)
+
+    ms = get_memsize(base_model)
+    print("Memory consumtion of SVC object is {} MiB".format(ms/(1024*1024.0)))
+    free_mem = cuda.current_context().get_memory_info()[0]
+
+    rfc_model = curfc(handle=handle)
+    rfc_model.fit(X_train, y_train)
+
+    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    print(" ms in main func : ", ms)
+    print("delta in main func : ", delta_mem)
+    assert delta_mem >= ms
+
+    b_sum = 0
+    for i in range(n_iter):
+        cuml_mods = curfc(handle=handle)
+        cuml_mods.fit(X_train, y_train)
+        cuml_mods.predict(X_train)
+
+    del(cuml_mods)
+    handle.sync()
+    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    print("Delta GPU mem: {} bytes".format(delta_mem))
+    assert delta_mem == 0
+"""
