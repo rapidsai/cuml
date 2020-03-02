@@ -17,7 +17,7 @@
 import dask.array as da
 import numpy as np
 import cupy as cp
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import with_cupy_rmm
 
 
 def create_rs_generator(random_state):
@@ -102,12 +102,12 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     v = v.rechunk({0: n_samples_per_part, 1: -1})
 
     # Index of the singular values
-    sing_ind = rmm_cupy_ary(cp.arange, n, dtype=cp.float64)
+    sing_ind = cp.arange(n, dtype=cp.float64)
 
     # Build the singular profile by assembling signal and noise components
     tmp = sing_ind / effective_rank
-    low_rank = ((1 - tail_strength) * rmm_cupy_ary(cp.exp, -1.0 * tmp ** 2))
-    tail = tail_strength * rmm_cupy_ary(cp.exp, -0.1 * tmp)
+    low_rank = ((1 - tail_strength) * cp.exp(-1.0 * tmp ** 2))
+    tail = tail_strength * cp.exp(-0.1 * tmp)
     local_s = low_rank + tail
     s = da.from_array(local_s,
                       chunks=(int(n_samples_per_part),))
@@ -116,6 +116,7 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     return da.dot(u, v)
 
 
+@with_cupy_rmm
 def make_regression(n_samples=100, n_features=100, n_informative=10,
                     n_targets=1, bias=0.0, effective_rank=None,
                     tail_strength=0.5, noise=0.0, shuffle=False, coef=False,

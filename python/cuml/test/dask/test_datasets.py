@@ -148,3 +148,21 @@ def test_make_regression(n_samples, n_features, n_informative,
 
     finally:
         c.close()
+
+
+try:
+    from cupy.cuda import using_allocator as cupy_using_allocator
+except ImportError:
+    from cupy.cuda.memory import using_allocator as cupy_using_allocator
+
+
+def dummy_allocator(nbytes):
+    raise AssertionError("Dummy allocator should not be called")
+
+
+def test_allocator(cluster):
+    from cuml.dask.datasets import make_regression
+
+
+    with cupy_using_allocator(dummy_allocator):
+        result = make_regression()
