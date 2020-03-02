@@ -408,7 +408,7 @@ struct RegTraits {
     auto n_col_blks = b.params.n_blks_for_cols;
     dim3 grid(b.params.n_blks_for_rows, n_col_blks, batchSize);
     auto nbins = b.params.n_bins;
-    size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(IdxT);
+    size_t smemSize = 7 * nbins * sizeof(DataT) + nbins * sizeof(int);
     smemSize += sizeof(int);
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
