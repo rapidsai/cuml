@@ -41,6 +41,7 @@ from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import input_to_cuml_array, rmm_cupy_ary
+from cuml.utils import get_cudf_column_ptr, zeros
 
 from numba import cuda
 
@@ -479,7 +480,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = rmm_cupy_ary(cp.unique, y_m)
+        unique_labels = cp.unique(y_m)
         num_unique_labels = len(unique_labels)
 
         for i in range(num_unique_labels):
@@ -556,10 +557,8 @@ class RandomForestClassifier(Base):
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+            input_to_cuml_array(X, order='F',
+                                check_cols=self.n_cols)
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -591,9 +590,7 @@ class RandomForestClassifier(Base):
                                              algo=algo,
                                              storage_type=storage_type)
         preds = tl_to_fil_model.predict(X)
-        #del(X_m)
-        #print("preds in rf : ", preds.to_output('series'))
-        #print("output_type in preds : ", out_type)
+
         return preds.to_output(out_type)
 
     def _predict_model_on_cpu(self, X, convert_dtype):
@@ -749,13 +746,13 @@ class RandomForestClassifier(Base):
         cdef uintptr_t X_ptr, preds_ptr
         X_m, n_rows, n_cols, _ = \
             input_to_cuml_array(X, order='C',
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=np.int32)
-        preds_ptr = preds.ptr
+        preds = cudf.Series(zeros(n_rows * self.n_estimators, dtype=np.int32))
+        preds_ptr = get_cudf_column_ptr(preds)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -765,7 +762,6 @@ class RandomForestClassifier(Base):
 
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
-
         if self.dtype == np.float32:
             predictGetAll(handle_[0],
                           rf_forest,
@@ -787,10 +783,9 @@ class RandomForestClassifier(Base):
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
                             % (str(self.dtype)))
-
         self.handle.sync()
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     def score(self, X, y, threshold=0.5,
               algo='auto', num_classes=2,
