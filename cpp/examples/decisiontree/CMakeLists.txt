@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,5 +17,4 @@
 include_directories(${CUDA_INCLUDE_DIRS})
 
 add_executable(decisiontree_example decisiontree_example.cpp)
-add_dependencies(decisiontree_example ${ClangFormat_TARGET})
 target_link_libraries(decisiontree_example cuml++)
