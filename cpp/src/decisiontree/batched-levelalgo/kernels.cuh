@@ -331,11 +331,11 @@ __global__ void computeSplitRegressionKernel(
   auto* spred = reinterpret_cast<DataT*>(smem);
   auto* scount = reinterpret_cast<int*>(spred + len);
   auto* sbins = reinterpret_cast<DataT*>(scount + nbins);
-  auto* sDone = reinterpret_cast<int*>(sbins + nbins);
   // used only for MAE criterion
   auto* spred2 = reinterpret_cast<DataT*>(sbins + nbins);
   auto* spred2P = reinterpret_cast<DataT*>(spred2 + len);
   auto* spredP = reinterpret_cast<DataT*>(spred2P + nbins);
+  auto* sDone = reinterpret_cast<int*>(spredP + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
