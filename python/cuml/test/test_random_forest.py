@@ -290,7 +290,9 @@ def test_rf_classification_seed(datatype, column_info, nrows):
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-def test_rf_classification_float64(datatype, column_info, nrows):
+@pytest.mark.parametrize('convert_dtype', [True, False])
+def test_rf_classification_float64(datatype, column_info,
+                                   nrows, convert_dtype):
 
     ncols, n_info = column_info
     X, y = make_classification(n_samples=nrows, n_features=ncols,
@@ -319,11 +321,15 @@ def test_rf_classification_float64(datatype, column_info, nrows):
         assert cu_acc >= (sk_acc - 0.07)
 
     # predict using cuML's GPU based prediction
-    if datatype[0] == np.float32:
-        fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    if datatype[0] == np.float32 and convert_dtype:
+        fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                       convert_dtype=convert_dtype)
         fil_acc = accuracy_score(y_test, fil_preds)
         assert fil_acc >= (cu_acc - 0.02)
-
+    else:
+        with pytest.raises(TypeError):
+            fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                           convert_dtype=convert_dtype)
 
 @pytest.mark.parametrize('datatype', [(np.float64, np.float32),
                                       (np.float32, np.float64)])
@@ -332,7 +338,9 @@ def test_rf_classification_float64(datatype, column_info, nrows):
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(25000),
                          stress_param(500000)])
-def test_rf_regression_float64(datatype, column_info, nrows):
+@pytest.mark.parametrize('convert_dtype', [True, False])
+def test_rf_regression_float64(datatype, column_info,
+                               nrows, convert_dtype):
 
     ncols, n_info = column_info
     X, y = make_regression(n_samples=nrows, n_features=ncols,
@@ -363,10 +371,15 @@ def test_rf_regression_float64(datatype, column_info, nrows):
         assert cu_r2 >= (sk_r2 - 0.09)
 
     # predict using cuML's GPU based prediction
-    if datatype[0] == np.float32:
-        fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    if datatype[0] == np.float32 and convert_dtype:
+        fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                       convert_dtype=convert_dtype)
         fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
         assert fil_r2 >= (cu_r2 - 0.02)
+    else:
+        with pytest.raises(TypeError):
+            fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                           convert_dtype=convert_dtype)
 
 
 @pytest.mark.parametrize('datatype', [(np.float32, np.float32)])

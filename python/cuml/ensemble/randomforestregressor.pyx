@@ -460,11 +460,20 @@ class RandomForestRegressor(Base):
                               fil_sparse_format, task_category=1):
 
         cdef ModelHandle cuml_model_ptr
-        X_m, _, n_rows, n_cols, _ = \
+        X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
+
+        if X_type == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
@@ -597,7 +606,7 @@ class RandomForestRegressor(Base):
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif self.dtype == np.float64 and not convert_dtype:
+        elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             In order use the GPU predict the model should \
                             also be trained using a np.float32 dataset. \
