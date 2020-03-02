@@ -13,25 +13,14 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import raise_exception_from_futures
-from cuml.dask.common.comms import worker_state, CommsContext
-
-from cuml.dask.common.input_utils import to_output
-from cuml.dask.common.input_utils import MGData
-
-from cuml.dask.common.part_utils import flatten_grouped_results
-
-
-from dask.distributed import default_client
-from dask.distributed import wait
-
-from uuid import uuid1
-
+from cuml.dask.decomposition.base import BaseDecompositionFitMixin
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
 
 
-class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
+class PCA(DelayedTransformMixin,
+          DelayedInverseTransformMixin,
+          BaseDecompositionFitMixin):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
     reduction technique used to combine features in X in linear combinations
@@ -160,60 +149,9 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
     """
 
     def __init__(self, client=None, **kwargs):
-        """
-        Constructor for distributed PCA model
-        """
-        self.client = default_client() if client is None else client
-        self.kwargs = kwargs
 
-        # define attributes to make sure they
-        # are available even on untrained object
-        self.local_model = None
-        self.components_ = None
-        self.explained_variance_ = None
-        self.explained_variance_ratio_ = None
-        self.singular_values_ = None
-        self.noise_variance = None
-        #
-        # patch_cupy_sparse_serialization(self.client)
-
-    @staticmethod
-    def _create_model(sessionId, datatype, **kwargs):
-        try:
-            from cuml.decomposition.pca_mg import PCAMG as cumlPCA
-        except ImportError:
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
-
-        handle = worker_state(sessionId)["handle"]
-        return cumlPCA(handle=handle, output_type=datatype, **kwargs)
-
-    @staticmethod
-    def _func_fit(m, dfs, M, N, partsToRanks, rank, transform):
-        return m.fit(dfs, M, N, partsToRanks, rank, transform)
-
-    @staticmethod
-    def _func_transform(f, df, M, N, partsToRanks, rank):
-        m, dfs = f
-        return m.transform(df, M, N, partsToRanks, rank)
-
-    @staticmethod
-    def _func_inverse_transform(f, df, M, N, partsToRanks, rank):
-        m, dfs = f
-        return m.inverse_transform(df, M, N, partsToRanks, rank)
-
-    @staticmethod
-    def _func_get_first(f):
-        return f[0]
-
-    @staticmethod
-    def _func_xform(model, df):
-        return model.transform(df)
-
-    @staticmethod
-    def _func_get_size(df):
-        return df.shape[0]
+        super(PCA, self).__init__(PCA._create_pca, client, **kwargs)
+        self.noise_variance_ = None
 
     def fit(self, X, _transform=False):
         """
@@ -222,69 +160,11 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
         Parameters
         ----------
         X : dask cuDF input
-
         """
 
-        X = self.client.persist(X)
-
-        wait(X)
-
-        data = MGData.single(data=X, client=self.client)
-        self.datatype = data.datatype
-
-        comms = CommsContext(comms_p2p=False)
-        comms.init(workers=data.workers)
-
-        data.calculate_parts_to_sizes(comms)
-
-        M = data.total_rows
-        N = X.shape[1]
-
-        key = uuid1()
-        models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
-            PCA._create_model,
-            comms.sessionId,
-            self.datatype,
-            **self.kwargs,
-            key="%s-%s" % (key, idx),
-            workers=[wf[0]]))
-            for idx, wf in enumerate(data.worker_to_parts.items())])
-
-        key = uuid1()
-        pca_fit = dict([(wf[0], self.client.submit(
-            PCA._func_fit,
-            models[data.worker_info[wf[0]]["r"]],
-            wf[1],
-            M, N,
-            data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
-            data.worker_info[wf[0]]["r"],
-            _transform,
-            key="%s-%s" % (key, idx),
-            workers=[wf[0]]))
-            for idx, wf in enumerate(data.worker_to_parts.items())])
-
-        wait(list(pca_fit.values()))
-        raise_exception_from_futures(list(pca_fit.values()))
-
-        comms.destroy()
-
-        print("About to pulll local model")
-        self.local_model = list(models.values())[0].result()
-
-        print("DONE!")
-
-        self.components_ = self.local_model.components_
-        self.explained_variance_ = self.local_model.explained_variance_
-        self.explained_variance_ratio_ = \
-            self.local_model.explained_variance_ratio_
-        self.singular_values_ = self.local_model.singular_values_
-        self.noise_variance = self.local_model.noise_variance_
-
-        if _transform:
-            out_futures = flatten_grouped_results(self.client,
-                                                  data.gpu_futures,
-                                                  pca_fit)
-            return to_output(out_futures, self.datatype)
+        out = self._fit(X, _transform)
+        self.noise_variance_ = self.local_model.noise_variance_
+        return out
 
     def fit_transform(self, X):
         """
@@ -343,3 +223,8 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
 
     def get_param_names(self):
         return list(self.kwargs.keys())
+
+    @staticmethod
+    def _create_pca(handle, datatype, **kwargs):
+        from cuml.decomposition.pca_mg import PCAMG as cumlPCA
+        return cumlPCA(handle=handle, output_type=datatype, **kwargs)

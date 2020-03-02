@@ -222,9 +222,11 @@ class TruncatedSVD(Base):
     """
 
     def __init__(self, algorithm='full', handle=None, n_components=1,
-                 n_iter=15, random_state=None, tol=1e-7, verbose=False):
+                 n_iter=15, random_state=None, tol=1e-7, verbose=False,
+                 output_type=None):
         # params
-        super(TruncatedSVD, self).__init__(handle, verbose)
+        super(TruncatedSVD, self).__init__(handle=handle, verbose=verbose,
+                                           output_type=output_type)
         self.algorithm = algorithm
         self.n_components = n_components
         self.n_iter = n_iter
@@ -337,154 +339,6 @@ class TruncatedSVD(Base):
         self.handle.sync()
 
         return self
-
-    def fit_transform(self, X):
-        """
-        Fit LSI model to X and perform dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-            Reduced version of X as a dense cuDF DataFrame
-
-        """
-        out_type = self._get_output_type(X)
-        return self.fit(X, _transform=True)._trans_input_.to_output(out_type)
-
-    def inverse_transform(self, X, convert_dtype=False):
-        """
-        Transform X back to its original space.
-
-        Returns a cuDF DataFrame X_original whose transform would be X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-           Dense matrix (floats or doubles) of shape (n_samples, n_features).
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the inverse_transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
-
-        Returns
-        ----------
-        X_original : cuDF DataFrame, shape (n_samples, n_features)
-            Note that this is always a dense cuDF DataFrame.
-
-        """
-        out_type = self._get_output_type(X)
-
-        X_m, n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None))
-        cdef uintptr_t _trans_input_ptr = X_m.ptr
-
-        cpdef paramsTSVD params
-        params.n_components = self.n_components
-        params.n_rows = n_rows
-        params.n_cols = self.n_cols
-
-        input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                     dtype=dtype.type)
-
-        cdef uintptr_t input_ptr = input_data.ptr
-        cdef uintptr_t components_ptr = self._components_.ptr
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            tsvdInverseTransform(handle_[0],
-                                 <float*> _trans_input_ptr,
-                                 <float*> components_ptr,
-                                 <float*> input_ptr,
-                                 params)
-        else:
-            tsvdInverseTransform(handle_[0],
-                                 <double*> _trans_input_ptr,
-                                 <double*> components_ptr,
-                                 <double*> input_ptr,
-                                 params)
-
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
-
-        return input_data.to_output(out_type)
-
-    def transform(self, X, convert_dtype=False):
-        """
-        Perform dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will automatically
-            convert the input to the data type which was used to train the
-            model.
-
-        Returns
-        ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-            Reduced version of X. This will always be a dense DataFrame.
-
-        """
-        out_type = self._get_output_type(X)
-
-        X_m, n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        cdef uintptr_t input_ptr = X_m.ptr
-
-        cpdef paramsTSVD params
-        params.n_components = self.n_components
-        params.n_rows = n_rows
-        params.n_cols = self.n_cols
-
-        t_input_data = \
-            CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=dtype.type)
-
-        cdef uintptr_t _trans_input_ptr = t_input_data.ptr
-        cdef uintptr_t components_ptr = self._components_.ptr
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            tsvdTransform(handle_[0],
-                          <float*> input_ptr,
-                          <float*> components_ptr,
-                          <float*> _trans_input_ptr,
-                          params)
-        else:
-            tsvdTransform(handle_[0],
-                          <double*> input_ptr,
-                          <double*> components_ptr,
-                          <double*> _trans_input_ptr,
-                          params)
-
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
-
-        return X_m.to_output(out_type)
 
     def get_param_names(self):
         return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
