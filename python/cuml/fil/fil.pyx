@@ -58,6 +58,7 @@ cdef extern from "treelite/c_api.h":
                                        ModelHandle* out) except +
     cdef int TreeliteLoadProtobufModel(const char* filename,
                                        ModelHandle* out) except +
+    cdef const char* TreeliteGetLastError()
 
 
 cdef class TreeliteModel():
@@ -121,16 +122,19 @@ cdef class TreeliteModel():
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "protobuf":
             # XXX Not tested
             res = TreeliteLoadProtobufModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         else:
             raise ValueError("Unknown model type %s" % model_type)
         model = TreeliteModel()
@@ -168,7 +172,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                       forest_t,
                       float*,
                       float*,
-                      size_t)
+                      size_t,
+                      bool)
 
     cdef forest_t from_treelite(cumlHandle& handle,
                                 forest_t*,
@@ -210,7 +215,7 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, preds=None):
+    def predict(self, X, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the exampes in X
 
@@ -220,6 +225,9 @@ cdef class ForestInference_impl():
             For optimal performance, pass a device array with C-style layout
 
         preds : float32 device array, shape = n_samples
+
+        predict_proba : bool, whether to output class probabilities(vs classes)
+        Supported only for binary classification. output format matches sklearn
         """
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, _, X_dtype = \
@@ -229,7 +237,10 @@ cdef class ForestInference_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            preds = rmm.device_array(n_rows, dtype=np.float32)
+            shape = (n_rows,)
+            if predict_proba:
+                shape += (2,)
+            preds = rmm.device_array(shape, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
@@ -237,14 +248,15 @@ cdef class ForestInference_impl():
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = input_to_dev_array(
-            preds,
+            preds, order='C',
             check_dtype=np.float32)
 
         predict(handle_[0],
                 self.forest_data,
                 <float*> preds_ptr,
                 <float*> X_ptr,
-                <size_t> n_rows)
+                <size_t> n_rows,
+                <bool> predict_proba)
         self.handle.sync()
         # synchronous w/o a stream
         return preds
@@ -316,29 +328,30 @@ cdef class ForestInference_impl():
 
 
 class ForestInference(Base):
-    """
-    ForestInference provides GPU-accelerated inference (prediction)
+    """ForestInference provides GPU-accelerated inference (prediction)
     for random forest and boosted decision tree models.
 
     This module does not support training models. Rather, users should
     train a model in another package and save it in a
     treelite-compatible format. (See https://github.com/dmlc/treelite)
-    Currently, LightGBM and XGBoost GBDT and random forest models are
-    supported.
+    Currently, LightGBM, XGBoost and SKLearn GBDT and random forest models
+    are supported.
 
-    Users typically create a ForestInference object by loading a
-    saved model file with ForestInference.load. The resulting object
+    Users typically create a ForestInference object by loading a saved model
+    file with ForestInference.load. It is also possible to create it from an
+    SKLearn model using ForestInference.load_from_sklearn. The resulting object
     provides a `predict` method for carrying out inference.
 
     **Known limitations**:
-     * Trees are represented as complete binary trees, so a tree of depth k
-       will be stored in (2**k) - 1 nodes. This will be less space-efficient
-       for sparse trees.
-     * While treelite supports additional formats, only XGBoost and LightGBM
-       are tested in FIL currently.
-     * LightGBM categorical features are not supported
+     * A single row of data should fit into the shared memory of a thread block, 
+       which means that more than 12288 features are not supported.
+     * From sklearn.ensemble, only
+       {RandomForest,GradientBoosting}{Classifier,Regressor} models are
+       supported; other sklearn.ensemble models are currently not supported.
+     * Importing large SKLearn models can be slow, as it is done in Python.
+     * LightGBM categorical features are not supported.
      * Inference uses a dense matrix format, which is efficient for many
-       problems but will be suboptimal for sparse datasets.
+       problems but can be suboptimal for sparse datasets.
      * Only binary classification and regression are supported.
 
     Parameters
@@ -348,26 +361,32 @@ class ForestInference(Base):
 
     Examples
     --------
-    For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/forest_inference_demo.ipynb # noqa
 
     In the example below, synthetic data is copied to the host before
     inference. ForestInference can also accept a numpy array directly at the
     cost of a slight performance overhead.
 
-    >>> # Assume that the file 'xgb.model' contains a classifier model that was
-    >>> # previously saved by XGBoost's save_model function.
-    >>>
-    >>> import sklearn, sklearn.datasets, numpy as np
-    >>> from numba import cuda
-    >>> from cuml import ForestInference
-    >>> model_path = 'xgb.model'
-    >>> X_test, y_test = sklearn.datasets.make_classification()
-    >>> X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
-    >>> fm = ForestInference.load(model_path, output_class=True)
-    >>> fil_preds_gpu = fm.predict(X_gpu)
-    >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
-    >>>                np.asarray(fil_preds_gpu))
+    .. code-block:: python
+
+        # Assume that the file 'xgb.model' contains a classifier model that was
+        # previously saved by XGBoost's save_model function.
+
+        import sklearn, sklearn.datasets, numpy as np
+        from numba import cuda
+        from cuml import ForestInference
+
+        model_path = 'xgb.model'
+        X_test, y_test = sklearn.datasets.make_classification()
+        X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
+        fm = ForestInference.load(model_path, output_class=True)
+        fil_preds_gpu = fm.predict(X_gpu)
+        accuracy_score = sklearn.metrics.accuracy_score(y_test,
+                       np.asarray(fil_preds_gpu))
+
+    Notes
+    ------
+    For additional usage examples, see the sample notebook at
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/forest_inference_demo.ipynb # noqa
 
     """
     def __init__(self,
@@ -399,7 +418,31 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        return self._impl.predict(X, preds)
+        return self._impl.predict(X, False, preds)
+
+    def predict_proba(self, X, preds=None):
+        """
+        Predicts the class probabilities for X with the loaded forest model.
+        The result is the raw floating point output
+        from the model.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
+           For optimal performance, pass a device array with C-style layout
+        preds: gpuarray or cudf.Series, shape = (n_samples,2)
+           binary probability output
+           Optional 'out' location to store inference results
+
+        Returns
+        ----------
+        GPU array of shape (n_samples,2) with inference results
+        (or 'preds' filled with inference results if preds was specified)
+        """
+        return self._impl.predict(X, True, preds)
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='AUTO',

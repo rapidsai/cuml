@@ -17,6 +17,8 @@ import cuml
 import numpy as np
 import pytest
 
+from cuml.datasets import make_blobs
+
 from cuml.test.utils import get_pattern, clusters_equal, unit_param, \
     quality_param, stress_param
 
@@ -26,6 +28,8 @@ from sklearn.preprocessing import StandardScaler
 
 
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
+
+SCORE_EPS = 0.06
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -46,13 +50,14 @@ def test_kmeans_sklearn_comparison(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              output_type='numpy')
 
     X, y = pat[0]
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
+    cu_y_pred = cuml_kmeans.fit_predict(X)
 
     if nrows < 500000:
         kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
@@ -62,7 +67,6 @@ def test_kmeans_sklearn_comparison(name, nrows):
         # since we are comparing 2 we just need to compare that both clusters
         # have approximately the same number of points.
         calculation = (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred)
-        print(cuml_kmeans.score(X), kmeans.score(X))
         score_test = (cuml_kmeans.score(X) - kmeans.score(X)) < 2e-3
         if name == 'noisy_circles':
             assert (calculation < 4e-3) and score_test
@@ -101,7 +105,8 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              output_type='numpy')
 
     X, y = pat[0]
 
@@ -141,6 +146,49 @@ def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
                               max_iter=max_iter,
                               init=init,
                               oversampling_factor=oversampling_factor,
-                              max_samples_per_batch=max_samples_per_batch)
+                              max_samples_per_batch=max_samples_per_batch,
+                              output_type='cupy')
 
     cuml_kmeans.fit_predict(X)
+
+
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                                   quality_param(5000),
+                                   stress_param(500000)])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
+                                       stress_param(50)])
+def test_score(nrows, ncols, nclusters):
+
+    X, y = make_blobs(nrows, ncols, nclusters,
+                      cluster_std=0.01,
+                      random_state=10)
+
+    cuml_kmeans = cuml.KMeans(verbose=1, init="k-means||",
+                              n_clusters=nclusters,
+                              random_state=10,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+
+    actual_score = cuml_kmeans.score(X)
+
+    predictions = cuml_kmeans.predict(X)
+
+    centers = cuml_kmeans.cluster_centers_
+
+    print("predictions ", predictions.shape)
+    expected_score = 0
+    for idx, label in enumerate(predictions):
+
+        print(idx, label)
+
+        x = X[idx]
+        y = centers[label]
+
+        dist = np.sqrt(np.sum((x - y)**2))
+        expected_score += dist**2
+
+    assert actual_score + SCORE_EPS \
+        >= (-1*expected_score) \
+        >= actual_score - SCORE_EPS

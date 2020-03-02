@@ -55,24 +55,8 @@ def test_input_to_dev_array(dtype, input_type, num_rows, num_cols, order):
     if input_type == 'cupy' and input_data is None:
         pytest.skip('cupy not installed')
 
-    # 1 row with order F triggers conversion warning if cupy or numba
-    # not with numpy since numpy does the conversion
-    if (num_rows == 1 and not num_cols == 1) and order == 'F' and \
-       input_type in ['cupy', 'numba']:
-        with pytest.warns(UserWarning):
-            X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data,
-                                                                 order=order)
-    # 1 col with order C triggers conversion warning if cupy or numba
-    # not with numpy since numpy does the conversion
-    elif (num_cols == 1 and not num_rows == 1) and order == 'F' and \
-            input_type in ['cupy', 'numba']:
-        with pytest.warns(UserWarning):
-            X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data,
-                                                                 order=order)
-
-    else:
-        X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data,
-                                                             order=order)
+    X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data,
+                                                         order=order)
 
     np.testing.assert_equal(X.copy_to_host(), real_data)
 
@@ -119,6 +103,11 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
             and input_type != 'numpy':
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
 
+    if dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
+        if input_type == 'dataframe':
+            pytest.xfail("unsigned int types not yet supported by \
+                         cuDF")
+
     input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
 
     if input_type == 'cupy' and input_data is None:
@@ -134,11 +123,6 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
             _, _, _, _, got_dtype = \
                 input_to_dev_array(input_data, check_dtype=check_dtype,
                                    order=order)
-
-    # check if error is raise when input is not expected dtype
-    with pytest.raises(ValueError):
-        _, _, _, _, got_dtype = \
-            input_to_dev_array(input_data, check_dtype='float32', order=order)
 
 
 @pytest.mark.parametrize('num_rows', test_num_rows)

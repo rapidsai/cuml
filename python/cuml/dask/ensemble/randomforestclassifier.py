@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
 # limitations under the License.
 #
 
+import cudf
+
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
-import cudf
 
 from dask.distributed import default_client, wait
+
 import math
 import random
-import numpy as np
-
 from uuid import uuid1
 
 
@@ -90,7 +90,7 @@ class RandomForestClassifier:
     max_leaves : int (default = -1)
                  Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-    max_features : float (default = 1.0)
+    max_features : float (default = 'auto')
                    Ratio of number of features (columns) to consider
                    per node split.
     n_bins :  int (default = 8)
@@ -110,14 +110,14 @@ class RandomForestClassifier:
     Examples
     ---------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/notebooks/blob/branch-0.9/cuml/random_forest_demo_mnmg.ipynb
+    https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/random_forest_mnmg_demo.ipynb
     """
 
     def __init__(
         self,
         n_estimators=10,
         max_depth=-1,
-        max_features=1.0,
+        max_features="auto",
         n_bins=8,
         split_algo=1,
         split_criterion=0,
@@ -389,9 +389,6 @@ class RandomForestClassifier:
         c = default_client()
         workers = self.workers
 
-        if not isinstance(X, np.ndarray):
-            raise ValueError("Predict inputs must be numpy arrays")
-
         X_Scattered = c.scatter(X)
         futures = list()
         for n, w in enumerate(workers):
@@ -443,6 +440,7 @@ class RandomForestClassifier:
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -458,6 +456,7 @@ class RandomForestClassifier:
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params

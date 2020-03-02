@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,7 +106,6 @@ if(BUILD_CUML_TESTS)
       sg/umap_test.cu
       )
 
-    add_dependencies(ml ${ClangFormat_TARGET})
     add_dependencies(ml cub)
     add_dependencies(ml cutlass)
 
@@ -141,7 +140,6 @@ if(BUILD_CUML_MG_TESTS)
       mg/test_ml_mg_utils.cu
       )
 
-    add_dependencies(ml_mg ${ClangFormat_TARGET})
     add_dependencies(ml_mg cub)
     add_dependencies(ml_mg cutlass)
 
@@ -174,10 +172,11 @@ if(BUILD_PRIMS_TESTS)
       prims/add.cu
       prims/add_sub_dev_scalar.cu
       prims/adjustedRandIndex.cu
-      prims/batched_matrix.cu
+      prims/batched/csr.cu
+      prims/batched/gemv.cu
       prims/batched/information_criterion.cu
       prims/batched/make_symm.cu
-      prims/batched/gemv.cu
+      prims/batched/matrix.cu
       prims/binary_op.cu
       prims/ternary_op.cu
       prims/cache.cu
@@ -190,10 +189,10 @@ if(BUILD_PRIMS_TESTS)
       prims/cov.cu
       prims/csr.cu
       prims/decoupled_lookback.cu
+      prims/device_utils.cu
       prims/dispersion.cu
       prims/dist_adj.cu
       prims/dist_cos.cu
-      prims/dist_eps.cu
       prims/dist_euc_exp.cu
       prims/dist_euc_unexp.cu
       prims/dist_l1.cu
@@ -203,6 +202,7 @@ if(BUILD_PRIMS_TESTS)
       prims/eltwise.cu
       prims/eltwise2d.cu
       prims/entropy.cu
+      prims/epsilon_neighborhood.cu
       prims/fused_l2_nn.cu
       prims/gather.cu
       prims/gemm.cu
@@ -268,7 +268,6 @@ if(BUILD_PRIMS_TESTS)
       prims/weighted_mean.cu
       )
 
-    add_dependencies(prims ${ClangFormat_TARGET})
     add_dependencies(prims cub)
     add_dependencies(prims cutlass)
 

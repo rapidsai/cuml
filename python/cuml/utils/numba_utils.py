@@ -1,4 +1,5 @@
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +14,16 @@
 # limitations under the License.
 #
 
-import numba
-import math
-
+import cupy as cp
 import numpy as np
 import rmm
 
+from cuml.utils import with_cupy_rmm
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 
 
+@with_cupy_rmm
 def row_matrix(df):
     """Compute the C (row major) version gpu matrix of df
 
@@ -32,83 +33,11 @@ def row_matrix(df):
 
     """
 
-    cols = [df._cols[k] for k in df._cols]
-    ncols = len(cols)
-    nrows = len(df)
-    dtype = cols[0].dtype
-
     col_major = df.as_gpu_matrix(order='F')
 
-    row_major = gpu_major_converter(col_major, nrows, ncols, dtype,
-                                    to_order='C')
+    row_major = cp.array(col_major, order='C')
 
-    return row_major
-
-
-def gpu_major_converter(original, nrows, ncols, dtype, to_order='C'):
-    row_major = rmm.device_array((nrows, ncols), dtype=dtype, order=to_order)
-
-    tpb = driver.get_device().MAX_THREADS_PER_BLOCK
-
-    tile_width = int(math.pow(2, math.log(tpb, 2) / 2))
-    tile_height = int(tpb / tile_width)
-
-    tile_shape = (tile_height, tile_width + 1)
-
-    # blocks and threads for the shared memory/tiled algorithm
-    # see http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/ # noqa
-    blocks = int((row_major.shape[1]) / tile_height + 1), \
-        int((row_major.shape[0]) / tile_width + 1)
-
-    threads = tile_height, tile_width
-
-    # blocks per gpu for the general kernel
-    bpg = (nrows + tpb - 1) // tpb
-
-    if dtype == 'float32':
-        dev_dtype = numba.float32
-
-    else:
-        dev_dtype = numba.float64
-
-    @cuda.jit
-    def general_kernel(input, output):
-        tid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-        if tid >= nrows:
-            return
-        _col_offset = 0
-        while _col_offset < input.shape[1]:
-            col_idx = _col_offset
-            output[tid, col_idx] = input[tid, col_idx]
-            _col_offset += 1
-
-    @cuda.jit
-    def shared_kernel(input, output):
-
-        tile = cuda.shared.array(shape=tile_shape, dtype=dev_dtype)
-
-        tx = cuda.threadIdx.x
-        ty = cuda.threadIdx.y
-        bx = cuda.blockIdx.x * cuda.blockDim.x
-        by = cuda.blockIdx.y * cuda.blockDim.y
-        y = by + tx
-        x = bx + ty
-
-        if by + ty < input.shape[0] and bx + tx < input.shape[1]:
-            tile[ty, tx] = input[by + ty, bx + tx]
-        cuda.syncthreads()
-        if y < output.shape[0] and x < output.shape[1]:
-            output[y, x] = tile[tx, ty]
-
-    # check if we cannot call the shared memory kernel
-    # block limits: 2**31-1 for x, 65535 for y dim of blocks
-    if blocks[0] > 2147483647 or blocks[1] > 65535:
-        general_kernel[bpg, tpb](original, row_major)
-
-    else:
-        shared_kernel[blocks, threads](original, row_major)
-
-    return row_major
+    return cuda.as_cuda_array(row_major)
 
 
 @cuda.jit
@@ -184,25 +113,3 @@ def stride_from_order(shape, order, itemsize):
     if order == 'C':
         stride.reverse()
     return tuple(stride)
-
-
-# CuPy < 7.0 and numba >= 0.46 mitigation
-# Remove after making CuPy >= 7 required!
-
-
-class PatchedNumbaDeviceArray(object):
-    def __init__(self, numba_array):
-        self.parent = numba_array
-
-    def __getattr__(self, name):
-        if name == "parent":
-            raise AttributeError()
-
-        if name != '__cuda_array_interface__':
-            return getattr(self.parent, name)
-
-        else:
-            rtn = self.parent.__cuda_array_interface__
-            if rtn.get("strides") is None:
-                rtn.pop("strides")
-            return rtn

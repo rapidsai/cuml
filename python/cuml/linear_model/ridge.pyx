@@ -24,6 +24,7 @@ import cudf
 import numpy as np
 from collections import defaultdict
 from numba import cuda
+import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -88,7 +89,9 @@ class Ridge(Base, RegressorMixin):
     predictors in X. It can reduce the variance of the predictors, and improves
     the conditioning of the problem.
 
-    cuML's Ridge an array-like object or cuDF DataFrame, and provides 3
+    cuML's Ridge can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects. It provides 3
     algorithms: SVD, Eig and CD to fit a linear model. In general SVD uses
     significantly more memory and is slower than Eig. If using CUDA 10.1,
     the memory difference is even bigger than in the other supported CUDA
@@ -188,7 +191,7 @@ class Ridge(Base, RegressorMixin):
         premium prediction, stock market analysis and much more.
 
 
-    For additional docs, see `scikitlearn's Ridge
+    For additional docs, see `Scikit-learn's Ridge Regression
     <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb>`_.
     """
 
@@ -276,9 +279,10 @@ class Ridge(Base, RegressorMixin):
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1:
-            # TODO: Throw algorithm when this changes algorithm from the user's
-            # choice. Github issue #602
+        if self.n_cols == 1 and self.algo != 0:
+            warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' " +
+                          "solvers do not support training data with 1 " +
+                          "column currently.", UserWarning)
             self.algo = 0
 
         self.n_alpha = 1
@@ -393,7 +397,7 @@ class Ridge(Base, RegressorMixin):
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------

@@ -331,20 +331,39 @@ void best_split_gather_classification(
   const unsigned int *d_samplelist, const int nrows, const int Ncols,
   const int ncols_sampled, const int n_unique_labels, const int nbins,
   const int n_nodes, const int split_algo, const size_t treesz,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem, float *outgain,
+  const float min_impurity_split,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem,
   SparseTreeNode<T, int> *d_sparsenodes, int *d_nodelist) {
-  const T *d_question_ptr = tempmem->d_quantile->data();
+  const int TPB = TemporaryMemory<T, int>::gather_threads;
   if (split_algo == 0) {
-    ASSERT(false, "MINMAX not yet supported in gather mode");
+    using E = typename MLCommon::Stats::encode_traits<T>::E;
+    T init_val = std::numeric_limits<T>::max();
+    size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
+    best_split_gather_classification_minmax_kernel<T, E, FDEV, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+        data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, n_nodes,
+        n_unique_labels, nbins, nrows, Ncols, ncols_sampled, treesz,
+        min_impurity_split, init_val, d_sparsenodes, d_nodelist);
   } else {
-    size_t shmemsz =
-      n_unique_labels * (nbins + 1) * sizeof(unsigned int) + sizeof(float);
-    best_split_gather_classification_kernel<T, QuantileQues<T>, FDEV>
-      <<<n_nodes, 64, shmemsz, tempmem->stream>>>(
+    const T *d_question_ptr = tempmem->d_quantile->data();
+    size_t shmemsz = n_unique_labels * (nbins + 1) * sizeof(int);
+    best_split_gather_classification_kernel<T, QuantileQues<T>, FDEV, TPB>
+      <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
         data, labels, d_colids, d_colstart, d_question_ptr, d_nodestart,
         d_samplelist, n_nodes, n_unique_labels, nbins, nrows, Ncols,
-        ncols_sampled, treesz, outgain, d_sparsenodes, d_nodelist);
-    CUDA_CHECK(cudaGetLastError());
+        ncols_sampled, treesz, min_impurity_split, d_sparsenodes, d_nodelist);
   }
-  CUDA_CHECK(cudaDeviceSynchronize());
+  CUDA_CHECK(cudaGetLastError());
+}
+template <typename T, typename FDEV>
+void make_leaf_gather_classification(
+  const int *labels, const unsigned int *nodestart,
+  const unsigned int *samplelist, const int n_unique_labels,
+  SparseTreeNode<T, int> *d_sparsenodes, int *nodelist, const int n_nodes,
+  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  size_t shmemsz = n_unique_labels * sizeof(int);
+  make_leaf_gather_classification_kernel<T, FDEV>
+    <<<n_nodes, tempmem->gather_threads, shmemsz, tempmem->stream>>>(
+      labels, nodestart, samplelist, n_unique_labels, d_sparsenodes, nodelist);
+  CUDA_CHECK(cudaGetLastError());
 }

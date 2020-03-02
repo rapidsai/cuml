@@ -34,6 +34,10 @@ def _enforce_npint32(y: cudf.Series) -> cudf.Series:
     return y
 
 
+def _get_nvstring_from_series(y: cudf.Series):
+    return y._data[list(y._data.keys())[0]].nvstrings
+
+
 class LabelEncoder(object):
     """
     An nvcategory based implementation of ordinal label encoding
@@ -112,7 +116,7 @@ class LabelEncoder(object):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
         self._fitted: bool = False
@@ -140,7 +144,13 @@ class LabelEncoder(object):
 
         y = _enforce_str(y)
 
-        self._cats = nvcategory.from_strings(y.data)
+        nvs = _get_nvstring_from_series(y)
+
+        if nvs is not None:
+            self._cats = nvcategory.from_strings(nvs)
+        else:
+            self._cats = {}
+
         self._fitted = True
         return self
 
@@ -171,7 +181,7 @@ class LabelEncoder(object):
         self._check_is_fitted()
         y = _enforce_str(y)
         encoded = cudf.Series(
-            nvcategory.from_strings(y.data)
+            nvcategory.from_strings(_get_nvstring_from_series(y))
             .set_keys(self._cats.keys())
             .values()
         )
@@ -193,17 +203,26 @@ class LabelEncoder(object):
         y = _enforce_str(y)
 
         # Bottleneck is here, despite everything being done on the device
-        self._cats = nvcategory.from_strings(y.data)
+
+        nvs = _get_nvstring_from_series(y)
+
+        if nvs is not None:
+            self._cats = nvcategory.from_strings(nvs)
+        else:
+            self._cats = {}
 
         self._fitted = True
         arr: rmm.device_array = rmm.device_array(
-            y.data.size(), dtype=np.int32
+            len(y), dtype=np.int32
         )
-        self._cats.values(devptr=arr.device_ctypes_pointer.value)
+
+        if nvs is not None:
+            self._cats.values(devptr=arr.device_ctypes_pointer.value)
         return cudf.Series(arr)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
-        ''' Revert ordinal label to original label
+        """
+        Revert ordinal label to original label
 
         Parameters
         ----------
@@ -214,7 +233,7 @@ class LabelEncoder(object):
         -------
         reverted : cudf.Series
             Reverted labels
-        '''
+        """
         # check LabelEncoder is fitted
         self._check_is_fitted()
         # check input type is cudf.Series
@@ -234,6 +253,6 @@ class LabelEncoder(object):
                     'y contains previously unseen label {}'.format(ordi))
         # convert ordinal label to string label
         reverted = cudf.Series(self._cats.gather_strings(
-            y.data.mem.device_ctypes_pointer.value, len(y)))
+            y.data.ptr, len(y)))
 
         return reverted

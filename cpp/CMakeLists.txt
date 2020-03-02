@@ -130,9 +130,6 @@ set(Protobuf_USE_STATIC_LIBS ON)
 find_package(Protobuf REQUIRED)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(ClangFormat 8.0.0 EXACT REQUIRED)
-# TODO: enable this when we are ready!
-#find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
@@ -244,13 +241,6 @@ set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
 ##############################################################################
-# - clang-format targets -----------------------------------------------------
-
-add_clang_format(
-  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
-  SRCDIR ${PROJECT_SOURCE_DIR})
-
-##############################################################################
 # - Cloning header only libraries---------------------------------------------
 
 include(ExternalProject)
@@ -295,8 +285,8 @@ ExternalProject_Add(faiss
                             --with-cuda-arch=${FAISS_GPU_ARCHS}
                             -v
   PREFIX            ${FAISS_DIR}
-  BUILD_COMMAND     $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
-  INSTALL_COMMAND   $(MAKE) -s install > /dev/null
+  BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM} -j${PARALLEL_LEVEL} VERBOSE=1
+  INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1
 )
@@ -316,14 +306,14 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfais
 
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           fca738770d2b09be1c0842fac9c0f5e3f6126c40
+    GIT_TAG           6fd01e4f1890950bbcf9b124da24e886751bffe6
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                       -DENABLE_PROTOBUF=ON
                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
     UPDATE_COMMAND    ""
-    PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
+    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true
 )
 
 add_dependencies(treelite faiss)
@@ -392,6 +382,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/solver/solver.cu
     src/spectral/spectral.cu
     src/svm/svc.cu
+    src/svm/svr.cu
     src/svm/ws_util.cu
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
@@ -425,8 +416,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
-  add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
-
+  # If we export the libdmlc symbols, they can lead to weird crashes with other
+  # libraries that use libdmlc. This just hides the symbols internally.
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
@@ -444,7 +436,6 @@ if(BUILD_CUML_C_LIBRARY)
     src/svm/svm_api.cpp)
 
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
-
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################
@@ -458,7 +449,7 @@ endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 # - build comms ------------------------------------------------------------------------
 
 if(BUILD_CUML_STD_COMMS)
-	add_subdirectory(comms/std)
+  add_subdirectory(comms/std)
 endif(BUILD_CUML_STD_COMMS)
 
 if(BUILD_CUML_MPI_COMMS)

@@ -309,7 +309,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     worker_state(sessionId)["ucp_eps"] = eps
 
 
-async def _func_destroy_all(sessionId, comms_p2p):
+async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
     worker_state(sessionId)["nccl"].destroy()
     del worker_state(sessionId)["nccl"]
 
@@ -396,13 +396,7 @@ class CommsContext:
         """
         Build a UCP listener on each worker. Since this async
         function is long-running, the listener is
-        placed in the worker's data dict.
-
-        NOTE: This is not the most ideal design because the worker's
-        data dict could be serialized at any point, which would cause
-        an error. Need to sync w/ the Dask team to see if there's a better
-        way to do this.
-        Ref: https://github.com/rapidsai/cuml/issues/841
+        placed in the worker's `_cuml_comm_state` dict.
         """
         self.client.run(_func_ucp_create_listener,
                         self.sessionId,
@@ -471,8 +465,12 @@ class CommsContext:
         self.client.run(_func_destroy_all,
                         self.sessionId,
                         self.comms_p2p,
+                        self.verbose,
                         wait=True,
                         workers=self.worker_addresses)
+
+        if self.verbose:
+            print("Destroying comms.")
 
         if self.comms_p2p:
             self.stop_ucp_listeners()

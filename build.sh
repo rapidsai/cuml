@@ -40,7 +40,6 @@ HELP="$0 [<target> ...] [<flag> ...]
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_BUILD_DIR=${REPODIR}/python/build
-FAISS_DIR=${REPODIR}/thirdparty/faiss
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
@@ -133,7 +132,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || ha
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DBUILD_CUML_STD_COMMS=ON \
-          -DWITH_UCX=OFF \
+          -DWITH_UCX=ON \
           -DBUILD_CUML_MPI_COMMS=OFF \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DNCCL_PATH=${INSTALL_PREFIX} \

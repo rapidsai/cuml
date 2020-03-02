@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,11 +21,12 @@
 # cython: language_level = 3
 
 import ctypes
+import cudf
+import cupy as cp
 import math
 import numpy as np
+import rmm
 import warnings
-
-from numba import cuda
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -38,8 +39,9 @@ from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
-from cuml.utils.cupy_utils import checked_cupy_unique
+    input_to_dev_array, zeros, rmm_cupy_ary
+
+from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
@@ -182,7 +184,7 @@ class RandomForestClassifier(Base):
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported with split_algo=1.
+        if -1. Unlimited depth is not supported.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
@@ -281,10 +283,14 @@ class RandomForestClassifier(Base):
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
+        self.dtype = None
         self.n_streams = handle.getNumInternalStreams()
         self.seed = seed
         if ((seed is not None) and (n_streams != 1)):
-            warnings.warn("Random seed requires n_streams=1.")
+            warnings.warn("For reproducible results, n_streams==1 is "
+                          "recommended. If n_streams is > 1, results may vary "
+                          "due to stream/thread timing differences, even when "
+                          "random_seed is set")
         self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
@@ -302,7 +308,9 @@ class RandomForestClassifier(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
-        self.model_pbuf_bytes = self._get_model_info()
+        if self.n_cols:
+            # only if model has been fit previously
+            self.model_pbuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*>params_t
@@ -362,6 +370,12 @@ class RandomForestClassifier(Base):
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
+        if self.num_classes > 2:
+            raise NotImplementedError("Pickling for multi-class "
+                                      "classification models is currently not "
+                                      "implemented. Please check cuml issue "
+                                      "#1679 for more information.")
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -394,6 +408,7 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         cdef uintptr_t X_ptr, y_ptr
+        self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
         if y_dtype != np.int32:
@@ -409,7 +424,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = checked_cupy_unique(y_m)
+        unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
 
         for i in range(num_unique_labels):
@@ -481,13 +496,22 @@ class RandomForestClassifier(Base):
 
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
-                              num_classes, convert_dtype):
+                              num_classes, convert_dtype,
+                              fil_sparse_format):
         cdef ModelHandle cuml_model_ptr = NULL
         X_m, _, n_rows, n_cols, X_type = \
             input_to_dev_array(X, order='C', check_dtype=self.dtype,
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
+        if X_type == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -499,12 +523,25 @@ class RandomForestClassifier(Base):
                               <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
+
+        if fil_sparse_format:
+            storage_type = 'SPARSE'
+        elif not fil_sparse_format:
+            storage_type = 'DENSE'
+        elif fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
+        else:
+            raise ValueError("The value entered for spares_forest is wrong."
+                             " Please refer to the documentation to see the"
+                             " accepted values.")
+
         fil_model = ForestInference()
         tl_to_fil_model = \
             fil_model.load_from_randomforest(treelite_handle,
                                              output_class=output_class,
                                              threshold=threshold,
-                                             algo=algo)
+                                             algo=algo,
+                                             storage_type=storage_type)
         preds = tl_to_fil_model.predict(X_m)
         del(X_m)
         return preds
@@ -516,11 +553,9 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
+        preds = cudf.Series(zeros(n_rows, dtype=np.int32))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
-        preds = np.zeros(n_rows, dtype=np.int32)
-        cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -553,15 +588,15 @@ class RandomForestClassifier(Base):
 
         self.handle.sync()
         # synchronous w/o a stream
-        preds = preds_m.copy_to_host()
+        predicted_result = preds.to_array()
         del(X_m)
-        del(preds_m)
-        return preds
+        return predicted_result
 
     def predict(self, X, predict_model="GPU",
                 output_class=True, threshold=0.5,
-                algo='BATCH_TREE_REORG',
-                num_classes=2, convert_dtype=True):
+                algo='auto',
+                num_classes=2, convert_dtype=True,
+                fil_sparse_format='auto'):
         """
         Predicts the labels for X.
 
@@ -572,23 +607,27 @@ class RandomForestClassifier(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
+            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
+            or convert_dtype is set to True. Also the 'GPU' should only be
+            used for binary classification problems.
         output_class: boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
-        algo : string (default = 'BATCH_TREE_REORG')
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'NAIVE' - simple inference using shared memory
-            'TREE_REORG' - similar to naive but trees rearranged to be more
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
                            coalescing-friendly
-            'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
+            'batch_tree_reorg' - similar to tree_reorg but predicting
                                  multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -599,6 +638,15 @@ class RandomForestClassifier(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+                     (currently True is chosen by auto)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='naive'
+                    or algo='auto'
 
         Returns
         ----------
@@ -606,10 +654,14 @@ class RandomForestClassifier(Base):
            Dense vector (int) of shape (n_samples, 1)
         """
 
-        if predict_model == "CPU":
+        if predict_model == "CPU" or self.num_classes > 2:
+            if self.num_classes > 2 and predict_model == "GPU":
+                warnings.warn("Switching over to use the CPU predict since "
+                              "the GPU predict currently cannot perform "
+                              "multi-class classification.")
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif self.dtype == np.float64 and not convert_dtype:
+        elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             In order use the GPU predict the model should \
                             also be trained using a np.float32 dataset. \
@@ -620,11 +672,12 @@ class RandomForestClassifier(Base):
         else:
             preds = self._predict_model_on_gpu(X, output_class,
                                                threshold, algo,
-                                               num_classes, convert_dtype)
+                                               num_classes, convert_dtype,
+                                               fil_sparse_format)
 
         return preds
 
-    def _predict_get_all(self, X):
+    def _predict_get_all(self, X, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -640,20 +693,16 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        cdef uintptr_t X_ptr
-        X_ptr = X.ctypes.data
-        n_rows, n_cols = np.shape(X)
-        if n_cols != self.n_cols:
-            raise ValueError("The number of columns/features in the training"
-                             " and test data should be the same ")
-        if X.dtype != self.dtype:
-            raise ValueError("The datatype of the training data is different"
-                             " from the datatype of the testing data")
+        cdef uintptr_t X_ptr, preds_ptr
+        X_m, X_ptr, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
-        preds = np.zeros(n_rows * self.n_estimators,
-                         dtype=np.int32)
+        preds = cudf.Series(zeros(n_rows * self.n_estimators, dtype=np.int32))
+        preds_ptr = get_cudf_column_ptr(preds)
 
-        cdef uintptr_t preds_ptr = preds.ctypes.data
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -686,10 +735,13 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
 
         self.handle.sync()
-        return preds
+        predicted_result = preds.to_array()
+        del(X_m)
+        return predicted_result
 
     def score(self, X, y, threshold=0.5,
-              algo='BATCH_TREE_REORG', num_classes=2):
+              algo='auto', num_classes=2,
+              convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
 
@@ -701,20 +753,35 @@ class RandomForestClassifier(Base):
             ndarray, cuda array interface compliant array like CuPy
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
-        algo : string name of the algo from (from algo_t enum)
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'NAIVE' - simple inference using shared memory
-            'TREE_REORG' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'BATCH_TREE_REORG' - similar to TREE_REORG but predicting
-            multiple rows per thread block
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+                           coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+                                 multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
         threshold : float
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
         num_classes : integer
             number of different classes present in the dataset
+        convert_dtype : boolean, default=True
+            whether to convert input data to correct dtype automatically
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+                     (currently True is chosen by auto)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='naive'
+                    or algo='auto'
+
         Returns
         -------
         float
@@ -722,11 +789,15 @@ class RandomForestClassifier(Base):
         """
         cdef uintptr_t X_ptr, y_ptr
         y_m, y_ptr, n_rows, _, y_dtype = \
-            input_to_dev_array(y, check_dtype=np.int32)
+            input_to_dev_array(y, check_dtype=np.int32,
+                               convert_to_dtype=(np.int32 if convert_dtype
+                                                 else False))
 
         preds = self.predict(X, output_class=True,
                              threshold=threshold, algo=algo,
-                             num_classes=num_classes)
+                             num_classes=num_classes,
+                             convert_dtype=convert_dtype,
+                             fil_sparse_format=fil_sparse_format)
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = \
@@ -777,6 +848,8 @@ class RandomForestClassifier(Base):
 
         params = dict()
         for key in RandomForestClassifier.variables:
+            if key in ['handle']:
+                continue
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params

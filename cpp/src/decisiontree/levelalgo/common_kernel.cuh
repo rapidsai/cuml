@@ -19,11 +19,36 @@
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.h"
 
-struct PredictionPair {
-  unsigned int maxval;
-  int classval;
-};
+template <typename T>
+DI T get_data(const T* __restrict__ data, const T local_data,
+              const unsigned int dataid, const unsigned int count) {
+  if (count <= blockDim.x) {
+    return local_data;
+  } else {
+    return data[dataid];
+  }
+}
 
+DI unsigned int get_samplelist(const unsigned int* __restrict__ samplelist,
+                               const unsigned int dataid,
+                               const unsigned int nodestart, const int tid,
+                               const unsigned int count) {
+  if (count <= blockDim.x) {
+    return dataid;
+  } else {
+    return samplelist[nodestart + tid];
+  }
+}
+
+template <typename L>
+DI L get_label(const L* __restrict__ labels, const L local_label,
+               const unsigned int dataid, const unsigned int count) {
+  if (count <= blockDim.x) {
+    return local_label;
+  } else {
+    return labels[dataid];
+  }
+}
 DI int get_class_hist_shared(unsigned int* node_hist,
                              const int n_unique_labels) {
   unsigned int maxval = node_hist[0];
@@ -330,7 +355,7 @@ __global__ void split_nodes_compute_counts_kernel(
     T quesval = localnode->quesval;
     for (int tid = threadIdx.x; tid < ncount; tid += blockDim.x) {
       unsigned int dataid = samplelist[nstart + tid];
-      if (data[colid * nrows + dataid] < quesval) {
+      if (data[colid * nrows + dataid] <= quesval) {
         tid_count++;
         flagsptr[dataid] = (unsigned int)(currcnt);
       } else {
@@ -338,7 +363,7 @@ __global__ void split_nodes_compute_counts_kernel(
       }
     }
     int cnt_left = BlockReduce(temp_storage).Sum(tid_count);
-
+    __syncthreads();
     if (threadIdx.x == 0) {
       samplecount[currcnt] = cnt_left;
       samplecount[currcnt + 1] = ncount - cnt_left;

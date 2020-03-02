@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,10 +31,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -147,6 +147,7 @@ class LinearRegression(Base):
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
+        This parameter is ignored when `fit_intercept` is set to False.
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.
@@ -156,7 +157,7 @@ class LinearRegression(Base):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept_` is False, will be 0.
 
     Notes
     ------
@@ -174,34 +175,24 @@ class LinearRegression(Base):
         tasks. This model should be first tried if the machine learning problem
         is a regression task (predicting a continuous variable).
 
-    For additional docs, see `scikitlearn's OLS
+    For additional information, see `scikitlearn's OLS documentation
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb>`_.
+    <https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/linear_regression_demo.ipynb>`_.
 
 
     """
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
-                 handle=None):
+                 handle=None, verbose=False, output_type=None):
+        super(LinearRegression, self).__init__(handle=handle, verbose=verbose,
+                                               output_type=output_type)
 
-        """
-        Initializes the linear regression class.
+        # internal array attributes
+        self._coef_ = None  # accessed via estimator.coef_
+        self._intercept_ = None  # accessed via estimator.intercept_
 
-        Parameters
-        ----------
-        algorithm : Type: string. 'eig' (default) and 'svd' are supported
-        algorithms.
-        fit_intercept: boolean. For more information, see `scikitlearn's OLS
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-        normalize: boolean. For more information, see `scikitlearn's OLS
-        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
-        """
-        super(LinearRegression, self).__init__(handle=handle, verbose=False)
-        self.coef_ = None
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         if algorithm in ['svd', 'eig']:
@@ -242,15 +233,19 @@ class LinearRegression(Base):
 
         """
 
-        cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
+        self._set_output_type(X)
 
-        y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_rows=n_rows, check_cols=1)
+        cdef uintptr_t X_ptr, y_ptr
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        X_ptr = X_m.ptr
+
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+        y_ptr = y_m.ptr
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -261,14 +256,13 @@ class LinearRegression(Base):
             raise TypeError(msg)
 
         if self.n_cols == 1 and self.algo != 0:
-            # TODO: Throw exception when this changes algorithm from the user's
-            # choice. Github issue #602
-            # eig based method doesn't work when there is only one column.
+            warnings.warn("Changing solver from 'eig' to 'svd' as eig " +
+                          "solver does not support training data with 1 " +
+                          "column currently.", UserWarning)
             self.algo = 0
 
-        self.coef_ = cudf.Series(zeros(self.n_cols,
-                                       dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -311,7 +305,8 @@ class LinearRegression(Base):
 
     def predict(self, X, convert_dtype=False):
         """
-        Predicts the y for X.
+        Predicts `y` values for `X`.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -330,16 +325,22 @@ class LinearRegression(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(zeros(n_rows, dtype=dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        out_type = self._get_output_type(X)
+
+        cdef uintptr_t X_ptr
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+        X_ptr = X_m.ptr
+
+        cdef uintptr_t coef_ptr = self._coef_.ptr
+
+        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
@@ -363,39 +364,7 @@ class LinearRegression(Base):
 
         del(X_m)
 
-        return preds
+        return preds.to_output(out_type)
 
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['algorithm', 'fit_intercept', 'normalize']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['algorithm', 'fit_intercept', 'normalize']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter %s for estimator')
-            else:
-                setattr(self, key, value)
-        if 'algorithm' in params.keys():
-            self.algo = self._get_algorithm_int(self.algorithm)
-        return self
+    def get_param_names(self):
+        return ['algorithm', 'fit_intercept', 'normalize']
