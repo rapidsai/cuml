@@ -111,7 +111,8 @@ def test_umap_trustworthiness_on_iris():
     assert trust >= 0.97
 
 
-def test_umap_transform_on_iris():
+@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+def test_umap_transform_on_iris(random_state):
 
     iris = datasets.load_iris()
 
@@ -119,18 +120,14 @@ def test_umap_transform_on_iris():
         [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
-    def run_transform():
-        fitter = cuUMAP(n_neighbors=10, n_epochs=800, min_dist=0.01,
-                        verbose=False)
-        fitter.fit(data, convert_dtype=True)
-        new_data = iris.data[~iris_selection]
-        embedding = fitter.transform(new_data, convert_dtype=True)
-        return trustworthiness(new_data, embedding, 10)
+    fitter = cuUMAP(n_neighbors=10, n_epochs=800, min_dist=0.01,
+                    random_state=random_state, verbose=False)
+    fitter.fit(data, convert_dtype=True)
+    new_data = iris.data[~iris_selection]
+    embedding = fitter.transform(new_data, convert_dtype=True)
+    trust = trustworthiness(new_data, embedding, 10)
 
-    threshold = 0.85
-
-    trust = np.mean([run_transform() for i in range(5)])
-    assert trust >= threshold
+    assert trust >= 0.85
 
 
 def test_umap_transform_on_digits():

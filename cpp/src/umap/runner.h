@@ -92,8 +92,6 @@ void _fit(const cumlHandle &handle,
   if (params->verbose)
     std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
 
-  if (params->a == -1. || params->b == -1.) find_ab(params, d_alloc, stream);
-
   /**
    * Allocate workspace for kNN graph
    */
@@ -148,8 +146,6 @@ void _fit(const cumlHandle &handle,
 
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
-
-  if (params->a == -1. || params->b == -1.) find_ab(params, d_alloc, stream);
 
   /**
    * Allocate workspace for kNN graph

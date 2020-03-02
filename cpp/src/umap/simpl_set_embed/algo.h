@@ -386,6 +386,9 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      UMAPParams *params, int n_epochs, bool multicore_implem,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
+  std::cout << params->a << std::endl;
+  std::cout << params->b << std::endl;
+
   // Are we doing a fit or a transform?
   bool move_other = head_embedding == tail_embedding;
 
