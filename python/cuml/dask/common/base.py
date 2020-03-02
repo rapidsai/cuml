@@ -91,7 +91,7 @@ class DelayedParallelFunc(object):
                     for pred in preds]
 
                 if output_futures:
-                    return preds_arr
+                    return self.client.compute(preds)
                 else:
                     return dask.array.concatenate(preds_arr, axis=0,
                                                   allow_unknown_chunksizes=True

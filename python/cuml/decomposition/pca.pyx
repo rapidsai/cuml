@@ -284,7 +284,8 @@ class PCA(Base):
                  n_components=1, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False, output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super(PCA, self).__init__(handle=handle, verbose=verbose,
+                                  output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
@@ -609,10 +610,8 @@ class PCA(Base):
         if 'handle' in state:
             del state['handle']
 
-        print(str(state))
         return state
 
     def __setstate__(self, state):
-        print(str(state))
         self.__dict__.update(state)
         self.handle = cuml.common.handle.Handle()

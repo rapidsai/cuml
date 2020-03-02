@@ -115,4 +115,3 @@ cdef class Handle:
     def __setstate__(self, state):
         self.n_streams = state
         self.h = < size_t > (new cumlHandle(self.n_streams))
-

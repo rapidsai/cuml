@@ -75,6 +75,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
                          stress_param('blobs')])
 def test_pca_fit_then_transform(datatype, input_type,
                                 name, use_handle):
+
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
@@ -111,6 +112,7 @@ def test_pca_fit_then_transform(datatype, input_type,
                          stress_param('blobs')])
 def test_pca_fit_transform(datatype, input_type,
                            name, use_handle):
+
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
