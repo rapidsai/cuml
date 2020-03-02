@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1742: Mean squared error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
@@ -21,6 +22,7 @@
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
 - PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
+- PR #1747: C++: dbscan performance improvements and cleanup
 - PR #1697: Making trustworthiness batchable and using proper workspace
 - PR #1721: Improving UMAP pytests
 - PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
@@ -28,8 +30,11 @@
 - PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 - PR #1726: Decorator to allocate CuPy arrays with RMM
 - PR #1748: Test serializing `CumlArray` objects
+- PR #1762: Update CuPy requirement to 7
+- PR #1768: C++: Different input and output types for add and subtract prims
 
 ## Bug Fixes
+- PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
 - PR #1611: Fixing pickling errors for KNN classifier and regressor
@@ -51,7 +56,9 @@
 - PR #1708: Correctly deallocate cuML handles in Cython
 - PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
 - PR #1729: Fixing naive bayes UCX serialization problem in fit()
+- PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
+- PR #1765: Update the checks for using RF GPU predict
 
 # cuML 0.12.0 (Date TBD)
 

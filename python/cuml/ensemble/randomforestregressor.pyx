@@ -281,7 +281,7 @@ class RandomForestRegressor(Base):
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("Setting the random seed does not fully guarantee"
                           " the exact same results at this time.")
-        self._model_pbuf_bytes = []
+        self.model_pbuf_bytes = []
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
@@ -298,7 +298,7 @@ class RandomForestRegressor(Base):
         del state['handle']
         if self.n_cols:
             # only if model has been fit previously
-            self._model_pbuf_bytes = self._get_model_info()
+            self.model_pbuf_bytes = self._get_model_info()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*>params_t
@@ -308,7 +308,7 @@ class RandomForestRegressor(Base):
             <RandomForestMetaData[double, double]*>params_t64
 
         state['verbose'] = self.verbose
-        state["model_pbuf_bytes"] = self._model_pbuf_bytes
+        state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
         if self.dtype == np.float32:
             state["rf_params"] = rf_forest.rf_params
@@ -325,7 +325,7 @@ class RandomForestRegressor(Base):
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
 
-        self._model_pbuf_bytes = state["model_pbuf_bytes"]
+        self.model_pbuf_bytes = state["model_pbuf_bytes"]
 
         if state["dtype"] == np.float32:
             rf_forest.rf_params = state["rf_params"]
@@ -368,7 +368,7 @@ class RandomForestRegressor(Base):
                               rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
-                              <vector[unsigned char] &> self._model_pbuf_bytes)
+                              <vector[unsigned char] &> self.model_pbuf_bytes)
 
         mod_ptr = <size_t> cuml_model_ptr
         fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
@@ -408,7 +408,7 @@ class RandomForestRegressor(Base):
     def concatenate_model_bytes(self, concat_model_handle):
         cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
         concat_model_bytes = save_model(<ModelHandle> model_ptr)
-        self._model_pbuf_bytes = concat_model_bytes
+        self.model_pbuf_bytes = concat_model_bytes
         return concat_model_bytes
 
     def fit(self, X, y, convert_dtype=False):
@@ -437,7 +437,6 @@ class RandomForestRegressor(Base):
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
-
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -513,6 +512,15 @@ class RandomForestRegressor(Base):
                                                   else None),
                                 check_cols=self.n_cols)
 
+        if dtype == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
+
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
@@ -521,7 +529,7 @@ class RandomForestRegressor(Base):
                               rf_forest,
                               <int> n_cols,
                               <int> task_category,
-                              <vector[unsigned char] &> self._model_pbuf_bytes)
+                              <vector[unsigned char] &> self.model_pbuf_bytes)
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
@@ -543,7 +551,6 @@ class RandomForestRegressor(Base):
                                              algo=algo,
                                              storage_type=storage_type)
         preds = tl_to_fil_model.predict(X)
-        #del(X_m)
         return preds.to_output(out_type)
 
     def _predict_model_on_cpu(self, X, convert_dtype):
@@ -645,7 +652,7 @@ class RandomForestRegressor(Base):
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif self.dtype == np.float64 and not convert_dtype:
+        elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             In order use the GPU predict the model should \
                             also be trained using a np.float32 dataset. \
