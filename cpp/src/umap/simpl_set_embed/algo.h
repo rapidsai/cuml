@@ -158,13 +158,7 @@ __global__ void optimize_batch_kernel(
         current_buffer = (T2 *)embedding_shared_mem_updates + threadIdx.x;
         other_buffer = (T2 *)embedding_shared_mem_updates +
                        TPB_X * params.n_components + threadIdx.x;
-      } else if (!multicore_implem) {
-        // no shared memory and synchronized implementation
-        current_buffer = (T2 *)embedding_updates + (j * params.n_components);
-        other_buffer = (T2 *)embedding_updates + (k * params.n_components);
-      }
 
-      if (use_shared_mem) {
         // initialization of shared memory
         for (int d = 0; d < params.n_components; d++) {
           current_buffer[d * TPB_X] = 0;
@@ -174,6 +168,10 @@ __global__ void optimize_batch_kernel(
             other_buffer[d * TPB_X] = 0;
           }
         }
+      } else if (!multicore_implem) {
+        // no shared memory and synchronized implementation
+        current_buffer = (T2 *)embedding_updates + (j * params.n_components);
+        other_buffer = (T2 *)embedding_updates + (k * params.n_components);
       }
 
       double dist_squared = rdist(current, other, params.n_components);
@@ -233,7 +231,7 @@ __global__ void optimize_batch_kernel(
         int r;
         gen.next(r);
         int t = r % tail_n;
-        float *negative_sample = tail_embedding + (t * params.n_components);
+        T *negative_sample = tail_embedding + (t * params.n_components);
         dist_squared = rdist(current, negative_sample, params.n_components);
 
         // repulsive force between two vertices
