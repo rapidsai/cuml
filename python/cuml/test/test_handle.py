@@ -26,3 +26,7 @@ def test_pickle(n_streams):
     b = pickle.loads(ap)
 
     assert isinstance(b, Handle)
+    assert b.getNumInternalStreams() == n_streams
+
+    # Add any additional asserts as parameters are added here
+    # If Handle gets a dict, add a proper comparison here.
