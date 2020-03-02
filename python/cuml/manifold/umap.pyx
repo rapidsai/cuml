@@ -304,7 +304,6 @@ class UMAP(Base):
 
         if a is not None:
             umap_params.a = <float> a
-
         if b is not None:
             umap_params.b = <float> b
 
@@ -344,7 +343,8 @@ class UMAP(Base):
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        find_ab(handle_[0], umap_params)
+        if a is None or b is None:
+            find_ab(handle_[0], umap_params)
 
         self.umap_params = <size_t> umap_params
 
