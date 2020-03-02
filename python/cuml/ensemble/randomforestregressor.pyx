@@ -31,12 +31,12 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 from cython.operator cimport dereference as deref
 
 from numba import cuda
@@ -215,7 +215,8 @@ class RandomForestRegressor(Base):
                  bootstrap=True, bootstrap_features=False,
                  verbose=False, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
-                 accuracy_metric='mse', min_samples_leaf=None,
+                 accuracy_metric='mse', output_type=None,
+                 min_samples_leaf=None,
                  min_weight_fraction_leaf=None, n_jobs=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None,
@@ -242,7 +243,9 @@ class RandomForestRegressor(Base):
         if handle is None:
             handle = Handle(n_streams)
 
-        super(RandomForestRegressor, self).__init__(handle, verbose)
+        super(RandomForestRegressor, self).__init__(handle=handle,
+                                                    verbose=verbose,
+                                                    output_type=output_type)
 
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
@@ -408,7 +411,7 @@ class RandomForestRegressor(Base):
         self._model_pbuf_bytes = concat_model_bytes
         return concat_model_bytes
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Perform Random Forest Regression on the input data
 
@@ -424,16 +427,23 @@ class RandomForestRegressor(Base):
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
         """
+        self._set_output_type(X)
         cdef uintptr_t X_ptr, y_ptr
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        X_ptr = X_m.ptr
 
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F')
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+        y_ptr = y_m.ptr
 
         if self.dtype == np.float64:
             warnings.warn("To use GPU-based prediction, first train using \
@@ -495,12 +505,13 @@ class RandomForestRegressor(Base):
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format):
 
+        out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr
-        X_m, _, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        _, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C',
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
@@ -531,23 +542,25 @@ class RandomForestRegressor(Base):
                                              output_class=False,
                                              algo=algo,
                                              storage_type=storage_type)
-        preds = tl_to_fil_model.predict(X_m)
-        del(X_m)
-        return preds
+        preds = tl_to_fil_model.predict(X)
+        #del(X_m)
+        return preds.to_output(out_type)
 
     def _predict_model_on_cpu(self, X, convert_dtype):
+        out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, _ = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+        X_ptr = X_m.ptr
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
 
-        preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -581,9 +594,8 @@ class RandomForestRegressor(Base):
 
         self.handle.sync()
         # synchronous w/o a stream
-        predicted_result = preds.to_array()
         del(X_m)
-        return predicted_result
+        return preds.to_output(out_type)
 
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
@@ -688,20 +700,29 @@ class RandomForestRegressor(Base):
         median_abs_error : float or
         mean_abs_error : float
         """
-        cdef uintptr_t X_ptr, y_ptr
-        y_m, y_ptr, n_rows, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else False))
-
+        cdef uintptr_t y_ptr
+        _, n_rows, _, _ = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+        y_ptr = y_m.ptr
         preds = self.predict(X, algo=algo,
                              convert_dtype=convert_dtype,
                              fil_sparse_format=fil_sparse_format)
 
         cdef uintptr_t preds_ptr
-        preds_m, preds_ptr, _, _, _ = \
-            input_to_dev_array(preds)
-
+        preds_m, _, _, _ = \
+            input_to_cuml_array(preds, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+        preds_ptr = preds_m.ptr
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
