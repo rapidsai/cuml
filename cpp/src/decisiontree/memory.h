@@ -20,6 +20,7 @@
 #include <common/host_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/cumlHandle.hpp"
+#include <cuml/tree/flatnode.h>
 
 template <class T, class L>
 struct TemporaryMemory {
