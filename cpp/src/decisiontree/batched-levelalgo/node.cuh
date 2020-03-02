@@ -54,9 +54,11 @@ struct Node {
    * @note to be called only by one thread across all participating threadblocks
    */
   DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile {
-    info.left_child_id = Leaf;
-    info.colid = Leaf;
     info.prediction = pred;
+    info.colid = Leaf;
+    info.quesval = DataT(0);  // don't care for leaf nodes
+    info.best_metric_val = DataT(0);  // don't care for leaf nodes
+    info.left_child_id = Leaf;
     atomicAdd(n_leaves, 1);
     __threadfence();
   }
@@ -75,6 +77,7 @@ struct Node {
                          const SplitT& split, IdxT* n_depth) volatile {
     IdxT pos = atomicAdd(n_nodes, 2);
     // current
+    info.prediction = LabelT(0);  // don't care for non-leaf nodes
     info.colid = split.colid;
     info.quesval = split.quesval;
     info.best_metric_val = split.best_metric_val;
