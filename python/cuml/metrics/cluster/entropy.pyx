@@ -39,47 +39,32 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
 
 @with_cupy_rmm
-def prepare_data(labels_true, labels_pred=None):
+def prepare_cluster(cluster):
     """Helper function to avoid code duplication for clustering metrics."""
-    ground_truth_m, n_rows, _, _ = input_to_cuml_array(
-        labels_true,
+    cluster_m, n_rows, _, _ = input_to_cuml_array(
+        cluster,
         check_dtype=np.int32,
         check_cols=1
     )
+    cp_ground_truth_m = cluster_m.to_output(output_type='cupy')
 
-    if labels_pred is not None:
-        preds_m, n_rows, _, _ = input_to_cuml_array(
-            labels_pred,
-            check_dtype=np.int32,
-            check_rows=n_rows,
-            check_cols=1
-        )
-        cp_preds_m = preds_m.to_output(output_type='cupy')
-    else:
-        preds_m = None
-        cp_preds_m = cp.empty((0,))
+    lower_class_range = cp.min(cp_ground_truth_m)
+    upper_class_range = cp.max(cp_ground_truth_m)
 
-    cp_ground_truth_m = ground_truth_m.to_output(output_type='cupy')
-
-    lower_class_range = min(cp.min(cp_ground_truth_m),
-                            cp.min(cp_preds_m))
-    upper_class_range = max(cp.max(cp_ground_truth_m),
-                            cp.max(cp_preds_m))
-
-    return (ground_truth_m, preds_m,
-            n_rows,
-            lower_class_range, upper_class_range)
+    return cluster_m, n_rows, lower_class_range, upper_class_range
 
 
-def cython_entropy(pk, base=None, handle=None):
+def cython_entropy(clustering, base=None, handle=None):
     """
     Computes the entropy of a distribution for given probability values.
 
     Parameters
     ----------
-    pk : array-like (device or host) shape = (n_samples,)
-        Defines the (discrete) distribution. pk[i] is the unnormalized
-        probability of event i.
+    clustering : array-like (device or host) shape = (n_samples,)
+        Clustering of labels. Probabilities are computed based on occurrences
+        of labels. For instance, to represent a fair coin (2 equally possible
+        outcomes), the clustering could be [0,1]. For a biased coin with 2/3
+        probability for tail, the clustering could be [0, 0, 1].
     base: float, optional
         The logarithmic base to use, defaults to e (natural logarithm).
     handle : cuml.Handle
@@ -97,14 +82,13 @@ def cython_entropy(pk, base=None, handle=None):
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
-    (pk_ary, _,
-     n_rows,
-     lower_class_range, upper_class_range) = prepare_data(pk)
+    (clustering, n_rows,
+     lower_class_range, upper_class_range) = prepare_cluster(clustering)
 
-    cdef uintptr_t pk_ptr = pk_ary.ptr
+    cdef uintptr_t clustering_ptr = clustering.ptr
 
     S = entropy(handle_[0],
-                <int*> pk_ptr,
+                <int*> clustering_ptr,
                 <int> n_rows,
                 <int> lower_class_range,
                 <int> upper_class_range)
