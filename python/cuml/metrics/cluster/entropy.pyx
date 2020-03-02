@@ -61,7 +61,6 @@ def prepare_data(labels_true, labels_pred=None):
 
     cp_ground_truth_m = ground_truth_m.to_output(output_type='cupy')
 
-
     lower_class_range = min(cp.min(cp_ground_truth_m),
                             cp.min(cp_preds_m))
     upper_class_range = max(cp.max(cp_ground_truth_m),
