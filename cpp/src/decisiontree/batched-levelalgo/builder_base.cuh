@@ -347,6 +347,7 @@ struct ClsTraits {
       std::min(b.params.n_blks_for_cols, b.input.nSampledCols - col);
     dim3 grid(b.params.n_blks_for_rows, colBlks, batchSize);
     size_t smemSize = sizeof(int) * binSize + sizeof(DataT) * nbins;
+    smemSize += sizeof(int);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(

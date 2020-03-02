@@ -230,8 +230,8 @@ struct GridSync {
  * @param nBlks number of blocks involved with this done-handshake
  * @param master which block is supposed to be considered as master in this
  *               process of handshake.
- * @param smem shared mem used for 'am i last' signal propagation to all the
- *             threads in the block
+ * @param amIlast shared mem used for 'am i last' signal propagation to all the
+ *                threads in the block
  * @return true if the current threadblock is the last to arrive else false
  *
  * @note This function should be entered by all threads in the block together.
@@ -239,9 +239,7 @@ struct GridSync {
  *       entering this function, all threads in this block really have completed
  *       whatever their individual tasks were.
  */
-DI bool signalDone(int* done_count, int nBlks, bool master, void* smem) {
-  if (nBlks == 1) return true;
-  auto* amIlast = reinterpret_cast<int*>(smem);
+DI bool signalDone(int* done_count, int nBlks, bool master, int* amIlast) {
   if (threadIdx.x == 0) {
     auto delta = master ? nBlks - 1 : -1;
     auto old = atomicAdd(done_count, delta);

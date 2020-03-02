@@ -259,8 +259,9 @@ __global__ void computeSplitClassificationKernel(
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto len = nbins * 2 * nclasses;
-  int* shist = reinterpret_cast<int*>(smem);
-  DataT* sbins = reinterpret_cast<DataT*>(shist + len);
+  auto* shist = reinterpret_cast<int*>(smem);
+  auto* sbins = reinterpret_cast<DataT*>(shist + len);
+  auto* sDone = reinterpret_cast<int*>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   auto col = input.colids[colStart + blockIdx.y];
@@ -292,7 +293,7 @@ __global__ void computeSplitClassificationKernel(
   bool last = true;
   if (gridDim.x > 1) {
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                gridDim.x, blockIdx.x == 0, smem);
+                                gridDim.x, blockIdx.x == 0, sDone);
   }
   if (!last) return;
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x)
@@ -330,6 +331,7 @@ __global__ void computeSplitRegressionKernel(
   auto* spred = reinterpret_cast<DataT*>(smem);
   auto* scount = reinterpret_cast<int*>(spred + len);
   auto* sbins = reinterpret_cast<DataT*>(scount + nbins);
+  auto* sDone = reinterpret_cast<int*>(sbins + nbins);
   // used only for MAE criterion
   auto* spred2 = reinterpret_cast<DataT*>(sbins + nbins);
   auto* spred2P = reinterpret_cast<DataT*>(spred2 + len);
@@ -426,7 +428,7 @@ __global__ void computeSplitRegressionKernel(
   bool last = true;
   if (gridDim.x > 1) {
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                gridDim.x, blockIdx.x == 0, smem);
+                                gridDim.x, blockIdx.x == 0, sDone);
   }
   if (!last) return;
   // last block computes the final gain
