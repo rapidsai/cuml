@@ -247,6 +247,7 @@ struct Builder {
    * @param s cuda stream
    */
   void init(NodeT* h_nodes, cudaStream_t s) {
+    *h_n_nodes = 0;
     auto max_batch = params.max_batch_size;
     auto n_col_blks = params.n_blks_for_cols;
     CUDA_CHECK(
@@ -256,6 +257,7 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(n_depth, 0, sizeof(IdxT), s));
     node_start = 0;
     node_end = h_total_nodes = 1;  // start with root node
+    h_nodes[0].initSpNode();
     h_nodes[0].start = 0;
     h_nodes[0].end = input.nSampledRows;
     h_nodes[0].depth = 0;

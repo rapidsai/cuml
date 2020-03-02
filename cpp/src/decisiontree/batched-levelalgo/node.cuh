@@ -46,6 +46,17 @@ struct Node {
   IdxT depth;
 
   /**
+   * @brief Initialize the underlying sparse tree node struct
+   */
+  HDI void initSpNode() volatile {
+    info.prediction = LabelT(0);
+    info.colid = Leaf;
+    info.quesval = DataT(0);
+    info.best_metric_val = DataT(0);
+    info.left_child_id = Leaf;
+  }
+
+  /**
    * @brief Makes this node as a leaf. Side effect of this is that it atomically
    *        updates the number of leaves counter
    * @param n_leaves global memory location tracking the total number of leaves
@@ -83,11 +94,13 @@ struct Node {
     info.best_metric_val = split.best_metric_val;
     info.left_child_id = total_nodes + pos;
     // left
+    nodes[pos].initSpNode();
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start;
     nodes[pos].end = split.nLeft;
     // right
     ++pos;
+    nodes[pos].initSpNode();
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start + split.nLeft;
     nodes[pos].end = end - split.nLeft;
