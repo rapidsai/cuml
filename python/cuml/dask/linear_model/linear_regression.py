@@ -129,7 +129,7 @@ class LinearRegression(DelayedPredictionMixin):
         X = self.client.persist(X)
         y = self.client.persist(y)
 
-        data = MGData.colocated(data=(X, y), client=self.client)
+        data = MGData.create(data=(X, y), client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False)
@@ -150,13 +150,11 @@ class LinearRegression(DelayedPredictionMixin):
             key="%s-%s" % (key, idx)))
             for idx, w in enumerate(data.workers)]
 
-        print(str(data.gpu_futures))
-
         key = uuid1()
         linear_fit = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
             LinearRegression._func_fit,
             wf[1],
-            data.gpu_futures[wf[0]],
+            data.worker_to_parts[wf[0]],
             data.total_rows,
             n_cols,
             data.parts_to_sizes,

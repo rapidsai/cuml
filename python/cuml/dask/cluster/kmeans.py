@@ -14,6 +14,8 @@
 #
 
 
+import cupy as cp
+
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import MGData
 
@@ -21,7 +23,6 @@ from cuml.dask.common import raise_mg_import_exception
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
-import numpy as np
 
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
@@ -261,7 +262,8 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         scores = self._run_parallel_func(KMeans._score, X, False, parallelism,
                                          output_futures=True)
 
-        return -1 * np.sum(np.array([s.result() for s in scores])*-1)
+        return -1 * cp.sum(cp.asarray(
+            self.client.compute(scores, sync=True))*-1.0)
 
     def get_param_names(self):
         return list(self.kwargs.keys())

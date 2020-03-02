@@ -17,8 +17,9 @@ from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
 
 from cuml.dask.common.input_utils import to_output
-
 from cuml.dask.common.input_utils import MGData
+
+from cuml.dask.common.part_utils import flatten_grouped_results
 
 
 from dask.distributed import default_client
@@ -28,8 +29,6 @@ from uuid import uuid1
 
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
-
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
 
 
 class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
@@ -175,9 +174,8 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
         self.explained_variance_ratio_ = None
         self.singular_values_ = None
         self.noise_variance = None
-
-        patch_cupy_sparse_serialization(self.client)
-
+        #
+        # patch_cupy_sparse_serialization(self.client)
 
     @staticmethod
     def _create_model(sessionId, datatype, **kwargs):
@@ -210,10 +208,6 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
         return f[0]
 
     @staticmethod
-    def _func_get_idx(f, idx):
-        return f[idx]
-
-    @staticmethod
     def _func_xform(model, df):
         return model.transform(df)
 
@@ -238,16 +232,10 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
         data = MGData.single(data=X, client=self.client)
         self.datatype = data.datatype
 
-        print(str(data.workers))
-
         comms = CommsContext(comms_p2p=False)
         comms.init(workers=data.workers)
 
-        print("Initialized comms")
-
         data.calculate_parts_to_sizes(comms)
-
-        print("Done parts to sizes")
 
         M = data.total_rows
         N = X.shape[1]
@@ -260,10 +248,10 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
             **self.kwargs,
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(data.gpu_futures.items())])
+            for idx, wf in enumerate(data.worker_to_parts.items())])
 
         key = uuid1()
-        pca_fit = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
+        pca_fit = dict([(wf[0], self.client.submit(
             PCA._func_fit,
             models[data.worker_info[wf[0]]["r"]],
             wf[1],
@@ -273,14 +261,17 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
             _transform,
             key="%s-%s" % (key, idx),
             workers=[wf[0]]))
-            for idx, wf in enumerate(data.gpu_futures.items())])
+            for idx, wf in enumerate(data.worker_to_parts.items())])
 
         wait(list(pca_fit.values()))
         raise_exception_from_futures(list(pca_fit.values()))
 
         comms.destroy()
 
+        print("About to pulll local model")
         self.local_model = list(models.values())[0].result()
+
+        print("DONE!")
 
         self.components_ = self.local_model.components_
         self.explained_variance_ = self.local_model.explained_variance_
@@ -289,20 +280,10 @@ class PCA(DelayedTransformMixin, DelayedInverseTransformMixin):
         self.singular_values_ = self.local_model.singular_values_
         self.noise_variance = self.local_model.noise_variance_
 
-        # TODO: Clean this up!
-        out_futures = []
         if _transform:
-            completed_part_map = {}
-            for rank, size in data.gpu:
-                if rank not in completed_part_map:
-                    completed_part_map[rank] = 0
-
-                f = pca_fit[rank]
-                out_futures.append(self.client.submit(
-                    PCA._func_get_idx, f, completed_part_map[rank]))
-
-                completed_part_map[rank] += 1
-
+            out_futures = flatten_grouped_results(self.client,
+                                                  data.gpu_futures,
+                                                  pca_fit)
             return to_output(out_futures, self.datatype)
 
     def fit_transform(self, X):
