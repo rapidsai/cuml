@@ -32,6 +32,7 @@
 - PR #1768: C++: Different input and output types for add and subtract prims
 
 ## Bug Fixes
+- PR #1770: Warn that KalmanFilter is deprecated
 - PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
