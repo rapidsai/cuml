@@ -226,16 +226,16 @@ def test_mean_squared_error_custom_weights():
 def test_entropy(use_handle):
     handle, stream = get_handle(use_handle)
 
-    # Bernoulli trial with different p.
     # The outcome of a fair coin is the most uncertain:
     # in base 2 the result is 1 (One bit of entropy).
-    pk = np.array([1, 1])
-    assert_almost_equal(entropy(pk, base=2., handle=handle), 1.)
+    cluster = np.array([0, 1], dtype=np.int32)
+    assert_almost_equal(entropy(cluster, base=2., handle=handle), 1.)
 
     # The outcome of a biased coin is less uncertain:
-    pk = np.array([9, 1])
+    cluster = np.array(([0] * 9) + [1], dtype=np.int32)
+    assert_almost_equal(entropy(cluster, base=2., handle=handle), 0.468995593)
     # base e
-    assert_almost_equal(entropy(pk, handle=handle), 0.32508297339144826)
+    assert_almost_equal(entropy(cluster, handle=handle), 0.32508297339144826)
 
 
 @pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
@@ -244,7 +244,15 @@ def test_entropy(use_handle):
 def test_entropy_random(n_samples, base, use_handle):
     handle, stream = get_handle(use_handle)
 
-    pk, _ = generate_random_labels(lambda rng: rng.randint(0, 1000, n_samples))
-    S = entropy(pk, base, handle=handle)
-    sp_S = sp_entropy(pk, base)
+    clustering, _ = \
+        generate_random_labels(lambda rng: rng.randint(0, 1000, n_samples))
+
+    # generate unormalized probabilities from clustering
+    pk = np.bincount(clustering)
+
+    # scipy's entropy uses probabilities
+    sp_S = sp_entropy(pk, base=base)
+    # we use a clustering
+    S = entropy(np.array(clustering, dtype=np.int32), base, handle=handle)
+
     assert_almost_equal(S, sp_S, decimal=2)
