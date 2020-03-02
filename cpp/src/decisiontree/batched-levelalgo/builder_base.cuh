@@ -255,6 +255,10 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
     CUDA_CHECK(cudaMemsetAsync(n_depth, 0, sizeof(IdxT), s));
+    if (isRegression()) {
+      CUDA_CHECK(
+        cudaMemsetAsync(block_sync, 0, sizeof(char) * block_sync_size, s));
+    }
     node_start = 0;
     node_end = h_total_nodes = 1;  // start with root node
     h_nodes[0].initSpNode();
