@@ -260,6 +260,23 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     clusterCostD, sizeof(cub::KeyValuePair<IndexT, DataT>), stream);
 }
 
+template <typename DataT, typename IndexT>
+void initSeqKMeansPlusPlus(const ML::cumlHandle_impl &handle,
+                           const KMeansParams &params,
+                           Tensor<DataT, 2, IndexT> &X,
+                           MLCommon::device_buffer<DataT> &centroidsRawData,
+                           MLCommon::device_buffer<char> &workspace) {
+  cudaStream_t stream = handle.getStream();
+  auto n_samples = X.getSize(0);
+  auto n_features = X.getSize(1);
+  auto n_clusters = params.n_clusters;
+  MLCommon::Distance::DistanceType metric =
+    static_cast<MLCommon::Distance::DistanceType>(params.metric);
+  centroidsRawData.resize(n_clusters * n_features, stream);
+  kmeans::detail::kmeansPlusPlus(handle, params, X, metric, workspace,
+                                 centroidsRawData, stream);
+}
+
 /*
  * @brief Selects 'n_clusters' samples from X using scalable kmeans++ algorithm.
 
@@ -429,19 +446,19 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     kmeans::detail::countSamplesInCluster(handle, params, X, L2NormX,
                                           potentialCentroids, workspace, metric,
                                           weights, stream);
-
     // <<< end of Step-7 >>>
 
     // Step-8: Recluster the weighted points in C into k clusters
     centroidsRawData.resize(n_clusters * n_features, stream);
-    kmeans::detail::kmeansPlusPlus(handle, params, potentialCentroids, weights,
-                                   metric, workspace, centroidsRawData, stream);
+    kmeans::detail::kmeansPlusPlus(handle, params, potentialCentroids, metric,
+                                   workspace, centroidsRawData, stream);
 
     DataT inertia = 0;
     int n_iter = 0;
     KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
+    // @todo: use weights to performance weighted k-means instead of simple k-means
     ML::kmeans::fit(handle, default_params, potentialCentroids,
                     centroidsRawData, inertia, n_iter, workspace);
 
