@@ -91,7 +91,6 @@ cdef class Handle:
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         h_.setDeviceAllocator(rmmAlloc)
 
-
     def sync(self):
         """
         Issues a sync on the stream set for this handle.
