@@ -114,9 +114,9 @@ struct sparse_node_t : dense_node_t, sparse_node_extra_data {
 /** leaf_value_desc_t describes what the leaves in a FIL forest store (predict) */
 enum leaf_value_desc_t {
   /** storing a clas probability or regression summand */
-  FLOAT_SCALAR,
+  FLOAT_SCALAR = 0,
   /** storing a class label */
-  INT_CLASS_LABEL
+  INT_CLASS_LABEL = 1
   // to be extended
 };
 
