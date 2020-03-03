@@ -21,21 +21,20 @@ from cuml.dask.common.input_utils import MGData
 
 from cuml.dask.common.part_utils import flatten_grouped_results
 
-from dask.distributed import default_client
 from dask.distributed import wait
 
 from uuid import uuid1
 
+from cuml.dask.common.base import BaseEstimator
 
-class BaseDecompositionFitMixin:
+
+class BaseDecompositionFitMixin(BaseEstimator):
 
     def __init__(self, model_func, client=None, **kwargs):
         """
         Constructor for distributed PCA model
         """
-        self.client = default_client() if client is None else client
-        self.kwargs = kwargs
-
+        super(BaseDecompositionFitMixin, self).__init__(client, **kwargs)
         self._model_func = model_func
 
         # define attributes to make sure they

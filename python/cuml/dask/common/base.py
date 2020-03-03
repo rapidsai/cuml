@@ -2,13 +2,32 @@ from cuml.dask.common.input_utils import MGData
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.utils import MultiHolderLock
 
+from dask.distributed import default_client
+
 from dask_cudf.core import DataFrame as dcDataFrame
 
 from uuid import uuid1
 import dask
 
+from toolz import first
+
 import cupy as cp
 import numpy as np
+
+from cuml.dask.common.utils import patch_cupy_sparse_serialization
+
+
+class BaseEstimator(object):
+
+    def __init__(self, client=None, **kwargs):
+        """
+        Constructor for distributed estimators
+        """
+        self.client = default_client() if client is None else client
+
+        patch_cupy_sparse_serialization(self.client)
+
+        self.kwargs = kwargs
 
 
 class DelayedParallelFunc(object):
@@ -18,7 +37,8 @@ class DelayedParallelFunc(object):
                            n_dims=1,
                            delayed=True,
                            parallelism=5,
-                           output_futures=False):
+                           output_futures=False,
+                           output_dtype=None):
         """
         Runs a function embarrassingly parallel on a set of workers while
         reusing instances of models and constraining the number of
@@ -60,72 +80,57 @@ class DelayedParallelFunc(object):
         y : dask cuDF (n_rows, 1)
         """
 
-        if delayed:
-            X_d = X.to_delayed()
+        X_d = X.to_delayed()
 
-            lock = dask.delayed(MultiHolderLock(parallelism),
-                                pure=True)
+        lock = dask.delayed(MultiHolderLock(parallelism),
+                            pure=True)
 
-            model = dask.delayed(self.local_model, pure=True)
+        model = dask.delayed(self.local_model, pure=True)
 
-            func = dask.delayed(func, pure=False, nout=1)
+        func = dask.delayed(func, pure=False, nout=1)
 
-            if isinstance(X, dcDataFrame):
-                preds = [func(model, lock, part) for part in X_d]
-                return preds if output_futures \
-                    else dask.dataframe.from_delayed(preds)
+        if isinstance(X, dcDataFrame):
 
-            else:
-                preds = [func(model, lock, part[0])
-                         for part in X_d]
-
-                # todo: add parameter for option of not checking directly
-                dtype = X.dtype
-
-                shape = tuple([np.nan for dim in range(n_dims)])
-                preds_arr = [
-                    dask.array.from_delayed(pred,
-                                            meta=cp.zeros(1, dtype=dtype),
-                                            shape=shape,
-                                            dtype=dtype)
-                    for pred in preds]
-
-                if output_futures:
-                    return self.client.compute(preds)
-                else:
-                    return dask.array.concatenate(preds_arr, axis=0,
-                                                  allow_unknown_chunksizes=True
-                                                  )
+            preds = [func(model, lock, part) for part in X_d]
+            dtype = first(X.dtypes) if output_dtype is None else output_dtype
 
         else:
-            X = X.persist()
+            preds = [func(model, lock, part[0])
+                     for part in X_d]
+            dtype = X.dtype if output_dtype is None else output_dtype
 
-            data = MGData.single(X, client=self.client)
-            scattered = self.client.scatter(self.local_model,
-                                            workers=data.workers,
-                                            broadcast=True,
-                                            hash=False)
+        # TODO: Put the following conditionals in a `to_delayed_output()` function
+        if self.datatype == 'cupy':
 
-            lock = self.client.scatter(MultiHolderLock(parallelism),
-                                       workers=data.workers,
-                                       broadcast=True,
-                                       hash=False)
+            # todo: add parameter for option of not checking directly
 
-            key = uuid1()
-            func_futures = [self.client.submit(
-                func,
-                scattered,
-                lock,
-                p,
-                key=key) for w, p in data.gpu_futures]
+            shape = tuple([np.nan for dim in range(n_dims)])
+            preds_arr = [
+                dask.array.from_delayed(pred,
+                                        meta=cp.zeros(1, dtype=dtype),
+                                        shape=shape,
+                                        dtype=dtype)
+                for pred in preds]
 
-            return func_futures if output_futures \
-                else to_output(func_futures, self.datatype)
+            if output_futures:
+                return self.client.compute(preds)
+            else:
+                output = dask.array.concatenate(preds_arr, axis=0,
+                                              allow_unknown_chunksizes=True
+                                              )
+
+                return output if delayed else output.persist()
+
+        else:
+            output = preds if output_futures \
+                else dask.dataframe.from_delayed(preds)
+
+            return output if delayed else output.persist()
 
 
 class DelayedPredictionMixin(DelayedParallelFunc):
 
-    def _predict(self, X, delayed=True, parallelism=25):
+    def _predict(self, X, delayed=True, parallelism=5):
         """
         Make predictions for X and returns a dask collection.
 
@@ -148,7 +153,7 @@ class DelayedPredictionMixin(DelayedParallelFunc):
         y : dask cuDF (n_rows, 1)
         """
 
-        return self._run_parallel_func(_predict_func, X, delayed, parallelism)
+        return self._run_parallel_func(_predict_func, X, 1, delayed, parallelism)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
@@ -217,6 +222,7 @@ class DelayedInverseTransformMixin(DelayedParallelFunc):
 
 def _predict_func(model, lock, data):
     lock.acquire()
+    print(str(data))
     ret = model.predict(data)
     lock.release()
     return ret

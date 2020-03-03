@@ -502,7 +502,8 @@ class KMeans(Base):
         Which cluster each datapoint belongs to.
         """
 
-        return self._predict_labels_inertia(X, convert_dtype=convert_dtype)[0]
+        labels, _ =  self._predict_labels_inertia(X, convert_dtype=convert_dtype)
+        return labels
 
     def transform(self, X, convert_dtype=False):
         """

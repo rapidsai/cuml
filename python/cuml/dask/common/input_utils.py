@@ -151,6 +151,14 @@ def to_output(futures, type, client=None, verbose=False):
         return to_dask_cudf(futures, client=client)
 
 
+def to_delayed_output(delayed_objs, type, client=None):
+
+    if type == 'cupy':
+        return to_delayed_dask_cupy(delayed_objs, client=client)
+    else:
+        return to_delayed_dask_cudf(delayed_objs, client=client)
+
+
 def _get_meta(df):
     """
     Return the metadata from a single dataframe
