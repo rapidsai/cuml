@@ -188,10 +188,10 @@ if(BUILD_PRIMS_TESTS)
       prims/cov.cu
       prims/csr.cu
       prims/decoupled_lookback.cu
+      prims/device_utils.cu
       prims/dispersion.cu
       prims/dist_adj.cu
       prims/dist_cos.cu
-      prims/dist_eps.cu
       prims/dist_euc_exp.cu
       prims/dist_euc_unexp.cu
       prims/dist_l1.cu
@@ -201,6 +201,7 @@ if(BUILD_PRIMS_TESTS)
       prims/eltwise.cu
       prims/eltwise2d.cu
       prims/entropy.cu
+      prims/epsilon_neighborhood.cu
       prims/fused_l2_nn.cu
       prims/gather.cu
       prims/gemm.cu
