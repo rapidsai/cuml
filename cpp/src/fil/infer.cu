@@ -26,6 +26,7 @@ using namespace MLCommon;
 template <int N, typename T>
 struct vec {
   T data[N];
+  __host__ __device__ inline vec() = default; // zeros for numerical member vars
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
   friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
@@ -95,8 +96,6 @@ struct tree_aggregator_t {
   __device__ __forceinline__ tree_aggregator_t(int num_output_classes_, void*)
     : num_output_classes(num_output_classes_) {
 // TODO: even if num_output_classes == 2, in regression, this needs to change
-#pragma unroll
-    for (int i = 0; i < NITEMS; ++i) acc[i] = 0.0f;
   }
   __device__ __forceinline__ void accumulate(vec<NITEMS, float> out) {
     acc += out;
@@ -118,6 +117,7 @@ struct tree_aggregator_t {
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, unsigned int> {
+  typedef unsigned int class_label_t;
   typedef unsigned int vote_count_t;
   // can switch to unsigned short to save shared memory
   // provided atomicInc(short*) simulated with atomicAdd with appropriate shifts
@@ -130,24 +130,41 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, unsigned int> {
     
     for (int c = threadIdx.x; c < num_output_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
-      for (int i = 0; i < NITEMS; ++i) votes[i * num_output_classes + c] = 0;
+      for (int i = 0; i < NITEMS; ++i)
+        votes[c * NITEMS + i] = 0;
     //__syncthreads(); // happening outside
   }
-  __device__ __forceinline__ void accumulate(vec<NITEMS, unsigned int> out) {
+  __device__ __forceinline__ void accumulate(vec<NITEMS, class_label_t> out) {
 #pragma unroll
     for (int i = 0; i < NITEMS; ++i)
-      atomicAdd(votes + i * num_output_classes + out[i], 1);
+      atomicAdd(votes + out[i] * NITEMS + i, 1);
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows) {
     __syncthreads();
-    if (threadIdx.x == 0) {
-      for (int i = 0; i < NITEMS; ++i) {
-        int row = blockIdx.x * NITEMS + i;
-        if (row < num_rows)
-          for (int c = 0; c < num_output_classes; ++c)
-            out[row * num_output_classes + c] =
-              votes[i * num_output_classes + c];
-      }
+    int item = threadIdx.x;
+    int row = blockIdx.x * NITEMS + item;
+    if ((item < NITEMS) && (row < num_rows)) {
+#pragma unroll
+      for (int c = 0; c < num_output_classes; ++c)
+        out[row * num_output_classes + c] =
+          votes[c * NITEMS + item];
+    }
+  }
+  // using this when predicting a single class label, as opposed to sparse class vector
+  // or class probabilities or regression
+  __device__ __forceinline__ void finalize_class_label(float* out, int num_rows) {
+    __syncthreads();
+    int item = threadIdx.x;
+    int row = blockIdx.x * NITEMS + item;
+    if ((item < NITEMS) && (row < num_rows)) {
+      vote_count_t max_votes = 0;
+      class_label_t best_class = 0;
+      for (int c = 0; c < num_output_classes; ++c)
+        if(votes[c * NITEMS + item] > max_votes) {
+          max_votes = votes[c * NITEMS + item];
+          best_class = c;
+        }
+      out[row] = best_class;
     }
   }
 };
@@ -178,7 +195,12 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     acc.accumulate(
       infer_one_tree<NITEMS, output_type>(forest[j], sdata, params.num_cols));
   }
-  acc.finalize(params.preds, params.num_rows);
+  // compute most probable class. in cuML RF, output is class label,
+  // hence, no-predicted class edge case doesn't apply
+  if ((leaf_payload_type == INT_CLASS_LABEL) && (!params.predict_proba))
+    acc.finalize_class_label(params.preds, params.num_rows);
+  else
+    acc.finalize            (params.preds, params.num_rows);
 }
 
 template <leaf_value_desc_t leaf_payload_type, typename output_type,
@@ -207,7 +229,6 @@ void infer_k_launcher(storage_type forest, predict_params params,
     default:
       ASSERT(false, "internal error: unknown leaf_payload_type");
   }
-  if (leaf_payload_type == INT_CLASS_LABEL)
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type, output_type>
