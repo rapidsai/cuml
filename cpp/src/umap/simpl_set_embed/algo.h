@@ -303,6 +303,8 @@ __global__ void optimize_batch_kernel(
 
 /**
  * Kernel applying updates to embedding
+ * TODO: Replace this kernel with modified version of Linalg::Add
+ * as described at https://github.com/rapidsai/cuml/issues/1781
  */
 template <typename T, int TPB_X>
 __global__ void apply_optimization_kernel(T *embedding,
