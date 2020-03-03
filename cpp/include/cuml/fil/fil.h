@@ -121,19 +121,19 @@ enum leaf_value_desc_t {
 };
 
 /** dense_node_init initializes node from paramters */
-void dense_node_init(dense_node_t* n, float output, float thresh, int fid,
+void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
                      bool def_left, bool is_leaf);
 
 /** dense_node_decode extracts individual members from node */
-void dense_node_decode(const dense_node_t* node, float* output, float* thresh,
+void dense_node_decode(const dense_node_t* node, val_t* output, float* thresh,
                        int* fid, bool* def_left, bool* is_leaf);
 
 /** sparse_node_init initializes node from parameters */
-void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
+void sparse_node_init(sparse_node_t* node, val_t output, float thresh, int fid,
                       bool def_left, bool is_leaf, int left_index);
 
 /** sparse_node_decode extracts individual members from node */
-void sparse_node_decode(const sparse_node_t* node, float* output, float* thresh,
+void sparse_node_decode(const sparse_node_t* node, val_t* output, float* thresh,
                         int* fid, bool* def_left, bool* is_leaf,
                         int* left_index);
 

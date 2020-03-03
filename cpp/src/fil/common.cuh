@@ -47,7 +47,7 @@ struct base_node : dense_node_t {
   static const int FID_MASK = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
   static const int IS_LEAF_MASK = 1 << 31;
-  inline val_t output() const { return val; }
+  __host__ __device__ val_t output() const { return val; }
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
@@ -68,7 +68,7 @@ struct base_node : dense_node_t {
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
   dense_node(dense_node_t node) : base_node(node) {}
-  dense_node(float output_, float thresh, int fid, bool def_left, bool is_leaf)
+  dense_node(val_t output_, float thresh, int fid, bool def_left, bool is_leaf)
     : base_node(output_, thresh, fid, def_left, is_leaf) {}
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
@@ -147,10 +147,9 @@ struct predict_params {
   algo_t algo;
   int max_items;  // only set and used by infer()
   int num_output_classes;
-  // so far, only 1 or 2 is supported, and only used to output probabilities
-  // from classifier models
   // TODO doc
   leaf_value_desc_t leaf_payload_type;
+  bool predict_proba;
 
   // Data parameters.
   float* preds;

@@ -57,7 +57,7 @@ struct FilTestParams {
   float tolerance;
   // treelite parameters, only used for treelite tests
   tl::Operator op;
-  fil::leaf_value_t leaf_payload_type;
+  fil::leaf_value_desc_t leaf_payload_type;
 };
 
 std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
@@ -154,12 +154,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // initialize nodes
     nodes.resize(num_nodes);
     for (size_t i = 0; i < num_nodes; ++i) {
-      val_t w;
-      switch (ps.leaf_payload_type) { 
-        case INT_CLASS_LABEL:
-          w.idx = (int)(weights_h[i] + 1.0f) % 2; // [0, 1]
+      fil::val_t w;
+      switch (ps.leaf_payload_type) {
+        case fil::leaf_value_desc_t::INT_CLASS_LABEL:
+          w.idx = (int)(weights_h[i] + 1.0f) % 2;  // [0, 1]
           break;
-        case FLOAT_SCALAR:
+        case fil::leaf_value_desc_t::FLOAT_SCALAR:
           w.f = weights_h[i];
       }
       fil::dense_node_init(&nodes[i], w, thresholds_h[i], fids_h[i],
@@ -260,9 +260,19 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     int fid = 0;
     bool def_left = false, is_leaf = false;
     for (;;) {
-      fil::dense_node_decode(&root[curr], &output, &threshold, &fid, &def_left,
-                             &is_leaf, fil::leaf_value_t::FLOAT_SCALAR);
-      if (is_leaf) break;
+      fil::val_t w;
+      fil::dense_node_decode(&root[curr], &w, &threshold, &fid, &def_left,
+                             &is_leaf);
+      if (is_leaf) {
+        switch (ps.leaf_payload_type) {
+          case fil::leaf_value_desc_t::INT_CLASS_LABEL:
+            output = w.idx;
+            break;
+          case fil::leaf_value_desc_t::FLOAT_SCALAR:
+            output = w.f;
+        }
+        break;
+      }
       float val = data[fid];
       bool cond = isnan(val) ? !def_left : val >= threshold;
       curr = (curr << 1) + 1 + (cond ? 1 : 0);
@@ -315,7 +325,7 @@ class PredictSparseFilTest : public BaseFilTest {
   void dense2sparse_node(const fil::dense_node_t* dense_root, int i_dense,
                          int i_sparse_root, int i_sparse) {
     float threshold;
-    val_t output;
+    fil::val_t output;
     int feature;
     bool def_left, is_leaf;
     dense_node_decode(&dense_root[i_dense], &output, &threshold, &feature,
@@ -381,7 +391,7 @@ class TreeliteFilTest : public BaseFilTest {
     TL_CPP_CHECK(builder->CreateNode(key));
     int feature;
     float threshold;
-    val_t output;
+    fil::val_t output;
     bool is_leaf, default_left;
     fil::dense_node_decode(&nodes[node], &output, &threshold, &feature,
                            &default_left, &is_leaf);
@@ -488,52 +498,69 @@ class TreeliteAutoFilTest : public TreeliteFilTest {
 // global_bias, algo, seed, tolerance
 std::vector<FilTestParams> predict_dense_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0.5,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0.5,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -545,29 +572,35 @@ INSTANTIATE_TEST_CASE_P(FilTests, PredictDenseFilTest,
 // global_bias, algo, seed, tolerance
 std::vector<FilTestParams> predict_sparse_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kEQ, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kEQ,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
 };
 
 TEST_P(PredictSparseFilTest, Predict) { compare(); }
@@ -579,72 +612,98 @@ INSTANTIATE_TEST_CASE_P(FilTests, PredictSparseFilTest,
 // global_bias, algo, seed, tolerance
 std::vector<FilTestParams> import_dense_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR},
+   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::INT_CLASS_LABEL},
+   42, 2e-3f, tl::Operator::kGE, fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0.5,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0.5,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::INT_CLASS_LABEL},
+   42, 2e-3f, tl::Operator::kGT, fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
-   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::TREE_REORG, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
 };
 
 TEST_P(TreeliteDenseFilTest, Import) { compare(); }
@@ -656,28 +715,34 @@ INSTANTIATE_TEST_CASE_P(FilTests, TreeliteDenseFilTest,
 // global_bias, algo, seed, tolerance
 std::vector<FilTestParams> import_sparse_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::SIGMOID | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::INT_CLASS_LABEL},
+   42, 2e-3f, tl::Operator::kGE, fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 0, 0,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0.5, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   42, 2e-3f, tl::Operator::kLT, fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::SIGMOID, 0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kLE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::AVG, 0, 0.5, fil::algo_t::NAIVE,
-   42, 2e-3f, tl::Operator::kGT, fil::leaf_value_t::INT_CLASS_LABEL},
+   42, 2e-3f, tl::Operator::kGT, fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 8, 50, 0.05,
    fil::output_t(fil::output_t::AVG | fil::output_t::THRESHOLD), 1.0, 0.5,
-   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGE, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::NAIVE, 42, 2e-3f, tl::Operator::kGE,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
 };
 
 TEST_P(TreeliteSparseFilTest, Import) { compare(); }
@@ -689,13 +754,17 @@ INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparseFilTest,
 // global_bias, algo, seed, tolerance
 std::vector<FilTestParams> import_auto_inputs = {
   {20000, 50, 0.05, 10, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
   {20000, 50, 0.05, 15, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 19, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::INT_CLASS_LABEL},
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::INT_CLASS_LABEL},
   {20000, 50, 0.05, 19, 50, 0.05, fil::output_t::RAW, 0, 0,
-   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT, fil::leaf_value_t::FLOAT_SCALAR},
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT,
+   fil::leaf_value_desc_t::FLOAT_SCALAR},
 };
 
 TEST_P(TreeliteAutoFilTest, Import) { compare(); }
