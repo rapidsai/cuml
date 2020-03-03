@@ -211,8 +211,6 @@ def mnmg_import(func):
 
 
 def _predict_func(model, lock, data, **kwargs):
-    print("BDBASDBADBBDSBADBSABDB")
-    print(data.head())
     lock.acquire()
     ret = model.predict(data, **kwargs)
     lock.release()
