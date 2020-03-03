@@ -19,7 +19,8 @@ import cudf
 import cupy as cp
 import dask.array as da
 
-from cuml.dask.common.dask_df_utils import to_dask_cudf
+from collections.abc import Iterable
+
 from cuml.utils.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
@@ -27,8 +28,11 @@ from cudf.core import DataFrame
 from dask_cudf.core import DataFrame as dcDataFrame
 
 from dask import delayed
+
+from cuml.dask.common.dask_df_utils import to_dask_cudf
 from dask.distributed import wait
 from dask.distributed import default_client
+from dask.distributed import futures_of
 from tornado import gen
 from toolz import first
 from collections.abc import Iterable
@@ -67,18 +71,12 @@ class MGData:
 
         client = cls.get_client(client)
 
-        if isinstance(data, tuple):
-            extract_func = _extract_colocated_partitions
-            multiple = True
-        else:
-            extract_func = _extract_partitions
-            multiple = False
+        multiple = isinstance(data, Iterable)
 
-        gpu_futures = client.sync(extract_func, data, client)
-        workers = set(map(lambda x: x[0], gpu_futures))
+        gpu_futures = client.sync(_extract_partitions, data, client)
+        workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
-        datatype = 'cudf' if isinstance(data[0]
-                                        if multiple else data,
+        datatype = 'cudf' if isinstance(first(data) if multiple else data,
                                         dcDataFrame) else 'cupy'
 
         return MGData(gpu_futures=gpu_futures, workers=workers,
@@ -148,9 +146,9 @@ def concatenate(objs, axis=0):
 
 def to_output(futures, type, client=None, verbose=False):
     if type == 'cupy':
-        return to_dask_cupy(futures, client=client, verbose=verbose)
+        return to_dask_cupy(futures, client=client)
     else:
-        return to_dask_cudf(futures, client=client, verbose=verbose)
+        return to_dask_cudf(futures, client=client)
 
 
 def _get_meta(df):
@@ -187,24 +185,20 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    if isinstance(dask_obj, dcDataFrame):
-        delayed_ddf = dask_obj.to_delayed()
-        parts = delayed_ddf
+    # dask.dataframe
+    if isinstance(dask_obj, dcDataFrame) or \
+            isinstance(dask_obj, daskArray):
+        parts = futures_of(client.compute(dask_obj))
 
-    elif isinstance(dask_obj, daskArray):
-        dist_arr = dask_obj.to_delayed().ravel()
-        to_map = dist_arr
-        parts = list(map(delayed, to_map))
-
+    # iterable of dask collections (need to colocate them)
     elif isinstance(dask_obj, Iterable):
-        parts = [arr.to_delayed().ravel() for arr in dask_obj]
+        parts = [futures_of(client.compute(a)) for a in dask_obj]
         to_map = zip(*parts)
-        parts = list(map(delayed, to_map))
+        parts = client.compute(list(map(delayed, to_map)))
 
     else:
         raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
 
-    parts = client.compute(parts)
     yield wait(parts)
 
     key_to_part = [(str(part.key), part) for part in parts]
@@ -216,6 +210,8 @@ def _extract_partitions(dask_obj, client=None):
 
 @gen.coroutine
 def _extract_colocated_partitions(data, client=None):
+
+    # TODO: This should go away once Ridge is fully consolidated
     """
     Given Dask cuDF input X and y, return an OrderedDict mapping
     'worker -> [list of futures] of X and y' with the enforced
@@ -273,7 +269,14 @@ def _workers_to_parts(futures):
 
 
 def _get_ary_meta(ary):
-    return ary.shape, ary.dtype
+
+    if isinstance(ary, cp.ndarray):
+        return ary.shape, ary.dtype
+    elif isinstance(ary, cudf.DataFrame):
+        return ary.shape, first(set(ary.dtypes))
+    else:
+        raise ValueError("Expected dask.Dataframe "
+                         "or dask.Array, received %s" % type(ary))
 
 
 def _get_rows(objs, multiple):
