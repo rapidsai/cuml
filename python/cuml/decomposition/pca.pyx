@@ -376,8 +376,8 @@ class PCA(Base):
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef paramsPCA *params = \
-                <paramsPCA*><size_t>self._build_params(self.n_rows, self.n_cols)
+        cdef paramsPCA *params = <paramsPCA*><size_t> \
+            self._build_params(self.n_rows, self.n_cols)
 
         if self.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than'

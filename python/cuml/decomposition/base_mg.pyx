@@ -169,7 +169,8 @@ class BaseDecompositionMG(object):
         print("DONE!")
 
         arr_interfaces_trans, data, trans_data = self._call_fit(
-            arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts, decomp_params)
+            arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,
+            decomp_params)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rank_size_pair[idx])
