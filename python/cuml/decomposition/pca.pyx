@@ -30,6 +30,8 @@ import cuml
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
+from cython.operator cimport dereference as deref
+
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -47,7 +49,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      float *singular_vals,
                      float *mu,
                      float *noise_vars,
-                     paramsPCA prms) except +
+                     paramsPCA &prms) except +
 
     cdef void pcaFit(cumlHandle& handle,
                      double *input,
@@ -57,7 +59,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      double *singular_vals,
                      double *mu,
                      double *noise_vars,
-                     paramsPCA prms) except +
+                     paramsPCA &prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               float *input,
@@ -68,7 +70,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                               float *singular_vals,
                               float *mu,
                               float *noise_vars,
-                              paramsPCA prms) except +
+                              paramsPCA &prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               double *input,
@@ -79,7 +81,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                               double *singular_vals,
                               double *mu,
                               double *noise_vars,
-                              paramsPCA prms) except +
+                              paramsPCA &prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   float *trans_input,
@@ -87,7 +89,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   float *singular_vals,
                                   float *mu,
                                   float *input,
-                                  paramsPCA prms) except +
+                                  paramsPCA &prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   double *trans_input,
@@ -95,7 +97,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   double *singular_vals,
                                   double *mu,
                                   double *input,
-                                  paramsPCA prms) except +
+                                  paramsPCA &prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            float *input,
@@ -103,7 +105,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            float *trans_input,
                            float *singular_vals,
                            float *mu,
-                           paramsPCA prms) except +
+                           paramsPCA &prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            double *input,
@@ -111,7 +113,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            double *trans_input,
                            double *singular_vals,
                            double *mu,
-                           paramsPCA prms) except +
+                           paramsPCA &prms) except +
 
 
 class PCA(Base):
@@ -323,6 +325,18 @@ class PCA(Base):
             raise TypeError(msg.format(algorithm))
         return algo_map[algorithm]
 
+    def _build_params(self, M, N):
+        cpdef paramsPCA *params = new paramsPCA()
+        params.n_components = self.n_components
+        params.n_rows = M
+        params.n_cols = N
+        params.whiten = self.whiten
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = self.c_algorithm
+
+        return <size_t>params
+
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self._trans_input_ = CumlArray.zeros((n_rows, n_components),
@@ -362,14 +376,8 @@ class PCA(Base):
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cpdef paramsPCA params
-        params.n_components = self.n_components
-        params.n_rows = self.n_rows
-        params.n_cols = self.n_cols
-        params.whiten = self.whiten
-        params.n_iterations = self.iterated_power
-        params.tol = self.tol
-        params.algorithm = self.c_algorithm
+        cdef paramsPCA *params = \
+                <paramsPCA*><size_t>self._build_params(self.n_rows, self.n_cols)
 
         if self.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than'
@@ -407,7 +415,7 @@ class PCA(Base):
                             <float*> singular_vals_ptr,
                             <float*> _mean_ptr,
                             <float*> noise_vars_ptr,
-                            params)
+                            deref(params))
         else:
             pcaFitTransform(handle_[0],
                             <double*> input_ptr,
@@ -418,7 +426,7 @@ class PCA(Base):
                             <double*> singular_vals_ptr,
                             <double*> _mean_ptr,
                             <double*> noise_vars_ptr,
-                            params)
+                            deref(params))
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start

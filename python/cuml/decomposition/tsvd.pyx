@@ -33,19 +33,21 @@ from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.utils import input_to_cuml_array
 
+from cython.operator cimport dereference as deref
+
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
     cdef void tsvdFit(cumlHandle& handle,
                       float *input,
                       float *components,
                       float *singular_vals,
-                      paramsTSVD prms) except +
+                      paramsTSVD &prms) except +
 
     cdef void tsvdFit(cumlHandle& handle,
                       double *input,
                       double *components,
                       double *singular_vals,
-                      paramsTSVD prms) except +
+                      paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                float *input,
@@ -54,7 +56,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               paramsTSVD prms) except +
+                               paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                double *input,
@@ -63,31 +65,31 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               paramsTSVD prms) except +
+                               paramsTSVD &prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    float *trans_input,
                                    float *components,
                                    float *input,
-                                   paramsTSVD prms) except +
+                                   paramsTSVD &prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    double *trans_input,
                                    double *components,
                                    double *input,
-                                   paramsTSVD prms) except +
+                                   paramsTSVD &prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             float *input,
                             float *components,
                             float *trans_input,
-                            paramsTSVD prms) except +
+                            paramsTSVD &prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             double *input,
                             double *components,
                             double *trans_input,
-                            paramsTSVD prms) except +
+                            paramsTSVD &prms) except +
 
 
 class TruncatedSVD(Base):
@@ -256,6 +258,17 @@ class TruncatedSVD(Base):
             raise TypeError(msg.format(algorithm))
         return algo_map[algorithm]
 
+    def _build_params(self, M, N):
+        cpdef paramsTSVD *params = new paramsTSVD()
+        params.n_components = self.n_components
+        params.n_rows = M
+        params.n_cols = N
+        params.n_iterations = self.n_iter
+        params.tol = self.tol
+        params.algorithm = self.c_algorithm
+
+        return <size_t>params
+
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self._trans_input_ = CumlArray.zeros((n_rows, n_components),
@@ -289,13 +302,10 @@ class TruncatedSVD(Base):
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cpdef paramsTSVD params
-        params.n_components = self.n_components
-        params.n_rows = self.n_rows
-        params.n_cols = self.n_cols
-        params.n_iterations = self.n_iter
-        params.tol = self.tol
-        params.algorithm = self.c_algorithm
+        cdef paramsTSVD *params = \
+                <paramsTSVD*><size_t> \
+                 self._build_params(self.n_rows, self.n_cols)
+
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
         cdef uintptr_t comp_ptr = self._components_.ptr
@@ -323,7 +333,7 @@ class TruncatedSVD(Base):
                              <float*> explained_var_ptr,
                              <float*> explained_var_ratio_ptr,
                              <float*> singular_vals_ptr,
-                             params)
+                             deref(params))
         else:
             tsvdFitTransform(handle_[0],
                              <double*> input_ptr,
@@ -332,7 +342,7 @@ class TruncatedSVD(Base):
                              <double*> explained_var_ptr,
                              <double*> explained_var_ratio_ptr,
                              <double*> singular_vals_ptr,
-                             params)
+                             deref(params))
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start

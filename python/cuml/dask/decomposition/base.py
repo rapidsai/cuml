@@ -126,7 +126,9 @@ class BaseDecompositionFitMixin:
         handle = worker_state(sessionId)["handle"]
         try:
             return model_func(handle, datatype, **kwargs)
-        except ImportError:
+        except ImportError as e:
+
+            raise Exception(e)
             raise Exception("cuML has not been built with multiGPU support "
                             "enabled. Build with the --multigpu flag to"
                             " enable multiGPU support.")
