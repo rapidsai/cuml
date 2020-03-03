@@ -19,7 +19,7 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
-from cuml.dask.common.input_utils import MGData
+from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.comms import worker_state
 from cuml.dask.common.utils import raise_exception_from_futures
@@ -122,7 +122,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         self: KMeans model
         """
 
-        data = MGData.single(X, client=self.client)
+        data = DistributedDataHandler.single(X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False, verbose=True)
