@@ -259,7 +259,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         Inertial score
         """
 
-        scores = self._run_parallel_func(KMeans._score, X, False, parallelism,
+        scores = self._run_parallel_func(KMeans._score, X, 1, False, parallelism,
                                          output_futures=True)
 
         return -1 * cp.sum(cp.asarray(

@@ -28,6 +28,7 @@ from threading import Lock
 import cupy as cp
 import copyreg
 
+import cudf
 
 def get_visible_devices():
     """
