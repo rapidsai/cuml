@@ -75,11 +75,13 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
     and fills in the converse probability */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
-                            float global_bias, bool predict_proba) {
+                            float global_bias, bool predict_proba,
+                            leaf_value_desc_t leaf_payload_type) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
 
-  float result = preds[predict_proba ? i * 2 : i];
+  bool complement_proba = predict_proba && (leaf_payload_type == FLOAT_SCALAR);
+  float result = preds[complement_proba ? i * 2 : i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
@@ -88,7 +90,7 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   }
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
-  if (predict_proba) {
+  if (complement_proba) {
     preds[i * 2] = 1.f - result;
     preds[i * 2 + 1] = result;
   } else
@@ -116,6 +118,7 @@ struct forest {
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
     leaf_payload_type_ = params->leaf_payload_type;
+    num_output_classes_ = params->num_output_classes;
     init_max_shm();
   }
 
@@ -131,7 +134,9 @@ struct forest {
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
-    params.num_output_classes = predict_proba ? 2 : 1;
+    params.num_output_classes = 
+      ((num_output_classes > 2) || (leaf_payload_type_ == INT_CLASS_LABEL)) ? num_output_classes_ :
+        (predict_proba ? 2 : 1);
     params.leaf_payload_type = leaf_payload_type_;
 
     // Predict using the forest.
@@ -140,9 +145,14 @@ struct forest {
 
     // Transform the output if necessary.
     if (output_ != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
+      auto output = output_;
+      if (predict_proba && (leaf_payload_type == INT_CLASS_LABEL))
+        // because infer(params, stream) will write vote counts
+        // instead of probabilities
+        output |= output_t::AVG;
       transform_k<<<ceildiv(int(num_rows), FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, num_rows, output_, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-        threshold_, global_bias_, predict_proba);
+        preds, num_rows, output, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+        threshold_, global_bias_, predict_proba, params.leaf_payload_type);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -159,6 +169,7 @@ struct forest {
   float threshold_ = 0.5;
   float global_bias_ = 0;
   leaf_value_desc_t leaf_payload_type_ = FLOAT_SCALAR;
+  int num_output_classes_ = INT_MAX;
 };
 
 struct dense_forest : forest {
