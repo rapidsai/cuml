@@ -1,12 +1,9 @@
-from cuml.dask.common.input_utils import MGData
-from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.utils import MultiHolderLock
 
 from dask.distributed import default_client
 
 from dask_cudf.core import DataFrame as dcDataFrame
 
-from uuid import uuid1
 import dask
 
 from toolz import first
@@ -99,12 +96,13 @@ class DelayedParallelFunc(object):
                      for part in X_d]
             dtype = X.dtype if output_dtype is None else output_dtype
 
-        # TODO: Put the following conditionals in a `to_delayed_output()` function
+        # TODO: Put the following conditionals in a
+        #  `to_delayed_output()` function
         if self.datatype == 'cupy':
 
             # todo: add parameter for option of not checking directly
 
-            shape = tuple([np.nan for dim in range(n_dims)])
+            shape = (np.nan,)*n_dims
             preds_arr = [
                 dask.array.from_delayed(pred,
                                         meta=cp.zeros(1, dtype=dtype),
@@ -116,8 +114,8 @@ class DelayedParallelFunc(object):
                 return self.client.compute(preds)
             else:
                 output = dask.array.concatenate(preds_arr, axis=0,
-                                              allow_unknown_chunksizes=True
-                                              )
+                                                allow_unknown_chunksizes=True
+                                                )
 
                 return output if delayed else output.persist()
 
@@ -153,7 +151,8 @@ class DelayedPredictionMixin(DelayedParallelFunc):
         y : dask cuDF (n_rows, 1)
         """
 
-        return self._run_parallel_func(_predict_func, X, 1, delayed, parallelism)
+        return self._run_parallel_func(_predict_func, X, 1, delayed,
+                                       parallelism)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
