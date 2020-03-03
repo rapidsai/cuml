@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +13,20 @@
 # limitations under the License.
 #
 
-from cuml.metrics.trustworthiness import trustworthiness
-from cuml.metrics.regression import r2_score
-from cuml.metrics.regression import mean_squared_error
-from cuml.metrics.accuracy import accuracy_score
-from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+import pickle
+import pytest
+
+from cuml.common.handle import Handle
+
+
+@pytest.mark.parametrize('n_streams', [0, 1, 10])
+def test_pickle(n_streams):
+    a = Handle(n_streams=n_streams)
+    ap = pickle.dumps(a)
+    b = pickle.loads(ap)
+
+    assert isinstance(b, Handle)
+    assert b.getNumInternalStreams() == n_streams
+
+    # Add any additional asserts as parameters are added here
+    # If Handle gets a dict, add a proper comparison here.
