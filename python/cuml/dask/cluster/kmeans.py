@@ -13,21 +13,18 @@
 # limitations under the License.
 #
 
-
-from cuml.dask.common.input_utils import concatenate
-from cuml.dask.common.input_utils import MGData
-
-from cuml.dask.common import raise_mg_import_exception
-from dask.distributed import default_client
-from cuml.dask.common.comms import worker_state, CommsContext
-from dask.distributed import wait
 import numpy as np
 
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
-
+from cuml.dask.common.base import mnmg_import
+from cuml.dask.common.input_utils import concatenate
+from cuml.dask.common.input_utils import MGData
+from cuml.dask.common.comms import CommsContext
+from cuml.dask.common.comms import worker_state
 from cuml.dask.common.utils import raise_exception_from_futures
-
+from dask.distributed import default_client
+from dask.distributed import wait
 from uuid import uuid1
 
 
@@ -95,21 +92,9 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         self.kwargs = kwargs
 
     @staticmethod
+    @mnmg_import
     def _func_fit(sessionId, objs, datatype, **kwargs):
-        """
-        Runs on each worker to call fit on local KMeans instance.
-        Extracts centroids
-        :param model: Local KMeans instance
-        :param dfs: List of cudf.Dataframes to use
-        :param r: Stops memoization caching
-        :return: The fit model
-        """
-
-        try:
-            from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
-        except ImportError:
-            raise_mg_import_exception()
-
+        from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         handle = worker_state(sessionId)["handle"]
 
         inp_data = concatenate(objs)
@@ -261,7 +246,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         scores = self._run_parallel_func(KMeans._score, X, False, parallelism,
                                          output_futures=True)
 
-        return -1 * np.sum(np.array([s.result() for s in scores])*-1)
+        return -1 * np.sum(np.array([s.result() for s in scores]) * -1)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
