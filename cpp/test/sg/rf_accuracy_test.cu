@@ -78,6 +78,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     predict(h, forest, X_test, params.n_rows_test, 1, y_pred, false);
     auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred, false);
     printf("%f ... \n", metrics.accuracy);
+    /** @todo: add a check here */
   }
   
  private:
