@@ -86,6 +86,7 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
+- PR #1555: FIL-SKL, an SKLearn-based benchmark for FIL
 - PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 - PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM
