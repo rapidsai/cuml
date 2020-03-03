@@ -16,8 +16,8 @@
 
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <cuml/ensemble/randomforest.hpp>
 #include <random/rng.h>
+#include <cuml/ensemble/randomforest.hpp>
 
 namespace ML {
 
@@ -41,14 +41,14 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     handle->setStream(stream);
     auto allocator = handle->getDeviceAllocator();
     setRFParams();
-    X_train = (T*)allocator->allocate(params.n_rows_train * sizeof(T), stream);
-    y_train = (int*)allocator->allocate(params.n_rows_train * sizeof(int),
-                                        stream);
-    X_test = (T*)allocator->allocate(params.n_rows_test * sizeof(T), stream);
-    y_test = (int*)allocator->allocate(params.n_rows_test * sizeof(int),
-                                       stream);
-    y_pred = (int*)allocator->allocate(params.n_rows_test * sizeof(int),
-                                       stream);
+    X_train = (T *)allocator->allocate(params.n_rows_train * sizeof(T), stream);
+    y_train =
+      (int *)allocator->allocate(params.n_rows_train * sizeof(int), stream);
+    X_test = (T *)allocator->allocate(params.n_rows_test * sizeof(T), stream);
+    y_test =
+      (int *)allocator->allocate(params.n_rows_test * sizeof(int), stream);
+    y_pred =
+      (int *)allocator->allocate(params.n_rows_test * sizeof(int), stream);
     loadData(X_train, y_train, params.n_rows_train, 1);
     loadData(X_test, y_test, params.n_rows_test, 1);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -74,33 +74,30 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
       printf("%d -> %f ... \n", i, accuracy);
     }
   }
-  
+
  private:
   void setRFParams() {
     DecisionTree::DecisionTreeParams tree_params;
     auto algo = SPLIT_ALGO::GLOBAL_QUANTILE;
     auto sc = CRITERION::CRITERION_END;
-    set_tree_params(tree_params,
-                    1,     /* max_depth */
-                    -1,    /* max_leaves */
-                    1.0,   /* max_features */
-                    16,    /* n_bins */
-                    algo,  /* split_algo */
-                    2,     /* min_rows_per_node */
-                    0.f,   /* min_impurity_decrease */
-                    false, /* bootstrap_features */
-                    sc,    /* split_criterion */
-                    false, /* quantile_per_tree */
-                    false  /* shuffle_features */
-      );
-    set_all_rf_params(rfp,
-                      1,    /* n_trees */
-                      true, /* bootstrap */
-                      1.0,  /* rows_sample */
-                      -1,   /* seed */
-                      1,    /* n_streams */
-                      tree_params
-      );
+    set_tree_params(tree_params, 1, /* max_depth */
+                    -1,             /* max_leaves */
+                    1.0,            /* max_features */
+                    16,             /* n_bins */
+                    algo,           /* split_algo */
+                    2,              /* min_rows_per_node */
+                    0.f,            /* min_impurity_decrease */
+                    false,          /* bootstrap_features */
+                    sc,             /* split_criterion */
+                    false,          /* quantile_per_tree */
+                    false           /* shuffle_features */
+    );
+    set_all_rf_params(rfp, 1, /* n_trees */
+                      true,   /* bootstrap */
+                      1.0,    /* rows_sample */
+                      -1,     /* seed */
+                      1,      /* n_streams */
+                      tree_params);
   }
 
   void loadData(T *X, int *y, int nrows, int ncols) {
@@ -109,15 +106,15 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
   }
 
   float runTrainAndTest() {
-    auto* forest = new RandomForestMetaData<T, int>;
+    auto *forest = new RandomForestMetaData<T, int>;
     forest->trees = nullptr;
-    auto& h = *(handle.get());
+    auto &h = *(handle.get());
     fit(h, forest, X_train, params.n_rows_train, 1, y_train, 2, rfp);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     predict(h, forest, X_test, params.n_rows_test, 1, y_pred, false);
     auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred, false);
     /** @todo: add a check here */
-    delete [] forest->trees;
+    delete[] forest->trees;
     delete forest;
     return metrics.accuracy;
   }
@@ -138,11 +135,9 @@ const std::vector<RFInputs> inputs = {
   {800, 200, 67890ULL, 2},
 };
 
-#define DEFINE_TEST(clz, name, testName, params)                        \
-  typedef clz name;                                                     \
-  TEST_P(name, Test) {                                                  \
-    runTest();                                                          \
-  }                                                                     \
+#define DEFINE_TEST(clz, name, testName, params) \
+  typedef clz name;                              \
+  TEST_P(name, Test) { runTest(); }              \
   INSTANTIATE_TEST_CASE_P(testName, name, ::testing::ValuesIn(params))
 
 DEFINE_TEST(RFClassifierAccuracyTest<float>, ClsTestF, RFAccuracy, inputs);
