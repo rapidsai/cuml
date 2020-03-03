@@ -21,7 +21,6 @@ from cuml.dask.common.input_utils import MGData
 
 from cuml.dask.common.part_utils import flatten_grouped_results
 
-
 from dask.distributed import default_client
 from dask.distributed import wait
 
