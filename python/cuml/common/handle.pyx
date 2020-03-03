@@ -68,12 +68,6 @@ cdef class Handle:
         self.n_streams = n_streams
         self.h = <size_t>(new cumlHandle(n_streams))
 
-        # setting RMM as allocator
-        cdef shared_ptr[deviceAllocator] rmmAlloc = (
-            shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmAlloc)
-
     def __dealloc__(self):
         h_ = <cumlHandle*>self.h
         del h_
@@ -82,6 +76,21 @@ cdef class Handle:
         cdef size_t s = <size_t>stream.getStream()
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         h_.setStream(<_Stream>s)
+
+    # TODO: in future, we should just enable RMM by default
+    def enableRMM(self):
+        """
+        Enables to use RMM as the allocator for all device memory allocations
+        inside cuML C++ world. Currently, there are only 2 kinds of allocators.
+        First, the usual cudaMalloc/Free, which is the default for cumlHandle.
+        Second, the allocator based on RMM. So, this function, basically makes
+        the cumlHandle use a more efficient allocator, instead of the default.
+        """
+        cdef shared_ptr[deviceAllocator] rmmAlloc = (
+            shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        h_.setDeviceAllocator(rmmAlloc)
+
 
     def sync(self):
         """
