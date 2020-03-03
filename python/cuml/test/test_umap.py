@@ -111,8 +111,7 @@ def test_umap_trustworthiness_on_iris():
     assert trust >= 0.97
 
 
-@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-def test_umap_transform_on_iris(random_state):
+def test_umap_transform_on_iris():
 
     iris = datasets.load_iris()
 
@@ -121,12 +120,11 @@ def test_umap_transform_on_iris(random_state):
     data = iris.data[iris_selection]
 
     fitter = cuUMAP(n_neighbors=10, n_epochs=800, min_dist=0.01,
-                    random_state=random_state, verbose=False)
+                    random_state=42, verbose=False)
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
     trust = trustworthiness(new_data, embedding, 10)
-
     assert trust >= 0.85
 
 
@@ -138,14 +136,13 @@ def test_umap_transform_on_digits():
         [True, False], 1797, replace=True, p=[0.75, 0.25])
     data = digits.data[digits_selection]
 
-    fitter = cuUMAP(n_neighbors=15, n_epochs=0, min_dist=0.01, verbose=False)
+    fitter = cuUMAP(n_neighbors=15, n_epochs=0, min_dist=0.01,
+                    random_state=42, verbose=False)
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
     trust = trustworthiness(new_data, embedding, 10)
-
-    # This should be raised once UMAP is reproducible
-    assert trust >= 0.92
+    assert trust >= 0.96
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -267,12 +264,15 @@ def test_umap_fit_transform_against_fit_and_transform():
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components', [2, 25])
+@pytest.mark.parametrize('n_components', [2, 13])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
     n_features = 200
+
+    if random_state is None:
+        n_components *= 2
 
     data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
                               centers=10, random_state=42)
@@ -304,8 +304,11 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
 def test_umap_transform_reproducibility(n_components, random_state):
 
-    n_samples = 8000
+    n_samples = 5000
     n_features = 200
+
+    if random_state is None:
+        n_components *= 2
 
     data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
                               centers=10, random_state=42)
