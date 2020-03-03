@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,10 +43,13 @@ static const int TPB = 256;
 template <typename Index_ = int>
 __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (labels[tid] == MAX_LABEL)
-    labels[tid] = -1;
-  else if (tid < N)
-    --labels[tid];
+  if (tid < N) {
+    if (labels[tid] == MAX_LABEL) {
+      labels[tid] = -1;
+    } else {
+      --labels[tid];
+    }
+  }
 }
 
 /**
