@@ -30,6 +30,7 @@
 - PR #1748: Test serializing `CumlArray` objects
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1788: Removing complexity bottleneck in S-ARIMA
 
 ## Bug Fixes
 - PR #1770: Warn that KalmanFilter is deprecated
