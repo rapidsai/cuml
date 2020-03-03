@@ -302,9 +302,8 @@ class TruncatedSVD(Base):
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef paramsTSVD *params = \
-                <paramsTSVD*><size_t> \
-                 self._build_params(self.n_rows, self.n_cols)
+        cdef paramsTSVD *params = <paramsTSVD*><size_t> \
+            self._build_params(self.n_rows, self.n_cols)
 
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 

@@ -19,7 +19,6 @@
 # cython: language_level = 3
 
 
-
 import ctypes
 import cudf
 import numpy as np
@@ -138,11 +137,11 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                                 paramsPCA &prms,
                                 bool verbose) except +
 
+
 class PCAMG(PCA, BaseDecompositionMG):
 
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
-
 
     def _call_fit(self, arr_interfaces, p2r, rank, arg_rank_size_pair,
                   n_total_parts, arg_params):

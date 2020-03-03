@@ -132,4 +132,3 @@ class BaseDecompositionFitMixin:
             raise Exception("cuML has not been built with multiGPU support "
                             "enabled. Build with the --multigpu flag to"
                             " enable multiGPU support.")
-
