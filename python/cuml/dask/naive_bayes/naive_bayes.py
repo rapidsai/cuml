@@ -18,6 +18,8 @@ import cupy as cp
 
 from uuid import uuid1
 
+from cuml.dask.common.input_utils import MGData
+
 from cuml.naive_bayes import MultinomialNB as MNB
 
 import dask
@@ -31,10 +33,8 @@ from dask.distributed import default_client
 
 from cuml.dask.common.utils import patch_cupy_sparse_serialization
 
-from cuml.dask.common.base import DelayedPredictionMixin
 
-
-class MultinomialNB(DelayedPredictionMixin):
+class MultinomialNB(object):
 
     """
     Distributed Naive Bayes classifier for multinomial models
@@ -121,6 +121,10 @@ class MultinomialNB(DelayedPredictionMixin):
         return model.class_count_, model.feature_count_
 
     @staticmethod
+    def _predict(model, X):
+        return [model.predict(x) for x in X]
+
+    @staticmethod
     def _unique(x):
         return rmm_cupy_ary(cp.unique, x)
 
@@ -161,10 +165,10 @@ class MultinomialNB(DelayedPredictionMixin):
             raise ValueError("X must be chunked by row only. "
                              "Multi-dimensional chunking is not supported")
 
-        worker_parts = self.client_.sync(extract_arr_partitions,
-                                         [X, y])
+        data = MGData.create(data=(X, y), client=self.client_)
+        self.datatype = data.datatype
 
-        worker_parts = workers_to_parts(worker_parts)
+        worker_parts = data.worker_to_parts
 
         n_features = X.shape[1]
 
@@ -188,26 +192,26 @@ class MultinomialNB(DelayedPredictionMixin):
             [self.client_.submit(MultinomialNB._get_feature_counts, c)
              for c in counts], sync=True)
 
-        self.local_model = MNB(**self.kwargs)
-        self.local_model.classes_ = classes
-        self.local_model.n_classes = n_classes
-        self.local_model.n_features = X.shape[1]
+        self.model_ = MNB(**self.kwargs)
+        self.model_.classes_ = classes
+        self.model_.n_classes = n_classes
+        self.model_.n_features = X.shape[1]
 
-        self.local_model.class_count_ = rmm_cupy_ary(cp.zeros,
-                                                     n_classes,
-                                                     order="F",
-                                                     dtype=cp.float32)
-        self.local_model.feature_count_ = rmm_cupy_ary(cp.zeros,
-                                                       (n_classes, n_features),
-                                                       order="F",
-                                                       dtype=cp.float32)
+        self.model_.class_count_ = rmm_cupy_ary(cp.zeros,
+                                                n_classes,
+                                                order="F",
+                                                dtype=cp.float32)
+        self.model_.feature_count_ = rmm_cupy_ary(cp.zeros,
+                                                  (n_classes, n_features),
+                                                  order="F",
+                                                  dtype=cp.float32)
 
         for class_count_ in class_counts:
-            self.local_model.class_count_ += class_count_
+            self.model_.class_count_ += class_count_
         for feature_count_ in feature_counts:
-            self.local_model.feature_count_ += feature_count_
+            self.model_.feature_count_ += feature_count_
 
-        self.local_model.update_log_probs()
+        self.model_.update_log_probs()
 
     @staticmethod
     def _get_part(parts, idx):
@@ -217,22 +221,68 @@ class MultinomialNB(DelayedPredictionMixin):
     def _get_size(arrs):
         return arrs.shape[0]
 
-    def predict(self, X, delayed=True, parallelism=5):
+    def predict(self, X):
+
         """
-        Predict classes for distributed Naive Bayes classifier model
+        Use distributed Naive Bayes model to predict the classes for a
+        given set of data samples.
 
         Parameters
         ----------
 
         X : dask.Array with blocks containing dense or sparse cupy arrays
 
+
         Returns
         -------
 
-        dask.Array containing class predictions
+        dask.Array containing predicted classes
+
         """
 
-        return self._predict(X, delayed, parallelism)
+        gpu_futures = self.client_.sync(extract_arr_partitions, X)
+        x_worker_parts = workers_to_parts(gpu_futures)
+
+        key = uuid1()
+
+        futures = [(wf[0],
+                    self.client_.submit(MultinomialNB._get_size,
+                                        wf[1],
+                                        workers=[wf[0]],
+                                        key="%s-%s" % (key, idx)))
+                   for idx, wf in enumerate(gpu_futures)]
+
+        sizes = self.client_.compute(list(map(lambda x: x[1],
+                                              futures)), sync=True)
+
+        models = dict([(w, self.client_.scatter(self.model_,
+                                                broadcast=True,
+                                                workers=[w]))
+                       for w, p in x_worker_parts.items()])
+
+        preds = dict([(w, self.client_.submit(
+            MultinomialNB._predict,
+            models[w],
+            p
+        )) for w, p in x_worker_parts.items()])
+
+        final_parts = {}
+        to_concat = []
+        for wp, size in zip(gpu_futures, sizes):
+            w, p = wp
+            if w not in final_parts:
+                final_parts[w] = 0
+
+            to_concat.append(
+                dask.array.from_delayed(
+                    dask.delayed(self.client_.submit(MultinomialNB._get_part,
+                                                     preds[w],
+                                                     final_parts[w])),
+                    dtype=cp.int32, shape=(size,)))
+
+            final_parts[w] += 1
+
+        return dask.array.concatenate(to_concat)
 
     def score(self, X, y):
         """
