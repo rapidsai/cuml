@@ -18,6 +18,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+
+
 import ctypes
 import cudf
 import numpy as np
@@ -39,6 +41,7 @@ from cuml.decomposition.utils cimport *
 from cuml.utils import input_to_dev_array, zeros
 
 from cuml.decomposition import PCA
+from cuml.decomposition.base_mg import BaseDecompositionMG
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
                  namespace "MLCommon::Matrix":
@@ -60,6 +63,7 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
         int rank
         size_t size
 
+
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
     cdef void fit_transform(cumlHandle& handle,
@@ -73,7 +77,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                             float *singular_vals,
                             float *mu,
                             float *noise_vars,
-                            paramsPCA prms,
+                            paramsPCA &prms,
                             bool verbose) except +
 
     cdef void fit_transform(cumlHandle& handle,
@@ -87,7 +91,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                             double *singular_vals,
                             double *mu,
                             double *noise_vars,
-                            paramsPCA prms,
+                            paramsPCA &prms,
                             bool verbose) except +
 
     cdef void transform(cumlHandle& handle,
@@ -98,7 +102,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                         floatData_t **trans_input,
                         float *singular_vals,
                         float *mu,
-                        paramsPCA prms,
+                        paramsPCA &prms,
                         bool verbose) except +
 
     cdef void transform(cumlHandle& handle,
@@ -109,7 +113,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                         doubleData_t **trans_input,
                         double *singular_vals,
                         double *mu,
-                        paramsPCA prms,
+                        paramsPCA &prms,
                         bool verbose) except +
 
     cdef void inverse_transform(cumlHandle& handle,
@@ -120,7 +124,7 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                                 floatData_t **input,
                                 float *singular_vals,
                                 float *mu,
-                                paramsPCA prms,
+                                paramsPCA &prms,
                                 bool verbose) except +
 
     cdef void inverse_transform(cumlHandle& handle,
@@ -131,135 +135,17 @@ cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
                                 doubleData_t **input,
                                 double *singular_vals,
                                 double *mu,
-                                paramsPCA prms,
+                                paramsPCA &prms,
                                 bool verbose) except +
 
-
-class PCAMG(PCA):
+class PCAMG(PCA, BaseDecompositionMG):
 
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
 
-    def _initialize_arrays(self, n_components, n_rows, n_cols, n_part_rows):
 
-        self._components_ = CumlArray.zeros((n_components, n_cols),
-                                            dtype=self.dtype)
-        self._explained_variance_ = CumlArray.zeros(n_components,
-                                                    dtype=self.dtype)
-        self._explained_variance_ratio_ = CumlArray.zeros(n_components,
-                                                          dtype=self.dtype)
-        self._mean_ = CumlArray.zeros(n_cols, dtype=self.dtype)
-
-        self._singular_values_ = CumlArray.zeros(n_components,
-                                                 dtype=self.dtype)
-        self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
-
-    def _build_dataFloat(self, arr_interfaces):
-        cdef floatData_t ** dataF = < floatData_t ** > \
-            malloc(sizeof(floatData_t *)
-                   * len(arr_interfaces))
-
-        cdef uintptr_t input_ptr
-        for x_i in range(len(arr_interfaces)):
-            x = arr_interfaces[x_i]
-            input_ptr = x["data"]
-            dataF[x_i] = < floatData_t * > malloc(sizeof(floatData_t))
-            dataF[x_i].ptr = < float * > input_ptr
-            dataF[x_i].totalSize = < size_t > x["shape"][0]
-        return <size_t>dataF
-
-    def _build_dataDouble(self, arr_interfaces):
-        cdef doubleData_t ** dataD = < doubleData_t ** > \
-            malloc(sizeof(doubleData_t *)
-                   * len(arr_interfaces))
-
-        cdef uintptr_t input_ptr
-        for x_i in range(len(arr_interfaces)):
-            x = arr_interfaces[x_i]
-            input_ptr = x["data"]
-            dataD[x_i] = < doubleData_t * > malloc(sizeof(doubleData_t))
-            dataD[x_i].ptr = < double * > input_ptr
-            dataD[x_i].totalSize = < size_t > x["shape"][0]
-        return <size_t>dataD
-
-    def _freeDoubleD(self, data, arr_interfaces):
-        cdef uintptr_t data_ptr = data
-        cdef doubleData_t **d = <doubleData_t**>data_ptr
-        for x_i in range(len(arr_interfaces)):
-            free(d[x_i])
-        free(d)
-
-    def _freeFloatD(self, data, arr_interfaces):
-        cdef uintptr_t data_ptr = data
-        cdef floatData_t **d = <floatData_t**>data_ptr
-        for x_i in range(len(arr_interfaces)):
-            free(d[x_i])
-        free(d)
-
-    def _build_transData(self, partsToRanks, rnk, n_cols, dtype):
-        arr_interfaces_trans = []
-        for idx, rankSize in enumerate(partsToRanks):
-            rank, size = rankSize
-            if rnk == rank:
-                trans_ary = CumlArray.zeros((size, n_cols),
-                                            order="F",
-                                            dtype=dtype)
-
-                arr_interfaces_trans.append({"obj": trans_ary,
-                                             "data": trans_ary.ptr,
-                                             "shape": (size, n_cols)})
-
-        return arr_interfaces_trans
-
-    def fit(self, X, M, N, partsToRanks, rank, _transform=False):
-        """
-        Fit function for PCA MG. This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param M: total number of rows
-        :param N: total number of cols
-        :param partsToRanks: array of tuples in the format: [(rank,size)]
-        :return: self
-        """
-
-        self._set_output_type(X)
-
-        arr_interfaces = []
-        for arr in X:
-            X_m, input_ptr, n_rows, self.n_cols, self.dtype = \
-                input_to_dev_array(arr, check_dtype=[np.float32, np.float64])
-            arr_interfaces.append({"obj": X_m,
-                                   "data": input_ptr,
-                                   "shape": (n_rows, self.n_cols)})
-
-        self.n_cols = N
-        cpdef paramsPCA params
-        params.n_components = self.n_components
-        params.n_rows = M
-        params.n_cols = N
-        params.whiten = self.whiten
-        params.n_iterations = self.iterated_power
-        params.tol = self.tol
-        params.algorithm = self.c_algorithm
-
-        n_total_parts = len(X)
-        cdef RankSizePair **rankSizePair = <RankSizePair**> \
-            malloc(sizeof(RankSizePair**)
-                   * n_total_parts)
-
-        p2r = []
-
-        n_rows = 0
-        for i in range(len(X)):
-            rankSizePair[i] = <RankSizePair*> \
-                malloc(sizeof(RankSizePair))
-            rankSizePair[i].rank = <int>rank
-            n_rows += len(X[i])
-            rankSizePair[i].size = <size_t>len(X[i])
-            p2r.append((rank, len(X[i])))
-
-        self._initialize_arrays(params.n_components,
-                                params.n_rows, params.n_cols, n_rows)
+    def _call_fit(self, arr_interfaces, p2r, rank, arg_rank_size_pair,
+                  n_total_parts, arg_params):
 
         cdef uintptr_t comp_ptr = self._components_.ptr
         cdef uintptr_t explained_var_ptr = self._explained_variance_.ptr
@@ -273,6 +159,8 @@ class PCAMG(PCA):
         cdef uintptr_t data
         cdef uintptr_t trans_data
 
+        cdef paramsPCA *params = <paramsPCA*><size_t>arg_params
+
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
             arr_interfaces_trans = self._build_transData(p2r,
@@ -282,7 +170,7 @@ class PCAMG(PCA):
             trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             fit_transform(handle_[0],
-                          <RankSizePair**>rankSizePair,
+                          <RankSizePair**><size_t>arg_rank_size_pair,
                           <size_t> n_total_parts,
                           <floatData_t**> data,
                           <floatData_t**> trans_data,
@@ -292,7 +180,7 @@ class PCAMG(PCA):
                           <float*> singular_vals_ptr,
                           <float*> mean_ptr,
                           <float*> noise_vars_ptr,
-                          params,
+                          deref(params),
                           False)
         else:
             data = self._build_dataDouble(arr_interfaces)
@@ -303,7 +191,7 @@ class PCAMG(PCA):
             trans_data = self._build_dataDouble(arr_interfaces_trans)
 
             fit_transform(handle_[0],
-                          <RankSizePair**>rankSizePair,
+                          <RankSizePair**><size_t>arg_rank_size_pair,
                           <size_t> n_total_parts,
                           <doubleData_t**> data,
                           <doubleData_t**> trans_data,
@@ -313,29 +201,21 @@ class PCAMG(PCA):
                           <double*> singular_vals_ptr,
                           <double*> mean_ptr,
                           <double*> noise_vars_ptr,
-                          params,
+                          deref(params),
                           False)
 
         self.handle.sync()
 
-        for idx in range(n_total_parts):
-            free(<RankSizePair*>rankSizePair[idx])
-        free(<RankSizePair**>rankSizePair)
+        return arr_interfaces_trans, data, trans_data
 
-        del(X_m)
-
-        trans_cudf = []
-        if _transform:
-            for x_i in arr_interfaces_trans:
-                trans_cudf.append(x_i["obj"].to_output(output_type="cudf"))
-
-            if self.dtype == np.float32:
-                self._freeFloatD(trans_data, arr_interfaces_trans)
-                self._freeFloatD(data, arr_interfaces)
-            else:
-                self._freeDoubleD(trans_data, arr_interfaces_trans)
-                self._freeDoubleD(data, arr_interfaces)
-
-            return trans_cudf
-
-        return self
+    def fit(self, X, M, N, partsToRanks, rank, _transform=False):
+        """
+        Fit function for PCA MG. This not meant to be used as
+        part of the public API.
+        :param X: array of local dataframes / array partitions
+        :param M: total number of rows
+        :param N: total number of cols
+        :param partsToRanks: array of tuples in the format: [(rank,size)]
+        :return: self
+        """
+        return self._fit(X, M, N, partsToRanks, rank, _transform)
