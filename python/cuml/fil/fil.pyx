@@ -86,7 +86,7 @@ cdef class TreeliteModel():
     cdef ModelHandle get_handle(self):
         return self.handle
 
-    def __cdel__(self):
+    def __dealloc__(self):
         if self.handle != NULL:
             TreeliteFreeModel(self.handle)
 
@@ -319,12 +319,11 @@ cdef class ForestInference_impl():
                       &treelite_params)
         return self
 
-    def __cdel__(self):
+    def __dealloc__(self):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         free(handle_[0],
              self.forest_data)
-        return self
 
 
 class ForestInference(Base):
