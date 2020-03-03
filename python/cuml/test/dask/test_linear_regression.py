@@ -80,10 +80,7 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
 
         lr = cumlOLS_dask(fit_intercept=fit_intercept, normalize=normalize)
 
-        if n_parts > 2:
-            lr.fit(X_df, y_df, force_colocality=True)
-        else:
-            lr.fit(X_df, y_df)
+        lr.fit(X_df, y_df)
 
         ret = lr.predict(X_df, delayed)
 
