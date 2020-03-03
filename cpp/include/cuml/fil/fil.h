@@ -165,9 +165,11 @@ struct forest_params_t {
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
   float global_bias;
-  // output_dim is how many values a single data row would yield. 
-  // an exception: for two-class classification, it is 1
-  int output_dim;
+  // prediction_dim determines the class probability prediction shape.
+  // also affects intermediate output in classification
+  // currently, multi-valued (vector) regression not supported due to model
+  // storage/layout restrictions
+  int num_classes;
 };
 
 /** treelite_params_t are parameters for importing treelite models */
