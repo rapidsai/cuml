@@ -26,7 +26,7 @@ using namespace MLCommon;
 template <int N, typename T>
 struct vec {
   T data[N];
-  __host__ __device__ inline vec() = default; // zeros for numerical member vars
+  inline vec() = default;  // zeros for numerical member vars
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
   friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
@@ -42,9 +42,8 @@ struct vec {
 };
 
 template <int NITEMS, typename output_type, typename tree_type>
-__device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tree,
-                                                               float* sdata,
-                                                               int cols) {
+__device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
+  tree_type tree, float* sdata, int cols) {
   int curr[NITEMS];
   int mask = (1 << NITEMS) - 1;  // all active
   for (int j = 0; j < NITEMS; ++j) curr[j] = 0;
@@ -64,15 +63,14 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tre
   } while (mask != 0);
   vec<NITEMS, output_type> out;
 #pragma unroll
-  for (int j = 0; j < NITEMS; ++j)
-    out[j] = tree[curr[j]].output();
+  for (int j = 0; j < NITEMS; ++j) out[j] = tree[curr[j]].output();
   return out;
 }
 
 template <typename output_type, typename tree_type>
 __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
-                                                          float* sdata,
-                                                          int cols) {
+                                                              float* sdata,
+                                                              int cols) {
   int curr = 0;
   for (;;) {
     auto n = tree[curr];
@@ -86,19 +84,20 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   return out;
 }
 
-template <int NITEMS, 
-          leaf_value_desc_t leaf_payload_type = FLOAT_SCALAR, 
-          typename node_payload_type = float>
+template <int NITEMS,
+          leaf_value_desc_t leaf_payload_type,  // = FLOAT_SCALAR,
+          typename node_payload_type>           // = float>
 struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   int num_output_classes;
 
   __device__ __forceinline__ tree_aggregator_t(int num_output_classes_, void*)
     : num_output_classes(num_output_classes_) {
-// TODO: even if num_output_classes == 2, in regression, this needs to change
+    // TODO: even if num_output_classes == 2, in regression, this needs to change
   }
-  __device__ __forceinline__ void accumulate(vec<NITEMS, float> out) {
-    acc += out;
+  __device__ __forceinline__ void accumulate(vec<NITEMS, val_t> out) {
+#pragma unroll
+    for (int i = 0; i < NITEMS; ++i) acc[i] += out[i].f;
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows) {
     using BlockReduce = cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
@@ -113,6 +112,10 @@ struct tree_aggregator_t {
       }
     }
   }
+  __device__ __forceinline__ void finalize_class_label(float* out,
+                                                       int num_rows) {
+    finalize(out, num_rows);
+  }
 };
 
 template <int NITEMS>
@@ -125,19 +128,18 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, unsigned int> {
   int num_output_classes;
 
   __device__ __forceinline__ tree_aggregator_t(int num_output_classes_,
-                                            void* shared_workspace)
-    : votes(shared_workspace), num_output_classes(num_output_classes_) {
-    
+                                               void* shared_workspace)
+    : votes((vote_count_t*)shared_workspace),
+      num_output_classes(num_output_classes_) {
     for (int c = threadIdx.x; c < num_output_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
-      for (int i = 0; i < NITEMS; ++i)
-        votes[c * NITEMS + i] = 0;
+      for (int i = 0; i < NITEMS; ++i) votes[c * NITEMS + i] = 0;
     //__syncthreads(); // happening outside
   }
-  __device__ __forceinline__ void accumulate(vec<NITEMS, class_label_t> out) {
+  __device__ __forceinline__ void accumulate(vec<NITEMS, val_t> out) {
 #pragma unroll
     for (int i = 0; i < NITEMS; ++i)
-      atomicAdd(votes + out[i] * NITEMS + i, 1);
+      atomicAdd(votes + out[i].idx * NITEMS + i, 1);
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows) {
     __syncthreads();
@@ -146,13 +148,13 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, unsigned int> {
     if ((item < NITEMS) && (row < num_rows)) {
 #pragma unroll
       for (int c = 0; c < num_output_classes; ++c)
-        out[row * num_output_classes + c] =
-          votes[c * NITEMS + item];
+        out[row * num_output_classes + c] = votes[c * NITEMS + item];
     }
   }
   // using this when predicting a single class label, as opposed to sparse class vector
   // or class probabilities or regression
-  __device__ __forceinline__ void finalize_class_label(float* out, int num_rows) {
+  __device__ __forceinline__ void finalize_class_label(float* out,
+                                                       int num_rows) {
     __syncthreads();
     int item = threadIdx.x;
     int row = blockIdx.x * NITEMS + item;
@@ -160,7 +162,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL, unsigned int> {
       vote_count_t max_votes = 0;
       class_label_t best_class = 0;
       for (int c = 0; c < num_output_classes; ++c)
-        if(votes[c * NITEMS + item] > max_votes) {
+        if (votes[c * NITEMS + item] > max_votes) {
           max_votes = votes[c * NITEMS + item];
           best_class = c;
         }
@@ -193,14 +195,14 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
     acc.accumulate(
-      infer_one_tree<NITEMS, output_type>(forest[j], sdata, params.num_cols));
+      infer_one_tree<NITEMS, val_t>(forest[j], sdata, params.num_cols));
   }
   // compute most probable class. in cuML RF, output is class label,
   // hence, no-predicted class edge case doesn't apply
-  if ((leaf_payload_type == INT_CLASS_LABEL) && (!params.predict_proba))
+  if (!params.predict_proba)
     acc.finalize_class_label(params.preds, params.num_rows);
   else
-    acc.finalize            (params.preds, params.num_rows);
+    acc.finalize(params.preds, params.num_rows);
 }
 
 template <leaf_value_desc_t leaf_payload_type, typename output_type,
@@ -219,7 +221,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
   num_items = std::min(num_items, params.max_items);
   int num_blocks = ceildiv(int(params.num_rows), num_items);
   int shm_sz;
-  switch(leaf_payload_type) {
+  switch (leaf_payload_type) {
     case INT_CLASS_LABEL:
       shm_sz = num_items * sizeof(int) * params.num_output_classes;
       break;
