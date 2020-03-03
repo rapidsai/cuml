@@ -27,6 +27,7 @@ struct RFInputs {
   int n_rows_train;
   int n_rows_test;
   uint64_t seed;
+  int n_reps;
 };
 
 template <typename T>
@@ -40,8 +41,6 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     handle->setStream(stream);
     auto allocator = handle->getDeviceAllocator();
     setRFParams();
-    forest = new RandomForestMetaData<T, int>;
-    forest->trees = nullptr;
     X_train = (T*)allocator->allocate(params.n_rows_train * sizeof(T), stream);
     y_train = (int*)allocator->allocate(params.n_rows_train * sizeof(int),
                                         stream);
@@ -67,18 +66,13 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     CUDA_CHECK(cudaStreamDestroy(stream));
     handle.reset();
     rng.reset();
-    delete [] forest->trees;
-    delete forest;
   }
 
   void runTest() {
-    auto& h = *(handle.get());
-    fit(h, forest, X_train, params.n_rows_train, 1, y_train, 2, rfp);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    predict(h, forest, X_test, params.n_rows_test, 1, y_pred, false);
-    auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred, false);
-    printf("%f ... \n", metrics.accuracy);
-    /** @todo: add a check here */
+    for (int i = 0; i < params.n_reps; ++i) {
+      auto accuracy = runTrainAndTest();
+      printf("%d -> %f ... \n", i, accuracy);
+    }
   }
   
  private:
@@ -114,19 +108,34 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     rng->uniformInt(y, nrows, 0, 2, stream);
   }
 
+  float runTrainAndTest() {
+    auto* forest = new RandomForestMetaData<T, int>;
+    forest->trees = nullptr;
+    auto& h = *(handle.get());
+    fit(h, forest, X_train, params.n_rows_train, 1, y_train, 2, rfp);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    predict(h, forest, X_test, params.n_rows_test, 1, y_pred, false);
+    auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred, false);
+    /** @todo: add a check here */
+    delete [] forest->trees;
+    delete forest;
+    return metrics.accuracy;
+  }
+
   RFInputs params;
   RF_params rfp;
   std::shared_ptr<cumlHandle> handle;
   cudaStream_t stream;
-  RandomForestMetaData<T, int>* forest;
   T *X_train, *X_test;
   int *y_train, *y_test, *y_pred;
   std::shared_ptr<Random::Rng> rng;
 };
 
 const std::vector<RFInputs> inputs = {
-  {800, 200, 12345ULL},
-  {800, 200, 67890ULL},
+  {800, 200, 12345ULL, 1},
+  {800, 200, 12345ULL, 2},
+  {800, 200, 67890ULL, 1},
+  {800, 200, 67890ULL, 2},
 };
 
 #define DEFINE_TEST(clz, name, testName, params)                        \
