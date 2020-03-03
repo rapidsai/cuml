@@ -41,6 +41,8 @@ struct vec {
   }
 };
 
+#define __forceinline__ 
+
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   tree_type tree, float* sdata, int cols) {
@@ -212,25 +214,28 @@ void infer_k_launcher(storage_type forest, predict_params params,
   const int MAX_BATCH_ITEMS = 4;
   params.max_items =
     params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
-  int num_items = params.max_shm / (sizeof(float) * params.num_cols);
+
+  int shared_mem_per_item = sizeof(float) * params.num_cols;
+  switch (leaf_payload_type) {
+    case INT_CLASS_LABEL:
+      // class vote histogram, while inferring trees
+      shared_mem_per_item += sizeof(int) * params.num_output_classes;
+      break;
+    case FLOAT_SCALAR:
+      // CUB workspace should fit itself, and we don't need
+      // the row by the time CUB is used
+      break;
+  }
+  int num_items = params.max_shm / shared_mem_per_item;
   if (num_items == 0) {
     int max_cols = params.max_shm / sizeof(float);
-    ASSERT(false, "p.num_cols == %d: too many features, only %d allowed",
-           params.num_cols, max_cols);
+    ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
+           params.num_cols, max_cols, leaf_payload_type == INT_CLASS_LABEL ?
+           "(accounting for shared class vote histogram)" : "");
   }
   num_items = std::min(num_items, params.max_items);
   int num_blocks = ceildiv(int(params.num_rows), num_items);
-  int shm_sz;
-  switch (leaf_payload_type) {
-    case INT_CLASS_LABEL:
-      shm_sz = num_items * sizeof(int) * params.num_output_classes;
-      break;
-    case FLOAT_SCALAR:
-      shm_sz = num_items * sizeof(float) * params.num_cols;
-      break;
-    default:
-      ASSERT(false, "internal error: unknown leaf_payload_type");
-  }
+  int shm_sz = num_items * shared_mem_per_item;
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type, output_type>
@@ -256,6 +261,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
+  printf("infer::num_output_classes = %u\n", params.num_output_classes);
   switch (params.leaf_payload_type) {
     case FLOAT_SCALAR:
       ASSERT(params.num_output_classes <= 2,
@@ -279,3 +285,4 @@ template void infer<sparse_storage>(sparse_storage forest,
 
 }  // namespace fil
 }  // namespace ML
+#undef __forceinline__
