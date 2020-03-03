@@ -1,14 +1,28 @@
-from cuml.dask.common.input_utils import MGData
-from cuml.dask.common.input_utils import to_output
-from cuml.dask.common.utils import MultiHolderLock
-
-from dask_cudf.core import DataFrame as dcDataFrame
-
-from uuid import uuid1
-import dask
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import cupy as cp
+import dask
 import numpy as np
+
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.input_utils import to_output
+from cuml.dask.common.utils import MultiHolderLock
+from dask_cudf.core import DataFrame as dcDataFrame
+from functools import wraps
+from uuid import uuid1
 
 
 class DelayedParallelFunc(object):
@@ -99,7 +113,8 @@ class DelayedParallelFunc(object):
         else:
             X = X.persist()
 
-            data = MGData.single(X, client=self.client)
+            data = DistributedDataHandler.single(X, client=self.client)
+
             scattered = self.client.scatter(self.local_model,
                                             workers=data.workers,
                                             broadcast=True,
@@ -110,14 +125,14 @@ class DelayedParallelFunc(object):
                                        broadcast=True,
                                        hash=False)
 
-            key = uuid1()
             func_futures = [self.client.submit(
                 func,
                 scattered,
                 lock,
                 p,
                 **kwargs,
-                key=key) for w, p in data.gpu_futures]
+                workers=[w],
+                key=uuid1()) for w, p in data.gpu_futures]
 
             return func_futures if output_futures \
                 else to_output(func_futures, self.datatype)
@@ -181,7 +196,23 @@ class DelayedTransformMixin(DelayedParallelFunc):
                                        parallelism, **kwargs)
 
 
+def mnmg_import(func):
+
+    @wraps(func)
+    def check_cuml_mnmg(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ImportError:
+            raise RuntimeError("cuML has not been built with multiGPU support "
+                               "enabled. Build with the --multigpu flag to"
+                               " enable multiGPU support.")
+
+    return check_cuml_mnmg
+
+
 def _predict_func(model, lock, data, **kwargs):
+    print("BDBASDBADBBDSBADBSABDB")
+    print(data.head())
     lock.acquire()
     ret = model.predict(data, **kwargs)
     lock.release()
