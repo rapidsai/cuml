@@ -481,7 +481,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
     std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  std::cout << duration.count() << "ms" << std::endl;
+  std::cout << duration.count() << "microseconds" << std::endl;
   /// TODO: cleanup
   ML::POP_RANGE();
 

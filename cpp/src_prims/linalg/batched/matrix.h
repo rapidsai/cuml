@@ -940,6 +940,151 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
 }
 
 /**
+ * @todo: docs
+ */
+template <typename T>
+DI void generate_householder_vector_block(T* d_uk, const T* d_xk, T* shared_mem,
+                                          int m, int thread_id) {
+  int i = thread_id + 1;
+
+  // Compute norm of the vectors x and u
+  T x_norm, u_norm, u0;
+  {
+    // First compute the squares and write in shared mem
+    if (i < m) {
+      shared_mem[thread_id] = d_xk[i] * d_xk[i];
+    }
+    // Tree reduction
+    for (int red_size = m - 1; red_size > 1; red_size = (red_size + 1) / 2) {
+      __syncthreads();
+      if (thread_id < red_size / 2) {
+        shared_mem[thread_id] += shared_mem[thread_id + (red_size + 1) / 2];
+      }
+    }
+    __syncthreads();
+    // Finalize computation of the norms
+    T x0 = d_xk[0];
+    x_norm = sqrt(shared_mem[0] + x0 * x0);
+    u0 = x0 - (x0 < 0 ? 1 : -1) * x_norm;
+    u_norm = sqrt(shared_mem[0] + u0 * u0);
+  }
+
+  // Compute vector u
+  if (thread_id == 0) {
+    d_uk[0] = u_norm != (T)0 ? (u0 / u_norm) : (T)1;
+  }
+  if (thread_id < m - 1) {
+    d_uk[thread_id + 1] =
+      u_norm != (T)0 ? (d_xk[thread_id + 1] / u_norm) : (T)0;
+  }
+}
+
+/**
+ * @todo: docs
+ */
+template <typename T>
+__global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
+  int ib = blockIdx.x;
+
+  int hh_size = (n * (n - 1)) / 2 - 1;
+
+  T* b_U = d_U + n * n * ib;
+  T* b_H = d_H + n * n * ib;
+  T* b_hh = d_hh + hh_size * ib;
+
+  // Shared memory used for the reduction needed to generate the reflector
+  // and for the reduction used in the matrix-vector and vector-matrix
+  // multiplications (size: n)
+  extern __shared__ int8_t shared_mem_hessenberg[];
+  T* shared_mem = (T*)shared_mem_hessenberg;
+
+  T* b_hh_k = b_hh;
+  for (int k = 0; k < n - 2; k++) {
+    // Generate the reflector
+    generate_householder_vector_block(b_hh_k, b_H + (n + 1) * k + 1, shared_mem,
+                                      n - k - 1, threadIdx.x);
+    __syncthreads();
+
+    // H[k+1:, k:] = H[k+1:, k:] - 2 * uk * (uk' * H[k+1:, k:])
+    // Note: we use a reduction in shared memory to have only coalesced
+    //       accesses to global memory
+    for (int j = k; j < n; j++) {
+      // Element-wise multiplication of uk and a column of H to shared mem
+      int i = k + 1 + threadIdx.x;
+      if (i < n) {
+        shared_mem[threadIdx.x] = b_hh_k[threadIdx.x] * b_H[j * n + i];
+      }
+
+      // Tree reduction
+      for (int red_size = n - k - 1; red_size > 1;
+           red_size = (red_size + 1) / 2) {
+        __syncthreads();
+        if (threadIdx.x < red_size / 2) {
+          shared_mem[threadIdx.x] +=
+            shared_mem[threadIdx.x + (red_size + 1) / 2];
+        }
+      }
+      __syncthreads();
+
+      // Overwrite H
+      if (i < n) {
+        b_H[j * n + i] -= (T)2 * b_hh_k[threadIdx.x] * shared_mem[0];
+      }
+    }
+    __syncthreads();
+
+    // H[:, k+1:] = H[:, k+1:] - 2 * (H[:, k+1:] * uk) * uk'
+    // Note: coalesced access patterns
+    {
+      const int& i = threadIdx.x;
+      T acc = 0;
+      for (int j = k + 1; j < n; j++) {
+        acc += b_H[j * n + i] * b_hh_k[j - k - 1];
+      }
+      for (int j = k + 1; j < n; j++) {
+        b_H[j * n + i] -= (T)2 * acc * b_hh_k[j - k - 1];
+      }
+    }
+    __syncthreads();
+
+    b_hh_k += n - k - 1;
+  }
+
+  b_hh_k = b_hh + hh_size - 2;
+  for (int k = n - 3; k >= 0; k--) {
+    // U[k+1:, k+1:] = U[k+1:, k+1:] - 2 * uk * (uk' * U[k+1:, k+1:])
+    // Note: we use a reduction in shared memory to have only coalesced
+    //       accesses to global memory
+    for (int j = k + 1; j < n; j++) {
+      // Element-wise multiplication of uk and a column of U to shared mem
+      int i = k + 1 + threadIdx.x;
+      if (i < n) {
+        shared_mem[threadIdx.x] = b_hh_k[threadIdx.x] * b_U[j * n + i];
+      }
+
+      // Tree reduction
+      for (int red_size = n - k - 1; red_size > 1;
+           red_size = (red_size + 1) / 2) {
+        __syncthreads();
+        if (threadIdx.x < red_size / 2) {
+          shared_mem[threadIdx.x] +=
+            shared_mem[threadIdx.x + (red_size + 1) / 2];
+        }
+      }
+      __syncthreads();
+
+      // Overwrite U
+      if (i < n) {
+        b_U[j * n + i] -= (T)2 * b_hh_k[threadIdx.x] * shared_mem[0];
+      }
+    }
+    __syncthreads();
+
+    b_hh_k -= n - k;
+  }
+}
+
+/**
  * @brief Hessenberg decomposition A = UHU' of a square matrix A, where Q is
  *        unitary and H in Hessenberg form (no zeros below the subdiagonal),
  *        using Householder reflections
@@ -953,88 +1098,28 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
   int batch_size = A.batches();
   auto stream = A.stream();
   auto allocator = A.allocator();
-  auto cublasHandle = A.cublasHandle();
-  auto counting = thrust::make_counting_iterator(0);
-
-  T* d_H = H.raw_data();
-  T* d_U = U.raw_data();
 
   // Copy A in H
   copy(H.raw_data(), A.raw_data(), n2 * batch_size, stream);
 
   // Initialize U with the identity
-  CUDA_CHECK(cudaMemsetAsync(d_U, 0, sizeof(T) * n2 * batch_size, stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(U.raw_data(), 0, sizeof(T) * n2 * batch_size, stream));
   identity_matrix_kernel<T>
-    <<<batch_size, std::min(256, n), 0, stream>>>(d_U, n);
+    <<<batch_size, std::min(256, n), 0, stream>>>(U.raw_data(), n);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  // Create an array to store the Householder vectors
-  int u_size = (n * (n - 1)) / 2 - 1;
-  T* d_u = (T*)allocator->allocate(u_size * batch_size * sizeof(T), stream);
+  // Create a temporary buffer to store the Householder vectors
+  int hh_size = (n * (n - 1)) / 2 - 1;
+  device_buffer<T> hh_buffer(allocator, stream, hh_size * batch_size);
 
-  // Temporary buffer for intermediate results
-  int temp_size = n;
-  T* d_temp =
-    (T*)allocator->allocate(temp_size * batch_size * sizeof(T), stream);
-
-  // BLAS scalars
-  T one = (T)1, zero = (T)0, m_two = (T)-2;
-  CUBLAS_CHECK(cublasSetPointerMode(cublasHandle, CUBLAS_POINTER_MODE_HOST));
-
-  /// TODO: single kernel? Would it be more performant than many BLAS calls?
-
-  // Transform H to Hessenberg form in-place
-  int u_offset = 0;
-  for (int k = 0; k < n - 2; k++) {
-    // Generate the reflector
-    thrust::for_each(thrust::cuda::par.on(A.stream()), counting,
-                     counting + batch_size, [=] __device__(int ib) {
-                       T* b_uk = d_u + u_size * ib + u_offset;
-                       T* b_xk = d_H + n2 * ib + (n + 1) * k + 1;
-                       generate_householder_vector(b_uk, b_xk, n - k - 1);
-                     });
-
-    // H[k+1:, k:] = H[k+1:, k:] - 2 * uk * (uk' * H[k+1:, k:])
-    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
-      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, 1, n - k, n - k - 1, &one,
-      d_u + u_offset, 1, u_size, d_H + (n + 1) * k + 1, n, n2, &zero, d_temp, 1,
-      temp_size, batch_size, stream));
-    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
-      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n - k - 1, n - k, 1, &m_two,
-      d_u + u_offset, n - k - 1, u_size, d_temp, 1, temp_size, &one,
-      d_H + (n + 1) * k + 1, n, n2, batch_size, stream));
-
-    // H[:, k+1:] = H[:, k+1:] - 2 * (H[:, k+1:] * uk) * uk'
-    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
-      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, n - k - 1, &one,
-      d_H + (k + 1) * n, n, n2, d_u + u_offset, n - k - 1, u_size, &zero,
-      d_temp, n, temp_size, batch_size, stream));
-    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
-      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n, n - k - 1, 1, &m_two, d_temp,
-      n, temp_size, d_u + u_offset, 1, u_size, &one, d_H + (k + 1) * n, n, n2,
-      batch_size, stream));
-
-    u_offset += n - k - 1;
-  }
-
-  // Update U
-  u_offset = u_size - 2;
-  for (int k = n - 3; k >= 0; k--) {
-    // U[k+1:, k+1:] = U[k+1:, k+1:] - 2 * uk * (uk' * U[k+1:, k+1:])
-    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
-      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, 1, n - k - 1, n - k - 1, &one,
-      d_u + u_offset, 1, u_size, d_U + (k + 1) * (n + 1), n, n2, &zero, d_temp,
-      1, temp_size, batch_size, stream));
-    CUBLAS_CHECK(LinAlg::cublasgemmStridedBatched<T>(
-      cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n - k - 1, n - k - 1, 1, &m_two,
-      d_u + u_offset, n - k - 1, u_size, d_temp, 1, temp_size, &one,
-      d_U + (k + 1) * (n + 1), n, n2, batch_size, stream));
-
-    u_offset -= n - k;
-  }
-
-  allocator->deallocate(d_u, u_size * batch_size * sizeof(T), stream);
-  allocator->deallocate(d_temp, temp_size * batch_size * sizeof(T), stream);
+  // Transform H to Hessenberg form in-place and update U
+  int shared_mem_size = n * sizeof(T);
+  CUDA_CHECK(cudaProfilerStart());
+  hessenberg_reduction_kernel<<<batch_size, n, shared_mem_size, stream>>>(
+    U.raw_data(), H.raw_data(), hh_buffer.data(), n);
+  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaProfilerStop());
 }
 
 /**
@@ -1354,7 +1439,8 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
   device_buffer<int> index_buffer(allocator, stream, batch_size);
   thrust::device_ptr<bool> mask_thrust(mask_buffer.data());
 
-  /// TODO: general iteration limit?
+  /// TODO: check whether it would be faster to remove the host loop and move
+  ///       the loop inside the kernel, per batch member
 
   int step_iter = 0;
   int max_p = n;
@@ -1754,13 +1840,13 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
     // Run a simple step
     if (reduced_batch_size > 0) {
       int shared_mem_size = (n - 1) * sizeof(T);
-      CUDA_CHECK(cudaProfilerStart());
+      // CUDA_CHECK(cudaProfilerStart());
       trsyl_single_step_kernel<<<reduced_batch_size, n + 1, shared_mem_size,
                                  stream>>>(
         R.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(), k_buffer.data(),
         scratch_buffer.data(), index_buffer.data(), max_k, n);
       CUDA_CHECK(cudaPeekAtLastError());
-      CUDA_CHECK(cudaProfilerStop());
+      // CUDA_CHECK(cudaProfilerStop());
     }
 
     // Create a mask of the batch members on which to perform a double step
