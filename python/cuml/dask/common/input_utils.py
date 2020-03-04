@@ -72,7 +72,7 @@ class MGData:
 
         multiple = isinstance(data, Iterable)
 
-        gpu_futures = client.sync(_compute_partitions, data, client)
+        gpu_futures = client.sync(_extract_partitions, data, client)
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
         datatype = 'cudf' if isinstance(first(data) if multiple else data,
@@ -181,7 +181,7 @@ def _to_dask_cudf(futures, client=None, verbose=False):
 
 
 @gen.coroutine
-def _compute_partitions(dask_obj, client=None):
+def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
