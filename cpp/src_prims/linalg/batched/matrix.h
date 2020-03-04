@@ -1235,13 +1235,6 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
   // Where H22 is unreduced, H33 is upper quasi-triangular, and q and p as
   // small as possible.
 
-  // Shared memory
-  // Neutral type to avoid conflict of definition
-  // extern __shared__ int8_t shared_mem_francis[];
-  // T* shared_mem = (T*)shared_mem_francis;
-  // int* shared_mem_int = (int*)shared_mem_francis;
-  /// TODO: cleanup
-
   T* b_U = d_U + ib * n * n;
   T* b_H = d_H + ib * n * n;
 
@@ -1260,7 +1253,6 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
     }
     __syncthreads();
 
-    /// TODO: avoid that each thread does the convergence test?
     // Convergence test
     {
       // Fake convergence if necessary
@@ -1279,14 +1271,12 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
       } else if (forced == 2 || b_H[(p - 3) * n + p - 2] == 0) {
         p -= 2;
         step_iter = 0;
+      } else {
+        step_iter++;
       }
     }
 
-    __syncthreads();
-
     if (p <= 2) break;
-
-    step_iter++;
 
     // Francis QR step
     {
@@ -1296,8 +1286,6 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
         if (b_H[(k - 1) * n + k] == 0) q = max(q, k);
       }
 
-      /// TODO: only 1 thread should do this work (or multiple for mem access)
-      ///       note: naive version, everybody computes it...
       // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
       // of the trailing matrix of H22
       T v[3];
@@ -1323,7 +1311,6 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
       for (int k = q; k < p - 2; k++) {
         // Generate a reflector P such that Pv' = a e1
         T u[3];
-        /// TODO: use block version? worth it given size 3?
         generate_householder_vector(u, v, 3);
         T P[6];  // P symmetric; P00 P01 P02 P11 P12 P22
         P[0] = (T)1 - (T)2 * u[0] * u[0];
@@ -1333,20 +1320,21 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
         P[4] = (T)-2 * u[1] * u[2];
         P[5] = (T)1 - (T)2 * u[2] * u[2];
 
-        /// TODO: remove for loops! Replace with if
-
-        // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1)
-        int j = max(q, k - 1) + threadIdx.x;
-        if (j < n) {
-          T h0 = b_H[j * n + k];
-          T h1 = b_H[j * n + k + 1];
-          T h2 = b_H[j * n + k + 2];
-          b_H[j * n + k] = h0 * P[0] + h1 * P[1] + h2 * P[2];
-          b_H[j * n + k + 1] = h0 * P[1] + h1 * P[3] + h2 * P[4];
-          b_H[j * n + k + 2] = h0 * P[2] + h1 * P[4] + h2 * P[5];
+        // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1) (non-coalesced)
+        {
+          int j = max(q, k - 1) + threadIdx.x;
+          if (j < n) {
+            T h0 = b_H[j * n + k];
+            T h1 = b_H[j * n + k + 1];
+            T h2 = b_H[j * n + k + 2];
+            b_H[j * n + k] = h0 * P[0] + h1 * P[1] + h2 * P[2];
+            b_H[j * n + k + 1] = h0 * P[1] + h1 * P[3] + h2 * P[4];
+            b_H[j * n + k + 2] = h0 * P[2] + h1 * P[4] + h2 * P[5];
+          }
+          __syncthreads();
         }
-        __syncthreads();
-        // H[:r, k:k+3] = H[:r, k:k+3] * P, r = min(k + 4, p)
+
+        // H[:r, k:k+3] = H[:r, k:k+3] * P, r = min(k + 4, p) (coalesced)
         const int& i = threadIdx.x;
         if (i < min(k + 4, p)) {
           T h0 = b_H[i + k * n];
@@ -1356,7 +1344,8 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
           b_H[i + (k + 1) * n] = h0 * P[1] + h1 * P[3] + h2 * P[4];
           b_H[i + (k + 2) * n] = h0 * P[2] + h1 * P[4] + h2 * P[5];
         }
-        // U[:, k:k+3] = U[:, k:k+3] * P
+
+        // U[:, k:k+3] = U[:, k:k+3] * P (coalesced)
         {
           T u0 = b_U[i + k * n];
           T u1 = b_U[i + (k + 1) * n];
