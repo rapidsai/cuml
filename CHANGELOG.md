@@ -58,6 +58,7 @@
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 - PR #1765: Update the checks for using RF GPU predict
+- PR #1793: Updated fil pyx to solve memory leakage issue
 
 # cuML 0.12.0 (Date TBD)
 
