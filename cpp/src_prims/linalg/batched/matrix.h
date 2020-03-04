@@ -1176,42 +1176,6 @@ DI bool ahues_tisseur(const T* d_M, int i, int n) {
 
 /**
  * @todo: - docs
- *        - write a shared-mem version and benchmark both
- */
-template <typename T>
-__global__ void francis_convergence_kernel(T* d_H, int* d_p, int n, int p,
-                                           int batch_size,
-                                           bool force_convergence) {
-  int ib = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (ib < batch_size) {
-    T* b_H = d_H + ib * n * n;
-
-    // Set to zero all the subdiagonals elements that satisfy Ahues and
-    // Tisseur's criterion
-    for (int k = 1; k < p; k++) {
-      if (ahues_tisseur(b_H, k, n)) b_H[(k - 1) * n + k] = 0;
-    }
-
-    // Fake convergence if necessary
-    int forced = 0;
-    if (force_convergence) {
-      if (abs(b_H[(p - 2) * n + p - 1]) < abs(b_H[(p - 3) * n + p - 2]))
-        forced = 1;
-      else
-        forced = 2;
-    }
-
-    // Decrease p if possible
-    if (d_p[ib] == p && (forced == 1 || b_H[(p - 2) * n + p - 1] == 0))
-      d_p[ib] = p - 1;
-    else if (d_p[ib] == p && (forced == 2 || b_H[(p - 3) * n + p - 2] == 0))
-      d_p[ib] = p - 2;
-  }
-}
-
-/**
- * @todo: - docs
  *
  * @note: from Matrix Computations 3rd ed (Golub and Van Loan, 1996),
  *        algorithm 7.5.1 and 7.5.2
@@ -1307,8 +1271,9 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
         v[2] = h10 * h21;
       }
 
-      __syncthreads();
       for (int k = q; k < p - 2; k++) {
+        __syncthreads();
+
         // Generate a reflector P such that Pv' = a e1
         T u[3];
         generate_householder_vector(u, v, 3);
@@ -1397,59 +1362,6 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
 }
 
 /**
- * @todo: docs + move to other location?
- */
-template <typename T1, typename T2>
-struct unary_eq : public thrust::unary_function<T1, T2> {
-  T1 val;
-  __host__ __device__ unary_eq(T1 v) : val(v) {}
-  __host__ __device__ T2 operator()(T1 x) { return static_cast<T2>(x == val); }
-};
-
-/**
- * @todo: docs + move somewhere?
- */
-template <typename MaskT = bool>
-void create_index_from_mask(device_buffer<MaskT>& mask_buffer,
-                            device_buffer<int>& cumul_buffer,
-                            device_buffer<int>& index_buffer, int batch_size_in,
-                            int* batch_size_out, cudaStream_t stream) {
-  auto counting = thrust::make_counting_iterator(0);
-
-  /// TODO: take const mask_buffer!
-  thrust::device_ptr<MaskT> mask_thrust(mask_buffer.data());
-  thrust::device_ptr<int> cumul_thrust(cumul_buffer.data());
-
-  // Copy the mask as integers in the cumul buffer (to avoid problem of
-  // boolean sum)
-  thrust::copy(thrust::cuda::par.on(stream), mask_thrust,
-               mask_thrust + batch_size_in, cumul_thrust);
-  /// TODO: use integer masks to remove this copy?
-
-  // Cumulative sum of the mask (in-place)
-  thrust::inclusive_scan(thrust::cuda::par.on(stream), cumul_thrust,
-                         cumul_thrust + batch_size_in, cumul_thrust,
-                         thrust::plus<int>());
-
-  // Deduce the size of the reduced batch from that
-  copy(batch_size_out, cumul_buffer.data() + batch_size_in - 1, 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  // "Reverse" the array and compute the indices in the old batch of the
-  // matrices in the reduced batch
-  int* d_cumul = cumul_buffer.data();
-  int* d_index = index_buffer.data();
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size_in, [=] __device__(int ib) {
-                     int cumul_prv = ib == 0 ? -1 : (d_cumul[ib - 1] - 1);
-                     int cumul_cur = d_cumul[ib] - 1;
-                     if (cumul_cur > cumul_prv) {
-                       d_index[cumul_cur] = ib;
-                     }
-                   });
-}
-
-/**
  * @brief Schur decomposition A = USU' of a square matrix A, where U is
  *        unitary and S is an upper quasi-triangular matrix
  * @todo: docs
@@ -1465,11 +1377,9 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
   b_hessenberg(A, U, S);
 
   // Use the Francis QR algorithm to complete to a real Schur decomposition
-  CUDA_CHECK(cudaProfilerStart());
   francis_qr_algorithm_kernel<<<batch_size, n, 0, stream>>>(U.raw_data(),
                                                             S.raw_data(), n);
   CUDA_CHECK(cudaPeekAtLastError());
-  CUDA_CHECK(cudaProfilerStop());
 }
 
 /**
@@ -1487,8 +1397,7 @@ struct logical_and_not : public thrust::binary_function<T1, T1, T2> {
  * @tparam  p  Number of columns to solve
  */
 template <int p, typename T>
-DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, int thread_id,
-                                T* shared_mem) {
+DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, T* shared_mem) {
   //
   // Reduce the system to upper triangular with Givens rotations
   //
@@ -1499,7 +1408,7 @@ DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, int thread_id,
     __syncthreads();
 
     // scratch[k:k+2, k:] = P * scratch[k:k+2, k:]
-    int j = k + thread_id;
+    int j = k + threadIdx.x;
     if (j < n + p) {
       T h0 = d_scratch[j * n + k];
       T h1 = d_scratch[j * n + k + 1];
@@ -1524,29 +1433,29 @@ DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, int thread_id,
   //   p
 
   for (int k = n - 1; k >= 0; k--) {
-    int i = k + 1 + thread_id;
+    int i = k + 1 + threadIdx.x;
     if (i < n) {
       T s_ki = d_scratch[i * n + k];
       for (int j = 0; j < p; j++) {
-        shared_mem[j * (n - 1) + thread_id] = s_ki * d_x[j * n + i];
+        shared_mem[j * (n - 1) + threadIdx.x] = s_ki * d_x[j * n + i];
       }
     }
     // Tree reduction
     for (int red_size = n - k - 1; red_size > 1;
          red_size = (red_size + 1) / 2) {
       __syncthreads();
-      if (thread_id < red_size / 2) {
+      if (threadIdx.x < red_size / 2) {
         for (int j = 0; j < p; j++) {
-          shared_mem[j * (n - 1) + thread_id] +=
-            shared_mem[j * (n - 1) + thread_id + (red_size + 1) / 2];
+          shared_mem[j * (n - 1) + threadIdx.x] +=
+            shared_mem[j * (n - 1) + threadIdx.x + (red_size + 1) / 2];
         }
       }
     }
     __syncthreads();
 
     // Finalize
-    if (thread_id < p) {
-      const int& j = thread_id;
+    if (threadIdx.x < p) {
+      const int& j = threadIdx.x;
       if (k == n - 1) {
         d_x[j * n + k] = d_scratch[(n + j) * n + k] / d_scratch[(n + 1) * k];
       } else {
@@ -1561,165 +1470,132 @@ DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, int thread_id,
 
 /**
  * @todo docs
- * @note 1 block per batch member ; block size: n + 1
- */
-template <typename T>
-__global__ void trsyl_single_step_kernel(const T* d_R, const T* d_S,
-                                         const T* d_F, T* d_Y, int* d_k,
-                                         T* d_scratch, int* d_index, int k,
-                                         int n) {
-  int ib = blockIdx.x;
-  int n2 = n * n;
-
-  // The scratch buffer is organized as follows:
-  //    __________
-  //   |      |   |
-  //   |  A   | b | n
-  //   |______|___|
-  //      n     1
-  //
-  // Where A and b are the matrices of the system to solve to deduce the
-  // k-th column of Y.
-  // The quasi-triangular solver works in-place (overwrites A and b)
-
-  // Shared memory (note: neutral type to prevent incompatible definition
-  //                      if using template argument T)
-  extern __shared__ int8_t shared_mem_single_step[];
-  T* shared_mem = (T*)(shared_mem_single_step);
-
-  int original_id = d_index[ib];
-  const T* b_R = d_R + n2 * original_id;
-  const T* b_S = d_S + n2 * original_id;
-  const T* b_F = d_F + n2 * original_id;
-  T* b_Y = d_Y + n2 * original_id;
-  T* b_scratch = d_scratch + n * (n + 1) * ib;
-
-  // Write A = R + S[k, k] * In on the left side of the scratch
-  for (int idx = threadIdx.x; idx < n2; idx += blockDim.x) {
-    b_scratch[idx] = b_R[idx];
-  }
-  __syncthreads();
-  if (threadIdx.x < n) {
-    b_scratch[(n + 1) * threadIdx.x] += b_S[(n + 1) * k];
-  }
-
-  // Write b = F[:, k] - Y[:, k+1:] * S[k+1:, k] on the right side
-  if (threadIdx.x < n) {
-    const int& i = threadIdx.x;
-    T acc = (T)0;
-    for (int j = k + 1; j < n; j++) {
-      acc += b_Y[n * j + i] * b_S[n * k + j];
-    }
-    b_scratch[n2 + i] = b_F[k * n + i] - acc;
-  }
-
-  // Solve on the k-th column of Y
-  __syncthreads();
-  quasi_triangular_solver<1>(b_scratch, b_Y + n * k, n, threadIdx.x,
-                             shared_mem);
-
-  // Update k
-  if (threadIdx.x == 0) d_k[original_id] = k - 1;
-}
-
-/**
- * @todo docs + shared memory version?
  * @note 1 block per batch member ; block size: n + 2
  *       (from Sorensen and Zhou, 2003, algorithm 2.1)
  */
 template <typename T>
-__global__ void trsyl_double_step_kernel(const T* d_R, const T* d_R2,
-                                         const T* d_S, const T* d_F, T* d_Y,
-                                         int* d_k, T* d_scratch, int* d_index,
-                                         int k, int n) {
+__global__ void trsyl_kernel(const T* d_R, const T* d_R2, const T* d_S,
+                             const T* d_F, T* d_Y, T* d_scratch, int n) {
   int ib = blockIdx.x;
   int n2 = n * n;
+  constexpr T near_zero = std::is_same<T, double>::value ? 1e-14 : 1e-8f;
+
+  /// TODO: general notes on the algorithm
 
   // The scratch buffer is organized as follows:
   //    __________
   //   |      |   |
   //   |  A   | b |
   //   |______|___|
-  //      n     2
+  //      n    1|2
   //
-  // Where A and b are the matrices of the system to solve to deduce the
-  // (k-1)-th and k-th columns of Y.
+  // Where A and b are the matrices of the system to solve (one column for
+  // a single step, two columns for a double step)
   // The quasi-triangular solver works in-place (overwrites A and b)
 
   // Shared memory (note: neutral type to prevent incompatible definition
   //                      if using template argument T)
-  extern __shared__ int8_t shared_mem_double_step[];
-  T* shared_mem = (T*)(shared_mem_double_step);
+  extern __shared__ int8_t shared_mem_trsyl[];
+  T* shared_mem = (T*)shared_mem_trsyl;
 
-  int original_id = d_index[ib];
-  const T* b_R = d_R + n2 * original_id;
-  const T* b_R2 = d_R2 + n2 * original_id;
-  const T* b_S = d_S + n2 * original_id;
-  const T* b_F = d_F + n2 * original_id;
-  T* b_Y = d_Y + n2 * original_id;
+  const T* b_R = d_R + n2 * ib;
+  const T* b_R2 = d_R2 + n2 * ib;
+  const T* b_S = d_S + n2 * ib;
+  const T* b_F = d_F + n2 * ib;
+  T* b_Y = d_Y + n2 * ib;
   T* b_scratch = d_scratch + n * (n + 2) * ib;
 
-  T s00 = b_S[(k - 1) * n + k - 1];
-  T s10 = b_S[(k - 1) * n + k];
-  T s01 = b_S[k * n + k - 1];
-  T s11 = b_S[k * n + k];
+  int k = n - 1;
 
-  // Write R2 + (s00+s11)*R + (s00*s11-s01*s10)*In on the left side of the
-  // scratch
-  {
-    T a = s00 + s11;
-    for (int idx = threadIdx.x; idx < n2; idx += blockDim.x) {
-      b_scratch[idx] = b_R2[idx] + a * b_R[idx];
-    }
-    __syncthreads();
-    if (threadIdx.x < n) {
-      b_scratch[(n + 1) * threadIdx.x] += s00 * s11 - s01 * s10;
+  while (k >= 0) {
+    if (k == 0 ||
+        abs(d_S[n2 * ib + k * n + k - 1]) < near_zero) {  // single step
+      // Write A = R + S[k, k] * In on the left side of the scratch
+      for (int idx = threadIdx.x; idx < n2; idx += blockDim.x) {
+        b_scratch[idx] = b_R[idx];
+      }
+      __syncthreads();
+      if (threadIdx.x < n) {
+        b_scratch[(n + 1) * threadIdx.x] += b_S[(n + 1) * k];
+      }
+
+      // Write b = F[:, k] - Y[:, k+1:] * S[k+1:, k] on the right side
+      if (threadIdx.x < n) {
+        const int& i = threadIdx.x;
+        T acc = (T)0;
+        for (int j = k + 1; j < n; j++) {
+          acc += b_Y[n * j + i] * b_S[n * k + j];
+        }
+        b_scratch[n2 + i] = b_F[k * n + i] - acc;
+      }
+
+      // Solve on the k-th column of Y
+      __syncthreads();
+      quasi_triangular_solver<1>(b_scratch, b_Y + n * k, n, shared_mem);
+
+      k--;
+    } else {  // double step
+      T s00 = b_S[(k - 1) * n + k - 1];
+      T s10 = b_S[(k - 1) * n + k];
+      T s01 = b_S[k * n + k - 1];
+      T s11 = b_S[k * n + k];
+
+      // Write R2 + (s00+s11)*R + (s00*s11-s01*s10)*In on the left side of the
+      // scratch
+      {
+        T a = s00 + s11;
+        for (int idx = threadIdx.x; idx < n2; idx += blockDim.x) {
+          b_scratch[idx] = b_R2[idx] + a * b_R[idx];
+        }
+        __syncthreads();
+        if (threadIdx.x < n) {
+          b_scratch[(n + 1) * threadIdx.x] += s00 * s11 - s01 * s10;
+        }
+      }
+
+      // Temporary write b = F[:, k-1:k+1] - Y[:, k+1:] * S[k+1:, k-1:k+1] in the
+      // right part of the scratch
+      {
+        const int& i = threadIdx.x;
+        T b0, b1;
+        if (threadIdx.x < n) {
+          b0 = b_F[(k - 1) * n + i];
+          b1 = b_F[k * n + i];
+          for (int j = k + 1; j < n; j++) {
+            T y_ij = b_Y[n * j + i];
+            b0 -= y_ij * b_S[n * (k - 1) + j];
+            b1 -= y_ij * b_S[n * k + j];
+          }
+          b_scratch[n2 + i] = b0;
+          b_scratch[n2 + n + i] = b1;
+        }
+        __syncthreads();
+        // Compute c = R*b in registers
+        T c0 = 0;
+        T c1 = 0;
+        if (threadIdx.x < n) {
+          for (int j = 0; j < n; j++) {
+            T r_ij = b_R[j * n + i];
+            c0 += r_ij * b_scratch[n2 + j];
+            c1 += r_ij * b_scratch[n2 + n + j];
+          }
+        }
+        __syncthreads();
+        // Overwrite the right side of the scratch with the following two columns:
+        // b = c[:,0] + s11*b[:,0] - s10*b[:,1] | c[:,1] + s00*b[:,1] - s01*b[:,0]
+        if (threadIdx.x < n) {
+          b_scratch[n2 + i] = c0 + s11 * b0 - s10 * b1;
+          b_scratch[n2 + n + i] = c1 + s00 * b1 - s01 * b0;
+        }
+      }
+
+      // Solve on the (k-1)-th and k-th columns of Y
+      __syncthreads();
+      quasi_triangular_solver<2>(b_scratch, b_Y + n * (k - 1), n, shared_mem);
+
+      k -= 2;
     }
   }
-
-  // Temporary write b = F[:, k-1:k+1] - Y[:, k+1:] * S[k+1:, k-1:k+1] in the
-  // right part of the scratch
-  {
-    const int& i = threadIdx.x;
-    T b0, b1;
-    if (threadIdx.x < n) {
-      b0 = b_F[(k - 1) * n + i];
-      b1 = b_F[k * n + i];
-      for (int j = k + 1; j < n; j++) {
-        T y_ij = b_Y[n * j + i];
-        b0 -= y_ij * b_S[n * (k - 1) + j];
-        b1 -= y_ij * b_S[n * k + j];
-      }
-      b_scratch[n2 + i] = b0;
-      b_scratch[n2 + n + i] = b1;
-    }
-    __syncthreads();
-    // Compute c = R*b in registers
-    T c0 = 0;
-    T c1 = 0;
-    if (threadIdx.x < n) {
-      for (int j = 0; j < n; j++) {
-        T r_ij = b_R[j * n + i];
-        c0 += r_ij * b_scratch[n2 + j];
-        c1 += r_ij * b_scratch[n2 + n + j];
-      }
-    }
-    __syncthreads();
-    // Overwrite the right side of the scratch with the following two columns:
-    // b = c[:,0] + s11*b[:,0] - s10*b[:,1] | c[:,1] + s00*b[:,1] - s01*b[:,0]
-    if (threadIdx.x < n) {
-      b_scratch[n2 + i] = c0 + s11 * b0 - s10 * b1;
-      b_scratch[n2 + n + i] = c1 + s00 * b1 - s01 * b0;
-    }
-  }
-
-  // Solve on the (k-1)-th and k-th columns of Y
-  __syncthreads();
-  quasi_triangular_solver<2>(b_scratch, b_Y + n * (k - 1), n, threadIdx.x,
-                             shared_mem);
-
-  // Update k
-  if (threadIdx.x == 0) d_k[original_id] = k - 2;
 }
 
 /**
@@ -1738,110 +1614,19 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
   auto stream = R.stream();
   auto allocator = R.allocator();
   int n = R.shape().first;
-  int n2 = n * n;
-  auto counting = thrust::make_counting_iterator(0);
 
   Matrix<T> R2 = b_gemm(R, R);
   Matrix<T> Y(n, n, batch_size, R.cublasHandle(), allocator, stream, false);
 
-  // Buffer to keep track of the progress of the substitution in each batch member
-  device_buffer<int> k_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<int> k_ptr = thrust::device_pointer_cast(k_buffer.data());
-  thrust::fill(thrust::cuda::par.on(stream), k_ptr, k_ptr + batch_size, n - 1);
-  int max_k = n - 1;
-
-  // Buffers for the masks, cumulative sum and index
-  device_buffer<bool> k_mask_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<bool> k_mask_ptr =
-    thrust::device_pointer_cast(k_mask_buffer.data());
-  device_buffer<bool> step_mask_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<bool> step_mask_ptr =
-    thrust::device_pointer_cast(step_mask_buffer.data());
-  device_buffer<bool> op_mask_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<bool> op_mask_ptr =
-    thrust::device_pointer_cast(op_mask_buffer.data());
-  device_buffer<int> cumul_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<int> cumul_ptr =
-    thrust::device_pointer_cast(cumul_buffer.data());
-  device_buffer<int> index_buffer(allocator, stream, batch_size);
-
   // Scratch buffer for the solver
   device_buffer<T> scratch_buffer(allocator, stream, batch_size * n * (n + 2));
-  // Note: technically almost half of each scratch will be filled with zeros
-  // but it is probably better to keep it that way
-
-  // Pointers
-  const T* d_S = S.raw_data();
-  bool* d_step_mask = step_mask_buffer.data();
-
-  int reduced_batch_size;
-
-  constexpr T near_zero = std::is_same<T, double>::value ? 1e-14 : 1e-8f;
-
-  while (max_k >= 0) {
-    // Create a mask of all the batch members with max k value
-    thrust::transform(thrust::cuda::par.on(stream), k_ptr, k_ptr + batch_size,
-                      k_mask_ptr, unary_eq<int, bool>(max_k));
-
-    // Create a mask of the members that would need a simple step if k == max_k
-    thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + batch_size,
-      [=] __device__(int ib) {
-        d_step_mask[ib] =
-          (max_k == 0
-             ? true
-             : (abs(d_S[n2 * ib + max_k * n + max_k - 1]) < near_zero));
-      });
-
-    // Create a mask of the batch members on which to perform a simple step
-    // at this iteration
-    thrust::transform(thrust::cuda::par.on(stream), k_mask_ptr,
-                      k_mask_ptr + batch_size, step_mask_ptr, op_mask_ptr,
-                      thrust::logical_and<bool>());
-
-    // Generate the index from the mask
-    create_index_from_mask(op_mask_buffer, cumul_buffer, index_buffer,
-                           batch_size, &reduced_batch_size, stream);
-
-    // Run a simple step
-    if (reduced_batch_size > 0) {
-      int shared_mem_size = (n - 1) * sizeof(T);
-      // CUDA_CHECK(cudaProfilerStart());
-      trsyl_single_step_kernel<<<reduced_batch_size, n + 1, shared_mem_size,
-                                 stream>>>(
-        R.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(), k_buffer.data(),
-        scratch_buffer.data(), index_buffer.data(), max_k, n);
-      CUDA_CHECK(cudaPeekAtLastError());
-      // CUDA_CHECK(cudaProfilerStop());
-    }
-
-    // Create a mask of the batch members on which to perform a double step
-    // at this iteration
-    thrust::transform(thrust::cuda::par.on(stream), k_mask_ptr,
-                      k_mask_ptr + batch_size, step_mask_ptr, op_mask_ptr,
-                      logical_and_not<bool>());
-
-    // Generate the index from the mask
-    create_index_from_mask(op_mask_buffer, cumul_buffer, index_buffer,
-                           batch_size, &reduced_batch_size, stream);
-
-    // Run a double step
-    if (reduced_batch_size > 0) {
-      int shared_mem_size = (n - 1) * 2 * sizeof(T);
-      CUDA_CHECK(cudaProfilerStart());
-      trsyl_double_step_kernel<<<reduced_batch_size, n + 2, shared_mem_size,
-                                 stream>>>(
-        R.raw_data(), R2.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(),
-        k_buffer.data(), scratch_buffer.data(), index_buffer.data(), max_k, n);
-      CUDA_CHECK(cudaPeekAtLastError());
-      CUDA_CHECK(cudaProfilerStop());
-    }
-
-    // Update max k
-    max_k = thrust::reduce(thrust::cuda::par.on(stream), k_ptr,
-                           k_ptr + batch_size, -1, thrust::maximum<int>());
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+  int shared_mem_size = 2 * (n - 1) * sizeof(T);
+  CUDA_CHECK(cudaProfilerStart());
+  trsyl_kernel<<<batch_size, n + 2, shared_mem_size, stream>>>(
+    R.raw_data(), R2.raw_data(), S.raw_data(), F.raw_data(), Y.raw_data(),
+    scratch_buffer.data(), n);
+  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaProfilerStop());
 
   return Y;
 }
@@ -1867,9 +1652,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
   int n2 = n * n;
   auto counting = thrust::make_counting_iterator(0);
 
-  bool small = (n <= 2);  // TODO: heuristics
-
-  if (small) {
+  if (n <= 4) {
     //
     // Use direct solution with Kronecker product
     //
