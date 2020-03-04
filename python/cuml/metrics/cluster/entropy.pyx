@@ -39,7 +39,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
 
 @with_cupy_rmm
-def prepare_cluster(cluster):
+def _prepare_cluster_input(cluster):
     """Helper function to avoid code duplication for clustering metrics."""
     cluster_m, n_rows, _, _ = input_to_cuml_array(
         cluster,
@@ -83,7 +83,7 @@ def cython_entropy(clustering, base=None, handle=None):
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
     (clustering, n_rows,
-     lower_class_range, upper_class_range) = prepare_cluster(clustering)
+     lower_class_range, upper_class_range) = _prepare_cluster_input(clustering)
 
     cdef uintptr_t clustering_ptr = clustering.ptr
 
