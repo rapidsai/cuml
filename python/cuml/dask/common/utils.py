@@ -200,6 +200,7 @@ class MultiHolderLock:
 
     def _acquire(self, blocking=True, timeout=10):
         lock_acquired = False
+
         inner_lock_acquired = self.lock.acquire(blocking, timeout)
 
         if inner_lock_acquired and self.current_tasks < self.n - 1:
