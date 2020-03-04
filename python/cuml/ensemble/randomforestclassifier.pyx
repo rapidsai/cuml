@@ -465,6 +465,17 @@ class RandomForestClassifier(Base):
                              "supported. Please refer to the documentation "
                              "to see the accepted values.")
 
+        if (self.max_depth > 16 and (storage_type == 'DENSE' or
+                                     algo == 'tree_reorg' or
+                                     algo == 'batch_tree_reorg')):
+            raise ValueError("While creating a forest with max_depth greater "
+                             "than 16, `fil_sparse_format` should be True. "
+                             "If `fil_sparse_format=False` then the memory"
+                             "consumed while creating the FIL forest is very "
+                             "large and the process will be aborted. In "
+                             "addition, `algo` must be either set to `naive' "
+                             "or `auto` to set 'fil_sparse_format=True`.")
+
         treelite_handle = self._obtain_treelite_handle()
         fil_model = ForestInference()
         tl_to_fil_model = \
