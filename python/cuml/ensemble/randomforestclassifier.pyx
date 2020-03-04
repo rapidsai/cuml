@@ -184,7 +184,7 @@ class RandomForestClassifier(Base):
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported with split_algo=1.
+        if -1. Unlimited depth is not supported.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
@@ -370,6 +370,12 @@ class RandomForestClassifier(Base):
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
+        if self.num_classes > 2:
+            raise NotImplementedError("Pickling for multi-class "
+                                      "classification models is currently not "
+                                      "implemented. Please check cuml issue "
+                                      "#1679 for more information.")
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -498,6 +504,14 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
+        if X_type == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -539,7 +553,6 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
-
         preds = cudf.Series(zeros(n_rows, dtype=np.int32))
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
@@ -642,9 +655,13 @@ class RandomForestClassifier(Base):
         """
 
         if predict_model == "CPU" or self.num_classes > 2:
+            if self.num_classes > 2 and predict_model == "GPU":
+                warnings.warn("Switching over to use the CPU predict since "
+                              "the GPU predict currently cannot perform "
+                              "multi-class classification.")
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif self.dtype == np.float64 and not convert_dtype:
+        elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             In order use the GPU predict the model should \
                             also be trained using a np.float32 dataset. \

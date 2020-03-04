@@ -15,7 +15,6 @@
 
 import cuml
 import numpy as np
-import cupy as cp
 import pytest
 
 from cuml.datasets import make_blobs
@@ -51,13 +50,14 @@ def test_kmeans_sklearn_comparison(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              output_type='numpy')
 
     X, y = pat[0]
 
     X = StandardScaler().fit_transform(X)
 
-    cu_y_pred = cuml_kmeans.fit_predict(X).to_array()
+    cu_y_pred = cuml_kmeans.fit_predict(X)
 
     if nrows < 500000:
         kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
@@ -105,7 +105,8 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              output_type='numpy')
 
     X, y = pat[0]
 
@@ -145,7 +146,8 @@ def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
                               max_iter=max_iter,
                               init=init,
                               oversampling_factor=oversampling_factor,
-                              max_samples_per_batch=max_samples_per_batch)
+                              max_samples_per_batch=max_samples_per_batch,
+                              output_type='cupy')
 
     cuml_kmeans.fit_predict(X)
 
@@ -164,7 +166,8 @@ def test_score(nrows, ncols, nclusters):
 
     cuml_kmeans = cuml.KMeans(verbose=1, init="k-means||",
                               n_clusters=nclusters,
-                              random_state=10)
+                              random_state=10,
+                              output_type='numpy')
 
     cuml_kmeans.fit(X)
 
@@ -172,10 +175,13 @@ def test_score(nrows, ncols, nclusters):
 
     predictions = cuml_kmeans.predict(X)
 
-    centers = cp.asarray(cuml_kmeans.cluster_centers_.as_gpu_matrix())
+    centers = cuml_kmeans.cluster_centers_
 
+    print("predictions ", predictions.shape)
     expected_score = 0
     for idx, label in enumerate(predictions):
+
+        print(idx, label)
 
         x = X[idx]
         y = centers[label]
