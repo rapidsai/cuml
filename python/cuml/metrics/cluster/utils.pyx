@@ -28,7 +28,7 @@ from cuml.utils import input_to_dev_array, with_cupy_rmm
 
 
 @with_cupy_rmm
-def prepare_data(labels_true, labels_pred):
+def prepare_cluster_metric_inputs(labels_true, labels_pred):
     """Helper function to avoid code duplication for homogeneity score, mutual
     info score and completeness score.
     """
