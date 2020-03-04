@@ -28,6 +28,7 @@
 - PR #1718: Import `using_allocator` from `cupy.cuda`
 - PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 - PR #1726: Decorator to allocate CuPy arrays with RMM
+- PR #1719: UMAP random seed reproducibility
 - PR #1748: Test serializing `CumlArray` objects
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
