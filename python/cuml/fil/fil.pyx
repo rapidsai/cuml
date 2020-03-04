@@ -105,6 +105,12 @@ cdef class TreeliteModel():
         return out
 
     @staticmethod
+    def free_treelite_model(model_handle):
+        cdef uintptr_t model_ptr = <uintptr_t>model_handle
+        TreeliteFreeModel(<ModelHandle> model_ptr)
+        del model_handle
+
+    @staticmethod
     def from_filename(filename, model_type="xgboost"):
         """
         Returns a TreeliteModel object loaded from `filename`
@@ -258,7 +264,8 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
-        # synchronous w/o a stream
+        del(X_m)
+        del(preds_m)
         return preds
 
     def load_from_treelite_model_handle(self,
