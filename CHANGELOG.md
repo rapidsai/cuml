@@ -32,6 +32,7 @@
 - PR #1776: Refactoring pca/tsvd distributed
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 
 ## Bug Fixes
 - PR #1770: Warn that KalmanFilter is deprecated
@@ -88,6 +89,7 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
+- PR #1555: FIL-SKL, an SKLearn-based benchmark for FIL
 - PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 - PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM
