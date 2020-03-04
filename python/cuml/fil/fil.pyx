@@ -194,6 +194,7 @@ cdef class ForestInference_impl():
     def __cinit__(self,
                   handle=None):
         self.handle = handle
+        self.forest_data = NULL
 
     def get_algo(self, algo_str):
         algo_dict={'AUTO': algo_t.ALGO_AUTO,
@@ -315,7 +316,6 @@ cdef class ForestInference_impl():
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
 
-        self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
@@ -329,8 +329,9 @@ cdef class ForestInference_impl():
     def __dealloc__(self):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-        free(handle_[0],
-             self.forest_data)
+        if self.forest_data !=NULL:
+            free(handle_[0],
+                 self.forest_data)
 
 
 class ForestInference(Base):
