@@ -918,7 +918,8 @@ Matrix<T> b_2dcopy(const Matrix<T>& in, int starting_row, int starting_col,
 }
 
 /**
- * @todo: docs
+ * @todo: - docs
+ *        - remove and use only block version?
  */
 template <typename T>
 DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
@@ -980,6 +981,8 @@ DI void generate_householder_vector_block(T* d_uk, const T* d_xk, T* shared_mem,
 }
 
 /**
+ * Reduce H to Hessenberg form by iteratively applying Householder
+ * reflections and update U accordingly.
  * @todo: docs
  */
 template <typename T>
@@ -994,7 +997,8 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
 
   // Shared memory used for the reduction needed to generate the reflector
   // and for the reduction used in the matrix-vector and vector-matrix
-  // multiplications (size: n)
+  // multiplications
+  // Neutral type to avoid conflict of definition ; size: n
   extern __shared__ int8_t shared_mem_hessenberg[];
   T* shared_mem = (T*)shared_mem_hessenberg;
 
@@ -1126,11 +1130,9 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
 
   // Transform H to Hessenberg form in-place and update U
   int shared_mem_size = n * sizeof(T);
-  CUDA_CHECK(cudaProfilerStart());
   hessenberg_reduction_kernel<<<batch_size, n, shared_mem_size, stream>>>(
     U.raw_data(), H.raw_data(), hh_buffer.data(), n);
   CUDA_CHECK(cudaPeekAtLastError());
-  CUDA_CHECK(cudaProfilerStop());
 }
 
 /**
@@ -1212,18 +1214,15 @@ __global__ void francis_convergence_kernel(T* d_H, int* d_p, int n, int p,
  * @todo: - docs
  *
  * @note: from Matrix Computations 3rd ed (Golub and Van Loan, 1996),
- *        algorithm 7.5.1
- *        This version computes one batch member per thread block
+ *        algorithm 7.5.1 and 7.5.2
+ *        Computes 1 batch member per thread block (n threads)
  */
 template <typename T>
-__global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_index, int n,
-                                       int p) {
+__global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
   int ib = blockIdx.x;
 
-  // Note: 1 batch member per block ; n threads, some of which might
-  // be inactive
-
-  // H has the following form:
+  // The algorithm reduces the Hessenberg matrix H to real Schur form by
+  // iteratively reducing the value p such that H has the following form:
   //  _________________
   // | H11 | H12 | H13 |  q
   // |_____|_____|_____|
@@ -1235,129 +1234,175 @@ __global__ void francis_qr_step_kernel(T* d_U, T* d_H, int* d_index, int n,
   //
   // Where H22 is unreduced, H33 is upper quasi-triangular, and q and p as
   // small as possible.
-  //
-  // We perform a Francis QR step on H22 = H[q:p, q:p] and update H and U
-  // accordingly.
 
-  int original_id = d_index[ib];
-  T* b_U = d_U + original_id * n * n;
-  T* b_H = d_H + original_id * n * n;
+  // Shared memory
+  // Neutral type to avoid conflict of definition
+  // extern __shared__ int8_t shared_mem_francis[];
+  // T* shared_mem = (T*)shared_mem_francis;
+  // int* shared_mem_int = (int*)shared_mem_francis;
+  /// TODO: cleanup
 
-  /// TODO: figure out how to use shared mem
+  T* b_U = d_U + ib * n * n;
+  T* b_H = d_H + ib * n * n;
 
-  /// TODO: find q before this kernel?
-  ///       or do it here with reduction?
-  ///       note: first naive version: everybody computes it...
-  // Find q
-  int q = 0;
-  for (int k = p - 2; k > 0; k--) {
-    if (b_H[(k - 1) * n + k] == 0) q = max(q, k);
-  }
+  int p = n;
+  int step_iter = 0;
 
-  /// TODO: only 1 thread should do this work (or multiple for mem access)
-  ///       note: naive version, everybody computes it...
-  // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
-  // of the trailing matrix of H22
-  T v[3];
-  {
-    T x00 = b_H[(p - 2) * n + p - 2];
-    T x10 = b_H[(p - 2) * n + p - 1];
-    T x01 = b_H[(p - 1) * n + p - 2];
-    T x11 = b_H[(p - 1) * n + p - 1];
-    T s = x00 + x11;
-    T t = x00 * x11 - x10 * x01;
-    T h00 = b_H[q * n + q];
-    T h10 = b_H[q * n + q + 1];
-    T h01 = b_H[(q + 1) * n + q];
-    T h11 = b_H[(q + 1) * n + q + 1];
-    T h21 = b_H[(q + 1) * n + q + 2];
+  constexpr int max_iter_per_step = 20;
 
-    v[0] = (h00 - s) * h00 + h01 * h10 + t;
-    v[1] = h10 * (h00 + h11 - s);
-    v[2] = h10 * h21;
-  }
+  /// TODO: take advantage of shared memory!
 
-  __syncthreads();
-  for (int k = q; k < p - 2; k++) {
-    // Generate a reflector P such that Pv' = a e1
-    T u[3];
-    generate_householder_vector(u, v, 3);
-    T P[6];  // P symmetric; P00 P01 P02 P11 P12 P22
-    P[0] = (T)1 - (T)2 * u[0] * u[0];
-    P[1] = (T)-2 * u[0] * u[1];
-    P[2] = (T)-2 * u[0] * u[2];
-    P[3] = (T)1 - (T)2 * u[1] * u[1];
-    P[4] = (T)-2 * u[1] * u[2];
-    P[5] = (T)1 - (T)2 * u[2] * u[2];
-
-    /// TODO: remove for loops! Replace with if
-
-    // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1)
-    int j = max(q, k - 1) + threadIdx.x;
-    if (j < n) {
-      T h0 = b_H[j * n + k];
-      T h1 = b_H[j * n + k + 1];
-      T h2 = b_H[j * n + k + 2];
-      b_H[j * n + k] = h0 * P[0] + h1 * P[1] + h2 * P[2];
-      b_H[j * n + k + 1] = h0 * P[1] + h1 * P[3] + h2 * P[4];
-      b_H[j * n + k + 2] = h0 * P[2] + h1 * P[4] + h2 * P[5];
+  while (p > 2) {
+    // Set to zero all the subdiagonals elements that satisfy Ahues and
+    // Tisseur's criterion
+    for (int k = threadIdx.x + 1; k < p; k++) {
+      if (ahues_tisseur(b_H, k, n)) b_H[(k - 1) * n + k] = 0;
     }
     __syncthreads();
-    // H[:r, k:k+3] = H[:r, k:k+3] * P, r = min(k + 4, p)
-    const int& i = threadIdx.x;
-    if (i < min(k + 4, p)) {
-      T h0 = b_H[i + k * n];
-      T h1 = b_H[i + (k + 1) * n];
-      T h2 = b_H[i + (k + 2) * n];
-      b_H[i + k * n] = h0 * P[0] + h1 * P[1] + h2 * P[2];
-      b_H[i + (k + 1) * n] = h0 * P[1] + h1 * P[3] + h2 * P[4];
-      b_H[i + (k + 2) * n] = h0 * P[2] + h1 * P[4] + h2 * P[5];
-    }
-    // U[:, k:k+3] = U[:, k:k+3] * P
+
+    /// TODO: avoid that each thread does the convergence test?
+    // Convergence test
     {
-      T u0 = b_U[i + k * n];
-      T u1 = b_U[i + (k + 1) * n];
-      T u2 = b_U[i + (k + 2) * n];
-      b_U[i + k * n] = u0 * P[0] + u1 * P[1] + u2 * P[2];
-      b_U[i + (k + 1) * n] = u0 * P[1] + u1 * P[3] + u2 * P[4];
-      b_U[i + (k + 2) * n] = u0 * P[2] + u1 * P[4] + u2 * P[5];
+      // Fake convergence if necessary
+      int forced = 0;
+      if (step_iter == max_iter_per_step) {
+        if (abs(b_H[(p - 2) * n + p - 1]) < abs(b_H[(p - 3) * n + p - 2]))
+          forced = 1;
+        else
+          forced = 2;
+      }
+
+      // Decrease p if possible
+      if (forced == 1 || b_H[(p - 2) * n + p - 1] == 0) {
+        p--;
+        step_iter = 0;
+      } else if (forced == 2 || b_H[(p - 3) * n + p - 2] == 0) {
+        p -= 2;
+        step_iter = 0;
+      }
     }
 
     __syncthreads();
-    v[0] = b_H[k * n + k + 1];
-    v[1] = b_H[k * n + k + 2];
-    if (k < p - 3) v[2] = b_H[k * n + k + 3];
-  }
 
-  {
-    __syncthreads();
+    if (p <= 2) break;
 
-    // Generate a Givens rotation such that P * v[0:2] = a e1
-    T c, s;
-    generate_givens(v[0], v[1], c, s);
-    // H[p-2:p, p-3:] = P * H[p-2:p, p-3:]
-    int j = p - 3 + threadIdx.x;
-    if (j < n) {
-      T h0 = b_H[j * n + p - 2];
-      T h1 = b_H[j * n + p - 1];
-      b_H[j * n + p - 2] = h0 * c - h1 * s;
-      b_H[j * n + p - 1] = h0 * s + h1 * c;
-    }
-    __syncthreads();
-    // H[:p, p-2:p] = H[:p, p-2:p] * P'
-    const int& i = threadIdx.x;
-    if (i < p) {
-      T h0 = b_H[(p - 2) * n + i];
-      T h1 = b_H[(p - 1) * n + i];
-      b_H[(p - 2) * n + i] = h0 * c - h1 * s;
-      b_H[(p - 1) * n + i] = h0 * s + h1 * c;
-    }
-    // U[:, p-2:p] = U[:, p-2:p] * P'
+    step_iter++;
+
+    // Francis QR step
     {
-      T u0 = b_U[(p - 2) * n + i];
-      T u1 = b_U[(p - 1) * n + i];
-      b_U[(p - 2) * n + i] = u0 * c - u1 * s;
-      b_U[(p - 1) * n + i] = u0 * s + u1 * c;
+      // Find q
+      int q = 0;
+      for (int k = p - 2; k > 0; k--) {
+        if (b_H[(k - 1) * n + k] == 0) q = max(q, k);
+      }
+
+      /// TODO: only 1 thread should do this work (or multiple for mem access)
+      ///       note: naive version, everybody computes it...
+      // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
+      // of the trailing matrix of H22
+      T v[3];
+      {
+        T x00 = b_H[(p - 2) * n + p - 2];
+        T x10 = b_H[(p - 2) * n + p - 1];
+        T x01 = b_H[(p - 1) * n + p - 2];
+        T x11 = b_H[(p - 1) * n + p - 1];
+        T s = x00 + x11;
+        T t = x00 * x11 - x10 * x01;
+        T h00 = b_H[q * n + q];
+        T h10 = b_H[q * n + q + 1];
+        T h01 = b_H[(q + 1) * n + q];
+        T h11 = b_H[(q + 1) * n + q + 1];
+        T h21 = b_H[(q + 1) * n + q + 2];
+
+        v[0] = (h00 - s) * h00 + h01 * h10 + t;
+        v[1] = h10 * (h00 + h11 - s);
+        v[2] = h10 * h21;
+      }
+
+      __syncthreads();
+      for (int k = q; k < p - 2; k++) {
+        // Generate a reflector P such that Pv' = a e1
+        T u[3];
+        /// TODO: use block version? worth it given size 3?
+        generate_householder_vector(u, v, 3);
+        T P[6];  // P symmetric; P00 P01 P02 P11 P12 P22
+        P[0] = (T)1 - (T)2 * u[0] * u[0];
+        P[1] = (T)-2 * u[0] * u[1];
+        P[2] = (T)-2 * u[0] * u[2];
+        P[3] = (T)1 - (T)2 * u[1] * u[1];
+        P[4] = (T)-2 * u[1] * u[2];
+        P[5] = (T)1 - (T)2 * u[2] * u[2];
+
+        /// TODO: remove for loops! Replace with if
+
+        // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1)
+        int j = max(q, k - 1) + threadIdx.x;
+        if (j < n) {
+          T h0 = b_H[j * n + k];
+          T h1 = b_H[j * n + k + 1];
+          T h2 = b_H[j * n + k + 2];
+          b_H[j * n + k] = h0 * P[0] + h1 * P[1] + h2 * P[2];
+          b_H[j * n + k + 1] = h0 * P[1] + h1 * P[3] + h2 * P[4];
+          b_H[j * n + k + 2] = h0 * P[2] + h1 * P[4] + h2 * P[5];
+        }
+        __syncthreads();
+        // H[:r, k:k+3] = H[:r, k:k+3] * P, r = min(k + 4, p)
+        const int& i = threadIdx.x;
+        if (i < min(k + 4, p)) {
+          T h0 = b_H[i + k * n];
+          T h1 = b_H[i + (k + 1) * n];
+          T h2 = b_H[i + (k + 2) * n];
+          b_H[i + k * n] = h0 * P[0] + h1 * P[1] + h2 * P[2];
+          b_H[i + (k + 1) * n] = h0 * P[1] + h1 * P[3] + h2 * P[4];
+          b_H[i + (k + 2) * n] = h0 * P[2] + h1 * P[4] + h2 * P[5];
+        }
+        // U[:, k:k+3] = U[:, k:k+3] * P
+        {
+          T u0 = b_U[i + k * n];
+          T u1 = b_U[i + (k + 1) * n];
+          T u2 = b_U[i + (k + 2) * n];
+          b_U[i + k * n] = u0 * P[0] + u1 * P[1] + u2 * P[2];
+          b_U[i + (k + 1) * n] = u0 * P[1] + u1 * P[3] + u2 * P[4];
+          b_U[i + (k + 2) * n] = u0 * P[2] + u1 * P[4] + u2 * P[5];
+        }
+
+        __syncthreads();
+        v[0] = b_H[k * n + k + 1];
+        v[1] = b_H[k * n + k + 2];
+        if (k < p - 3) v[2] = b_H[k * n + k + 3];
+      }
+
+      {
+        __syncthreads();
+
+        // Generate a Givens rotation such that P * v[0:2] = a e1
+        T c, s;
+        generate_givens(v[0], v[1], c, s);
+        // H[p-2:p, p-3:] = P * H[p-2:p, p-3:]
+        int j = p - 3 + threadIdx.x;
+        if (j < n) {
+          T h0 = b_H[j * n + p - 2];
+          T h1 = b_H[j * n + p - 1];
+          b_H[j * n + p - 2] = h0 * c - h1 * s;
+          b_H[j * n + p - 1] = h0 * s + h1 * c;
+        }
+        __syncthreads();
+        // H[:p, p-2:p] = H[:p, p-2:p] * P'
+        const int& i = threadIdx.x;
+        if (i < p) {
+          T h0 = b_H[(p - 2) * n + i];
+          T h1 = b_H[(p - 1) * n + i];
+          b_H[(p - 2) * n + i] = h0 * c - h1 * s;
+          b_H[(p - 1) * n + i] = h0 * s + h1 * c;
+        }
+        // U[:, p-2:p] = U[:, p-2:p] * P'
+        {
+          T u0 = b_U[(p - 2) * n + i];
+          T u1 = b_U[(p - 1) * n + i];
+          b_U[(p - 2) * n + i] = u0 * c - u1 * s;
+          b_U[(p - 1) * n + i] = u0 * s + u1 * c;
+        }
+      }
     }
   }
 }
@@ -1419,7 +1464,6 @@ void create_index_from_mask(device_buffer<MaskT>& mask_buffer,
  * @brief Schur decomposition A = USU' of a square matrix A, where U is
  *        unitary and S is an upper quasi-triangular matrix
  * @todo: docs
- *        unit tests!!
  */
 template <typename T>
 void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
@@ -1427,94 +1471,16 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
   int n = A.shape().first;
   int batch_size = A.batches();
   auto stream = A.stream();
-  auto allocator = A.allocator();
-  auto counting = thrust::make_counting_iterator(0);
 
-  //
   // Start with a Hessenberg decomposition
-  //
-
   b_hessenberg(A, U, S);
 
-  //
-  // Francis QR algorithm
-  // From Matrix Computations 3rd ed (Golub and Van Loan, 1996), algo 7.5.2
-  //
-
-  device_buffer<int> p_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<int> p_ptr = thrust::device_pointer_cast(p_buffer.data());
-  thrust::fill(thrust::cuda::par.on(stream), p_ptr, p_ptr + batch_size, n);
-
-  device_buffer<bool> mask_buffer(allocator, stream, batch_size);
-  device_buffer<int> cumul_buffer(allocator, stream, batch_size);
-  device_buffer<int> index_buffer(allocator, stream, batch_size);
-  thrust::device_ptr<bool> mask_thrust(mask_buffer.data());
-
-  /// TODO: check whether it would be faster to remove the host loop and move
-  ///       the loop inside the kernel, per batch member
-
-  int step_iter = 0;
-  int max_p = n;
-  int prev_max_p = max_p;
-  while (max_p > 2) {
-    //
-    // Set to zero all the subdiagonals elements that satisfy Ahues and
-    // Tisseur's criterion and test for convergence (update p)
-    // Fake convergence after the iteration limit
-    //
-    {
-      bool force_conv = (step_iter >= max_iter_per_step);
-      constexpr int TPB = 32;
-      francis_convergence_kernel<<<ceildiv<int>(batch_size, TPB), TPB, 0,
-                                   stream>>>(S.raw_data(), p_ptr.get(), n,
-                                             max_p, batch_size, force_conv);
-      CUDA_CHECK(cudaPeekAtLastError());
-    }
-
-    //
-    // Reduce the p buffer to compute the maximum value of p
-    //
-    max_p = thrust::reduce(thrust::cuda::par.on(stream), p_ptr,
-                           p_ptr + batch_size, 0, thrust::maximum<int>());
-    CUDA_CHECK(cudaStreamSynchronize(stream));  // TODO: sync unnecessary?
-
-    if (max_p <= 2) break;
-
-    //
-    // Extract a reduced batch with only the matrices with the largest
-    // working area (value of p)
-    //
-
-    // Create a mask of the batch members with max p value and the cumulative
-    // sum of this mask
-    thrust::transform(thrust::cuda::par.on(stream), p_ptr, p_ptr + batch_size,
-                      mask_thrust, unary_eq<int, bool>(max_p));
-
-    int reduced_batch_size;
-
-    create_index_from_mask(mask_buffer, cumul_buffer, index_buffer, batch_size,
-                           &reduced_batch_size, stream);
-
-    //
-    // Execute a Francis QR step
-    //
-
-    // CUDA_CHECK(cudaProfilerStart());
-
-    if (reduced_batch_size > 0) {
-      francis_qr_step_kernel<<<reduced_batch_size, n, 0, stream>>>(
-        U.raw_data(), S.raw_data(), index_buffer.data(), n, max_p);
-      CUDA_CHECK(cudaPeekAtLastError());
-    }
-
-    // CUDA_CHECK(cudaProfilerStop());
-
-    if (max_p < prev_max_p) {
-      step_iter = 0;
-      prev_max_p = max_p;
-    } else
-      step_iter++;
-  }
+  // Use the Francis QR algorithm to complete to a real Schur decomposition
+  CUDA_CHECK(cudaProfilerStart());
+  francis_qr_algorithm_kernel<<<batch_size, n, 0, stream>>>(U.raw_data(),
+                                                            S.raw_data(), n);
+  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaProfilerStop());
 }
 
 /**
