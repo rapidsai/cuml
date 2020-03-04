@@ -1011,8 +1011,10 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
     for (int j = k; j < n; j++) {
       // Element-wise multiplication of uk and a column of H to shared mem
       int i = k + 1 + threadIdx.x;
+      T hh_k_i;
       if (i < n) {
-        shared_mem[threadIdx.x] = b_hh_k[threadIdx.x] * b_H[j * n + i];
+        hh_k_i = b_hh_k[threadIdx.x];
+        shared_mem[threadIdx.x] = hh_k_i * b_H[j * n + i];
       }
 
       // Tree reduction
@@ -1028,21 +1030,28 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
 
       // Overwrite H
       if (i < n) {
-        b_H[j * n + i] -= (T)2 * b_hh_k[threadIdx.x] * shared_mem[0];
+        b_H[j * n + i] -= (T)2 * hh_k_i * shared_mem[0];
       }
     }
     __syncthreads();
 
     // H[:, k+1:] = H[:, k+1:] - 2 * (H[:, k+1:] * uk) * uk'
-    // Note: coalesced access patterns
+    // Note: we do a coalesced load of hh_k in shared memory
     {
+      // Load hh_k in shared memory
+      if (threadIdx.x < n - k - 1) {
+        shared_mem[threadIdx.x] = b_hh_k[threadIdx.x];
+      }
+      __syncthreads();
+
+      // Compute multiplications
       const int& i = threadIdx.x;
       T acc = 0;
       for (int j = k + 1; j < n; j++) {
-        acc += b_H[j * n + i] * b_hh_k[j - k - 1];
+        acc += b_H[j * n + i] * shared_mem[j - k - 1];
       }
       for (int j = k + 1; j < n; j++) {
-        b_H[j * n + i] -= (T)2 * acc * b_hh_k[j - k - 1];
+        b_H[j * n + i] -= (T)2 * acc * shared_mem[j - k - 1];
       }
     }
     __syncthreads();
@@ -1058,8 +1067,10 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
     for (int j = k + 1; j < n; j++) {
       // Element-wise multiplication of uk and a column of U to shared mem
       int i = k + 1 + threadIdx.x;
+      T hh_k_i;
       if (i < n) {
-        shared_mem[threadIdx.x] = b_hh_k[threadIdx.x] * b_U[j * n + i];
+        hh_k_i = b_hh_k[threadIdx.x];
+        shared_mem[threadIdx.x] = hh_k_i * b_U[j * n + i];
       }
 
       // Tree reduction
@@ -1075,7 +1086,7 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
 
       // Overwrite U
       if (i < n) {
-        b_U[j * n + i] -= (T)2 * b_hh_k[threadIdx.x] * shared_mem[0];
+        b_U[j * n + i] -= (T)2 * hh_k_i * shared_mem[0];
       }
     }
     __syncthreads();
