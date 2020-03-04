@@ -189,31 +189,31 @@ def score_completeness(ground_truth, predictions, use_handle):
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_homogeneity_perfect_labeling(use_handle):
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                  ([0, 0, 1, 1], [0, 0, 1, 1])])
+def test_homogeneity_perfect_labeling(use_handle, data):
     # Perfect labelings are homogeneous
-    hom = score_homogeneity([0, 0, 1, 1], [1, 1, 0, 0], use_handle)
-    assert_almost_equal(hom, 1.0, decimal=4)
-    hom = score_homogeneity([0, 0, 1, 1], [0, 0, 1, 1], use_handle)
+    hom = score_homogeneity(*data, use_handle)
     assert_almost_equal(hom, 1.0, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_homogeneity_non_perfect_labeling(use_handle):
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 0, 1, 2]),
+                                  ([0, 0, 1, 1], [0, 1, 2, 3])])
+def test_homogeneity_non_perfect_labeling(use_handle, data):
     # Non-perfect labelings that further split classes into more clusters can
     # be perfectly homogeneous
-    hom = score_homogeneity([0, 0, 1, 1], [0, 0, 1, 2], use_handle)
-    assert_almost_equal(hom, 1.0, decimal=4)
-    hom = score_homogeneity([0, 0, 1, 1], [0, 1, 2, 3], use_handle)
+    hom = score_homogeneity(*data, use_handle)
     assert_almost_equal(hom, 1.0, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_homogeneity_non_homogeneous_labeling(use_handle):
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 1, 0, 1]),
+                                  ([0, 0, 1, 1], [0, 0, 0, 0])])
+def test_homogeneity_non_homogeneous_labeling(use_handle, data):
     # Clusters that include samples from different classes do not make for an
     # homogeneous labeling
-    hom = score_homogeneity([0, 0, 1, 1], [0, 1, 0, 1], use_handle)
-    assert_almost_equal(hom, 0.0, decimal=4)
-    hom = score_homogeneity([0, 0, 1, 1], [0, 0, 0, 0], use_handle)
+    hom = score_homogeneity(*data, use_handle)
     assert_almost_equal(hom, 0.0, decimal=4)
 
 
