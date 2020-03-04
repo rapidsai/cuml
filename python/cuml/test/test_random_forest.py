@@ -42,9 +42,10 @@ from sklearn.model_selection import train_test_split
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
+@pytest.mark.parametrize('fil_sparse_format', [True, 'auto', False])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification(datatype, split_algo, rows_sample,
-                           nrows, column_info, max_features):
+def test_rf_classification(datatype, split_algo, rows_sample, nrows,
+                           column_info, fil_sparse_format, max_features):
     use_handle = True
     ncols, n_info = column_info
 
@@ -70,7 +71,8 @@ def test_rf_classification(datatype, split_algo, rows_sample,
                                    predict_model="GPU",
                                    output_class=True,
                                    threshold=0.5,
-                                   algo='auto')
+                                   algo='auto',
+                                   fil_sparse_format=fil_sparse_format)
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
     fil_acc = accuracy_score(y_test, fil_preds)
@@ -97,8 +99,9 @@ def test_rf_classification(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_regression(datatype, split_algo, mode,
-                       column_info, max_features, rows_sample):
+@pytest.mark.parametrize('fil_sparse_format', [True, 'auto', False])
+def test_rf_regression(datatype, split_algo, mode, column_info,
+                       max_features, rows_sample, fil_sparse_format):
 
     ncols, n_info = column_info
     use_handle = True
@@ -131,7 +134,8 @@ def test_rf_regression(datatype, split_algo, mode,
                        max_depth=16, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     # predict using FIL
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                   fil_sparse_format=fil_sparse_format)
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
@@ -432,7 +436,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                   fil_sparse_format, algo):
     use_handle = True
     ncols, n_info = column_info
-    numb_treees = 50
+    num_treees = 50
 
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
@@ -449,7 +453,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=numb_treees, handle=handle, max_leaves=-1,
+                       n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test,
@@ -469,7 +473,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 
     tl_model = cuml_model.convert_to_treelite_model()
 
-    assert numb_treees == tl_model.num_trees
+    assert num_treees == tl_model.num_trees
     assert ncols == tl_model.num_features
     del tl_model
 
@@ -503,7 +507,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
 
     ncols, n_info = column_info
     use_handle = True
-    numb_treees = 50
+    num_treees = 50
 
     if mode == 'unit':
         X, y = make_regression(n_samples=500, n_features=ncols,
@@ -529,7 +533,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=numb_treees, handle=handle, max_leaves=-1,
+                       n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
     # predict using FIL
@@ -547,7 +551,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
 
     tl_model = cuml_model.convert_to_treelite_model()
 
-    assert numb_treees == tl_model.num_trees
+    assert num_treees == tl_model.num_trees
     assert ncols == tl_model.num_features
     del tl_model
     # Initialize, fit and predict using

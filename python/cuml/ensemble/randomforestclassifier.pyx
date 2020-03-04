@@ -369,12 +369,13 @@ class RandomForestClassifier(Base):
                              " please read the documentation")
 
     def _obtain_treelite_handle(self):
-        task_category = self.num_classes
+        task_category = CLASSIFICATION_MODEL
         if self.num_classes > 2:
             raise NotImplementedError("Pickling for multi-class "
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
+
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -453,16 +454,16 @@ class RandomForestClassifier(Base):
            inferencing on the random forest model.
         """
 
-        if fil_sparse_format:
-            storage_type = 'SPARSE'
+        if fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
         elif not fil_sparse_format:
             storage_type = 'DENSE'
-        elif fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
+        elif fil_sparse_format:
+            storage_type = 'SPARSE'
         else:
-            raise ValueError("The value entered for spares_forest is wrong."
-                             " Please refer to the documentation to see the"
-                             " accepted values.")
+            raise ValueError("The value entered for spares_forest is not "
+                             "supported. Please refer to the documentation "
+                             "to see the accepted values.")
 
         treelite_handle = self._obtain_treelite_handle()
         fil_model = ForestInference()
@@ -472,6 +473,7 @@ class RandomForestClassifier(Base):
                                              threshold=threshold,
                                              algo=algo,
                                              storage_type=storage_type)
+
         return tl_to_fil_model
 
     def fit(self, X, y):
@@ -599,16 +601,16 @@ class RandomForestClassifier(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if fil_sparse_format:
-            storage_type = 'SPARSE'
+        if fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
         elif not fil_sparse_format:
             storage_type = 'DENSE'
-        elif fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
+        elif fil_sparse_format:
+            storage_type = 'SPARSE'
         else:
-            raise ValueError("The value entered for spares_forest is wrong."
-                             " Please refer to the documentation to see the"
-                             " accepted values.")
+            raise ValueError("The value entered for spares_forest is not "
+                             "supported. Please refer to the documentation "
+                             "to see the accepted values.")
 
         fil_model = ForestInference()
         tl_to_fil_model = \

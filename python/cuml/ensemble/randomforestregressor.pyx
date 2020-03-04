@@ -176,7 +176,7 @@ class RandomForestRegressor(Base):
         per node split.
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
-        If 'auto' then max_features=1/sqrt(n_features).
+        If 'auto' then max_features=1.0 .
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins :  int (default = 8)
@@ -429,16 +429,16 @@ class RandomForestRegressor(Base):
            A Forest Inference model which can be used to perform
            inferencing on the random forest model.
         """
-        if fil_sparse_format:
-            storage_type = 'SPARSE'
+        if fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
         elif not fil_sparse_format:
             storage_type = 'DENSE'
-        elif fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
+        elif fil_sparse_format:
+            storage_type = 'SPARSE'
         else:
-            raise ValueError("The value entered for spares_forest is wrong."
-                             " Please refer to the documentation to see the"
-                             " accepted values.")
+            raise ValueError("The value entered for spares_forest is not "
+                             "supported. Please refer to the documentation "
+                             "to see the accepted values.")
 
         treelite_handle = self._obtain_treelite_handle()
         fil_model = ForestInference()
@@ -555,16 +555,16 @@ class RandomForestRegressor(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if fil_sparse_format:
-            storage_type = 'SPARSE'
+        if fil_sparse_format == 'auto':
+            storage_type = fil_sparse_format
         elif not fil_sparse_format:
             storage_type = 'DENSE'
-        elif fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
+        elif fil_sparse_format:
+            storage_type = 'SPARSE'
         else:
-            raise ValueError("The value entered for spares_forest is wrong."
-                             " Please refer to the documentation to see the"
-                             " accepted values.")
+            raise ValueError("The value entered for spares_forest is not "
+                             "supported. Please refer to the documentation "
+                             "to see the accepted values.")
 
         fil_model = ForestInference()
         tl_to_fil_model = \
