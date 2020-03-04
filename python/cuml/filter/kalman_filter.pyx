@@ -31,7 +31,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.utils import zeros
-
+import warnings
 
 cdef extern from "kalman_filter/kf_variables.h" namespace "kf::linear":
     enum Option:
@@ -120,6 +120,10 @@ class KalmanFilter(Base):
     After construction the filter will have default matrices created for you,
     but you must specify the values for each.
 
+    .. deprecated:: 0.13
+        KalmanFilter is deprecated and will be removed in an upcoming version.
+        See issue  #1754 for details.
+
     Examples
     --------
 
@@ -196,9 +200,16 @@ class KalmanFilter(Base):
 
     def __init__(self, dim_x, dim_z, solver='long', precision='single',
                  seed=False):
+        warnings.warn("""KalmanFilter is deprecated and will be removed in an
+                         upcoming release. The current version has known
+                         numerical and performance issues (see issue #1754 and
+                         #1758)""", DeprecationWarning)
+
+        cdef Option algo
 
         if solver in ['long', 'short_implicit', 'short_explicit']:
-            self._algorithm = self._get_algorithm_c_name(solver)
+            self.algorithm = solver
+            algo = _get_algorithm_c_name(self.algorithm)
         else:
             msg = "algorithm {!r} is not supported"
             raise TypeError(msg.format(solver))
@@ -241,7 +252,8 @@ class KalmanFilter(Base):
         cdef uintptr_t _R_ptr = self.R.device_ctypes_pointer.value
         cdef uintptr_t _z_ptr = self.z.device_ctypes_pointer.value
 
-        cdef Variables[float] var_ptr
+        cdef Variables[float] var32
+        cdef Variables[double] var64
         cdef size_t workspace_size
 
         cdef int c_dim_x = dim_x
@@ -249,10 +261,10 @@ class KalmanFilter(Base):
 
         with nogil:
 
-            workspace_size = get_workspace_size_f32(var_ptr,
+            workspace_size = get_workspace_size_f32(var32,
                                                     <int> c_dim_x,
                                                     <int> c_dim_z,
-                                                    <Option> LongForm,
+                                                    <Option> algo,
                                                     <float*> _x_est_ptr,
                                                     <float*> _x_up_ptr,
                                                     <float*> _Phi_ptr,
@@ -262,16 +274,24 @@ class KalmanFilter(Base):
                                                     <float*> _R_ptr,
                                                     <float*> _H_ptr)
 
+        with nogil:
+
+            workspace_size = get_workspace_size_f64(var64,
+                                                    <int> c_dim_x,
+                                                    <int> c_dim_z,
+                                                    <Option> algo,
+                                                    <double*> _x_est_ptr,
+                                                    <double*> _x_up_ptr,
+                                                    <double*> _Phi_ptr,
+                                                    <double*> _P_est_ptr,
+                                                    <double*> _P_up_ptr,
+                                                    <double*> _Q_ptr,
+                                                    <double*> _R_ptr,
+                                                    <double*> _H_ptr)
+
         self.workspace = rmm.to_device(zeros(workspace_size,
                                              dtype=self.dtype))
         self._workspace_size = workspace_size
-
-    def _get_algorithm_c_name(self, algorithm):
-        return {
-            'long': LongForm,
-            'short_implicit': ShortFormExplicit,
-            'short_explicit': ShortFormImplicit,
-        }[algorithm]
 
     def predict(self, B=None, F=None, Q=None):
         """
@@ -318,29 +338,16 @@ class KalmanFilter(Base):
         dim_z = self.dim_z
 
         cdef Option algo
-        algo = self._algorithm
+        algo = _get_algorithm_c_name(self.algorithm)
 
         if self.precision == 'single':
 
             with nogil:
 
-                workspace_size = get_workspace_size_f32(var32,
-                                                        <int> dim_x,
-                                                        <int> dim_z,
-                                                        <Option> algo,
-                                                        <float*> _x_est_ptr,
-                                                        <float*> _x_up_ptr,
-                                                        <float*> _Phi_ptr,
-                                                        <float*> _P_est_ptr,
-                                                        <float*> _P_up_ptr,
-                                                        <float*> _Q_ptr,
-                                                        <float*> _R_ptr,
-                                                        <float*> _H_ptr)
-
                 init_f32(var32,
                          <int> dim_x,
                          <int> dim_z,
-                         <Option> LongForm,
+                         <Option> algo,
                          <float*> _x_est_ptr,
                          <float*> _x_up_ptr,
                          <float*> _Phi_ptr,
@@ -350,7 +357,7 @@ class KalmanFilter(Base):
                          <float*> _R_ptr,
                          <float*> _H_ptr,
                          <void*> _ws_ptr,
-                         <size_t&> workspace_size)
+                         <size_t&> current_size)
 
                 predict_f32(var32)
 
@@ -358,23 +365,10 @@ class KalmanFilter(Base):
 
             with nogil:
 
-                workspace_size = get_workspace_size_f64(var64,
-                                                        <int> dim_x,
-                                                        <int> dim_z,
-                                                        <Option> algo,
-                                                        <double*> _x_est_ptr,
-                                                        <double*> _x_up_ptr,
-                                                        <double*> _Phi_ptr,
-                                                        <double*> _P_est_ptr,
-                                                        <double*> _P_up_ptr,
-                                                        <double*> _Q_ptr,
-                                                        <double*> _R_ptr,
-                                                        <double*> _H_ptr)
-
                 init_f64(var64,
                          <int> dim_x,
                          <int> dim_z,
-                         <Option> LongForm,
+                         <Option> algo,
                          <double*> _x_est_ptr,
                          <double*> _x_up_ptr,
                          <double*> _Phi_ptr,
@@ -384,7 +378,7 @@ class KalmanFilter(Base):
                          <double*> _R_ptr,
                          <double*> _H_ptr,
                          <void*> _ws_ptr,
-                         <size_t&> workspace_size)
+                         <size_t&> current_size)
 
                 predict_f64(var64)
 
@@ -432,6 +426,9 @@ class KalmanFilter(Base):
 
         cdef uintptr_t z_ptr
 
+        cdef Option algo
+        algo = _get_algorithm_c_name(self.algorithm)
+
         if isinstance(z, cudf.Series):
             z_ptr = self._get_column_ptr(z)
 
@@ -450,23 +447,10 @@ class KalmanFilter(Base):
 
             with nogil:
 
-                workspace_size = get_workspace_size_f32(var32,
-                                                        <int> dim_x,
-                                                        <int> dim_z,
-                                                        <Option> LongForm,
-                                                        <float*> _x_est_ptr,
-                                                        <float*> _x_up_ptr,
-                                                        <float*> _Phi_ptr,
-                                                        <float*> _P_est_ptr,
-                                                        <float*> _P_up_ptr,
-                                                        <float*> _Q_ptr,
-                                                        <float*> _R_ptr,
-                                                        <float*> _H_ptr)
-
                 init_f32(var32,
                          <int> dim_x,
                          <int> dim_z,
-                         <Option> LongForm,
+                         <Option> algo,
                          <float*> _x_est_ptr,
                          <float*> _x_up_ptr,
                          <float*> _Phi_ptr,
@@ -476,7 +460,7 @@ class KalmanFilter(Base):
                          <float*> _R_ptr,
                          <float*> _H_ptr,
                          <void*> _ws_ptr,
-                         <size_t&> workspace_size)
+                         <size_t&> current_size)
 
                 update_f32(var32,
                            <float*> z_ptr)
@@ -485,23 +469,10 @@ class KalmanFilter(Base):
 
             with nogil:
 
-                workspace_size = get_workspace_size_f64(var64,
-                                                        <int> dim_x,
-                                                        <int> dim_z,
-                                                        <Option> LongForm,
-                                                        <double*> _x_est_ptr,
-                                                        <double*> _x_up_ptr,
-                                                        <double*> _Phi_ptr,
-                                                        <double*> _P_est_ptr,
-                                                        <double*> _P_up_ptr,
-                                                        <double*> _Q_ptr,
-                                                        <double*> _R_ptr,
-                                                        <double*> _H_ptr)
-
                 init_f64(var64,
                          <int> dim_x,
                          <int> dim_z,
-                         <Option> LongForm,
+                         <Option> algo,
                          <double*> _x_est_ptr,
                          <double*> _x_up_ptr,
                          <double*> _Phi_ptr,
@@ -511,7 +482,7 @@ class KalmanFilter(Base):
                          <double*> _R_ptr,
                          <double*> _H_ptr,
                          <void*> _ws_ptr,
-                         <size_t&> workspace_size)
+                         <size_t&> current_size)
 
                 update_f64(var64,
                            <double*> z_ptr)
@@ -532,3 +503,11 @@ class KalmanFilter(Base):
 
         else:
             super(KalmanFilter, self).__setattr__(name, value)
+
+
+def _get_algorithm_c_name(algorithm):
+    return {
+        'long': LongForm,
+        'short_explicit': ShortFormExplicit,
+        'short_implicit': ShortFormImplicit,
+    }[algorithm]

@@ -107,11 +107,25 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
         num_iters, X_col_major, loss_type, cuml_handle.getStream());
 }
 
+void qnDecisionFunction(const cumlHandle &cuml_handle, float *X, int N, int D,
+                        int C, bool fit_intercept, float *params,
+                        bool X_col_major, int loss_type, float *preds) {
+  qnDecisionFunction(cuml_handle.getImpl(), X, N, D, C, fit_intercept, params,
+                     X_col_major, loss_type, preds, cuml_handle.getStream());
+}
+
+void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
+                        int C, bool fit_intercept, double *params,
+                        bool X_col_major, int loss_type, double *scores) {
+  qnDecisionFunction(cuml_handle.getImpl(), X, N, D, C, fit_intercept, params,
+                     X_col_major, loss_type, scores, cuml_handle.getStream());
+}
+
 void qnPredict(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
                bool fit_intercept, float *params, bool X_col_major,
-               int loss_type, float *preds) {
+               int loss_type, float *scores) {
   qnPredict(cuml_handle.getImpl(), X, N, D, C, fit_intercept, params,
-            X_col_major, loss_type, preds, cuml_handle.getStream());
+            X_col_major, loss_type, scores, cuml_handle.getStream());
 }
 
 void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,

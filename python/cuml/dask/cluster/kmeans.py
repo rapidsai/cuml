@@ -115,7 +115,8 @@ class KMeans(object):
 
         df = concat(dfs)
 
-        return cumlKMeans(handle=handle, **kwargs).fit(df)
+        return cumlKMeans(handle=handle, output_type='cudf',
+                          **kwargs).fit(df)
 
     @staticmethod
     def _func_transform(model, dfs):
