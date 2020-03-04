@@ -23,7 +23,8 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
-    unit_param, quality_param, stress_param, generate_random_labels
+    unit_param, quality_param, stress_param, generate_random_labels, \
+    score_labeling_with_handle
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
@@ -31,9 +32,9 @@ from numpy.testing import assert_almost_equal
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
-from sklearn.metrics.cluster import homogeneity_score as sk_hom_score
-from sklearn.metrics.cluster import mutual_info_score as sk_mi_score
-from sklearn.metrics.cluster import completeness_score as sk_com_score
+from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
+from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.preprocessing import StandardScaler
 
 from cuml.metrics.regression import mean_squared_error
@@ -163,96 +164,94 @@ def test_rand_index_score(name, nrows):
     assert array_equal(cu_score, cu_score_using_sk)
 
 
+def score_homogeneity(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.homogeneity_score,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
+def score_mutual_info(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.mutual_info_score,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
+def score_completeness(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.completeness,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_homogeneity_score(use_handle):
-    def score_labeling(ground_truth, predictions):
-        a = np.array(ground_truth, dtype=np.int32)
-        b = np.array(predictions, dtype=np.int32)
-
-        a_dev = cuda.to_device(a)
-        b_dev = cuda.to_device(b)
-
-        handle, stream = get_handle(use_handle)
-
-        return cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
-
+def test_homogeneity_perfect_labeling(use_handle):
     # Perfect labelings are homogeneous
-    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [1, 1, 0, 0]),
-                                   1.0, decimal=4)
-    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 1]),
-                                   1.0, decimal=4)
+    hom = score_homogeneity([0, 0, 1, 1], [1, 1, 0, 0], use_handle)
+    assert_almost_equal(hom, 1.0, decimal=4)
+    hom = score_homogeneity([0, 0, 1, 1], [0, 0, 1, 1], use_handle)
+    assert_almost_equal(hom, 1.0, decimal=4)
 
+
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_homogeneity_non_perfect_labeling(use_handle):
     # Non-perfect labelings that further split classes into more clusters can
     # be perfectly homogeneous
-    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 1, 2]),
-                                   1.0, decimal=4)
-    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 1, 2, 3]),
-                                   1.0, decimal=4)
-
-    # Clusters that include samples from different classes do not make for an
-    # homogeneous labeling
-    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 1, 0, 1]),
-                                   0.0, decimal=4)
-    np.testing.assert_almost_equal(score_labeling([0, 0, 1, 1], [0, 0, 0, 0]),
-                                   0.0, decimal=4)
+    hom = score_homogeneity([0, 0, 1, 1], [0, 0, 1, 2], use_handle)
+    assert_almost_equal(hom, 1.0, decimal=4)
+    hom = score_homogeneity([0, 0, 1, 1], [0, 1, 2, 3], use_handle)
+    assert_almost_equal(hom, 1.0, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_homogeneity_score_big_array(use_handle):
-    def assert_equal_sklearn(random_generation_lambda):
-        a_dev, b_dev = generate_random_labels(random_generation_lambda)
-
-        handle, stream = get_handle(use_handle)
-
-        score = cuml.metrics.homogeneity_score(a_dev, b_dev, handle=handle)
-        ref = sk_hom_score(a_dev, b_dev)
-
-        np.testing.assert_almost_equal(score, ref, decimal=4)
-
-    assert_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4),
-                                                 dtype=np.int32))
-    assert_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4),
-                                                 dtype=np.int32))
+def test_homogeneity_non_homogeneous_labeling(use_handle):
+    # Clusters that include samples from different classes do not make for an
+    # homogeneous labeling
+    hom = score_homogeneity([0, 0, 1, 1], [0, 1, 0, 1], use_handle)
+    assert_almost_equal(hom, 0.0, decimal=4)
+    hom = score_homogeneity([0, 0, 1, 1], [0, 0, 0, 0], use_handle)
+    assert_almost_equal(hom, 0.0, decimal=4)
 
 
-def assert_mi_equal_sklearn(a, b, use_handle):
-    a_dev = cuda.to_device(a)
-    b_dev = cuda.to_device(b)
-
-    handle, stream = get_handle(use_handle)
-
-    score = cuml.metrics.mutual_info_score(a_dev, b_dev, handle=handle)
-    ref = sk_mi_score(a_dev, b_dev)
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 1000],
+                                         [-1000, 1000]])
+def test_homogeneity_score_big_array(use_handle, input_range):
+    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
+                                                          int(10e4),
+                                                          dtype=np.int32))
+    score = score_homogeneity(a, b, use_handle)
+    ref = sk_homogeneity_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_mutual_info_score(use_handle):
-    def assert_ours_equal_sklearn(ground_truth, predictions):
-        a = np.array(ground_truth, dtype=np.int32)
-        b = np.array(predictions, dtype=np.int32)
-        assert_mi_equal_sklearn(a, b, use_handle=use_handle)
-
-    assert_ours_equal_sklearn([0, 0, 1, 1], [1, 1, 0, 0])
-    assert_ours_equal_sklearn([0, 0, 1, 1], [0, 0, 1, 1])
-    assert_ours_equal_sklearn([0, 0, 1, 1], [0, 0, 1, 2])
-    assert_ours_equal_sklearn([0, 0, 1, 1], [0, 1, 2, 3])
-    assert_ours_equal_sklearn([0, 0, 1, 1], [0, 1, 0, 1])
-    assert_ours_equal_sklearn([0, 0, 1, 1], [0, 0, 0, 0])
+@pytest.mark.parametrize('input_labels', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                          ([0, 0, 1, 1], [0, 0, 1, 1]),
+                                          ([0, 0, 1, 1], [0, 0, 1, 2]),
+                                          ([0, 0, 1, 1], [0, 1, 2, 3]),
+                                          ([0, 0, 1, 1], [0, 1, 0, 1]),
+                                          ([0, 0, 1, 1], [0, 0, 0, 0])])
+def test_mutual_info_score(use_handle, input_labels):
+    score = score_mutual_info(*input_labels, use_handle)
+    ref = sk_mutual_info_score(*input_labels)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_mutual_info_score_big_array(use_handle):
-    def assert_equal_sklearn(random_generation_lambda):
-        rng = np.random.RandomState(1234)  # makes it reproducible
-        a = random_generation_lambda(rng)
-        b = random_generation_lambda(rng)
-        assert_mi_equal_sklearn(a, b, use_handle=use_handle)
-
-    assert_equal_sklearn(lambda rng: rng.randint(0, 1000, int(10e4),
-                                                 dtype=np.int32))
-    assert_equal_sklearn(lambda rng: rng.randint(-1000, 1000, int(10e4),
-                                                 dtype=np.int32))
+@pytest.mark.parametrize('input_range', [[0, 1000],
+                                         [-1000, 1000]])
+def test_mutual_info_score_big_array(use_handle, input_range):
+    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
+                                                          int(10e4),
+                                                          dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -315,7 +314,7 @@ def test_completeness_score_big_array(use_handle):
         handle, stream = get_handle(use_handle)
 
         score = cuml.metrics.completeness_score(a_dev, b_dev, handle=handle)
-        ref = sk_com_score(a_dev, b_dev)
+        ref = sk_completeness_score(a_dev, b_dev)
 
         np.testing.assert_almost_equal(score, ref, decimal=4)
 
@@ -325,22 +324,17 @@ def test_completeness_score_big_array(use_handle):
                                                       dtype=np.int32))
 
 
-@pytest.mark.parametrize('use_handle', [True, False])
-def test_mutual_info_score_many_blocks(use_handle):
-    def assert_ours_equal_sklearn(random_generation_lambda):
-        rng = np.random.RandomState(1234)  # makes it reproducible
-        a = random_generation_lambda(rng)
-        b = random_generation_lambda(rng)
-        assert_mi_equal_sklearn(a, b, use_handle)
-
-    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 19, 129,
-                                                      dtype=np.int32))
-    assert_ours_equal_sklearn(lambda rng: rng.randint(0, 2, 129,
-                                                      dtype=np.int32))
-    assert_ours_equal_sklearn(lambda rng: rng.randint(-5, 20, 129,
-                                                      dtype=np.int32))
-    assert_ours_equal_sklearn(lambda rng: rng.randint(-5, 20, 258,
-                                                      dtype=np.int32))
+@pytest.mark.parametrize('input_range', [[0, 19],
+                                         [0, 2],
+                                         [-5, 20]])
+@pytest.mark.parametrize('n_samples', [129, 258])
+def test_mutual_info_score_many_blocks(use_handle, input_range, n_samples):
+    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
+                                                          n_samples,
+                                                          dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
 def test_mean_squared_error():
