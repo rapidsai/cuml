@@ -222,3 +222,13 @@ def generate_random_labels(random_generation_lambda, seed=1234):
     b = random_generation_lambda(rng)
 
     return cuda.to_device(a), cuda.to_device(b)
+
+
+def score_labeling_with_handle(func, ground_truth, predictions, use_handle,
+                               dtype=np.int32):
+    a = cp.array(ground_truth, dtype=dtype)
+    b = cp.array(predictions, dtype=dtype)
+
+    handle, stream = get_handle(use_handle)
+
+    return func(a, b, handle=handle)
