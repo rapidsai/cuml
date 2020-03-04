@@ -112,15 +112,21 @@ class CumlArray(Buffer):
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
                             " Array.empty()")
-        if isinstance(data, int):
+        if isinstance(data, DeviceBuffer) or isinstance(data, int) \
+                or isinstance(data, bytearray) or \
+                isinstance(data, memoryview) or isinstance(data, Buffer):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
                                 " creating an Array from a pointer.")
+            detailed_construction = True
+        else:
+            detailed_construction = False
 
         ary_interface = False
 
-        if isinstance(data, DeviceBuffer) or isinstance(data, int) or \
-                isinstance(data, Buffer):
+        if detailed_construction:
+            if isinstance(data, bytearray):
+                data = memoryview(data)
             size, shape = _get_size_from_shape(shape, dtype)
             super(CumlArray, self).__init__(data=data, owner=owner, size=size)
             self.shape = shape
@@ -140,14 +146,14 @@ class CumlArray(Buffer):
         if ary_interface:
             super(CumlArray, self).__init__(data=data, owner=owner)
             self.shape = ary_interface['shape']
-            self.dtype = np.dtype(data.dtype)
+            self.dtype = np.dtype(ary_interface['typestr'])
             if ary_interface.get('strides', None) is None:
                 self.order = 'C'
                 self.strides = _order_to_strides(self.order, self.shape,
                                                  self.dtype)
             else:
                 self.strides = ary_interface['strides']
-                self.order = _strides_to_order(self.strides, data.dtype)
+                self.order = _strides_to_order(self.strides, self.dtype)
 
     def __getitem__(self, slice):
         return CumlArray(data=cp.asarray(self).__getitem__(slice))
