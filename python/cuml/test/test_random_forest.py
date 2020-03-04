@@ -554,14 +554,14 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+@pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(50000),
                          stress_param(500000)])
-def test_rf_memory_leakage(datatype, column_info, nrows):
-    n_iter = 100
+def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
+    n_iter = 30
     use_handle = True
     ncols, n_info = column_info
     X, y = make_classification(n_samples=nrows, n_features=ncols,
@@ -592,7 +592,6 @@ def test_rf_memory_leakage(datatype, column_info, nrows):
         cuml_mods = curfc(handle=handle)
         cuml_mods.fit(X_train, y_train)
         cuml_mods.predict(X_train, predict_model="GPU")
-
-    handle.sync()
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    assert delta_mem == 0
+        handle.sync()
+        delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+        assert delta_mem == 0
