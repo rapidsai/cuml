@@ -269,31 +269,31 @@ def test_homogeneity_completeness_symmetry(use_handle, input_range):
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_completeness_perfect_labeling(use_handle):
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                  ([0, 0, 1, 1], [0, 0, 1, 1])])
+def test_completeness_perfect_labeling(use_handle, data):
     # Perfect labelings are complete
-    com = score_completeness([0, 0, 1, 1], [1, 1, 0, 0], use_handle)
-    np.testing.assert_almost_equal(com, 1.0, decimal=4)
-    com = score_completeness([0, 0, 1, 1], [0, 0, 1, 1], use_handle)
+    com = score_completeness(*data, use_handle)
     np.testing.assert_almost_equal(com, 1.0, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_completeness_non_perfect_labeling(use_handle):
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 0, 0, 0]),
+                                  ([0, 1, 2, 3], [0, 0, 1, 1])])
+def test_completeness_non_perfect_labeling(use_handle, data):
     # Non-perfect labelings that assign all classes members to the same
     # clusters are still complete
-    com = score_completeness([0, 0, 1, 1], [0, 0, 0, 0], use_handle)
-    np.testing.assert_almost_equal(com, 1.0, decimal=4)
-    com = score_completeness([0, 1, 2, 3], [0, 0, 1, 1], use_handle)
+    com = score_completeness(*data, use_handle)
     np.testing.assert_almost_equal(com, 1.0, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_completeness_non_complete_labeling(use_handle):
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 1, 0, 1]),
+                                  ([0, 0, 0, 0], [0, 1, 2, 3])])
+def test_completeness_non_complete_labeling(use_handle, data):
     # If classes members are split across different clusters, the assignment
     # cannot be complete
-    com = score_completeness([0, 0, 1, 1], [0, 1, 0, 1], use_handle)
-    np.testing.assert_almost_equal(com, 0.0, decimal=4)
-    com = score_completeness([0, 0, 0, 0], [0, 1, 2, 3], use_handle)
+    com = score_completeness(*data, use_handle)
     np.testing.assert_almost_equal(com, 0.0, decimal=4)
 
 
