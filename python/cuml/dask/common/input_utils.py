@@ -208,7 +208,8 @@ def _extract_partitions(dask_obj, client=None):
                       for key, part in key_to_part])
 
 
-# TODO: This can go away once all remaining estimators are updated to use _extract_partitions
+# TODO: This can go away once all remaining estimators are updated
+#  to use _extract_partitions
 @gen.coroutine
 def _extract_colocated_partitions(data, client=None):
 
