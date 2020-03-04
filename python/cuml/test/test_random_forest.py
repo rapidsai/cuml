@@ -562,6 +562,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                          stress_param(500000)])
 def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
     n_iter = 30
+    datatype = np.float32
     use_handle = True
     ncols, n_info = column_info
     X, y = make_classification(n_samples=nrows, n_features=ncols,
@@ -587,10 +588,10 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
 
     # Calculate the memory free after fitting the cuML RF model
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    cuml_mods = curfc(handle=handle)
+    cuml_mods.fit(X_train, y_train)
 
     for i in range(n_iter):
-        cuml_mods = curfc(handle=handle)
-        cuml_mods.fit(X_train, y_train)
         cuml_mods.predict(X_train, predict_model="GPU")
         handle.sync()
         delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
