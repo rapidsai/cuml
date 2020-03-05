@@ -13,15 +13,17 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
 import pytest
+
+from cuml.test.utils import unit_param
+from cuml.test.utils import quality_param
+from cuml.test.utils import stress_param
 
 from dask.distributed import Client, wait
 
-import numpy as np
-
-import cupy as cp
-
-from cuml.test.utils import unit_param, quality_param, stress_param
+from sklearn.metrics import adjusted_rand_score
 
 SCORE_EPS = 0.06
 
@@ -64,7 +66,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         else:
             assert cumlLabels.npartitions == n_workers
 
-        from sklearn.metrics import adjusted_rand_score
 
         cumlPred = cumlLabels.compute().to_pandas().values
 
