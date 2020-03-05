@@ -44,7 +44,8 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, array_like, int, bytes, bytearrar or memoryview
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearrar or
+           memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
     owner : object, optional
@@ -113,12 +114,12 @@ class CumlArray(Buffer):
         # Checks of parameters
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
-                            " Array.empty()")
+                            " Array.empty().")
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
-                                " creating an Array from" + type(data) + ".")
+                                " creating an Array from " + type(data) + ".")
             detailed_construction = True
         else:
             detailed_construction = False
