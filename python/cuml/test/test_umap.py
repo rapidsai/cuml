@@ -119,18 +119,13 @@ def test_umap_transform_on_iris():
         [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
-    def run_transform():
-        fitter = cuUMAP(n_neighbors=10, n_epochs=800, min_dist=0.01,
-                        verbose=False)
-        fitter.fit(data, convert_dtype=True)
-        new_data = iris.data[~iris_selection]
-        embedding = fitter.transform(new_data, convert_dtype=True)
-        return trustworthiness(new_data, embedding, 10)
-
-    threshold = 0.85
-
-    trust = np.mean([run_transform() for i in range(5)])
-    assert trust >= threshold
+    fitter = cuUMAP(n_neighbors=10, n_epochs=800, min_dist=0.01,
+                    random_state=42, verbose=False)
+    fitter.fit(data, convert_dtype=True)
+    new_data = iris.data[~iris_selection]
+    embedding = fitter.transform(new_data, convert_dtype=True)
+    trust = trustworthiness(new_data, embedding, 10)
+    assert trust >= 0.85
 
 
 def test_umap_transform_on_digits():
@@ -141,14 +136,13 @@ def test_umap_transform_on_digits():
         [True, False], 1797, replace=True, p=[0.75, 0.25])
     data = digits.data[digits_selection]
 
-    fitter = cuUMAP(n_neighbors=15, n_epochs=0, min_dist=0.01, verbose=False)
+    fitter = cuUMAP(n_neighbors=15, n_epochs=0, min_dist=0.01,
+                    random_state=42, verbose=False)
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
     trust = trustworthiness(new_data, embedding, 10)
-
-    # This should be raised once UMAP is reproducible
-    assert trust >= 0.92
+    assert trust >= 0.96
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -268,3 +262,105 @@ def test_umap_fit_transform_against_fit_and_transform():
     fit_embedding_diff_input = cuml_model.transform(data[1:],
                                                     convert_dtype=True)
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
+
+
+@pytest.mark.parametrize('n_components', [2, 13])
+@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+def test_umap_fit_transform_reproducibility(n_components, random_state):
+
+    n_samples = 8000
+    n_features = 200
+
+    if random_state is None:
+        n_components *= 2
+
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
+                              centers=10, random_state=42)
+
+    def get_embedding(n_components, random_state):
+        reducer = cuUMAP(verbose=False, n_components=n_components,
+                         random_state=random_state)
+        return reducer.fit_transform(data, convert_dtype=True)
+
+    if isinstance(random_state, np.random.RandomState):
+        state = random_state.get_state()
+
+    cuml_embedding1 = get_embedding(n_components, random_state)
+
+    if isinstance(random_state, np.random.RandomState):
+        random_state.set_state(state)
+
+    cuml_embedding2 = get_embedding(n_components, random_state)
+
+    if random_state is not None:
+        assert array_equal(cuml_embedding1, cuml_embedding2,
+                           1e-3, with_sign=True)
+    else:
+        assert not array_equal(cuml_embedding1, cuml_embedding2,
+                               1e-3, with_sign=True)
+
+
+@pytest.mark.parametrize('n_components', [2, 25])
+@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+def test_umap_transform_reproducibility(n_components, random_state):
+
+    n_samples = 5000
+    n_features = 200
+
+    if random_state is None:
+        n_components *= 2
+
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
+                              centers=10, random_state=42)
+
+    selection = np.random.RandomState(42).choice(
+        [True, False], n_samples, replace=True, p=[0.5, 0.5])
+    fit_data = data[selection]
+    transform_data = data[~selection]
+
+    def get_embedding(n_components, random_state):
+        reducer = cuUMAP(verbose=False, n_components=n_components,
+                         random_state=random_state)
+        reducer.fit(fit_data, convert_dtype=True)
+        return reducer.transform(transform_data, convert_dtype=True)
+
+    if isinstance(random_state, np.random.RandomState):
+        state = random_state.get_state()
+
+    cuml_embedding1 = get_embedding(n_components, random_state)
+
+    if isinstance(random_state, np.random.RandomState):
+        random_state.set_state(state)
+
+    cuml_embedding2 = get_embedding(n_components, random_state)
+
+    if random_state is not None:
+        assert array_equal(cuml_embedding1, cuml_embedding2,
+                           1e-3, with_sign=True)
+    else:
+        assert not array_equal(cuml_embedding1, cuml_embedding2,
+                               1e-3, with_sign=True)
+
+
+def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
+    iris = datasets.load_iris()
+    data = iris.data
+    embedding = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42,
+                       verbose=False).fit_transform(data, convert_dtype=True)
+    trust = trustworthiness(iris.data, embedding, 10)
+    assert trust >= 0.97
+
+
+def test_umap_transform_trustworthiness_with_consistency_enabled():
+    iris = datasets.load_iris()
+    data = iris.data
+    selection = np.random.RandomState(42).choice(
+        [True, False], data.shape[0], replace=True, p=[0.5, 0.5])
+    fit_data = data[selection]
+    transform_data = data[~selection]
+    model = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42,
+                   verbose=False)
+    model.fit(fit_data, convert_dtype=True)
+    embedding = model.transform(transform_data, convert_dtype=True)
+    trust = trustworthiness(transform_data, embedding, 10)
+    assert trust >= 0.92
