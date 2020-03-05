@@ -116,6 +116,21 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     predict(h, forest, X_test, params.n_rows_test, 1, y_pred, false);
     auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred, false);
+    // if (metrics.accuracy <= params.min_expected_acc) {
+    //   print_tree(&(forest->trees[0]));
+    //   auto nr = params.n_rows_train + params.n_rows_test;
+    //   T *hX = new T[nr];
+    //   int *hy = new int[nr];
+    //   MLCommon::updateHost(hX, X_train, params.n_rows_train, stream);
+    //   MLCommon::updateHost(hX + params.n_rows_train, X_test, params.n_rows_test, stream);
+    //   MLCommon::updateHost(hy, y_train, params.n_rows_train, stream);
+    //   MLCommon::updateHost(hy + params.n_rows_train, y_test, params.n_rows_test, stream);
+    //   FILE* fp = fopen("aa.csv", "w");
+    //   for (int i = 0; i < nr; ++i) {
+    //     fprintf(fp, "%f,%d\n", hX[i], hy[i]);
+    //   }
+    //   fclose(fp);
+    // }
     delete[] forest->trees;
     delete forest;
     return metrics.accuracy;
