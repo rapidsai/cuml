@@ -23,7 +23,9 @@ from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
 from dask.distributed import default_client
 
 
-class LinearRegression(BaseEstimator, BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
+class LinearRegression(BaseEstimator,
+                       BaseLinearModelSyncFitMixin,
+                       DelayedPredictionMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
