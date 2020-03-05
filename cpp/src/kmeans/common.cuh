@@ -608,12 +608,11 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
 
   // temporary buffers
-  MLCommon::host_buffer<DataT> h_wt(handle.getHostAllocator(), stream);
-  h_wt.resize(n_samples, stream);
+  MLCommon::host_buffer<DataT> h_wt(handle.getHostAllocator(), stream,
+                                    n_samples);
 
-  MLCommon::device_buffer<DataT> distBuffer(handle.getDeviceAllocator(),
-                                            stream);
-  distBuffer.resize(n_trials * n_samples, stream);
+  MLCommon::device_buffer<DataT> distBuffer(handle.getDeviceAllocator(), stream,
+                                            n_trials * n_samples);
 
   Tensor<DataT, 2, IndexT> centroidCandidates(
     {n_trials, n_features}, handle.getDeviceAllocator(), stream);
