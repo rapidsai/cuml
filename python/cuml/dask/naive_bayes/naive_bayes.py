@@ -106,7 +106,7 @@ class MultinomialNB(object):
         self.model_ = None
         self.kwargs = kwargs
 
-        register_serialization(self.client_)
+        register_dist_serialization(self.client_)
 
     @staticmethod
     def _fit(Xy, classes, kwargs):
