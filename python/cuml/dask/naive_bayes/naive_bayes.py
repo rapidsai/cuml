@@ -28,8 +28,9 @@ from cuml.dask.common import extract_arr_partitions, \
 from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import default_client
+from dask.distributed import wait
 
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
+from cuml.dask.common.utils import register_serialization
 
 
 class MultinomialNB(object):
@@ -106,7 +107,7 @@ class MultinomialNB(object):
         self.model_ = None
         self.kwargs = kwargs
 
-        patch_cupy_sparse_serialization(self.client_)
+        register_serialization(self.client_)
 
     @staticmethod
     def _fit(Xy, classes, kwargs):
@@ -242,7 +243,6 @@ class MultinomialNB(object):
         x_worker_parts = workers_to_parts(gpu_futures)
 
         key = uuid1()
-
         futures = [(wf[0],
                     self.client_.submit(MultinomialNB._get_size,
                                         wf[1],
@@ -250,17 +250,17 @@ class MultinomialNB(object):
                                         key="%s-%s" % (key, idx)))
                    for idx, wf in enumerate(gpu_futures)]
 
-        sizes = self.client_.compute(list(map(lambda x: x[1],
-                                              futures)), sync=True)
+        sizes = self.client_.compute([x[1] for x in futures], sync=True)
 
-        models = dict([(w, self.client_.scatter(self.model_,
-                                                broadcast=True,
-                                                workers=[w]))
-                       for w, p in x_worker_parts.items()])
+        models = self.client_.scatter(self.model_,
+                                      broadcast=True,
+                                      direct=True,
+                                      hash=False,
+                                      workers=list(x_worker_parts.keys()))
 
         preds = dict([(w, self.client_.submit(
             MultinomialNB._predict,
-            models[w],
+            models,
             p
         )) for w, p in x_worker_parts.items()])
 
