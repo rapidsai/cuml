@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
@@ -29,6 +30,7 @@
 - PR #1718: Import `using_allocator` from `cupy.cuda`
 - PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 - PR #1726: Decorator to allocate CuPy arrays with RMM
+- PR #1719: UMAP random seed reproducibility
 - PR #1748: Test serializing `CumlArray` objects
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
@@ -61,6 +63,7 @@
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 - PR #1765: Update the checks for using RF GPU predict
+- PR #1793: Updated fil pyx to solve memory leakage issue
 
 # cuML 0.12.0 (Date TBD)
 
