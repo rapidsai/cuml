@@ -29,7 +29,7 @@ from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import default_client
 
-from cuml.dask.common.utils import register_serialization
+from cuml.dask.common.utils import register_dist_serialization
 
 
 class MultinomialNB(object):
