@@ -299,7 +299,8 @@ void leaf_eval_classification(
   int non_leaf_counter = 0;
   // XXX: This line fixes the inaccuracy in max_depth==1 tree leaf predictions
   // I still don't fully understand its role, but it seems interesting
-  bool condition_global = true;  // XXX removed: (curr_depth == max_depth);
+  bool condition_global =
+    curr_depth >= max_depth - 1;  // XXX removed: (curr_depth == max_depth);
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
