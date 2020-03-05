@@ -35,9 +35,12 @@ from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
 from sklearn.preprocessing import StandardScaler
-
-from cuml.metrics.regression import mean_squared_error
 from sklearn.metrics.regression import mean_squared_error as sklearn_mse
+
+from cuml.metrics.cluster import entropy
+from cuml.metrics.regression import mean_squared_error
+
+from scipy.stats import entropy as sp_entropy
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -316,3 +319,39 @@ def test_mean_squared_error_custom_weights():
     skl_mse = sklearn_mse(y_true, y_pred, sample_weight=weights)
 
     assert_almost_equal(mse, skl_mse, decimal=2)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_entropy(use_handle):
+    handle, stream = get_handle(use_handle)
+
+    # The outcome of a fair coin is the most uncertain:
+    # in base 2 the result is 1 (One bit of entropy).
+    cluster = np.array([0, 1], dtype=np.int32)
+    assert_almost_equal(entropy(cluster, base=2., handle=handle), 1.)
+
+    # The outcome of a biased coin is less uncertain:
+    cluster = np.array(([0] * 9) + [1], dtype=np.int32)
+    assert_almost_equal(entropy(cluster, base=2., handle=handle), 0.468995593)
+    # base e
+    assert_almost_equal(entropy(cluster, handle=handle), 0.32508297339144826)
+
+
+@pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
+@pytest.mark.parametrize('base', [None, 2, 10, 50])
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_entropy_random(n_samples, base, use_handle):
+    handle, stream = get_handle(use_handle)
+
+    clustering, _ = \
+        generate_random_labels(lambda rng: rng.randint(0, 1000, n_samples))
+
+    # generate unormalized probabilities from clustering
+    pk = np.bincount(clustering)
+
+    # scipy's entropy uses probabilities
+    sp_S = sp_entropy(pk, base=base)
+    # we use a clustering
+    S = entropy(np.array(clustering, dtype=np.int32), base, handle=handle)
+
+    assert_almost_equal(S, sp_S, decimal=2)
