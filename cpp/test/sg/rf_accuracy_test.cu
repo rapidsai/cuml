@@ -32,16 +32,6 @@ struct RFInputs {
   float min_expected_acc;
 };
 
-__global__ void threshold(int *y, int cutoff) {
-  int i = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (y[i] >= cutoff) {
-    y[i] = 1;
-  } else {
-    y[i] = 0;
-  }
-}
-
 template <typename T>
 class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
  protected:
