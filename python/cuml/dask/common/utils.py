@@ -23,8 +23,6 @@ from cuml import Base
 
 from asyncio import InvalidStateError
 
-import time
-
 from threading import Lock
 
 import cupy as cp
