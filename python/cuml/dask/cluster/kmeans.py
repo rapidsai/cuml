@@ -42,54 +42,54 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
     For more information on this implementation, refer to the
     documentation for single-GPU K-Means.
+
+    Parameters
+    ----------
+
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class.
+    n_clusters : int (default = 8)
+        The number of centroids or clusters you want.
+    max_iter : int (default = 300)
+        The more iterations of EM, the more accurate, but slower.
+    tol : float (default = 1e-4)
+        Stopping criterion when centroid means do not change much.
+    verbose : boolean (default = 0)
+        If True, prints diagnositc information.
+    random_state : int (default = 1)
+        If you want results to be the same when you restart Python,
+        select a state.
+    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+           (default = 'scalable-k-means++')
+        'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
+        kmeans++ intialization.
+        'random': Choose 'n_cluster' observations (rows) at random
+        from data for the initial centroids. If an ndarray is passed,
+        it should be of shape (n_clusters, n_features) and gives the
+        initial centers.
+    oversampling_factor : int (default = 2) The amount of points to sample
+        in scalable k-means++ initialization for potential centroids.
+        Increasing this value can lead to better initial centroids at the
+        cost of memory. The total number of centroids sampled in scalable
+        k-means++ is oversampling_factor * n_clusters * 8.
+    max_samples_per_batch : int (default = 32768) The number of data
+        samples to use for batches of the pairwise distance computation.
+        This computation is done throughout both fit predict. The default
+        should suit most cases. The total number of elements in the
+        batched pairwise distance computation is max_samples_per_batch
+        * n_clusters. It might become necessary to lower this number when
+        n_clusters becomes prohibitively large.
+
+    Attributes
+    ----------
+
+    cluster_centers_ : cuDF DataFrame or CuPy ndarray
+        The coordinates of the final clusters. This represents of "mean" of
+        each data cluster.
+
     """
 
     def __init__(self, client=None, **kwargs):
-        """
-        Constructor for distributed KMeans model
-
-        Parameters
-        ----------
-        handle : cuml.Handle
-            If it is None, a new one is created just for this class.
-        n_clusters : int (default = 8)
-            The number of centroids or clusters you want.
-        max_iter : int (default = 300)
-            The more iterations of EM, the more accurate, but slower.
-        tol : float (default = 1e-4)
-            Stopping criterion when centroid means do not change much.
-        verbose : boolean (default = 0)
-            If True, prints diagnositc information.
-        random_state : int (default = 1)
-            If you want results to be the same when you restart Python,
-            select a state.
-        init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
-               (default = 'scalable-k-means++')
-            'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-            kmeans++ intialization.
-            'random': Choose 'n_cluster' observations (rows) at random
-            from data for the initial centroids. If an ndarray is passed,
-            it should be of shape (n_clusters, n_features) and gives the
-            initial centers.
-        oversampling_factor : int (default = 2) The amount of points to sample
-            in scalable k-means++ initialization for potential centroids.
-            Increasing this value can lead to better initial centroids at the
-            cost of memory. The total number of centroids sampled in scalable
-            k-means++ is oversampling_factor * n_clusters * 8.
-        max_samples_per_batch : int (default = 32768) The number of data
-            samples to use for batches of the pairwise distance computation.
-            This computation is done throughout both fit predict. The default
-            should suit most cases. The total number of elements in the
-            batched pairwise distance computation is max_samples_per_batch
-            * n_clusters. It might become necessary to lower this number when
-            n_clusters becomes prohibitively large.
-
-        Attributes
-        ----------
-        cluster_centers_ : array
-            The coordinates of the final clusters. This represents of "mean" of
-            each data cluster.
-        """
         self.client = default_client() if client is None else client
         patch_cupy_sparse_serialization(self.client)
         self.kwargs = kwargs
@@ -118,11 +118,9 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+        Training data to cluster.
 
-        Returns
-        -------
-        self: KMeans model
         """
 
         data = DistributedDataHandler.single(X, client=self.client)
@@ -157,16 +155,16 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dataframe to predict
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+            Data to predict
 
         Returns
         -------
-        result: dask_cudf.Dataframe
-            Dataframe containing predictions
+        result: Dask cuDF DataFrame or CuPy backed Dask Array
+            Distributed object containing predictions
 
         """
-        return self.fit(X).predict(X, delayed, parallelism)
+        return self.fit(X).predict(X, delayed=delayed, parallelism=parallelism)
 
     def predict(self, X, delayed=True, parallelism=5):
         """
@@ -174,21 +172,24 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dataframe to transform
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+            Data to predict
 
-        delayed : bool delay execution?
+        delayed : bool (default = True)
+            Whether to execute as a delayed task or eager.
 
-        parallelism : integer number of concurrently executing partitions
-                              per worker
+        parallelism : int (default = 5)
+            Amount of concurrent partitions that will be processed
+            per worker. This bounds the total amount of temporary
+            workspace memory on the GPU that will need to be allocated
+            at any time.
 
         Returns
         -------
-
-        result: dask_cudf.Dataframe
-            Dataframe containing transform
+        result: Dask cuDF DataFrame or CuPy backed Dask Array
+            Distributed object containing predictions
         """
-        return self._predict(X, delayed, parallelism)
+        return self._predict(X, delayed=delayed, parallelism=parallelism)
 
     def fit_transform(self, X, delayed=True, parallelism=5):
         """
@@ -196,15 +197,25 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dataframe to predict
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+            Data to predict
+
+        delayed : bool (default = True)
+            Whether to execute as a delayed task or eager.
+
+        parallelism : int (default = 5)
+            Amount of concurrent partitions that will be processed
+            per worker. This bounds the total amount of temporary
+            workspace memory on the GPU that will need to be allocated
+            at any time.
 
         Returns
         -------
-        result: dask_cudf.Dataframe
-            Dataframe containing predictions
+        result: Dask cuDF DataFrame or CuPy backed Dask Array
+            Distributed object containing the transformed data
         """
-        return self.fit(X).transform(X, delayed, parallelism)
+        return self.fit(X).transform(X, delayed=delayed,
+                                     parallelism=parallelism)
 
     def transform(self, X, delayed=True, parallelism=5):
         """
@@ -212,21 +223,24 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dataframe to transform
+        X : Dask cuDF DataFrame or CuPy backed Dask Array
+            Data to predict
 
-        delayed : bool delay execution?
+        delayed : bool (default = True)
+            Whether to execute as a delayed task or eager.
 
-        parallelism : integer number of concurrently executing partitions
-                              per worker
+        parallelism : int (default = 5)
+            Amount of concurrent partitions that will be processed
+            per worker. This bounds the total amount of temporary
+            workspace memory on the GPU that will need to be allocated
+            at any time.
 
         Returns
         -------
-
-        result: dask_cudf.Dataframe
-            Dataframe containing transform
+        result: Dask cuDF DataFrame or CuPy backed Dask Array
+            Distributed object containing the transformed data
         """
-        return self._transform(X, delayed, parallelism)
+        return self._transform(X, delayed=delayed, parallelism=parallelism)
 
     def score(self, X, parallelism=5):
         """
@@ -237,8 +251,11 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         X : dask_cudf.Dataframe
             Dataframe to compute score
 
-        parallelism : integer number of concurrently executing partitions
-                              per worker.
+        parallelism : int (default = 5)
+            Amount of concurrent partitions that will be processed
+            per worker. This bounds the total amount of temporary
+            workspace memory on the GPU that will need to be allocated
+            at any time.
 
         Returns
         -------
