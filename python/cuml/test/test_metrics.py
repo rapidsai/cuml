@@ -247,7 +247,8 @@ def test_mutual_info_score(use_handle, input_labels):
 
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('input_range', [[0, 1000],
-                                         [-1000, 1000]])
+                                         [-1000, 1000],
+                                         [int(-10e3), int(10e3)]])
 def test_mutual_info_score_big_array(use_handle, input_range):
     a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
                                                           int(10e4),
