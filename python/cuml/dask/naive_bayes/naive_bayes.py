@@ -165,10 +165,10 @@ class MultinomialNB(object):
             raise ValueError("X must be chunked by row only. "
                              "Multi-dimensional chunking is not supported")
 
-        data = MGData.create(data=(X, y), client=self.client_)
-        self.datatype = data.datatype
+        worker_parts = self.client_.sync(extract_arr_partitions,
+                                         [X, y])
 
-        worker_parts = data.worker_to_parts
+        worker_parts = workers_to_parts(worker_parts)
 
         n_features = X.shape[1]
 

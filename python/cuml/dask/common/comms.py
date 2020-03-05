@@ -118,6 +118,8 @@ def _func_ucp_listener_port(sessionId, r):
 async def _func_init_all(sessionId, uniqueId, comms_p2p,
                          worker_info, verbose, streams_per_handle):
 
+
+    print("About to get worker state")
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
     session_state["wid"] = worker_info[get_worker().address]["r"]
@@ -372,6 +374,9 @@ class CommsContext:
                           "be disabled.")
             self.comms_p2p = False
 
+        if verbose:
+            print("Initializing comms!")
+
     def __del__(self):
         if self.nccl_initialized or self.ucx_initialized:
             self.destroy()
@@ -423,6 +428,8 @@ class CommsContext:
         self.worker_addresses = list(set((self.client.has_what().keys()
                                           if workers is None else workers)))
 
+        print("Got addresses")
+
         if self.ucx_initialized or self.nccl_initialized:
             warnings.warn("CommsContext has already been initialized.")
             return
@@ -438,7 +445,11 @@ class CommsContext:
         worker_info = self.worker_info(self.worker_addresses)
         worker_info = {w: worker_info[w] for w in self.worker_addresses}
 
+        print("About to init")
+
         self.uniqueId = nccl.get_unique_id()
+
+        print("Got unique id")
 
         self.client.run(_func_init_all,
                         self.sessionId,
@@ -449,6 +460,8 @@ class CommsContext:
                         self.streams_per_handle,
                         workers=self.worker_addresses,
                         wait=True)
+
+        print("Running initializze all")
 
         self.nccl_initialized = True
 

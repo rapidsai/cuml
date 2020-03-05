@@ -21,10 +21,11 @@ from dask.distributed import wait
 
 from uuid import uuid1
 
+from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 
 
-class LinearRegression(DelayedPredictionMixin):
+class LinearRegression(BaseEstimator, DelayedPredictionMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
