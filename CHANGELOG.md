@@ -61,6 +61,7 @@
 - PR #1751: Updated RF documentation
 - PR #1765: Update the checks for using RF GPU predict
 - PR #1793: Updated fil pyx to solve memory leakage issue
+- PR #1803: Quickfix - chunkage in dask make_regression
 
 # cuML 0.12.0 (Date TBD)
 
