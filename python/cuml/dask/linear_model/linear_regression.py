@@ -14,14 +14,12 @@
 #
 
 
-from dask.distributed import default_client
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.comms import worker_state
-from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
-
 from cuml.dask.common.utils import patch_cupy_sparse_serialization
+from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
+from dask.distributed import default_client
 
 
 class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
