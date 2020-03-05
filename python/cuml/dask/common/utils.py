@@ -167,7 +167,18 @@ def patch_cupy_sparse_serialization(client):
         def serialize_mat_descriptor(m):
             return cp.cupy.cusparse.MatDescriptor.create, ()
 
-        register_generic(Base)
+        from cuml.naive_bayes.naive_bayes import MultinomialNB
+        from distributed.protocol.cuda import cuda_serialize, cuda_deserialize
+        from distributed.protocol.serialize import dask_serialize, \
+            dask_deserialize, register_generic
+
+        register_generic(Base, "cuda", cuda_serialize, cuda_deserialize)
+        register_generic(Base, "dask", cuda_serialize, cuda_deserialize)
+
+        register_generic(MultinomialNB, "cuda",
+                         cuda_serialize, cuda_deserialize)
+        register_generic(MultinomialNB, "dask",
+                         cuda_serialize, cuda_deserialize)
 
         copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
                        serialize_mat_descriptor)

@@ -82,10 +82,16 @@ def test_score(cluster):
 
         model = MultinomialNB()
 
+
+        print("Fitting")
         model.fit(X, y)
+
+        print("Predicting")
 
         y_hat = model.predict(X)
 
+
+        print("Scoring")
         score = model.score(X, y)
 
         y_hat = y_hat.compute()
