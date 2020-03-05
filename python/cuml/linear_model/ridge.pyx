@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,9 +32,9 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
+from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -196,7 +196,7 @@ class Ridge(Base, RegressorMixin):
     """
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
-                 normalize=False, handle=None):
+                 normalize=False, handle=None, output_type=None):
 
         """
         Initializes the linear ridge regression class.
@@ -212,10 +212,14 @@ class Ridge(Base, RegressorMixin):
 
         """
         self._check_alpha(alpha)
-        super(Ridge, self).__init__(handle=handle, verbose=False)
+        super(Ridge, self).__init__(handle=handle, verbose=False,
+                                    output_type=output_type)
+
+        # internal array attributes
+        self._coef_ = None  # accessed via estimator.coef_
+        self._intercept_ = None  # accessed via estimator.intercept_
+
         self.alpha = alpha
-        self.coef_ = None
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
 
@@ -261,15 +265,19 @@ class Ridge(Base, RegressorMixin):
             will increase memory used for the method.
 
         """
-        cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
+        self._set_output_type(X)
 
-        y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_rows=n_rows, check_cols=1)
+        cdef uintptr_t X_ptr, y_ptr
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        X_ptr = X_m.ptr
+
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+        y_ptr = y_m.ptr
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -287,9 +295,8 @@ class Ridge(Base, RegressorMixin):
 
         self.n_alpha = 1
 
-        self.coef_ = cudf.Series(zeros(self.n_cols,
-                                       dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -360,16 +367,21 @@ class Ridge(Base, RegressorMixin):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        out_type = self._get_output_type(X)
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(zeros(n_rows, dtype=dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        cdef uintptr_t X_ptr
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+        X_ptr = X_m.ptr
+
+        cdef uintptr_t coef_ptr = self._coef_.ptr
+
+        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
@@ -393,39 +405,7 @@ class Ridge(Base, RegressorMixin):
 
         del(X_m)
 
-        return preds
+        return preds.to_output(out_type)
 
-    def get_params(self, deep=True):
-        """
-        Scikit-learn style function that returns the estimator parameters.
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-        if 'solver' in params.keys():
-            self.algo = self._get_algorithm_int(self.solver)
-        return self
+    def get_param_names(self):
+        return ['algorithm', 'fit_intercept', 'normalize', 'alpha']
