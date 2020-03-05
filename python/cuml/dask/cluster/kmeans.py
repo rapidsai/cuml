@@ -149,7 +149,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
         return self
 
-    def fit_predict(self, X, delayed=True, parallelism=5):
+    def fit_predict(self, X, delayed=True, max_parallelism=5):
         """
         Compute cluster centers and predict cluster index for each sample.
 
@@ -157,6 +157,11 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         ----------
         X : Dask cuDF DataFrame or CuPy backed Dask Array
             Data to predict
+        max_parallelism : int (default = 5)
+            Amount of concurrent partitions that will be processed
+            per worker. This bounds the total amount of temporary
+            workspace memory on the GPU that will need to be allocated
+            at any time.
 
         Returns
         -------
@@ -164,9 +169,10 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
             Distributed object containing predictions
 
         """
-        return self.fit(X).predict(X, delayed=delayed, parallelism=parallelism)
+        return self.fit(X).predict(X, delayed=delayed,
+                                   max_parallelism=max_parallelism)
 
-    def predict(self, X, delayed=True, parallelism=5):
+    def predict(self, X, delayed=True, max_parallelism=5):
         """
         Predict labels for the input
 
@@ -178,7 +184,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         delayed : bool (default = True)
             Whether to execute as a delayed task or eager.
 
-        parallelism : int (default = 5)
+        max_parallelism : int (default = 5)
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
@@ -189,9 +195,10 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         result: Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing predictions
         """
-        return self._predict(X, delayed=delayed, parallelism=parallelism)
+        return self._predict(X, delayed=delayed,
+                             max_parallelism=max_parallelism)
 
-    def fit_transform(self, X, delayed=True, parallelism=5):
+    def fit_transform(self, X, delayed=True, max_parallelism=5):
         """
         Calls fit followed by transform using a distributed KMeans model
 
@@ -203,7 +210,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         delayed : bool (default = True)
             Whether to execute as a delayed task or eager.
 
-        parallelism : int (default = 5)
+        max_parallelism : int (default = 5)
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
@@ -215,9 +222,9 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
             Distributed object containing the transformed data
         """
         return self.fit(X).transform(X, delayed=delayed,
-                                     parallelism=parallelism)
+                                     max_parallelism=max_parallelism)
 
-    def transform(self, X, delayed=True, parallelism=5):
+    def transform(self, X, delayed=True, max_parallelism=5):
         """
         Transforms the input into the learned centroid space
 
@@ -229,7 +236,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         delayed : bool (default = True)
             Whether to execute as a delayed task or eager.
 
-        parallelism : int (default = 5)
+        max_parallelism : int (default = 5)
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
@@ -240,9 +247,10 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         result: Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the transformed data
         """
-        return self._transform(X, delayed=delayed, parallelism=parallelism)
+        return self._transform(X, delayed=delayed,
+                               max_parallelism=max_parallelism)
 
-    def score(self, X, parallelism=5):
+    def score(self, X, max_parallelism=5):
         """
         Computes the inertia score for the trained KMeans centroids.
 
@@ -251,7 +259,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         X : dask_cudf.Dataframe
             Dataframe to compute score
 
-        parallelism : int (default = 5)
+        max_parallelism : int (default = 5)
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
@@ -263,8 +271,8 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         Inertial score
         """
 
-        scores = self._run_parallel_func(KMeans._score, X, False, parallelism,
-                                         output_futures=True)
+        scores = self._run_parallel_func(KMeans._score, X, False,
+                                         max_parallelism, output_futures=True)
 
         return -1 * np.sum(np.array([s.result() for s in scores]) * -1)
 

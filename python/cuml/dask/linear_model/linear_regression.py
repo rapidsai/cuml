@@ -77,9 +77,9 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : dask cuDF dataframe (n_rows, n_features)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : dask cuDF (n_rows, 1)
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
 
         """
@@ -91,7 +91,7 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
-    def predict(self, X, delayed=True, parallelism=5):
+    def predict(self, X, delayed=True, max_parallelism=5):
         """
         Make predictions for X and returns a dask collection.
 
@@ -103,7 +103,7 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
 
         delayed : bool return lazy (delayed) result?
 
-        parallelism : int
+        max_parallelism : int (default = 5)
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
@@ -111,9 +111,9 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
 
         Returns
         -------
-        y : dask cuDF (n_rows, 1)
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
         """
-        return self._predict(X, delayed, parallelism)
+        return self._predict(X, delayed, max_parallelism)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
