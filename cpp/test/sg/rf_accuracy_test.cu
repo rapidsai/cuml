@@ -28,7 +28,19 @@ struct RFInputs {
   int n_rows_test;
   uint64_t seed;
   int n_reps;
+  int pct_zero_class;
+  float min_expected_acc;
 };
+
+__global__ void threshold(int *y, int cutoff) {
+  int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if (y[i] >= cutoff) {
+    y[i] = 1;
+  } else {
+    y[i] = 0;
+  }
+}
 
 template <typename T>
 class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
@@ -49,8 +61,6 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
       (int *)allocator->allocate(params.n_rows_test * sizeof(int), stream);
     y_pred =
       (int *)allocator->allocate(params.n_rows_test * sizeof(int), stream);
-    loadData(X_train, y_train, params.n_rows_train, 1);
-    loadData(X_test, y_test, params.n_rows_test, 1);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -69,9 +79,17 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
   }
 
   void runTest() {
+    float min_accuracy = 1000.0;
+
     for (int i = 0; i < params.n_reps; ++i) {
+      loadData(X_train, y_train, params.n_rows_train, 1);
+      loadData(X_test, y_test, params.n_rows_test, 1);
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+
       auto accuracy = runTrainAndTest();
-      printf("%d -> %f ... \n", i, accuracy);
+      if (accuracy < min_accuracy) min_accuracy = accuracy;
+      printf("%d -> %f, min_acc = %f ... \n", i, accuracy, min_accuracy);
+      ASSERT_GT(accuracy, params.min_expected_acc);
     }
   }
 
@@ -102,7 +120,9 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
   void loadData(T *X, int *y, int nrows, int ncols) {
     rng->uniform(X, nrows * ncols, T(-1.0), T(1.0), stream);
-    rng->uniformInt(y, nrows, 0, 2, stream);
+    // XXX Ugly: generate random numbers and rewrite with class ids
+    rng->uniformInt(y, nrows, 0, 100, stream);
+    threshold<<<nrows, 1>>>(y, params.pct_zero_class);
   }
 
   float runTrainAndTest() {
@@ -113,9 +133,9 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     predict(h, forest, X_test, params.n_rows_test, 1, y_pred, false);
     auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred, false);
-    /** @todo: add a check here */
     delete[] forest->trees;
     delete forest;
+
     return metrics.accuracy;
   }
 
@@ -129,10 +149,8 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 };
 
 const std::vector<RFInputs> inputs = {
-  {800, 200, 12345ULL, 1},
-  {800, 200, 12345ULL, 2},
-  {800, 200, 67890ULL, 1},
-  {800, 200, 67890ULL, 2},
+  {800, 200, 12345ULL, 40, 50, 0.35},
+  {800, 200, 12345ULL, 40, 80, 0.50},
 };
 
 #define DEFINE_TEST(clz, name, testName, params) \
