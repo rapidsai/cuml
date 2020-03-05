@@ -24,7 +24,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -35,7 +34,6 @@
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/unary_op.h>
-#include <matrix/matrix.h>
 #include <common/device_buffer.hpp>
 
 #include "cuda_utils.h"
@@ -926,7 +924,7 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, int m) {
   }
   T x0 = d_xk[0];
   x_norm = sqrt(u_norm + x0 * x0);
-  T u0 = x0 - (x0 < 0 ? 1 : -1) * x_norm;
+  T u0 = x0 + signPrim(x0) * x_norm;
   u_norm = sqrt(u_norm + u0 * u0);
 
   // Compute u
@@ -967,7 +965,7 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, T* shared_mem,
     // Finalize computation of the norms
     T x0 = d_xk[0];
     x_norm = sqrt(shared_mem[0] + x0 * x0);
-    u0 = x0 - (x0 < 0 ? 1 : -1) * x_norm;
+    u0 = x0 + signPrim(x0) * x_norm;
     u_norm = sqrt(shared_mem[0] + u0 * u0);
   }
 
@@ -1153,11 +1151,11 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H) {
 template <typename T>
 DI void generate_givens(T a, T b, T& c, T& s) {
   if (b == 0) {
-    c = (a >= 0 ? 1 : -1);
+    c = signPrim(a);
     s = 0;
   } else if (a == 0) {
     c = 0;
-    s = (b >= 0 ? 1 : -1);
+    s = signPrim(b);
   } else if (abs(a) > abs(b)) {
     T t = -b / a;
     c = (T)1 / sqrt(1 + t * t);
@@ -1189,7 +1187,7 @@ DI bool ahues_tisseur(const T* d_M, int i, int n) {
   T h11 = d_M[i * n + i];
 
   return (abs(h10) * abs(h01) <
-          max(eps * abs(h11) * abs(h11 - h00), near_zero));
+          maxPrim(eps * abs(h11) * abs(h11 - h00), near_zero));
 }
 
 /**
@@ -1267,7 +1265,7 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
       // Find q
       int q = 0;
       for (int k = p - 2; k > 0; k--) {
-        if (b_H[(k - 1) * n + k] == 0) q = max(q, k);
+        if (b_H[(k - 1) * n + k] == 0) q = maxPrim(q, k);
       }
 
       // Compute first column of (H-aI)(H-bI), where a and b are the eigenvalues
@@ -1307,7 +1305,7 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
 
         // H[k:k+3, r:] = P * H[k:k+3, r:], r = max(q, k - 1) (non-coalesced)
         {
-          int j = max(q, k - 1) + threadIdx.x;
+          int j = maxPrim(q, k - 1) + threadIdx.x;
           if (j < n) {
             T h0 = b_H[j * n + k];
             T h1 = b_H[j * n + k + 1];
@@ -1684,7 +1682,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
   int n2 = n * n;
   auto counting = thrust::make_counting_iterator(0);
 
-  if (n <= 8 && batch_size <= 32) {
+  if (n <= 4 || (n <= 6 && batch_size <= 96)) {
     //
     // Use direct solution with Kronecker product
     //

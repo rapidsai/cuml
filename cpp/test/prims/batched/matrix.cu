@@ -207,6 +207,9 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         *res_bM = AbM.difference();
         break;
       case Hessenberg_op: {
+        constexpr T zero_tolerance =
+          std::is_same<T, double>::value ? 1e-8 : 1e-4f;
+
         int n = params.m;
         Matrix<T> HbM(n, n, params.batch_size, handle, allocator, stream);
         Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
@@ -219,7 +222,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
-              ASSERT_TRUE(std::abs(H[n * n * ib + n * j + i]) < 1e-4);
+              ASSERT_TRUE(std::abs(H[n * n * ib + n * j + i]) < zero_tolerance);
             }
           }
         }
@@ -233,7 +236,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
               ASSERT_TRUE(std::abs(UUt[n * n * ib + n * j + i] -
-                                   (i == j ? (T)1 : (T)0)) < 1e-4);
+                                   (i == j ? (T)1 : (T)0)) < zero_tolerance);
             }
           }
         }
@@ -243,6 +246,9 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         break;
       }
       case Schur_op: {
+        constexpr T zero_tolerance =
+          std::is_same<T, double>::value ? 1e-8 : 1e-4f;
+
         int n = params.m;
         Matrix<T> SbM(n, n, params.batch_size, handle, allocator, stream);
         Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
@@ -255,15 +261,16 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
-              ASSERT_TRUE(std::abs(S[n * n * ib + n * j + i]) < 1e-4);
+              ASSERT_TRUE(std::abs(S[n * n * ib + n * j + i]) < zero_tolerance);
             }
           }
         }
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int k = 0; k < n - 3; k++) {
-            ASSERT_FALSE(std::abs(S[n * n * ib + n * k + k + 1]) > 1e-4 &&
-                         std::abs(S[n * n * ib + n * (k + 1) + k + 2]) > 1e-4 &&
-                         std::abs(S[n * n * ib + n * (k + 2) + k + 3]) > 1e-4);
+            ASSERT_FALSE(
+              std::abs(S[n * n * ib + n * k + k + 1]) > zero_tolerance &&
+              std::abs(S[n * n * ib + n * (k + 1) + k + 2]) > zero_tolerance &&
+              std::abs(S[n * n * ib + n * (k + 2) + k + 3]) > zero_tolerance);
           }
         }
 
@@ -276,7 +283,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
               ASSERT_TRUE(std::abs(UUt[n * n * ib + n * j + i] -
-                                   (i == j ? (T)1 : (T)0)) < 1e-4);
+                                   (i == j ? (T)1 : (T)0)) < zero_tolerance);
             }
           }
         }
