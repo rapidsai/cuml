@@ -18,8 +18,6 @@ import cupy as cp
 
 from uuid import uuid1
 
-from cuml.dask.common.input_utils import MGData
-
 from cuml.naive_bayes import MultinomialNB as MNB
 
 import dask
