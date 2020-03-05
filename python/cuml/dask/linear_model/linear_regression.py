@@ -13,19 +13,17 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.input_utils import MGData
-from cuml.dask.common import raise_exception_from_futures
-from cuml.dask.common.comms import worker_state, CommsContext
-from dask.distributed import default_client
-from dask.distributed import wait
-
-from uuid import uuid1
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import mnmg_import
+from cuml.dask.common.comms import worker_state
+from cuml.dask.common.utils import patch_cupy_sparse_serialization
+from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
+from dask.distributed import default_client
 
 
-class LinearRegression(BaseEstimator, DelayedPredictionMixin):
+class LinearRegression(BaseEstimator, BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -67,52 +65,16 @@ class LinearRegression(BaseEstimator, DelayedPredictionMixin):
 
     def __init__(self, client=None, **kwargs):
         self.client = default_client() if client is None else client
+        patch_cupy_sparse_serialization(self.client)
         self.kwargs = kwargs
         self.coef_ = None
         self.intercept_ = None
         self._model_fit = False
         self._consec_call = 0
 
-    @staticmethod
-    def _func_create_model(sessionId, datatype, **kwargs):
-        try:
-            from cuml.linear_model.linear_regression_mg \
-               import LinearRegressionMG as cumlLinearRegression
-        except ImportError:
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
-
-        handle = worker_state(sessionId)["handle"]
-        return cumlLinearRegression(handle=handle, output_type=datatype,
-                                    **kwargs)
-
-    @staticmethod
-    def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
-        return f.fit(data, n_rows, n_cols, partsToSizes, rank)
-
-    def fit(self, X, y, force_colocality=False):
+    def fit(self, X, y):
         """
-        Fit the model with X and y. If force_colocality is set to True,
-        the partitions of X and y will be re-distributed to force the
-        co-locality.
-
-        In some cases, data samples and their labels can be distributed
-        into different workers by dask. In that case, force_colocality
-        param can be set to True to re-arrange the data.
-
-        Usually, you will not need to force co-locality if you pass the
-        X and y as follows;
-
-        fit(X["all_the_columns_but_labels"], X["labels"])
-
-        You might want to force co-locality if you pass the X and y as
-        follows;
-
-        fit(X, y)
-
-        because dask might have distributed the partitions of X and y
-        into different workers.
+        Fit the model with X and y.
 
         Parameters
         ----------
@@ -120,56 +82,12 @@ class LinearRegression(BaseEstimator, DelayedPredictionMixin):
             Features for regression
         y : dask cuDF (n_rows, 1)
             Labels (outcome values)
-        force_colocality: boolean (True: re-distributes the partitions
-                          of X and y to force the co-locality of
-                          the partitions)
         """
 
-        # todo: add check for colocality in case force_colocality=False
+        models = self._fit(model_func=LinearRegression._create_model,
+                           data=(X, y), **self.kwargs)
 
-        X = self.client.persist(X)
-        y = self.client.persist(y)
-
-        data = MGData.create(data=(X, y), client=self.client)
-        self.datatype = data.datatype
-
-        comms = CommsContext(comms_p2p=False)
-        comms.init(workers=data.workers)
-
-        data.calculate_parts_to_sizes(comms)
-        self.ranks = data.ranks
-
-        n_cols = X.shape[1]
-
-        key = uuid1()
-        linear_models = [(w, self.client.submit(
-            LinearRegression._func_create_model,
-            comms.sessionId,
-            self.datatype,
-            **self.kwargs,
-            workers=[w],
-            key="%s-%s" % (key, idx)))
-            for idx, w in enumerate(data.workers)]
-
-        key = uuid1()
-        linear_fit = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
-            LinearRegression._func_fit,
-            wf[1],
-            data.worker_to_parts[wf[0]],
-            data.total_rows,
-            n_cols,
-            data.parts_to_sizes,
-            data.worker_info[wf[0]]["r"],
-            key="%s-%s" % (key, idx),
-            workers=[wf[0]]))
-            for idx, wf in enumerate(linear_models)])
-
-        wait(list(linear_fit.values()))
-        raise_exception_from_futures(list(linear_fit.values()))
-
-        comms.destroy()
-
-        self.local_model = linear_models[0][1].result()
+        self.local_model = list(models.values())[0].result()
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
@@ -199,3 +117,11 @@ class LinearRegression(BaseEstimator, DelayedPredictionMixin):
 
     def get_param_names(self):
         return list(self.kwargs.keys())
+
+    @staticmethod
+    @mnmg_import
+    def _create_model(sessionId, datatype, **kwargs):
+        from cuml.linear_model.linear_regression_mg import LinearRegressionMG
+        handle = worker_state(sessionId)["handle"]
+        return LinearRegressionMG(handle=handle, output_type=datatype,
+                                  **kwargs)

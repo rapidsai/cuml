@@ -43,7 +43,22 @@ from functools import reduce
 import dask.dataframe as dd
 
 
-class MGData:
+class DistributedDataHandler:
+    """
+    Class to centralize distributed data management. Functionalities include:
+    - Data colocation
+    - Worker information extraction
+    - GPU futures extraction,
+
+    Additional functionality can be added as needed. This class **does not**
+    contain the actual data, just the metadata necessary to handle it,
+    including common pieces of code that need to be performed to call
+    Dask functions.
+
+    The constructor is not meant to be used directly, but through the factory
+    method DistributedDataHandler.create
+
+    """
 
     def __init__(self, gpu_futures=None, workers=None,
                  datatype=None, multiple=False, client=None):
@@ -68,8 +83,6 @@ class MGData:
     @classmethod
     def create(cls, data, client=None):
 
-        client = cls.get_client(client)
-
         multiple = isinstance(data, Iterable)
 
         gpu_futures = client.sync(_extract_partitions, data, client)
@@ -78,9 +91,12 @@ class MGData:
         datatype = 'cudf' if isinstance(first(data) if multiple else data,
                                         dcDataFrame) else 'cupy'
 
-        return MGData(gpu_futures=gpu_futures, workers=workers,
-                      datatype=datatype, multiple=multiple,
-                      client=client)
+
+        return DistributedDataHandler(gpu_futures=gpu_futures, workers=workers,
+                                      datatype=datatype, multiple=multiple,
+                                      client=client)
+
+
 
     # TODO: Remove the following two functions
     #  (just here to keep from breaking everythign)
@@ -185,7 +201,7 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # dask.dataframe
+    # dask.dataframe or dask.array
     if isinstance(dask_obj, dcDataFrame) or \
             isinstance(dask_obj, daskArray):
         parts = futures_of(client.compute(dask_obj))

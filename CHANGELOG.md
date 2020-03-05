@@ -9,7 +9,11 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+<<<<<<< HEAD
 - PR #1767: Single GPU decomposition models configurable output
+=======
+- PR #1778: Make cuML Handle picklable
+>>>>>>> dantegd/013-fea-kmeans-da
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier

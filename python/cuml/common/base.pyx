@@ -233,16 +233,12 @@ class Base:
         return self
 
     def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
+        # getstate and setstate are needed to tell pickle to treat this
+        # as regular python classes instead of triggering __getattr__
+        return self.__dict__
 
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = cuml.common.handle.Handle()
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def __getattr__(self, attr):
         """
