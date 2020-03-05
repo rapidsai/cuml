@@ -458,7 +458,7 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
     KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
-    // @todo: use weights to performance weighted k-means instead of simple k-means
+    // @todo: use weighted k-means once https://github.com/rapidsai/cuml/issues/1806 is addressed
     ML::kmeans::fit(handle, default_params, potentialCentroids,
                     centroidsRawData, inertia, n_iter, workspace);
 
