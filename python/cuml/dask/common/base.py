@@ -18,9 +18,6 @@ import dask
 import numpy as np
 from toolz import first
 
-
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.input_utils import to_output
 from dask_cudf.core import DataFrame as dcDataFrame
 
 from dask.distributed import default_client
@@ -116,6 +113,8 @@ class DelayedParallelFunc(object):
                                         dtype=dtype)
                 for pred in preds]
 
+            print(str(preds_arr))
+
             if output_futures:
                 return self.client.compute(preds)
             else:
@@ -135,7 +134,7 @@ class DelayedParallelFunc(object):
 class DelayedPredictionMixin(DelayedParallelFunc):
 
     def _predict(self, X, delayed=True, **kwargs):
-        return self._run_parallel_func(_predict_func, X, delayed,
+        return self._run_parallel_func(_predict_func, X, 1, delayed,
                                        **kwargs)
 
 
