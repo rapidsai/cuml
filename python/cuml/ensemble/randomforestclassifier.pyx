@@ -34,6 +34,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
+from cuml.fil.fil import TreeliteModel as tl
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
@@ -543,6 +544,7 @@ class RandomForestClassifier(Base):
                                              algo=algo,
                                              storage_type=storage_type)
         preds = tl_to_fil_model.predict(X_m)
+        tl.free_treelite_model(treelite_handle)
         del(X_m)
         return preds
 
