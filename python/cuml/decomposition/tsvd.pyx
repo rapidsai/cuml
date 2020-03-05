@@ -390,8 +390,8 @@ class TruncatedSVD(Base):
 
         trans_input, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None))
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None))
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -399,7 +399,7 @@ class TruncatedSVD(Base):
         params.n_cols = self.n_cols
 
         input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                         dtype=self.dtype)
+                                     dtype=self.dtype)
 
         cdef uintptr_t trans_input_ptr = trans_input.ptr
         cdef uintptr_t input_ptr = input_data.ptr
@@ -447,9 +447,9 @@ class TruncatedSVD(Base):
         """
         input, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -458,7 +458,7 @@ class TruncatedSVD(Base):
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
-                                dtype=self.dtype)
+                            dtype=self.dtype)
 
         cdef uintptr_t input_ptr = input.ptr
         cdef uintptr_t trans_input_ptr = t_input_data.ptr
