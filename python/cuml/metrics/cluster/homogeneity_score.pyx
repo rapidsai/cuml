@@ -21,7 +21,7 @@
 
 from cuml.common.handle cimport cumlHandle
 from libc.stdint cimport uintptr_t
-from cuml.metrics.cluster.mutual_info_utils import prepare_data
+from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 import cuml.common.handle
 
 
@@ -79,8 +79,10 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
 
     (ground_truth, preds,
      n_rows,
-     lower_class_range, upper_class_range) = prepare_data(labels_true,
-                                                          labels_pred)
+     lower_class_range, upper_class_range) = prepare_cluster_metric_inputs(
+        labels_true,
+        labels_pred
+    )
 
     cdef uintptr_t preds_ptr = preds.ptr
     cdef uintptr_t ground_truth_ptr = ground_truth.ptr
