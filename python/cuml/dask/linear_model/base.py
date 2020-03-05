@@ -70,4 +70,4 @@ class BaseLinearModelSyncFitMixin(object):
 
 
 def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
-        return f.fit(data, n_rows, n_cols, partsToSizes, rank)
+    return f.fit(data, n_rows, n_cols, partsToSizes, rank)
