@@ -28,7 +28,6 @@ from cuml.dask.common import extract_arr_partitions, \
 from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import default_client
-from dask.distributed import wait
 
 from cuml.dask.common.utils import register_serialization
 
