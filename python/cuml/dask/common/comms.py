@@ -426,8 +426,6 @@ class CommsContext:
         self.worker_addresses = list(set((self.client.has_what().keys()
                                           if workers is None else workers)))
 
-        print("Got addresses")
-
         if self.ucx_initialized or self.nccl_initialized:
             warnings.warn("CommsContext has already been initialized.")
             return
@@ -443,11 +441,7 @@ class CommsContext:
         worker_info = self.worker_info(self.worker_addresses)
         worker_info = {w: worker_info[w] for w in self.worker_addresses}
 
-        print("About to init")
-
         self.uniqueId = nccl.get_unique_id()
-
-        print("Got unique id")
 
         self.client.run(_func_init_all,
                         self.sessionId,
@@ -458,8 +452,6 @@ class CommsContext:
                         self.streams_per_handle,
                         workers=self.worker_addresses,
                         wait=True)
-
-        print("Running initializze all")
 
         self.nccl_initialized = True
 
