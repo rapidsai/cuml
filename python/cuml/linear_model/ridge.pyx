@@ -408,4 +408,4 @@ class Ridge(Base, RegressorMixin):
         return preds.to_output(out_type)
 
     def get_param_names(self):
-        return ['algorithm', 'fit_intercept', 'normalize', 'alpha']
+        return ['solver', 'fit_intercept', 'normalize', 'alpha']

@@ -19,8 +19,8 @@ import numpy as np
 from toolz import first
 
 
-from cuml.dask.common.utils import MultiHolderLock
-
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.input_utils import to_output
 from dask_cudf.core import DataFrame as dcDataFrame
 
 from dask.distributed import default_client
@@ -48,7 +48,6 @@ class DelayedParallelFunc(object):
                            X,
                            n_dims=1,
                            delayed=True,
-                           parallelism=5,
                            output_futures=False,
                            output_dtype=None,
                            **kwargs):
@@ -70,19 +69,12 @@ class DelayedParallelFunc(object):
         ----------
         func : dask.delayed function to propagate to the workers to execute
                embarrassingly parallel, shared between tasks on each worker
-               and constrained by a holder lock
 
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
         delayed : bool return a lazy (delayed) object?
-
-        parallelism : int
-            Amount of concurrent partitions that will be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time.
 
         output_futures : bool returns the futures pointing the to the resuls
                          of the parallel function executions on the workers,
@@ -95,20 +87,17 @@ class DelayedParallelFunc(object):
 
         X_d = X.to_delayed()
 
-        lock = dask.delayed(MultiHolderLock(parallelism),
-                            pure=True)
-
         model = dask.delayed(self.local_model, pure=True)
 
         func = dask.delayed(func, pure=False, nout=1)
 
         if isinstance(X, dcDataFrame):
 
-            preds = [func(model, lock, part, kwargs) for part in X_d]
+            preds = [func(model, part, **kwargs) for part in X_d]
             dtype = first(X.dtypes) if output_dtype is None else output_dtype
 
         else:
-            preds = [func(model, lock, part[0])
+            preds = [func(model, part[0])
                      for part in X_d]
             dtype = X.dtype if output_dtype is None else output_dtype
 
@@ -145,29 +134,29 @@ class DelayedParallelFunc(object):
 
 class DelayedPredictionMixin(DelayedParallelFunc):
 
-    def _predict(self, X, delayed=True, parallelism=5, **kwargs):
-        return self._run_parallel_func(_predict_func, X, 1, delayed,
-                                       parallelism, **kwargs)
+    def _predict(self, X, delayed=True, **kwargs):
+        return self._run_parallel_func(_predict_func, X, delayed,
+                                       **kwargs)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
-    def _transform(self, X, n_dims=1, delayed=True, parallelism=5, **kwargs):
+    def _transform(self, X, n_dims=1, delayed=True, **kwargs):
         return self._run_parallel_func(_transform_func,
                                        X,
                                        n_dims,
                                        delayed,
-                                       parallelism, **kwargs)
+                                       **kwargs)
 
 
 class DelayedInverseTransformMixin(DelayedParallelFunc):
 
-    def _transform(self, X, n_dims=1, delayed=True, parallelism=5, **kwargs):
+    def _transform(self, X, n_dims=1, delayed=True, **kwargs):
         return self._run_parallel_func(_inverse_transform_func,
                                        X,
                                        n_dims,
                                        delayed,
-                                       parallelism, **kwargs)
+                                       **kwargs)
 
 
 def mnmg_import(func):
@@ -184,22 +173,13 @@ def mnmg_import(func):
     return check_cuml_mnmg
 
 
-def _predict_func(model, lock, data, **kwargs):
-    lock.acquire()
-    ret = model.predict(data, **kwargs)
-    lock.release()
-    return ret
+def _predict_func(model, data, **kwargs):
+    return model.predict(data, **kwargs)
 
 
-def _transform_func(model, lock, data, **kwargs):
-    lock.acquire()
-    ret = model.transform(data, **kwargs)
-    lock.release()
-    return ret
+def _transform_func(model, data, **kwargs):
+    return model.transform(data, **kwargs)
 
 
-def _inverse_transform_func(model, lock, data, **kwargs):
-    lock.acquire()
-    ret = model.inverse_transform(data, **kwargs)
-    lock.release()
-    return ret
+def _inverse_transform_func(model, data, **kwargs):
+    return model.inverse_transform(data, **kwargs)
