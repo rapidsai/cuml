@@ -19,7 +19,6 @@ import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.input_utils import to_output
-from cuml.dask.common.utils import MultiHolderLock
 from dask_cudf.core import DataFrame as dcDataFrame
 from functools import wraps
 from uuid import uuid1
