@@ -32,11 +32,35 @@ dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 SCORE_EPS = 0.06
 
 
+@pytest.mark.parametrize('nrows', [100, 1000])
+@pytest.mark.parametrize('ncols', [10, 100])
+@pytest.mark.parametrize('nclusters', [5, 10])
+@pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
+def test_kmeans_clusters_blobs(nrows, ncols, nclusters, cluster_std):
+
+    random_state = 20
+
+    X, y = make_blobs(nrows, ncols, nclusters,
+                      cluster_std=cluster_std,
+                      random_state=random_state)
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
+                              n_clusters=nclusters,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    preds = cuml_kmeans.fit_predict(X)
+
+    assert adjusted_rand_score(preds, y) >= 0.99
+
+
 @pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('nrows', [unit_param(1000),
                                    quality_param(5000),
                                    stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
+
+    random_state = 5
 
     default_base = {'quantile': .3,
                     'eps': .3,
@@ -51,7 +75,8 @@ def test_kmeans_sklearn_comparison(name, nrows):
     params.update(pat[1])
 
     cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
-                              output_type='numpy')
+                              output_type='numpy',
+                              random_state=random_state)
 
     X, y = pat[0]
 
@@ -164,7 +189,7 @@ def test_score(nrows, ncols, nclusters):
                       cluster_std=0.01,
                       random_state=10)
 
-    cuml_kmeans = cuml.KMeans(verbose=1, init="k-means||",
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
                               n_clusters=nclusters,
                               random_state=10,
                               output_type='numpy')
@@ -177,12 +202,8 @@ def test_score(nrows, ncols, nclusters):
 
     centers = cuml_kmeans.cluster_centers_
 
-    print("predictions ", predictions.shape)
     expected_score = 0
     for idx, label in enumerate(predictions):
-
-        print(idx, label)
-
         x = X[idx]
         y = centers[label]
 
