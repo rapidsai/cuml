@@ -10,6 +10,7 @@
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
 - PR #1778: Make cuML Handle picklable
+- PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
