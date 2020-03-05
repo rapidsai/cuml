@@ -104,7 +104,7 @@ class DelayedParallelFunc(object):
 
         if isinstance(X, dcDataFrame):
 
-            preds = [func(model, lock, part) for part in X_d]
+            preds = [func(model, lock, part, kwargs) for part in X_d]
             dtype = first(X.dtypes) if output_dtype is None else output_dtype
 
         else:
@@ -114,6 +114,7 @@ class DelayedParallelFunc(object):
 
         # TODO: Put the following conditionals in a
         #  `to_delayed_output()` function
+        # TODO: Add eager path back in
         if self.datatype == 'cupy':
 
             # todo: add parameter for option of not checking directly
@@ -145,28 +146,6 @@ class DelayedParallelFunc(object):
 class DelayedPredictionMixin(DelayedParallelFunc):
 
     def _predict(self, X, delayed=True, parallelism=5, **kwargs):
-        """
-        Makes predictions for X and returns a dask collection.
-
-        Parameters
-        ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
-
-        delayed : bool return lazy (delayed) result?
-
-        parallelism : int
-            Amount of concurrent partitions that will be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time.
-
-        Returns
-        -------
-        y : dask cuDF (n_rows, 1)
-        """
-
         return self._run_parallel_func(_predict_func, X, 1, delayed,
                                        parallelism, **kwargs)
 
@@ -174,28 +153,6 @@ class DelayedPredictionMixin(DelayedParallelFunc):
 class DelayedTransformMixin(DelayedParallelFunc):
 
     def _transform(self, X, n_dims=1, delayed=True, parallelism=5, **kwargs):
-        """
-        Call transform on the partitions of X and produce a dask collection.
-
-        Parameters
-        ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
-
-        delayed : bool return lazy (delayed) result?
-
-        parallelism : int
-            Amount of concurrent partitions that will be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time.
-
-        Returns
-        -------
-        y : dask cuDF (n_rows, 1)
-        """
-
         return self._run_parallel_func(_transform_func,
                                        X,
                                        n_dims,
@@ -206,28 +163,6 @@ class DelayedTransformMixin(DelayedParallelFunc):
 class DelayedInverseTransformMixin(DelayedParallelFunc):
 
     def _transform(self, X, n_dims=1, delayed=True, parallelism=5, **kwargs):
-        """
-        Call transform on the partitions of X and produce a dask collection.
-
-        Parameters
-        ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
-
-        delayed : bool return lazy (delayed) result?
-
-        parallelism : int
-            Amount of concurrent partitions that will be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time.
-
-        Returns
-        -------
-        y : dask cuDF (n_rows, 1)
-        """
-
         return self._run_parallel_func(_inverse_transform_func,
                                        X,
                                        n_dims,
