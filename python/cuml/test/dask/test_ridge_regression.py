@@ -62,8 +62,9 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize("delayed", [True, False])
 def test_ridge(nrows, ncols, n_parts, fit_intercept,
-               normalize, datatype, cluster):
+               normalize, datatype, delayed, cluster):
 
     client = Client(cluster)
 
@@ -83,7 +84,7 @@ def test_ridge(nrows, ncols, n_parts, fit_intercept,
 
         lr.fit(X_df, y_df)
 
-        ret = lr.predict(X_df)
+        ret = lr.predict(X_df, delayed=delayed)
 
         error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
