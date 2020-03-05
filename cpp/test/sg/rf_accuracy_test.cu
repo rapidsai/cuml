@@ -28,7 +28,7 @@ struct RFInputs {
   int n_rows_test;
   uint64_t seed;
   int n_reps;
-  int pct_zero_class;
+  float pct_zero_class;
   float min_expected_acc;
 };
 
@@ -120,9 +120,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
   void loadData(T *X, int *y, int nrows, int ncols) {
     rng->uniform(X, nrows * ncols, T(-1.0), T(1.0), stream);
-    // XXX Ugly: generate random numbers and rewrite with class ids
-    rng->uniformInt(y, nrows, 0, 100, stream);
-    threshold<<<nrows, 1>>>(y, params.pct_zero_class);
+    rng->bernoulli<float, int>(y, nrows, params.pct_zero_class, stream);
   }
 
   float runTrainAndTest() {
@@ -135,7 +133,6 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     auto metrics = score(h, forest, y_test, params.n_rows_test, y_pred, false);
     delete[] forest->trees;
     delete forest;
-
     return metrics.accuracy;
   }
 
@@ -149,8 +146,8 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 };
 
 const std::vector<RFInputs> inputs = {
-  {800, 200, 12345ULL, 40, 50, 0.35},
-  {800, 200, 12345ULL, 40, 80, 0.50},
+  {800, 200, 12345ULL, 40, 0.5f, 0.35},
+  {800, 200, 12345ULL, 40, 0.8f, 0.50},
 };
 
 #define DEFINE_TEST(clz, name, testName, params) \
