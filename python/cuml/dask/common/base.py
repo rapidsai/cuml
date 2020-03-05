@@ -142,7 +142,7 @@ class DelayedPredictionMixin(DelayedParallelFunc):
 
     def _predict(self, X, delayed=True, parallelism=25, **kwargs):
         """
-        Make predictions for X and returns a dask collection.
+        Makes predictions for X and returns a dask collection.
 
         Parameters
         ----------
@@ -169,7 +169,7 @@ class DelayedPredictionMixin(DelayedParallelFunc):
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
-    def _transform(self, X, delayed=True, parallelism=25, **kwargs):
+    def _transform(self, X, delayed=True, parallelism=5, **kwargs):
         """
         Call transform on the partitions of X and produce a dask collection.
 
