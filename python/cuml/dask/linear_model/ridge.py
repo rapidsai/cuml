@@ -87,38 +87,16 @@ class Ridge(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
         handle = worker_state(sessionId)["handle"]
         return cumlRidge(handle=handle, **kwargs)
 
-    def fit(self, X, y, force_colocality=False):
+    def fit(self, X, y):
         """
-        Fit the model with X and y. If force_colocality is set to True,
-        the partitions of X and y will be re-distributed to force the
-        co-locality.
-
-        In some cases, data samples and their labels can be distributed
-        into different workers by dask. In that case, force_colocality
-        param can be set to True to re-arrange the data.
-
-        Usually, you will not need to force co-locality if you pass the
-        X and y as follows;
-
-        fit(X["all_the_columns_but_labels"], X["labels"])
-
-        You might want to force co-locality if you pass the X and y as
-        follows;
-
-        fit(X, y)
-
-        because dask might have distributed the partitions of X and y
-        into different workers.
+        Fit the model with X and y.
 
         Parameters
         ----------
-        X : dask cuDF dataframe (n_rows, n_features)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : dask cuDF (n_rows, 1)
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
-        force_colocality: boolean (True: re-distributes the partitions
-                          of X and y to force the co-locality of
-                          the partitions)
         """
 
         models = self._fit(model_func=Ridge._create_model, data=(X, y),
@@ -128,19 +106,25 @@ class Ridge(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
-    def predict(self, X, delayed=True, parallelism=5):
+    def predict(self, X, delayed=True):
         """
-        Make predictions for X and returns a y_pred.
+        Make predictions for X and returns a dask collection.
 
         Parameters
         ----------
-        X : dask cuDF dataframe (n_rows, n_features)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+
+        delayed : bool (default = True)
+            Whether to do a lazy prediction (and return Delayed objects) or an
+            eagerly executed one.
 
         Returns
         -------
-        y : dask cuDF (n_rows, 1)
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
         """
-        return self._predict(X, delayed, parallelism)
+        return self._predict(X, delayed=delayed)
 
     def get_param_names(self):
         return list(self.kwargs.keys())

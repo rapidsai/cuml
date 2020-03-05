@@ -14,6 +14,8 @@
 #
 
 from cuml.dask.decomposition.base import BaseDecompositionFitMixin
+
+from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
 
@@ -137,7 +139,7 @@ class TruncatedSVD(DelayedTransformMixin,
         """
         return self.fit(X, _transform=True)
 
-    def transform(self, X, delayed=True, parallel=5):
+    def transform(self, X, delayed=True):
         """
         Apply dimensionality reduction to X.
 
@@ -155,10 +157,9 @@ class TruncatedSVD(DelayedTransformMixin,
         """
         return self._transform(X,
                                n_dims=2,
-                               delayed=delayed,
-                               parallel=parallel)
+                               delayed=delayed)
 
-    def inverse_transform(self, X, delayed=True, parallel=5):
+    def inverse_transform(self, X, delayed=True):
         """
         Transform data back to its original space.
 
@@ -175,13 +176,13 @@ class TruncatedSVD(DelayedTransformMixin,
         """
         return self._inverse_transform(X,
                                        n_dims=2,
-                                       delayed=delayed,
-                                       parallel=parallel)
+                                       delayed=delayed)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
 
     @staticmethod
+    @mnmg_import
     def _create_tsvd(handle, datatype, **kwargs):
         from cuml.decomposition.tsvd_mg import TSVDMG as cumlTSVD
         return cumlTSVD(handle=handle, output_type=datatype, **kwargs)

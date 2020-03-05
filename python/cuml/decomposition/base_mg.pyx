@@ -161,12 +161,8 @@ class BaseDecompositionMG(object):
 
         self._initialize_arrays(self.n_components, M, N)
 
-        print("About to build params!")
-
         arg_rank_size_pair = <size_t>rank_size_pair
         decomp_params = self._build_params(M, N)
-
-        print("DONE!")
 
         arr_interfaces_trans, data, trans_data = self._call_fit(
             arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,

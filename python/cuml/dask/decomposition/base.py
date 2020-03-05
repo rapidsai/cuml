@@ -24,9 +24,8 @@ from dask.distributed import wait
 
 from uuid import uuid1
 
-from cuml.dask.common.input_utils import DistributedDataHandler
-
 from cuml.dask.common.base import BaseEstimator
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 
 class BaseDecompositionFitMixin(BaseEstimator):
@@ -123,11 +122,4 @@ class BaseDecompositionFitMixin(BaseEstimator):
     @staticmethod
     def _create_model(sessionId, model_func, datatype, **kwargs):
         handle = worker_state(sessionId)["handle"]
-        try:
-            return model_func(handle, datatype, **kwargs)
-        except ImportError as e:
-
-            raise Exception(e)
-            raise Exception("cuML has not been built with multiGPU support "
-                            "enabled. Build with the --multigpu flag to"
-                            " enable multiGPU support.")
+        return model_func(handle, datatype, **kwargs)
