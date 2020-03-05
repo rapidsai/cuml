@@ -32,6 +32,7 @@
 - PR #1748: Test serializing `CumlArray` objects
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1805: Adding new Dask cuda serializers to naive bayes + a trivial perf update
 
 ## Bug Fixes
 - PR #1770: Warn that KalmanFilter is deprecated
