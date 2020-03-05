@@ -23,12 +23,6 @@ import numba.cuda
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 from cuml.utils import device_of_gpu_matrix
 
-from distributed.protocol.cuda import cuda_deserialize
-from distributed.protocol.cuda import cuda_serialize
-from distributed.protocol.serialize import dask_deserialize
-from distributed.protocol.serialize import dask_serialize
-from distributed.protocol.serialize import register_generic
-
 
 def get_visible_devices():
     """
@@ -149,7 +143,26 @@ def raise_mg_import_exception():
                     " enable multiGPU support.")
 
 
-def register_serialization(client):
+def register_serialization():
+    def serialize_mat_descriptor(m):
+        return cp.cupy.cusparse.MatDescriptor.create, ()
+
+    from distributed.protocol.cuda import cuda_deserialize
+    from distributed.protocol.cuda import cuda_serialize
+    from distributed.protocol.serialize import dask_deserialize
+    from distributed.protocol.serialize import dask_serialize
+    from distributed.protocol.serialize import register_generic
+
+    register_generic(MultinomialNB, "cuda",
+                     cuda_serialize, cuda_deserialize)
+    register_generic(MultinomialNB, "dask",
+                     dask_serialize, dask_deserialize)
+
+    copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
+                   serialize_mat_descriptor)
+
+
+def register_dist_serialization(client):
     """
     This function provides a temporary fix for a bug
     in CuPy that doesn't properly serialize cuSPARSE handles.
@@ -164,6 +177,12 @@ def register_serialization(client):
     def patch_func():
         def serialize_mat_descriptor(m):
             return cp.cupy.cusparse.MatDescriptor.create, ()
+
+        from distributed.protocol.cuda import cuda_deserialize
+        from distributed.protocol.cuda import cuda_serialize
+        from distributed.protocol.serialize import dask_deserialize
+        from distributed.protocol.serialize import dask_serialize
+        from distributed.protocol.serialize import register_generic
 
         register_generic(MultinomialNB, "cuda",
                          cuda_serialize, cuda_deserialize)
