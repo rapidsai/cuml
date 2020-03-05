@@ -69,17 +69,12 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
   }
 
   void runTest() {
-    float min_accuracy = 1000.0;
-
     for (int i = 0; i < params.n_reps; ++i) {
       loadData(X_train, y_train, params.n_rows_train, 1);
       loadData(X_test, y_test, params.n_rows_test, 1);
       CUDA_CHECK(cudaStreamSynchronize(stream));
-
       auto accuracy = runTrainAndTest();
-      if (accuracy < min_accuracy) min_accuracy = accuracy;
-      printf("%d -> %f, min_acc = %f ... \n", i, accuracy, min_accuracy);
-      ASSERT_GT(accuracy, params.min_expected_acc);
+      ASSERT_GT(accuracy, params.min_expected_acc) << " @repetition=" << i;
     }
   }
 
@@ -136,8 +131,8 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 };
 
 const std::vector<RFInputs> inputs = {
-  {800, 200, 12345ULL, 40, 0.5f, 0.35},
-  {800, 200, 12345ULL, 40, 0.8f, 0.50},
+  {800, 200, 12345ULL, 40, 0.5f, 0.4f},
+  {800, 200, 12345ULL, 40, 0.8f, 0.5f},
 };
 
 #define DEFINE_TEST(clz, name, testName, params) \
