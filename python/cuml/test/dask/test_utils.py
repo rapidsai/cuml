@@ -38,9 +38,8 @@ def test_regsiter_serialization():
 
     mnb.fit(X, y)
 
-    stype, sbytes = serialize(mnb)
-
-    assert stype['serializer'] == 'pickle'
+    # Unfortunately, Dask has no `unregister` function and Pytest
+    # shares the same process so cannot test the base-state here.
 
     register_serialization()
 
