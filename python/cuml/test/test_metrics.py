@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from functools import partial
 
 import cuml
 import cupy as cp
@@ -175,7 +176,8 @@ def test_regression_metrics():
 
 @pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
 @pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
-def test_regression_metrics_random(n_samples, dtype):
+@pytest.mark.parametrize('function', ['mse', 'mae', 'msle'])
+def test_regression_metrics_random(n_samples, dtype, function):
     if dtype == np.float32 and n_samples == 500000:
         # stress test for float32 fails because of floating point precision
         pytest.xfail()
@@ -183,40 +185,38 @@ def test_regression_metrics_random(n_samples, dtype):
     y_true, y_pred = generate_random_labels(
         lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
 
-    mse = mean_squared_error(y_true, y_pred, multioutput='raw_values')
-    skl_mse = sklearn_mse(y_true, y_pred, multioutput='raw_values')
-    cp.testing.assert_array_almost_equal(mse, skl_mse, decimal=2)
+    cuml_reg, sklearn_reg = {
+        'mse':  (mean_squared_error, sklearn_mse),
+        'mae':  (mean_absolute_error, sklearn_mae),
+        'msle': (mean_squared_log_error, sklearn_msle)
+    }[function]
 
-    mae = mean_absolute_error(y_true, y_pred, multioutput='raw_values')
-    skl_mae = sklearn_mae(y_true, y_pred, multioutput='raw_values')
-    cp.testing.assert_array_almost_equal(mae, skl_mae, decimal=2)
-
-    msle = mean_squared_log_error(y_true, y_pred, multioutput='raw_values')
-    skl_msle = sklearn_msle(y_true, y_pred, multioutput='raw_values')
-    cp.testing.assert_array_almost_equal(msle, skl_msle, decimal=2)
+    res = cuml_reg(y_true, y_pred, multioutput='raw_values')
+    ref = sklearn_reg(y_true, y_pred, multioutput='raw_values')
+    cp.testing.assert_array_almost_equal(res, ref, decimal=2)
 
 
-def test_regression_metrics_at_limits():
+@pytest.mark.parametrize('function', ['mse', 'mse_not_squared', 'mae', 'msle'])
+def test_regression_metrics_at_limits(function):
     y_true = np.array([0.], dtype=np.float)
     y_pred = np.array([0.], dtype=np.float)
-    assert_almost_equal(mean_squared_error(y_true, y_pred), 0.00, decimal=2)
-    assert_almost_equal(mean_squared_error(y_true, y_pred, squared=False),
-                        0.00, decimal=2)
-    assert_almost_equal(mean_squared_log_error(y_true, y_pred), 0.00, 2)
-    assert_almost_equal(mean_absolute_error(y_true, y_pred), 0.00, 2)
 
-    err_msg = ("Mean Squared Logarithmic Error cannot be used when targets "
-               "contain negative values.")
-    with pytest.raises(ValueError, match=err_msg):
-        mean_squared_log_error(np.array([-1.]), np.array([-1.]))
-    err_msg = ("Mean Squared Logarithmic Error cannot be used when targets "
-               "contain negative values.")
-    with pytest.raises(ValueError, match=err_msg):
-        mean_squared_log_error(np.array([1., 2., 3.]), np.array([1., -2., 3.]))
-    err_msg = ("Mean Squared Logarithmic Error cannot be used when targets "
-               "contain negative values.")
-    with pytest.raises(ValueError, match=err_msg):
-        mean_squared_log_error(np.array([1., -2., 3.]), np.array([1., 2., 3.]))
+    cuml_reg = {
+        'mse': mean_squared_error,
+        'mse_not_squared': partial(mean_squared_error, squared=False),
+        'mae': mean_absolute_error,
+        'msle': mean_squared_log_error,
+    }[function]
+
+    assert_almost_equal(cuml_reg(y_true, y_pred), 0.00, decimal=2)
+
+
+@pytest.mark.parametrize('inputs', [([-1.], [-1.]),
+                                    ([1., 2., 3.], [1., -2., 3.]),
+                                    ([1., -2., 3.], [1., 2., 3.])])
+def test_mean_squared_log_error_exceptions(inputs):
+    with pytest.raises(ValueError):
+        mean_squared_log_error(np.array(inputs[0]), np.array(inputs[1]))
 
 
 def test_multioutput_regression():
@@ -224,7 +224,7 @@ def test_multioutput_regression():
     y_pred = np.array([[0, 0, 0, 1], [1, 0, 1, 1], [0, 0, 0, 1]])
 
     error = mean_squared_error(y_true, y_pred)
-    assert_almost_equal(error, (1. / 3 + 2. / 3 + 2. / 3) / 4.)
+    assert_almost_equal(error, (1. + 2. / 3) / 4.)
 
     error = mean_squared_error(y_true, y_pred, squared=False)
     assert_almost_equal(error, 0.645, decimal=2)
@@ -270,20 +270,23 @@ def test_regression_metrics_multioutput_array():
     cp.testing.assert_array_almost_equal(msle, msle2, decimal=2)
 
 
-def test_regression_metrics_custom_weights():
+@pytest.mark.parametrize('function', ['mse', 'mae'])
+def test_regression_metrics_custom_weights(function):
     y_true = np.array([1, 2, 2.5, -1], dtype=np.float)
     y_pred = np.array([1, 1, 2, -1], dtype=np.float)
     weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=np.float)
 
-    mse = mean_squared_error(y_true, y_pred, sample_weight=weights)
-    mae = mean_absolute_error(y_true, y_pred, sample_weight=weights)
-    skl_mse = sklearn_mse(y_true, y_pred, sample_weight=weights)
-    skl_mae = sklearn_mae(y_true, y_pred, sample_weight=weights)
+    cuml_reg, sklearn_reg = {
+        'mse': (mean_squared_error, sklearn_mse),
+        'mae': (mean_absolute_error, sklearn_mae)
+    }[function]
 
-    assert_almost_equal(mse, skl_mse, decimal=2)
-    assert_almost_equal(mae, skl_mae, decimal=2)
+    score = cuml_reg(y_true, y_pred, sample_weight=weights)
+    ref = sklearn_reg(y_true, y_pred, sample_weight=weights)
+    assert_almost_equal(score, ref, decimal=2)
 
-    # Handling msle separately as it does not accept negative inputs.
+
+def test_mse_vs_msle_custom_weights():
     y_true = np.array([0.5, 2, 7, 6], dtype=np.float)
     y_pred = np.array([0.5, 1, 8, 8], dtype=np.float)
     weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=np.float)
