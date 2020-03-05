@@ -103,6 +103,10 @@ def r2_score(y, y_hat, convert_dtype=False, handle=None):
 
 
 def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
+    """
+    Helper function to avoid code duplication for regression metrics.
+    Converts inputs to CumlArray and check multioutput parameter validity.
+    """
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
                                                  np.int32, np.int64])
@@ -142,7 +146,6 @@ def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
 @with_cupy_rmm
 def _mse(y_true, y_pred, sample_weight, multioutput, squared, raw_multioutput):
     """Helper to compute the mean squared error"""
-    # (y_true - y_pred) ** 2
     output_errors = cp.subtract(y_true, y_pred)
     output_errors = cp.multiply(output_errors, output_errors)
 
@@ -164,7 +167,7 @@ def mean_squared_error(y_true, y_pred,
 
     Be careful when using this metric with float32 inputs as the result can be
     slightly incorrect because of floating point precision if the input is
-    large enough. We recommend to use float64 instead.
+    large enough. float64 will have lower numerical error.
 
     Parameters
     ----------
@@ -208,7 +211,8 @@ def mean_absolute_error(y_true, y_pred,
 
     Be careful when using this metric with float32 inputs as the result can be
     slightly incorrect because of floating point precision if the input is
-    large enough. We recommend to use float64 instead.
+    large enough. float64 will have lower numerical error.
+
     Parameters
     ----------
     y_true : array-like (device or host) shape = (n_samples,)
@@ -259,7 +263,8 @@ def mean_squared_log_error(y_true, y_pred,
 
     Be careful when using this metric with float32 inputs as the result can be
     slightly incorrect because of floating point precision if the input is
-    large enough. We recommend to use float64 instead.
+    large enough. float64 will have lower numerical error.
+
     Parameters
     ----------
     y_true : array-like (device or host) shape = (n_samples,)
