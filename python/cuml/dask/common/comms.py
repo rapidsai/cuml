@@ -118,8 +118,6 @@ def _func_ucp_listener_port(sessionId, r):
 async def _func_init_all(sessionId, uniqueId, comms_p2p,
                          worker_info, verbose, streams_per_handle):
 
-
-    print("About to get worker state")
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
     session_state["wid"] = worker_info[get_worker().address]["r"]
