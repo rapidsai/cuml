@@ -17,13 +17,14 @@ from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.comms import worker_state, CommsContext
 
 from cuml.dask.common.input_utils import to_output
-from cuml.dask.common.input_utils import MGData
 
 from cuml.dask.common.part_utils import flatten_grouped_results
 
 from dask.distributed import wait
 
 from uuid import uuid1
+
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.dask.common.base import BaseEstimator
 
@@ -63,7 +64,7 @@ class BaseDecompositionFitMixin(BaseEstimator):
 
         wait(X)
 
-        data = MGData.single(data=X, client=self.client)
+        data = DistributedDataHandler.single(data=X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False)

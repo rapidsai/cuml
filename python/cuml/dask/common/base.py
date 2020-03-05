@@ -18,8 +18,12 @@ import dask
 import numpy as np
 from toolz import first
 
+
 from cuml.dask.common.utils import MultiHolderLock
+
 from dask_cudf.core import DataFrame as dcDataFrame
+
+from dask.distributed import default_client
 from functools import wraps
 
 from cuml.dask.common.utils import patch_cupy_sparse_serialization
@@ -259,7 +263,7 @@ def _transform_func(model, lock, data, **kwargs):
     return ret
 
 
-def _inverse_transform_func(model, lock, data):
+def _inverse_transform_func(model, lock, data, **kwargs):
     lock.acquire()
     ret = model.inverse_transform(data, **kwargs)
     lock.release()

@@ -91,12 +91,9 @@ class DistributedDataHandler:
         datatype = 'cudf' if isinstance(first(data) if multiple else data,
                                         dcDataFrame) else 'cupy'
 
-
         return DistributedDataHandler(gpu_futures=gpu_futures, workers=workers,
                                       datatype=datatype, multiple=multiple,
                                       client=client)
-
-
 
     # TODO: Remove the following two functions
     #  (just here to keep from breaking everythign)

@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import numpy as np
+import cupy as cp
 
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
