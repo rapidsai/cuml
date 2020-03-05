@@ -44,7 +44,7 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, array_like, int
+    data : rmm.DeviceBuffer, array_like, int, bytes, bytearrar or memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
     owner : object, optional
@@ -109,24 +109,30 @@ class CumlArray(Buffer):
 
     def __init__(self, data=None, owner=None, dtype=None, shape=None,
                  order=None):
+
+        # Checks of parameters
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
                             " Array.empty()")
+
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
-                                " creating an Array from a pointer.")
+                                " creating an Array from" + type(data) + ".")
             detailed_construction = True
         else:
             detailed_construction = False
 
         ary_interface = False
 
+        # Base class (Buffer) constructor call
+        if isinstance(data, bytearray) or isinstance(data, bytes):
+            data = memoryview(data)
+        size, shape = _get_size_from_shape(shape, dtype)
+        super(CumlArray, self).__init__(data=data, owner=owner, size=size)
+
+        # Post processing of meta data
         if detailed_construction:
-            if isinstance(data, bytearray) or isinstance(data, bytes):
-                data = memoryview(data)
-            size, shape = _get_size_from_shape(shape, dtype)
-            super(CumlArray, self).__init__(data=data, owner=owner, size=size)
             self.shape = shape
             self.dtype = np.dtype(dtype)
             self.order = order
@@ -142,7 +148,6 @@ class CumlArray(Buffer):
             raise TypeError("Unrecognized data type.")
 
         if ary_interface:
-            super(CumlArray, self).__init__(data=data, owner=owner)
             self.shape = ary_interface['shape']
             self.dtype = np.dtype(ary_interface['typestr'])
             if ary_interface.get('strides', None) is None:
@@ -324,9 +329,8 @@ class CumlArray(Buffer):
 
 
 def _check_low_level_type(data):
-    if isinstance(data, DeviceBuffer) or isinstance(data, int) \
-            or isinstance(data, bytearray) or isinstance(data, bytes) or \
-            isinstance(data, memoryview) or isinstance(data, Buffer):
+    if isinstance(data, (DeviceBuffer, int, bytearray, bytes, memoryview,
+                         Buffer)):
         return True
 
     else:
