@@ -91,7 +91,7 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
         self.coef_ = self.local_model.coef_
         self.intercept_ = self.local_model.intercept_
 
-    def predict(self, X, delayed=True, max_parallelism=5):
+    def predict(self, X, delayed=True):
         """
         Make predictions for X and returns a dask collection.
 
@@ -101,19 +101,15 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
-        delayed : bool return lazy (delayed) result?
-
-        max_parallelism : int (default = 5)
-            Amount of concurrent partitions that will be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time.
+        delayed : bool (default = True)
+            Whether to do a lazy prediction (and return Delayed objects) or an
+            eagerly executed one.
 
         Returns
         -------
         y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
         """
-        return self._predict(X, delayed, max_parallelism)
+        return self._predict(X, delayed=delayed)
 
     def get_param_names(self):
         return list(self.kwargs.keys())

@@ -63,7 +63,7 @@ class DelayedParallelFunc(object):
             Amount of concurrent partitions that can be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
-            at any time.
+            at any time. **Not used currently**
 
         output_futures : bool returns the futures pointing the to the resuls
                          of the parallel function executions on the workers,
@@ -77,20 +77,17 @@ class DelayedParallelFunc(object):
         if delayed:
             X_d = X.to_delayed()
 
-            lock = dask.delayed(MultiHolderLock(max_parallelism),
-                                pure=True)
-
             model = dask.delayed(self.local_model, pure=True)
 
             func = dask.delayed(func, pure=False, nout=1)
 
             if isinstance(X, dcDataFrame):
-                preds = [func(model, lock, part) for part in X_d]
+                preds = [func(model, part) for part in X_d]
                 return preds if output_futures \
                     else dask.dataframe.from_delayed(preds)
 
             else:
-                preds = [func(model, lock, part[0])
+                preds = [func(model, part[0])
                          for part in X_d]
 
                 # todo: add parameter for option of not checking directly
@@ -120,15 +117,10 @@ class DelayedParallelFunc(object):
                                             broadcast=True,
                                             hash=False)
 
-            lock = self.client.scatter(MultiHolderLock(max_parallelism),
-                                       workers=data.workers,
-                                       broadcast=True,
-                                       hash=False)
-
             func_futures = [self.client.submit(
                 func,
                 scattered,
-                lock,
+                # lock,
                 p,
                 **kwargs,
                 workers=[w],
@@ -210,15 +202,11 @@ def mnmg_import(func):
     return check_cuml_mnmg
 
 
-def _predict_func(model, lock, data, **kwargs):
-    lock.acquire()
+def _predict_func(model, data, **kwargs):
     ret = model.predict(data, **kwargs)
-    lock.release()
     return ret
 
 
-def _transform_func(model, lock, data, **kwargs):
-    lock.acquire()
+def _transform_func(model, data, **kwargs):
     ret = model.transform(data, **kwargs)
-    lock.release()
     return ret
