@@ -112,9 +112,7 @@ class CumlArray(Buffer):
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
                             " Array.empty()")
-        if isinstance(data, DeviceBuffer) or isinstance(data, int) \
-                or isinstance(data, bytearray) or \
-                isinstance(data, memoryview) or isinstance(data, Buffer):
+        if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
                                 " creating an Array from a pointer.")
@@ -125,7 +123,7 @@ class CumlArray(Buffer):
         ary_interface = False
 
         if detailed_construction:
-            if isinstance(data, bytearray):
+            if isinstance(data, bytearray) or isinstance(data, bytes):
                 data = memoryview(data)
             size, shape = _get_size_from_shape(shape, dtype)
             super(CumlArray, self).__init__(data=data, owner=owner, size=size)
@@ -323,3 +321,13 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
         return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order)
+
+
+def _check_low_level_type(data):
+    if isinstance(data, DeviceBuffer) or isinstance(data, int) \
+            or isinstance(data, bytearray) or isinstance(data, bytes) or \
+            isinstance(data, memoryview) or isinstance(data, Buffer):
+        return True
+
+    else:
+        return False
