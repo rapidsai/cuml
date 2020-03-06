@@ -22,7 +22,7 @@
 namespace ML {
 
 void tsvdFit(cumlHandle &handle, float *input, float *components,
-             float *singular_vals, paramsTSVD &prms);
+             float *singular_vals, const paramsTSVD &prms);
 void tsvdFit(cumlHandle &handle, double *input, double *components,
              double *singular_vals, const paramsTSVD &prms);
 void tsvdInverseTransform(cumlHandle &handle, float *trans_input,
