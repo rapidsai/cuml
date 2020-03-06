@@ -43,13 +43,13 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                       float *input,
                       float *components,
                       float *singular_vals,
-                      paramsTSVD &prms) except +
+                      const paramsTSVD &prms) except +
 
     cdef void tsvdFit(cumlHandle& handle,
                       double *input,
                       double *components,
                       double *singular_vals,
-                      paramsTSVD &prms) except +
+                      const paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                float *input,
@@ -58,7 +58,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               paramsTSVD &prms) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(cumlHandle& handle,
                                double *input,
@@ -67,31 +67,31 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               paramsTSVD &prms) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    float *trans_input,
                                    float *components,
                                    float *input,
-                                   paramsTSVD &prms) except +
+                                   const paramsTSVD &prms) except +
 
     cdef void tsvdInverseTransform(cumlHandle& handle,
                                    double *trans_input,
                                    double *components,
                                    double *input,
-                                   paramsTSVD &prms) except +
+                                   const paramsTSVD &prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             float *input,
                             float *components,
                             float *trans_input,
-                            paramsTSVD &prms) except +
+                            const paramsTSVD &prms) except +
 
     cdef void tsvdTransform(cumlHandle& handle,
                             double *input,
                             double *components,
                             double *trans_input,
-                            paramsTSVD &prms) except +
+                            const paramsTSVD &prms) except +
 
 
 class TruncatedSVD(Base):

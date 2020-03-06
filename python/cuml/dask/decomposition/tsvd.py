@@ -13,16 +13,18 @@
 # limitations under the License.
 #
 
-from cuml.dask.decomposition.base import BaseDecompositionFitMixin
+from cuml.dask.decomposition.base import BaseDecomposition
+from cuml.dask.decomposition.base import DecompositionSyncFitMixin
 
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
 
 
-class TruncatedSVD(DelayedTransformMixin,
-                   DelayedInverseTransformMixin,
-                   BaseDecompositionFitMixin):
+class TruncatedSVD(BaseDecomposition,
+          DelayedTransformMixin,
+          DelayedInverseTransformMixin,
+          DecompositionSyncFitMixin):
     """
     Examples
     ---------

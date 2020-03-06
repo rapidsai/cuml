@@ -28,13 +28,13 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 
-class BaseDecompositionFitMixin(BaseEstimator):
+class BaseDecomposition(BaseEstimator):
 
     def __init__(self, model_func, client=None, **kwargs):
         """
-        Constructor for distributed PCA model
+        Constructor for distributed decomposition model
         """
-        super(BaseDecompositionFitMixin, self).__init__(client, **kwargs)
+        super(BaseDecomposition, self).__init__(client, **kwargs)
         self._model_func = model_func
 
         # define attributes to make sure they
@@ -44,6 +44,9 @@ class BaseDecompositionFitMixin(BaseEstimator):
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
         self.singular_values_ = None
+
+
+class DecompositionSyncFitMixin(object):
 
     @staticmethod
     def _func_fit(m, dfs, M, N, partsToRanks, rank, transform):
@@ -60,8 +63,6 @@ class BaseDecompositionFitMixin(BaseEstimator):
         """
 
         X = self.client.persist(X)
-
-        wait(X)
 
         data = DistributedDataHandler.single(data=X, client=self.client)
         self.datatype = data.datatype
@@ -87,7 +88,7 @@ class BaseDecompositionFitMixin(BaseEstimator):
 
         key = uuid1()
         pca_fit = dict([(wf[0], self.client.submit(
-            BaseDecompositionFitMixin._func_fit,
+            DecompositionSyncFitMixin._func_fit,
             models[data.worker_info[wf[0]]["r"]],
             wf[1],
             M, N,
