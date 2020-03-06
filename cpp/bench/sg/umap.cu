@@ -77,7 +77,7 @@ class Umap : public BlobsFixture<float, int> {
     cast<float, int>(yFloat, this->data.y, this->params.nrows, stream);
   }
 
-  void daallocateBuffers(const ::benchmark::State& state) {
+  void deallocateBuffers(const ::benchmark::State& state) {
     auto& handle = *this->handle;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
