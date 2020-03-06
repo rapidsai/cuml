@@ -26,9 +26,11 @@ void tsvdFit(cumlHandle &handle, float *input, float *components,
 void tsvdFit(cumlHandle &handle, double *input, double *components,
              double *singular_vals, const paramsTSVD &prms);
 void tsvdInverseTransform(cumlHandle &handle, float *trans_input,
-                          float *components, float *input, const paramsTSVD &prms);
+                          float *components, float *input,
+                          const paramsTSVD &prms);
 void tsvdInverseTransform(cumlHandle &handle, double *trans_input,
-                          double *components, double *input, const paramsTSVD &prms);
+                          double *components, double *input,
+                          const paramsTSVD &prms);
 void tsvdTransform(cumlHandle &handle, float *input, float *components,
                    float *trans_input, const paramsTSVD &prms);
 void tsvdTransform(cumlHandle &handle, double *input, double *components,
