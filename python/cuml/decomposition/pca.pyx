@@ -49,7 +49,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      float *singular_vals,
                      float *mu,
                      float *noise_vars,
-                     paramsPCA &prms) except +
+                     const paramsPCA &prms) except +
 
     cdef void pcaFit(cumlHandle& handle,
                      double *input,
@@ -59,7 +59,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                      double *singular_vals,
                      double *mu,
                      double *noise_vars,
-                     paramsPCA &prms) except +
+                     const paramsPCA &prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               float *input,
@@ -70,7 +70,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                               float *singular_vals,
                               float *mu,
                               float *noise_vars,
-                              paramsPCA &prms) except +
+                              const paramsPCA &prms) except +
 
     cdef void pcaFitTransform(cumlHandle& handle,
                               double *input,
@@ -81,7 +81,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                               double *singular_vals,
                               double *mu,
                               double *noise_vars,
-                              paramsPCA &prms) except +
+                              const paramsPCA &prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   float *trans_input,
@@ -89,7 +89,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   float *singular_vals,
                                   float *mu,
                                   float *input,
-                                  paramsPCA &prms) except +
+                                  const paramsPCA &prms) except +
 
     cdef void pcaInverseTransform(cumlHandle& handle,
                                   double *trans_input,
@@ -97,7 +97,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                                   double *singular_vals,
                                   double *mu,
                                   double *input,
-                                  paramsPCA &prms) except +
+                                  const paramsPCA &prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            float *input,
@@ -105,7 +105,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            float *trans_input,
                            float *singular_vals,
                            float *mu,
-                           paramsPCA &prms) except +
+                           const paramsPCA &prms) except +
 
     cdef void pcaTransform(cumlHandle& handle,
                            double *input,
@@ -113,7 +113,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
                            double *trans_input,
                            double *singular_vals,
                            double *mu,
-                           paramsPCA &prms) except +
+                           const paramsPCA &prms) except +
 
 
 class PCA(Base):

@@ -39,7 +39,7 @@ using namespace MLCommon;
 template <typename math_t>
 void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
                       math_t *components, math_t *explained_var,
-                      math_t *explained_var_ratio, paramsTSVD prms,
+                      math_t *explained_var_ratio, const paramsTSVD prms,
                       cudaStream_t stream) {
   int len = prms.n_cols * prms.n_cols;
   auto allocator = handle.getDeviceAllocator();
@@ -76,7 +76,7 @@ template <typename math_t>
 void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
             math_t *explained_var, math_t *explained_var_ratio,
             math_t *singular_vals, math_t *mu, math_t *noise_vars,
-            paramsPCA &prms, cudaStream_t stream) {
+            const paramsPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
 
   ASSERT(prms.n_cols > 1,
@@ -126,7 +126,7 @@ void pcaFitTransform(const cumlHandle_impl &handle, math_t *input,
                      math_t *trans_input, math_t *components,
                      math_t *explained_var, math_t *explained_var_ratio,
                      math_t *singular_vals, math_t *mu, math_t *noise_vars,
-                     paramsPCA &prms, cudaStream_t stream) {
+                     const paramsPCA &prms, cudaStream_t stream) {
   pcaFit(handle, input, components, explained_var, explained_var_ratio,
          singular_vals, mu, noise_vars, prms, stream);
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
@@ -161,7 +161,7 @@ void pcaGetPrecision() {
 template <typename math_t>
 void pcaInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
                          math_t *components, math_t *singular_vals, math_t *mu,
-                         math_t *input, paramsPCA &prms, cudaStream_t stream) {
+                         math_t *input, const paramsPCA &prms, cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1,
@@ -218,7 +218,7 @@ void pcaScoreSamples() {
 template <typename math_t>
 void pcaTransform(const cumlHandle_impl &handle, math_t *input,
                   math_t *components, math_t *trans_input,
-                  math_t *singular_vals, math_t *mu, paramsPCA &prms,
+                  math_t *singular_vals, math_t *mu, const paramsPCA &prms,
                   cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
