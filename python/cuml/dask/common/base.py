@@ -84,7 +84,7 @@ class DelayedParallelFunc(object):
 
         X_d = X.to_delayed()
 
-        model = dask.delayed(self.local_model, pure=True)
+        model = dask.delayed(self.local_model, pure=True, traverse=False)
 
         func = dask.delayed(func, pure=False, nout=1)
 
