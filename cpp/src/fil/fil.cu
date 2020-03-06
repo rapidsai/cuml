@@ -118,7 +118,8 @@ struct forest {
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
     leaf_payload_type_ = params->leaf_payload_type;
-    printf("@forest init_common leaf_payload_type_ == %d\n", leaf_payload_type_);
+    printf("@forest init_common leaf_payload_type_ == %d\n",
+           leaf_payload_type_);
     num_output_classes_ = params->num_classes;
     init_max_shm();
   }
@@ -135,37 +136,50 @@ struct forest {
     params.data = data;
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
-    params.num_output_classes = (predict_proba || leaf_payload_type_ == INT_CLASS_LABEL) ? num_output_classes_ : 1;
-        // FLOAT_SCALAR means inference produces 1 class score/component and
-        // transform_k might complement to 2 for classification,
-        // if class probabilities are being requested
-        // assuming predict(..., predict_proba=true) will not get called
-        // for regression, hence forest::num_output_classes_ == 2
+    params.num_output_classes =
+      (predict_proba || leaf_payload_type_ == INT_CLASS_LABEL)
+        ? num_output_classes_
+        : 1;
+    // FLOAT_SCALAR means inference produces 1 class score/component and
+    // transform_k might complement to 2 for classification,
+    // if class probabilities are being requested
+    // assuming predict(..., predict_proba=true) will not get called
+    // for regression, hence forest::num_output_classes_ == 2
     params.predict_proba = predict_proba;
-    printf("predict_proba = %s, forest::num_output_classes_ = %d, predict_params.num_output_classes = %d\n", predict_proba ? "true" : "false", num_output_classes_, params.num_output_classes);
+    printf(
+      "predict_proba = %s, forest::num_output_classes_ = %d, "
+      "predict_params.num_output_classes = %d\n",
+      predict_proba ? "true" : "false", num_output_classes_,
+      params.num_output_classes);
     params.leaf_payload_type = leaf_payload_type_;
     params.predict_proba = predict_proba;
 
-    ASSERT(output_ & (output_t::THRESHOLD | output_t::SIGMOID) || leaf_payload_type_ == INT_CLASS_LABEL || !predict_proba, "predict_proba does not make sense for regression");
-    
+    ASSERT(output_ & (output_t::THRESHOLD | output_t::SIGMOID) ||
+             leaf_payload_type_ == INT_CLASS_LABEL || !predict_proba,
+           "predict_proba does not make sense for regression");
+
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
     // Transform the output if necessary.
     output_t ot = output_;
-    if(leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba)
-      ot = output_t(ot & ~output_t::AVG); // don't "average" class labels
+    if (leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba)
+      ot = output_t(ot & ~output_t::AVG);  // don't "average" class labels
     if (ot != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
       bool complement_proba =
         predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
 
-      unsigned long values_to_transform = predict_proba ? 
-        (unsigned long) num_rows * (unsigned long) num_output_classes_ : num_rows;
+      unsigned long values_to_transform =
+        predict_proba
+          ? (unsigned long)num_rows * (unsigned long)num_output_classes_
+          : num_rows;
       printf("global_bias = %f\n", global_bias_);
-      transform_k<<<ceildiv(values_to_transform, FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, values_to_transform, ot, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-        threshold_, global_bias_, predict_proba, complement_proba);
+      transform_k<<<ceildiv(values_to_transform, FIL_TPB), FIL_TPB, 0,
+                    stream>>>(preds, values_to_transform, ot,
+                              num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+                              threshold_, global_bias_, predict_proba,
+                              complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -313,11 +327,20 @@ void check_params(const forest_params_t* params, bool dense) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and THRESHOLD");
   }
-    ASSERT(params->output & output_t::THRESHOLD || params->num_classes == 1 || params->leaf_payload_type == INT_CLASS_LABEL, "cannot do two-component regression using FLOAT_SCALAR leaf_payload_type");
-    ASSERT(params->num_classes != 1 || !(params->output & output_t::THRESHOLD), "single-class classification does not make sense");
-    ASSERT(params->leaf_payload_type != INT_CLASS_LABEL || params->output & output_t::AVG, "need averaging to turn multi-class votes into probabilities");
-    ASSERT(params->leaf_payload_type != INT_CLASS_LABEL || !(params->output & output_t::SIGMOID), "SIGMOID does not make sense for class-vote-based classification");
-    ASSERT(params->leaf_payload_type != INT_CLASS_LABEL || !params->global_bias, "global_bias does not make sense for class-vote-based classification");
+  ASSERT(
+    params->output & output_t::THRESHOLD || params->num_classes == 1 ||
+      params->leaf_payload_type == INT_CLASS_LABEL,
+    "cannot do two-component regression using FLOAT_SCALAR leaf_payload_type");
+  ASSERT(params->num_classes != 1 || !(params->output & output_t::THRESHOLD),
+         "single-class classification does not make sense");
+  ASSERT(params->leaf_payload_type != INT_CLASS_LABEL ||
+           params->output & output_t::AVG,
+         "need averaging to turn multi-class votes into probabilities");
+  ASSERT(params->leaf_payload_type != INT_CLASS_LABEL ||
+           !(params->output & output_t::SIGMOID),
+         "SIGMOID does not make sense for class-vote-based classification");
+  ASSERT(params->leaf_payload_type != INT_CLASS_LABEL || !params->global_bias,
+         "global_bias does not make sense for class-vote-based classification");
 }
 
 // tl_node_at is a checked version of tree[i]
@@ -405,7 +428,8 @@ int find_class_label_from_one_hot(tl::tl_float* vector, int len) {
       out = i;
       found_label = true;
     } else
-      ASSERT(vector[i] == 0., "label vector contains values other than 0. and 1.");
+      ASSERT(vector[i] == 0.,
+             "label vector contains values other than 0. and 1.");
   return out;
 }
 
@@ -518,9 +542,9 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   auto tree = model.trees[0];
   int node_key;
-  for(node_key = tree_root(tree); 
-      !tl_node_at(tree, node_key).is_leaf(); 
-      node_key = tl_node_at(tree, node_key).cleft());
+  for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
+       node_key = tl_node_at(tree, node_key).cleft())
+    ;
   auto vec = tl_node_at(tree, node_key).leaf_vector();
   if (vec.size()) {
     params->num_classes = vec.size();
@@ -528,6 +552,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     params->leaf_payload_type = INT_CLASS_LABEL;
     printf("detected %lu-class classification model \n", vec.size());
   } else {
+    printf("scalar leaves\n");
     params->leaf_payload_type = FLOAT_SCALAR;
     params->num_classes = tl_params->output_class ? 2 : 1;
   }
