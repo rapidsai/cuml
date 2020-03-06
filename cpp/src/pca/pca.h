@@ -87,7 +87,8 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
 
-  if (prms.n_components > prms.n_cols) prms.n_components = prms.n_cols;
+  int n_components = prms.n_components;
+  if (n_components > prms.n_cols) n_components = prms.n_cols;
 
   Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
@@ -100,8 +101,8 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
                    explained_var_ratio, prms, stream);
 
   math_t scalar = (prms.n_rows - 1);
-  Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
-                  stream, true);
+  Matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream,
+                  true);
 
   Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
                  stream);
@@ -161,7 +162,8 @@ void pcaGetPrecision() {
 template <typename math_t>
 void pcaInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
                          math_t *components, math_t *singular_vals, math_t *mu,
-                         math_t *input, const paramsPCA &prms, cudaStream_t stream) {
+                         math_t *input, const paramsPCA &prms,
+                         cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1,

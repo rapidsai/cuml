@@ -122,13 +122,13 @@ class BaseDecompositionMG(object):
 
         return arr_interfaces_trans
 
-    def _fit(self, X, M, N, partsToRanks, rank, _transform=False):
+    def _fit(self, X, total_rows, n_cols, partsToRanks, rank, _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
         :param X: array of local dataframes / array partitions
-        :param M: total number of rows
-        :param N: total number of cols
+        :param total_rows: total number of rows
+        :param n_cols: total number of cols
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
@@ -159,10 +159,10 @@ class BaseDecompositionMG(object):
             rank_size_pair[i].size = <size_t>len(X[i])
             p2r.append((rank, len(X[i])))
 
-        self._initialize_arrays(self.n_components, M, N)
+        self._initialize_arrays(self.n_components, total_rows, n_cols)
 
         arg_rank_size_pair = <size_t>rank_size_pair
-        decomp_params = self._build_params(M, N)
+        decomp_params = self._build_params(total_rows, n_cols)
 
         arr_interfaces_trans, data, trans_data = self._call_fit(
             arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,

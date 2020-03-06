@@ -260,11 +260,11 @@ class TruncatedSVD(Base):
             raise TypeError(msg.format(algorithm))
         return algo_map[algorithm]
 
-    def _build_params(self, M, N):
+    def _build_params(self, n_rows, n_cols):
         cpdef paramsTSVD *params = new paramsTSVD()
         params.n_components = self.n_components
-        params.n_rows = M
-        params.n_cols = N
+        params.n_rows = n_rows
+        params.n_cols = n_cols
         params.n_iterations = self.n_iter
         params.tol = self.tol
         params.algorithm = self.c_algorithm

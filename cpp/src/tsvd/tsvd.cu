@@ -64,13 +64,15 @@ void tsvdTransform(cumlHandle &handle, double *input, double *components,
 }
 
 void tsvdInverseTransform(cumlHandle &handle, float *trans_input,
-                          float *components, float *input, const paramsTSVD &prms) {
+                          float *components, float *input,
+                          const paramsTSVD &prms) {
   tsvdInverseTransform(handle.getImpl(), trans_input, components, input, prms,
                        handle.getStream());
 }
 
 void tsvdInverseTransform(cumlHandle &handle, double *trans_input,
-                          double *components, double *input, const paramsTSVD &prms) {
+                          double *components, double *input,
+                          const paramsTSVD &prms) {
   tsvdInverseTransform(handle.getImpl(), trans_input, components, input, prms,
                        handle.getStream());
 }

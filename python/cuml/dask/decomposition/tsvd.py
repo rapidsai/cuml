@@ -22,9 +22,9 @@ from cuml.dask.common.base import DelayedInverseTransformMixin
 
 
 class TruncatedSVD(BaseDecomposition,
-          DelayedTransformMixin,
-          DelayedInverseTransformMixin,
-          DecompositionSyncFitMixin):
+                   DelayedTransformMixin,
+                   DelayedInverseTransformMixin,
+                   DecompositionSyncFitMixin):
     """
     Examples
     ---------
