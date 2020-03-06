@@ -19,6 +19,8 @@ import pytest
 import random
 import rmm
 
+from numba import cuda
+
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
@@ -71,7 +73,6 @@ def test_rf_classification(datatype, split_algo, rows_sample,
                                    output_class=True,
                                    threshold=0.5,
                                    algo='auto')
-    #print("predicted result in test : ", fil_preds)
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
     fil_acc = accuracy_score(y_test, fil_preds)
@@ -412,7 +413,8 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         y_train_df = cudf.Series(y_train)
         X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cuml_model.fit(X_train_df, y_train_df)
-        cu_preds = cuml_model.predict(X_test_df, predict_model="CPU").to_array()
+        cu_preds = cuml_model.predict(X_test_df,
+                                      predict_model="CPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
         cu_preds = cuml_model.predict(X_test, predict_model="CPU")
@@ -552,36 +554,17 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
         sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
         assert fil_r2 >= (sk_r2 - 0.07)
     assert fil_r2 >= (cu_r2 - 0.02)
-"""
-from numba import cuda
-def get_memsize(model):
-    # Calculates the memory occupied by the parameters of an SVC object
-    #Parameters
-    #----------
-    #svc : cuML SVC classifier object
-    #Return
-    #------
-    #The GPU memory usage in bytes.
-    
-    ms = 0
-    for a in ['rf_params']:
-        x = getattr(model, a)
-        print("type of x : ", type(x))
-        print("which param : ", a)
-        ms += np.prod(x.shape)*x.dtype.itemsize
-    print("ms in the get_memsize func : ")
-    return ms
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+@pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('n_iter', [100])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(50000),
                          stress_param(500000)])
-def test_rf_class_mem_leak(datatype, column_info, nrows, n_iter):
-
+def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
+    n_iter = 30
+    datatype = np.float32
     use_handle = True
     ncols, n_info = column_info
     X, y = make_classification(n_samples=nrows, n_features=ncols,
@@ -591,36 +574,26 @@ def test_rf_class_mem_leak(datatype, column_info, nrows, n_iter):
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
-
     # Create a handle for the cuml model
     handle, stream = get_handle(use_handle, n_streams=1)
 
-    # Initialize, fit and predict using cuML's
-    # random forest classification model
+    # Warmup. Some modules that are used in RF allocate space on the device
+    # and consume memory. This is to make sure that the allocation is done
+    # before the first call to get_memory_info.
     base_model = curfc(handle=handle)
     base_model.fit(X_train, y_train)
-
-    ms = get_memsize(base_model)
-    print("Memory consumtion of SVC object is {} MiB".format(ms/(1024*1024.0)))
     free_mem = cuda.current_context().get_memory_info()[0]
 
     rfc_model = curfc(handle=handle)
     rfc_model.fit(X_train, y_train)
 
+    # Calculate the memory free after fitting the cuML RF model
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    print(" ms in main func : ", ms)
-    print("delta in main func : ", delta_mem)
-    assert delta_mem >= ms
+    cuml_mods = curfc(handle=handle)
+    cuml_mods.fit(X_train, y_train)
 
-    b_sum = 0
     for i in range(n_iter):
-        cuml_mods = curfc(handle=handle)
-        cuml_mods.fit(X_train, y_train)
-        cuml_mods.predict(X_train)
-
-    del(cuml_mods)
-    handle.sync()
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    print("Delta GPU mem: {} bytes".format(delta_mem))
-    assert delta_mem == 0
-"""
+        cuml_mods.predict(X_train, predict_model="GPU")
+        handle.sync()
+        delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+        assert delta_mem == 0

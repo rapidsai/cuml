@@ -1,6 +1,7 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
@@ -11,6 +12,7 @@
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
 - PR #1646: Using FIL to predict in MNMG RF
+- PR #1778: Make cuML Handle picklable
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -29,11 +31,13 @@
 - PR #1718: Import `using_allocator` from `cupy.cuda`
 - PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 - PR #1726: Decorator to allocate CuPy arrays with RMM
+- PR #1719: UMAP random seed reproducibility
 - PR #1748: Test serializing `CumlArray` objects
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
 
 ## Bug Fixes
+- PR #1770: Warn that KalmanFilter is deprecated
 - PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
@@ -59,6 +63,7 @@
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 - PR #1765: Update the checks for using RF GPU predict
+- PR #1793: Updated fil pyx to solve memory leakage issue
 
 # cuML 0.12.0 (Date TBD)
 
@@ -89,6 +94,7 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
+- PR #1555: FIL-SKL, an SKLearn-based benchmark for FIL
 - PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 - PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM
