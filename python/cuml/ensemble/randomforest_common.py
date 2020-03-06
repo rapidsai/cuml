@@ -26,3 +26,17 @@ def _check_fil_parameter_validity(depth, storage_format, algo):
                          "large and the process will be aborted. In "
                          "addition, `algo` must be either set to `naive' "
                          "or `auto` to set 'fil_sparse_format=True`.")
+
+
+def _check_fil_value(fil_sparse_format):
+    if fil_sparse_format == 'auto':
+        storage_type = fil_sparse_format
+    elif not fil_sparse_format:
+        storage_type = 'DENSE'
+    elif fil_sparse_format:
+        storage_type = 'SPARSE'
+    else:
+        raise ValueError("The value entered for spares_forest is not "
+                         "supported. Please refer to the documentation "
+                         "to see the accepted values.")
+    return storage_type

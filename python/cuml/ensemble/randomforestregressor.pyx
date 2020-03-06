@@ -34,7 +34,9 @@ from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
-from cuml.ensemble.randomforest_common import _check_fil_parameter_validity
+from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
+    _check_fil_value
+
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -430,16 +432,7 @@ class RandomForestRegressor(Base):
            A Forest Inference model which can be used to perform
            inferencing on the random forest model.
         """
-        if fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
-        elif not fil_sparse_format:
-            storage_type = 'DENSE'
-        elif fil_sparse_format:
-            storage_type = 'SPARSE'
-        else:
-            raise ValueError("The value entered for spares_forest is not "
-                             "supported. Please refer to the documentation "
-                             "to see the accepted values.")
+        storage_type = _check_fil_value(fil_sparse_format)
 
         _check_fil_parameter_validity(depth=self.max_depth,
                                       storage_format=storage_type,
@@ -569,16 +562,7 @@ class RandomForestRegressor(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
-        elif not fil_sparse_format:
-            storage_type = 'DENSE'
-        elif fil_sparse_format:
-            storage_type = 'SPARSE'
-        else:
-            raise ValueError("The value entered for spares_forest is not "
-                             "supported. Please refer to the documentation "
-                             "to see the accepted values.")
+        storage_type = _check_fil_value(fil_sparse_format)
 
         _check_fil_parameter_validity(depth=self.max_depth,
                                       storage_format=storage_type,
