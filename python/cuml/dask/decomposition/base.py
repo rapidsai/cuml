@@ -72,8 +72,8 @@ class DecompositionSyncFitMixin(object):
 
         data.calculate_parts_to_sizes(comms)
 
-        M = data.total_rows
-        N = X.shape[1]
+        total_rows = data.total_rows
+        n_cols = X.shape[1]
 
         key = uuid1()
         models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
@@ -91,7 +91,7 @@ class DecompositionSyncFitMixin(object):
             DecompositionSyncFitMixin._func_fit,
             models[data.worker_info[wf[0]]["r"]],
             wf[1],
-            M, N,
+            total_rows, n_cols,
             data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
             data.worker_info[wf[0]]["r"],
             _transform,

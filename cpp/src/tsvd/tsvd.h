@@ -83,7 +83,8 @@ void calCompExpVarsSvd(const cumlHandle_impl &handle, math_t *in,
 
 template <typename math_t>
 void calEig(const cumlHandle_impl &handle, math_t *in, math_t *components,
-            math_t *explained_var, const paramsTSVD &prms, cudaStream_t stream) {
+            math_t *explained_var, const paramsTSVD &prms,
+            cudaStream_t stream) {
   auto cusolver_handle = handle.getcusolverDnHandle();
   auto allocator = handle.getDeviceAllocator();
 
@@ -164,7 +165,8 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
  */
 template <typename math_t>
 void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
-             math_t *singular_vals, const paramsTSVD &prms, cudaStream_t stream) {
+             math_t *singular_vals, const paramsTSVD &prms,
+             cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
   auto allocator = handle.getDeviceAllocator();
 
@@ -176,7 +178,8 @@ void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
 
-  if (prms.n_components > prms.n_cols) prms.n_components = prms.n_cols;
+  int n_components = prms.n_components;
+  if (prms.n_components > prms.n_cols) n_components = prms.n_cols;
 
   int len = prms.n_cols * prms.n_cols;
   device_buffer<math_t> input_cross_mult(allocator, stream, len);
@@ -194,11 +197,11 @@ void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
          explained_var_all.data(), prms, stream);
 
   Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                          prms.n_components, prms.n_cols, stream);
+                          n_components, prms.n_cols, stream);
 
   math_t scalar = math_t(1);
-  Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar,
-                  prms.n_components, stream);
+  Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components,
+                  stream);
 }
 
 /**
@@ -262,8 +265,8 @@ void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
  */
 template <typename math_t>
 void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
-                   math_t *components, math_t *trans_input, const paramsTSVD &prms,
-                   cudaStream_t stream) {
+                   math_t *components, math_t *trans_input,
+                   const paramsTSVD &prms, cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
 
   ASSERT(prms.n_cols > 1,
@@ -292,8 +295,8 @@ void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
  */
 template <typename math_t>
 void tsvdInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
-                          math_t *components, math_t *input, const paramsTSVD &prms,
-                          cudaStream_t stream) {
+                          math_t *components, math_t *input,
+                          const paramsTSVD &prms, cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
 
   ASSERT(prms.n_cols > 1,
