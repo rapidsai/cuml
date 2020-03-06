@@ -146,18 +146,17 @@ struct forest {
     params.leaf_payload_type = leaf_payload_type_;
     params.predict_proba = predict_proba;
 
-    ASSERT(output_ & output_t::THRESHOLD || num_output_classes_ == 1 || leaf_payload_type_ == INT_CLASS_LABEL, "cannot do two-component regression using FLOAT_SCALAR leaf_payload_type");
     ASSERT(output_ & output_t::THRESHOLD || leaf_payload_type_ == INT_CLASS_LABEL || !predict_proba, "predict_proba does not make sense for regression");
-    ASSERT(num_output_classes_ != 1 || !(output_ & output_t::THRESHOLD), "single-class classification does not make sense");
-    ASSERT(params.leaf_payload_type != INT_CLASS_LABEL || output_ & output_t::AVG, "need averaging to turn multi-class votes into probabilities");
     
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
     // Transform the output if necessary.
-    if (output_ != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
-      auto output = output_;
+    output_t ot = output_;
+    if(leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba)
+      ot = output_t(ot & ~output_t::AVG); // don't "average" class labels
+    if (ot != output_t::RAW || global_bias_ != 0.0f || predict_proba) {
       bool complement_proba =
         predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
 
@@ -165,7 +164,7 @@ struct forest {
         (unsigned long) num_rows * (unsigned long) num_output_classes_ : num_rows;
       printf("global_bias = %f\n", global_bias_);
       transform_k<<<ceildiv(values_to_transform, FIL_TPB), FIL_TPB, 0, stream>>>(
-        preds, values_to_transform, output, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+        preds, values_to_transform, ot, num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
         threshold_, global_bias_, predict_proba, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
@@ -317,6 +316,8 @@ void check_params(const forest_params_t* params, bool dense) {
     ASSERT(params->output & output_t::THRESHOLD || params->num_classes == 1 || params->leaf_payload_type == INT_CLASS_LABEL, "cannot do two-component regression using FLOAT_SCALAR leaf_payload_type");
     ASSERT(params->num_classes != 1 || !(params->output & output_t::THRESHOLD), "single-class classification does not make sense");
     ASSERT(params->leaf_payload_type != INT_CLASS_LABEL || params->output & output_t::AVG, "need averaging to turn multi-class votes into probabilities");
+    ASSERT(params->leaf_payload_type != INT_CLASS_LABEL || !(params->output & output_t::SIGMOID), "SIGMOID does not make sense for class-vote-based classification");
+    ASSERT(params->leaf_payload_type != INT_CLASS_LABEL || !params->global_bias, "global_bias does not make sense for class-vote-based classification");
 }
 
 // tl_node_at is a checked version of tree[i]
