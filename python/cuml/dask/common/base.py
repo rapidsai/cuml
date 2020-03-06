@@ -150,7 +150,7 @@ class DelayedTransformMixin(DelayedParallelFunc):
 
 class DelayedInverseTransformMixin(DelayedParallelFunc):
 
-    def _transform(self, X, n_dims=1, delayed=True, **kwargs):
+    def _inverse_transform(self, X, n_dims=1, delayed=True, **kwargs):
         return self._run_parallel_func(_inverse_transform_func,
                                        X,
                                        n_dims,
