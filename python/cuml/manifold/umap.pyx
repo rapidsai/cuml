@@ -90,6 +90,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              float * X,
              int n,
              int d,
+             long *knn_indices,
+             float *knn_dists,
              UMAPParams * params,
              float * embeddings) except +
 
@@ -98,6 +100,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              float * y,
              int n,
              int d,
+             long *knn_indices,
+             float *knn_dists,
              UMAPParams * params,
              float * embeddings) except +
 
@@ -437,7 +441,8 @@ class UMAP(Base):
         elif isinstance(X, cupy.ndarray):
             return cupy.array(embedding)
 
-    def fit(self, X, y=None, convert_dtype=True):
+    def fit(self, X, y=None, convert_dtype=True,
+            knn_indices=None, knn_dists=None):
         """
         Fit X into an embedded space.
 
@@ -458,8 +463,25 @@ class UMAP(Base):
 
         self.X_m, X_ctype, self.n_rows, self.n_dims, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
                                                  else None))
+
+        cdef uintptr_t knn_indices_ctype = 0
+        cdef uintptr_t knn_dists_ctype = 0
+        if knn_indices is not None and knn_dists is not None:
+            _, knn_indices_ctype,  _, _, _ = \
+                input_to_dev_array(knn_indices, order='C',
+                                   check_dtype=np.int64,
+                                   convert_to_dtype=(np.int64 if convert_dtype
+                                                     else None))
+
+            _, knn_dists_ctype, _, _, _ = \
+                input_to_dev_array(knn_dists, order='C',
+                                   check_dtype=np.float32,
+                                   convert_to_dtype=(np.float32
+                                                     if convert_dtype
+                                                     else None))
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -498,6 +520,8 @@ class UMAP(Base):
                 <float*> y_raw,
                 <int> self.n_rows,
                 <int> self.n_dims,
+                <long*> knn_indices_ctype,
+                <float*> knn_dists_ctype,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw)
 
@@ -507,6 +531,8 @@ class UMAP(Base):
                 <float*> x_raw,
                 <int> self.n_rows,
                 <int> self.n_dims,
+                <long*> knn_indices_ctype,
+                <float*> knn_dists_ctype,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw)
 
@@ -514,7 +540,8 @@ class UMAP(Base):
 
         return self
 
-    def fit_transform(self, X, y=None, convert_dtype=True):
+    def fit_transform(self, X, y=None, convert_dtype=True,
+                      knn_indices=None, knn_dists=None):
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -538,7 +565,8 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the training data in low-dimensional space.
         """
-        self.fit(X, y, convert_dtype=convert_dtype)
+        self.fit(X, y, convert_dtype=convert_dtype,
+                 knn_indices=knn_indices, knn_dists=knn_dists)
         return UMAP._prep_output(X, self.embedding_)
 
     def transform(self, X, convert_dtype=True):

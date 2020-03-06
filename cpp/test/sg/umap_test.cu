@@ -70,7 +70,8 @@ class UMAPTest : public ::testing::Test {
                                     n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
-                               umap_params, embeddings.data());
+                               nullptr, nullptr, umap_params,
+                               embeddings.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -114,7 +115,8 @@ class UMAPTest : public ::testing::Test {
                                     n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
-                               umap_params, embeddings.data());
+                               nullptr, nullptr, umap_params,
+                               embeddings.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -150,7 +152,8 @@ class UMAPTest : public ::testing::Test {
                                     n_samples * umap_params->n_components);
 
     UMAPAlgo::_fit<float, 256>(handle, X_d.data(), Y_d.data(), n_samples,
-                               n_features, umap_params, embeddings.data());
+                               n_features, nullptr, nullptr, umap_params,
+                               embeddings.data());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
