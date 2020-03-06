@@ -111,7 +111,10 @@ std::vector<Params> getInputs() {
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;
     p.data.ncols = rc.second;
-    out.push_back(p);
+    for (auto& nc : std::vector<int>({2, 10})) {
+      p.data.nclasses = nc;
+      out.push_back(p);
+    }
   }
   return out;
 }
