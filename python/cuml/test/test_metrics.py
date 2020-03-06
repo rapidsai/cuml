@@ -36,6 +36,8 @@ from sklearn.preprocessing import StandardScaler
 from cuml.metrics.regression import mean_squared_error
 from sklearn.metrics.regression import mean_squared_error as sklearn_mse
 
+from cuml.metrics import confusion_matrix
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -217,3 +219,13 @@ def test_mean_squared_error_custom_weights():
     skl_mse = sklearn_mse(y_true, y_pred, sample_weight=weights)
 
     assert_almost_equal(mse, skl_mse, decimal=2)
+
+
+def test_confusion_matrix():
+    y_true = cp.array([2, 0, 2, 2, 0, 1])
+    y_pred = cp.array([0, 0, 2, 2, 0, 2])
+    cm = confusion_matrix(y_true, y_pred)
+    ref = cp.array([[2, 0, 0],
+                    [0, 0, 1],
+                    [1, 0, 2]])
+    cp.testing.assert_array_equal(cm, ref)

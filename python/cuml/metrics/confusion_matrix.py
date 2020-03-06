@@ -22,29 +22,17 @@
 import numpy as np
 import cupy as cp
 
-from libc.stdint cimport uintptr_t
-
-import cuml.common.handle
 from cuml.utils import input_to_cuml_array
-from cuml.common.handle cimport cumlHandle
 from cuml.utils.memory_utils import with_cupy_rmm
-from cuml.common import CumlArray
 from cuml.metrics.utils import sorted_unique_labels
-
-
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    void contingencyMatrix(const cumlHandle &handle,
-                           const int *groundTruth, const int *predictedLabel,
-                           const int nSamples, int *outMat) except +
+from cuml.prims.label import make_monotonic
 
 
 @with_cupy_rmm
 def confusion_matrix(y_true, y_pred,
                      labels=None,
                      sample_weight=None,
-                     normalize=None,
-                     use_cuda_coo=False,
-                     handle=None):
+                     normalize=None):
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
     Parameters
@@ -65,61 +53,42 @@ def confusion_matrix(y_true, y_pred,
         Normalizes confusion matrix over the true (rows), predicted (columns)
         conditions or all the population. If None, confusion matrix will not be
         normalized.
-    use_cuda_coo : bool, optional
-        Whether or not to use our cuda version of the coo function.
-        If false, will use cupy's version of coo.
-        Used for benchmarks.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this function. Most importantly, this specifies the
-        CUDA stream that will be used for this function's computations, so
-        users can run different computations concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
 
     Returns
     -------
     C : array-like (device or host) shape = (n_classes, n_classes)
         Confusion matrix.
     """
-    handle = cuml.common.handle.Handle() \
-        if handle is None else handle
-    cdef cumlHandle* handle_ =\
-        <cumlHandle*><size_t>handle.getHandle()
-
     y_true, n_rows, n_cols, dtype = \
         input_to_cuml_array(y_true, check_dtype=[cp.int32, cp.int64])
+    y_true = y_true.to_output('cupy')
 
     y_pred, _, _, _ = \
         input_to_cuml_array(y_pred, check_dtype=dtype,
                             check_rows=n_rows, check_cols=n_cols)
+    y_pred = y_pred.to_output('cupy')
 
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
+        n_labels = len(labels)
     else:
         labels, n_labels, _, _ = \
             input_to_cuml_array(labels, check_dtype=dtype, check_cols=1)
-        if cp.all([l not in y_true for l in labels]):
-            raise ValueError("At least one label specified must be in y_true")
-
     if sample_weight is None:
         sample_weight = cp.ones(n_rows, dtype=dtype)
     else:
-        if use_cuda_coo:
-            raise NotImplementedError("Sample weights not implemented with "
-                                      "cuda coo.")
         sample_weight, _, _, _ = \
             input_to_cuml_array(sample_weight, check_dtype=dtype,
                                 check_rows=n_rows, check_cols=n_cols)
+        sample_weight = sample_weight.to_output('cupy')
+    print(1)
 
     if normalize not in ['true', 'pred', 'all', None]:
         raise ValueError("normalize must be one of {'true', 'pred', "
                          "'all', None}")
 
-    label_to_ind = {y: x for x, y in enumerate(labels)}
-
-    y_pred = cp.array([label_to_ind.get(x, n_labels + 1) for x in y_pred])
-    y_true = cp.array([label_to_ind.get(x, n_labels + 1) for x in y_true])
+    y_true, _ = make_monotonic(y_true, labels, copy=True)
+    y_pred, _ = make_monotonic(y_pred, labels, copy=True)
 
     # intersect y_pred, y_true with labels, eliminate items not in labels
     ind = cp.logical_and(y_pred < n_labels, y_true < n_labels)
@@ -127,29 +96,12 @@ def confusion_matrix(y_true, y_pred,
     y_true = y_true[ind]
     sample_weight = sample_weight[ind]
 
-    # Choose the accumulator dtype to always have high precision
-    if dtype.kind in {'i', 'u', 'b'}:
-        dtype = cp.int64
-    else:
-        dtype = cp.float64
-
-    if use_cuda_coo:
-        cm = CumlArray.zeros(shape=(n_labels, n_labels), dtype=dtype,
-                             order='C')
-        cdef uintptr_t cm_ptr = cm.ptr
-        cdef uintptr_t y_pred_ptr = y_pred.ptr
-        cdef uintptr_t y_true_ptr = y_true.ptr
-
-        contingencyMatrix(handle_[0],
-                          <int*> y_true_ptr,
-                          <int*> y_pred_ptr,
-                          <int> n_rows,
-                          <int*> cm_ptr)
-        # TODO: Implement weighting
-    else:
-        cm = cp.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
-                                  shape=(n_labels, n_labels), dtype=dtype,
-                                  ).toarray()
+    cm = cp.sparse.coo_matrix(
+        (sample_weight, (y_true, y_pred)),
+        shape=(n_labels, n_labels),
+        # Choosing accumulator dtype to always have high precision
+        dtype=np.int64 if dtype.kind in {'i', 'u', 'b'} else np.float64,
+    ).toarray()
 
     with np.errstate(all='ignore'):
         if normalize == 'true':
