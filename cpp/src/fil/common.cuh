@@ -47,7 +47,10 @@ struct base_node : dense_node_t {
   static const int FID_MASK = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
   static const int IS_LEAF_MASK = 1 << 31;
-  template<class o_t> __host__ __device__ o_t output() const { return val; }
+  template <class o_t>
+  __host__ __device__ o_t output() const {
+    return val;
+  }
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
@@ -64,8 +67,15 @@ struct base_node : dense_node_t {
   }
 };
 
-template<> __host__ __device__ __forceinline__ float base_node::output<float>() const { return val.f; }
-template<> __host__ __device__ __forceinline__ unsigned base_node::output<unsigned>() const { return val.idx; }
+template <>
+__host__ __device__ __forceinline__ float base_node::output<float>() const {
+  return val.f;
+}
+template <>
+__host__ __device__ __forceinline__ unsigned base_node::output<unsigned>()
+  const {
+  return val.idx;
+}
 
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {

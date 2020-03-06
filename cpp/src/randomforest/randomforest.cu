@@ -273,6 +273,25 @@ void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
   }
 }
 
+// tl_node_at is a checked version of tree[i]
+const tl::Tree::Node& tl_node_at(const tl::Tree& tree, size_t i) {
+  ASSERT(i < tree.num_nodes, "node index out of range");
+  return tree[i];
+}
+
+int tree_root(const tl::Tree& tree) {
+  // find the root
+  int root = -1;
+  for (int i = 0; i < tree.num_nodes; ++i) {
+    if (tl_node_at(tree, i).is_root()) {
+      ASSERT(root == -1, "multi-root trees not supported");
+      root = i;
+    }
+  }
+  ASSERT(root != -1, "a tree must have a root");
+  return root;
+}
+
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
@@ -322,6 +341,14 @@ void build_treelite_forest(ModelHandle* model,
     }
 
     TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
+
+    auto tree = model->trees[0];
+    int node_key;
+    for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
+         node_key = tl_node_at(tree, node_key).cleft())
+      ;
+    auto vec = tl_node_at(tree, node_key).leaf_vector();
+    printf("Built a tree with 0th tree first leaf vec size %d\n", vec.size());
     TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
   }
 }

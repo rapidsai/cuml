@@ -531,7 +531,7 @@ class RandomForestClassifier(Base):
         elif fil_sparse_format == 'auto':
             storage_type = fil_sparse_format
         else:
-            raise ValueError("The value entered for spares_forest is wrong."
+            raise ValueError("The value entered for sparse_forest is wrong."
                              " Please refer to the documentation to see the"
                              " accepted values.")
 
