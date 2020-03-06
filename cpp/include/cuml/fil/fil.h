@@ -95,7 +95,7 @@ union val_t {
 
 /** dense_node_t is a node in a densely-stored forest */
 struct dense_node_t {
-  union val_t val;
+  val_t val;
   int bits;
 };
 
@@ -111,14 +111,22 @@ struct sparse_node_t : dense_node_t, sparse_node_extra_data {
     : dense_node_t(dn), sparse_node_extra_data(ed) {}
 };
 
-/** leaf_value_desc_t describes what the leaves in a FIL forest store (predict) */
-enum leaf_value_desc_t {
+/** leaf_value_t describes what the leaves in a FIL forest store (predict) */
+enum leaf_value_t {
   /** storing a clas probability or regression summand */
   FLOAT_SCALAR = 0,
   /** storing a class label */
   INT_CLASS_LABEL = 1
   // to be extended
 };
+
+template<leaf_value_t T>
+struct leaf_output_t {};
+template<>
+struct leaf_output_t<FLOAT_SCALAR> { typedef float T;};
+template<>
+struct leaf_output_t<INT_CLASS_LABEL> { typedef unsigned T;};
+
 
 /** dense_node_init initializes node from paramters */
 void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
@@ -153,7 +161,7 @@ struct forest_params_t {
   // num_cols is the number of columns in the data
   int num_cols;
   // leaf_payload_type determines what the leaves store (predict)
-  leaf_value_desc_t leaf_payload_type;
+  leaf_value_t leaf_payload_type;
   // algo is the inference algorithm;
   // sparse forests do not distinguish between NAIVE and TREE_REORG
   algo_t algo;
@@ -179,8 +187,10 @@ struct treelite_params_t {
   // output_class indicates whether thresholding will be applied
   // to the model output
   bool output_class;
-  // threshold is used for thresholding if output_class == true,
-  // and is ignored otherwise
+  // threshold may be used for thresholding if output_class == true,
+  // and is ignored otherwise. threshold is ignored if leaves store
+  // vectorized class labels. in that case, a class with most votes
+  // is returned regardless of the absolute vote count
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
   storage_type_t storage_type;
