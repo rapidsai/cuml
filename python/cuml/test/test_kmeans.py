@@ -32,16 +32,16 @@ dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 SCORE_EPS = 0.06
 
 
-@pytest.mark.parametrize('nrows', [100, 1000])
-@pytest.mark.parametrize('ncols', [10, 100])
-@pytest.mark.parametrize('nclusters', [5, 10])
+@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('ncols', [10, 50])
+@pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
-def test_kmeans_clusters_blobs(nrows, ncols, nclusters, cluster_std):
-
-    random_state = 20
+@pytest.mark.parametrize('random_state', [i for i in range(25)])
+def test_kmeans_clusters_blobs(nrows, ncols, nclusters, random_state, cluster_std):
 
     X, y = make_blobs(nrows, ncols, nclusters,
                       cluster_std=cluster_std,
+                      shuffle=False,
                       random_state=random_state)
 
     cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
