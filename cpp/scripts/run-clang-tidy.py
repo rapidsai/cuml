@@ -22,7 +22,7 @@ import argparse
 import json
 
 
-VERSION_REGEX = re.compile(r"LLVM version ([0-9.]+)")
+VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
 SEPARATOR = "-" * 16
@@ -40,7 +40,7 @@ def parse_args():
     args.ignore_compiled = re.compile(args.ignore) if args.ignore else None
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
-    version = VERSION_REGEX.match(ret)
+    version = VERSION_REGEX.search(ret)
     if version is None:
         raise Exception("Failed to figure out clang-tidy version!")
     version = version.group(1)
@@ -83,6 +83,17 @@ def remove_item_plus_one(arr, item):
     return loc
 
 
+# currently assumes g++ as the compiler
+def get_system_includes():
+    ret = subprocess.check_output("echo | g++ -E -Wp,-v - 2>&1", shell=True)
+    ret = ret.decode("utf-8")
+    incs = []
+    for line in ret.split(os.linesep):
+        if len(line) > 0 and line[0] == " ":
+            incs.extend(["-I", line[1:]])
+    return incs
+
+
 def get_tidy_args(cmd):
     command, file = cmd["command"], cmd["file"]
     is_cuda = file.endswith(".cu")
@@ -105,12 +116,14 @@ def get_tidy_args(cmd):
         if loc >= 0:
             command[loc + 1] = "cuda"
         remove_item_plus_one(command, "-ccbin")
+    command.extend(get_system_includes())
     return command, is_cuda
 
 
 def run_clang_tidy_command(tidy_cmd):
     try:
-        subprocess.check_output(tidy_cmd, shell=True)
+        cmd = " ".join(tidy_cmd)
+        subprocess.check_call(cmd, shell=True)
         return True
     except:
         return False
@@ -123,14 +136,16 @@ def run_clang_tidy(cmd, args):
     status = True
     if is_cuda:
         tidy_cmd.append("--cuda-device-only")
+        tidy_cmd.append(cmd["file"])
         ret = run_clang_tidy_command(tidy_cmd)
         if not ret:
             status = ret
-        tidy_cmd[-1] = "--cuda-host-only"
+        tidy_cmd[-2] = "--cuda-host-only"
         ret = run_clang_tidy_command(tidy_cmd)
         if not ret:
             status = ret
     else:
+        tidy_cmd.append(cmd["file"])
         ret = run_clang_tidy_command(tidy_cmd)
         if not ret:
             status = ret
@@ -154,6 +169,7 @@ def main():
         if not ret:
             status = ret
         print("%s ^^^ %s ^^^ %s" % (SEPARATOR, cmd["file"], SEPARATOR))
+        break
     if not status:
         raise Exception("clang-tidy failed! Refer to the errors above.")
     return
