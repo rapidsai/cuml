@@ -302,7 +302,8 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse == pytest.approx(skl_mse, 1e-4)
+    # if fil is better than skl, no need to fail the test
+    assert fil_mse <= skl_mse + 1e-4
     assert array_equal(fil_preds, skl_preds)
 
 
