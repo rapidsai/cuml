@@ -37,7 +37,8 @@ SCORE_EPS = 0.06
 @pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
 @pytest.mark.parametrize('random_state', [i for i in range(25)])
-def test_kmeans_clusters_blobs(nrows, ncols, nclusters, random_state, cluster_std):
+def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
+                               random_state, cluster_std):
 
     X, y = make_blobs(nrows, ncols, nclusters,
                       cluster_std=cluster_std,
