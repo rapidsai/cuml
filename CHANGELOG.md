@@ -3,6 +3,8 @@
 ## New Features
 - PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
+- PR #1766: Mean absolute error implementation with cupy
+- PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
