@@ -251,5 +251,18 @@ double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
 */
 float accuracy_score_py(const cumlHandle &handle, const int *predictions,
                         const int *ref_predictions, int n);
+
+/**
+* Computes the contingency matrix
+*
+* @param handle: cumlHandle
+* @param groundTruth: Array of ground truth labeling
+* @param predictedLabel: Array of predicted labeling
+* @param nSamples: Number of elements in the labelings
+* @return: The entropy value of the clustering
+*/
+void contingencyMatrix(const cumlHandle &handle,
+                       const int *groundTruth, const int *predictedLabel,
+                       const int nSamples, int *outMat);
 }  // namespace Metrics
 }  // namespace ML

@@ -87,6 +87,19 @@ double entropy(const cumlHandle &handle, const int *y, const int n,
                                     handle.getStream());
 }
 
+void contingencyMatrix(const cumlHandle &handle,
+                       const int *groundTruth, const int *predictedLabel,
+                       const int nSamples, int *outMat) {
+  size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
+    size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
+  device_buffer<char> pWorkspace(
+    handle.getDeviceAllocator(), stream, workspaceSz);
+
+  return MLCommon::Metrics::contingencyMatrix(
+    groundTruth, predictedLabel, (int)nSamples, outMat, handle.getStream(),
+    (void *)pWorkspace.data(), workspaceSz);
+}
+
 double mutualInfoScore(const cumlHandle &handle, const int *y, const int *y_hat,
                        const int n, const int lower_class_range,
                        const int upper_class_range) {
