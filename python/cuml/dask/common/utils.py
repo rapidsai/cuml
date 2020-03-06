@@ -174,23 +174,5 @@ def register_dist_serialization(client):
 
     client : dask.distributed.Client client to use
     """
-    def patch_func():
-        def serialize_mat_descriptor(m):
-            return cp.cupy.cusparse.MatDescriptor.create, ()
-
-        from distributed.protocol.cuda import cuda_deserialize
-        from distributed.protocol.cuda import cuda_serialize
-        from distributed.protocol.serialize import dask_deserialize
-        from distributed.protocol.serialize import dask_serialize
-        from distributed.protocol.serialize import register_generic
-
-        register_generic(MultinomialNB, "cuda",
-                         cuda_serialize, cuda_deserialize)
-        register_generic(MultinomialNB, "dask",
-                         dask_serialize, dask_deserialize)
-
-        copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
-                       serialize_mat_descriptor)
-
-    patch_func()
-    client.run(patch_func)
+    register_serialization()
+    client.run(register_serialization)
