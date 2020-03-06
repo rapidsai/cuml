@@ -34,6 +34,7 @@ from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
+from cuml.ensemble.randomforest_common import _check_fil_parameter_validity
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -440,16 +441,9 @@ class RandomForestRegressor(Base):
                              "supported. Please refer to the documentation "
                              "to see the accepted values.")
 
-        if (self.max_depth > 16 and (storage_type == 'DENSE' or
-                                     algo == 'tree_reorg' or
-                                     algo == 'batch_tree_reorg')):
-            raise ValueError("While creating a forest with max_depth greater "
-                             "than 16, `fil_sparse_format` should be True. "
-                             "If `fil_sparse_format=False` then the memory"
-                             "consumed while creating the FIL forest is very "
-                             "large and the process will be aborted. In "
-                             "addition, `algo` must be either set to `naive' "
-                             "or `auto` to set 'fil_sparse_format=True`.")
+        _check_fil_parameter_validity(depth=self.max_depth,
+                                      storage_format=storage_type,
+                                      algo=algo)
 
         treelite_handle = self._obtain_treelite_handle()
         fil_model = ForestInference()
@@ -557,7 +551,7 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
-        task_category=REGRESSION_MODEL
+        task_category = REGRESSION_MODEL
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
@@ -577,16 +571,9 @@ class RandomForestRegressor(Base):
                              "supported. Please refer to the documentation "
                              "to see the accepted values.")
 
-        if (self.max_depth > 16 and (storage_type == 'DENSE' or
-                                     algo == 'tree_reorg' or
-                                     algo == 'batch_tree_reorg')):
-            raise ValueError("While creating a forest with max_depth greater "
-                             "than 16, `fil_sparse_format` should be True. "
-                             "If `fil_sparse_format=False` then the memory"
-                             "consumed while creating the FIL forest is very "
-                             "large and the process will be aborted. In "
-                             "addition, `algo` must be either set to `naive' "
-                             "or `auto` to set 'fil_sparse_format=True`.")
+        _check_fil_parameter_validity(depth=self.max_depth,
+                                      storage_format=storage_type,
+                                      algo=algo)
 
         fil_model = ForestInference()
         tl_to_fil_model = \

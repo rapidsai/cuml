@@ -459,7 +459,6 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
     if (not fil_sparse_format or algo == 'tree_reorg' or
             algo == 'batch_tree_reorg'):
         with pytest.raises(ValueError):
-            print(" code should abort ")
             fil_preds = cuml_model.predict(X_test,
                                            predict_model="GPU",
                                            output_class=True,
