@@ -457,7 +457,6 @@ class UMAP(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -467,21 +466,25 @@ class UMAP(Base):
                                                  if convert_dtype
                                                  else None))
 
-        cdef uintptr_t knn_indices_ctype = 0
-        cdef uintptr_t knn_dists_ctype = 0
+        knn_indices_ctype = None
+        knn_dists_ctype = None
         if knn_indices is not None and knn_dists is not None:
-            _, knn_indices_ctype,  _, _, _ = \
+            self.knn_indices_m, knn_indices_ctype, _, _, _ = \
                 input_to_dev_array(knn_indices, order='C',
                                    check_dtype=np.int64,
-                                   convert_to_dtype=(np.int64 if convert_dtype
+                                   convert_to_dtype=(np.int64
+                                                     if convert_dtype
                                                      else None))
 
-            _, knn_dists_ctype, _, _, _ = \
+            self.knn_dists_m, knn_dists_ctype, _, _, _ = \
                 input_to_dev_array(knn_dists, order='C',
                                    check_dtype=np.float32,
                                    convert_to_dtype=(np.float32
                                                      if convert_dtype
                                                      else None))
+
+        cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
+        cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -520,8 +523,8 @@ class UMAP(Base):
                 <float*> y_raw,
                 <int> self.n_rows,
                 <int> self.n_dims,
-                <long*> knn_indices_ctype,
-                <float*> knn_dists_ctype,
+                <long*> knn_indices_raw,
+                <float*> knn_dists_raw,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw)
 
@@ -531,8 +534,8 @@ class UMAP(Base):
                 <float*> x_raw,
                 <int> self.n_rows,
                 <int> self.n_dims,
-                <long*> knn_indices_ctype,
-                <float*> knn_dists_ctype,
+                <long*> knn_indices_raw,
+                <float*> knn_dists_raw,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw)
 
