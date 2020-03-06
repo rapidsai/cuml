@@ -66,7 +66,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         else:
             assert cumlLabels.npartitions == n_workers
 
-
         cumlPred = cumlLabels.compute().to_pandas().values
 
         assert cumlPred.shape[0] == nrows
@@ -76,6 +75,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         labels = y.compute().to_pandas().values
 
         score = adjusted_rand_score(labels.reshape(labels.shape[0]), cumlPred)
+
+        print(str(score))
 
         assert 1.0 == score
 
@@ -103,6 +104,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                                cluster_std=0.01, verbose=False,
+                               shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
@@ -158,6 +160,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                                cluster_std=0.01, verbose=False,
+                               shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
