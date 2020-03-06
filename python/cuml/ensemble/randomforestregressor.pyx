@@ -36,7 +36,7 @@ from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.fil.fil import TreeliteModel
+from cuml.fil.fil import TreeliteModel as tl
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
@@ -386,7 +386,7 @@ class RandomForestRegressor(Base):
         """
         treelite_handle = self._obtain_treelite_handle()
         treelite_model = \
-            TreeliteModel.from_treelite_model_handle(treelite_handle)
+            tl.from_treelite_model_handle(treelite_handle)
         return treelite_model
 
     def convert_to_fil_model(self, output_class=False,
@@ -582,6 +582,7 @@ class RandomForestRegressor(Base):
                                              algo=algo,
                                              storage_type=storage_type)
         preds = tl_to_fil_model.predict(X_m)
+        tl.free_treelite_model(treelite_handle)
         del(X_m)
         return preds
 
