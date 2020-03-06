@@ -47,7 +47,8 @@ def _check_fil_value(fil_sparse_format):
 
 def _obtain_treelite_model(treelite_handle):
     """
-    Converts the cuML RF model to a Treelite model
+    Create a Treelite model using the treelite handle
+    obtained from the cuML Random Forest model.
 
     Returns
     ----------
@@ -63,46 +64,14 @@ def _obtain_fil_model(treelite_handle, depth,
                       threshold=0.5, algo='auto',
                       fil_sparse_format='auto'):
     """
-        Create a Forest Inference (FIL) model from the trained cuML
-        Random Forest model.
+    Create a Forest Inference (FIL) model using the treelite
+    handle obtained from the cuML Random Forest model.
 
-        Parameters
-        ----------
-        output_class: boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
-        Returns
-        ----------
-        fil_model :
-           A Forest Inference model which can be used to perform
-           inferencing on the random forest model.
+    Returns
+    ----------
+    fil_model :
+        A Forest Inference model which can be used to perform
+        inferencing on the random forest model.
     """
 
     storage_type = _check_fil_value(fil_sparse_format)
