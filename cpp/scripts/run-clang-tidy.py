@@ -144,7 +144,7 @@ def run_clang_tidy_command(tidy_cmd):
 
 def run_clang_tidy(cmd, args):
     command, is_cuda = get_tidy_args(cmd)
-    tidy_cmd = [args.exe, "-header-filter=.*", cmd["file"], "--", ]
+    tidy_cmd = [args.exe, "-header-filter=.*cuml/cpp/.*", cmd["file"], "--", ]
     tidy_cmd.extend(command)
     status = True
     if is_cuda:
