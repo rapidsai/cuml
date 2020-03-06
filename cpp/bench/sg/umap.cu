@@ -30,6 +30,21 @@ struct Params {
   UMAPParams umap;
 };
 
+template <typename OutT, typename InT, typename IdxT>
+__global__ void castKernel(OutT* out, const InT* in, IdxT len) {
+  auto tid = IdxT(blockIdx.x) * blockDim.x + IdxT(threadIdx.x);
+  if (tid < len) {
+    out[tid] = OutT(in[tid]);
+  }
+}
+template <typename OutT, typename InT, typename IdxT = int>
+void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
+  static const int TPB = 256;
+  auto nblks = MLCommon::ceildiv<IdxT>(len, TPB);
+  castKernel<OutT, InT, IdxT><<<nblks, TPB, 0, stream>>>(out, in, len);
+  CUDA_CHECK(cudaGetLastError());
+}
+
 class Umap : public BlobsFixture<float, int> {
  public:
   Umap(const std::string& name, const Params& p)
@@ -44,6 +59,8 @@ class Umap : public BlobsFixture<float, int> {
     }
     auto& handle = *this->handle;
     auto stream = handle.getStream();
+    cast<float, int>(yFloat, this->data.y, this->params.nrows, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     for (auto _ : state) {
       CudaEventTimer timer(handle, state, true, stream);
       fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
