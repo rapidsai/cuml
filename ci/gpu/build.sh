@@ -58,7 +58,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "distributed>=2.8.0" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=${MINOR_VERSION}" \
+      "ucx-py=0.12*" \
       "statsmodels" \
       "rapids-xgboost>=0.13" \
       "lightgbm"
