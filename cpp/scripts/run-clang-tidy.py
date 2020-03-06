@@ -36,8 +36,11 @@ def parse_args():
                            help="Path to clang-tidy exe")
     argparser.add_argument("-ignore", type=str, default=None,
                            help="Regex used to ignore files from checking")
+    argparser.add_argument("-select", type=str, default="cumlHandle.cpp",
+                           help="Regex used to select files for checking")
     args = argparser.parse_args()
     args.ignore_compiled = re.compile(args.ignore) if args.ignore else None
+    args.select_compiled = re.compile(args.select) if args.select else None
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
     version = VERSION_REGEX.search(ret)
@@ -165,7 +168,10 @@ def main():
         # skip files that we don't want to look at
         if args.ignore_compiled is not None and \
            re.search(args.ignore_compiled, cmd["file"]) is not None:
-                continue
+            continue
+        if args.select_compiled is not None and \
+           re.search(args.select_compiled, cmd["file"]) is None:
+            continue
         ret = run_clang_tidy(cmd, args)
         if not ret:
             status = ret
