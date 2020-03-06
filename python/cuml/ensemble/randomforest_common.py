@@ -32,22 +32,24 @@ def _check_fil_parameter_validity(depth, storage_format, algo):
 
 
 def _check_fil_value(fil_sparse_format):
+    accepted_vals = [True, False, 'auto']
     if fil_sparse_format == 'auto':
         storage_type = fil_sparse_format
     elif not fil_sparse_format:
         storage_type = 'DENSE'
-    elif fil_sparse_format:
-        storage_type = 'SPARSE'
-    else:
+    elif fil_sparse_format not in accepted_vals:
         raise ValueError("The value entered for spares_forest is not "
                          "supported. Please refer to the documentation "
                          "to see the accepted values.")
+    else:
+        storage_type = 'SPARSE'
+
     return storage_type
 
 
 def _obtain_treelite_model(treelite_handle):
     """
-    Create a Treelite model using the treelite handle
+    Creates a Treelite model using the treelite handle
     obtained from the cuML Random Forest model.
 
     Returns
@@ -64,7 +66,7 @@ def _obtain_fil_model(treelite_handle, depth,
                       threshold=0.5, algo='auto',
                       fil_sparse_format='auto'):
     """
-    Create a Forest Inference (FIL) model using the treelite
+    Creates a Forest Inference (FIL) model using the treelite
     handle obtained from the cuML Random Forest model.
 
     Returns

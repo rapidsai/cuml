@@ -440,7 +440,8 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('fil_sparse_format', [True, 'auto', False])
+@pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
+                                               'auto', False])
 @pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
 def test_rf_classification_sparse(datatype, split_algo, rows_sample,
@@ -471,8 +472,9 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
 
-    if (not fil_sparse_format or algo == 'tree_reorg' or
-            algo == 'batch_tree_reorg'):
+    if ((not fil_sparse_format or algo == 'tree_reorg' or
+            algo == 'batch_tree_reorg') or
+            fil_sparse_format == 'not_supported'):
         with pytest.raises(ValueError):
             fil_preds = cuml_model.predict(X_test,
                                            predict_model="GPU",
@@ -522,7 +524,8 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('fil_sparse_format', [True, 'auto', False])
+@pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
+                                               'auto', False])
 @pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
 def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
@@ -563,8 +566,9 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
     # predict using FIL
-    if (not fil_sparse_format or algo == 'tree_reorg' or
-            algo == 'batch_tree_reorg'):
+    if ((not fil_sparse_format or algo == 'tree_reorg' or
+            algo == 'batch_tree_reorg') or
+            fil_sparse_format == 'not_supported'):
         with pytest.raises(ValueError):
             fil_preds = cuml_model.predict(X_test, predict_model="GPU",
                                            fil_sparse_format=fil_sparse_format,
