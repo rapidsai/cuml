@@ -78,6 +78,13 @@ def get_index(arr, item):
         return -1
 
 
+def remove_item(arr, item):
+    loc = get_index(arr, item)
+    if loc >= 0:
+        del arr[loc]
+    return loc
+
+
 def remove_item_plus_one(arr, item):
     loc = get_index(arr, item)
     if loc >= 0:
@@ -119,6 +126,9 @@ def get_tidy_args(cmd):
         if loc >= 0:
             command[loc + 1] = "cuda"
         remove_item_plus_one(command, "-ccbin")
+        remove_item(command, "--expt-extended-lambda")
+        remove_item(command, "--diag_suppress=unrecognized_gcc_pragma")
+        command.append("-nocudalib")
     command.extend(get_system_includes())
     return command, is_cuda
 
