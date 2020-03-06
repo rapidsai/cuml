@@ -33,16 +33,20 @@ void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          float *y,  // labels
-         int n, int d, UMAPParams *params, float *embeddings) {
-  UMAPAlgo::_fit<float, TPB_X>(handle, X, y, n, d, params, embeddings);
+         int n, int d, long *knn_indices, float *knn_dists, UMAPParams *params,
+         float *embeddings) {
+  UMAPAlgo::_fit<float, TPB_X>(handle, X, y, n, d, knn_indices, knn_dists,
+                               params, embeddings);
 }
 
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          int n,     // rows
          int d,     // cols
-         UMAPParams *params, float *embeddings) {
-  UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, params, embeddings);
+         long *knn_indices, float *knn_dists, UMAPParams *params,
+         float *embeddings) {
+  UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, knn_indices, knn_dists, params,
+                               embeddings);
 }
 
 void find_ab(const cumlHandle &handle, UMAPParams *params) {
@@ -70,19 +74,21 @@ UMAP_API::~UMAP_API() {}
  * @param embeddings
  *        an array to return the output embeddings of size (n_samples, n_components)
  */
-void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
+void UMAP_API::fit(float *X, int n, int d, long *knn_indices, float *knn_dists,
+                   float *embeddings) {
   this->orig_X = X;
   this->orig_n = n;
-  UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, n, d, get_params(),
-                               embeddings);
+  UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, n, d, knn_indices, knn_dists,
+                               get_params(), embeddings);
 }
 
-void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
+void UMAP_API::fit(float *X, float *y, int n, int d, long *knn_indices,
+                   float *knn_dists, float *embeddings) {
   this->orig_X = X;
   this->orig_n = n;
 
-  UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, y, n, d, get_params(),
-                               embeddings);
+  UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, y, n, d, knn_indices,
+                               knn_dists, get_params(), embeddings);
 }
 
 /**
