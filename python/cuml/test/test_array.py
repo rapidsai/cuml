@@ -121,16 +121,16 @@ def test_array_init(input_type, dtype, shape, order):
     return True
 
 
-@pytest.mark.parametrize('data_type', [bytearray, memoryview])
+@pytest.mark.parametrize('data_type', [bytes, bytearray, memoryview])
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('shape', test_shapes)
 @pytest.mark.parametrize('order', ['F', 'C'])
 def test_array_init_from_bytes(data_type, dtype, shape, order):
     dtype = np.dtype(dtype)
-    bts = bytearray(_get_size_from_shape(shape, dtype)[0])
+    bts = bytes(_get_size_from_shape(shape, dtype)[0])
 
-    if data_type == memoryview:
-        bts = memoryview(bts)
+    if data_type != bytes:
+        bts = data_type(bts)
 
     ary = CumlArray(bts, dtype=dtype, shape=shape, order=order)
 

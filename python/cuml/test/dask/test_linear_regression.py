@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
 
         lr.fit(X_df, y_df)
 
-        ret = lr.predict(X_df, delayed)
+        ret = lr.predict(X_df, delayed=delayed)
 
         error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 

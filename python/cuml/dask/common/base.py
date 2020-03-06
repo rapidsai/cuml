@@ -19,7 +19,6 @@ import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.input_utils import to_output
-from cuml.dask.common.utils import MultiHolderLock
 from dask_cudf.core import DataFrame as dcDataFrame
 from functools import wraps
 from uuid import uuid1
@@ -30,7 +29,7 @@ class DelayedParallelFunc(object):
                            func,
                            X,
                            delayed=True,
-                           parallelism=5,
+                           max_parallelism=5,
                            output_futures=False,
                            **kwargs):
         """
@@ -59,11 +58,11 @@ class DelayedParallelFunc(object):
 
         delayed : bool return a lazy (delayed) object?
 
-        parallelism : int
-            Amount of concurrent partitions that will be processed
+        max_parallelism : int
+            Amount of concurrent partitions that can be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
-            at any time.
+            at any time. **Not used currently**
 
         output_futures : bool returns the futures pointing the to the resuls
                          of the parallel function executions on the workers,
@@ -77,20 +76,17 @@ class DelayedParallelFunc(object):
         if delayed:
             X_d = X.to_delayed()
 
-            lock = dask.delayed(MultiHolderLock(parallelism),
-                                pure=True)
-
             model = dask.delayed(self.local_model, pure=True)
 
             func = dask.delayed(func, pure=False, nout=1)
 
             if isinstance(X, dcDataFrame):
-                preds = [func(model, lock, part) for part in X_d]
+                preds = [func(model, part) for part in X_d]
                 return preds if output_futures \
                     else dask.dataframe.from_delayed(preds)
 
             else:
-                preds = [func(model, lock, part[0])
+                preds = [func(model, part[0])
                          for part in X_d]
 
                 # todo: add parameter for option of not checking directly
@@ -120,15 +116,10 @@ class DelayedParallelFunc(object):
                                             broadcast=True,
                                             hash=False)
 
-            lock = self.client.scatter(MultiHolderLock(parallelism),
-                                       workers=data.workers,
-                                       broadcast=True,
-                                       hash=False)
-
             func_futures = [self.client.submit(
                 func,
                 scattered,
-                lock,
+                # lock,
                 p,
                 **kwargs,
                 workers=[w],
@@ -140,9 +131,9 @@ class DelayedParallelFunc(object):
 
 class DelayedPredictionMixin(DelayedParallelFunc):
 
-    def _predict(self, X, delayed=True, parallelism=25, **kwargs):
+    def _predict(self, X, delayed=True, max_parallelism=25, **kwargs):
         """
-        Make predictions for X and returns a dask collection.
+        Makes predictions for X and returns a dask collection.
 
         Parameters
         ----------
@@ -152,7 +143,7 @@ class DelayedPredictionMixin(DelayedParallelFunc):
 
         delayed : bool return lazy (delayed) result?
 
-        parallelism : int
+        max_parallelism : int
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
@@ -163,13 +154,13 @@ class DelayedPredictionMixin(DelayedParallelFunc):
         y : dask cuDF (n_rows, 1)
         """
 
-        return self._run_parallel_func(_predict_func, X, delayed, parallelism,
-                                       **kwargs)
+        return self._run_parallel_func(_predict_func, X, delayed,
+                                       max_parallelism, **kwargs)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
-    def _transform(self, X, delayed=True, parallelism=25, **kwargs):
+    def _transform(self, X, delayed=True, max_parallelism=5, **kwargs):
         """
         Call transform on the partitions of X and produce a dask collection.
 
@@ -181,7 +172,7 @@ class DelayedTransformMixin(DelayedParallelFunc):
 
         delayed : bool return lazy (delayed) result?
 
-        parallelism : int
+        max_parallelism : int
             Amount of concurrent partitions that will be processed
             per worker. This bounds the total amount of temporary
             workspace memory on the GPU that will need to be allocated
@@ -193,7 +184,7 @@ class DelayedTransformMixin(DelayedParallelFunc):
         """
 
         return self._run_parallel_func(_transform_func, X, delayed,
-                                       parallelism, **kwargs)
+                                       max_parallelism, **kwargs)
 
 
 def mnmg_import(func):
@@ -210,15 +201,11 @@ def mnmg_import(func):
     return check_cuml_mnmg
 
 
-def _predict_func(model, lock, data, **kwargs):
-    lock.acquire()
+def _predict_func(model, data, **kwargs):
     ret = model.predict(data, **kwargs)
-    lock.release()
     return ret
 
 
-def _transform_func(model, lock, data, **kwargs):
-    lock.acquire()
+def _transform_func(model, data, **kwargs):
     ret = model.transform(data, **kwargs)
-    lock.release()
     return ret

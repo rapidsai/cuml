@@ -41,6 +41,21 @@ import dask.dataframe as dd
 
 
 class DistributedDataHandler:
+    """
+    Class to centralize distributed data management. Functionalities include:
+    - Data colocation
+    - Worker information extraction
+    - GPU futures extraction,
+
+    Additional functionality can be added as needed. This class **does not**
+    contain the actual data, just the metadata necessary to handle it,
+    including common pieces of code that need to be performed to call
+    Dask functions.
+
+    The constructor is not meant to be used directly, but through the factory
+    method DistributedDataHandler.create
+
+    """
 
     def __init__(self, gpu_futures=None, workers=None,
                  datatype=None, multiple=False, client=None):
