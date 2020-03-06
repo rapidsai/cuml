@@ -18,27 +18,22 @@
 #include <cuml/cuml.hpp>
 #include <utility>
 #include "benchmark.cuh"
+#include <cuda_utils.h>
 
 namespace ML {
 namespace Bench {
 namespace umap {
 
-struct AlgoParams {
-  int min_pts;
-  double eps;
-  size_t max_bytes_per_batch;
-};
-
 struct Params {
   DatasetParams data;
   BlobsParams blobs;
-  AlgoParams umap;
+  UMAPParams umap;
 };
 
-class Umap : public BlobsFixture<float, long> {
+class Umap : public BlobsFixture<float, int> {
  public:
   Umap(const std::string& name, const Params& p)
-    : BlobsFixture<float, long>(p.data, p.blobs), uParams(p.umap) {
+    : BlobsFixture<float, int>(p.data, p.blobs), uParams(p.umap) {
     this->SetName(name.c_str());
   }
 
@@ -52,11 +47,11 @@ class Umap : public BlobsFixture<float, long> {
     for (auto _ : state) {
       CudaEventTimer timer(handle, state, true, stream);
       fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
-          uParams, embeddings);
+          &uParams, embeddings);
     }
   }
 
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateBuffers(const ::benchmark::State& state) {
     auto& handle = *this->handle;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
@@ -66,7 +61,7 @@ class Umap : public BlobsFixture<float, long> {
       this->params.nrows * uParams.n_components * sizeof(float), stream);
   }
 
-  void daallocateBuffers(const ::benchmark::State& state) override {
+  void daallocateBuffers(const ::benchmark::State& state) {
     auto& handle = *this->handle;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
@@ -77,7 +72,7 @@ class Umap : public BlobsFixture<float, long> {
   }
 
  private:
-  AlgoParams uParams;
+  UMAPParams uParams;
   float *yFloat, *embeddings;
 };
 
