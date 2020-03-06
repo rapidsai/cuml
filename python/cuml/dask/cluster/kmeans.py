@@ -220,7 +220,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         result: Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the transformed data
         """
-        return self._transform(X, delayed=delayed)
+        return self._transform(X, n_dims=2, delayed=delayed)
 
     def score(self, X):
         """
@@ -237,7 +237,10 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         Inertial score
         """
 
-        scores = self._run_parallel_func(KMeans._score, X, 1, delayed=False,
+        scores = self._run_parallel_func(KMeans._score,
+                                         X,
+                                         n_dims=1,
+                                         delayed=False,
                                          output_futures=True)
 
         return -1 * cp.sum(cp.asarray(
