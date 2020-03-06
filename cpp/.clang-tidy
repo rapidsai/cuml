@@ -1,5 +1,5 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,clang-diagnostic-*,clang-analyzer-*,modernize-*,-modernize-make-*,-modernize-raw-string-literal,-google-*,-clang-diagnostic-#pragma-messages,readability-identifier-naming,-*,modernize-*,-modernize-make-*,-modernize-raw-string-literal,-clang-diagnostic-#pragma-messages,readability-identifier-naming'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,-modernize-*,-google-*,-clang-diagnostic-#pragma-messages,-readability-identifier-naming'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
