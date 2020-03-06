@@ -13,6 +13,7 @@
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
 - PR #1778: Make cuML Handle picklable
+- PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -35,6 +36,7 @@
 - PR #1748: Test serializing `CumlArray` objects
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 
 ## Bug Fixes
 - PR #1770: Warn that KalmanFilter is deprecated
