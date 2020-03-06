@@ -8,10 +8,10 @@ import math
 def roc_auc_score(y_true, y_score):
     
     y_true, n_rows, n_cols, ytype = \
-        input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64])
+        input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64, np.float32, np.float64])
 
     y_score, _, _, _ = \
-        input_to_cuml_array(y_score, check_dtype=[np.float32, np.float64],
+        input_to_cuml_array(y_score, check_dtype=[np.int32, np.int64, np.float32, np.float64],
                             check_rows=n_rows, check_cols=n_cols)
     
     return _binary_roc_score(y_true, y_score)
@@ -22,8 +22,13 @@ def _binary_roc_score(y_true, y_score):
     y_score = y_score.to_output()
     
     if cp.unique(y_true).shape[0]==1:
-        raise ValueError("Only one class present in y_true. ROC AUC score "
+        raise ValueError("roc_auc_score cannot be used when "
+               "only one class present in y_true. ROC AUC score "
                               "is not defined in that case.") 
+        
+    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
+        raise ValueError("Continuous format of y_true  "
+               "is not supported by roc_auc_score")
         
     if cp.unique(y_score).shape[0]==1:
         return 0.5
