@@ -44,8 +44,6 @@ struct vec {
   }
 };
 
-#define __forceinline__ 
-
 template <int NITEMS, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   tree_type tree, float* sdata, int cols) {
@@ -68,7 +66,8 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   } while (mask != 0);
   vec<NITEMS, output_type> out;
 #pragma unroll
-  for (int j = 0; j < NITEMS; ++j) out[j] = tree[curr[j]].base_node::output<output_type>();
+  for (int j = 0; j < NITEMS; ++j)
+    out[j] = tree[curr[j]].base_node::output<output_type>();
   return out;
 }
 
@@ -96,12 +95,12 @@ struct tree_aggregator_t {
   int num_output_classes;
 
   __device__ __forceinline__ tree_aggregator_t(int num_output_classes_, void*)
-    : num_output_classes(num_output_classes_) {
-  }
+    : num_output_classes(num_output_classes_) {}
   __device__ __forceinline__ void accumulate(vec<NITEMS, float> out) {
     acc += out;
   }
-  __device__ __forceinline__ void finalize(float* out, int num_rows, char output_stride) {
+  __device__ __forceinline__ void finalize(float* out, int num_rows,
+                                           char output_stride) {
     __syncthreads();
     using BlockReduce = cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
     __shared__ typename BlockReduce::TempStorage tmp_storage;
@@ -113,10 +112,12 @@ struct tree_aggregator_t {
       }
     }
   }
-  __device__ __forceinline__ void finalize_regression(float* out, int num_rows) {
+  __device__ __forceinline__ void finalize_regression(float* out,
+                                                      int num_rows) {
     finalize(out, num_rows, 1);
   }
-  __device__ __forceinline__ void finalize_class_proba(float* out, int num_rows) {
+  __device__ __forceinline__ void finalize_class_proba(float* out,
+                                                       int num_rows) {
     finalize(out, num_rows, 2);
   }
   __device__ __forceinline__ void finalize_class_label(float* out,
@@ -145,13 +146,14 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
   __device__ __forceinline__ void accumulate(vec<NITEMS, unsigned> out) {
 #pragma unroll
-    for (int i = 0; i < NITEMS; ++i)
-      atomicAdd(votes + out[i] * NITEMS + i, 1);
+    for (int i = 0; i < NITEMS; ++i) atomicAdd(votes + out[i] * NITEMS + i, 1);
   }
-  __device__ __forceinline__ void finalize_regression(float* out, int num_rows) {
+  __device__ __forceinline__ void finalize_regression(float* out,
+                                                      int num_rows) {
     asm("trap;");
   }
-  __device__ __forceinline__ void finalize_class_proba(float* out, int num_rows) {
+  __device__ __forceinline__ void finalize_class_proba(float* out,
+                                                       int num_rows) {
     __syncthreads();
     int item = threadIdx.x;
     int row = blockIdx.x * NITEMS + item;
@@ -203,15 +205,16 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   AggregateTrees<NITEMS, leaf_payload_type, TOUTPUT> acc(params.num_output_classes, nullptr);
   // one block works on NITEMS rows and the whole forest
   for (int j = threadIdx.x; j < forest.num_trees(); j += blockDim.x) {
-    acc.accumulate(
-      infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>
-      (forest[j], sdata, params.num_cols));
+    acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_payload_type>::T>(
+      forest[j], sdata, params.num_cols));
   }
   // compute most probable class. in cuML RF, output is class label,
   // hence, no-predicted class edge case doesn't apply
-  if(false && !threadIdx.x && !blockIdx.x) {
-    printf("%s\n", params.predict_proba ? "finalize_class_proba" : 
-    (params.num_output_classes > 1 ? "finalize_class_label" : "finalize_regression"));
+  if (false && !threadIdx.x && !blockIdx.x) {
+    printf("%s\n", params.predict_proba
+                     ? "finalize_class_proba"
+                     : (params.num_output_classes > 1 ? "finalize_class_label"
+                                                      : "finalize_regression"));
   }
   if (!params.predict_proba) {
     if (params.num_output_classes > 1)
@@ -230,21 +233,26 @@ void infer_k_launcher(storage_type forest, predict_params params,
     params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
 
   int shared_mem_per_item = sizeof(float) * params.num_cols +
-    // class vote histogram, while inferring trees
-    (leaf_payload_type == INT_CLASS_LABEL ? sizeof(int) * params.num_output_classes : 0);
-    // CUB workspace should fit itself, and we don't need
-    // the row by the time CUB is used
+                            // class vote histogram, while inferring trees
+                            (leaf_payload_type == INT_CLASS_LABEL
+                               ? sizeof(int) * params.num_output_classes
+                               : 0);
+  // CUB workspace should fit itself, and we don't need
+  // the row by the time CUB is used
   int num_items = params.max_shm / shared_mem_per_item;
   if (num_items == 0) {
     int max_cols = params.max_shm / sizeof(float);
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
-           params.num_cols, max_cols, leaf_payload_type == INT_CLASS_LABEL ?
-           "(accounting for shared class vote histogram)" : "");
+           params.num_cols, max_cols,
+           leaf_payload_type == INT_CLASS_LABEL
+             ? "(accounting for shared class vote histogram)"
+             : "");
   }
   num_items = std::min(num_items, params.max_items);
   int num_blocks = ceildiv(int(params.num_rows), num_items);
   int shm_sz = num_items * shared_mem_per_item;
-  std::cout << "num_items " << num_items << " num_blocks " << num_blocks << " shm_sz " << shm_sz << "\n";
+  std::cout << "num_items " << num_items << " num_blocks " << num_blocks
+            << " shm_sz " << shm_sz << "\n";
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
@@ -275,12 +283,10 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
     case FLOAT_SCALAR:
       ASSERT(params.num_output_classes <= 2,
              "wrong leaf payload for multi-class (>2) inference");
-      infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params,
-                                                          stream);
+      infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params, stream);
       break;
     case INT_CLASS_LABEL:
-      infer_k_launcher<INT_CLASS_LABEL, storage_type>(
-        forest, params, stream);
+      infer_k_launcher<INT_CLASS_LABEL, storage_type>(forest, params, stream);
       break;
     default:
       ASSERT(false, "unknown leaf_payload_type");

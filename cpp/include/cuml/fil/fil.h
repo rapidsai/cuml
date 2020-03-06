@@ -120,13 +120,16 @@ enum leaf_value_t {
   // to be extended
 };
 
-template<leaf_value_t T>
+template <leaf_value_t T>
 struct leaf_output_t {};
-template<>
-struct leaf_output_t<FLOAT_SCALAR> { typedef float T;};
-template<>
-struct leaf_output_t<INT_CLASS_LABEL> { typedef unsigned T;};
-
+template <>
+struct leaf_output_t<FLOAT_SCALAR> {
+  typedef float T;
+};
+template <>
+struct leaf_output_t<INT_CLASS_LABEL> {
+  typedef unsigned T;
+};
 
 /** dense_node_init initializes node from paramters */
 void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
