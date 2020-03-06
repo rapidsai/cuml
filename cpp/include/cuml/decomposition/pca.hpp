@@ -23,7 +23,8 @@ namespace ML {
 
 void pcaFit(cumlHandle &handle, float *input, float *components,
             float *explained_var, float *explained_var_ratio,
-            float *singular_vals, float *mu, float *noise_vars, paramsPCA prms);
+            float *singular_vals, float *mu, float *noise_vars,
+            const paramsPCA prms);
 void pcaFit(cumlHandle &handle, double *input, double *components,
             double *explained_var, double *explained_var_ratio,
             double *singular_vals, double *mu, double *noise_vars,
