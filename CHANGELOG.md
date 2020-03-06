@@ -5,6 +5,8 @@
 - PR #1687: Adds python bindings for mutual info score
 - PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
+- PR #1766: Mean absolute error implementation with cupy
+- PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
@@ -63,6 +65,7 @@
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 - PR #1765: Update the checks for using RF GPU predict
+- PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
 - PR #1793: Updated fil pyx to solve memory leakage issue
 
 # cuML 0.12.0 (Date TBD)
