@@ -170,7 +170,6 @@ def main():
         if not ret:
             status = ret
         print("%s ^^^ %s ^^^ %s" % (SEPARATOR, cmd["file"], SEPARATOR))
-        break
     if not status:
         raise Exception("clang-tidy failed! Refer to the errors above.")
     return
