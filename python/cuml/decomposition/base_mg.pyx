@@ -122,7 +122,8 @@ class BaseDecompositionMG(object):
 
         return arr_interfaces_trans
 
-    def _fit(self, X, total_rows, n_cols, partsToRanks, rank, _transform=False):
+    def _fit(self, X, total_rows, n_cols, partsToRanks, rank,
+             _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
