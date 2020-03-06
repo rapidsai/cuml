@@ -34,7 +34,7 @@ def parse_args():
                            help="Path to cmake-generated compilation database")
     argparser.add_argument("-exe", type=str, default="clang-tidy",
                            help="Path to clang-tidy exe")
-    argparser.add_argument("-ignore", type=str, default="[.]cu$",
+    argparser.add_argument("-ignore", type=str, default="[.]cu$|examples/",
                            help="Regex used to ignore files from checking")
     argparser.add_argument("-select", type=str, default=None,
                            help="Regex used to select files for checking")
