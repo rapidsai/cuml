@@ -131,12 +131,9 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 };
 
 const std::vector<RFInputs> inputs = {
-  {800, 200, 12345ULL, 40, 0.5f, 0.4f},
-  {800, 200, 12345ULL, 40, 0.8f, 0.7f},
-  {800, 200, 67890ULL, 40, 0.5f, 0.4f},
-  {800, 200, 67890ULL, 40, 0.8f, 0.7f},
-  {1000, 250, 67890ULL, 40, 0.9f, 0.8f},
-  {1000, 250, 67890ULL, 40, 0.1f, 0.8f},
+  {800, 200, 12345ULL, 40, 0.5f, 0.4f},  {800, 200, 12345ULL, 40, 0.8f, 0.7f},
+  {800, 200, 67890ULL, 40, 0.5f, 0.4f},  {800, 200, 67890ULL, 40, 0.8f, 0.7f},
+  {1000, 250, 67890ULL, 40, 0.9f, 0.8f}, {1000, 250, 67890ULL, 40, 0.1f, 0.8f},
 };
 
 #define DEFINE_TEST(clz, name, testName, params) \
