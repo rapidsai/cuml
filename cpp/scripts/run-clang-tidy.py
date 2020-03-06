@@ -75,6 +75,7 @@ def get_index(arr, item):
     except:
         return -1
 
+
 def remove_item_plus_one(arr, item):
     loc = get_index(arr, item)
     if loc >= 0:
