@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umap.hpp>
+#include <cuda_utils.h>
 #include <cuml/cuml.hpp>
+#include <cuml/manifold/umap.hpp>
 #include <utility>
 #include "benchmark.cuh"
-#include <cuda_utils.h>
 
 namespace ML {
 namespace Bench {
@@ -72,8 +72,8 @@ class Umap : public BlobsFixture<float, int> {
     auto& handle = *this->handle;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
-    yFloat = (float*)allocator->allocate(this->params.nrows * sizeof(float),
-                                         stream);
+    yFloat =
+      (float*)allocator->allocate(this->params.nrows * sizeof(float), stream);
     embeddings = (float*)allocator->allocate(
       this->params.nrows * uParams.n_components * sizeof(float), stream);
   }
@@ -106,7 +106,9 @@ std::vector<Params> getInputs() {
   p.umap.n_epochs = 500;
   p.umap.min_dist = 0.9f;
   std::vector<std::pair<int, int>> rowcols = {
-    {10000, 500}, {20000, 500}, {40000, 500},
+    {10000, 500},
+    {20000, 500},
+    {40000, 500},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;
