@@ -225,7 +225,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 template <leaf_value_t leaf_payload_type, typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
                       cudaStream_t stream) {
-  const int MAX_BATCH_ITEMS = 1; //4; TODO: restore
+  const int MAX_BATCH_ITEMS = 4;
   params.max_items =
     params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
 
