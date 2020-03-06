@@ -1,10 +1,9 @@
 ---
 Checks:          'clang-diagnostic-*,clang-analyzer-*,-modernize-*,-google-*,-clang-diagnostic-#pragma-messages,-readability-identifier-naming'
-WarningsAsErrors: ''
+WarningsAsErrors: '*'
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
 FormatStyle:     google
-User:            snanditale
 CheckOptions:    
   - key:             cert-dcl16-c.NewSuffixes
     value:           'L;LL;LU;LLU'
