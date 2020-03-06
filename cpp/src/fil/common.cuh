@@ -40,14 +40,14 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
 }
 
 // FIL_TPB is the number of threads per block to use with FIL kernels
-const int FIL_TPB = 256;
+const unsigned long FIL_TPB = 256;
 
 /** base_node contains common implementation details for dense and sparse nodes */
 struct base_node : dense_node_t {
   static const int FID_MASK = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
   static const int IS_LEAF_MASK = 1 << 31;
-  __host__ __device__ val_t output() const { return val; }
+  template<class o_t> __host__ __device__ o_t output() const { return val; }
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
@@ -63,6 +63,9 @@ struct base_node : dense_node_t {
       val.f = thresh;
   }
 };
+
+template<> __host__ __device__ __forceinline__ float base_node::output<float>() const { return val.f; }
+template<> __host__ __device__ __forceinline__ unsigned base_node::output<unsigned>() const { return val.idx; }
 
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
@@ -148,7 +151,7 @@ struct predict_params {
   int max_items;  // only set and used by infer()
   int num_output_classes;
   // TODO doc
-  leaf_value_desc_t leaf_payload_type;
+  leaf_value_t leaf_payload_type;
   bool predict_proba;
 
   // Data parameters.
