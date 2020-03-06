@@ -86,7 +86,7 @@ cdef class TreeliteModel():
     cdef ModelHandle get_handle(self):
         return self.handle
 
-    def __cdel__(self):
+    def __dealloc__(self):
         if self.handle != NULL:
             TreeliteFreeModel(self.handle)
 
@@ -103,6 +103,11 @@ cdef class TreeliteModel():
         cdef size_t out
         TreeliteQueryNumFeature(self.handle, &out)
         return out
+
+    @staticmethod
+    def free_treelite_model(model_handle):
+        cdef uintptr_t model_ptr = <uintptr_t>model_handle
+        TreeliteFreeModel(<ModelHandle> model_ptr)
 
     @staticmethod
     def from_filename(filename, model_type="xgboost"):
@@ -194,6 +199,7 @@ cdef class ForestInference_impl():
     def __cinit__(self,
                   handle=None):
         self.handle = handle
+        self.forest_data = NULL
 
     def get_algo(self, algo_str):
         algo_dict={'AUTO': algo_t.ALGO_AUTO,
@@ -264,7 +270,6 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
-        # synchronous w/o a stream
         return preds
 
     def load_from_treelite_model_handle(self,
@@ -314,7 +319,6 @@ cdef class ForestInference_impl():
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
 
-        self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
@@ -325,12 +329,12 @@ cdef class ForestInference_impl():
                       &treelite_params)
         return self
 
-    def __cdel__(self):
+    def __dealloc__(self):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-        free(handle_[0],
-             self.forest_data)
-        return self
+        if self.forest_data !=NULL:
+            free(handle_[0],
+                 self.forest_data)
 
 
 class ForestInference(Base):
