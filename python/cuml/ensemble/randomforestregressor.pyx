@@ -35,7 +35,7 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
-    _check_fil_value
+    _check_fil_value, _obtain_treelite_model, _obtain_fil_model
 
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
@@ -387,9 +387,7 @@ class RandomForestRegressor(Base):
         tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
-        treelite_model = \
-            tl.from_treelite_model_handle(treelite_handle)
-        return treelite_model
+        return _obtain_treelite_model(treelite_handle)
 
     def convert_to_fil_model(self, output_class=False,
                              algo='auto',
@@ -432,20 +430,12 @@ class RandomForestRegressor(Base):
            A Forest Inference model which can be used to perform
            inferencing on the random forest model.
         """
-        storage_type = _check_fil_value(fil_sparse_format)
-
-        _check_fil_parameter_validity(depth=self.max_depth,
-                                      storage_format=storage_type,
-                                      algo=algo)
-
         treelite_handle = self._obtain_treelite_handle()
-        fil_model = ForestInference()
-        tl_to_fil_model = \
-            fil_model.load_from_randomforest(treelite_handle,
-                                             output_class=output_class,
-                                             algo=algo,
-                                             storage_type=storage_type)
-        return tl_to_fil_model
+        return _obtain_fil_model(treelite_handle=treelite_handle,
+                                 depth=self.max_depth,
+                                 output_class=output_class,
+                                 algo=algo,
+                                 fil_sparse_format=fil_sparse_format)
 
     def fit(self, X, y):
         """
