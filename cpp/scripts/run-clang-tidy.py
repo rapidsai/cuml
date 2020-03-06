@@ -36,7 +36,7 @@ def parse_args():
                            help="Path to clang-tidy exe")
     argparser.add_argument("-ignore", type=str, default=None,
                            help="Regex used to ignore files from checking")
-    argparser.add_argument("-select", type=str, default="cumlHandle.cpp",
+    argparser.add_argument("-select", type=str, default=None,
                            help="Regex used to select files for checking")
     args = argparser.parse_args()
     args.ignore_compiled = re.compile(args.ignore) if args.ignore else None
@@ -67,8 +67,7 @@ def get_gpu_archs(command):
         arch_flag = command[loc + 1]
         match = GPU_ARCH_REGEX.search(arch_flag)
         if match is not None:
-            archs.append("--cuda-gpu-arch")
-            archs.append("sm_%s" % match.group(1))
+            archs.append("--cuda-gpu-arch=sm_%s" % match.group(1))
     return archs
 
 
