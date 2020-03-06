@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+
 def _check_fil_parameter_validity(depth, storage_format, algo):
     if (depth > 16 and (storage_format == 'DENSE' or
                         algo == 'tree_reorg' or
