@@ -24,6 +24,7 @@ import umap
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
+from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 import joblib
 
@@ -363,4 +364,26 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, 10)
+    assert trust >= 0.92
+
+
+@pytest.mark.parametrize('n_neighbors', [5, 15])
+def test_umap_knn_parameters(n_neighbors):
+    data, labels = datasets.make_blobs(
+        n_samples=2000, n_features=10, centers=5, random_state=0)
+    data = data.astype(np.float32)
+
+    knn = NearestNeighbors(n_neighbors=n_neighbors)
+    knn.fit(data)
+    knn_dists, knn_indices = knn.kneighbors(data)
+    knn_indices = knn_indices.astype(np.int64)
+    knn_dists = knn_dists.astype(np.float32)
+
+    model = cuUMAP(verbose=False, n_neighbors=n_neighbors)
+    embedding = model.fit_transform(data, convert_dtype=True,
+                                    knn_indices=knn_indices,
+                                    knn_dists=knn_dists)
+
+    embedding = model.transform(data, convert_dtype=True)
+    trust = trustworthiness(data, embedding, 10)
     assert trust >= 0.92

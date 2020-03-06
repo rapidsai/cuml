@@ -92,9 +92,6 @@ void _fit(const cumlHandle &handle,
   if (params->verbose)
     std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
 
-  std::cout << knn_indices << std::endl;
-  std::cout << knn_dists << std::endl;
-
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
   MLCommon::device_buffer<T> *knn_dists_b = nullptr;
 
