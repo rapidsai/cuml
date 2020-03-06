@@ -113,8 +113,6 @@ class DelayedParallelFunc(object):
                                         dtype=dtype)
                 for pred in preds]
 
-            print(str(preds_arr))
-
             if output_futures:
                 return self.client.compute(preds)
             else:
