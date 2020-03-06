@@ -125,12 +125,16 @@ def test_make_regression(n_samples, n_features, n_informative,
         else:
             assert values.shape == (n_samples,), "values shape mismatch"
 
+        assert len(out.chunks[1]) == 1
+
         if coef:
             if n_targets > 1:
                 assert coefs.shape == (n_features, n_targets), \
                        "coefs shape mismatch"
+                assert len(coefs.chunks[1]) == 1
             else:
                 assert coefs.shape == (n_features,), "coefs shape mismatch"
+                assert len(coefs.chunks[0]) == 1
 
             test1 = da.all(da.sum(coefs != 0.0, axis=0) == n_informative)
 
