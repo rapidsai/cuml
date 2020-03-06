@@ -22,11 +22,14 @@
 import numpy as np
 import cupy as cp
 
+from libc.stdint cimport uintptr_t
+
+import cuml.common.handle
 from cuml.utils import input_to_cuml_array
 from cuml.common.handle cimport cumlHandle
-import cuml.common.handle
-
 from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.common import CumlArray
+from cuml.metrics.utils import sorted_unique_labels
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
@@ -39,7 +42,9 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 def confusion_matrix(y_true, y_pred,
                      labels=None,
                      sample_weight=None,
-                     normalize=None):
+                     normalize=None,
+                     use_cuda_coo=False,
+                     handle=None):
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
     Parameters
@@ -60,6 +65,17 @@ def confusion_matrix(y_true, y_pred,
         Normalizes confusion matrix over the true (rows), predicted (columns)
         conditions or all the population. If None, confusion matrix will not be
         normalized.
+    use_cuda_coo : bool, optional
+        Whether or not to use our cuda version of the coo function.
+        If false, will use cupy's version of coo.
+        Used for benchmarks.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this function. Most importantly, this specifies the
+        CUDA stream that will be used for this function's computations, so
+        users can run different computations concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
@@ -72,14 +88,14 @@ def confusion_matrix(y_true, y_pred,
         <cumlHandle*><size_t>handle.getHandle()
 
     y_true, n_rows, n_cols, dtype = \
-        input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64])
+        input_to_cuml_array(y_true, check_dtype=[cp.int32, cp.int64])
 
     y_pred, _, _, _ = \
         input_to_cuml_array(y_pred, check_dtype=dtype,
                             check_rows=n_rows, check_cols=n_cols)
 
     if labels is None:
-        labels = unique_labels(y_true, y_pred)
+        labels = sorted_unique_labels(y_true, y_pred)
     else:
         labels, n_labels, _, _ = \
             input_to_cuml_array(labels, check_dtype=dtype, check_cols=1)
@@ -89,6 +105,9 @@ def confusion_matrix(y_true, y_pred,
     if sample_weight is None:
         sample_weight = cp.ones(n_rows, dtype=dtype)
     else:
+        if use_cuda_coo:
+            raise NotImplementedError("Sample weights not implemented with "
+                                      "cuda coo.")
         sample_weight, _, _, _ = \
             input_to_cuml_array(sample_weight, check_dtype=dtype,
                                 check_rows=n_rows, check_cols=n_cols)
@@ -109,28 +128,36 @@ def confusion_matrix(y_true, y_pred,
     sample_weight = sample_weight[ind]
 
     # Choose the accumulator dtype to always have high precision
-    if sample_weight.dtype.kind in {'i', 'u', 'b'}:
-        dtype = np.int64
+    if dtype.kind in {'i', 'u', 'b'}:
+        dtype = cp.int64
     else:
-        dtype = np.float64
+        dtype = cp.float64
 
-    cm = None  # TODO
-    contingencyMatrix(handle_[0],
-                      <int*> ground_truth_ptr,
-                      <int*> preds_ptr,
-                      <int> n_rows,
-                      <int*> cm)
-    # cm = coo_matrix((sample_weight, (y_true, y_pred)),
-    #                 shape=(n_labels, n_labels), dtype=dtype,
-    #                 ).toarray()
+    if use_cuda_coo:
+        cm = CumlArray.zeros(shape=(n_labels, n_labels), dtype=dtype,
+                             order='C')
+        cdef uintptr_t cm_ptr = cm.ptr
+        cdef uintptr_t y_pred_ptr = y_pred.ptr
+        cdef uintptr_t y_true_ptr = y_true.ptr
+
+        contingencyMatrix(handle_[0],
+                          <int*> y_true_ptr,
+                          <int*> y_pred_ptr,
+                          <int> n_rows,
+                          <int*> cm_ptr)
+        # TODO: Implement weighting
+    else:
+        cm = cp.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
+                                  shape=(n_labels, n_labels), dtype=dtype,
+                                  ).toarray()
 
     with np.errstate(all='ignore'):
         if normalize == 'true':
-            cm = cm / cm.sum(axis=1, keepdims=True)
+            cm = cp.divide(cm, cm.sum(axis=1, keepdims=True))
         elif normalize == 'pred':
-            cm = cm / cm.sum(axis=0, keepdims=True)
+            cm = cp.divide(cm, cm.sum(axis=0, keepdims=True))
         elif normalize == 'all':
-            cm = cm / cm.sum()
-        cm = np.nan_to_num(cm)
+            cm = cp.divide(cm, cm.sum())
+        cm = cp.nan_to_num(cm)
 
     return cm
