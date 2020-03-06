@@ -34,7 +34,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml import ForestInference
-from cuml.fil.fil import TreeliteModel
+from cuml.fil.fil import TreeliteModel as tl
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
@@ -407,7 +407,7 @@ class RandomForestClassifier(Base):
         """
         treelite_handle = self._obtain_treelite_handle()
         treelite_model = \
-            TreeliteModel.from_treelite_model_handle(treelite_handle)
+            tl.from_treelite_model_handle(treelite_handle)
         return treelite_model
 
     def convert_to_fil_model(self, output_class=True,
@@ -595,6 +595,14 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
+        if X_type == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -631,6 +639,7 @@ class RandomForestClassifier(Base):
                                              storage_type=storage_type)
 
         preds = tl_to_fil_model.predict(X_m)
+        tl.free_treelite_model(treelite_handle)
         del(X_m)
         return preds
 
@@ -641,7 +650,6 @@ class RandomForestClassifier(Base):
                                convert_to_dtype=(self.dtype if convert_dtype
                                                  else None),
                                check_cols=self.n_cols)
-
         preds = cudf.Series(zeros(n_rows, dtype=np.int32))
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
@@ -750,7 +758,7 @@ class RandomForestClassifier(Base):
                               "multi-class classification.")
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif self.dtype == np.float64 and not convert_dtype:
+        elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             In order use the GPU predict the model should \
                             also be trained using a np.float32 dataset. \
