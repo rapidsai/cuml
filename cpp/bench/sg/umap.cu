@@ -75,7 +75,6 @@ class Umap : public BlobsFixture<float, int> {
     embeddings = (float*)allocator->allocate(
       this->params.nrows * uParams.n_components * sizeof(float), stream);
     cast<float, int>(yFloat, this->data.y, this->params.nrows, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void daallocateBuffers(const ::benchmark::State& state) {
