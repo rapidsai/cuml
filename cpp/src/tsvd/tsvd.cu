@@ -22,13 +22,13 @@ namespace ML {
 using namespace MLCommon;
 
 void tsvdFit(cumlHandle &handle, float *input, float *components,
-             float *singular_vals, paramsTSVD &prms) {
+             float *singular_vals, const paramsTSVD &prms) {
   tsvdFit(handle.getImpl(), input, components, singular_vals, prms,
           handle.getStream());
 }
 
 void tsvdFit(cumlHandle &handle, double *input, double *components,
-             double *singular_vals, paramsTSVD &prms) {
+             double *singular_vals, const paramsTSVD &prms) {
   tsvdFit(handle.getImpl(), input, components, singular_vals, prms,
           handle.getStream());
 }
