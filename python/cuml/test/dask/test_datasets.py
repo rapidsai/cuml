@@ -125,6 +125,7 @@ def test_make_regression(n_samples, n_features, n_informative,
         else:
             assert values.shape == (n_samples,), "values shape mismatch"
 
+        assert len(out.chunks[0]) == n_parts
         assert len(out.chunks[1]) == 1
 
         if coef:
