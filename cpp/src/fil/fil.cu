@@ -146,7 +146,7 @@ struct forest {
     params.leaf_payload_type = leaf_payload_type_;
     params.predict_proba = predict_proba;
 
-    ASSERT(output_ & output_t::THRESHOLD || leaf_payload_type_ == INT_CLASS_LABEL || !predict_proba, "predict_proba does not make sense for regression");
+    ASSERT(output_ & (output_t::THRESHOLD | output_t::SIGMOID) || leaf_payload_type_ == INT_CLASS_LABEL || !predict_proba, "predict_proba does not make sense for regression");
     
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
