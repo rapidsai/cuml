@@ -231,7 +231,7 @@ def test_roc_auc_score():
     assert_almost_equal(roc_auc_score(y_true, y_pred), sklearn_roc_auc_score(y_true, y_pred))
 
 
-@pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
+@pytest.mark.parametrize('n_samples', [50, 500000])
 @pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
 def test_roc_auc_score_random(n_samples, dtype):
     

@@ -1,3 +1,19 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import cupy as cp
 import numpy as np
 from cuml.utils.memory_utils import with_cupy_rmm
@@ -6,6 +22,35 @@ import math
 
 @with_cupy_rmm
 def roc_auc_score(y_true, y_score):
+    """
+    Compute Area Under the Receiver Operating Characteristic Curve (ROC AUC)
+    from prediction scores.
+    Note: this implementation can only be used with binary classification for now.
+    Parameters
+    ----------
+        y_true : array-like of shape (n_samples,)
+        True labels. The binary cases
+        expect labels with shape (n_samples,)
+        
+    y_score : array-like of shape (n_samples,) 
+        Target scores. In the binary cases, these can be either
+        probability estimates or non-thresholded decision values (as returned
+        by `decision_function` on some classifiers). The binary
+        case expects a shape (n_samples,), and the scores must be the scores of
+        the class with the greater label. 
+    Returns
+    -------
+        auc : float
+        
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from cuml.metrics import roc_auc_score
+    >>> y_true = np.array([0, 0, 1, 1])
+    >>> y_scores = np.array([0.1, 0.4, 0.35, 0.8])
+    >>> roc_auc_score(y_true, y_scores)
+    0.75    
+    """
     
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64, np.float32, np.float64])
@@ -14,10 +59,10 @@ def roc_auc_score(y_true, y_score):
         input_to_cuml_array(y_score, check_dtype=[np.int32, np.int64, np.float32, np.float64],
                             check_rows=n_rows, check_cols=n_cols)
     
-    return _binary_roc_score(y_true, y_score)
+    return _binary_roc_auc_score(y_true, y_score)
 
-def _binary_roc_score(y_true, y_score):    
-    
+def _binary_roc_auc_score(y_true, y_score):    
+    """Compute binary roc_auc_score using cupy"""
     y_true = y_true.to_output()
     y_score = y_score.to_output()
     
