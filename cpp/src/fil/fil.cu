@@ -81,16 +81,11 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   if (complement_proba && i % 2) return;
 
   float result = preds[i];
-  if (!i) printf("gpu: tree_sum %f ", result);
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
-  if (!i) printf(" AVG %f ", result);
   result += global_bias;
-  if (!i) printf(" bias %f ", result);
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
-  if (!i) printf(" SIGMOID %f ", result);
   if ((output & output_t::CLASS) != 0)
     result = result > threshold ? 1.0f : 0.0f;
-  if (!i) printf(" CLASS %f \n", result);
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
   if (complement_proba) {
@@ -121,8 +116,6 @@ struct forest {
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
     leaf_payload_type_ = params->leaf_payload_type;
-    printf("@forest init_common leaf_payload_type_ == %d\n",
-           leaf_payload_type_);
     num_classes_ = params->num_classes;
     init_max_shm();
   }
@@ -149,11 +142,6 @@ struct forest {
     // if class probabilities are being requested
     // assuming predict(..., predict_proba=true) will not get called
     // for regression, hence forest::num_classes == 2
-    printf(
-      "predict_proba = %s, forest::num_classes = %d, "
-      "predict_params.num_outputs = %d\n",
-      predict_proba ? "true" : "false", num_classes_,
-      params.num_outputs);
     params.leaf_payload_type = leaf_payload_type_;
 
     // Predict using the forest.
@@ -176,7 +164,6 @@ struct forest {
 
       unsigned long values_to_transform = 
         (unsigned long) num_rows * (unsigned long) params.num_outputs;
-      printf("global_bias = %f\n", global_bias_);
       transform_k<<<ceildiv(values_to_transform, FIL_TPB), FIL_TPB, 0,
                     stream>>>(preds, values_to_transform, ot,
                               num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
@@ -542,13 +529,10 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     params->num_classes = vec.size();
     ASSERT(vec.size() == model.num_output_group, "treelite model inconsistent");
     params->leaf_payload_type = INT_CLASS_LABEL;
-    printf("detected %lu-class classification model \n", vec.size());
   } else {
-    printf("scalar leaves\n");
     params->leaf_payload_type = FLOAT_SCALAR;
     params->num_classes = 0; // ignored
   }
-  printf("@tl2fil_common leaf_payload_type == %d\n", params->leaf_payload_type);
 
   // fill in forest-dependent params
   params->num_cols = model.num_feature;
