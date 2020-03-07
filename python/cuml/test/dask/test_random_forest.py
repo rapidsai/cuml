@@ -195,7 +195,7 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
 
         print(str(acc_score))
 
-        assert acc_score >= 0.70
+        assert acc_score >= 0.67
 
     finally:
         c.close()
