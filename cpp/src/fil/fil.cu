@@ -81,11 +81,16 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   if (complement_proba && i % 2) return;
 
   float result = preds[i];
+  if (!i) printf("gpu: tree_sum %f ", result);
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
+  if (!i) printf(" AVG %f ", result);
   result += global_bias;
+  if (!i) printf(" bias %f ", result);
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
+  if (!i) printf(" SIGMOID %f ", result);
   if ((output & output_t::CLASS) != 0)
     result = result > threshold ? 1.0f : 0.0f;
+  if (!i) printf(" CLASS %f \n", result);
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
   if (complement_proba) {
@@ -163,7 +168,8 @@ struct forest {
       predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
     bool do_transform = ot != output_t::RAW || global_bias_ != 0.0f || complement_proba;
     if (leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba)
-      // since choosing best class and all transforms are monotonic
+      // moot since choosing best class and all transforms are monotonic
+      // also, would break current code
       do_transform = false;
 
     if (do_transform) {
