@@ -45,9 +45,9 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
   CUDA_CHECK(cudaGetLastError());
 }
 
-class Umap : public BlobsFixture<float, int> {
+class UmapBase : public BlobsFixture<float, int> {
  public:
-  Umap(const std::string& name, const Params& p)
+  UmapBase(const std::string& name, const Params& p)
     : BlobsFixture<float, int>(p.data, p.blobs), uParams(p.umap) {
     this->SetName(name.c_str());
   }
@@ -61,10 +61,11 @@ class Umap : public BlobsFixture<float, int> {
     auto stream = handle.getStream();
     for (auto _ : state) {
       CudaEventTimer timer(handle, state, true, stream);
-      fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
-          &uParams, embeddings);
+      coreBenchmarkMethod();
     }
   }
+
+  virtual void coreBenchmarkMethod() = 0;
 
   void allocateBuffers(const ::benchmark::State& state) {
     auto& handle = *this->handle;
@@ -87,10 +88,9 @@ class Umap : public BlobsFixture<float, int> {
       stream);
   }
 
- private:
   UMAPParams uParams;
   float *yFloat, *embeddings;
-};
+};  // class UmapBase
 
 std::vector<Params> getInputs() {
   std::vector<Params> out;
@@ -120,7 +120,17 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, Umap, "blobs", getInputs());
+class UmapSupervised : public UmapBase {
+ public:
+  UmapSupervised(const std::string& name, const Params& p) : UmapBase(name, p) {
+  }
+ protected:
+  void coreBenchmarkMethod() {
+    fit(*this->handle, this->data.X, yFloat, this->params.nrows,
+        this->params.ncols, &uParams, embeddings);
+  }
+};
+CUML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
 
 }  // end namespace umap
 }  // end namespace Bench
