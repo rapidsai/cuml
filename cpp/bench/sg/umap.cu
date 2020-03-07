@@ -132,6 +132,19 @@ class UmapSupervised : public UmapBase {
 };
 CUML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
 
+class UmapUnsupervised : public UmapBase {
+ public:
+  UmapUnsupervised(const std::string& name, const Params& p) :
+    UmapBase(name, p) {
+  }
+ protected:
+  void coreBenchmarkMethod() {
+    fit(*this->handle, this->data.X, this->params.nrows, this->params.ncols,
+        &uParams, embeddings);
+  }
+};
+CUML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
+
 }  // end namespace umap
 }  // end namespace Bench
 }  // end namespace ML
