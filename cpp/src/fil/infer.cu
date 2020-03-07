@@ -131,12 +131,13 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
   __device__ __forceinline__ void accumulate(vec<NITEMS, unsigned> out) {
 #pragma unroll
-    for (int item = 0; item < NITEMS; ++item) atomicAdd(votes + out[item] * NITEMS + item, 1);
+    for (int item = 0; item < NITEMS; ++item)
+      atomicAdd(votes + out[item] * NITEMS + item, 1);
   }
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
   __device__ __forceinline__ void finalize_multiple_outputs(float* out,
-                                                       int num_rows) {
+                                                            int num_rows) {
     __syncthreads();
     int item = threadIdx.x;
     int row = blockIdx.x * NITEMS + item;
@@ -166,7 +167,7 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
-    if(num_outputs > 1)
+    if (num_outputs > 1)
       // only supporting num_outputs == num_classes
       finalize_multiple_outputs(out, num_rows);
     else
@@ -209,11 +210,11 @@ void infer_k_launcher(storage_type forest, predict_params params,
   params.max_items =
     params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
 
-  int shared_mem_per_item = sizeof(float) * params.num_cols +
-                            // class vote histogram, while inferring trees
-                            (leaf_payload_type == INT_CLASS_LABEL
-                               ? sizeof(int) * params.num_classes
-                               : 0);
+  int shared_mem_per_item =
+    sizeof(float) * params.num_cols +
+    // class vote histogram, while inferring trees
+    (leaf_payload_type == INT_CLASS_LABEL ? sizeof(int) * params.num_classes
+                                          : 0);
   // CUB workspace should fit itself, and we don't need
   // the row by the time CUB is used
   int num_items = params.max_shm / shared_mem_per_item;
