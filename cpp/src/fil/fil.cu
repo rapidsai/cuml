@@ -134,9 +134,8 @@ struct forest {
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
     params.num_outputs =
-      predict_proba
-      ? (leaf_payload_type_ == INT_CLASS_LABEL ? num_classes_ : 2)
-      : 1;
+      predict_proba ? (leaf_payload_type_ == INT_CLASS_LABEL ? num_classes_ : 2)
+                    : 1;
     // FLOAT_SCALAR means inference produces 1 class score/component and
     // transform_k might complement to 2 for classification,
     // if class probabilities are being requested
@@ -151,19 +150,18 @@ struct forest {
     // Transform the output if necessary.
     output_t ot = output_;
     if (predict_proba)
-      ot = output_t(ot & ~output_t::CLASS); // no threshold on probabilities
-    bool complement_proba =
-      predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
-    bool do_transform = ot != output_t::RAW || global_bias_ != 0.0f || complement_proba;
+      ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+    bool complement_proba = predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
+    bool do_transform =
+      ot != output_t::RAW || global_bias_ != 0.0f || complement_proba;
     if (leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba)
       // moot since choosing best class and all transforms are monotonic
       // also, would break current code
       do_transform = false;
 
     if (do_transform) {
-
-      unsigned long values_to_transform = 
-        (unsigned long) num_rows * (unsigned long) params.num_outputs;
+      unsigned long values_to_transform =
+        (unsigned long)num_rows * (unsigned long)params.num_outputs;
       transform_k<<<ceildiv(values_to_transform, FIL_TPB), FIL_TPB, 0,
                     stream>>>(preds, values_to_transform, ot,
                               num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
@@ -520,8 +518,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   auto tree = model.trees[0];
   int node_key;
-  for (node_key = tree_root(tree);
-       !tl_node_at(tree, node_key).is_leaf();
+  for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
        node_key = tl_node_at(tree, node_key).cleft())
     ;
   auto vec = tl_node_at(tree, node_key).leaf_vector();
@@ -531,7 +528,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     params->leaf_payload_type = INT_CLASS_LABEL;
   } else {
     params->leaf_payload_type = FLOAT_SCALAR;
-    params->num_classes = 0; // ignored
+    params->num_classes = 0;  // ignored
   }
 
   // fill in forest-dependent params
