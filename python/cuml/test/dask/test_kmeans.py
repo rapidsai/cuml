@@ -34,7 +34,9 @@ SCORE_EPS = 0.06
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
+@pytest.mark.parametrize("delayed_predict", [True, False])
+def test_end_to_end(nrows, ncols, nclusters, n_parts,
+                    delayed_predict, cluster):
 
     client = Client(cluster)
 
@@ -54,7 +56,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
                                random_state=10)
 
         cumlModel.fit(X_cudf)
-        cumlLabels = cumlModel.predict(X_cudf)
+        cumlLabels = cumlModel.predict(X_cudf, delayed_predict)
 
         n_workers = len(list(client.has_what().keys()))
 
@@ -69,7 +71,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         cumlPred = cumlLabels.compute().to_pandas().values
 
         assert cumlPred.shape[0] == nrows
-        assert np.max(cumlPred) == nclusters-1
+        assert np.max(cumlPred) == nclusters - 1
         assert np.min(cumlPred) == 0
 
         labels = y.compute().to_pandas().values
@@ -185,7 +187,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
             expected_score += dist**2
 
         assert actual_score + SCORE_EPS \
-            >= (-1*expected_score) \
+            >= (-1 * expected_score) \
             >= actual_score - SCORE_EPS
 
     finally:
