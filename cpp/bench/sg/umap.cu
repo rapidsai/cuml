@@ -145,6 +145,40 @@ class UmapUnsupervised : public UmapBase {
 };
 CUML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
 
+class UmapTransform : public UmapBase {
+ public:
+  UmapTransform(const std::string& name, const Params& p) :
+    UmapBase(name, p) {
+  }
+ protected:
+  void coreBenchmarkMethod() {
+    transform(*this->handle, this->data.X, this->params.nrows,
+              this->params.ncols, this->data.X, this->params.nrows, embeddings,
+              this->params.nrows, &uParams, transformed);
+  }
+  void allocateBuffers(const ::benchmark::State& state) {
+    UmapBase::allocateBuffers(state);
+    auto& handle = *this->handle;
+    auto allocator = handle.getDeviceAllocator();
+    transformed = (float*)allocator->allocate(
+      this->params.nrows * uParams.n_components * sizeof(float),
+      handle.getStream());
+    fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
+        &uParams, embeddings);
+  }
+  void deallocateBuffers(const ::benchmark::State& state) {
+    auto& handle = *this->handle;
+    auto allocator = handle.getDeviceAllocator();
+    allocator->deallocate(
+      transformed, this->params.nrows * uParams.n_components * sizeof(float),
+      handle.getStream());
+    UmapBase::deallocateBuffers(state);
+  }
+ private:
+  float *transformed;
+};
+CUML_BENCH_REGISTER(Params, UmapTransform, "blobs", getInputs());
+
 }  // end namespace umap
 }  // end namespace Bench
 }  // end namespace ML
