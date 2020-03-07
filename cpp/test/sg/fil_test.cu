@@ -240,20 +240,15 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             pred +=
               infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols]).f;
           }
-          if (!i) std::cout << "cpu: tree_sum " << pred;
           if ((ps.output & fil::output_t::AVG) != 0)
             pred = pred * (1.f / ps.num_trees);
-          if (!i) std::cout << " AVG " << pred;
           pred += ps.global_bias;
-          if (!i) std::cout << " bias " << pred;
           if ((ps.output & fil::output_t::SIGMOID) != 0) pred = sigmoid(pred);
-          if (!i) std::cout << " sigmoid " << pred;
           want_proba_h[i * 2] = 1.f - pred;
           want_proba_h[i * 2 + 1] = pred;
           
           if ((ps.output & fil::output_t::CLASS) != 0)
             pred = pred > ps.threshold ? 1.0f : 0.0f;
-          if (!i) std::cout << " CLASS " << pred;
           want_preds_h[i] = pred;
         }
         break;
@@ -271,18 +266,14 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           float most_votes = 0.;
           for (int c = 0; c < ps.num_classes; ++c) {
             float pred = class_votes[c];
-            if (!r && !c) std::cout << "cpu: tree_sum " << pred;
             if (pred > most_votes) {
               most_votes = pred;
               best_class = c;
             }
             if ((ps.output & fil::output_t::AVG) != 0)
               pred = pred * (1.f / ps.num_trees);
-          if (!r && !c) std::cout << " AVG " << pred;
             pred += ps.global_bias;
-          if (!r && !c) std::cout << " bias " << pred;
             if ((ps.output & fil::output_t::SIGMOID) != 0) pred = sigmoid(pred);
-          if (!r && !c) std::cout << " sigmoid " << pred << "\n";
             want_proba_h[r * ps.num_classes + c] = pred;
           }
           want_preds_h[r] = best_class;
@@ -510,18 +501,11 @@ class TreeliteFilTest : public BaseFilTest {
   void init_forest_impl(fil::forest_t* pforest,
                         fil::storage_type_t storage_type) {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
-    printf("%s && %s == %s\n", (ps.output & fil::output_t::AVG) ? "at" : "af",
-           (ps.leaf_payload_type == fil::leaf_value_t::INT_CLASS_LABEL) ? "pt"
-                                                                        : "pf",
-           random_forest_flag ? "ft" : "ff");
     int treelite_num_classes =
       ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR ? 1
                                                               : ps.num_classes;
     std::unique_ptr<tlf::ModelBuilder> model_builder(new tlf::ModelBuilder(
       ps.num_cols, treelite_num_classes, random_forest_flag));
-    printf(
-      "ModelBuilder(num_cols, num_classes = %d, random_forest_flag = %s)\n",
-      treelite_num_classes, random_forest_flag ? "true" : "false");
 
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
