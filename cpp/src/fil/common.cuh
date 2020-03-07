@@ -57,11 +57,11 @@ struct base_node : dense_node_t {
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   base_node() = default;
   base_node(dense_node_t node) : dense_node_t(node) {}
-  base_node(val_t output_, float thresh, int fid, bool def_left, bool is_leaf) {
+  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf) {
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
            (is_leaf ? IS_LEAF_MASK : 0);
     if (is_leaf)
-      val = output_;
+      val = output;
     else
       val.f = thresh;
   }
@@ -81,8 +81,8 @@ __host__ __device__ __forceinline__ unsigned base_node::output<unsigned>()
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
   dense_node(dense_node_t node) : base_node(node) {}
-  dense_node(val_t output_, float thresh, int fid, bool def_left, bool is_leaf)
-    : base_node(output_, thresh, fid, def_left, is_leaf) {}
+  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf)
+    : base_node(output, thresh, fid, def_left, is_leaf) {}
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
 };
@@ -121,9 +121,9 @@ struct alignas(16) sparse_node : base_node, sparse_node_extra_data {
   //__host__ __device__ sparse_node() : left_idx(0), base_node() {}
   sparse_node(sparse_node_t node)
     : base_node(node), sparse_node_extra_data(node) {}
-  sparse_node(val_t output_, float thresh, int fid, bool def_left, bool is_leaf,
+  sparse_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
               int left_index)
-    : base_node(output_, thresh, fid, def_left, is_leaf),
+    : base_node(output, thresh, fid, def_left, is_leaf),
       sparse_node_extra_data({.left_idx = left_index, .dummy = 0}) {}
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
@@ -159,10 +159,13 @@ struct predict_params {
   int num_cols;
   algo_t algo;
   int max_items;  // only set and used by infer()
-  int num_output_classes;
-  // TODO doc
+  // number of outputs for the forest for each data instance (sample) (row)
+  int num_outputs;
+  // for class probabilities, this is the number of classes considered
+  // ignored otherwise
+  int num_classes;
+  // leaf_payload_type determines what the leaves store (predict)
   leaf_value_t leaf_payload_type;
-  bool predict_proba;
 
   // Data parameters.
   float* preds;
