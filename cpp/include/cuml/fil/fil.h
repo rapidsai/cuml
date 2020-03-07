@@ -53,7 +53,7 @@ enum algo_t {
  * output of the previous stage:
  * - one of RAW or AVG, indicating how to combine individual tree outputs into the forest output
  * - optional SIGMOID for applying the sigmoid transform
- * - optional THRESHOLD, for thresholding for classification
+ * - optional CLASS, for thresholding for classification
  */
 enum output_t {
   /** raw output: the sum of the tree outputs; use for GBM models for
@@ -70,7 +70,7 @@ enum output_t {
   SIGMOID = 0x10,
   /** threshold: apply threshold to the output of the previous stage to get the
       class (0 or 1) */
-  THRESHOLD = 0x100,
+  CLASS = 0x100,
 };
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
@@ -176,10 +176,9 @@ struct forest_params_t {
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
   float global_bias;
-  // prediction_dim determines the class probability prediction shape.
-  // also affects intermediate output in classification
-  // currently, multi-valued (vector) regression not supported due to model
-  // storage/layout restrictions
+  // only used for INT_CLASS_LABEL inference. since we're storing the
+  // labels in leaves instead of the whole vector, this keeps track
+  // of total unique label/class/component count
   int num_classes;
 };
 
