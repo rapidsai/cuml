@@ -18,8 +18,8 @@ from cuml.dask.common.dask_arr_utils import extract_arr_partitions
 import os
 
 base_n_points = 250_000_000
-one_gb_multipliers = np.asarray([2], dtype=int)
-base_n_features = np.asarray([10], dtype=int)
+n_gb_data = np.asarray([2], dtype=int)
+base_n_features = np.asarray([250], dtype=int)
 
 ideal_benchmark_f = open('ideal_benchmark_f.csv', 'a')
 
@@ -33,17 +33,16 @@ def _read_data(file_list):
     return X_gpu
 
 
-def read_data(client, path, n_workers, workers, n_samples, n_features, n_chunks=None, chunk_partitions=None):
+def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb=None, gb_partitions=None):
     total_file_list = os.listdir(path)
     total_file_list = [path + '/' + tfl for tfl in total_file_list]
-    print(total_file_list)
-    if chunk_partitions:
-        if len(chunk_partitions) == n_workers - 1:
-            file_list = total_file_list[:n_chunks] if n_chunks else file_list
-            file_list = np.split(np.asarray(file_list), chunk_partitions)
-    elif n_chunks:
-        if n_chunks % n_workers == 0:
-            file_list = total_file_list[:n_chunks]
+    if gb_partitions:
+        if len(gb_partitions) == n_workers - 1:
+            file_list = total_file_list[:n_gb] if n_gb else file_list
+            file_list = np.split(np.asarray(file_list), gb_partitions)
+    elif n_gb:
+        if n_gb % n_workers == 0:
+            file_list = total_file_list[:n_gb]
             file_list = np.split(np.asarray(file_list), n_workers)
     else:
         file_list = total_file_list[:n_workers]
@@ -109,13 +108,13 @@ def transpose_and_move(X, client, workers, n_samples, n_workers, n_features):
 
 def run_ideal_benchmark(n_workers=2, X_filepath=None, y_filepath=None):
 
-    for one_gb_m in one_gb_multipliers:
+    for n_gb_m in n_gb_data:
         for n_features in base_n_features:
             fit_time = np.zeros(5)
             pred_time = np.zeros(5)
             for i in range(1):
                 try:
-                    n_points = int(base_n_points * one_gb_m)
+                    n_points = int(base_n_points * n_gb_m)
                     cluster = LocalCUDACluster(n_workers=n_workers)
                     client = Client(cluster)
                     client.run(set_alloc)
@@ -129,9 +128,9 @@ def run_ideal_benchmark(n_workers=2, X_filepath=None, y_filepath=None):
                     # X = X.rechunk((n_samples / n_workers, n_features))
                     # y = y.rechunk(n_samples / n_workers )
 
-                    X = read_data(client, X_filepath, n_workers, workers, n_samples, n_features, 2)
+                    X = read_data(client, X_filepath, n_workers, workers, n_samples, n_features, 8, [2])
                     print(X.compute_chunk_sizes().chunks)
-                    y = read_data(client, y_filepath, n_workers, workers, n_samples, None, 2)
+                    y = read_data(client, y_filepath, n_workers, workers, n_samples, None, 8, [2])
                     print(X.compute_chunk_sizes().chunks)
                     print(y.compute_chunk_sizes().chunks)
                     print(client.has_what())
