@@ -122,8 +122,9 @@ std::vector<Params> getInputs() {
 
 class UmapSupervised : public UmapBase {
  public:
-  UmapSupervised(const std::string& name, const Params& p) : UmapBase(name, p) {
-  }
+  UmapSupervised(const std::string& name, const Params& p)
+    : UmapBase(name, p) {}
+
  protected:
   void coreBenchmarkMethod() {
     fit(*this->handle, this->data.X, yFloat, this->params.nrows,
@@ -134,9 +135,9 @@ CUML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
 
 class UmapUnsupervised : public UmapBase {
  public:
-  UmapUnsupervised(const std::string& name, const Params& p) :
-    UmapBase(name, p) {
-  }
+  UmapUnsupervised(const std::string& name, const Params& p)
+    : UmapBase(name, p) {}
+
  protected:
   void coreBenchmarkMethod() {
     fit(*this->handle, this->data.X, this->params.nrows, this->params.ncols,
@@ -147,9 +148,8 @@ CUML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
 
 class UmapTransform : public UmapBase {
  public:
-  UmapTransform(const std::string& name, const Params& p) :
-    UmapBase(name, p) {
-  }
+  UmapTransform(const std::string& name, const Params& p) : UmapBase(name, p) {}
+
  protected:
   void coreBenchmarkMethod() {
     transform(*this->handle, this->data.X, this->params.nrows,
@@ -174,8 +174,9 @@ class UmapTransform : public UmapBase {
       handle.getStream());
     UmapBase::deallocateBuffers(state);
   }
+
  private:
-  float *transformed;
+  float* transformed;
 };
 CUML_BENCH_REGISTER(Params, UmapTransform, "blobs", getInputs());
 
