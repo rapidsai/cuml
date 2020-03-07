@@ -228,8 +228,6 @@ void infer_k_launcher(storage_type forest, predict_params params,
   num_items = std::min(num_items, params.max_items);
   int num_blocks = ceildiv(int(params.num_rows), num_items);
   int shm_sz = num_items * shared_mem_per_item;
-  std::cout << "num_items " << num_items << " num_blocks " << num_blocks
-            << " shm_sz " << shm_sz << "\n";
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
@@ -255,7 +253,6 @@ void infer_k_launcher(storage_type forest, predict_params params,
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  printf("infer::num_outputs = %u\n", params.num_outputs);
   switch (params.leaf_payload_type) {
     case FLOAT_SCALAR:
       ASSERT(params.num_outputs <= 2,
