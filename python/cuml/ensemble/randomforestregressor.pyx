@@ -505,7 +505,7 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format, task_category=1):
+                              fil_sparse_format):
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
@@ -524,7 +524,7 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
-        task_category = 1  # for regression
+        task_category = REGRESSION_CATEGORY
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
