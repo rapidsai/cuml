@@ -206,6 +206,12 @@ __global__ void optimize_batch_kernel(
     n_neg_samples * epochs_per_negative_sample;
 }
 
+struct SelectOp {
+  int epoch;
+  HDI SelectOp(int e): epoch(e) {}
+  HDI bool operator()(const int& a) const { return a <= epoch; }
+};
+
 template <typename T, int TPB_X>
 void call_optimize_batch_kernel(
   T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
@@ -213,7 +219,7 @@ void call_optimize_batch_kernel(
   T *epoch_of_next_negative_sample, T *epoch_of_next_sample, T alpha, int epoch,
   T gamma, uint64_t seed, double *embedding_updates, bool move_other,
   bool use_shared_mem, UMAPParams *params, int n, dim3 &grid, dim3 &blk,
-  size_t requiredSize, cudaStream_t &stream) {
+  size_t requiredSize, SelectOp& sop, cudaStream_t &stream) {
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   if (embedding_updates) {
     if (use_shared_mem) {
