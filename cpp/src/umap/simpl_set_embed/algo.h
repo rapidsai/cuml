@@ -152,12 +152,11 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 
   if (multicore_implem) {
     for (int n = 0; n < n_epochs; n++) {
-      SelectOp sop(n);
       call_optimize_batch_kernel<T, TPB_X>(
         head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
         epoch_of_next_sample.data(), alpha, n, gamma, seed, nullptr, move_other,
-        use_shared_mem, params, n, grid, blk, requiredSize, sop,
+        use_shared_mem, params, n, grid, blk, requiredSize,
         head_filtered.data(), tail_filtered.data(), num_selected.data(),
         workspace.data(), workspace_size, stream);
       CUDA_CHECK(cudaGetLastError());
@@ -170,7 +169,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
     double *embedding_updates = embedding_updates_buf.data();
     dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X));
     for (int n = 0; n < n_epochs; n++) {
-      SelectOp sop(n);
       CUDA_CHECK(cudaMemsetAsync(
         embedding_updates, 0,
         n_vertices * params->n_components * sizeof(double), stream));
@@ -178,7 +176,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
         head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
         epoch_of_next_sample.data(), alpha, n, gamma, seed, embedding_updates,
-        move_other, use_shared_mem, params, n, grid, blk, requiredSize, sop,
+        move_other, use_shared_mem, params, n, grid, blk, requiredSize,
         head_filtered.data(), tail_filtered.data(), num_selected.data(),
         workspace.data(), workspace_size, stream);
       CUDA_CHECK(cudaGetLastError());
