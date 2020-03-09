@@ -22,6 +22,8 @@ import cupyx
 import cudf
 import dask
 
+import cuml.comm.serialize  # NOQA
+
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from tornado import gen
 from dask.distributed import default_client
