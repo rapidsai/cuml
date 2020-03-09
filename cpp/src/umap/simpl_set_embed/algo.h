@@ -15,17 +15,17 @@
  */
 
 #include <cuml/manifold/umapparams.h>
-#include "random/rng_impl.h"
-#include <cstdlib>
-#include "sparse/coo.h"
 #include <curand.h>
+#include <internals/internals.h>
+#include <math.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/system/cuda/execution_policy.h>
-#include <math.h>
+#include <cstdlib>
 #include <string>
-#include <internals/internals.h>
 #include "optimize_batch_kernel.cuh"
+#include "random/rng_impl.h"
+#include "sparse/coo.h"
 
 #pragma once
 
