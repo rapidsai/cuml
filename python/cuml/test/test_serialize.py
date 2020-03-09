@@ -44,6 +44,9 @@ def test_naive_bayes_cuda():
     stype, sbytes = ser(mnb, serializers=['dask'])
     assert stype['serializer'] == 'dask'
 
+    stype, sbytes = ser(mnb, serializers=['pickle'])
+    assert stype['serializer'] == 'pickle'
+
 
 def test_cupy_sparse_patch():
 

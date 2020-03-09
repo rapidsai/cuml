@@ -106,8 +106,6 @@ class MultinomialNB(object):
         self.model_ = None
         self.kwargs = kwargs
 
-        # run_cupy_sparse_patch_on_workers(self.client_)
-
     @staticmethod
     def _fit(Xy, classes, kwargs):
 
