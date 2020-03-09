@@ -17,16 +17,14 @@ import cupy as cp
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
-from distributed.protocol.serialize import serialize
+from distributed.protocol.serialize import serialize as ser
 
 
-def test_register_naive_bayes_serialization():
-
+def test_naive_bayes_cuda():
     """
     Assuming here that the Dask serializers are well-tested.
-    This test-case is only validating that register_serialization
-    actually provides the expected serializers on the expected
-    objects.
+    This test-case is only validating that the Naive Bayes class
+    actually gets registered w/ `dask` and `cuda` serializers.
     """
 
     mnb = MultinomialNB()
@@ -39,10 +37,10 @@ def test_register_naive_bayes_serialization():
     # Unfortunately, Dask has no `unregister` function and Pytest
     # shares the same process so cannot test the base-state here.
 
-    stype, sbytes = serialize(mnb, serializers=['cuda'])
-
+    stype, sbytes = ser(mnb, serializers=['cuda'])
     assert stype['serializer'] == 'cuda'
 
-    stype, sbytes = serialize(mnb, serializers=['dask'])
-
+    stype, sbytes = ser(mnb, serializers=['dask'])
     assert stype['serializer'] == 'dask'
+
+def test_cupy_sparse

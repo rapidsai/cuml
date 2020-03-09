@@ -18,6 +18,8 @@ import cupy as cp
 
 from uuid import uuid1
 
+import cuml.comm.serialize  # NOQA
+
 from cuml.naive_bayes import MultinomialNB as MNB
 
 import dask
@@ -28,8 +30,6 @@ from cuml.dask.common import extract_arr_partitions, \
 from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import default_client
-
-from cuml.dask.common.utils import run_cupy_sparse_patch_on_workers
 
 
 class MultinomialNB(object):
@@ -106,7 +106,7 @@ class MultinomialNB(object):
         self.model_ = None
         self.kwargs = kwargs
 
-        run_cupy_sparse_patch_on_workers(self.client_)
+        # run_cupy_sparse_patch_on_workers(self.client_)
 
     @staticmethod
     def _fit(Xy, classes, kwargs):
