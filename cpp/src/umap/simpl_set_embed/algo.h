@@ -26,7 +26,6 @@
 #include <string>
 #include <internals/internals.h>
 #include "optimize_batch_kernel.cuh"
-#include <cub/cub.cuh>
 
 #pragma once
 
@@ -127,15 +126,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
   MLCommon::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
 
-  SelectOp tmp_sop(n_epochs);
-  MLCommon::device_buffer<int> head_filtered(d_alloc, stream, nnz);
-  MLCommon::device_buffer<int> tail_filtered(d_alloc, stream, nnz);
-  MLCommon::device_buffer<int> num_selected(d_alloc, stream, 1);
-  size_t workspace_size;
-  cub::DeviceSelect::If(nullptr, workspace_size, head, head_filtered.data(),
-                        num_selected.data(), nnz, tmp_sop, stream);
-  MLCommon::device_buffer<char> workspace(d_alloc, stream, workspace_size);
-
   dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
@@ -156,9 +146,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
         head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
         epoch_of_next_sample.data(), alpha, n, gamma, seed, nullptr, move_other,
-        use_shared_mem, params, n, grid, blk, requiredSize,
-        head_filtered.data(), tail_filtered.data(), num_selected.data(),
-        workspace.data(), workspace_size, stream);
+        use_shared_mem, params, n, grid, blk, requiredSize, stream);
       CUDA_CHECK(cudaGetLastError());
       optimization_iteration_finalization(params, head_embedding, alpha, n,
                                           n_epochs, seed);
@@ -176,9 +164,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
         head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
         epoch_of_next_sample.data(), alpha, n, gamma, seed, embedding_updates,
-        move_other, use_shared_mem, params, n, grid, blk, requiredSize,
-        head_filtered.data(), tail_filtered.data(), num_selected.data(),
-        workspace.data(), workspace_size, stream);
+        move_other, use_shared_mem, params, n, grid, blk, requiredSize, stream);
       CUDA_CHECK(cudaGetLastError());
       apply_optimization_kernel<T, TPB_X><<<grid2, blk, 0, stream>>>(
         head_embedding, embedding_updates, n_vertices * params->n_components);

@@ -206,12 +206,6 @@ __global__ void optimize_batch_kernel(
     n_neg_samples * epochs_per_negative_sample;
 }
 
-struct SelectOp {
-  int epoch;
-  HDI SelectOp(int e): epoch(e) {}
-  HDI bool operator()(const int& a) const { return a <= epoch; }
-};
-
 template <typename T, int TPB_X>
 void call_optimize_batch_kernel(
   T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
@@ -219,10 +213,7 @@ void call_optimize_batch_kernel(
   T *epoch_of_next_negative_sample, T *epoch_of_next_sample, T alpha, int epoch,
   T gamma, uint64_t seed, double *embedding_updates, bool move_other,
   bool use_shared_mem, UMAPParams *params, int n, dim3 &grid, dim3 &blk,
-  size_t requiredSize, int *head_filtered, int *tail_filtered,
-  int *num_selected, void *workspace, size_t workspace_size,
-  cudaStream_t &stream) {
-  SelectOp sop(epoch);
+  size_t requiredSize, cudaStream_t &stream) {
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   if (embedding_updates) {
     if (use_shared_mem) {
@@ -249,15 +240,16 @@ void call_optimize_batch_kernel(
         <<<grid, blk, requiredSize, stream>>>(
           head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
           epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
-          epoch_of_next_sample, alpha, n, gamma, seed, nullptr, move_other,
-          *params, nsr_inv);
+          epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
+          move_other, *params, nsr_inv);
     } else {
       // multicore implementation without shared memory
-      optimize_batch_kernel<T, T, TPB_X, true, false><<<grid, blk, 0, stream>>>(
-        head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
-        epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
-        epoch_of_next_sample, alpha, n, gamma, seed, nullptr, move_other,
-        *params, nsr_inv);
+      optimize_batch_kernel<T, T, TPB_X, true, false>
+        <<<grid, blk, 0, stream>>>(
+          head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+          epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
+          epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
+          move_other, *params, nsr_inv);
     }
   }
 }
