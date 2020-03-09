@@ -655,8 +655,7 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               fil_sparse_format,
-                                               task_category=1)
+                                               fil_sparse_format)
 
         return preds
 
