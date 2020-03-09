@@ -18,6 +18,7 @@ from collections.abc import Iterable
 import scipy.sparse
 import numpy as np
 import cupy as cp
+import cupyx
 import cudf
 import dask
 
@@ -141,7 +142,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
     else:
         dtype = cudf_or_array.dtype
 
-    meta = cp.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
+    meta = cupyx.scipy.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
 
     if isinstance(cudf_or_array, dask.array.Array):
         # At the time of developing this, using map_blocks will not work
@@ -164,24 +165,29 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
     else:
         if scipy.sparse.isspmatrix(cudf_or_array):
-            cudf_or_array = cp.sparse.csr_matrix(cudf_or_array.tocsr())
-        elif cp.sparse.isspmatrix(cudf_or_array):
+            cudf_or_array = \
+                cupyx.scipy.sparse.csr_matrix(cudf_or_array.tocsr())
+        elif cupyx.scipy.sparse.isspmatrix(cudf_or_array):
             pass
         elif isinstance(cudf_or_array, cudf.DataFrame):
             cupy_ary = cp.asarray(cudf_or_array.as_gpu_matrix(), dtype)
-            cudf_or_array = cp.sparse.csr_matrix(cupy_ary)
+            cudf_or_array = cupyx.scipy.sparse.csr_matrix(cupy_ary)
         elif isinstance(cudf_or_array, np.ndarray):
             cupy_ary = rmm_cupy_ary(cp.asarray,
                                     cudf_or_array,
                                     dtype=cudf_or_array.dtype)
-            cudf_or_array = cp.sparse.csr_matrix(cupy_ary)
+            cudf_or_array = cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
         elif isinstance(cudf_or_array, cp.core.core.ndarray):
-            cudf_or_array = cp.sparse.csr_matrix(cudf_or_array)
+            cudf_or_array = cupyx.scipy.sparse.csr_matrix(cudf_or_array)
         else:
             raise ValueError("Unexpected input type %s" % type(cudf_or_array))
 
         # Push to worker
+        # TODO: Unfortunately, `client.scatter` currently forces the MsgPacker
+        # serializer, which doesn't know about cupy sparse arrays. This needs
+        # to be updated on the distributed side. Once that is complete, we
+        # can use `client.scatter` here.
         cudf_or_array = client.submit(_x_p, cudf_or_array)
 
     return dask.array.from_delayed(cudf_or_array, shape=shape,

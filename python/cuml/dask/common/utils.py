@@ -20,7 +20,6 @@ import logging
 import os
 import numba.cuda
 
-from cuml.naive_bayes.naive_bayes import MultinomialNB
 from cuml.utils import device_of_gpu_matrix
 
 
@@ -145,20 +144,9 @@ def raise_mg_import_exception():
 
 def register_serialization():
     def serialize_mat_descriptor(m):
-        return cp.cupy.cusparse.MatDescriptor.create, ()
+        return cp.cusparse.MatDescriptor.create, ()
 
-    from distributed.protocol.cuda import cuda_deserialize
-    from distributed.protocol.cuda import cuda_serialize
-    from distributed.protocol.serialize import dask_deserialize
-    from distributed.protocol.serialize import dask_serialize
-    from distributed.protocol.serialize import register_generic
-
-    register_generic(MultinomialNB, "cuda",
-                     cuda_serialize, cuda_deserialize)
-    register_generic(MultinomialNB, "dask",
-                     dask_serialize, dask_deserialize)
-
-    copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
+    copyreg.pickle(cp.cusparse.MatDescriptor,
                    serialize_mat_descriptor)
 
 
@@ -174,5 +162,6 @@ def register_dist_serialization(client):
 
     client : dask.distributed.Client client to use
     """
+    # pass
     register_serialization()
     client.run(register_serialization)
