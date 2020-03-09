@@ -131,7 +131,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   uint64_t seed = params->random_state;
 
   int requiredSize = TPB_X * params->n_components;
-  if (move_other) requiredSize *= 2;
   if (multicore_implem) {
     requiredSize *= sizeof(T);
   } else {
