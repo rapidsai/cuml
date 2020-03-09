@@ -14,8 +14,6 @@
 #
 
 import pytest
-from dask_cuda import LocalCUDACluster
-
 from dask.distributed import Client, wait
 
 import numpy as np
@@ -29,13 +27,9 @@ from cuml.test.utils import array_equal, \
 @pytest.mark.parametrize("ncols", [unit_param(20),
                          stress_param(1000)])
 @pytest.mark.parametrize("n_parts", [unit_param(67)])
-def test_pca_fit(nrows, ncols, n_parts, client=None):
+def test_pca_fit(nrows, ncols, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from sklearn.decomposition import TruncatedSVD
@@ -59,9 +53,7 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
     all_attr = ['singular_values_', 'components_',
                 'explained_variance_', 'explained_variance_ratio_']
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
+    client.close()
 
     for attr in all_attr:
         with_sign = False if attr in ['components_'] else True
@@ -83,13 +75,9 @@ def test_pca_fit(nrows, ncols, n_parts, client=None):
                          unit_param(1000),
                          stress_param(5000)])
 @pytest.mark.parametrize("n_parts", [46])
-def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
+def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from cuml.dask.datasets import make_blobs
@@ -103,9 +91,7 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
     cutsvd = daskTPCA(n_components=20)
     cutsvd.fit_transform(X_cudf)
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
+    client.close()
 
 
 @pytest.mark.mg
@@ -114,13 +100,9 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client=None):
 @pytest.mark.parametrize("ncols", [unit_param(200),
                          stress_param(5000)])
 @pytest.mark.parametrize("n_parts", [unit_param(33)])
-def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
+def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
 
-    owns_cluster = False
-    if client is None:
-        owns_cluster = True
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    client = Client(cluster)
 
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from cuml.dask.datasets import make_blobs
@@ -134,6 +116,4 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client=None):
     cutsvd = daskTPCA(n_components=30)
     cutsvd.fit_transform(X_cudf)
 
-    if owns_cluster:
-        client.close()
-        cluster.close()
+    client.close()
