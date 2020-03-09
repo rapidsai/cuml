@@ -21,8 +21,6 @@ import numpy as np
 import cupy as cp
 import scipy.sparse
 
-from cuml.common.base import Base
-
 import cupy.prof
 
 from cuml.utils import with_cupy_rmm
