@@ -119,6 +119,10 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 
 class MultinomialNB(object):
+
+    # TODO: Make this extend cuml.Base:
+    # https://github.com/rapidsai/cuml/issues/1834
+
     """
     Naive Bayes classifier for multinomial models
 
