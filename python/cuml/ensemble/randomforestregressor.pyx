@@ -36,7 +36,10 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.utils import input_to_cuml_array
+from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
+    _check_fil_value
+from cuml.utils import input_to_cuml_array, input_to_dev_array, \
+    zeros, get_cudf_column_ptr
 from cython.operator cimport dereference as deref
 
 from numba import cuda
@@ -435,10 +438,11 @@ class RandomForestRegressor(Base):
             <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
         X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
+                                order='F')
         X_ptr = X_m.ptr
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
+        y_m, _, _, y_dtype = \
+            input_to_cuml_array(y,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
@@ -502,14 +506,11 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format):
-
+                              fil_sparse_format, task_category=1):
         out_type = self._get_output_type(X)
-        cdef ModelHandle cuml_model_ptr
+        cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
+            input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
 
         if dtype == np.float64 and not convert_dtype:
@@ -524,7 +525,7 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
-        task_category = REGRESSION_CATEGORY  # for regression
+        task_category = 1  # for regression
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
@@ -533,16 +534,11 @@ class RandomForestRegressor(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if fil_sparse_format:
-            storage_type = 'SPARSE'
-        elif not fil_sparse_format:
-            storage_type = 'DENSE'
-        elif fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
-        else:
-            raise ValueError("The value entered for spares_forest is wrong."
-                             " Please refer to the documentation to see the"
-                             " accepted values.")
+        storage_type = _check_fil_value(fil_sparse_format)
+
+        _check_fil_parameter_validity(depth=self.max_depth,
+                                      storage_format=storage_type,
+                                      algo=algo)
 
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -554,20 +550,18 @@ class RandomForestRegressor(Base):
         return preds.to_output(out_type)
 
     def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
+        X_m, X_ptr, n_rows, n_cols, _ = \
+            input_to_dev_array(X, order='C', check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
         if n_cols != self.n_cols:
             raise ValueError("The number of columns/features in the training"
                              " and test data should be the same ")
 
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
+        preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -601,8 +595,9 @@ class RandomForestRegressor(Base):
 
         self.handle.sync()
         # synchronous w/o a stream
+        predicted_result = preds.to_array()
         del(X_m)
-        return preds.to_output(out_type)
+        return predicted_result
 
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
@@ -643,7 +638,6 @@ class RandomForestRegressor(Base):
              False - create a dense forest
              True - create a sparse forest, requires algo='naive'
                     or algo='auto'
-
         Returns
         ----------
         y: NumPy
@@ -662,12 +656,13 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               fil_sparse_format)
+                                               fil_sparse_format,
+                                               task_category=1)
 
         return preds
 
     def score(self, X, y, algo='auto', convert_dtype=True,
-              fil_sparse_format='auto'):
+              fil_sparse_format='auto', predict_model="CPU"):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
@@ -700,36 +695,27 @@ class RandomForestRegressor(Base):
              False - create a dense forest
              True - create a sparse forest, requires algo='naive'
                     or algo='auto'
-
         Returns
         ----------
         mean_square_error : float or
         median_abs_error : float or
         mean_abs_error : float
         """
-        cdef uintptr_t y_ptr
-        _, n_rows, _, _ = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_rows=n_rows, check_cols=1)
-        y_ptr = y_m.ptr
+        cdef uintptr_t X_ptr, y_ptr
+        y_m, y_ptr, n_rows, _, _ = \
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else False))
+
         preds = self.predict(X, algo=algo,
                              convert_dtype=convert_dtype,
-                             fil_sparse_format=fil_sparse_format)
+                             fil_sparse_format=fil_sparse_format,
+                             predict_model=predict_model)
 
         cdef uintptr_t preds_ptr
-        preds_m, _, _, _ = \
-            input_to_cuml_array(preds, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_rows=n_rows, check_cols=1)
-        preds_ptr = preds_m.ptr
+        preds_m, preds_ptr, _, _, _ = \
+            input_to_dev_array(preds)
+
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 

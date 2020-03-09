@@ -212,15 +212,16 @@ def test_rf_regression_default(datatype, column_info, nrows):
     cuml_model.fit(X_train, y_train)
 
     # predict using FIL
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    cu_r2 = r2_score(y_test, cu_preds)
-    fil_r2 = r2_score(y_test, fil_preds)
+    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
 
     # score function should be equivalent
-    score_mse = cuml_model.score(X_test, y_test)
-    manual_mse = ((fil_preds - y_test)**2).mean()
+    score_mse = cuml_model.score(X_test, y_test, predict_model="CPU")
+    manual_mse = ((cu_preds - y_test)**2).mean()
     assert manual_mse == pytest.approx(score_mse)
+
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
 
     # Initialize, fit and predict using
     # sklearn's random forest regression model
@@ -419,7 +420,6 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         cuml_model.fit(X_train, y_train)
         cu_preds = cuml_model.predict(X_test, predict_model="CPU")
 
-    print("preds : ", cu_preds)
     cu_acc = accuracy_score(y_test, cu_preds)
 
     # sklearn random forest classification model

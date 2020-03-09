@@ -40,6 +40,8 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
+    _check_fil_value
 from cuml.utils import input_to_cuml_array, rmm_cupy_ary
 from cuml.utils import get_cudf_column_ptr, zeros
 
@@ -455,6 +457,7 @@ class RandomForestClassifier(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
+        self.num_classes = len(np.unique(y))
         self._set_output_type(X)
 
         cdef uintptr_t X_ptr, y_ptr
@@ -560,6 +563,15 @@ class RandomForestClassifier(Base):
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
 
+        if dtype == np.float64 and not convert_dtype:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            Please set convert_dtype=True to convert the test \
+                            data to the same dtype as the data used to train, \
+                            ie. np.float32. If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
+
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
@@ -571,16 +583,11 @@ class RandomForestClassifier(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if fil_sparse_format:
-            storage_type = 'SPARSE'
-        elif not fil_sparse_format:
-            storage_type = 'DENSE'
-        elif fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
-        else:
-            raise ValueError("The value entered for spares_forest is wrong."
-                             " Please refer to the documentation to see the"
-                             " accepted values.")
+        storage_type = _check_fil_value(fil_sparse_format)
+
+        _check_fil_parameter_validity(depth=self.max_depth,
+                                      storage_format=storage_type,
+                                      algo=algo)
 
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -710,7 +717,7 @@ class RandomForestClassifier(Base):
                               "multi-class classification.")
             preds = self._predict_model_on_cpu(X, convert_dtype)
 
-        elif self.dtype == np.float64 and not convert_dtype:
+        elif self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
                             In order use the GPU predict the model should \
                             also be trained using a np.float32 dataset. \
@@ -788,7 +795,7 @@ class RandomForestClassifier(Base):
         return preds
 
     def score(self, X, y, threshold=0.5,
-              algo='auto', num_classes=2,
+              algo='auto', num_classes=2, predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
@@ -850,6 +857,7 @@ class RandomForestClassifier(Base):
                              threshold=threshold, algo=algo,
                              num_classes=num_classes,
                              convert_dtype=convert_dtype,
+                             predict_model=predict_model,
                              fil_sparse_format=fil_sparse_format)
 
         cdef uintptr_t preds_ptr

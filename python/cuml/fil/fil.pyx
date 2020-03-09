@@ -238,26 +238,20 @@ cdef class ForestInference_impl():
         predict_proba : bool, whether to output class probabilities(vs classes)
         Supported only for binary classification. output format matches sklearn
         """
-        #out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr
-        print("type of X in fil : ", type(X))
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
                                 convert_to_dtype=np.float32,
                                 check_dtype=np.float32)
-        #X_m, n_rows, _, X_dtype = \
-        #    input_to_cuml_array(X, order='C', check_dtype=np.float32)
         X_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            shape = (n_rows,1)
+            shape = (n_rows, 1)
             if predict_proba:
-                shape = (n_rows,2)
-            print("shape of preds in fil : ", shape)
-            print("type of shape in fil : ", type(shape))
+                shape = (n_rows, 2)
             preds = CumlArray.zeros(shape=shape, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
@@ -274,7 +268,7 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
-        return preds #cudf.Series.from_pandas(preds_to_pd)
+        return preds
 
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,
