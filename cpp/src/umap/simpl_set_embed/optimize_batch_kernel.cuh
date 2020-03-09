@@ -52,8 +52,8 @@ DI T2 clip(T2 val, T2 lb, T2 ub) {
 template <typename T2>
 DI T2 repulsive_grad(T2 dist_squared, T2 gamma, UMAPParams params) {
   auto grad_coeff = T2(2.0) * gamma * params.b;
-  grad_coeff /=
-    (T2(0.001) + dist_squared) * (params.a * pow(dist_squared, params.b) + T2(1.0));
+  grad_coeff /= (T2(0.001) + dist_squared) *
+                (params.a * pow(dist_squared, params.b) + T2(1.0));
   return grad_coeff;
 }
 
@@ -118,8 +118,8 @@ __global__ void optimize_batch_kernel(
    * performing unsupervised training).
    */
   for (int d = 0; d < params.n_components; d++) {
-    auto grad_d =
-      clip<T2>(attractive_grad_coeff * (current[d] - other[d]), T2(-4.0), T2(4.0));
+    auto grad_d = clip<T2>(attractive_grad_coeff * (current[d] - other[d]),
+                           T2(-4.0), T2(4.0));
     grad_d *= alpha;
     if (use_shared_mem) {
       current_buffer[d * TPB_X] += grad_d;
@@ -140,13 +140,13 @@ __global__ void optimize_batch_kernel(
   epoch_of_next_sample[row] = _epoch_of_next_sample + _epochs_per_sample;
   // number of negative samples to choose
   auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[row];
-  int n_neg_samples = int(T(epoch - _epoch_of_next_negative_sample) /
-                          epochs_per_negative_sample);
+  int n_neg_samples =
+    int(T(epoch - _epoch_of_next_negative_sample) / epochs_per_negative_sample);
   /**
    * Negative sampling stage
    */
-  MLCommon::Random::detail::PhiloxGenerator gen((uint64_t)seed,
-                                                (uint64_t)row, 0);
+  MLCommon::Random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row,
+                                                0);
   for (int p = 0; p < n_neg_samples; p++) {
     int r;
     gen.next(r);
@@ -191,8 +191,7 @@ __global__ void optimize_batch_kernel(
       for (int d = 0; d < params.n_components; d++) {
         auto grad = current_buffer[d * TPB_X];
         atomicAdd(current + d, grad);
-        if (move_other)
-          atomicAdd(other + d, -grad);
+        if (move_other) atomicAdd(other + d, -grad);
       }
     } else {
       T2 *tmp1 = (T2 *)embedding_updates + (j * params.n_components);
@@ -200,13 +199,12 @@ __global__ void optimize_batch_kernel(
       for (int d = 0; d < params.n_components; d++) {
         auto grad = current_buffer[d * TPB_X];
         atomicAdd(tmp1 + d, grad);
-        if (move_other)
-          atomicAdd(tmp2 + d, -grad);
+        if (move_other) atomicAdd(tmp2 + d, -grad);
       }
     }
   }
-  epoch_of_next_negative_sample[row] = _epoch_of_next_negative_sample +
-    n_neg_samples * epochs_per_negative_sample;
+  epoch_of_next_negative_sample[row] =
+    _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
 template <typename T, int TPB_X>
@@ -247,12 +245,11 @@ void call_optimize_batch_kernel(
           move_other, *params, nsr_inv);
     } else {
       // multicore implementation without shared memory
-      optimize_batch_kernel<T, T, TPB_X, true, false>
-        <<<grid, blk, 0, stream>>>(
-          head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
-          epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
-          epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
-          move_other, *params, nsr_inv);
+      optimize_batch_kernel<T, T, TPB_X, true, false><<<grid, blk, 0, stream>>>(
+        head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+        epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
+        epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
+        move_other, *params, nsr_inv);
     }
   }
 }
