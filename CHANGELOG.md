@@ -38,6 +38,7 @@
 - PR #1768: C++: Different input and output types for add and subtract prims
 - PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
+- PR #1824: C++: improving the performance of UMAP algo
 
 ## Bug Fixes
 - PR #1770: Warn that KalmanFilter is deprecated
