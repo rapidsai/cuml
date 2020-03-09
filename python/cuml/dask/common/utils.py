@@ -13,9 +13,6 @@
 # limitations under the License.
 #
 
-import copyreg
-import cupy as cp
-
 import logging
 import os
 import numba.cuda
@@ -148,12 +145,7 @@ def raise_mg_import_exception():
                     " enable multiGPU support.")
 
 
-def cupy_sparse_pickle_patch():
-    def serialize_mat_descriptor(m):
-        return cp.cusparse.MatDescriptor.create, ()
 
-    copyreg.pickle(cp.cusparse.MatDescriptor,
-                   serialize_mat_descriptor)
 
 
 def run_cupy_sparse_patch_on_workers(client):
@@ -170,9 +162,7 @@ def run_cupy_sparse_patch_on_workers(client):
 
     client : dask.distributed.Client client to use
     """
-    # pass
-    cupy_sparse_pickle_patch()
-    client.run(cupy_sparse_pickle_patch)
+    pass
 
 
 class MultiHolderLock:

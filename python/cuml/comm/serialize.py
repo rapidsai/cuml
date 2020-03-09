@@ -15,17 +15,16 @@
 #
 
 
+import copyreg
 import pickle
 
+import cupy as cp
 import cudf
 import cuml
-
-from cuml.dask.common import cupy_sparse_pickle_patch
 
 
 # all (de-)serializtion are attached to cuML Objects
 serializable_classes = (cuml.common.CumlArray,)
-
 
 try:
     from distributed.protocol import dask_deserialize, dask_serialize
@@ -34,13 +33,20 @@ try:
 
     from distributed.protocol import register_generic
 
-    from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
+    from cuml.naive_bayes.naive_bayes import MultinomialNB
 
     register_generic(MultinomialNB, "cuda",
                      cuda_serialize, cuda_deserialize)
     register_generic(MultinomialNB, "dask",
                      dask_serialize, dask_deserialize)
 
+
+    def cupy_sparse_pickle_patch():
+        def serialize_mat_descriptor(m):
+            return cp.cusparse.MatDescriptor.create, ()
+
+        copyreg.pickle(cp.cusparse.MatDescriptor,
+                       serialize_mat_descriptor)
     cupy_sparse_pickle_patch()
 
     @cuda_serialize.register(serializable_classes)
