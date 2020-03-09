@@ -211,12 +211,14 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                               chunks=(n_samples_per_part, -1))
 
     y = da.dot(X[:, :n_informative], ground_truth) + bias
+    X = X.rechunk((None, -1))
 
     if n_informative != n_features:
         zeroes = 0.0 * rs.standard_normal((n_features -
                                            n_informative,
                                            n_targets))
         ground_truth = da.concatenate([ground_truth, zeroes], axis=0)
+        ground_truth = ground_truth.rechunk(-1)
 
     # Add noise
     if noise > 0.0:
