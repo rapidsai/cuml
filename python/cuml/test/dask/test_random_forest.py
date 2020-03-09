@@ -205,7 +205,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster, algo):
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3, 5])
 @pytest.mark.parametrize('output_class', [True, False])
-def test_rf_classification_dask_fil(partitions_per_worker, cluster, algo,
+def test_rf_classification_dask_fil(partitions_per_worker, cluster,
                                     output_class):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers

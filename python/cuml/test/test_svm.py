@@ -354,7 +354,7 @@ def get_memsize(svc):
 @pytest.mark.parametrize('params', [
     {'kernel': 'rbf', 'C': 1, 'gamma': 1}
 ])
-@pytest.mark.parametrize('n_rows', [unit_param(500), quality_param(1000),
+@pytest.mark.parametrize('n_rows', [unit_param(5000), quality_param(1000),
                                     stress_param(1000)])
 @pytest.mark.parametrize('n_iter', [unit_param(10), quality_param(100),
                                     stress_param(1000)])
