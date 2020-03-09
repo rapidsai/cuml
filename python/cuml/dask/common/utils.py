@@ -145,26 +145,6 @@ def raise_mg_import_exception():
                     " enable multiGPU support.")
 
 
-
-
-
-def run_cupy_sparse_patch_on_workers(client):
-    # TODO: This should go away once this is fixed in CuPy
-    # Ref: https://github.com/cupy/cupy/pull/3157
-    """
-    This function provides a temporary fix for a bug
-    in CuPy that doesn't properly serialize cuSPARSE handles.
-
-    Reference: https://github.com/cupy/cupy/issues/3061
-
-    Parameters
-    ----------
-
-    client : dask.distributed.Client client to use
-    """
-    pass
-
-
 class MultiHolderLock:
     """
     A per-process synchronization lock allowing multiple concurrent holders

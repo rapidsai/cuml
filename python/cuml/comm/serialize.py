@@ -26,6 +26,11 @@ import cuml
 # all (de-)serializtion are attached to cuML Objects
 serializable_classes = (cuml.common.CumlArray,)
 
+
+def serialize_mat_descriptor(m):
+    return cp.cusparse.MatDescriptor.create, ()
+
+
 try:
     from distributed.protocol import dask_deserialize, dask_serialize
     from distributed.protocol.cuda import cuda_deserialize, cuda_serialize
@@ -40,14 +45,7 @@ try:
     register_generic(MultinomialNB, "dask",
                      dask_serialize, dask_deserialize)
 
-
-    def cupy_sparse_pickle_patch():
-        def serialize_mat_descriptor(m):
-            return cp.cusparse.MatDescriptor.create, ()
-
-        copyreg.pickle(cp.cusparse.MatDescriptor,
-                       serialize_mat_descriptor)
-    cupy_sparse_pickle_patch()
+    copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
 
     @cuda_serialize.register(serializable_classes)
     def cuda_serialize_cuml_object(x):
