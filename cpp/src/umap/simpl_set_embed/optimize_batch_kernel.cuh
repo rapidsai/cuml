@@ -91,16 +91,9 @@ __global__ void optimize_batch_kernel(
   if (use_shared_mem) {
     // shared memory
     current_buffer = (T2 *)embedding_shared_mem_updates + threadIdx.x;
-    other_buffer = (T2 *)embedding_shared_mem_updates +
-      TPB_X * params.n_components + threadIdx.x;
     // initialization of shared memory
     for (int d = 0; d < params.n_components; d++) {
       current_buffer[d * TPB_X] = 0;
-    }
-    if (move_other) {
-      for (int d = 0; d < params.n_components; d++) {
-        other_buffer[d * TPB_X] = 0;
-      }
     }
   } else if (!multicore_implem) {
     // no shared memory and synchronized implementation
@@ -127,9 +120,6 @@ __global__ void optimize_batch_kernel(
     grad_d *= alpha;
     if (use_shared_mem) {
       current_buffer[d * TPB_X] += grad_d;
-      if (move_other) {  // happens only during unsupervised training
-        other_buffer[d * TPB_X] += -grad_d;
-      }
     } else {
       if (multicore_implem) {
         atomicAdd(current + d, grad_d);
@@ -196,23 +186,19 @@ __global__ void optimize_batch_kernel(
     __syncthreads();
     if (multicore_implem) {
       for (int d = 0; d < params.n_components; d++) {
-        atomicAdd(current + d, current_buffer[d * TPB_X]);
-      }
-      if (move_other) {
-        for (int d = 0; d < params.n_components; d++) {
-          atomicAdd(other + d, other_buffer[d * TPB_X]);
-        }
+        auto grad = current_buffer[d * TPB_X];
+        atomicAdd(current + d, grad);
+        if (move_other)
+          atomicAdd(other + d, -grad);
       }
     } else {
-      T2 *tmp = (T2 *)embedding_updates + (j * params.n_components);
+      T2 *tmp1 = (T2 *)embedding_updates + (j * params.n_components);
+      T2 *tmp2 = (T2 *)embedding_updates + (k * params.n_components);
       for (int d = 0; d < params.n_components; d++) {
-        atomicAdd(tmp + d, current_buffer[d * TPB_X]);
-      }
-      if (move_other) {
-        tmp = (T2 *)embedding_updates + (k * params.n_components);
-        for (int d = 0; d < params.n_components; d++) {
-          atomicAdd(tmp + d, other_buffer[d * TPB_X]);
-        }
+        auto grad = current_buffer[d * TPB_X];
+        atomicAdd(tmp1 + d, grad);
+        if (move_other)
+          atomicAdd(tmp2 + d, -grad);
       }
     }
   }
