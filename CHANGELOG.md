@@ -15,6 +15,7 @@
 - PR #1750: LinearRegression CumlArray for configurable output
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
+- PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -37,6 +38,7 @@
 - PR #1748: Test serializing `CumlArray` objects
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 
 ## Bug Fixes
 - PR #1770: Warn that KalmanFilter is deprecated
@@ -67,6 +69,7 @@
 - PR #1765: Update the checks for using RF GPU predict
 - PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
 - PR #1793: Updated fil pyx to solve memory leakage issue
+- PR #1810: Quickfix - chunkage in dask make_regression
 
 # cuML 0.12.0 (Date TBD)
 
