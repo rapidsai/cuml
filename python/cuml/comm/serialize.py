@@ -30,6 +30,16 @@ try:
     from distributed.protocol.cuda import cuda_deserialize, cuda_serialize
     from distributed.utils import log_errors
 
+    from distributed.protocol import register_generic
+
+    from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
+
+    register_generic(MultinomialNB, "cuda",
+                     cuda_serialize, cuda_deserialize)
+    register_generic(MultinomialNB, "dask",
+                     dask_serialize, dask_deserialize)
+
+
     @cuda_serialize.register(serializable_classes)
     def cuda_serialize_cuml_object(x):
         with log_errors():
