@@ -14,6 +14,7 @@
 #
 
 import cupy as cp
+import pickle
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
@@ -43,4 +44,16 @@ def test_naive_bayes_cuda():
     stype, sbytes = ser(mnb, serializers=['dask'])
     assert stype['serializer'] == 'dask'
 
-def test_cupy_sparse
+
+def test_cupy_sparse_patch():
+
+    sp = cp.sparse.random(50, 2, format='csr')
+
+    pickled = pickle.dumps(sp)
+
+    sp_deser = pickle.loads(pickled)
+
+    # Using internal API pieces only until
+    # https://github.com/cupy/cupy/issues/3061
+    # is fixed.
+    assert sp_deser._descr.descriptor != sp._descr.descriptor
