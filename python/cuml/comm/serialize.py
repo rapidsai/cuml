@@ -39,7 +39,6 @@ try:
     register_generic(MultinomialNB, "dask",
                      dask_serialize, dask_deserialize)
 
-
     @cuda_serialize.register(serializable_classes)
     def cuda_serialize_cuml_object(x):
         with log_errors():

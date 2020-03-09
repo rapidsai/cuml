@@ -220,7 +220,8 @@ class MultinomialNB(object):
         return arrs.shape[0]
 
     def predict(self, X):
-        # TODO: Once cupy sparse arrays are fully supported underneath Dask arrays,
+        # TODO: Once cupy sparse arrays are fully supported
+        #  underneath Dask arrays,
         # this can extend DelayedPredictionMixin.
         """
         Predict classes for distributed Naive Bayes classifier model
