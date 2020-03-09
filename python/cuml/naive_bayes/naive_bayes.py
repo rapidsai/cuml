@@ -118,8 +118,7 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
-class MultinomialNB(Base):
-
+class MultinomialNB(object):
     """
     Naive Bayes classifier for multinomial models
 
@@ -184,9 +183,7 @@ class MultinomialNB(Base):
     def __init__(self,
                  alpha=1.0,
                  fit_prior=True,
-                 class_prior=None,
-                 verbose=False,
-                 output_type=None):
+                 class_prior=None):
 
         """
         Create new multinomial Naive Bayes instance
@@ -202,10 +199,6 @@ class MultinomialNB(Base):
                       classes. If specified, the priors are not adjusted
                       according to the data.
         """
-
-        super(MultinomialNB, self).__init__(handle=None,
-                                            verbose=verbose,
-                                            output_type=output_type)
 
         self.alpha = alpha
         self.fit_prior = fit_prior
