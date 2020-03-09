@@ -119,10 +119,6 @@ class MultinomialNB(object):
         return model.class_count_, model.feature_count_
 
     @staticmethod
-    def _predict(model, X):
-        return [model.predict(x) for x in X]
-
-    @staticmethod
     def _unique(x):
         return rmm_cupy_ary(cp.unique, x)
 
@@ -190,26 +186,26 @@ class MultinomialNB(object):
             [self.client_.submit(MultinomialNB._get_feature_counts, c)
              for c in counts], sync=True)
 
-        self.model_ = MNB(**self.kwargs)
-        self.model_.classes_ = classes
-        self.model_.n_classes = n_classes
-        self.model_.n_features = X.shape[1]
+        self.local_model = MNB(**self.kwargs)
+        self.local_model.classes_ = classes
+        self.local_model.n_classes = n_classes
+        self.local_model.n_features = X.shape[1]
 
-        self.model_.class_count_ = rmm_cupy_ary(cp.zeros,
-                                                n_classes,
-                                                order="F",
-                                                dtype=cp.float32)
-        self.model_.feature_count_ = rmm_cupy_ary(cp.zeros,
-                                                  (n_classes, n_features),
-                                                  order="F",
-                                                  dtype=cp.float32)
+        self.local_model.class_count_ = rmm_cupy_ary(cp.zeros,
+                                                     n_classes,
+                                                     order="F",
+                                                     dtype=cp.float32)
+        self.local_model.feature_count_ = rmm_cupy_ary(cp.zeros,
+                                                       (n_classes, n_features),
+                                                       order="F",
+                                                       dtype=cp.float32)
 
         for class_count_ in class_counts:
-            self.model_.class_count_ += class_count_
+            self.local_model.class_count_ += class_count_
         for feature_count_ in feature_counts:
-            self.model_.feature_count_ += feature_count_
+            self.local_model.feature_count_ += feature_count_
 
-        self.model_.update_log_probs()
+        self.local_model.update_log_probs()
 
     @staticmethod
     def _get_part(parts, idx):
@@ -219,23 +215,19 @@ class MultinomialNB(object):
     def _get_size(arrs):
         return arrs.shape[0]
 
-    def predict(self, X):
-
+    def predict(self, X, delayed=True, parallelism=5):
         """
-        Use distributed Naive Bayes model to predict the classes for a
-        given set of data samples.
+        Predict classes for distributed Naive Bayes classifier model
 
         Parameters
         ----------
 
         X : dask.Array with blocks containing dense or sparse cupy arrays
 
-
         Returns
         -------
 
-        dask.Array containing predicted classes
-
+        dask.Array containing class predictions
         """
 
         gpu_futures = self.client_.sync(extract_arr_partitions, X)

@@ -271,7 +271,7 @@ class Base:
         class output type and global output type.
         """
         if self._mirror_input:
-            return _input_type_to_str[type(input)]
+            return _input_to_type(input)
         else:
             return self.output_type
 
