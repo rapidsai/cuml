@@ -219,7 +219,9 @@ void call_optimize_batch_kernel(
   T *epoch_of_next_negative_sample, T *epoch_of_next_sample, T alpha, int epoch,
   T gamma, uint64_t seed, double *embedding_updates, bool move_other,
   bool use_shared_mem, UMAPParams *params, int n, dim3 &grid, dim3 &blk,
-  size_t requiredSize, SelectOp& sop, cudaStream_t &stream) {
+  size_t requiredSize, SelectOp& sop, int *head_filtered, int *tail_filtered,
+  int *num_selected, void *workspace, size_t workspace_size,
+  cudaStream_t &stream) {
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   if (embedding_updates) {
     if (use_shared_mem) {
