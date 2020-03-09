@@ -68,7 +68,6 @@ def get_labels(t):
 def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                center_box=(-10, 10), random_state=None, verbose=False,
                dtype=np.float32, output='dataframe', order='F'):
-
     """
     Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
     for a randomly generated set of centroids.
@@ -116,7 +115,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
-    rows_per_part = math.ceil(nrows/n_parts)
+    rows_per_part = math.ceil(nrows / n_parts)
 
     if not isinstance(centers, np.ndarray):
         centers = np.random.uniform(center_box[0], center_box[1],
@@ -125,7 +124,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     if verbose:
         print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
-              (math.ceil(nrows/len(workers)), n_parts, len(workers), nrows))
+              (math.ceil(nrows / len(workers)), n_parts, len(workers), nrows))
 
     key = str(uuid1())
     # Create dfs on each worker (gpu)
@@ -134,7 +133,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     worker_rows = []
     rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
-        if rows_so_far+rows_per_part <= nrows:
+        if rows_so_far + rows_per_part <= nrows:
             rows_so_far += rows_per_part
             worker_rows.append(rows_per_part)
         else:
