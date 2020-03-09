@@ -77,10 +77,6 @@ def extract_arr_partitions(darray, client=None):
     raise gen.Return(worker_to_parts)
 
 
-def _x_p(x):
-    return x
-
-
 def _conv_np_to_df(x):
     cupy_ary = rmm_cupy_ary(cp.asarray,
                             x,
@@ -160,6 +156,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
         cudf_or_array = cudf_or_array.map_partitions(
             _conv_df_to_sp, meta=dask.array.from_array(meta))
 
+        # This will also handle the input of dask.array.Array
         return cudf_or_array
 
     else:
@@ -183,11 +180,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
             raise ValueError("Unexpected input type %s" % type(cudf_or_array))
 
         # Push to worker
-        # TODO: Unfortunately, `client.scatter` currently forces the MsgPacker
-        # serializer, which doesn't know about cupy sparse arrays. This needs
-        # to be updated on the distributed side. Once that is complete, we
-        # can use `client.scatter` here.
-        cudf_or_array = client.submit(_x_p, cudf_or_array)
+        cudf_or_array = client.scatter(cudf_or_array)
 
     return dask.array.from_delayed(cudf_or_array, shape=shape,
                                    meta=meta)
