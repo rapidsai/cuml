@@ -14,6 +14,7 @@
 #
 
 import pytest
+import cupy as cp
 import numpy as np
 from numba import cuda
 
@@ -395,9 +396,11 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
         cuSVC.fit(X_train, y_train)
         b_sum += cuSVC.intercept_
         cuSVC.predict(X_train)
+        print("CuPy reported free mem: " + str(cp.cuda.Device().mem_info))
 
     del(cuSVC)
     handle.sync()
+    print("CuPy reported free mem: " + str(cp.cuda.Device().mem_info))
     delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
     print("Delta GPU mem: {} bytes".format(delta_mem))
     assert delta_mem == 0

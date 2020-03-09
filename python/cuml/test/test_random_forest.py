@@ -14,6 +14,7 @@
 #
 
 import cudf
+import cupy as cp
 import numpy as np
 import pytest
 import random
@@ -591,8 +592,12 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
     cuml_mods = curfc(handle=handle)
     cuml_mods.fit(X_train, y_train)
 
+    print("Numba Free mem: " + str(free_mem))
+
     for i in range(n_iter):
         cuml_mods.predict(X_train, predict_model="GPU")
         handle.sync()
+        print("CuPy reported free mem: " + str(cp.cuda.Device().mem_info))
         delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+        print("Delta GPU mem: {} bytes".format(delta_mem))
         assert delta_mem == 0
