@@ -139,7 +139,6 @@ def test_rf_throws_exceptions(cluster):
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train, 1)
 
-        # print(" type of X_train_df : ", X_train_df.dtypes)
         cu_rf_mg.fit(X_train_df, y_train_df)
         with pytest.raises(RuntimeError):
             cu_rf_mg.fit(X_train_df, y_train_df)

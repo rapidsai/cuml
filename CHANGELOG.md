@@ -10,7 +10,6 @@
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
-- PR #1612: Created a function to check the concatenated forest 
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
 - PR #1646: Using FIL to predict in MNMG RF
@@ -77,11 +76,9 @@
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
 - PR #1494: bench: ml-prims benchmark
 - PR #1514: bench: Fused L2 NN prim benchmark
-- PR #1554: obtain the ModelHandles for all treelite models in MNMG RF
 - PR #1411: Cython side of MNMG OLS
 - PR #1520: Cython side of MNMG Ridge Regression
 - PR #1516: Suppor Vector Regression (epsilon-SVR)
-
 
 ## Improvements
 - PR #1638: Update cuml/docs/README.md
