@@ -34,5 +34,6 @@ from cuml.dask.common.part_utils import *
 
 from cuml.dask.common.utils import raise_exception_from_futures  # NOQA
 from cuml.dask.common.utils import raise_mg_import_exception  # NOQA
-from cuml.dask.common.utils import register_serialization  # NOQA
+from cuml.dask.common.utils import run_cupy_sparse_patch_on_workers  # NOQA
+from cuml.dask.common.utils import cupy_sparse_pickle_patch  # NOQA
 

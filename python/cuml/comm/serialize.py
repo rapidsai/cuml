@@ -20,7 +20,7 @@ import pickle
 import cudf
 import cuml
 
-from cuml.dask.common import register_serialization
+from cuml.dask.common import cupy_sparse_pickle_patch
 
 
 # all (de-)serializtion are attached to cuML Objects
@@ -41,7 +41,7 @@ try:
     register_generic(MultinomialNB, "dask",
                      dask_serialize, dask_deserialize)
 
-    register_serialization()
+    cupy_sparse_pickle_patch()
 
     @cuda_serialize.register(serializable_classes)
     def cuda_serialize_cuml_object(x):
