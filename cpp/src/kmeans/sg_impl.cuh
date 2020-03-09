@@ -299,10 +299,10 @@ void initSeqKMeansPlusPlus(const ML::cumlHandle_impl &handle,
 
  */
 template <typename DataT, typename IndexT>
-void initScalableKMeansPlusPlus(const ML::cumlHandle_impl &handle,
-                                const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
-                                MLCommon::device_buffer<DataT> &centroidsRawData,
-                                MLCommon::device_buffer<char> &workspace) {
+void initScalableKMeansPlusPlus(
+  const ML::cumlHandle_impl &handle, const KMeansParams &params,
+  Tensor<DataT, 2, IndexT> &X, MLCommon::device_buffer<DataT> &centroidsRawData,
+  MLCommon::device_buffer<char> &workspace) {
   cudaStream_t stream = handle.getStream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -527,10 +527,11 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     // default method to initialize is kmeans++
     LOG(handle, params.verbose,
         "KMeans.fit: initialize cluster centers using k-means++ algorithm.\n");
-    if(params.oversampling_factor == 0)
+    if (params.oversampling_factor == 0)
       initSeqKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
     else
-      initScalableKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
+      initScalableKMeansPlusPlus(handle, params, data, centroidsRawData,
+                                 workspace);
   } else if (params.init == KMeansParams::InitMethod::Array) {
     LOG(handle, params.verbose,
         "KMeans.fit: initialize cluster centers from the ndarray array input "
