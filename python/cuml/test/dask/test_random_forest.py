@@ -204,7 +204,6 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster, algo):
 
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3, 5])
-@pytest.mark.parametrize('algo', ['auto', 'tree_reorg', 'batch_tree_reorg'])
 @pytest.mark.parametrize('output_class', [True, False])
 def test_rf_classification_dask_fil(partitions_per_worker, cluster, algo,
                                     output_class):
@@ -236,7 +235,7 @@ def test_rf_classification_dask_fil(partitions_per_worker, cluster, algo,
                                            partitions_per_worker)
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df, algo, output_class)
+        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df, output_class)
 
         acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
 

@@ -347,11 +347,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
         concat_model_handle = model.concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        concatenated_model_bytes = \
-            model.concatenate_model_bytes(concat_model_handle)
-        for w in self.workers:
-            self.rfs[w].result()._model_pbuf_bytes = \
-                concatenated_model_bytes
+        model.concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 

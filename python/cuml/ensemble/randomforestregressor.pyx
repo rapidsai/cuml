@@ -412,7 +412,6 @@ class RandomForestRegressor(Base):
         cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
         concat_model_bytes = save_model(<ModelHandle> model_ptr)
         self.model_pbuf_bytes = concat_model_bytes
-        return concat_model_bytes
 
     def fit(self, X, y, convert_dtype=False):
         """
