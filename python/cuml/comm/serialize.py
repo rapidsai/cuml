@@ -42,16 +42,13 @@ try:
 
     try:
 
-        # Requires Dask Distributed 2.12.0+
-
-        register_generic(MultinomialNB, "cuda",
+        # cuda serializer requires Dask Distributed 2.12.0+
+        register_generic(MultinomialNB, 'cuda',
                          cuda_serialize, cuda_deserialize)
-        register_generic(MultinomialNB, "dask",
-                         dask_serialize, dask_deserialize)
     except TypeError:
         pass
 
-    register_generic(MultinomialNB)
+    register_generic(MultinomialNB)  # Registers 'dask' serialization
 
     copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
 
