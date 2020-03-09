@@ -299,10 +299,10 @@ void initSeqKMeansPlusPlus(const ML::cumlHandle_impl &handle,
 
  */
 template <typename DataT, typename IndexT>
-void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
-                        const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
-                        MLCommon::device_buffer<DataT> &centroidsRawData,
-                        MLCommon::device_buffer<char> &workspace) {
+void initScalableKMeansPlusPlus(const ML::cumlHandle_impl &handle,
+                                const KMeansParams &params, Tensor<DataT, 2, IndexT> &X,
+                                MLCommon::device_buffer<DataT> &centroidsRawData,
+                                MLCommon::device_buffer<char> &workspace) {
   cudaStream_t stream = handle.getStream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -501,8 +501,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
 
-  ASSERT(params.oversampling_factor > 0,
-         "oversampling factor must be > 0 (requested %f)",
+  ASSERT(params.oversampling_factor >= 0,
+         "oversampling factor must be >= 0 (requested %f)",
          params.oversampling_factor);
 
   ASSERT(memory_type(X) == cudaMemoryTypeDevice,
@@ -527,7 +527,10 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     // default method to initialize is kmeans++
     LOG(handle, params.verbose,
         "KMeans.fit: initialize cluster centers using k-means++ algorithm.\n");
-    initKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
+    if(params.oversampling_factor == 0)
+      initSeqKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
+    else
+      initScalableKMeansPlusPlus(handle, params, data, centroidsRawData, workspace);
   } else if (params.init == KMeansParams::InitMethod::Array) {
     LOG(handle, params.verbose,
         "KMeans.fit: initialize cluster centers from the ndarray array input "
