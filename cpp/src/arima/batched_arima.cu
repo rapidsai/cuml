@@ -228,6 +228,49 @@ void information_criterion(cumlHandle& handle, const double* d_y,
 }
 
 /**
+ * @todo: docs
+ */
+DI bool test_invparams(const double* old_params, int pq, bool isAr) {
+  double new_params[4];
+  double tmp[4];
+
+  for (int i = 0; i < pq; i++) {
+    tmp[i] = old_params[i];
+    new_params[i] = tmp[i];
+  }
+
+  // Perform inverse transform and stop before atanh step
+  if (isAr) {
+    for (int j = pq - 1; j > 0; --j) {
+      double a = new_params[j];
+      for (int k = 0; k < j; ++k) {
+        tmp[k] = (new_params[k] + a * new_params[j - k - 1]) / (1 - (a * a));
+      }
+      for (int iter = 0; iter < j; ++iter) {
+        new_params[iter] = tmp[iter];
+      }
+    }
+  } else {
+    for (int j = pq - 1; j > 0; --j) {
+      double a = new_params[j];
+      for (int k = 0; k < j; ++k) {
+        tmp[k] = (new_params[k] - a * new_params[j - k - 1]) / (1 - (a * a));
+      }
+      for (int iter = 0; iter < j; ++iter) {
+        new_params[iter] = tmp[iter];
+      }
+    }
+  }
+
+  // Verify that the values are between -1 and 1
+  bool result = true;
+  for (int i = 0; i < pq; i++) {
+    if (new_params[i] <= -1 || new_params[i] >= 1) result = false;
+  }
+  return result;
+}
+
+/**
  * Auxiliary function of _start_params: least square approximation of an
  * ARMA model (with or without seasonality)
  * @note: in this function the non-seasonal case has s=1, not s=0!
@@ -250,7 +293,7 @@ static void _arma_least_squares(
   int r = std::max(p_ar + qs, ps);
 
   if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
-    // Too few observations for the estimate, fill with 0
+    // Too few observations for the estimate, fill with 0 (1 for sigma2)
     if (k)
       CUDA_CHECK(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
     if (p)
@@ -380,6 +423,25 @@ static void _arma_least_squares(
                        d_sigma2[bid] = acc / static_cast<double>(n_obs - r - q);
                      });
   }
+
+  // If (S)AR or (S)MA are not valid for the inverse transform, set them to zero
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     if (p) {
+                       double* b_ar = d_ar + bid * p;
+                       bool valid = test_invparams(b_ar, p, true);
+                       if (!valid) {
+                         for (int ip = 0; ip < p; ip++) b_ar[ip] = 0;
+                       }
+                     }
+                     if (q) {
+                       double* b_ma = d_ma + bid * q;
+                       bool valid = test_invparams(b_ma, q, false);
+                       if (!valid) {
+                         for (int iq = 0; iq < q; iq++) b_ma[iq] = 0;
+                       }
+                     }
+                   });
 }
 
 /**
