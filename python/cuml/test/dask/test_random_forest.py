@@ -148,8 +148,7 @@ def test_rf_throws_exceptions(cluster):
 
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 3, 5])
-@pytest.mark.parametrize('algo', ['auto', 'tree_reorg', 'batch_tree_reorg'])
-def test_rf_regression_dask_fil(partitions_per_worker, cluster, algo):
+def test_rf_regression_dask_fil(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
@@ -193,7 +192,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster, algo):
         cu_rf_mg = cuRFR_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
 
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df, algo)
+        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df)
 
         acc_score = r2_score(cu_rf_mg_predict, y_test)
 
