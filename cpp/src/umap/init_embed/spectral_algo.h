@@ -69,9 +69,7 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
   T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr,
                                 d_ptr + (n * params->n_components)));
 
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+  uint64_t seed = params->random_state;
 
   MLCommon::Random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
