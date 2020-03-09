@@ -20,6 +20,8 @@ import pickle
 import cudf
 import cuml
 
+from cuml.dask.common import register_serialization
+
 
 # all (de-)serializtion are attached to cuML Objects
 serializable_classes = (cuml.common.CumlArray,)
@@ -38,6 +40,8 @@ try:
                      cuda_serialize, cuda_deserialize)
     register_generic(MultinomialNB, "dask",
                      dask_serialize, dask_deserialize)
+
+    register_serialization()
 
     @cuda_serialize.register(serializable_classes)
     def cuda_serialize_cuml_object(x):
