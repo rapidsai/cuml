@@ -134,7 +134,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml cuml/te -v -s
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml cuml/test/test_random_forest.py cuml/test/test_svm.py -v -s
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
