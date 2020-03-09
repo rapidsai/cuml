@@ -96,12 +96,12 @@ def confusion_matrix(y_true, y_pred,
     y_true = y_true[ind]
     sample_weight = sample_weight[ind]
 
-    cm = cp.sparse.coo_matrix(
-        (sample_weight, (y_true, y_pred)),
-        shape=(n_labels, n_labels),
-        # Choosing accumulator dtype to always have high precision
-        dtype=np.int64 if dtype.kind in {'i', 'u', 'b'} else np.float64,
-    ).toarray()
+    # Choosing accumulator dtype to always have high precision
+    dtype = np.int64 if dtype.kind in {'i', 'u', 'b'} else np.float64
+
+    cm = cp.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
+                              shape=(n_labels, n_labels),
+                              dtype=dtype).toarray()
 
     with np.errstate(all='ignore'):
         if normalize == 'true':
