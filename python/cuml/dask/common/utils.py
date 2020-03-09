@@ -21,7 +21,6 @@ import os
 import numba.cuda
 
 from cuml.utils import device_of_gpu_matrix
-from cuml import Base
 
 from asyncio import InvalidStateError
 
@@ -261,4 +260,3 @@ class MultiHolderLock:
             self.current_tasks -= 1
             self.lock.release()
         return lock_acquired
-

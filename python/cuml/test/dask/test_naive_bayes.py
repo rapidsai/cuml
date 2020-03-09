@@ -45,7 +45,7 @@ def load_corpus(client):
     xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
 
     X = to_sp_dask_array(xformed, client)
-    
+
     y = dask.array.from_array(twenty_train.target, asarray=False,
                               fancy=False).astype(cp.int32)
 
