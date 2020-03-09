@@ -164,7 +164,8 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
 
         assert array_equal(result["rf_res"], pickled_model.predict(X_test))
         # Confirm no crash from score
-        pickled_model.score(X_test, np.zeros(X_test.shape[0]))
+        pickled_model.score(X_test, np.zeros(X_test.shape[0]),
+                            predict_model="GPU")
 
     if (n_classes > 2 and key != 'RandomForestRegressor'):
         with pytest.raises(NotImplementedError):
