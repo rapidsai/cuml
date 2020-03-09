@@ -31,7 +31,7 @@ def _check_fil_parameter_validity(depth, storage_format, algo):
                          "or `auto` to set 'fil_sparse_format=True`.")
 
 
-def _check_fil_value(fil_sparse_format):
+def _check_fil_sparse_format_value(fil_sparse_format):
     accepted_vals = [True, False, 'auto']
     if fil_sparse_format == 'auto':
         storage_type = fil_sparse_format
@@ -76,7 +76,7 @@ def _obtain_fil_model(treelite_handle, depth,
         inferencing on the random forest model.
     """
 
-    storage_type = _check_fil_value(fil_sparse_format)
+    storage_type = _check_fil_sparse_format_value(fil_sparse_format)
 
     _check_fil_parameter_validity(depth=depth,
                                   storage_format=storage_type,

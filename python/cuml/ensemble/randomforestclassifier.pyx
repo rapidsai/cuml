@@ -39,7 +39,7 @@ from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
 from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
-    _check_fil_value, _obtain_treelite_model, _obtain_fil_model
+    _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
@@ -598,7 +598,7 @@ class RandomForestClassifier(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        storage_type = _check_fil_value(fil_sparse_format)
+        storage_type = _check_fil_sparse_format_value(fil_sparse_format)
 
         _check_fil_parameter_validity(depth=self.max_depth,
                                       storage_format=storage_type,
