@@ -54,8 +54,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "umap-learn" \
       "protobuf >=3.4.1,<4.0.0" \
       "nccl>=2.5" \
-      "dask>=2.8.0" \
-      "distributed>=2.8.0" \
+      "dask>=2.12*" \
+      "distributed>=2.12*" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
