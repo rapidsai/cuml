@@ -19,6 +19,8 @@
 #include <iostream>
 #include <vector>
 
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
@@ -238,6 +240,7 @@ static void _arma_least_squares(
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
+  auto counting = thrust::make_counting_iterator(0);
 
   int batch_size = bm_y.batches();
   int n_obs = bm_y.shape().first;
@@ -256,6 +259,12 @@ static void _arma_least_squares(
     if (q)
       CUDA_CHECK(
         cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
+    if (estimate_sigma2) {
+      thrust::device_ptr<double> sigma2_thrust =
+        thrust::device_pointer_cast(d_sigma2);
+      thrust::fill(thrust::cuda::par.on(stream), sigma2_thrust,
+                   sigma2_thrust + batch_size, 1.0);
+    }
     return;
   }
 
@@ -297,7 +306,6 @@ static void _arma_least_squares(
   }
 
   // Fill the first column of the matrix with 1 if we fit an intercept
-  auto counting = thrust::make_counting_iterator(0);
   if (k) {
     double* d_ls_ar_res = bm_ls_ar_res.raw_data();
     thrust::for_each(thrust::cuda::par.on(stream), counting,
