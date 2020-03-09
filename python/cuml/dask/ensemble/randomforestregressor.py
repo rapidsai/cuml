@@ -59,7 +59,6 @@ class RandomForestRegressor(DelayedPredictionMixin):
     Please check the single-GPU implementation of Random Forest
     classifier for more information about the underlying algorithm.
 
-
      Parameters
     -----------
     n_estimators : int (default = 10)
@@ -295,6 +294,10 @@ class RandomForestRegressor(DelayedPredictionMixin):
     def _print_summary(model):
         model.print_summary()
 
+    @staticmethod
+    def _predict_cpu(model, X, predict_model, r):
+        return model._predict_model_on_cpu(X, predict_model=predict_model)
+
     def print_summary(self):
         """
         Print the summary of the forest used to train and test the model.
@@ -337,11 +340,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         concat_model_handle = model.concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        concatenated_model_bytes = \
-            model.concatenate_model_bytes(concat_model_handle)
-        for w in self.workers:
-            self.rfs[w].result()._model_pbuf_bytes = \
-                concatenated_model_bytes
+        model.concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
@@ -424,29 +423,76 @@ class RandomForestRegressor(DelayedPredictionMixin):
         Parameters
         ----------
         X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
-        deep_check : boolean (default = False)
-                     This is used to check if the concatenated forest used to
-                     predict the labels in GPU, have the right forest
-                     information.
-                     Set it to True if you want to run an extensive check of
-                     the concatenated treelite forest created. It will compare
-                     the position and value of each node present in each tree
-                     of the concatenated forest with respect to the original
-                     forests present in the different workers.
-                     Required only while using predict for binary
-                     classification.
+
         Returns
         ----------
         y: NumPy
            Dense vector (float) of shape (n_samples, 1)
 
         """
+        if predict_model == "CPU":
+            preds = self._predict_using_cpu(X, predict_model=predict_model)
+
+        else:
+            preds = \
+                self._predict_using_fil(X, predict_model=predict_model,
+                                        algo=algo,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        output_class=output_class,
+                                        delayed=delayed,
+                                        parallelism=parallelism)
+        return preds
+
+    def _predict_using_fil(self, X, predict_model="GPU", algo='auto',
+                           convert_dtype=True, fil_sparse_format='auto',
+                           output_class=False, delayed=True, parallelism=25):
         self._concat_treelite_models()
 
         kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
                   "predict_model": predict_model, "algo": algo,
                   "fil_sparse_format": fil_sparse_format}
         return self._predict(X, delayed, parallelism, **kwargs)
+
+    def _predict_using_cpu(self, X, predict_model):
+
+        c = default_client()
+        workers = self.workers
+
+        X_Scattered = c.scatter(X)
+
+        futures = list()
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestRegressor._predict_cpu,
+                    self.rfs[w],
+                    X_Scattered,
+                    predict_model,
+                    random.random(),
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+
+        indexes = list()
+        rslts = list()
+        for d in range(len(futures)):
+            rslts.append(futures[d].result())
+            indexes.append(0)
+
+        pred = list()
+
+        for i in range(len(X)):
+            pred_per_worker = 0.0
+            for d in range(len(rslts)):
+                pred_per_worker = pred_per_worker + rslts[d][i]
+
+            pred.append(pred_per_worker / len(rslts))
+
+        return pred
 
     def get_params(self, deep=True):
         """
