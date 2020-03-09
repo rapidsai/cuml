@@ -137,6 +137,22 @@ __global__ void optimize_batch_kernel(
       }
     }
   }
+  // storing gradients for negative samples back to global memory
+  if (use_shared_mem && move_other) {
+    __syncthreads();
+    if (multicore_implem) {
+      for (int d = 0; d < params.n_components; d++) {
+        auto grad = current_buffer[d * TPB_X];
+        atomicAdd(other + d, -grad);
+      }
+    } else {
+      T2 *tmp2 = (T2 *)embedding_updates + (k * params.n_components);
+      for (int d = 0; d < params.n_components; d++) {
+        auto grad = current_buffer[d * TPB_X];
+        atomicAdd(tmp2 + d, -grad);
+      }
+    }
+  }
   epoch_of_next_sample[row] = _epoch_of_next_sample + _epochs_per_sample;
   // number of negative samples to choose
   auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[row];
@@ -184,22 +200,17 @@ __global__ void optimize_batch_kernel(
       }
     }
   }
+  // storing gradients for positive samples back to global memory
   if (use_shared_mem) {
-    // storing everything back to global memory
     __syncthreads();
     if (multicore_implem) {
       for (int d = 0; d < params.n_components; d++) {
-        auto grad = current_buffer[d * TPB_X];
-        atomicAdd(current + d, grad);
-        if (move_other) atomicAdd(other + d, -grad);
+        atomicAdd(current + d, current_buffer[d * TPB_X]);
       }
     } else {
       T2 *tmp1 = (T2 *)embedding_updates + (j * params.n_components);
-      T2 *tmp2 = (T2 *)embedding_updates + (k * params.n_components);
       for (int d = 0; d < params.n_components; d++) {
-        auto grad = current_buffer[d * TPB_X];
-        atomicAdd(tmp1 + d, grad);
-        if (move_other) atomicAdd(tmp2 + d, -grad);
+        atomicAdd(tmp1 + d, current_buffer[d * TPB_X]);
       }
     }
   }
