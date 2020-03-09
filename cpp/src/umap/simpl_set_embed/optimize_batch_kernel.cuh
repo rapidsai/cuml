@@ -28,11 +28,11 @@ using namespace ML;
 /**
  * Calculate the squared distance between two vectors of size n
  */
-template <typename T>
-DI double rdist(const T *X, const T *Y, int n) {
-  double result = 0.0;
+template <typename T, typename T2>
+DI T2 rdist(const T *X, const T *Y, int n) {
+  auto result = T2(0.0);
   for (int i = 0; i < n; i++) {
-    double diff = X[i] - Y[i];
+    auto diff = T2(X[i] - Y[i]);
     result += diff * diff;
   }
   return result;
@@ -41,27 +41,30 @@ DI double rdist(const T *X, const T *Y, int n) {
 /**
  * Clip a value to within a lower and upper bound
  */
-DI double clip(double val, double lb, double ub) {
+template <typename T2>
+DI T2 clip(T2 val, T2 lb, T2 ub) {
   return min(max(val, lb), ub);
 }
 
 /**
  * Calculate the repulsive gradient
  */
-DI double repulsive_grad(double dist_squared, double gamma, UMAPParams params) {
-  double grad_coeff = 2.0 * gamma * params.b;
+template <typename T2>
+DI T2 repulsive_grad(T2 dist_squared, T2 gamma, UMAPParams params) {
+  auto grad_coeff = T2(2.0) * gamma * params.b;
   grad_coeff /=
-    (0.001 + dist_squared) * (params.a * pow(dist_squared, params.b) + 1.0);
+    (T2(0.001) + dist_squared) * (params.a * pow(dist_squared, params.b) + T2(1.0));
   return grad_coeff;
 }
 
 /**
  * Calculate the attractive gradient
  */
-DI double attractive_grad(double dist_squared, UMAPParams params) {
-  double grad_coeff =
-    -2.0 * params.a * params.b * pow(dist_squared, params.b - 1.0);
-  grad_coeff /= params.a * pow(dist_squared, params.b) + 1.0;
+template <typename T2>
+DI T2 attractive_grad(T2 dist_squared, UMAPParams params) {
+  auto grad_coeff =
+    T2(-2.0) * params.a * params.b * pow(dist_squared, params.b - T2(1.0));
+  grad_coeff /= params.a * pow(dist_squared, params.b) + T2(1.0);
   return grad_coeff;
 }
 
@@ -70,8 +73,8 @@ template <typename T, typename T2, int TPB_X, bool multicore_implem,
 __global__ void optimize_batch_kernel(
   T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
   const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
-  T *epoch_of_next_negative_sample, T *epoch_of_next_sample, double alpha,
-  int epoch, double gamma, uint64_t seed, double *embedding_updates,
+  T *epoch_of_next_negative_sample, T *epoch_of_next_sample, T2 alpha,
+  int epoch, T2 gamma, uint64_t seed, double *embedding_updates,
   bool move_other, UMAPParams params, T nsr_inv) {
   extern __shared__ T embedding_shared_mem_updates[];
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -100,12 +103,12 @@ __global__ void optimize_batch_kernel(
     current_buffer = (T2 *)embedding_updates + (j * params.n_components);
     other_buffer = (T2 *)embedding_updates + (k * params.n_components);
   }
-  double dist_squared = rdist(current, other, params.n_components);
+  auto dist_squared = rdist<T, T2>(current, other, params.n_components);
   // Attractive force between the two vertices, since they
   // are connected by an edge in the 1-skeleton.
-  double attractive_grad_coeff = 0.0;
-  if (dist_squared > 0.0) {
-    attractive_grad_coeff = attractive_grad(dist_squared, params);
+  auto attractive_grad_coeff = T2(0.0);
+  if (dist_squared > T2(0.0)) {
+    attractive_grad_coeff = attractive_grad<T2>(dist_squared, params);
   }
   /**
    * Apply attractive force between `current` and `other`
@@ -115,8 +118,8 @@ __global__ void optimize_batch_kernel(
    * performing unsupervised training).
    */
   for (int d = 0; d < params.n_components; d++) {
-    double grad_d =
-      clip(attractive_grad_coeff * (current[d] - other[d]), -4.0f, 4.0f);
+    auto grad_d =
+      clip<T2>(attractive_grad_coeff * (current[d] - other[d]), T2(-4.0), T2(4.0));
     grad_d *= alpha;
     if (use_shared_mem) {
       current_buffer[d * TPB_X] += grad_d;
@@ -149,11 +152,11 @@ __global__ void optimize_batch_kernel(
     gen.next(r);
     int t = r % tail_n;
     T *negative_sample = tail_embedding + (t * params.n_components);
-    dist_squared = rdist(current, negative_sample, params.n_components);
+    dist_squared = rdist<T, T2>(current, negative_sample, params.n_components);
     // repulsive force between two vertices
-    double repulsive_grad_coeff = 0.0;
-    if (dist_squared > 0.0) {
-      repulsive_grad_coeff = repulsive_grad(dist_squared, gamma, params);
+    auto repulsive_grad_coeff = T2(0.0);
+    if (dist_squared > T2(0.0)) {
+      repulsive_grad_coeff = repulsive_grad<T2>(dist_squared, gamma, params);
     } else if (j == t)
       continue;
     /**
@@ -162,13 +165,13 @@ __global__ void optimize_batch_kernel(
      * their 'weights' to push them farther in Euclidean space.
      */
     for (int d = 0; d < params.n_components; d++) {
-      double grad_d = 0.0;
-      if (repulsive_grad_coeff > 0.0)
+      auto grad_d = T2(0.0);
+      if (repulsive_grad_coeff > T2(0.0))
         grad_d =
-          clip(repulsive_grad_coeff * (current[d] - negative_sample[d]),
-               -4.0f, 4.0f);
+          clip<T2>(repulsive_grad_coeff * (current[d] - negative_sample[d]),
+                   T2(-4.0), T2(4.0));
       else
-        grad_d = 4.0;
+        grad_d = T2(4.0);
       grad_d *= alpha;
       if (use_shared_mem) {
         current_buffer[d * TPB_X] += grad_d;
