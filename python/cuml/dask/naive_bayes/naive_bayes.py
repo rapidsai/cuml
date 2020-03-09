@@ -119,6 +119,10 @@ class MultinomialNB(object):
         return model.class_count_, model.feature_count_
 
     @staticmethod
+    def _predict(model, X):
+        return [model.predict(x) for x in X]
+
+    @staticmethod
     def _unique(x):
         return rmm_cupy_ary(cp.unique, x)
 
@@ -215,7 +219,9 @@ class MultinomialNB(object):
     def _get_size(arrs):
         return arrs.shape[0]
 
-    def predict(self, X, delayed=True, parallelism=5):
+    def predict(self, X):
+        # TODO: Once cupy sparse arrays are fully supported underneath Dask arrays,
+        # this can extend DelayedPredictionMixin.
         """
         Predict classes for distributed Naive Bayes classifier model
 
@@ -243,7 +249,7 @@ class MultinomialNB(object):
 
         sizes = self.client_.compute([x[1] for x in futures], sync=True)
 
-        models = self.client_.scatter(self.model_,
+        models = self.client_.scatter(self.local_model,
                                       broadcast=True,
                                       direct=True,
                                       hash=False,
