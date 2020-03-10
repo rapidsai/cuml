@@ -146,7 +146,7 @@ class CumlArray(Buffer):
             ary_interface = data.__cuda_array_interface__
 
         else:
-            raise TypeError("Unrecognized data type.")
+            raise TypeError("Unrecognized data type: %s" % str(type(data)))
 
         if ary_interface:
             self.shape = ary_interface['shape']

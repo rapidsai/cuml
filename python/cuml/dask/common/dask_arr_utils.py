@@ -29,6 +29,8 @@ from tornado import gen
 from dask.distributed import default_client
 from toolz import first
 
+from cuml.dask.common.input_utils import _extract_partitions
+
 from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import wait
@@ -37,6 +39,9 @@ from dask import delayed
 
 @gen.coroutine
 def extract_arr_partitions(darray, client=None):
+
+    # TODO: This will go away once ridge is consolidated to use the mixin
+
     """
     Given a Dask Array, return an array of tuples mapping each
     worker to their list of futures.
@@ -142,7 +147,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
     if isinstance(cudf_or_array, dask.array.Array):
         # At the time of developing this, using map_blocks will not work
         # to convert a Dask.Array to CuPy sparse arrays underneath.
-        parts = client.sync(extract_arr_partitions, cudf_or_array)
+        parts = client.sync(_extract_partitions, cudf_or_array)
         cudf_or_array = [client.submit(_conv_np_to_df, part, workers=[w])
                          for w, part in parts]
 

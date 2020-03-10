@@ -16,12 +16,12 @@
 import logging
 import os
 import numba.cuda
+import random
+import time
 
 from cuml.utils import device_of_gpu_matrix
 
 from asyncio import InvalidStateError
-
-import time
 
 from threading import Lock
 
@@ -169,6 +169,7 @@ class MultiHolderLock:
 
     def _acquire(self, blocking=True, timeout=10):
         lock_acquired = False
+
         inner_lock_acquired = self.lock.acquire(blocking, timeout)
 
         if inner_lock_acquired and self.current_tasks < self.n - 1:
@@ -197,6 +198,7 @@ class MultiHolderLock:
                 raise TimeoutError()
 
             lock_acquired = self.acquire(blocking, timeout)
+            time.sleep(random.uniform(0, 0.01))
 
         return lock_acquired
 
