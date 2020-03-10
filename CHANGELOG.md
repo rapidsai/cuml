@@ -46,6 +46,7 @@
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
+- PR #1816: Add ARIMA notebook
 
 ## Bug Fixes
 - PR #1833: Fix depth issue in shallow RF regression estimators
