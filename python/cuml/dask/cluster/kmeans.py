@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import numpy as np
+import cupy as cp
 
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
@@ -220,7 +220,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         result: Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the transformed data
         """
-        return self._transform(X, delayed=delayed)
+        return self._transform(X, n_dims=2, delayed=delayed)
 
     def score(self, X):
         """
@@ -237,10 +237,14 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         Inertial score
         """
 
-        scores = self._run_parallel_func(KMeans._score, X, delayed=False,
+        scores = self._run_parallel_func(KMeans._score,
+                                         X,
+                                         n_dims=1,
+                                         delayed=False,
                                          output_futures=True)
 
-        return -1 * np.sum(np.array([s.result() for s in scores]) * -1)
+        return -1 * cp.sum(cp.asarray(
+            self.client.compute(scores, sync=True))*-1.0)
 
     def get_param_names(self):
         return list(self.kwargs.keys())

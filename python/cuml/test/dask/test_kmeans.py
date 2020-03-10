@@ -58,6 +58,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         cumlModel.fit(X_cudf)
         cumlLabels = cumlModel.predict(X_cudf, delayed_predict)
 
+        cumlLabels.compute_chunk_sizes()
+
         n_workers = len(list(client.has_what().keys()))
 
         # Verifying we are grouping partitions. This should be changed soon.
@@ -68,7 +70,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
         from sklearn.metrics import adjusted_rand_score
 
-        cumlPred = cumlLabels.compute().to_pandas().values
+        cumlPred = cumlLabels.compute().get()
 
         assert cumlPred.shape[0] == nrows
         assert np.max(cumlPred) == nclusters - 1
@@ -123,10 +125,9 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
             # series shape is (nrows,) not (nrows, 1) but both are valid
             # and equivalent for this test
             assert xformed.shape in [(nrows, nclusters), (nrows,)]
-            xformed = xformed.to_array()
         else:
             assert xformed.shape == (nrows, nclusters)
-            xformed = xformed.as_matrix()
+        xformed = xformed.get()
 
         # The argmin of the transformed values should be equal to the labels
         # reshape is a quick manner of dealing with (nrows,) is not (nrows, 1)
@@ -175,7 +176,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         predictions = cumlModel.predict(X_cudf).compute()
 
-        centers = cp.array(cumlModel.cluster_centers_.as_gpu_matrix())
+        centers = cumlModel.cluster_centers_
 
         expected_score = 0
         for idx, label in enumerate(predictions):
