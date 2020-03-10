@@ -43,6 +43,7 @@
 - PR #1816: Add ARIMA notebook
 
 ## Bug Fixes
+- PR #1835 : Fix calling default RF Classification always
 - PR #1833: Fix depth issue in shallow RF regression estimators
 - PR #1770: Warn that KalmanFilter is deprecated
 - PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
