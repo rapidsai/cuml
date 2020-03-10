@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from itertools import chain, permutations
 
 import cuml
 import cupy as cp
@@ -35,6 +36,7 @@ from sklearn.preprocessing import StandardScaler
 
 from cuml.metrics.regression import mean_squared_error
 from sklearn.metrics.regression import mean_squared_error as sklearn_mse
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
 from cuml.metrics import confusion_matrix
 
@@ -229,3 +231,70 @@ def test_confusion_matrix():
                     [0, 0, 1],
                     [1, 0, 2]])
     cp.testing.assert_array_equal(cm, ref)
+
+
+def test_confusion_matrix_binary():
+    y_true = cp.array([0, 1, 0, 1])
+    y_pred = cp.array([1, 1, 1, 0])
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    ref = cp.array([0, 2, 1, 1])
+    cp.testing.assert_array_equal(ref, cp.array([tn, fp, fn, tp]))
+
+
+@pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64])
+@pytest.mark.parametrize('problem_type', ['binary', 'multiclass'])
+def test_confusion_matrix_random(n_samples, dtype, problem_type):
+    upper_range = 1 if problem_type == 'binary' else 1000
+
+    y_true, y_pred = generate_random_labels(
+        lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype))
+    cm = confusion_matrix(y_true, y_pred)
+    ref = sk_confusion_matrix(y_true, y_pred)
+    cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+
+
+@pytest.mark.parametrize(
+    "normalize, expected_results",
+    [('true', 0.333333333),
+     ('pred', 0.333333333),
+     ('all', 0.1111111111),
+     (None, 2)]
+)
+def test_confusion_matrix_normalize(normalize, expected_results):
+    y_test = cp.array([0, 1, 2] * 6)
+    y_pred = cp.array(list(chain(*permutations([0, 1, 2]))))
+    cm = confusion_matrix(y_test, y_pred, normalize=normalize)
+    cp.testing.assert_allclose(cm, cp.array(expected_results))
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize('labels', [(0, 1),
+                                    (2, 1),
+                                    (2, 1, 4, 7),
+                                    (2, 20)])
+def test_confusion_matrix_multiclass_subset_labels(labels):
+    y_true, y_pred = generate_random_labels(
+        lambda rng: rng.randint(0, 3, 10).astype(np.int32))
+
+    ref = sk_confusion_matrix(y_true, y_pred, labels=labels)
+    labels = cp.array(labels, dtype=np.int32)
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+
+
+@pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64])
+@pytest.mark.parametrize('weights_dtype', ['int', 'float'])
+def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype):
+    y_true, y_pred = generate_random_labels(
+        lambda rng: rng.randint(0, 10, n_samples).astype(dtype))
+
+    if weights_dtype == 'int':
+        sample_weight = np.random.RandomState(0).randint(0, 10, n_samples)
+    else:
+        sample_weight = np.random.RandomState(0).rand(n_samples)
+
+    cm = confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
+    ref = sk_confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
+    cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
