@@ -35,6 +35,39 @@ SCORE_EPS = 0.06
 @pytest.mark.parametrize('nrows', [1000, 10000])
 @pytest.mark.parametrize('ncols', [10, 50])
 @pytest.mark.parametrize('nclusters', [2, 5])
+@pytest.mark.parametrize('random_state', [i for i in range(50)])
+def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
+                               random_state):
+
+    # Using fairly high variance between points in clusters
+    cluster_std = 1.0
+
+    X, y = make_blobs(nrows,
+                      ncols,
+                      nclusters,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=random_state)
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+                              n_clusters=nclusters,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+    cu_score = cuml_kmeans.score(X)
+
+    kmeans = cluster.KMeans(random_state=random_state,
+                            n_clusters=nclusters)
+    kmeans.fit(X.copy_to_host())
+    sk_score = kmeans.score(X.copy_to_host())
+
+    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+
+
+@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('ncols', [10, 50])
+@pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
 @pytest.mark.parametrize('random_state', [i for i in range(25)])
 def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
