@@ -22,8 +22,6 @@ import cupyx
 import cudf
 import dask
 
-import cuml.comm.serialize  # NOQA
-
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from tornado import gen
 from dask.distributed import default_client
@@ -129,6 +127,11 @@ def to_sp_dask_array(cudf_or_array, client=None):
     dask_array : dask.Array backed by cupy.sparse.csr_matrix
     """
     client = default_client() if client is None else client
+
+    # Makes sure the MatDescriptor workaround for CuPy sparse arrays
+    # is loaded. This can go away once this is fixed in CuPy
+    # Ref: https://github.com/cupy/cupy/issues/3061
+    from cuml.comm import serialize
 
     shape = cudf_or_array.shape
     if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \

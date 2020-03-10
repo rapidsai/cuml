@@ -31,7 +31,7 @@ class BaseLinearModelSyncFitMixin(object):
         data = DistributedDataHandler.create(data=data, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        comms = CommsContext(comms_p2p=False, verbose=self.verbose)
         comms.init(workers=data.workers)
 
         data.calculate_parts_to_sizes(comms)
