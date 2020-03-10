@@ -38,10 +38,16 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
     wait(X_cudf)
 
-    X = X_cudf.compute().to_pandas().values
+    print(str(X_cudf.head(3)))
 
-    cupca = daskPCA(n_components=5, whiten=True)
-    cupca.fit(X_cudf)
+    try:
+
+        cupca = daskPCA(n_components=5, whiten=True)
+        cupca.fit(X_cudf)
+    except Exception as e:
+        print(str(e))
+
+    X = X_cudf.compute().to_pandas().values
 
     skpca = PCA(n_components=5, whiten=True, svd_solver="full")
     skpca.fit(X)
