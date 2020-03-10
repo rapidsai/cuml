@@ -376,14 +376,23 @@ def test_umap_knn_parameters(n_neighbors):
     knn = NearestNeighbors(n_neighbors=n_neighbors)
     knn.fit(data)
     knn_dists, knn_indices = knn.kneighbors(data)
-    knn_indices = knn_indices.astype(np.int64)
+    knn_indices = knn_indices.astype(np.int_)
     knn_dists = knn_dists.astype(np.float32)
 
-    model = cuUMAP(verbose=False, n_neighbors=n_neighbors)
-    embedding = model.fit_transform(data, convert_dtype=True,
-                                    knn_indices=knn_indices,
-                                    knn_dists=knn_dists)
+    model1 = cuUMAP(verbose=False, random_state=42, n_neighbors=n_neighbors)
+    embedding1 = model1.fit_transform(data, convert_dtype=True)
 
-    embedding = model.transform(data, convert_dtype=True)
-    trust = trustworthiness(data, embedding, 10)
-    assert trust >= 0.92
+    model2 = cuUMAP(verbose=False, random_state=42, n_neighbors=n_neighbors)
+    embedding2 = model2.fit_transform(data, convert_dtype=True,
+                                      knn_indices=knn_indices,
+                                      knn_dists=knn_dists)
+
+    trust1 = trustworthiness(data, embedding1, 10)
+    assert trust1 >= 0.92
+    trust2 = trustworthiness(data, embedding2, 10)
+    assert trust2 >= 0.92
+
+    """
+    assert array_equal(embedding1, embedding2,
+                       1e-3, with_sign=True)
+    """
