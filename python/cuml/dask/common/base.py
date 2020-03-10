@@ -13,6 +13,9 @@
 # limitations under the License.
 #
 
+# Needed for 'dask' & 'cuda' serialization of single-GPU models
+import cuml.comm.serialize  # NOQA
+
 import cupy as cp
 import dask
 import numpy as np

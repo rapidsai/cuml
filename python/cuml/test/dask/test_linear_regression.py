@@ -69,6 +69,12 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
     client = Client(cluster)
 
     try:
+
+        def imp():
+            import cuml.comm.serialize  # NOQA
+
+        client.run(imp)
+
         from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
         n_info = 5

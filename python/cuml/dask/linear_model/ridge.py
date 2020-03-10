@@ -16,7 +16,6 @@
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.comms import worker_state
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
 from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
 from dask.distributed import default_client
 
@@ -68,7 +67,6 @@ class Ridge(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
 
     def __init__(self, client=None, **kwargs):
         self.client = default_client() if client is None else client
-        patch_cupy_sparse_serialization(self.client)
         self.kwargs = kwargs
         self.coef_ = None
         self.intercept_ = None
