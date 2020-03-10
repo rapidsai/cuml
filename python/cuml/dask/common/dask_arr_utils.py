@@ -129,9 +129,12 @@ def to_sp_dask_array(cudf_or_array, client=None):
     client = default_client() if client is None else client
 
     # Makes sure the MatDescriptor workaround for CuPy sparse arrays
-    # is loaded. This can go away once this is fixed in CuPy
+    # is loaded (since Dask lazy-loaded serialization in cuML is only
+    # executed when object from the cuML package needs serialization.
+    # This can go away once the MatDescriptor pickling bug is fixed
+    # in CuPy.
     # Ref: https://github.com/cupy/cupy/issues/3061
-    from cuml.comm import serialize
+    from cuml.comm import serialize  # NOQA
 
     shape = cudf_or_array.shape
     if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \
