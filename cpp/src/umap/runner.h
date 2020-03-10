@@ -91,7 +91,6 @@ void _fit(const cumlHandle &handle,
 
   if (params->verbose)
     std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
-  find_ab(params, d_alloc, stream);
 
   /**
    * Allocate workspace for kNN graph
@@ -127,8 +126,8 @@ void _fit(const cumlHandle &handle,
   }
 
   /**
-		 * Run simplicial set embedding to approximate low-dimensional representation
-		 */
+   * Run simplicial set embedding to approximate low-dimensional representation
+   */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
                                d_alloc, stream);
 
@@ -147,8 +146,6 @@ void _fit(const cumlHandle &handle,
 
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
-
-  find_ab(params, d_alloc, stream);
 
   /**
    * Allocate workspace for kNN graph
@@ -208,14 +205,16 @@ void _fit(const cumlHandle &handle,
   COO<T> ocoo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, d_alloc,
                                                stream);
-
   /**
    * Initialize embeddings
    */
   InitEmbed::run(handle, X, n, d, knn_indices.data(), knn_dists.data(), &ocoo,
                  params, embeddings, stream, params->init);
 
-  if (params->callback) params->callback->on_preprocess_end(embeddings);
+  if (params->callback) {
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(embeddings);
+  }
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
@@ -232,7 +231,7 @@ void _fit(const cumlHandle &handle,
 	 *
 	 */
 template <typename T, int TPB_X>
-void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
+void _transform(const cumlHandle &handle, T *X, int n, int d, T *orig_X,
                 int orig_n, T *embedding, int embedding_n, UMAPParams *params,
                 T *transformed) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
@@ -342,7 +341,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + nnz));
 
   int n_epochs = params->n_epochs;
-  if (params->n_epochs <= 0) {
+  if (n_epochs <= 0) {
     if (n <= 10000)
       n_epochs = 100;
     else
@@ -390,7 +389,9 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
-    params, n_epochs, d_alloc, stream);
+    params, n_epochs, params->multicore_implem, d_alloc, stream);
+
+  if (params->callback) params->callback->on_train_end(transformed);
 }
 
 }  // namespace UMAPAlgo

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ cdef extern from "treelite/c_api.h":
                                        ModelHandle* out) except +
     cdef int TreeliteLoadProtobufModel(const char* filename,
                                        ModelHandle* out) except +
+    cdef const char* TreeliteGetLastError()
 
 
 cdef class TreeliteModel():
@@ -85,7 +86,7 @@ cdef class TreeliteModel():
     cdef ModelHandle get_handle(self):
         return self.handle
 
-    def __cdel__(self):
+    def __dealloc__(self):
         if self.handle != NULL:
             TreeliteFreeModel(self.handle)
 
@@ -102,6 +103,11 @@ cdef class TreeliteModel():
         cdef size_t out
         TreeliteQueryNumFeature(self.handle, &out)
         return out
+
+    @staticmethod
+    def free_treelite_model(model_handle):
+        cdef uintptr_t model_ptr = <uintptr_t>model_handle
+        TreeliteFreeModel(<ModelHandle> model_ptr)
 
     @staticmethod
     def from_filename(filename, model_type="xgboost"):
@@ -121,22 +127,31 @@ cdef class TreeliteModel():
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "protobuf":
             # XXX Not tested
             res = TreeliteLoadProtobufModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
             if res < 0:
-                raise RuntimeError("Failed to load %s" % filename)
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         else:
             raise ValueError("Unknown model type %s" % model_type)
         model = TreeliteModel()
         model.set_handle(handle)
         return model
 
+    @staticmethod
+    def from_treelite_model_handle(treelite_handle):
+        cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
+        model = TreeliteModel()
+        model.set_handle(handle)
+        return model
 
 cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:
@@ -168,7 +183,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                       forest_t,
                       float*,
                       float*,
-                      size_t)
+                      size_t,
+                      bool)
 
     cdef forest_t from_treelite(cumlHandle& handle,
                                 forest_t*,
@@ -183,6 +199,7 @@ cdef class ForestInference_impl():
     def __cinit__(self,
                   handle=None):
         self.handle = handle
+        self.forest_data = NULL
 
     def get_algo(self, algo_str):
         algo_dict={'AUTO': algo_t.ALGO_AUTO,
@@ -210,7 +227,7 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, preds=None):
+    def predict(self, X, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the exampes in X
 
@@ -220,6 +237,9 @@ cdef class ForestInference_impl():
             For optimal performance, pass a device array with C-style layout
 
         preds : float32 device array, shape = n_samples
+
+        predict_proba : bool, whether to output class probabilities(vs classes)
+        Supported only for binary classification. output format matches sklearn
         """
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, _, X_dtype = \
@@ -229,7 +249,10 @@ cdef class ForestInference_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            preds = rmm.device_array(n_rows, dtype=np.float32)
+            shape = (n_rows,)
+            if predict_proba:
+                shape += (2,)
+            preds = rmm.device_array(shape, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
@@ -237,16 +260,16 @@ cdef class ForestInference_impl():
 
         cdef uintptr_t preds_ptr
         preds_m, preds_ptr, _, _, _ = input_to_dev_array(
-            preds,
+            preds, order='C',
             check_dtype=np.float32)
 
         predict(handle_[0],
                 self.forest_data,
                 <float*> preds_ptr,
                 <float*> X_ptr,
-                <size_t> n_rows)
+                <size_t> n_rows,
+                <bool> predict_proba)
         self.handle.sync()
-        # synchronous w/o a stream
         return preds
 
     def load_from_treelite_model_handle(self,
@@ -296,7 +319,6 @@ cdef class ForestInference_impl():
         treelite_params.algo = self.get_algo(algo)
         treelite_params.storage_type = self.get_storage_type(storage_type)
 
-        self.forest_data = NULL
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
@@ -307,12 +329,12 @@ cdef class ForestInference_impl():
                       &treelite_params)
         return self
 
-    def __cdel__(self):
+    def __dealloc__(self):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-        free(handle_[0],
-             self.forest_data)
-        return self
+        if self.forest_data !=NULL:
+            free(handle_[0],
+                 self.forest_data)
 
 
 class ForestInference(Base):
@@ -406,7 +428,31 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        return self._impl.predict(X, preds)
+        return self._impl.predict(X, False, preds)
+
+    def predict_proba(self, X, preds=None):
+        """
+        Predicts the class probabilities for X with the loaded forest model.
+        The result is the raw floating point output
+        from the model.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
+           For optimal performance, pass a device array with C-style layout
+        preds: gpuarray or cudf.Series, shape = (n_samples,2)
+           binary probability output
+           Optional 'out' location to store inference results
+
+        Returns
+        ----------
+        GPU array of shape (n_samples,2) with inference results
+        (or 'preds' filled with inference results if preds was specified)
+        """
+        return self._impl.predict(X, True, preds)
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='AUTO',

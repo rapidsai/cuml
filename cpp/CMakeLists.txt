@@ -285,8 +285,8 @@ ExternalProject_Add(faiss
                             --with-cuda-arch=${FAISS_GPU_ARCHS}
                             -v
   PREFIX            ${FAISS_DIR}
-  BUILD_COMMAND     $(MAKE) -j${PARALLEL_LEVEL} VERBOSE=1
-  INSTALL_COMMAND   $(MAKE) -s install > /dev/null
+  BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM} -j${PARALLEL_LEVEL} VERBOSE=1
+  INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1
 )
@@ -306,14 +306,14 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfais
 
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           fca738770d2b09be1c0842fac9c0f5e3f6126c40
+    GIT_TAG           6fd01e4f1890950bbcf9b124da24e886751bffe6
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                       -DENABLE_PROTOBUF=ON
                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
     UPDATE_COMMAND    ""
-    PATCH_COMMAND     patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch
+    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true
 )
 
 add_dependencies(treelite faiss)
@@ -416,6 +416,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(NVTX)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
+  # If we export the libdmlc symbols, they can lead to weird crashes with other
+  # libraries that use libdmlc. This just hides the symbols internally.
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
@@ -433,7 +436,6 @@ if(BUILD_CUML_C_LIBRARY)
     src/svm/svm_api.cpp)
 
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
-
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################

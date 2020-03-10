@@ -26,7 +26,7 @@ from dask.distributed import wait
 
 
 @gen.coroutine
-def extract_ddf_partitions(ddf, client=None, agg=True):
+def extract_ddf_partitions(ddf, client=None):
     """
     Given a Dask cuDF, return an OrderedDict mapping
     'worker -> [list of futures]' for each partition in ddf.
@@ -107,7 +107,7 @@ def get_meta(df):
     return ret
 
 
-def to_dask_cudf(futures, client=None):
+def to_dask_cudf(futures, client=None, verbose=False):
     """
     Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
     :param futures: list[cudf.Dataframe] list of futures containing dataframes
@@ -117,6 +117,8 @@ def to_dask_cudf(futures, client=None):
     c = default_client() if client is None else client
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
+    if verbose:
+        print("to_dask_cudf dfs=%s" % str(dfs))
     meta = c.submit(get_meta, dfs[0]).result()
     return dd.from_delayed(dfs, meta=meta)
 

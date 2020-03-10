@@ -112,7 +112,8 @@ void grow_deep_tree_regression(
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
   float* infogain = tempmem->h_outgain->data();
 
-  for (int depth = 0; (depth < tempmem->swap_depth) && (n_nodes_nextitr != 0);
+  int scatter_algo_depth = std::min(tempmem->swap_depth, maxdepth);
+  for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;

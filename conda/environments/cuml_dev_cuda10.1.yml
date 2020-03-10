@@ -9,7 +9,7 @@ dependencies:
 - libclang=8.0.0
 - cmake=3.14.5
 - numba>=0.46
-- cupy>=6.6.0,<8.0.0a0
+- cupy>=7,<8.0.0a0
 - cudf=0.13*
 - rmm=0.13*
 - cython>=0.29,<0.30
@@ -22,7 +22,7 @@ dependencies:
 - dask-cuda=0.13*
 - dask-cudf=0.13*
 - ucx-py=0.13*
-- nccl>=2.4
+- nccl>=2.5
 - libcumlprims=0.13*
 - statsmodels
 - protobuf >=3.4.1,<4.0.0

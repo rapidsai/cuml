@@ -111,6 +111,8 @@ class Lasso(Base, RegressorMixin):
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class.
 
     Attributes
     -----------
@@ -124,7 +126,7 @@ class Lasso(Base, RegressorMixin):
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
-                 max_iter=1000, tol=1e-3, selection='cyclic'):
+                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None):
 
         """
         Initializes the lasso regression class.
@@ -141,6 +143,10 @@ class Lasso(Base, RegressorMixin):
         For additional docs, see `scikitlearn's Lasso
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
         """
+
+        # Hard-code verbosity as CoordinateDescent does not have verbosity
+        super(Lasso, self).__init__(handle=handle, verbose=0)
+
         self._check_alpha(alpha)
         self.alpha = alpha
         self.coef_ = None
@@ -165,7 +171,7 @@ class Lasso(Base, RegressorMixin):
         self.culasso = CD(fit_intercept=self.fit_intercept,
                           normalize=self.normalize, alpha=self.alpha,
                           l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter)
+                          max_iter=self.max_iter, handle=self.handle)
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:

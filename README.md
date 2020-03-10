@@ -1,5 +1,7 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - GPU Machine Learning Algorithms</div>
 
+[![Build Status](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/badge/icon)](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/)
+
 cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
 cuML enables data scientists, researchers, and software engineers to run
@@ -91,7 +93,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | Epsilon-Support Vector Regression (SVR) | |
 | **Time Series** | Linear Kalman Filter | |
 |  | Holt-Winters Exponential Smoothing | |
-|  | Auto-regressive Integrated Moving Average (ARIMA) | |
+|  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
 ---
 
 ## Installation
