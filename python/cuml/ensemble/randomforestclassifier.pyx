@@ -371,7 +371,6 @@ class RandomForestClassifier(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
-
     def _get_model_info(self):
         cdef ModelHandle cuml_model_ptr = NULL
         task_category = 1
