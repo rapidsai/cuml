@@ -47,7 +47,7 @@ try:
                      cuda_serialize, cuda_deserialize)
 
     register_generic(MultinomialNB, 'dask',
-                     cuda_serialize, cuda_deserialize)
+                     dask_serialize, dask_deserialize)
 
     register_generic(cuml.Base, 'dask',
                      dask_serialize, dask_deserialize)
