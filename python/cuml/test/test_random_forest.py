@@ -29,7 +29,7 @@ from cuml.test.utils import get_handle, unit_param, \
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 from sklearn.model_selection import train_test_split
@@ -211,17 +211,17 @@ def test_rf_regression_default(datatype, column_info, nrows):
     cuml_model = curfr()
     cuml_model.fit(X_train, y_train)
 
-    # predict using FIL
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
 
-    # score function should be equivalent
-    score_mse = cuml_model.score(X_test, y_test, predict_model="CPU")
-    manual_mse = ((cu_preds - y_test)**2).mean()
-    assert manual_mse == pytest.approx(score_mse)
-
+    # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
+
+    # score function should be equivalent
+    score_mse = cuml_model.score(X_test, y_test, predict_model="GPU")
+    sk_mse = mean_squared_error(y_test, fil_preds)
+    assert sk_mse == pytest.approx(score_mse)
 
     # Initialize, fit and predict using
     # sklearn's random forest regression model

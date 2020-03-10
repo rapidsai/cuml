@@ -658,7 +658,7 @@ class RandomForestRegressor(Base):
         return preds
 
     def score(self, X, y, algo='auto', convert_dtype=True,
-              fil_sparse_format='auto', predict_model="GPU"):
+              fil_sparse_format='auto', predict_model="CPU"):
         """
         Calculates the accuracy metric score of the model for X.
         Parameters
@@ -752,7 +752,7 @@ class RandomForestRegressor(Base):
         self.handle.sync()
         del(y_m)
         del(preds_m)
-        return stats, preds
+        return stats
 
     def get_params(self, deep=True):
         """
