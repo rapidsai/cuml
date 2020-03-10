@@ -117,6 +117,8 @@ def make_monotonic(labels, classes=None, copy=False):
     set [0, n-1] and renumbers them to be drawn that
     interval.
 
+    Replaces labels not present in classes by len(classes)+1.
+
     Parameters
     ----------
 
