@@ -74,14 +74,16 @@ def confusion_matrix(y_true, y_pred,
     else:
         labels, n_labels, _, _ = \
             input_to_cuml_array(labels, check_dtype=dtype, check_cols=1)
+        labels = labels.to_output('cupy')
     if sample_weight is None:
         sample_weight = cp.ones(n_rows, dtype=dtype)
     else:
         sample_weight, _, _, _ = \
-            input_to_cuml_array(sample_weight, check_dtype=dtype,
+            input_to_cuml_array(sample_weight,
+                                check_dtype=[cp.float32, cp.float64,
+                                             cp.int32, cp.int64],
                                 check_rows=n_rows, check_cols=n_cols)
         sample_weight = sample_weight.to_output('cupy')
-    print(1)
 
     if normalize not in ['true', 'pred', 'all', None]:
         raise ValueError("normalize must be one of {'true', 'pred', "
@@ -96,12 +98,9 @@ def confusion_matrix(y_true, y_pred,
     y_true = y_true[ind]
     sample_weight = sample_weight[ind]
 
-    # Choosing accumulator dtype to always have high precision
-    dtype = np.int64 if dtype.kind in {'i', 'u', 'b'} else np.float64
-
     cm = cp.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
                               shape=(n_labels, n_labels),
-                              dtype=dtype).toarray()
+                              dtype=np.float64).toarray()
 
     with np.errstate(all='ignore'):
         if normalize == 'true':
