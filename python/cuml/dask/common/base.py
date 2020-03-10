@@ -123,10 +123,11 @@ class DelayedParallelFunc(object):
                 return output if delayed else output.persist()
 
         else:
-            output = preds if output_futures \
-                else dask.dataframe.from_delayed(preds)
-
-            return output if delayed else output.persist()
+            if output_futures:
+                return self.client.compute(preds)
+            else:
+                output = dask.dataframe.from_delayed(preds)
+                return output if delayed else output.persist()
 
 
 class DelayedPredictionMixin(DelayedParallelFunc):
