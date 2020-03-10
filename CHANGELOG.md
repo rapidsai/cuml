@@ -73,6 +73,7 @@
 - PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
 - PR #1793: Updated fil pyx to solve memory leakage issue
 - PR #1810: Quickfix - chunkage in dask make_regression
+- PR #1842: DistributedDataHandler not properly setting 'multiple'
 
 # cuML 0.12.0 (Date TBD)
 
