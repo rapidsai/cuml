@@ -18,7 +18,6 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.comms import worker_state
 from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
-from dask.distributed import default_client
 
 
 class LinearRegression(BaseEstimator,
@@ -63,9 +62,11 @@ class LinearRegression(BaseEstimator,
         The independent term. If fit_intercept_ is False, will be 0.
     """
 
-    def __init__(self, client=None, **kwargs):
-        self.client = default_client() if client is None else client
-        self.kwargs = kwargs
+    def __init__(self, client=None, verbose=False, **kwargs):
+        super(LinearRegression, self).__init__(client=client,
+                                               verbose=verbose,
+                                               **kwargs)
+
         self.coef_ = None
         self.intercept_ = None
         self._model_fit = False
