@@ -20,6 +20,7 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1767: Single GPU decomposition models configurable output
 - PR #1778: Make cuML Handle picklable
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
@@ -43,6 +44,7 @@
 - PR #1726: Decorator to allocate CuPy arrays with RMM
 - PR #1719: UMAP random seed reproducibility
 - PR #1748: Test serializing `CumlArray` objects
+- PR #1776: Refactoring pca/tsvd distributed
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
