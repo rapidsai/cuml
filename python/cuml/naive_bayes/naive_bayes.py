@@ -239,6 +239,7 @@ class MultinomialNB(object):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
@@ -277,6 +278,7 @@ class MultinomialNB(object):
 
         return self
 
+    @with_cupy_rmm
     def update_log_probs(self):
         """
         Updates the log probabilities. This enables lazy update for
@@ -287,6 +289,7 @@ class MultinomialNB(object):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
+    @with_cupy_rmm
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples.
