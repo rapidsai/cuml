@@ -21,6 +21,8 @@ import numpy as np
 import cupy as cp
 import scipy.sparse
 
+from cuml.common.base import Base
+
 import cupy.prof
 
 from cuml.utils import with_cupy_rmm
@@ -116,7 +118,7 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
-class MultinomialNB(object):
+class MultinomialNB(Base):
 
     """
     Naive Bayes classifier for multinomial models
@@ -179,7 +181,12 @@ class MultinomialNB(object):
 
     """
     @with_cupy_rmm
-    def __init__(self, alpha=1.0, fit_prior=True, class_prior=None):
+    def __init__(self,
+                 alpha=1.0,
+                 fit_prior=True,
+                 class_prior=None,
+                 verbose=False,
+                 output_type=None):
 
         """
         Create new multinomial Naive Bayes instance
@@ -196,6 +203,10 @@ class MultinomialNB(object):
                       according to the data.
         """
 
+        super(MultinomialNB, self).__init__(handle=None,
+                                            verbose=verbose,
+                                            output_type=output_type)
+
         self.alpha = alpha
         self.fit_prior = fit_prior
 
@@ -210,6 +221,9 @@ class MultinomialNB(object):
         self.n_classes_ = 0
 
         self.n_features_ = None
+
+        # Needed until Base no longer assumed cumlHandle
+        self.handle = None
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
