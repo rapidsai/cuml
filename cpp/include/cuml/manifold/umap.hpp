@@ -22,9 +22,10 @@
 
 namespace ML {
 
-void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
-               int orig_n, float *embedding, int embedding_n,
-               UMAPParams *params, float *transformed);
+void transform(const cumlHandle &handle, float *X, int n, int d,
+               long *knn_indices, float *knn_dists, float *orig_X, int orig_n,
+               float *embedding, int embedding_n, UMAPParams *params,
+               float *transformed);
 
 void find_ab(const cumlHandle &handle, UMAPParams *params);
 
@@ -59,6 +60,10 @@ class UMAP_API {
    *        n_samples in X
    * @param d
    *        d_features in X
+   * @param knn_indices
+   *        an array containing the n_neighbors nearest neighors indices for each sample
+   * @param knn_dists
+   *        an array containing the n_neighbors nearest neighors distances for each sample
    * @param embeddings
    *        an array to return the output embeddings of size (n_samples, n_components)
    */
@@ -75,6 +80,10 @@ class UMAP_API {
    *        n_samples in X
    * @param d
    *        d_features in X
+   * @param knn_indices
+   *        an array containing the n_neighbors nearest neighors indices for each sample
+   * @param knn_dists
+   *        an array containing the n_neighbors nearest neighors distances for each sample
    * @param embeddings
    *        an array to return the output embeddings of size (n_samples, n_components)
    */
@@ -89,6 +98,10 @@ class UMAP_API {
    *        n_samples in X
    * @param d
    *        d_features in X
+   * @param knn_indices
+   *        an array containing the n_neighbors nearest neighors indices for each sample
+   * @param knn_dists
+   *        an array containing the n_neighbors nearest neighors distances for each sample
    * @param embedding
    *        pointer to embedding array of size (embedding_n, n_components) that has been created with fit()
    * @param embedding_n
@@ -96,8 +109,8 @@ class UMAP_API {
    * @param out
    *        pointer to array for storing output embeddings (n, n_components)
    */
-  void transform(float *X, int n, int d, float *embedding, int embedding_n,
-                 float *out);
+  void transform(float *X, int n, int d, long *knn_indices, float *knn_dists,
+                 float *embedding, int embedding_n, float *out);
 
   /**
    * Get the UMAPParams instance
