@@ -648,27 +648,23 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
         assert delta_mem == 0
 
 
-@pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('max_depth', [10, 13, 16])
 @pytest.mark.parametrize('n_estimators', [10, 20, 100])
 @pytest.mark.parametrize('n_bins', [8, 9, 10])
-def test_create_classification_model(datatype,
+def test_create_classification_model( \
                               max_features, max_depth, n_estimators, n_bins):
-    X, y = make_classification(n_samples=100, n_features=10,
-                               n_clusters_per_class=1, n_informative=5,
-                               random_state=123, n_classes=2)
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+
     # random forest classification model
     cuml_model = curfc(max_features=max_features,
                        n_bins=n_bins,
                        n_estimators=n_estimators,
                        max_depth=max_depth)
     params = cuml_model.get_params()
-    assert params['max_features'] == max_features
-    assert params['max_depth'] == max_depth
-    assert params['n_estimators'] == n_estimators
-    assert params['n_bins'] == n_bins
+    cuml_model2 = curfc()
+    cuml_model2.set_params(params)
+    verfiy_params = cuml_model2.get_params()
+    assert params['max_features'] == verfiy_params['max_features']
+    assert params['max_depth'] == verfiy_params['max_depth']
+    assert params['n_estimators'] == verfiy_params['n_estimators']
+    assert params['n_bins'] == verfiy_params['n_bins']
