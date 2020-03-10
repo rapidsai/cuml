@@ -63,7 +63,7 @@ def parts_to_ranks(client, worker_info, part_futures):
 def _default_part_getter(f, idx): return f[idx]
 
 
-def flatten_grouped_results(client, p_to_r,
+def flatten_grouped_results(client, gpu_futures,
                             worker_results_map,
                             getter_func=_default_part_getter):
     """
@@ -75,7 +75,7 @@ def flatten_grouped_results(client, p_to_r,
     using different streams.
 
     :param client: Dask client
-    :param p_to_r: [(future, size)] parts to ranks list of tuples
+    :param gpu_futures: [(future, part)] worker to part list of tuples
     :param worker_results_map: { rank: future } where future is a list
            of data partitions on a Dask worker
     :param getter_func: a function that takes a future and partition index
@@ -84,7 +84,7 @@ def flatten_grouped_results(client, p_to_r,
     """
     futures = []
     completed_part_map = {}
-    for rank, size in p_to_r:
+    for rank, part in gpu_futures:
         if rank not in completed_part_map:
             completed_part_map[rank] = 0
 

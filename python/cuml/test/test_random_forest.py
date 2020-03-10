@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ import numpy as np
 import pytest
 import random
 import rmm
+
+from numba import cuda
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
@@ -43,8 +45,8 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification(datatype, split_algo, rows_sample,
-                           nrows, column_info, max_features):
+def test_rf_classification(datatype, split_algo, rows_sample, nrows,
+                           column_info, max_features):
     use_handle = True
     ncols, n_info = column_info
 
@@ -97,8 +99,8 @@ def test_rf_classification(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_regression(datatype, split_algo, mode,
-                       column_info, max_features, rows_sample):
+def test_rf_regression(datatype, split_algo, mode, column_info,
+                       max_features, rows_sample):
 
     ncols, n_info = column_info
     use_handle = True
@@ -438,13 +440,16 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('fil_sparse_format', [True, 'auto'])
-@pytest.mark.parametrize('algo', ['auto', 'naive'])
+@pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
+                                               'auto', False])
+@pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
+                                  'batch_tree_reorg'])
 def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                   nrows, column_info, max_features,
                                   fil_sparse_format, algo):
     use_handle = True
     ncols, n_info = column_info
+    num_treees = 50
 
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
@@ -461,29 +466,52 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=50, handle=handle, max_leaves=-1,
+                       n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
-    fil_preds = cuml_model.predict(X_test,
-                                   predict_model="GPU",
-                                   output_class=True,
-                                   threshold=0.5,
-                                   fil_sparse_format=fil_sparse_format,
-                                   algo=algo)
     cu_predict = cuml_model.predict(X_test, predict_model="CPU")
     cuml_acc = accuracy_score(y_test, cu_predict)
-    fil_acc = accuracy_score(y_test, fil_preds)
 
-    if nrows < 500000:
-        sk_model = skrfc(n_estimators=50,
-                         max_depth=40,
-                         min_samples_split=2, max_features=max_features,
-                         random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
-        assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cuml_acc - 0.02)
+    if ((not fil_sparse_format or algo == 'tree_reorg' or
+            algo == 'batch_tree_reorg') or
+            fil_sparse_format == 'not_supported'):
+        with pytest.raises(ValueError):
+            fil_preds = cuml_model.predict(X_test,
+                                           predict_model="GPU",
+                                           output_class=True,
+                                           threshold=0.5,
+                                           fil_sparse_format=fil_sparse_format,
+                                           algo=algo)
+    else:
+        fil_preds = cuml_model.predict(X_test,
+                                       predict_model="GPU",
+                                       output_class=True,
+                                       threshold=0.5,
+                                       fil_sparse_format=fil_sparse_format,
+                                       algo=algo)
+        fil_acc = accuracy_score(y_test, fil_preds)
+
+        fil_model = cuml_model.convert_to_fil_model()
+        fil_model_preds = fil_model.predict(X_test)
+        fil_model_acc = accuracy_score(y_test, fil_model_preds)
+        assert fil_acc == fil_model_acc
+
+        tl_model = cuml_model.convert_to_treelite_model()
+        assert num_treees == tl_model.num_trees
+        assert ncols == tl_model.num_features
+        del tl_model
+
+        if nrows < 500000:
+            sk_model = skrfc(n_estimators=50,
+                             max_depth=40,
+                             min_samples_split=2, max_features=max_features,
+                             random_state=10)
+            sk_model.fit(X_train, y_train)
+            sk_predict = sk_model.predict(X_test)
+            sk_acc = accuracy_score(y_test, sk_predict)
+            assert fil_acc >= (sk_acc - 0.07)
+
+        assert fil_acc >= (cuml_acc - 0.02)
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
@@ -496,14 +524,17 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('fil_sparse_format', [True, 'auto'])
-@pytest.mark.parametrize('algo', ['auto', 'naive'])
+@pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
+                                               'auto', False])
+@pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
+                                  'batch_tree_reorg'])
 def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                               max_features, rows_sample,
                               fil_sparse_format, algo):
 
     ncols, n_info = column_info
     use_handle = True
+    num_treees = 50
 
     if mode == 'unit':
         X, y = make_regression(n_samples=500, n_features=ncols,
@@ -529,24 +560,89 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
                        n_bins=16, split_algo=split_algo, split_criterion=2,
                        min_rows_per_node=2, seed=123, n_streams=1,
-                       n_estimators=50, handle=handle, max_leaves=-1,
+                       n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
-    # predict using FIL
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU",
-                                   fil_sparse_format=fil_sparse_format,
-                                   algo=algo)
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
-    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
-    # Initialize, fit and predict using
-    # sklearn's random forest regression model
-    if mode != "stress":
-        sk_model = skrfr(n_estimators=50, max_depth=40,
-                         min_samples_split=2, max_features=max_features,
-                         random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
-        assert fil_r2 >= (sk_r2 - 0.07)
-    assert fil_r2 >= (cu_r2 - 0.02)
+    # predict using FIL
+    if ((not fil_sparse_format or algo == 'tree_reorg' or
+            algo == 'batch_tree_reorg') or
+            fil_sparse_format == 'not_supported'):
+        with pytest.raises(ValueError):
+            fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                           fil_sparse_format=fil_sparse_format,
+                                           algo=algo)
+    else:
+        fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                       fil_sparse_format=fil_sparse_format,
+                                       algo=algo)
+        fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
+
+        fil_model = cuml_model.convert_to_fil_model()
+        fil_model_preds = fil_model.predict(X_test)
+        fil_model_r2 = r2_score(y_test, fil_model_preds,
+                                convert_dtype=datatype)
+        assert fil_r2 == fil_model_r2
+
+        tl_model = cuml_model.convert_to_treelite_model()
+        assert num_treees == tl_model.num_trees
+        assert ncols == tl_model.num_features
+        del tl_model
+
+        # Initialize, fit and predict using
+        # sklearn's random forest regression model
+        if mode != "stress":
+            sk_model = skrfr(n_estimators=50, max_depth=40,
+                             min_samples_split=2,
+                             max_features=max_features,
+                             random_state=10)
+            sk_model.fit(X_train, y_train)
+            sk_predict = sk_model.predict(X_test)
+            sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+            assert fil_r2 >= (sk_r2 - 0.07)
+        assert fil_r2 >= (cu_r2 - 0.02)
+
+
+@pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(50000),
+                         stress_param(500000)])
+def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
+    n_iter = 30
+    datatype = np.float32
+    use_handle = True
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=0, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Warmup. Some modules that are used in RF allocate space on the device
+    # and consume memory. This is to make sure that the allocation is done
+    # before the first call to get_memory_info.
+    base_model = curfc(handle=handle)
+    base_model.fit(X_train, y_train)
+
+    free_mem = cuda.current_context().get_memory_info()[0]
+
+    rfc_model = curfc(handle=handle)
+    rfc_model.fit(X_train, y_train)
+
+    # Calculate the memory free after fitting the cuML RF model
+    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+    cuml_mods = curfc(handle=handle)
+    cuml_mods.fit(X_train, y_train)
+
+    for i in range(n_iter):
+        cuml_mods.predict(X_train, predict_model="GPU")
+        handle.sync()
+        delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+        assert delta_mem == 0
