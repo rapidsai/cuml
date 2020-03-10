@@ -27,6 +27,8 @@ from dask.distributed import default_client
 from dask.distributed import wait
 from uuid import uuid1
 
+from cuml.utils.memory_utils import with_cupy_rmm
+
 from cuml.dask.common.utils import patch_cupy_sparse_serialization
 
 
@@ -110,6 +112,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         ret = model.score(data)
         return ret
 
+    @with_cupy_rmm
     def fit(self, X):
         """
         Fit a multi-node multi-GPU KMeans model
@@ -222,6 +225,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         """
         return self._transform(X, n_dims=2, delayed=delayed)
 
+    @with_cupy_rmm
     def score(self, X):
         """
         Computes the inertia score for the trained KMeans centroids.
