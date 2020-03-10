@@ -289,7 +289,7 @@ static void _arma_least_squares(
   int n_obs = bm_y.shape().first;
 
   int ps = p * s, qs = q * s;
-  int p_ar = 2 * qs;
+  int p_ar = std::max(ps, 2 * qs);
   int r = std::max(p_ar + qs, ps);
 
   if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
