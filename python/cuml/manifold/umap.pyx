@@ -90,7 +90,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              float * X,
              int n,
              int d,
-             long * knn_indices,
+             int64_t * knn_indices,
              float * knn_dists,
              UMAPParams * params,
              float * embeddings) except +
@@ -100,7 +100,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              float * y,
              int n,
              int d,
-             long * knn_indices,
+             int64_t * knn_indices,
              float * knn_dists,
              UMAPParams * params,
              float * embeddings) except +
@@ -109,7 +109,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
                    float * X,
                    int n,
                    int d,
-                   long * knn_indices,
+                   int64_t * knn_indices,
                    float * knn_dists,
                    float * orig_X,
                    int orig_n,
@@ -330,7 +330,7 @@ class UMAP(Base):
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        umap_params.random_state = long(
+        umap_params.random_state = int64_t(
             rs.randint(
                 low=0,
                 high=np.iinfo(
@@ -539,7 +539,7 @@ class UMAP(Base):
                 < float * > y_raw,
                 < int > self.n_rows,
                 < int > self.n_dims,
-                < long * > knn_indices_raw,
+                < int64_t * > knn_indices_raw,
                 < float * > knn_dists_raw,
                 < UMAPParams * >umap_params,
                 < float * >embed_raw)
@@ -550,7 +550,7 @@ class UMAP(Base):
                 < float * > x_raw,
                 < int > self.n_rows,
                 < int > self.n_dims,
-                < long * > knn_indices_raw,
+                < int64_t * > knn_indices_raw,
                 < float * > knn_dists_raw,
                 < UMAPParams * >umap_params,
                 < float * >embed_raw)
@@ -697,7 +697,7 @@ class UMAP(Base):
                   < float * >x_ptr,
                   < int > X_m.shape[0],
                   < int > X_m.shape[1],
-                  < long * > knn_indices_raw,
+                  < int64_t * > knn_indices_raw,
                   < float * > knn_dists_raw,
                   < float * >orig_x_raw,
                   < int > self.n_rows,
