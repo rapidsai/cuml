@@ -42,6 +42,7 @@ import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport uint64_t
+from libc.stdint cimport int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
@@ -330,12 +331,10 @@ class UMAP(Base):
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        umap_params.random_state = int64_t(
-            rs.randint(
-                low=0,
-                high=np.iinfo(
-                    np.uint64).max,
-                dtype=np.uint64))
+        umap_params.random_state = rs.randint(low=0,
+                                              high=np.iinfo(
+                                                  np.uint64).max,
+                                              dtype=np.uint64)
 
         if target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
