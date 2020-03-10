@@ -36,7 +36,9 @@ SCORE_EPS = 0.06
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
+@pytest.mark.parametrize("delayed_predict", [True, False])
+def test_end_to_end(nrows, ncols, nclusters, n_parts,
+                    delayed_predict, cluster):
 
     client = Client(cluster)
 
@@ -56,7 +58,9 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
                                random_state=10)
 
         cumlModel.fit(X_cudf)
-        cumlLabels = cumlModel.predict(X_cudf)
+        cumlLabels = cumlModel.predict(X_cudf, delayed_predict)
+
+        cumlLabels.compute_chunk_sizes()
 
         n_workers = len(list(client.has_what().keys()))
 
@@ -66,10 +70,12 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
         else:
             assert cumlLabels.npartitions == n_workers
 
-        cumlPred = cumlLabels.compute().to_pandas().values
+        from sklearn.metrics import adjusted_rand_score
+
+        cumlPred = cumlLabels.compute().get()
 
         assert cumlPred.shape[0] == nrows
-        assert np.max(cumlPred) == nclusters-1
+        assert np.max(cumlPred) == nclusters - 1
         assert np.min(cumlPred) == 0
 
         labels = y.compute().to_pandas().values
@@ -124,10 +130,9 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
             # series shape is (nrows,) not (nrows, 1) but both are valid
             # and equivalent for this test
             assert xformed.shape in [(nrows, nclusters), (nrows,)]
-            xformed = xformed.to_array()
         else:
             assert xformed.shape == (nrows, nclusters)
-            xformed = xformed.as_matrix()
+        xformed = xformed.get()
 
         # The argmin of the transformed values should be equal to the labels
         # reshape is a quick manner of dealing with (nrows,) is not (nrows, 1)
@@ -177,7 +182,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         predictions = cumlModel.predict(X_cudf).compute()
 
-        centers = cp.array(cumlModel.cluster_centers_.as_gpu_matrix())
+        centers = cumlModel.cluster_centers_
 
         expected_score = 0
         for idx, label in enumerate(predictions):
@@ -189,7 +194,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
             expected_score += dist**2
 
         assert actual_score + SCORE_EPS \
-            >= (-1*expected_score) \
+            >= (-1 * expected_score) \
             >= actual_score - SCORE_EPS
 
     finally:

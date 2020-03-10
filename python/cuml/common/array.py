@@ -44,7 +44,8 @@ class CumlArray(Buffer):
     Parameters
     ----------
 
-    data : rmm.DeviceBuffer, array_like, int
+    data : rmm.DeviceBuffer, cudf.Buffer, array_like, int, bytes, bytearrar or
+           memoryview
         An array-like object or integer representing a
         device or host pointer to pre-allocated memory.
     owner : object, optional
@@ -109,20 +110,30 @@ class CumlArray(Buffer):
 
     def __init__(self, data=None, owner=None, dtype=None, shape=None,
                  order=None):
+
+        # Checks of parameters
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
-                            " Array.empty()")
-        if isinstance(data, int):
+                            " Array.empty().")
+
+        if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
-                                " creating an Array from a pointer.")
+                                " creating an Array from " + type(data) + ".")
+            detailed_construction = True
+        else:
+            detailed_construction = False
 
         ary_interface = False
 
-        if isinstance(data, DeviceBuffer) or isinstance(data, int) or \
-                isinstance(data, Buffer):
-            size, shape = _get_size_from_shape(shape, dtype)
-            super(CumlArray, self).__init__(data=data, owner=owner, size=size)
+        # Base class (Buffer) constructor call
+        if isinstance(data, bytearray) or isinstance(data, bytes):
+            data = memoryview(data)
+        size, shape = _get_size_from_shape(shape, dtype)
+        super(CumlArray, self).__init__(data=data, owner=owner, size=size)
+
+        # Post processing of meta data
+        if detailed_construction:
             self.shape = shape
             self.dtype = np.dtype(dtype)
             self.order = order
@@ -135,19 +146,18 @@ class CumlArray(Buffer):
             ary_interface = data.__cuda_array_interface__
 
         else:
-            raise TypeError("Unrecognized data type.")
+            raise TypeError("Unrecognized data type: %s" % str(type(data)))
 
         if ary_interface:
-            super(CumlArray, self).__init__(data=data, owner=owner)
             self.shape = ary_interface['shape']
-            self.dtype = np.dtype(data.dtype)
+            self.dtype = np.dtype(ary_interface['typestr'])
             if ary_interface.get('strides', None) is None:
                 self.order = 'C'
                 self.strides = _order_to_strides(self.order, self.shape,
                                                  self.dtype)
             else:
                 self.strides = ary_interface['strides']
-                self.order = _strides_to_order(self.strides, data.dtype)
+                self.order = _strides_to_order(self.strides, self.dtype)
 
     def __getitem__(self, slice):
         return CumlArray(data=cp.asarray(self).__getitem__(slice))
@@ -317,3 +327,12 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
         return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order)
+
+
+def _check_low_level_type(data):
+    if isinstance(data, (DeviceBuffer, int, bytearray, bytes, memoryview,
+                         Buffer)):
+        return True
+
+    else:
+        return False
