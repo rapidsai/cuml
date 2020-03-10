@@ -37,7 +37,7 @@ SCORE_EPS = 0.06
 @pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('random_state', [i for i in range(50)])
 def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
-                               random_state):
+                                          random_state):
 
     # Using fairly high variance between points in clusters
     cluster_std = 1.0
