@@ -281,6 +281,12 @@ class KMeans(Base):
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
 
+        # K-means++ is the constrained case of k-means||
+        # w/ oversampling factor = 0
+        if (init == 'k-means++'):
+            init = 'k-means||'
+            self.oversampling_factor = 0
+
         if (init in ['scalable-k-means++', 'k-means||']):
             self.init = init
             params.init = KMeansPlusPlus
