@@ -331,6 +331,5 @@ def _check_low_level_type(data):
     if isinstance(data, (DeviceBuffer, int, bytearray, bytes, memoryview,
                          Buffer)):
         return True
-
     else:
         return False
