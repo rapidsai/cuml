@@ -83,7 +83,7 @@ class DistributedDataHandler:
     @classmethod
     def create(cls, data, client=None):
 
-        multiple = isinstance(data, Iterable)
+        multiple = isinstance(data, tuple)
 
         gpu_futures = client.sync(_extract_partitions, data, client)
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
