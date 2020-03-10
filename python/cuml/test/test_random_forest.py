@@ -652,7 +652,7 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
 @pytest.mark.parametrize('max_depth', [10, 13, 16])
 @pytest.mark.parametrize('n_estimators', [10, 20, 100])
 @pytest.mark.parametrize('n_bins', [8, 9, 10])
-def test_create_classification_model(max_features, 
+def test_create_classification_model(max_features,
                                      max_depth, n_estimators, n_bins):
 
     # random forest classification model
