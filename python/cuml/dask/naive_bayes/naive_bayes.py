@@ -20,6 +20,8 @@ from uuid import uuid1
 
 import cuml.comm.serialize  # NOQA
 
+from cuml.utils import with_cupy_rmm
+
 from cuml.naive_bayes import MultinomialNB as MNB
 
 import dask
@@ -107,6 +109,7 @@ class MultinomialNB(object):
         self.kwargs = kwargs
 
     @staticmethod
+    @with_cupy_rmm
     def _fit(Xy, classes, kwargs):
 
         model = MNB(**kwargs)
@@ -132,6 +135,7 @@ class MultinomialNB(object):
     def _get_feature_counts(x):
         return x[1]
 
+    @with_cupy_rmm
     def fit(self, X, y, classes=None):
 
         """
@@ -240,20 +244,8 @@ class MultinomialNB(object):
         gpu_futures = self.client_.sync(extract_arr_partitions, X)
         x_worker_parts = workers_to_parts(gpu_futures)
 
-        key = uuid1()
-        futures = [(wf[0],
-                    self.client_.submit(MultinomialNB._get_size,
-                                        wf[1],
-                                        workers=[wf[0]],
-                                        key="%s-%s" % (key, idx)))
-                   for idx, wf in enumerate(gpu_futures)]
-
-        sizes = self.client_.compute([x[1] for x in futures], sync=True)
-
         models = self.client_.scatter(self.local_model,
                                       broadcast=True,
-                                      direct=True,
-                                      hash=False,
                                       workers=list(x_worker_parts.keys()))
 
         preds = dict([(w, self.client_.submit(
@@ -264,7 +256,7 @@ class MultinomialNB(object):
 
         final_parts = {}
         to_concat = []
-        for wp, size in zip(gpu_futures, sizes):
+        for wp in gpu_futures:
             w, p = wp
             if w not in final_parts:
                 final_parts[w] = 0
@@ -274,11 +266,12 @@ class MultinomialNB(object):
                     dask.delayed(self.client_.submit(MultinomialNB._get_part,
                                                      preds[w],
                                                      final_parts[w])),
-                    dtype=cp.int32, shape=(size,)))
+                    dtype=cp.int32, shape=(cp.nan,)))
 
             final_parts[w] += 1
 
-        return dask.array.concatenate(to_concat)
+        return dask.array.concatenate(to_concat, axis=0,
+                                      allow_unknown_chunksizes=True)
 
     def score(self, X, y):
         """
@@ -313,3 +306,4 @@ class MultinomialNB(object):
                    for idx, wf in enumerate(gpu_futures)]
 
         return sum(futures) / X.shape[0]
+
