@@ -1,8 +1,11 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
+- PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
 - PR #1817: Confusion matrix implementation with cupy
+- PR #1766: Mean absolute error implementation with cupy
+- PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
@@ -10,6 +13,9 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1767: Single GPU decomposition models configurable output
+- PR #1778: Make cuML Handle picklable
+- PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -17,6 +23,7 @@
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
+- PR #1755: Expose the build_treelite function for python
 - PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
@@ -28,11 +35,18 @@
 - PR #1718: Import `using_allocator` from `cupy.cuda`
 - PR #1723: Update RF Classifier to throw an exception for multi-class pickling
 - PR #1726: Decorator to allocate CuPy arrays with RMM
+- PR #1719: UMAP random seed reproducibility
 - PR #1748: Test serializing `CumlArray` objects
+- PR #1776: Refactoring pca/tsvd distributed
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
+- PR #1816: Add ARIMA notebook
 
 ## Bug Fixes
+- PR #1833: Fix depth issue in shallow RF regression estimators
+- PR #1770: Warn that KalmanFilter is deprecated
+- PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
 - PR #1611: Fixing pickling errors for KNN classifier and regressor
@@ -57,6 +71,9 @@
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 - PR #1765: Update the checks for using RF GPU predict
+- PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
+- PR #1793: Updated fil pyx to solve memory leakage issue
+- PR #1810: Quickfix - chunkage in dask make_regression
 
 # cuML 0.12.0 (Date TBD)
 
@@ -85,6 +102,7 @@
 - PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
 - PR #1545: Add conda environment version updates to ci script
 - PR #1541: Updates for libcudf++ Python refactor
+- PR #1555: FIL-SKL, an SKLearn-based benchmark for FIL
 - PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
 - PR #1551: Change custom kernel to cupy for col/row order transform
 - PR #1533: C++: interface header file separation for SVM

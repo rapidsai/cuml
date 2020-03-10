@@ -41,6 +41,7 @@ import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libc.stdint cimport uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
@@ -79,6 +80,8 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         int target_n_neighbors,
         float target_weights,
         MetricType target_metric,
+        uint64_t random_state,
+        bool multicore_implem,
         GraphBasedDimRedCallback* callback
 
 
@@ -197,6 +200,18 @@ class UMAP(Base):
                 feature is made optional in the GPU version due to the
                 significant overhead in copying memory to the host for
                 computing the hash. (default = False)
+    random_state : int, RandomState instance or None, optional (default=None)
+        random_state is the seed used by the random number generator during
+        embedding initialization and during sampling used by the optimizer.
+        Note: Unfortunately, achieving a high amount of parallelism during
+        the optimization stage often comes at the expense of determinism,
+        since many floating-point additions are being made in parallel
+        without a deterministic ordering. This causes slightly different
+        results across training sessions, even when the same seed is used
+        for random number generation. Setting a random_state will enable
+        consistency of trained embeddings, allowing for reproducible results
+        to 3 digits of precision, but will do so at the expense of potentially
+        slower training and increased memory usage.
     callback: An instance of GraphBasedDimRedCallback class to intercept
               the internal state of embeddings while they are being trained.
               Example of callback usage:
@@ -264,6 +279,7 @@ class UMAP(Base):
                  target_metric="categorical",
                  handle=None,
                  hash_input=False,
+                 random_state=None,
                  callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
@@ -288,7 +304,6 @@ class UMAP(Base):
 
         if a is not None:
             umap_params.a = <float> a
-
         if b is not None:
             umap_params.b = <float> b
 
@@ -303,6 +318,15 @@ class UMAP(Base):
 
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
+
+        umap_params.multicore_implem = random_state is None
+        if isinstance(random_state, np.random.RandomState):
+            rs = random_state
+        else:
+            rs = np.random.RandomState(random_state)
+        umap_params.random_state = long(rs.randint(low=0,
+                                        high=np.iinfo(np.uint64).max,
+                                        dtype=np.uint64))
 
         if target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
@@ -319,7 +343,8 @@ class UMAP(Base):
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        find_ab(handle_[0], umap_params)
+        if a is None or b is None:
+            find_ab(handle_[0], umap_params)
 
         self.umap_params = <size_t> umap_params
 
