@@ -34,7 +34,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n            - no install step
    --allgpuarch  - build for all supported GPU architectures
    --singlegpu   - Build cuml without multigpu support (multigpu requires libcumlprims)
-   --nvtx        - Enable NVTX
+   --nvtx        - Enable nvtx for profiling support
    -h            - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
