@@ -115,6 +115,8 @@ class CumlArray(Buffer):
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
                             " Array.empty().")
+        elif isinstance(data, memoryview):
+            data = np.asarray(data)
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
