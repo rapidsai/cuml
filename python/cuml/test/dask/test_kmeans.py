@@ -125,7 +125,9 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
         else:
             assert xformed.shape == (nrows, nclusters)
 
-        xformed = cp.array(xformed if len(xformed.shape) == 1 else xformed.as_gpu_matrix())
+        xformed = cp.array(xformed
+                           if len(xformed.shape) == 1
+                           else xformed.as_gpu_matrix())
 
         # The argmin of the transformed values should be equal to the labels
         # reshape is a quick manner of dealing with (nrows,) is not (nrows, 1)
@@ -170,7 +172,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         actual_score = cumlModel.score(X_cudf)
 
-        X = cp.array( X_cudf.compute().as_gpu_matrix())
+        X = cp.array(X_cudf.compute().as_gpu_matrix())
 
         predictions = cumlModel.predict(X_cudf).compute()
         predictions = cp.array(predictions)
