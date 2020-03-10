@@ -662,7 +662,7 @@ def test_create_classification_model( \
                        max_depth=max_depth)
     params = cuml_model.get_params()
     cuml_model2 = curfc()
-    cuml_model2.set_params(params)
+    cuml_model2.set_params(**params)
     verfiy_params = cuml_model2.get_params()
     assert params['max_features'] == verfiy_params['max_features']
     assert params['max_depth'] == verfiy_params['max_depth']
