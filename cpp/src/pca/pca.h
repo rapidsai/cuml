@@ -39,7 +39,7 @@ using namespace MLCommon;
 template <typename math_t>
 void truncCompExpVars(const cumlHandle_impl &handle, math_t *in,
                       math_t *components, math_t *explained_var,
-                      math_t *explained_var_ratio, paramsTSVD prms,
+                      math_t *explained_var_ratio, const paramsTSVD prms,
                       cudaStream_t stream) {
   int len = prms.n_cols * prms.n_cols;
   auto allocator = handle.getDeviceAllocator();
@@ -76,7 +76,7 @@ template <typename math_t>
 void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
             math_t *explained_var, math_t *explained_var_ratio,
             math_t *singular_vals, math_t *mu, math_t *noise_vars,
-            paramsPCA prms, cudaStream_t stream) {
+            const paramsPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.getCublasHandle();
 
   ASSERT(prms.n_cols > 1,
@@ -87,7 +87,8 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
 
-  if (prms.n_components > prms.n_cols) prms.n_components = prms.n_cols;
+  int n_components = prms.n_components;
+  if (n_components > prms.n_cols) n_components = prms.n_cols;
 
   Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
@@ -100,8 +101,8 @@ void pcaFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
                    explained_var_ratio, prms, stream);
 
   math_t scalar = (prms.n_rows - 1);
-  Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components,
-                  stream, true);
+  Matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream,
+                  true);
 
   Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
                  stream);
@@ -126,7 +127,7 @@ void pcaFitTransform(const cumlHandle_impl &handle, math_t *input,
                      math_t *trans_input, math_t *components,
                      math_t *explained_var, math_t *explained_var_ratio,
                      math_t *singular_vals, math_t *mu, math_t *noise_vars,
-                     paramsPCA prms, cudaStream_t stream) {
+                     const paramsPCA &prms, cudaStream_t stream) {
   pcaFit(handle, input, components, explained_var, explained_var_ratio,
          singular_vals, mu, noise_vars, prms, stream);
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
@@ -161,7 +162,8 @@ void pcaGetPrecision() {
 template <typename math_t>
 void pcaInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
                          math_t *components, math_t *singular_vals, math_t *mu,
-                         math_t *input, paramsPCA prms, cudaStream_t stream) {
+                         math_t *input, const paramsPCA &prms,
+                         cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1,
@@ -218,7 +220,7 @@ void pcaScoreSamples() {
 template <typename math_t>
 void pcaTransform(const cumlHandle_impl &handle, math_t *input,
                   math_t *components, math_t *trans_input,
-                  math_t *singular_vals, math_t *mu, paramsPCA prms,
+                  math_t *singular_vals, math_t *mu, const paramsPCA &prms,
                   cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
