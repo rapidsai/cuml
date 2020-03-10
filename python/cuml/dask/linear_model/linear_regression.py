@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.comms import worker_state
@@ -20,7 +21,9 @@ from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
 from dask.distributed import default_client
 
 
-class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
+class LinearRegression(BaseEstimator,
+                       BaseLinearModelSyncFitMixin,
+                       DelayedPredictionMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -78,7 +81,6 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
             Features for regression
         y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
-
         """
 
         models = self._fit(model_func=LinearRegression._create_model,
