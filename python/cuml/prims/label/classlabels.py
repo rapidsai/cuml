@@ -38,9 +38,10 @@ map_kernel_str = r'''
   for(int i = 0; i < n_labels; i++) {
     if(label_cache[i] == unmapped_label) {
       x[tid] = i;
-      break;
+      return;
     }
   }
+  x[tid] = n_labels+1;
 }
 '''
 

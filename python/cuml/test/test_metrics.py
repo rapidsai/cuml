@@ -384,7 +384,6 @@ def test_confusion_matrix_normalize(normalize, expected_results):
     cp.testing.assert_allclose(cm, cp.array(expected_results))
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize('labels', [(0, 1),
                                     (2, 1),
                                     (2, 1, 4, 7),
