@@ -328,8 +328,12 @@ class CumlArray(Buffer):
 
 
 def _check_low_level_type(data):
-    if isinstance(data, (DeviceBuffer, int, bytearray, bytes, memoryview,
-                         Buffer)):
+    if not (
+        hasattr(data, "__array_interface__")
+        or hasattr(data, "__cuda_array_interface__")
+    ):
+        return True
+    elif isinstance(data, (DeviceBuffer, Buffer)):
         return True
     else:
         return False
