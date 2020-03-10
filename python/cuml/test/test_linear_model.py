@@ -121,7 +121,7 @@ def test_ridge_regression_model_default(datatype):
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test).to_array()
+    curidge_predict = curidge.predict(X_test)
 
     # sklearn ridge regression model initialization, fit and predict
     skridge = skRidge()
@@ -154,7 +154,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test).to_array()
+    curidge_predict = curidge.predict(X_test)
 
     if nrows < 500000:
         # sklearn ridge regression model initialization, fit and predict

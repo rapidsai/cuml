@@ -34,7 +34,11 @@ from cuml import ForestInference
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 from cuml.common.handle cimport cumlHandle
+from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
+    _check_fil_sparse_format_value, _obtain_treelite_model, _obtain_fil_model
+
 from cuml.ensemble.randomforest_shared cimport *
+from cuml.fil.fil import TreeliteModel as tl
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
@@ -294,7 +298,7 @@ class RandomForestRegressor(Base):
         del state['handle']
         if self.n_cols:
             # only if model has been fit previously
-            self.model_pbuf_bytes = self._get_model_info()
+            self.model_pbuf_bytes = self._get_protobuf_bytes()
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*>params_t
@@ -354,10 +358,9 @@ class RandomForestRegressor(Base):
             raise ValueError("Wrong value passed in for max_features"
                              " please read the documentation")
 
-    def _get_model_info(self):
+    def _obtain_treelite_handle(self):
+        task_category = REGRESSION_MODEL
         cdef ModelHandle cuml_model_ptr = NULL
-
-        task_category = 1
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
         build_treelite_forest(& cuml_model_ptr,
@@ -365,12 +368,74 @@ class RandomForestRegressor(Base):
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
-
         mod_ptr = <size_t> cuml_model_ptr
-        fit_mod_ptr = ctypes.c_void_p(mod_ptr).value
+        treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return treelite_handle
+
+    def _get_protobuf_bytes(self):
+        fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
         return model_protobuf_bytes
+
+    def convert_to_treelite_model(self):
+        """
+        Converts the cuML RF model to a Treelite model
+
+        Returns
+        ----------
+        tl_to_fil_model : Treelite version of this model
+        """
+        treelite_handle = self._obtain_treelite_handle()
+        return _obtain_treelite_model(treelite_handle)
+
+    def convert_to_fil_model(self, output_class=False,
+                             algo='auto',
+                             fil_sparse_format='auto'):
+        """
+        Create a Forest Inference (FIL) model from the trained cuML
+        Random Forest model.
+
+        Parameters
+        ----------
+        output_class: boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+                           coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+                                 multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+                     (currently True is chosen by auto)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='naive'
+                    or algo='auto'
+        Returns
+        ----------
+        fil_model :
+           A Forest Inference model which can be used to perform
+           inferencing on the random forest model.
+        """
+        treelite_handle = self._obtain_treelite_handle()
+        return _obtain_fil_model(treelite_handle=treelite_handle,
+                                 depth=self.max_depth,
+                                 output_class=output_class,
+                                 algo=algo,
+                                 fil_sparse_format=fil_sparse_format)
 
     def fit(self, X, y):
         """
@@ -457,7 +522,7 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format, task_category=1):
+                              fil_sparse_format):
 
         cdef ModelHandle cuml_model_ptr
         X_m, _, n_rows, n_cols, X_type = \
@@ -478,7 +543,7 @@ class RandomForestRegressor(Base):
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
 
-        task_category = 1  # for regression
+        task_category = REGRESSION_MODEL
         build_treelite_forest(& cuml_model_ptr,
                               rf_forest,
                               <int> n_cols,
@@ -487,16 +552,11 @@ class RandomForestRegressor(Base):
         mod_ptr = <size_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
-        if fil_sparse_format:
-            storage_type = 'SPARSE'
-        elif not fil_sparse_format:
-            storage_type = 'DENSE'
-        elif fil_sparse_format == 'auto':
-            storage_type = fil_sparse_format
-        else:
-            raise ValueError("The value entered for spares_forest is wrong."
-                             " Please refer to the documentation to see the"
-                             " accepted values.")
+        storage_type = _check_fil_sparse_format_value(fil_sparse_format)
+
+        _check_fil_parameter_validity(depth=self.max_depth,
+                                      storage_format=storage_type,
+                                      algo=algo)
 
         fil_model = ForestInference()
         tl_to_fil_model = \
@@ -505,6 +565,7 @@ class RandomForestRegressor(Base):
                                              algo=algo,
                                              storage_type=storage_type)
         preds = tl_to_fil_model.predict(X_m)
+        tl.free_treelite_model(treelite_handle)
         del(X_m)
         return preds
 
@@ -616,8 +677,7 @@ class RandomForestRegressor(Base):
 
         else:
             preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               fil_sparse_format,
-                                               task_category=1)
+                                               fil_sparse_format)
 
         return preds
 
