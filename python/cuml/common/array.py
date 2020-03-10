@@ -127,8 +127,6 @@ class CumlArray(Buffer):
         ary_interface = False
 
         # Base class (Buffer) constructor call
-        if isinstance(data, bytearray) or isinstance(data, bytes):
-            data = memoryview(data)
         size, shape = _get_size_from_shape(shape, dtype)
         super(CumlArray, self).__init__(data=data, owner=owner, size=size)
 
