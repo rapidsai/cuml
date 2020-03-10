@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -146,6 +146,12 @@ cdef class TreeliteModel():
         model.set_handle(handle)
         return model
 
+    @staticmethod
+    def from_treelite_model_handle(treelite_handle):
+        cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
+        model = TreeliteModel()
+        model.set_handle(handle)
+        return model
 
 cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:
