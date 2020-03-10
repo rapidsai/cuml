@@ -306,4 +306,3 @@ class MultinomialNB(object):
                    for idx, wf in enumerate(gpu_futures)]
 
         return sum(futures) / X.shape[0]
-
