@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ def _prep_training_data(c, X_train, partitions_per_worker):
                                          stress_param(100)])
 @pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
                                      quality_param(7), stress_param(50)])
-@pytest.mark.parametrize("streams_per_handle", [1, 5])
+@pytest.mark.parametrize("streams_per_handle", [5, 10])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                      streams_per_handle, cluster):
 
@@ -88,7 +88,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
                            streams_per_handle=streams_per_handle)
         cumlModel.fit(X_cudf)
 
@@ -137,6 +137,7 @@ def test_batch_size(nrows, ncols, n_parts,
         cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            batch_size=batch_size,
                            streams_per_handle=5)
+
         cumlModel.fit(X_cudf)
 
         out_d, out_i = cumlModel.kneighbors(X_cudf)

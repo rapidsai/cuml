@@ -70,9 +70,10 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
             train_test_split(X, y, test_size=1000)
 
         cu_rf_params = {
-            'n_estimators': 25,
-            'max_depth': 13,
-            'n_bins': 15,
+            'n_estimators': 40,
+            'max_depth': 16,
+            'n_streams': 1,
+            'n_bins': 16,
         }
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
@@ -108,9 +109,9 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
             train_test_split(X, y, test_size=1000)
 
         cu_rf_params = {
-            'n_estimators': 25,
-            'max_depth': 13,
-            'n_bins': 15,
+            'n_estimators': 40,
+            'max_depth': 16,
+            'n_bins': 16,
         }
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
@@ -166,7 +167,8 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
 
         cu_rf_params = {
             'n_estimators': 50,
-            'max_depth': 13,
+            'max_depth': 16,
+            'n_bins': 16,
         }
 
         workers = c.has_what().keys()
@@ -194,7 +196,7 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
 
         print(str(acc_score))
 
-        assert acc_score >= 0.70
+        assert acc_score >= 0.67
 
     finally:
         c.close()

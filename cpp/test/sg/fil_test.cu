@@ -93,7 +93,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(preds_d));
+    CUDA_CHECK(cudaFree(proba_d));
     CUDA_CHECK(cudaFree(want_preds_d));
+    CUDA_CHECK(cudaFree(want_proba_d));
     CUDA_CHECK(cudaFree(data_d));
   }
 
@@ -192,6 +194,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void predict_on_cpu() {
     // predict on host
     std::vector<float> want_preds_h(ps.num_rows);
+    std::vector<float> want_proba_h(ps.num_rows * 2);
     int num_nodes = tree_num_nodes();
     for (int i = 0; i < ps.num_rows; ++i) {
       float pred = 0.0f;
@@ -201,6 +204,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       if ((ps.output & fil::output_t::AVG) != 0) pred = pred / ps.num_trees;
       pred += ps.global_bias;
       if ((ps.output & fil::output_t::SIGMOID) != 0) pred = sigmoid(pred);
+      want_proba_h[i * 2] = 1.f - pred;
+      want_proba_h[i * 2 + 1] = pred;
       if ((ps.output & fil::output_t::THRESHOLD) != 0) {
         pred = pred > ps.threshold ? 1.0f : 0.0f;
       }
@@ -209,7 +214,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // copy to GPU
     allocate(want_preds_d, ps.num_rows);
+    allocate(want_proba_d, ps.num_rows * 2);
     updateDevice(want_preds_d, want_preds_h.data(), ps.num_rows, stream);
+    updateDevice(want_proba_d, want_proba_h.data(), ps.num_rows * 2, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -221,7 +228,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // predict
     allocate(preds_d, ps.num_rows);
+    allocate(proba_d, ps.num_rows * 2);
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
+    fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
@@ -229,6 +238,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
+    ASSERT_TRUE(devArrMatch(want_proba_d, proba_d, ps.num_rows * 2,
+                            CompareApprox<float>(ps.tolerance), stream));
     ASSERT_TRUE(devArrMatch(want_preds_d, preds_d, ps.num_rows,
                             CompareApprox<float>(ps.tolerance), stream));
   }
@@ -255,7 +266,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // predictions
   float* preds_d = nullptr;
+  float* proba_d = nullptr;
   float* want_preds_d = nullptr;
+  float* want_proba_d = nullptr;
 
   // input data
   float* data_d = nullptr;
@@ -391,7 +404,8 @@ class TreeliteFilTest : public BaseFilTest {
     return key;
   }
 
-  void init_forest_impl(fil::forest_t* pforest, bool dense) {
+  void init_forest_impl(fil::forest_t* pforest,
+                        fil::storage_type_t storage_type) {
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
     std::unique_ptr<tlf::ModelBuilder> model_builder(
       new tlf::ModelBuilder(ps.num_cols, 1, random_forest_flag));
@@ -428,8 +442,7 @@ class TreeliteFilTest : public BaseFilTest {
     params.algo = ps.algo;
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::THRESHOLD) != 0;
-    params.storage_type =
-      dense ? fil::storage_type_t::DENSE : fil::storage_type_t::SPARSE;
+    params.storage_type = storage_type;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -438,14 +451,21 @@ class TreeliteFilTest : public BaseFilTest {
 class TreeliteDenseFilTest : public TreeliteFilTest {
  protected:
   void init_forest(fil::forest_t* pforest) override {
-    init_forest_impl(pforest, true);
+    init_forest_impl(pforest, fil::storage_type_t::DENSE);
   }
 };
 
 class TreeliteSparseFilTest : public TreeliteFilTest {
  protected:
   void init_forest(fil::forest_t* pforest) override {
-    init_forest_impl(pforest, false);
+    init_forest_impl(pforest, fil::storage_type_t::SPARSE);
+  }
+};
+
+class TreeliteAutoFilTest : public TreeliteFilTest {
+ protected:
+  void init_forest(fil::forest_t* pforest) override {
+    init_forest_impl(pforest, fil::storage_type_t::AUTO);
   }
 };
 
@@ -540,6 +560,8 @@ TEST_P(PredictSparseFilTest, Predict) { compare(); }
 INSTANTIATE_TEST_CASE_P(FilTests, PredictSparseFilTest,
                         testing::ValuesIn(predict_sparse_inputs));
 
+// rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
+// global_bias, algo, seed, tolerance
 std::vector<FilTestParams> import_dense_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator::kLT},
@@ -615,6 +637,8 @@ TEST_P(TreeliteDenseFilTest, Import) { compare(); }
 INSTANTIATE_TEST_CASE_P(FilTests, TreeliteDenseFilTest,
                         testing::ValuesIn(import_dense_inputs));
 
+// rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
+// global_bias, algo, seed, tolerance
 std::vector<FilTestParams> import_sparse_inputs = {
   {20000, 50, 0.05, 8, 50, 0.05, fil::output_t::RAW, 0, 0, fil::algo_t::NAIVE,
    42, 2e-3f, tl::Operator::kLT},
@@ -645,5 +669,23 @@ TEST_P(TreeliteSparseFilTest, Import) { compare(); }
 
 INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparseFilTest,
                         testing::ValuesIn(import_sparse_inputs));
+
+// rows, cols, nan_prob, depth, num_trees, leaf_prob, output, threshold,
+// global_bias, algo, seed, tolerance
+std::vector<FilTestParams> import_auto_inputs = {
+  {20000, 50, 0.05, 10, 50, 0.05, fil::output_t::RAW, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 15, 50, 0.05, fil::output_t::RAW, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 19, 50, 0.05, fil::output_t::RAW, 0, 0,
+   fil::algo_t::ALGO_AUTO, 42, 2e-3f, tl::Operator::kLT},
+  {20000, 50, 0.05, 19, 50, 0.05, fil::output_t::RAW, 0, 0,
+   fil::algo_t::BATCH_TREE_REORG, 42, 2e-3f, tl::Operator::kLT},
+};
+
+TEST_P(TreeliteAutoFilTest, Import) { compare(); }
+
+INSTANTIATE_TEST_CASE_P(FilTests, TreeliteAutoFilTest,
+                        testing::ValuesIn(import_auto_inputs));
 
 }  // namespace ML

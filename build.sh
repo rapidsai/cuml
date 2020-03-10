@@ -40,7 +40,6 @@ HELP="$0 [<target> ...] [<flag> ...]
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_BUILD_DIR=${REPODIR}/python/build
-FAISS_DIR=${REPODIR}/thirdparty/faiss
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 

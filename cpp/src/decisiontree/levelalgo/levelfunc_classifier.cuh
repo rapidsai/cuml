@@ -103,7 +103,9 @@ void grow_deep_tree_classification(
     MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
-  for (int depth = 0; (depth < tempmem->swap_depth) && (n_nodes_nextitr != 0);
+
+  int scatter_algo_depth = std::min(tempmem->swap_depth, maxdepth);
+  for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth + 1;
     n_nodes = n_nodes_nextitr;
@@ -149,9 +151,11 @@ void grow_deep_tree_classification(
     make_level_split(data, nrows, Ncols, ncols_sampled, nbins, n_nodes,
                      split_algo, d_split_colidx, d_split_binidx,
                      d_new_node_flags, flagsptr, tempmem);
-
-    memcpy(h_parent_hist, h_child_hist,
-           2 * n_nodes * n_unique_labels * sizeof(unsigned int));
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+    if (depth != (scatter_algo_depth - 1)) {
+      memcpy(h_parent_hist, h_child_hist,
+             2 * n_nodes * n_unique_labels * sizeof(unsigned int));
+    }
   }
   // Start of gather algorithm
   //Convertor

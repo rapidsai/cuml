@@ -22,7 +22,7 @@
 
 namespace ML {
 
-static const int TPB_X = 32;
+static const int TPB_X = 256;
 
 void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
                int orig_n, float *embedding, int embedding_n,
@@ -43,6 +43,12 @@ void fit(const cumlHandle &handle,
          int d,     // cols
          UMAPParams *params, float *embeddings) {
   UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, params, embeddings);
+}
+
+void find_ab(const cumlHandle &handle, UMAPParams *params) {
+  cudaStream_t stream = handle.getStream();
+  auto d_alloc = handle.getDeviceAllocator();
+  UMAPAlgo::find_ab(params, d_alloc, stream);
 }
 UMAP_API::UMAP_API(const cumlHandle &handle, UMAPParams *params)
   : params(params) {
@@ -74,6 +80,7 @@ void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
 void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
   this->orig_X = X;
   this->orig_n = n;
+
   UMAPAlgo::_fit<float, TPB_X>(*this->handle, X, y, n, d, get_params(),
                                embeddings);
 }

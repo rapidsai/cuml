@@ -16,44 +16,39 @@ import pytest
 from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
 
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 from umap import UMAP
 
 import cudf
+import numba.cuda
 import numpy as np
 
 
-@pytest.mark.parametrize('input_type', ['ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray', 'dataframe'])
 @pytest.mark.parametrize('n_samples', [10, 100])
+@pytest.mark.parametrize('batch_size', [512, 2])
 @pytest.mark.parametrize('n_features', [10, 100])
 @pytest.mark.parametrize('n_components', [2, 8])
-def test_trustworthiness(input_type, n_samples, n_features, n_components):
+def test_trustworthiness(input_type, n_samples, n_features, n_components,
+                         batch_size):
     centers = round(n_samples*0.4)
     X, y = make_blobs(n_samples=n_samples, centers=centers,
-                      n_features=n_features)
+                      n_features=n_features, random_state=32)
 
     X_embedded = \
-        UMAP(n_components=n_components).fit_transform(X)
+        UMAP(n_components=n_components, random_state=32).fit_transform(X)
     X = X.astype(np.float32)
     X_embedded = X_embedded.astype(np.float32)
 
-    if input_type == 'dataframe':
-        gdf = cudf.DataFrame()
-        for i in range(X.shape[1]):
-            gdf[str(i)] = np.asarray(X[:, i], dtype=np.float32)
-
-        gdf_embedded = cudf.DataFrame()
-        for i in range(X_embedded.shape[1]):
-            gdf_embedded[str(i)] = np.asarray(X_embedded[:, i],
-                                              dtype=np.float32)
-
-        score = cuml_trustworthiness(gdf, gdf_embedded)
-    else:
-        score = cuml_trustworthiness(X, X_embedded)
-
     sk_score = sklearn_trustworthiness(X, X_embedded)
 
-    eps = 0.001
-    assert (sk_score * (1 - eps) <= score and
-            score <= sk_score * (1 + eps))
-    # assert cu_score == sk_score ideally
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_gpu_matrix(
+            numba.cuda.to_device(X))
+
+        X_embedded = cudf.DataFrame.from_gpu_matrix(
+            numba.cuda.to_device(X_embedded))
+
+    score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
+
+    assert score == sk_score
