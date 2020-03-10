@@ -13,13 +13,18 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
+
 from cuml.dask.common.comms import worker_state
+
 from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
 
 
-class Ridge(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
+class Ridge(BaseEstimator,
+            BaseLinearModelSyncFitMixin,
+            DelayedPredictionMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the
