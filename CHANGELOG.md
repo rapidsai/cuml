@@ -76,6 +76,7 @@
 - PR #1810: Quickfix - chunkage in dask make_regression
 - PR #1842: DistributedDataHandler not properly setting 'multiple'
 - PR #1849: Critical fix in ARIMA initial estimate
+- PR #1851: Fix for cuDF behavior change for multidimensional arrays
 
 # cuML 0.12.0 (Date TBD)
 
