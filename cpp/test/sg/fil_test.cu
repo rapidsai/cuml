@@ -95,7 +95,7 @@ __global__ void nan_kernel(float* data, const bool* mask, int len, float nan) {
 
 float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
-typedef std::vector<unsigned> vote_vec;
+typedef std::vector<int> vote_vec;
 vote_vec& operator+=(vote_vec& a, vote_vec b) {
   ASSERT(a.size() == b.size(), "trying to add two vectors of different size");
   for (int i = 0; i < a.size(); ++i) a[i] += b[i];
@@ -180,9 +180,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       fil::val_t w;
       switch (ps.leaf_payload_type) {
         case fil::leaf_value_t::INT_CLASS_LABEL:
-          w.idx = (int)((weights_h[i] * .5 + .5)  // [0., 1.]
+          w.idx = (int)((weights_h[i] * 0.5 + 0.5)  // [0.0, 1.0]
                           * ps.num_classes +
-                        .5) %
+                        0.5) %
                   ps.num_classes;  // [0..num_classes]
           break;
         case fil::leaf_value_t::FLOAT_SCALAR:
@@ -227,6 +227,17 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaFree(mask_d));
   }
 
+  void transform(float f, float& proba, float& output) {
+    if ((ps.output & fil::output_t::AVG) != 0)
+      f *= (1.0f / ps.num_trees);
+    f += ps.global_bias;
+    if ((ps.output & fil::output_t::SIGMOID) != 0) f = sigmoid(f);
+    proba = f;
+    if ((ps.output & fil::output_t::CLASS) != 0)
+      f = f > ps.threshold ? 1.0f : 0.0f;
+    output = f;
+  }
+
   void predict_on_cpu() {
     // predict on host
     std::vector<float> want_preds_h(ps.num_rows);
@@ -240,41 +251,30 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             pred +=
               infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols]).f;
           }
-          if ((ps.output & fil::output_t::AVG) != 0)
-            pred = pred * (1.f / ps.num_trees);
-          pred += ps.global_bias;
-          if ((ps.output & fil::output_t::SIGMOID) != 0) pred = sigmoid(pred);
-          want_proba_h[i * 2] = 1.f - pred;
-          want_proba_h[i * 2 + 1] = pred;
-
-          if ((ps.output & fil::output_t::CLASS) != 0)
-            pred = pred > ps.threshold ? 1.0f : 0.0f;
-          want_preds_h[i] = pred;
+          transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
+          want_proba_h[i * 2] = 1.0f - want_proba_h[i * 2 + 1];
         }
         break;
       case fil::leaf_value_t::INT_CLASS_LABEL:
-        std::vector<unsigned> class_votes(ps.num_classes);
+        std::vector<int> class_votes(ps.num_classes);
         for (int r = 0; r < ps.num_rows; ++r) {
           for (auto& v : class_votes) v = 0;
           for (int j = 0; j < ps.num_trees; ++j) {
-            unsigned class_label =
+            int class_label =
               infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols])
                 .idx;
             ++class_votes[class_label];
           }
-          unsigned best_class = 0;
-          float most_votes = 0.;
+          int best_class = 0;
+          float most_votes = 0.0;
           for (int c = 0; c < ps.num_classes; ++c) {
             float pred = class_votes[c];
             if (pred > most_votes) {
               most_votes = pred;
               best_class = c;
             }
-            if ((ps.output & fil::output_t::AVG) != 0)
-              pred = pred * (1.f / ps.num_trees);
-            pred += ps.global_bias;
-            if ((ps.output & fil::output_t::SIGMOID) != 0) pred = sigmoid(pred);
-            want_proba_h[r * ps.num_classes + c] = pred;
+            float _;
+            transform(pred, want_proba_h[r * ps.num_classes + c], _);
           }
           want_preds_h[r] = best_class;
         }
@@ -462,7 +462,7 @@ class TreeliteFilTest : public BaseFilTest {
           break;
         case fil::leaf_value_t::INT_CLASS_LABEL:
           std::vector<tl::tl_float> vec(ps.num_classes);
-          vec[output.idx] = 1.;
+          vec[output.idx] = 1.0;
           TL_CPP_CHECK(builder->SetLeafVectorNode(key, vec));
       }
     } else {

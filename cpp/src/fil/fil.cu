@@ -84,12 +84,13 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
+  // will not be done on INT_CLASS_LABEL because the whole kernel will not run
   if ((output & output_t::CLASS) != 0)
     result = result > threshold ? 1.0f : 0.0f;
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
   if (complement_proba) {
-    preds[i] = 1.f - result;
+    preds[i] = 1.0f - result;
     preds[i + 1] = result;
   } else
     preds[i] = result;
@@ -133,14 +134,14 @@ struct forest {
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
+    /** FLOAT_SCALAR means inference produces 1 class score/component and
+        transform_k might complement to 2 for classification,
+        if class probabilities are being requested.
+        assuming predict(..., predict_proba=true) will not get called
+        for regression, hence predict_params::num_outputs == 2 */
     params.num_outputs =
       predict_proba ? (leaf_payload_type_ == INT_CLASS_LABEL ? num_classes_ : 2)
                     : 1;
-    // FLOAT_SCALAR means inference produces 1 class score/component and
-    // transform_k might complement to 2 for classification,
-    // if class probabilities are being requested
-    // assuming predict(..., predict_proba=true) will not get called
-    // for regression, hence forest::num_classes == 2
     params.leaf_payload_type = leaf_payload_type_;
 
     // Predict using the forest.
@@ -160,10 +161,10 @@ struct forest {
       do_transform = false;
 
     if (do_transform) {
-      unsigned long values_to_transform =
-        (unsigned long)num_rows * (unsigned long)params.num_outputs;
-      transform_k<<<ceildiv(values_to_transform, FIL_TPB), FIL_TPB, 0,
-                    stream>>>(preds, values_to_transform, ot,
+      size_t num_values_to_transform =
+        (size_t)num_rows * (size_t)params.num_outputs;
+      transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB, 0,
+                    stream>>>(preds, num_values_to_transform, ot,
                               num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
                               threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -181,7 +182,6 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  // init to invalid
   leaf_value_t leaf_payload_type_ = FLOAT_SCALAR;
   int num_classes_ = 0;
 };
@@ -399,13 +399,13 @@ int find_class_label_from_one_hot(tl::tl_float* vector, int len) {
   bool found_label = false;
   int out;
   for (int i = 0; i < len; ++i)
-    if (vector[i] == 1.) {
-      ASSERT(!found_label, "label vector contains multiple 1.f");
+    if (vector[i] == 1.0f) {
+      ASSERT(!found_label, "label vector contains multiple 1.0f");
       out = i;
       found_label = true;
     } else
-      ASSERT(vector[i] == 0.,
-             "label vector contains values other than 0. and 1.");
+      ASSERT(vector[i] == 0.0f,
+             "label vector contains values other than 0.0 and 1.0");
   return out;
 }
 
@@ -507,6 +507,16 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree,
   return root;
 }
 
+size_t tl_leaf_vector_size(const tl::Model& model) {
+  auto tree = model.trees[0];
+  int node_key;
+  for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
+       node_key = tl_node_at(tree, node_key).cleft())
+    ;
+  auto vec = tl_node_at(tree, node_key).leaf_vector();
+  return vec.size();
+}
+
 // tl2fil_common is the part of conversion from a treelite model
 // common for dense and sparse forests
 void tl2fil_common(forest_params_t* params, const tl::Model& model,
@@ -516,15 +526,10 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   params->threshold = tl_params->threshold;
 
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
-  auto tree = model.trees[0];
-  int node_key;
-  for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
-       node_key = tl_node_at(tree, node_key).cleft())
-    ;
-  auto vec = tl_node_at(tree, node_key).leaf_vector();
-  if (vec.size()) {
-    params->num_classes = vec.size();
-    ASSERT(vec.size() == model.num_output_group, "treelite model inconsistent");
+  size_t leaf_vec_size = tl_leaf_vector_size(model);
+  if (leaf_vec_size > 0) {
+    ASSERT(leaf_vec_size == model.num_output_group, "treelite model inconsistent");
+    params->num_classes = leaf_vec_size;
     params->leaf_payload_type = INT_CLASS_LABEL;
   } else {
     params->leaf_payload_type = FLOAT_SCALAR;
@@ -538,8 +543,7 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
   if (tl_params->output_class) {
-    if (params->leaf_payload_type == FLOAT_SCALAR)
-      params->output = output_t(params->output | output_t::CLASS);
+    params->output = output_t(params->output | output_t::CLASS);
   }
   // "random forest" in treelite means tree output averaging
   if (model.random_forest_flag) {

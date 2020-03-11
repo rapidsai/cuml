@@ -67,7 +67,10 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   vec<NITEMS, output_type> out;
 #pragma unroll
   for (int j = 0; j < NITEMS; ++j)
-    out[j] = tree[curr[j]].base_node::output<output_type>();
+    /** dependent names are not considered templates by default,
+        unless it's a member of a current [template] instantiation.
+        alternatively, could have used .base_node::output<... */
+    out[j] = tree[curr[j]].template output<output_type>();
   return out;
 }
 
@@ -94,11 +97,11 @@ struct tree_aggregator_t {
   vec<NITEMS, float> acc;
 
   __device__ __forceinline__ tree_aggregator_t(int, void*) {}
-  __device__ __forceinline__ void accumulate(vec<NITEMS, float> out) {
-    acc += out;
+  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction) {
+    acc += single_tree_prediction;
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
-                                           char output_stride) {
+                                           int output_stride) {
     __syncthreads();
     using BlockReduce = cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
     __shared__ typename BlockReduce::TempStorage tmp_storage;
@@ -114,25 +117,23 @@ struct tree_aggregator_t {
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
-  typedef unsigned class_label_t;
-  typedef unsigned vote_count_t;
   // could switch to unsigned short to save shared memory
   // provided atomicAdd(short*) simulated with appropriate shifts
-  vote_count_t* votes;
-  class_label_t num_classes;
+  int* votes;
+  int num_classes;
 
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace)
-    : num_classes(num_classes_), votes((vote_count_t*)shared_workspace) {
-    for (class_label_t c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
+    : num_classes(num_classes_), votes((int*)shared_workspace) {
+    for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
     //__syncthreads(); // happening outside already
   }
-  __device__ __forceinline__ void accumulate(vec<NITEMS, unsigned> out) {
+  __device__ __forceinline__ void accumulate(vec<NITEMS, int> single_tree_prediction) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
-      atomicAdd(votes + out[item] * NITEMS + item, 1);
+      atomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
   }
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
@@ -155,8 +156,8 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
     int item = threadIdx.x;
     int row = blockIdx.x * NITEMS + item;
     if (item < NITEMS && row < num_rows) {
-      vote_count_t max_votes = 0;
-      class_label_t best_class = 0;
+      int max_votes = 0;
+      int best_class = 0;
       for (int c = 0; c < num_classes; ++c)
         if (votes[c * NITEMS + item] > max_votes) {
           max_votes = votes[c * NITEMS + item];
