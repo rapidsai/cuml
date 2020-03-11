@@ -442,6 +442,9 @@ class RandomForestRegressor(Base):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
+    # Todo : Move functions duplicated in the RF classifier and regressor
+    #        to a shared file. Cuml issue #1854 has been created to track this.
+
     def _tl_model_handles(self, model_bytes):
         task_category = REGRESSION_MODEL
         cdef ModelHandle tl_model_ptr = NULL
@@ -569,7 +572,6 @@ class RandomForestRegressor(Base):
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format):
-        print(" IT is in the PREDICT GPU FUNCTION")
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
