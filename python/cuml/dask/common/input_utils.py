@@ -19,7 +19,7 @@ import cudf
 import cupy as cp
 import dask.array as da
 
-from collections.abc import Iterable
+from collections.abc import Sequence
 
 from cuml.utils.memory_utils import with_cupy_rmm
 
@@ -82,8 +82,22 @@ class DistributedDataHandler:
 
     @classmethod
     def create(cls, data, client=None):
+        """
+        Creates a distributed data handler instance with the given
+        distributed data set(s).
 
-        multiple = isinstance(data, Iterable)
+        Parameters
+        ----------
+
+        data : dask.array, dask.dataframe, or unbounded Sequence of
+               dask.array or dask.dataframe.
+
+        client : dask.distributedClient
+        """
+
+        client = cls.get_client(client)
+
+        multiple = isinstance(data, Sequence)
 
         gpu_futures = client.sync(_extract_partitions, data, client)
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
@@ -204,7 +218,7 @@ def _extract_partitions(dask_obj, client=None):
         parts = futures_of(client.compute(dask_obj))
 
     # iterable of dask collections (need to colocate them)
-    elif isinstance(dask_obj, Iterable):
+    elif isinstance(dask_obj, Sequence):
         parts = [futures_of(client.compute(a)) for a in dask_obj]
         to_map = zip(*parts)
         parts = client.compute(list(map(delayed, to_map)))
