@@ -21,16 +21,16 @@ base_n_points = 250_000_000
 n_gb_data = np.asarray([2], dtype=int)
 base_n_features = np.asarray([250], dtype=int)
 
-ideal_benchmark_f = open('ideal_benchmark_f.csv', 'a')
+ideal_benchmark_f = open('/gpfs/fs1/dgala/b_outs/ideal_benchmark_f.csv', 'a')
 
 def _read_data(file_list):
     X = []
     for file in file_list:
-        X.append(np.load(file))
-    X = np.concatenate(X, axis=0)
-    X_gpu = cp.array(X, order='F')
-    del X
-    return X_gpu
+        X.append(cp.load(file))
+    X = cp.concatenate(X, axis=0)
+    X = cp.array(X, order='F')
+    # del X
+    return X
 
 
 def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb=None, gb_partitions=None):
@@ -106,75 +106,92 @@ def transpose_and_move(X, client, workers, n_samples, n_workers, n_features):
     # return X_arr
 
 
-def run_ideal_benchmark(n_workers=2, X_filepath=None, y_filepath=None):
+def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, scheduler_file):
 
-    for n_gb_m in n_gb_data:
-        for n_features in base_n_features:
-            fit_time = np.zeros(5)
-            pred_time = np.zeros(5)
-            for i in range(1):
-                try:
-                    n_points = int(base_n_points * n_gb_m)
-                    cluster = LocalCUDACluster(n_workers=n_workers)
-                    client = Client(cluster)
-                    client.run(set_alloc)
+    # for n_gb_m in n_gb_data:
+    #     for n_features in base_n_features:
+    fit_time = np.zeros(5)
+    pred_time = np.zeros(5)
+    mse = np.zeros(5)
+    for i in range(5):
+        try:
+            n_points = int(base_n_points * n_gb)
+            if scheduler_file != 'None':
+                client = Client(scheduler_file=scheduler_file)
+            else:
+                cluster = LocalCUDACluster(n_workers=n_workers)
+                client = Client(cluster)
+            client.run(set_alloc)
 
-                    workers = list(client.has_what().keys())
-                    print(workers)
+            workers = list(client.has_what().keys())
+            print(workers)
 
-                    n_samples = n_points / n_features
-                    # X, y = make_regression(n_samples=n_samples, n_features=n_features, n_informative=n_features / 10, n_parts=n_workers)
+            n_samples = n_points / n_features
+            # X, y = make_regression(n_samples=n_samples, n_features=n_features, n_informative=n_features / 10, n_parts=n_workers)
 
-                    # X = X.rechunk((n_samples / n_workers, n_features))
-                    # y = y.rechunk(n_samples / n_workers )
+            # X = X.rechunk((n_samples / n_workers, n_features))
+            # y = y.rechunk(n_samples / n_workers )
 
-                    X = read_data(client, X_filepath, n_workers, workers, n_samples, n_features, 8, [2])
-                    print(X.compute_chunk_sizes().chunks)
-                    y = read_data(client, y_filepath, n_workers, workers, n_samples, None, 8, [2])
-                    print(X.compute_chunk_sizes().chunks)
-                    print(y.compute_chunk_sizes().chunks)
-                    print(client.has_what())
-                    
-                    lr = LinearRegression(client=client)
+            X = read_data(client, X_filepath, n_workers, workers, n_samples, n_features, n_gb)
+            print(X.compute_chunk_sizes().chunks)
+            y = read_data(client, y_filepath, n_workers, workers, n_samples, None, n_gb)
+            print(X.compute_chunk_sizes().chunks)
+            print(y.compute_chunk_sizes().chunks)
+            print(client.has_what())
+            
+            lr = LinearRegression(client=client)
 
-                    start_fit_time = time()
-                    lr.fit(X, y)
-                    end_fit_time = time()
-                    print("nGPUS: ", n_workers, ", Shape: ", X.shape, ", Fit Time: ", end_fit_time - start_fit_time)
-                    fit_time[i] = end_fit_time - start_fit_time
+            start_fit_time = time()
+            lr.fit(X, y)
+            end_fit_time = time()
+            print("nGPUS: ", n_workers, ", Shape: ", X.shape, ", Fit Time: ", end_fit_time - start_fit_time)
+            fit_time[i] = end_fit_time - start_fit_time
 
-                    start_pred_time = time()
-                    preds = lr.predict(X)
-                    parts = client.sync(extract_arr_partitions, preds, client)
-                    wait([p for w, p in parts])
-                    # wait(client.compute(preds))
-                    end_pred_time = time()
-                    print("nGPUS: ", n_workers, ", Shape: ", X.shape, ", Predict Time: ", end_pred_time - start_pred_time)
-                    pred_time[i] = end_pred_time - start_pred_time
+            start_pred_time = time()
+            preds = lr.predict(X)
+            parts = client.sync(extract_arr_partitions, preds, client)
+            wait([p for w, p in parts])
+            # wait(client.compute(preds))
+            end_pred_time = time()
+            print("nGPUS: ", n_workers, ", Shape: ", X.shape, ", Predict Time: ", end_pred_time - start_pred_time)
+            pred_time[i] = end_pred_time - start_pred_time
 
-                    mse = dask_mse(y, preds, client, workers)
-                    print(mse)
+            mse[i] = dask_mse(y, preds, client, workers)
+            print(mse[i])
 
-                    del X, y, preds
+            del X, y, preds
 
-                except Exception as e:
-                    print(e)
-                    continue
+        except Exception as e:
+            print(e)
+            continue
 
-                finally:
-                    cluster.close()
-                    client.close()
+        finally:
+            if 'X' in vars():
+                del X
+            if 'y' in vars():
+                del y
+            if 'preds' in vars():
+                del preds
+            if scheduler_file == 'None':
+                cluster.close()
+            client.close()
 
-            fit_stats = [np.mean(fit_time), np.min(fit_time), np.var(fit_time)]
-            pred_stats = [np.mean(pred_time), np.min(pred_time), np.var(pred_time)]
-            ideal_benchmark_f.write(','.join(map(str, [n_workers, n_samples, n_features] + fit_stats + pred_stats)))
-            ideal_benchmark_f.write('\n')
+    print("starting write")
+    fit_stats = [np.mean(fit_time), np.min(fit_time), np.var(fit_time)]
+    pred_stats = [np.mean(pred_time), np.min(pred_time), np.var(pred_time), np.mean(mse)]
+    with open('/gpfs/fs1/dgala/b_outs/benchmark.csv', 'a') as f:
+        f.write(','.join(map(str, [n_workers, n_samples, n_features] + fit_stats + pred_stats)))
+        f.write('\n')
+    print("ending write")
         #     break
         # break
 
 
 if __name__ == '__main__':
-    n_gpus = sys.argv[1]
+    n_gpus = int(sys.argv[1])
     X_filepath = sys.argv[2]
     y_filepath = sys.argv[3]
-    run_ideal_benchmark(n_workers=int(n_gpus), X_filepath=X_filepath, y_filepath=y_filepath)
+    n_gb = int(sys.argv[4])
+    n_features = int(sys.argv[5])
+    scheduler_file = sys.argv[6]
+    run_ideal_benchmark(n_gpus, X_filepath, y_filepath, n_gb, n_features, scheduler_file)
