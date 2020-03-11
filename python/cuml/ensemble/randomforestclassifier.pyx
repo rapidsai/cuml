@@ -467,6 +467,8 @@ class RandomForestClassifier(Base):
 
         return tl_to_fil_model
 
+    # Todo : Move functions duplicated in the RF classifier and regressor
+    #        to a shared file. Cuml issue #1854 has been created to track this.
     def _tl_model_handles(self, model_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
@@ -480,13 +482,6 @@ class RandomForestClassifier(Base):
         mod_handle = <size_t> cuml_model_ptr
 
         return ctypes.c_void_p(mod_handle).value
-
-    def _read_mod_handles(self, mod_handles):
-
-        cdef uintptr_t model_ptr = <uintptr_t> mod_handles
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
-
-        return model_protobuf_bytes
 
     def concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
