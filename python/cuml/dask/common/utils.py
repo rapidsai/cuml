@@ -15,13 +15,13 @@
 import logging
 import os
 import numba.cuda
+import random
+import time
 
 from cuml.utils import device_of_gpu_matrix
 from cuml import Base
 
 from asyncio import InvalidStateError
-
-import time
 
 from threading import Lock
 
@@ -161,13 +161,22 @@ def patch_cupy_sparse_serialization(client):
     client : dask.distributed.Client client to use
     """
 
-    from distributed.protocol import register_generic
-
     def patch_func():
         def serialize_mat_descriptor(m):
             return cp.cupy.cusparse.MatDescriptor.create, ()
 
-        register_generic(Base)
+        from cuml.naive_bayes.naive_bayes import MultinomialNB
+        from distributed.protocol.cuda import cuda_serialize, cuda_deserialize
+        from distributed.protocol.serialize import dask_serialize, \
+            dask_deserialize, register_generic
+
+        register_generic(Base, "cuda", cuda_serialize, cuda_deserialize)
+        register_generic(Base, "dask", dask_serialize, dask_deserialize)
+
+        register_generic(MultinomialNB, "cuda",
+                         cuda_serialize, cuda_deserialize)
+        register_generic(MultinomialNB, "dask",
+                         dask_serialize, dask_deserialize)
 
         copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
                        serialize_mat_descriptor)
@@ -200,6 +209,7 @@ class MultiHolderLock:
 
     def _acquire(self, blocking=True, timeout=10):
         lock_acquired = False
+
         inner_lock_acquired = self.lock.acquire(blocking, timeout)
 
         if inner_lock_acquired and self.current_tasks < self.n - 1:
@@ -228,6 +238,7 @@ class MultiHolderLock:
                 raise TimeoutError()
 
             lock_acquired = self.acquire(blocking, timeout)
+            time.sleep(random.uniform(0, 0.01))
 
         return lock_acquired
 
