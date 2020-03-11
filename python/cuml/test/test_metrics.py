@@ -361,7 +361,7 @@ def test_confusion_matrix_binary():
 @pytest.mark.parametrize('dtype', [np.int32, np.int64])
 @pytest.mark.parametrize('problem_type', ['binary', 'multiclass'])
 def test_confusion_matrix_random(n_samples, dtype, problem_type):
-    upper_range = 1 if problem_type == 'binary' else 1000
+    upper_range = 2 if problem_type == 'binary' else 1000
 
     y_true, y_pred = generate_random_labels(
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype))
