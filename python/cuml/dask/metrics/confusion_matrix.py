@@ -1,0 +1,86 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import numpy as np
+import cupy as cp
+from cuml.dask.common import extract_arr_partitions
+
+from cuml.utils.memory_utils import with_cupy_rmm
+from cuml.dask.metrics.utils import sorted_unique_labels
+from cuml.prims.label import make_monotonic
+from dask.distributed import default_client
+
+
+@with_cupy_rmm
+def local_cm(inputs, labels, use_sample_weight):
+    if use_sample_weight:
+        y_true, y_pred, sample_weight = inputs
+    else:
+        y_true, y_pred = inputs
+        sample_weight = cp.ones(y_true.shape[0], dtype=y_true.dtype)
+
+    y_true, _ = make_monotonic(y_true, labels, copy=True)
+    y_pred, _ = make_monotonic(y_pred, labels, copy=True)
+
+    n_labels = labels.size
+
+    # intersect y_pred, y_true with labels, eliminate items not in labels
+    ind = cp.logical_and(y_pred < n_labels, y_true < n_labels)
+    y_pred = y_pred[ind]
+    y_true = y_true[ind]
+    sample_weight = sample_weight[ind]
+    cm = cp.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
+                              shape=(n_labels, n_labels), dtype=cp.float64,
+                              ).toarray()
+    return cp.nan_to_num(cm)
+
+
+@with_cupy_rmm
+def confusion_matrix(y_true, y_pred,
+                     labels=None,
+                     normalize=None,
+                     sample_weight=None):
+    client = default_client()
+
+    if labels is None:
+        labels = sorted_unique_labels(y_true, y_pred)
+
+    if normalize not in ['true', 'pred', 'all', None]:
+        raise ValueError("normalize must be one of {'true', 'pred', "
+                         "'all', None}")
+
+    use_sample_weight = bool(sample_weight is not None)
+    dask_arrays = [y_true, y_pred, sample_weight] if use_sample_weight else \
+        [y_true, y_pred]
+
+    # run cm computation on each partition.
+    parts = client.sync(extract_arr_partitions, dask_arrays)
+    cms = [client.submit(local_cm, p, labels, use_sample_weight,
+                         workers=[w]).result() for w, p in parts]
+
+    # reduce each partition's result into one cupy matrix
+    cm = sum(cms)
+
+    with np.errstate(all='ignore'):
+        if normalize == 'true':
+            cm = cm / cm.sum(axis=1, keepdims=True)
+        elif normalize == 'pred':
+            cm = cm / cm.sum(axis=0, keepdims=True)
+        elif normalize == 'all':
+            cm = cm / cm.sum()
+        cm = np.nan_to_num(cm)
+
+    return cm
