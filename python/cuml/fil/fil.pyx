@@ -232,17 +232,24 @@ cdef class ForestInference_impl():
 
     def predict(self, X, output_type='numpy', predict_proba=False, preds=None):
         """
-        Returns the results of forest inference on the exampes in X
+        Returns the results of forest inference on the examples in X
 
         Parameters
         ----------
         X : float32 array-like (device or host) shape = (n_samples, n_features)
             For optimal performance, pass a device array with C-style layout
-
+        output_type : string (default = 'numpy')
+            possible options are : {'input', 'cudf', 'cupy', 'numpy'}, optional
+            Variable to control output type of the results and attributes of
+            the estimators.
         preds : float32 device array, shape = n_samples
-
         predict_proba : bool, whether to output class probabilities(vs classes)
-        Supported only for binary classification. output format matches sklearn
+            Supported only for binary classification. output format
+            matches sklearn
+
+        Returns
+        ----------
+        Predicted results of type as defined by the output_type variable
         """
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \

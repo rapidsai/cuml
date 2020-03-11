@@ -422,13 +422,44 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+                           coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+                                 multiple rows per thread block
+            `algo` - choose the algorithm automatically. Currently
+                     'batch_tree_reorg' is used for dense storage
+                     and 'naive' for sparse storage
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        predict_model : String (default = 'GPU')
+            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
+            be used if the model was trained on float32 data and `X` is float32
+            or convert_dtype is set to True.
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+                     (currently True is chosen by auto)
+             False - create a dense forest
+             True - create a sparse forest, requires algo='naive'
+                    or algo='auto'
+        delayed : bool (default = True)
+            Whether to do a lazy prediction (and return Delayed objects) or an
+            eagerly executed one.
 
         Returns
         ----------
-        y: NumPy
-           Dense vector (float) of shape (n_samples, 1)
-
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
         """
         if predict_model == "CPU":
             preds = self._predict_using_cpu(X, predict_model=predict_model)
@@ -454,9 +485,11 @@ class RandomForestRegressor(DelayedPredictionMixin):
                   "fil_sparse_format": fil_sparse_format}
         return self._predict(X, delayed=delayed, **kwargs)
 
+    """
+    TODO : Update function names used for CPU predict.
+           Cuml issue #1854 has been created to track this.
+    """
     def _predict_using_cpu(self, X, predict_model):
-
-        # c = default_client()
         workers = self.workers
 
         X_Scattered = self.client.scatter(X)

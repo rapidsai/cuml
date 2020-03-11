@@ -522,6 +522,10 @@ class RandomForestClassifier(DelayedPredictionMixin):
                   "fil_sparse_format": fil_sparse_format}
         return self._predict(X, delayed, **kwargs)
 
+    """
+    TODO : Update function names used for CPU predict.
+           Cuml issue #1854 has been created to track this.
+    """
     def _predict_using_cpu(self, X, convert_dtype=True):
         """
         Predicts the labels for X.

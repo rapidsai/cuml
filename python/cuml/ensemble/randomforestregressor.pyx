@@ -182,7 +182,7 @@ class RandomForestRegressor(Base):
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
         If 'auto' then max_features=1/sqrt(n_features).
-        If 'sqrt' then max_features=1/sqrt(n_features).
+        If 'sqrt' then max_features=1.0.
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins :  int (default = 8)
         Number of bins used by the split algorithm.
@@ -442,9 +442,10 @@ class RandomForestRegressor(Base):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    # Todo : Move functions duplicated in the RF classifier and regressor
-    #        to a shared file. Cuml issue #1854 has been created to track this.
-
+    """
+    TODO : Move functions duplicated in the RF classifier and regressor
+           to a shared file. Cuml issue #1854 has been created to track this.
+    """
     def _tl_model_handles(self, model_bytes):
         task_category = REGRESSION_MODEL
         cdef ModelHandle tl_model_ptr = NULL

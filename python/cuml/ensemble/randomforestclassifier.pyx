@@ -232,7 +232,7 @@ class RandomForestClassifier(Base):
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
-                 output_type=None, gdf_datatype=None, criterion=None,
+                 output_type=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
                  max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, n_jobs=None,
@@ -467,8 +467,10 @@ class RandomForestClassifier(Base):
 
         return tl_to_fil_model
 
-    # Todo : Move functions duplicated in the RF classifier and regressor
-    #        to a shared file. Cuml issue #1854 has been created to track this.
+    """
+    TODO : Move functions duplicated in the RF classifier and regressor
+           to a shared file. Cuml issue #1854 has been created to track this.
+    """
     def _tl_model_handles(self, model_bytes):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, int] *rf_forest = \
