@@ -216,9 +216,19 @@ def get_classes_from_package(package):
     return {k: v for dictionary in classes for k, v in dictionary.items()}
 
 
-def generate_random_labels(random_generation_lambda, seed=1234):
+def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False,
+                           with_numpy=False):
+    # TODO: Add documentation
     rng = np.random.RandomState(seed)  # makes it reproducible
     a = random_generation_lambda(rng)
     b = random_generation_lambda(rng)
 
-    return cuda.to_device(a), cuda.to_device(b)
+    if as_cupy:
+        a_res, b_res = cp.array(a), cp.array(b)
+    else:
+        a_res, b_res = cuda.to_device(a), cuda.to_device(b)
+
+    if with_numpy:
+        return a_res, b_res, a, b
+    else:
+        return a_res, b_res
