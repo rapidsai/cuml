@@ -123,6 +123,8 @@ class CumlArray(Buffer):
                 raise TypeError("Need to specify dtype, shape and order when" +
                                 " creating an Array from " + type(data) + ".")
             detailed_construction = True
+        elif dtype is not None and shape is not None and order is not None:
+            detailed_construction = True
         else:
             detailed_construction = False
 
