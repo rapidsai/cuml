@@ -12,6 +12,7 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1767: Single GPU decomposition models configurable output
 - PR #1778: Make cuML Handle picklable
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
@@ -21,6 +22,7 @@
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
+- PR #1755: Expose the build_treelite function for python
 - PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
@@ -34,13 +36,16 @@
 - PR #1726: Decorator to allocate CuPy arrays with RMM
 - PR #1719: UMAP random seed reproducibility
 - PR #1748: Test serializing `CumlArray` objects
+- PR #1776: Refactoring pca/tsvd distributed
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
 - PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1824: C++: improving the performance of UMAP algo
+- PR #1816: Add ARIMA notebook
 
 ## Bug Fixes
+- PR #1833: Fix depth issue in shallow RF regression estimators
 - PR #1770: Warn that KalmanFilter is deprecated
 - PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
 - PR #1594: Train-test split is now reproducible
@@ -70,6 +75,7 @@
 - PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
 - PR #1793: Updated fil pyx to solve memory leakage issue
 - PR #1810: Quickfix - chunkage in dask make_regression
+- PR #1842: DistributedDataHandler not properly setting 'multiple'
 
 # cuML 0.12.0 (Date TBD)
 
