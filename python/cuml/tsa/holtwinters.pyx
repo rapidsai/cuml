@@ -19,6 +19,7 @@
 # cython: language_level = 3
 
 import cudf
+import cupy as cp
 import numpy as np
 from numba import cuda
 from libc.stdint cimport uintptr_t
@@ -422,7 +423,8 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) +
                                      " outside of range [0, " +
                                      str(self.ts_num) + "]")
-                return cudf.Series(self.forecasted_points[index, :h])
+                return cudf.Series(cp.asarray(
+                    self.forecasted_points[index, :h]))
         else:
             raise ValueError("Fit() the model before forecast()")
 
@@ -484,7 +486,7 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) + " outside "
                                      "of range [0, " + str(self.ts_num) + "]")
                 else:
-                    return cudf.Series(self.level[index])
+                    return cudf.Series(cp.asarray(self.level[index]))
         else:
             raise ValueError("Fit() the model to get level values")
 
@@ -515,7 +517,7 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) + " outside "
                                      "of range [0, " + str(self.ts_num) + "]")
                 else:
-                    return cudf.Series(self.trend[index])
+                    return cudf.Series(cp.asarray(self.trend[index]))
         else:
             raise ValueError("Fit() the model to get trend values")
 
@@ -546,6 +548,6 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) + " outside "
                                      "of range [0, " + str(self.ts_num) + "]")
                 else:
-                    return cudf.Series(self.season[index])
+                    return cudf.Series(cp.asarray(self.season[index]))
         else:
             raise ValueError("Fit() the model to get season values")
