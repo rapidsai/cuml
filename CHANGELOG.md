@@ -40,6 +40,7 @@
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
 - PR #1790: Add support for multiple seeding in k-means++
+- PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1816: Add ARIMA notebook
 
@@ -74,6 +75,8 @@
 - PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
 - PR #1793: Updated fil pyx to solve memory leakage issue
 - PR #1810: Quickfix - chunkage in dask make_regression
+- PR #1842: DistributedDataHandler not properly setting 'multiple'
+- PR #1851: Fix for cuDF behavior change for multidimensional arrays
 
 # cuML 0.12.0 (Date TBD)
 
