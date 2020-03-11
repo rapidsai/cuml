@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ if(BUILD_CUML_BENCH)
     sg/main.cpp
     sg/rf_classifier.cu
     sg/rf_regressor.cu
+    sg/umap.cu
     )
   target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
   target_include_directories(${CUML_SG_BENCH_TARGET}

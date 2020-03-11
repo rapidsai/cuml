@@ -66,7 +66,7 @@ class DecompositionSyncFitMixin(object):
 
         X = self.client.persist(X)
 
-        data = DistributedDataHandler.single(data=X, client=self.client)
+        data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False)

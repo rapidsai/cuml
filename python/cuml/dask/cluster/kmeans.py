@@ -30,6 +30,7 @@ from cuml.dask.common.comms import worker_state
 from cuml.dask.common.utils import raise_exception_from_futures
 
 from dask.distributed import wait
+from cuml.utils.memory_utils import with_cupy_rmm
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -112,6 +113,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         ret = model.score(data)
         return ret
 
+    @with_cupy_rmm
     def fit(self, X):
         """
         Fit a multi-node multi-GPU KMeans model
@@ -224,6 +226,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         """
         return self._transform(X, n_dims=2, delayed=delayed)
 
+    @with_cupy_rmm
     def score(self, X):
         """
         Computes the inertia score for the trained KMeans centroids.
