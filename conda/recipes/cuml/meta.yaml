@@ -38,7 +38,7 @@ requirements:
   run:
     - python x.x
     - cudf {{ minor_version }}
-    - dask_cudf {{ minor_version }}
+    - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cupy>=7,<8.0.0a0
