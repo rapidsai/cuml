@@ -146,7 +146,7 @@ class CumlArray(Buffer):
             ary_interface = data.__cuda_array_interface__
 
         else:
-            raise TypeError("Unrecognized data type.")
+            raise TypeError("Unrecognized data type: %s" % str(type(data)))
 
         if ary_interface:
             self.shape = ary_interface['shape']
@@ -204,10 +204,10 @@ class CumlArray(Buffer):
         if output_type == 'cudf':
             if len(self.shape) == 1:
                 output_type = 'series'
-            elif self.shape[0] > 1 and self.shape[1] > 1:
-                output_type = 'dataframe'
-            else:
+            elif self.shape[1] == 1:
                 output_type = 'series'
+            else:
+                output_type = 'dataframe'
 
         if output_type == 'cupy':
             return cp.asarray(self)
@@ -237,7 +237,7 @@ class CumlArray(Buffer):
                     return Series(self, dtype=self.dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
-            elif self.shape[0] > 1 and self.shape[1] > 1:
+            elif self.shape[1] > 1:
                 raise ValueError('Only single dimensional arrays can be \
                                  transformed to cuDF Series. ')
             else:
