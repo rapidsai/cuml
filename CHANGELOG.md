@@ -75,6 +75,7 @@
 - PR #1793: Updated fil pyx to solve memory leakage issue
 - PR #1810: Quickfix - chunkage in dask make_regression
 - PR #1842: DistributedDataHandler not properly setting 'multiple'
+- PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
 
 # cuML 0.12.0 (Date TBD)
