@@ -228,37 +228,33 @@ void information_criterion(cumlHandle& handle, const double* d_y,
 }
 
 /**
- * @todo: docs
+ * Test that the parameters are valid for the inverse transform
+ * 
+ * @tparam isAr        Are these (S)AR or (S)MA parameters?
+ * @param[in]  params  Parameters
+ * @param[in]  pq      p for AR, q for MA, P for SAR, Q for SMA
  */
-DI bool test_invparams(const double* old_params, int pq, bool isAr) {
+template <bool isAr>
+DI bool test_invparams(const double* params, int pq) {
   double new_params[4];
   double tmp[4];
 
+  constexpr double coef = isAr ? 1 : -1;
+
   for (int i = 0; i < pq; i++) {
-    tmp[i] = old_params[i];
+    tmp[i] = params[i];
     new_params[i] = tmp[i];
   }
 
   // Perform inverse transform and stop before atanh step
-  if (isAr) {
-    for (int j = pq - 1; j > 0; --j) {
-      double a = new_params[j];
-      for (int k = 0; k < j; ++k) {
-        tmp[k] = (new_params[k] + a * new_params[j - k - 1]) / (1 - (a * a));
-      }
-      for (int iter = 0; iter < j; ++iter) {
-        new_params[iter] = tmp[iter];
-      }
+  for (int j = pq - 1; j > 0; --j) {
+    double a = new_params[j];
+    for (int k = 0; k < j; ++k) {
+      tmp[k] =
+        (new_params[k] + coef * a * new_params[j - k - 1]) / (1 - (a * a));
     }
-  } else {
-    for (int j = pq - 1; j > 0; --j) {
-      double a = new_params[j];
-      for (int k = 0; k < j; ++k) {
-        tmp[k] = (new_params[k] - a * new_params[j - k - 1]) / (1 - (a * a));
-      }
-      for (int iter = 0; iter < j; ++iter) {
-        new_params[iter] = tmp[iter];
-      }
+    for (int iter = 0; iter < j; ++iter) {
+      new_params[iter] = tmp[iter];
     }
   }
 
@@ -429,14 +425,14 @@ static void _arma_least_squares(
                    counting + batch_size, [=] __device__(int bid) {
                      if (p) {
                        double* b_ar = d_ar + bid * p;
-                       bool valid = test_invparams(b_ar, p, true);
+                       bool valid = test_invparams<true>(b_ar, p);
                        if (!valid) {
                          for (int ip = 0; ip < p; ip++) b_ar[ip] = 0;
                        }
                      }
                      if (q) {
                        double* b_ma = d_ma + bid * q;
-                       bool valid = test_invparams(b_ma, q, false);
+                       bool valid = test_invparams<false>(b_ma, q);
                        if (!valid) {
                          for (int iq = 0; iq < q; iq++) b_ma[iq] = 0;
                        }
