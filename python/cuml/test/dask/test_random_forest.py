@@ -15,6 +15,7 @@
 #
 
 import cudf
+import cupy as cp
 import dask_cudf
 import pytest
 import rmm
@@ -192,7 +193,8 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster):
         cu_rf_mg = cuRFR_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
 
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df)
+        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df).compute()
+        cu_rf_mg_predict = cp.asnumpy(cp.array(cu_rf_mg_predict))
 
         acc_score = r2_score(cu_rf_mg_predict, y_test)
 
@@ -234,7 +236,8 @@ def test_rf_classification_dask_fil(partitions_per_worker, cluster,
                                            partitions_per_worker)
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df, output_class)
+        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df, output_class).compute()
+        cu_rf_mg_predict = cp.asnumpy(cp.array(cu_rf_mg_predict))
 
         acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
 
