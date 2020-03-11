@@ -45,6 +45,7 @@
 - PR #1816: Add ARIMA notebook
 - PR #1837: Simplify cuML Array construction
 - PR #1825: `--nvtx` option in `build.sh`
+- PR #1847: Update XGBoost version for CI
 
 ## Bug Fixes
 - PR #1833: Fix depth issue in shallow RF regression estimators
