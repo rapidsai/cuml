@@ -40,7 +40,7 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
 }
 
 // FIL_TPB is the number of threads per block to use with FIL kernels
-const unsigned long FIL_TPB = 256;
+const int FIL_TPB = 256;
 
 /** base_node contains common implementation details for dense and sparse nodes */
 struct base_node : dense_node_t {
@@ -72,7 +72,7 @@ __host__ __device__ __forceinline__ float base_node::output<float>() const {
   return val.f;
 }
 template <>
-__host__ __device__ __forceinline__ unsigned base_node::output<unsigned>()
+__host__ __device__ __forceinline__ int base_node::output<int>()
   const {
   return val.idx;
 }
@@ -159,7 +159,7 @@ struct predict_params {
   int num_cols;
   algo_t algo;
   int max_items;  // only set and used by infer()
-  // number of outputs for the forest for each data instance (sample) (row)
+  // number of outputs for the forest per each data row
   int num_outputs;
   // for class probabilities, this is the number of classes considered
   // ignored otherwise
@@ -170,6 +170,7 @@ struct predict_params {
   // Data parameters.
   float* preds;
   const float* data;
+  // number of data rows (instances) to predict on
   size_t num_rows;
 
   // Other parameters.

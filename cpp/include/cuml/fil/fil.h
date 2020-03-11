@@ -53,7 +53,7 @@ enum algo_t {
  * output of the previous stage:
  * - one of RAW or AVG, indicating how to combine individual tree outputs into the forest output
  * - optional SIGMOID for applying the sigmoid transform
- * - optional CLASS, for thresholding for classification
+ * - optional CLASS, to output the class label
  */
 enum output_t {
   /** raw output: the sum of the tree outputs; use for GBM models for
@@ -68,8 +68,8 @@ enum output_t {
   /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
       outputs; use for GBM binary classification models for probability */
   SIGMOID = 0x10,
-  /** threshold: apply threshold to the output of the previous stage to get the
-      class (0 or 1) */
+  /** output class label: either apply threshold to the output of the previous stage (for binary classification),
+      or select the class with the most votes to get the class label (for multi-class classification).  */
   CLASS = 0x100,
 };
 
@@ -88,9 +88,8 @@ union val_t {
   /** threshold value for branch node or output value (e.g. class
       probability or regression summand) for leaf node */
   float f;
-  /** class label or index of the float vector
-      (vector can be used for class probabilities or regression) */
-  unsigned int idx;
+  /** class label */
+  int idx;
 };
 
 /** dense_node_t is a node in a densely-stored forest */
@@ -113,7 +112,7 @@ struct sparse_node_t : dense_node_t, sparse_node_extra_data {
 
 /** leaf_value_t describes what the leaves in a FIL forest store (predict) */
 enum leaf_value_t {
-  /** storing a clas probability or regression summand */
+  /** storing a class probability or regression summand */
   FLOAT_SCALAR = 0,
   /** storing a class label */
   INT_CLASS_LABEL = 1
@@ -128,7 +127,7 @@ struct leaf_output_t<FLOAT_SCALAR> {
 };
 template <>
 struct leaf_output_t<INT_CLASS_LABEL> {
-  typedef unsigned T;
+  typedef int T;
 };
 
 /** dense_node_init initializes node from paramters */
@@ -178,7 +177,7 @@ struct forest_params_t {
   float global_bias;
   // only used for INT_CLASS_LABEL inference. since we're storing the
   // labels in leaves instead of the whole vector, this keeps track
-  // of total unique label/class/component count
+  // of the number of classes
   int num_classes;
 };
 
