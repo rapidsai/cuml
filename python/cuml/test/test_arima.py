@@ -415,9 +415,7 @@ def test_start_params(test_case, dtype):
         y_cudf, order, seasonal_order, fit_intercept=intercept)
     ref_model = [sm.tsa.SARIMAX(y[col], order=order,
                                 seasonal_order=seasonal_order,
-                                trend='c' if intercept else 'n',
-                                enforce_invertibility=False,
-                                enforce_stationarity=False)
+                                trend='c' if intercept else 'n')
                  for col in y.columns]
 
     # Estimate reference starting parameters
@@ -425,7 +423,9 @@ def test_start_params(test_case, dtype):
     nb = data.batch_size
     x_ref = np.zeros(N * nb, dtype=dtype)
     for ib in range(nb):
-        x_ref[ib*N:(ib+1)*N] = ref_model[ib].start_params[:N]
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            x_ref[ib*N:(ib+1)*N] = ref_model[ib].start_params[:N]
 
     # Estimate cuML starting parameters
     cuml_model._estimate_x0()
