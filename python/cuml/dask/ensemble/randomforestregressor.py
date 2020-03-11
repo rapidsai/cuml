@@ -16,18 +16,19 @@
 
 import cudf
 
-from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
+from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
+from cuml.dask.common.base import DelayedPredictionMixin
 
 import math
 import random
 from uuid import uuid1
 
 
-class RandomForestRegressor:
+class RandomForestRegressor(DelayedPredictionMixin):
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -57,7 +58,6 @@ class RandomForestRegressor:
 
     Please check the single-GPU implementation of Random Forest
     classifier for more information about the underlying algorithm.
-
 
      Parameters
     -----------
@@ -291,8 +291,56 @@ class RandomForestRegressor:
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _predict(model, X, r):
-        return model.predict(X).copy_to_host()
+    def _print_summary(model):
+        model.print_summary()
+
+    @staticmethod
+    def _predict_cpu(model, X, predict_model):
+        return model._predict_model_on_cpu(X, predict_model=predict_model)
+
+    def print_summary(self):
+        """
+        Print the summary of the forest used to train and test the model.
+        """
+        c = default_client()
+        futures = list()
+        workers = self.workers
+
+        for n, w in enumerate(workers):
+            futures.append(
+                c.submit(
+                    RandomForestRegressor._print_summary,
+                    self.rfs[w],
+                    workers=[w],
+                )
+            )
+
+        wait(futures)
+        raise_exception_from_futures(futures)
+        return self
+
+    def _concat_treelite_models(self):
+        """
+        Convert the cuML Random Forest model present in different workers to
+        the treelite format and then concatenate the different treelite models
+        to create a single model. The concatenated model is then converted to
+        bytes format.
+        """
+
+        mod_bytes = []
+        for w in self.workers:
+            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+        last_worker = w
+        all_tl_mod_handles = []
+        model = self.rfs[last_worker].result()
+        for n in range(len(self.workers)):
+            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+
+        concat_model_handle = model.concatenate_treelite_handle(
+            treelite_handle=all_tl_mod_handles)
+        model.concatenate_model_bytes(concat_model_handle)
+
+        self.local_model = model
 
     def fit(self, X, y):
         """
@@ -362,10 +410,11 @@ class RandomForestRegressor:
 
         wait(futures)
         raise_exception_from_futures(futures)
-
         return self
 
-    def predict(self, X):
+    def predict(self, X, predict_model="GPU", algo='auto',
+                convert_dtype=True, fil_sparse_format='auto',
+                output_class=False, delayed=True, parallelism=25):
         """
         Predicts the regressor outputs for X.
 
@@ -379,6 +428,32 @@ class RandomForestRegressor:
            Dense vector (float) of shape (n_samples, 1)
 
         """
+        if predict_model == "CPU":
+            preds = self._predict_using_cpu(X, predict_model=predict_model)
+
+        else:
+            preds = \
+                self._predict_using_fil(X, predict_model=predict_model,
+                                        algo=algo,
+                                        convert_dtype=convert_dtype,
+                                        fil_sparse_format=fil_sparse_format,
+                                        output_class=output_class,
+                                        delayed=delayed,
+                                        parallelism=parallelism)
+        return preds
+
+    def _predict_using_fil(self, X, predict_model="GPU", algo='auto',
+                           convert_dtype=True, fil_sparse_format='auto',
+                           output_class=False, delayed=True, parallelism=25):
+        self._concat_treelite_models()
+
+        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+                  "predict_model": predict_model, "algo": algo,
+                  "fil_sparse_format": fil_sparse_format}
+        return self._predict(X, delayed, parallelism, **kwargs)
+
+    def _predict_using_cpu(self, X, predict_model):
+
         c = default_client()
         workers = self.workers
 
@@ -388,10 +463,10 @@ class RandomForestRegressor:
         for n, w in enumerate(workers):
             futures.append(
                 c.submit(
-                    RandomForestRegressor._predict,
+                    RandomForestRegressor._predict_cpu,
                     self.rfs[w],
                     X_Scattered,
-                    random.random(),
+                    predict_model,
                     workers=[w],
                 )
             )
