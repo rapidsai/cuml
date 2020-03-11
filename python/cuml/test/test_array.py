@@ -70,8 +70,8 @@ unsupported_cudf_dtypes = [np.uint8, np.uint16, np.uint32, np.uint64,
 def test_array_init(input_type, dtype, shape, order):
     if input_type == 'series':
         if dtype in unsupported_cudf_dtypes or \
-             shape == (10, 5):
-            pytest.skip("Unsupported cuDF parameter")
+                shape in [(10, 5), (1, 10)]:
+            pytest.skip("Unsupported cuDF Series parameter")
 
     if input_type is not None:
         inp = create_input(input_type, dtype, shape, order)
@@ -235,7 +235,7 @@ def test_output(output_type, dtype, order, shape):
             output_type in ['series', 'dataframe', 'cudf']:
         with pytest.raises(ValueError):
             res = ary.to_output(output_type)
-    elif shape == (10, 5) and output_type == 'series':
+    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
         with pytest.raises(ValueError):
             res = ary.to_output(output_type)
     else:
@@ -245,7 +245,7 @@ def test_output(output_type, dtype, order, shape):
         if output_type == 'numba':
             assert cuda.devicearray.is_cuda_ndarray(res)
         elif output_type == 'cudf':
-            if shape == (10, 5):
+            if shape in [(10, 5), (1, 10)]:
                 assert isinstance(res, cudf.DataFrame)
             else:
                 assert isinstance(res, cudf.Series)
