@@ -617,7 +617,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
 @pytest.mark.parametrize('column_info', [unit_param([100, 50]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(1000), quality_param(50000),
+@pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(50000),
                          stress_param(500000)])
 def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
     n_iter = 30

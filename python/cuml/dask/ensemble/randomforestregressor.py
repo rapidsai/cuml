@@ -22,6 +22,7 @@ from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 import math
 import random
@@ -146,7 +147,8 @@ class RandomForestRegressor(DelayedPredictionMixin):
         class_weight=None,
         quantile_per_tree=False,
         criterion=None,
-        workers=None
+        workers=None,
+        client=None
     ):
 
         unsupported_sklearn_params = {
@@ -176,9 +178,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
 
-        c = default_client()
+        self.client = default_client() if client is None else client
         if workers is None:
-            workers = c.has_what().keys()
+            workers = self.client.has_what().keys()
         self.workers = workers
         n_workers = len(workers)
         if n_estimators < n_workers:
@@ -206,7 +208,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         key = str(uuid1())
         self.rfs = {
-            worker: c.submit(
+            worker: self.client.submit(
                 RandomForestRegressor._func_build_rf,
                 self.n_estimators_per_worker[n],
                 max_depth,
@@ -414,7 +416,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
     def predict(self, X, predict_model="GPU", algo='auto',
                 convert_dtype=True, fil_sparse_format='auto',
-                output_class=False, delayed=True, parallelism=25):
+                delayed=True):
         """
         Predicts the regressor outputs for X.
 
@@ -437,32 +439,32 @@ class RandomForestRegressor(DelayedPredictionMixin):
                                         algo=algo,
                                         convert_dtype=convert_dtype,
                                         fil_sparse_format=fil_sparse_format,
-                                        output_class=output_class,
-                                        delayed=delayed,
-                                        parallelism=parallelism)
+                                        delayed=delayed)
         return preds
 
     def _predict_using_fil(self, X, predict_model="GPU", algo='auto',
                            convert_dtype=True, fil_sparse_format='auto',
-                           output_class=False, delayed=True, parallelism=25):
+                           delayed=True):
         self._concat_treelite_models()
+        data = DistributedDataHandler.single(X, client=self.client)
+        self.datatype = data.datatype
 
-        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+        kwargs = {"convert_dtype": convert_dtype,
                   "predict_model": predict_model, "algo": algo,
                   "fil_sparse_format": fil_sparse_format}
-        return self._predict(X, delayed, parallelism, **kwargs)
+        return self._predict(X, delayed=delayed, **kwargs)
 
     def _predict_using_cpu(self, X, predict_model):
 
-        c = default_client()
+        # c = default_client()
         workers = self.workers
 
-        X_Scattered = c.scatter(X)
+        X_Scattered = self.client.scatter(X)
 
         futures = list()
         for n, w in enumerate(workers):
             futures.append(
-                c.submit(
+                self.client.submit(
                     RandomForestRegressor._predict_cpu,
                     self.rfs[w],
                     X_Scattered,

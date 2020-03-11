@@ -23,6 +23,7 @@ from dask.distributed import default_client, wait
 
 
 from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 import math
 import random
@@ -145,7 +146,8 @@ class RandomForestClassifier(DelayedPredictionMixin):
         random_state=None,
         warm_start=None,
         class_weight=None,
-        workers=None
+        workers=None,
+        client=None
     ):
 
         unsupported_sklearn_params = {
@@ -176,9 +178,9 @@ class RandomForestClassifier(DelayedPredictionMixin):
         self.n_estimators_per_worker = list()
         self.num_classes = 2
 
-        c = default_client()
+        self.client = default_client() if client is None else client
         if workers is None:
-            workers = c.has_what().keys()  # Default to all workers
+            workers = self.client.has_what().keys()  # Default to all workers
         self.workers = workers
 
         n_workers = len(workers)
@@ -207,7 +209,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
         key = str(uuid1())
         self.rfs = {
-            worker: c.submit(
+            worker: self.client.submit(
                 RandomForestClassifier._func_build_rf,
                 self.n_estimators_per_worker[n],
                 max_depth,
@@ -305,13 +307,13 @@ class RandomForestClassifier(DelayedPredictionMixin):
         """
         Print the summary of the forest used to train and test the model.
         """
-        c = default_client()
+        # c = default_client()
         futures = list()
         workers = self.workers
 
         for n, w in enumerate(workers):
             futures.append(
-                c.submit(
+                self.client.submit(
                     RandomForestClassifier._print_summary,
                     self.rfs[w],
                     workers=[w],
@@ -429,7 +431,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,
                 num_classes=2, convert_dtype=False, predict_model="GPU",
-                fil_sparse_format='auto', delayed=True, parallelism=25):
+                fil_sparse_format='auto', delayed=True):
         """
         Predicts the labels for X.
 
@@ -482,23 +484,24 @@ class RandomForestClassifier(DelayedPredictionMixin):
                                             convert_dtype=False,
                                             predict_model="GPU",
                                             fil_sparse_format='auto',
-                                            delayed=True, parallelism=5)
+                                            delayed=True)
 
         return preds
 
     def _predict_using_fil(self, X, output_class=True, algo='auto',
                            threshold=0.5, num_classes=2,
                            convert_dtype=False, predict_model="GPU",
-                           delayed=True, parallelism=25,
-                           fil_sparse_format='auto'):
+                           delayed=True, fil_sparse_format='auto'):
 
         self._concat_treelite_models()
+        data = DistributedDataHandler.single(X, client=self.client)
+        self.datatype = data.datatype
 
         kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
                   "predict_model": predict_model, "threshold": threshold,
                   "num_classes": num_classes, "algo": algo,
                   "fil_sparse_format": fil_sparse_format}
-        return self._predict(X, delayed, parallelism, **kwargs)
+        return self._predict(X, delayed, **kwargs)
 
     def _predict_using_cpu(self, X):
         """

@@ -528,7 +528,6 @@ class RandomForestClassifier(Base):
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
         """
-        self.num_classes = len(np.unique(y))
         self._set_output_type(X)
 
         cdef uintptr_t X_ptr, y_ptr
@@ -554,7 +553,7 @@ class RandomForestClassifier(Base):
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = cp.unique(y_m)
+        unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
 
         for i in range(num_unique_labels):
@@ -622,6 +621,7 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         del(X_m)
         del(y_m)
+        self.num_classes = num_unique_labels
         return self
 
     def _predict_model_on_gpu(self, X, output_class,
@@ -822,15 +822,15 @@ class RandomForestClassifier(Base):
         """
         out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr, preds_ptr
-        X_m, n_rows, n_cols, _ = \
+        X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_cols)
         X_ptr = X_m.ptr
 
-        preds = cudf.Series(zeros(n_rows * self.n_estimators, dtype=np.int32))
-        preds_ptr = get_cudf_column_ptr(preds)
+        preds = CumlArray.zeros(n_rows * self.n_estimators, dtype=np.int32)
+        preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -863,7 +863,7 @@ class RandomForestClassifier(Base):
                             % (str(self.dtype)))
         self.handle.sync()
         del(X_m)
-        return preds
+        return preds.to_output(out_type)
 
     def score(self, X, y, threshold=0.5,
               algo='auto', num_classes=2, predict_model="GPU",
