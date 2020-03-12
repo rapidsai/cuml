@@ -96,9 +96,10 @@ template <int NITEMS,
 struct tree_aggregator_t {
   static const int ptx_arch = 750;
   typedef cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
-  cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, ptx_arch> BlockReduce;
+                           cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, ptx_arch>
+    BlockReduce;
   typedef typename BlockReduce::TempStorage TempStorage;
-  
+
   vec<NITEMS, float> acc;
   TempStorage* tmp_storage;
 
@@ -106,21 +107,21 @@ struct tree_aggregator_t {
     /** To compute accurately, would need to know the latest __CUDA_ARCH__
         for which the code is compiled and which fits the SM being run on.
         This is an approximation */
-    return sizeof (TempStorage);
+    return sizeof(TempStorage);
   }
-  static size_t smem_accumulate_footprint(int) {
-    return 0;
-  }
-  
-  __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace, size_t):
-    tmp_storage((TempStorage*)shared_workspace) {}
-  __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction) {
+  static size_t smem_accumulate_footprint(int) { return 0; }
+
+  __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace,
+                                               size_t)
+    : tmp_storage((TempStorage*)shared_workspace) {}
+  __device__ __forceinline__ void accumulate(
+    vec<NITEMS, float> single_tree_prediction) {
     acc += single_tree_prediction;
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int output_stride) {
     __syncthreads();
-    new(tmp_storage) TempStorage;
+    new (tmp_storage) TempStorage;
     acc = BlockReduce(*tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
@@ -155,7 +156,8 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
     //__syncthreads(); // happening outside already
   }
-  __device__ __forceinline__ void accumulate(vec<NITEMS, int> single_tree_prediction) {
+  __device__ __forceinline__ void accumulate(
+    vec<NITEMS, int> single_tree_prediction) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
       atomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
@@ -231,14 +233,15 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 
 template <int NITEMS, leaf_value_t leaf_payload_type>
 size_t get_smem_footprint(predict_params params) {
-    size_t finalize_footprint = 
-      tree_aggregator_t<NITEMS, leaf_payload_type>::smem_finalize_footprint
-      (params.num_classes);
-    size_t accumulate_footprint = sizeof(float) * params.num_cols * NITEMS +
-      tree_aggregator_t<NITEMS, leaf_payload_type>::smem_accumulate_footprint
-      (params.num_classes);
-    
-    return std::max(accumulate_footprint, finalize_footprint);
+  size_t finalize_footprint =
+    tree_aggregator_t<NITEMS, leaf_payload_type>::smem_finalize_footprint(
+      params.num_classes);
+  size_t accumulate_footprint =
+    sizeof(float) * params.num_cols * NITEMS +
+    tree_aggregator_t<NITEMS, leaf_payload_type>::smem_accumulate_footprint(
+      params.num_classes);
+
+  return std::max(accumulate_footprint, finalize_footprint);
 }
 
 template <leaf_value_t leaf_payload_type, typename storage_type>
@@ -252,9 +255,9 @@ void infer_k_launcher(storage_type forest, predict_params params,
   size_t shm_sz = 0;
   // solving this linear programming problem in a single equation
   // looks less tractable than this
-  for(int nitems=1; nitems <= params.max_items; ++nitems) {
+  for (int nitems = 1; nitems <= params.max_items; ++nitems) {
     size_t peak_footprint;
-    switch(nitems) {
+    switch (nitems) {
       case 1:
         peak_footprint = get_smem_footprint<1, leaf_payload_type>(params);
         break;
@@ -279,7 +282,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
   if (num_items == 0) {
     int real_num_cols = params.num_cols;
     // since we're crashing, this will not take too long
-    while(get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm)
+    while (get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm)
       --params.num_cols;
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
            real_num_cols, params.num_cols,

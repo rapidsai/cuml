@@ -41,8 +41,8 @@ void dense_node_init(dense_node_t* n, val_t output, float thresh, int fid,
   *n = dense_node(output, thresh, fid, def_left, is_leaf);
 }
 
-void dense_node_decode(const dense_node_t* n, union val_t* output,
-                       float* thresh, int* fid, bool* def_left, bool* is_leaf) {
+void dense_node_decode(const dense_node_t* n, val_t* output, float* thresh,
+                       int* fid, bool* def_left, bool* is_leaf) {
   dense_node dn(*n);
   *output = dn.output<val_t>();
   *thresh = dn.thresh();
@@ -59,8 +59,8 @@ void sparse_node_init(sparse_node_t* node, val_t output, float thresh, int fid,
 }
 
 /** sparse_node_decode extracts individual members from node */
-void sparse_node_decode(const sparse_node_t* node, union val_t* output,
-                        float* thresh, int* fid, bool* def_left, bool* is_leaf,
+void sparse_node_decode(const sparse_node_t* node, val_t* output, float* thresh,
+                        int* fid, bool* def_left, bool* is_leaf,
                         int* left_index) {
   dense_node_decode(node, output, thresh, fid, def_left, is_leaf);
   *left_index = sparse_node(*node).left_index();
@@ -163,10 +163,10 @@ struct forest {
     if (do_transform) {
       size_t num_values_to_transform =
         (size_t)num_rows * (size_t)params.num_outputs;
-      transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB, 0,
-                    stream>>>(preds, num_values_to_transform, ot,
-                              num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-                              threshold_, global_bias_, complement_proba);
+      transform_k<<<ceildiv(num_values_to_transform, (size_t)FIL_TPB), FIL_TPB,
+                    0, stream>>>(preds, num_values_to_transform, ot,
+                                 num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+                                 threshold_, global_bias_, complement_proba);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -514,8 +514,7 @@ size_t tl_leaf_vector_size(const tl::Model& model) {
        node_key = tl_node_at(tree, node_key).cright())
     ;
   const tl::Tree::Node& node = tl_node_at(tree, node_key);
-  if(node.has_leaf_vector())
-    return node.leaf_vector().size();
+  if (node.has_leaf_vector()) return node.leaf_vector().size();
   return 0;
 }
 
@@ -530,7 +529,8 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
   if (leaf_vec_size > 0) {
-    ASSERT(leaf_vec_size == model.num_output_group, "treelite model inconsistent");
+    ASSERT(leaf_vec_size == model.num_output_group,
+           "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
     params->leaf_payload_type = INT_CLASS_LABEL;
   } else {
