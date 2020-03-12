@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/fast_int_div.cuh>
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
 #include <internals/internals.h>
@@ -139,11 +140,12 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 
   // checks if enough shared memory is available
   bool use_shared_mem = requiredSize < MLCommon::getSharedMemPerBlock();
+  MLCommon::FastIntDiv tail_n_fast(tail_n);
 
   if (multicore_implem) {
     for (int n = 0; n < n_epochs; n++) {
       call_optimize_batch_kernel<T, TPB_X>(
-        head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+        head_embedding, head_n, tail_embedding, tail_n_fast, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
         epoch_of_next_sample.data(), alpha, n, gamma, seed, nullptr, move_other,
         use_shared_mem, params, n, grid, blk, requiredSize, stream);
@@ -161,7 +163,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
         embedding_updates, 0,
         n_vertices * params->n_components * sizeof(double), stream));
       call_optimize_batch_kernel<T, TPB_X>(
-        head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
+        head_embedding, head_n, tail_embedding, tail_n_fast, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
         epoch_of_next_sample.data(), alpha, n, gamma, seed, embedding_updates,
         move_other, use_shared_mem, params, n, grid, blk, requiredSize, stream);
