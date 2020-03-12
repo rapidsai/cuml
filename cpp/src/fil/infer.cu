@@ -94,18 +94,34 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
 template <int NITEMS,
           leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
 struct tree_aggregator_t {
+  static const int ptx_arch = 750;
+  typedef cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
+  cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, ptx_arch> BlockReduce;
+  typedef typename BlockReduce::TempStorage TempStorage;
+  
   vec<NITEMS, float> acc;
+  TempStorage* tmp_storage;
 
-  __device__ __forceinline__ tree_aggregator_t(int, void*) {}
+  static size_t smem_finalize_footprint(int) {
+    /** To compute accurately, would need to know the latest __CUDA_ARCH__
+        for which the code is compiled and which fits the SM being run on.
+        This is an approximation */
+    return sizeof (TempStorage);
+  }
+  static size_t smem_accumulate_footprint(int) {
+    return 0;
+  }
+  
+  __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace):
+    tmp_storage((TempStorage*)shared_workspace) {}
   __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction) {
     acc += single_tree_prediction;
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int output_stride) {
     __syncthreads();
-    using BlockReduce = cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
-    __shared__ typename BlockReduce::TempStorage tmp_storage;
-    acc = BlockReduce(tmp_storage).Sum(acc);
+    new(tmp_storage) TempStorage;
+    acc = BlockReduce(*tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
@@ -121,6 +137,13 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   // provided atomicAdd(short*) simulated with appropriate shifts
   int* votes;
   int num_classes;
+
+  static size_t smem_finalize_footprint(int num_classes) {
+    return sizeof(int) * num_classes * NITEMS;
+  }
+  static size_t smem_accumulate_footprint(int num_classes) {
+    return smem_finalize_footprint(num_classes);
+  }
 
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
                                                void* shared_workspace)
@@ -204,6 +227,18 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   acc.finalize(params.preds, params.num_rows, params.num_outputs);
 }
 
+template <int NITEMS, leaf_value_t leaf_payload_type>
+size_t get_smem_footprint(predict_params params) {
+    size_t finalize_footprint = 
+      tree_aggregator_t<NITEMS, leaf_payload_type>::smem_finalize_footprint
+      (params.num_classes);
+    size_t accumulate_footprint = sizeof(float) * params.num_cols * NITEMS +
+      tree_aggregator_t<NITEMS, leaf_payload_type>::smem_accumulate_footprint
+      (params.num_classes);
+    
+    return std::max(accumulate_footprint, finalize_footprint);
+}
+
 template <leaf_value_t leaf_payload_type, typename storage_type>
 void infer_k_launcher(storage_type forest, predict_params params,
                       cudaStream_t stream) {
@@ -211,14 +246,36 @@ void infer_k_launcher(storage_type forest, predict_params params,
   params.max_items =
     params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
 
-  int shared_mem_per_item =
-    sizeof(float) * params.num_cols +
-    // class vote histogram, while inferring trees
-    (leaf_payload_type == INT_CLASS_LABEL ? sizeof(int) * params.num_classes
-                                          : 0);
-  // CUB workspace should fit itself, and we don't need
-  // the row by the time CUB is used
-  int num_items = params.max_shm / shared_mem_per_item;
+  int num_items = 0;
+  size_t shm_sz = 0;
+  // solving this linear programming problem in a single equation
+  // would be obscure
+  for(int nitems=1;
+      (nitems <= MAX_BATCH_ITEMS) && (nitems <= params.max_items);
+      ++nitems) {
+    size_t peak_footprint;
+    switch(nitems) {
+      case 1:
+        peak_footprint = get_smem_footprint<1, leaf_payload_type>(params);
+        break;
+      case 2:
+        peak_footprint = get_smem_footprint<2, leaf_payload_type>(params);
+        break;
+      case 3:
+        peak_footprint = get_smem_footprint<3, leaf_payload_type>(params);
+        break;
+      case 4:
+        peak_footprint = get_smem_footprint<4, leaf_payload_type>(params);
+        break;
+      default:
+        ASSERT(false, "internal error: nitems > 4");
+    }
+    // for data row
+    if (peak_footprint <= params.max_shm) {
+      num_items = nitems;
+      shm_sz = peak_footprint;
+    }
+  }
   if (num_items == 0) {
     int max_cols = params.max_shm / sizeof(float);
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
@@ -227,9 +284,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
              ? " (accounting for shared class vote histogram)"
              : "");
   }
-  num_items = std::min(num_items, params.max_items);
   int num_blocks = ceildiv(int(params.num_rows), num_items);
-  int shm_sz = num_items * shared_mem_per_item;
   switch (num_items) {
     case 1:
       infer_k<1, leaf_payload_type>
@@ -257,8 +312,6 @@ template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
   switch (params.leaf_payload_type) {
     case FLOAT_SCALAR:
-      ASSERT(params.num_outputs <= 2,
-             "wrong leaf payload for multi-class (>2) inference");
       infer_k_launcher<FLOAT_SCALAR, storage_type>(forest, params, stream);
       break;
     case INT_CLASS_LABEL:
@@ -276,4 +329,3 @@ template void infer<sparse_storage>(sparse_storage forest,
 
 }  // namespace fil
 }  // namespace ML
-#undef __forceinline__
