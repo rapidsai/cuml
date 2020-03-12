@@ -237,7 +237,6 @@ class RandomForestClassifier(Base):
                  min_impurity_split=None, oob_score=None, n_jobs=None,
                  random_state=None, warm_start=None, class_weight=None,
                  seed=None):
-
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -480,8 +479,9 @@ class RandomForestClassifier(Base):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
-        """
-        cdef uintptr_t X_ptr, y_ptr
+        """       
+        cdef uintptr_t X_ptr, y_ptr        
+
         self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
@@ -500,7 +500,6 @@ class RandomForestClassifier(Base):
 
         unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
-
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
@@ -511,10 +510,14 @@ class RandomForestClassifier(Base):
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
+        # Reset the old tree data for new fit call
         cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+            new RandomForestMetaData[float, int]()
+        self.rf_forest = <size_t> rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
+            new RandomForestMetaData[double, int]()
+        self.rf_forest64 = <size_t> rf_forest64
+
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -535,8 +538,8 @@ class RandomForestClassifier(Base):
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
-
         if self.dtype == np.float32:
+            import pdb
             fit(handle_[0],
                 rf_forest,
                 <float*> X_ptr,
@@ -724,7 +727,6 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
@@ -808,6 +810,7 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         predicted_result = preds.to_array()
         del(X_m)
+        print("done predict")
         return predicted_result
 
     def score(self, X, y, threshold=0.5,
@@ -916,7 +919,6 @@ class RandomForestClassifier(Base):
         -----------
         deep : boolean (default = True)
         """
-
         params = dict()
         for key in RandomForestClassifier.variables:
             if key in ['handle']:
@@ -935,7 +937,10 @@ class RandomForestClassifier(Base):
         -----------
         params : dict of new params
         """
-        self.__init__()
+        # Resetting handle as __setstate__ overwrites with handle=None
+        self.handle.__setstate__(self.n_streams)
+        self.model_pbuf_bytes = []
+
         if not params:
             return self
         for key, value in params.items():
