@@ -498,11 +498,12 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                                           sizeof(double) * batch_size, stream);
 }
 
-void init_batched_kalman_matrices(
-  cumlHandle& handle, const double* d_ar, const double* d_ma,
-  const double* d_sar, const double* d_sma, int nb, const ARIMAOrder& order,
-  int r, double* d_Z_b, double* d_R_b, double* d_T_b,
-  std::vector<bool>& T_mask) {
+void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
+                                  const double* d_ma, const double* d_sar,
+                                  const double* d_sma, int nb,
+                                  const ARIMAOrder& order, int r, double* d_Z_b,
+                                  double* d_R_b, double* d_T_b,
+                                  std::vector<bool>& T_mask) {
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.getStream();
