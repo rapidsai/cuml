@@ -73,7 +73,7 @@ template <typename T, typename T2, int TPB_X, bool multicore_implem,
           bool use_shared_mem>
 __global__ void optimize_batch_kernel(
   T *head_embedding, int head_n, T *tail_embedding,
-  const MLCommon::FastIntDiv &tail_n, const int *head, const int *tail, int nnz,
+  const MLCommon::FastIntDiv tail_n, const int *head, const int *tail, int nnz,
   T *epochs_per_sample, int n_vertices, T *epoch_of_next_negative_sample,
   T *epoch_of_next_sample, T2 alpha, int epoch, T2 gamma, uint64_t seed,
   double *embedding_updates, bool move_other, UMAPParams params, T nsr_inv) {
