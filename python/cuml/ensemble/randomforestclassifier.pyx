@@ -499,6 +499,7 @@ class RandomForestClassifier(Base):
 
         unique_labels = rmm_cupy_ary(cp.unique, y_m)
         num_unique_labels = len(unique_labels)
+
         for i in range(num_unique_labels):
             if i not in unique_labels:
                 raise ValueError("The labels need "
@@ -516,7 +517,6 @@ class RandomForestClassifier(Base):
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <size_t> rf_forest64
-
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -808,7 +808,6 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         predicted_result = preds.to_array()
         del(X_m)
-        print("done predict")
         return predicted_result
 
     def score(self, X, y, threshold=0.5,
