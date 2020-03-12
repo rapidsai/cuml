@@ -57,6 +57,7 @@ def test_basic_fit_predict(cluster):
     client = Client(cluster)
 
     try:
+
         X, y = load_corpus(client)
 
         model = MultinomialNB()
