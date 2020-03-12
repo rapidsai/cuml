@@ -68,8 +68,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         else:
             assert cumlLabels.npartitions == n_workers
 
-        from sklearn.metrics import adjusted_rand_score
-
         cumlPred = cp.array(cumlLabels.compute())
 
         assert cumlPred.shape[0] == nrows
@@ -139,7 +137,6 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
         xformed_labels = cp.argmin(xformed.reshape((int(nrows),
                                                     int(nclusters))), axis=1)
 
-        from sklearn.metrics import adjusted_rand_score
         assert adjusted_rand_score(labels, cp.squeeze(xformed_labels.get()))
 
     finally:
