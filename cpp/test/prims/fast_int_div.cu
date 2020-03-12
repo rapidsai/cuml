@@ -50,6 +50,46 @@ TEST(FastIntDiv, CpuTest) {
   }
 }
 
+__global__ void fastIntDivTestKernel(int* computed, int* correct, const int* in,
+                                     FastIntDiv fid, int divisor, int len) {
+  auto tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < len) {
+    computed[tid] = in[tid] % fid;
+    correct[tid] = in[tid] % divisor;
+    computed[len + tid] = -in[tid] % fid;
+    correct[len + tid] = -in[tid] % divisor;
+  }
+}
+
+TEST(FastIntDiv, GpuTest) {
+  static const int len = 100000;
+  static const int TPB = 128;
+  int *computed, *correct, *in;
+  allocate(computed, len * 2);
+  allocate(correct, len * 2);
+  allocate(in, len);
+  for (int i = 0; i < 100; ++i) {
+    // get a positive divisor
+    int divisor;
+    do {
+      divisor = rand();
+    } while (divisor <= 0);
+    FastIntDiv fid(divisor);
+    // run it against a few random numbers and compare the outputs
+    int *h_in = new int[len];
+    for (int i = 0; i < len; ++i) {
+      h_in[i] = rand();
+    }
+    updateDevice(in, h_in, len, 0);
+    int nblks = ceildiv(len, TPB);
+    fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(computed, correct, in, fid,
+                                               divisor, len);
+    CUDA_CHECK(cudaStreamSynchronize(0));
+    ASSERT_TRUE(devArrMatch(correct, computed, len * 2, Compare<int>()))
+      << " divisor=" << divisor;
+  }
+}
+
 FastIntDiv dummyFunc(int num) {
   FastIntDiv fd(num);
   return fd;
