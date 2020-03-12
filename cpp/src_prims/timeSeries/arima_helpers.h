@@ -18,14 +18,11 @@
 
 #include <cuda_runtime.h>
 
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-
 #include "cuda_utils.h"
 #include "cuml/tsa/arima_common.h"
 #include "linalg/batched/matrix.h"
 #include "linalg/matrix_vector_op.h"
+#include "linalg/unary_op.h"
 #include "timeSeries/jones_transform.h"
 
 namespace MLCommon {
@@ -249,6 +246,12 @@ void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
   if (order.Q)
     jones_transform(params.sma, batch_size, order.Q, Tparams.sma, false, isInv,
                     allocator, stream);
+
+  // Constrain sigma2 to be strictly positive
+  constexpr DataT min_sigma2 = 1e-6;
+  LinAlg::unaryOp<DataT>(
+    Tparams.sigma2, params.sigma2, batch_size,
+    [=] __device__(DataT input) { return max(input, min_sigma2); }, stream);
 }
 
 }  // namespace TimeSeries
