@@ -63,6 +63,8 @@ struct FilTestParams {
   // num_classes must be >1 when INT_CLASS_LABEL == leaf_payload_type
   // it's used in treelite ModelBuilder initialization
   int num_classes;
+
+  size_t max_outputs_per_row() { return std::max(num_classes, 2); }
 };
 
 std::string output2str(fil::output_t output) {
@@ -228,8 +230,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void transform(float f, float& proba, float& output) {
-    if ((ps.output & fil::output_t::AVG) != 0)
-      f *= (1.0f / ps.num_trees);
+    if ((ps.output & fil::output_t::AVG) != 0) f *= (1.0f / ps.num_trees);
     f += ps.global_bias;
     if ((ps.output & fil::output_t::SIGMOID) != 0) f = sigmoid(f);
     proba = f;
@@ -241,7 +242,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void predict_on_cpu() {
     // predict on host
     std::vector<float> want_preds_h(ps.num_rows);
-    std::vector<float> want_proba_h(ps.num_rows * std::max(ps.num_classes, 2));
+    std::vector<float> want_proba_h(ps.num_rows * ps.max_outputs_per_row());
     int num_nodes = tree_num_nodes();
     switch (ps.leaf_payload_type) {
       case fil::leaf_value_t::FLOAT_SCALAR:
@@ -284,9 +285,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // copy to GPU
     allocate(want_preds_d, ps.num_rows);
     updateDevice(want_preds_d, want_preds_h.data(), ps.num_rows, stream);
-    allocate(want_proba_d, ps.num_rows * std::max(ps.num_classes, 2));
+    allocate(want_proba_d, ps.num_rows * ps.max_outputs_per_row());
     updateDevice(want_proba_d, want_proba_h.data(),
-                 ps.num_rows * std::max(ps.num_classes, 2), stream);
+                 ps.num_rows * ps.max_outputs_per_row(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -299,7 +300,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // predict
     allocate(preds_d, ps.num_rows);
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
-    allocate(proba_d, ps.num_rows * std::max(ps.num_classes, 2));
+    allocate(proba_d, ps.num_rows * ps.max_outputs_per_row());
     fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -309,7 +310,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void compare() {
     ASSERT_TRUE(devArrMatch(want_proba_d, proba_d,
-                            ps.num_rows * std::max(ps.num_classes, 2),
+                            ps.num_rows * ps.max_outputs_per_row(),
                             CompareApprox<float>(ps.tolerance), stream));
     float tolerance = ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR
                         ? ps.tolerance
