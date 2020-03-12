@@ -126,7 +126,10 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
     fil_proba = np.asarray(fm.predict_proba(X_validation))
+
+    fil_proba = np.reshape(fil_proba, np.shape(xgb_proba))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, 0.01)
@@ -176,6 +179,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
                               algo='BATCH_TREE_REORG',
                               output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
     assert fil_mse == pytest.approx(xgb_mse, 0.01)
@@ -239,7 +243,11 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                            threshold=0.50,
                                            storage_type=storage_type)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_preds = np.reshape(fil_preds, np.shape(skl_preds_int))
+
     fil_proba = np.asarray(fm.predict_proba(X_validation))
+    fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(skl_acc, 1e-5)
@@ -300,6 +308,8 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
                                            output_class=False,
                                            storage_type=storage_type)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
+
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
     assert fil_mse == pytest.approx(skl_mse, 1e-4)
@@ -335,6 +345,8 @@ def test_output_algos(algo, small_classifier_and_preds):
 
     xgb_preds_int = np.around(xgb_preds)
     fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
@@ -351,6 +363,8 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
 
     xgb_preds_int = np.around(xgb_preds)
     fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
@@ -378,6 +392,8 @@ def test_output_args(small_classifier_and_preds):
                               threshold=0.50)
     X = np.asarray(X)
     fil_preds = fm.predict(X)
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
+
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
@@ -403,6 +419,7 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
 
     fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.reshape(fil_preds, np.shape(gbm_preds))
 
     assert np.allclose(gbm_preds, fil_preds, 1e-3)
 
@@ -418,4 +435,6 @@ def test_lightgbm(tmp_path):
                               model_type="lightgbm")
 
     fil_proba = np.asarray(fm.predict_proba(X))
+    fil_proba = np.reshape(fil_proba, np.shape(gbm_proba))
+
     assert np.allclose(gbm_proba, fil_proba, 1e-3)

@@ -262,10 +262,10 @@ cdef class ForestInference_impl():
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            shape = (n_rows, 1)
+            shape = (n_rows, )
             if predict_proba:
-                shape = (n_rows, 2)
-            preds = CumlArray.empty(shape=shape, dtype=np.float32)
+                shape += (2,)
+            preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
@@ -466,7 +466,7 @@ class ForestInference(Base):
         (or 'preds' filled with inference results if preds was specified)
         """
         out_type = self._get_output_type(X)
-        return self._impl.predict(X, out_type, predict_proba=False, preds=None)
+        return self._impl.predict(X, out_type, predict_proba=True, preds=None)
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='AUTO',
