@@ -479,9 +479,8 @@ class RandomForestClassifier(Base):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
-        """       
-        cdef uintptr_t X_ptr, y_ptr        
-
+        """
+        cdef uintptr_t X_ptr, y_ptr
         self.num_classes = len(np.unique(y))
         y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
 
@@ -539,7 +538,6 @@ class RandomForestClassifier(Base):
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
         if self.dtype == np.float32:
-            import pdb
             fit(handle_[0],
                 rf_forest,
                 <float*> X_ptr,
