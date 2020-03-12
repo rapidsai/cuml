@@ -43,6 +43,7 @@
 - PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1816: Add ARIMA notebook
+- PR #1837: Simplify cuML Array construction
 - PR #1788: Removing complexity bottleneck in S-ARIMA
 
 ## Bug Fixes
