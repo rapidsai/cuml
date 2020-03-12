@@ -93,15 +93,14 @@ def remove_item_plus_one(arr, item):
     return loc
 
 
-# currently assumes g++ as the compiler
-def get_system_includes():
-    ret = subprocess.check_output("echo | g++ -E -Wp,-v - 2>&1", shell=True)
-    ret = ret.decode("utf-8")
-    incs = []
-    for line in ret.split(os.linesep):
-        if len(line) > 0 and line[0] == " ":
-            incs.extend(["-I", line[1:]])
-    return incs
+def get_clang_includes():
+    dir = os.getenv("CONDA_PREFIX")
+    if dir is None:
+        ret = subprocess.check_output("which %s 2>&1" % exe, shell=True)
+        ret = ret.decode("utf-8")
+        dir = os.path.dirname(os.path.dirname(ret))
+    header = os.path.join(dir, "include", "Headers")
+    return ["-I", header]
 
 
 def get_tidy_args(cmd):
@@ -129,7 +128,7 @@ def get_tidy_args(cmd):
         remove_item(command, "--expt-extended-lambda")
         remove_item(command, "--diag_suppress=unrecognized_gcc_pragma")
         command.append("-nocudalib")
-    command.extend(get_system_includes())
+    command.extend(get_clang_includes())
     return command, is_cuda
 
 
