@@ -15,8 +15,10 @@
 #
 
 
+import copyreg
 import pickle
 
+import cupy as cp
 import cudf
 import cuml
 
@@ -25,10 +27,32 @@ import cuml
 serializable_classes = (cuml.common.CumlArray,)
 
 
+def serialize_mat_descriptor(m):
+    return cp.cusparse.MatDescriptor.create, ()
+
+
 try:
     from distributed.protocol import dask_deserialize, dask_serialize
     from distributed.protocol.cuda import cuda_deserialize, cuda_serialize
     from distributed.utils import log_errors
+
+    from distributed.protocol import register_generic
+
+    from cuml.naive_bayes.naive_bayes import MultinomialNB
+
+    register_generic(MultinomialNB, 'cuda',
+                     cuda_serialize, cuda_deserialize)
+
+    register_generic(cuml.Base, 'cuda',
+                     cuda_serialize, cuda_deserialize)
+
+    register_generic(MultinomialNB, 'dask',
+                     dask_serialize, dask_deserialize)
+
+    register_generic(cuml.Base, 'dask',
+                     dask_serialize, dask_deserialize)
+
+    copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
 
     @cuda_serialize.register(serializable_classes)
     def cuda_serialize_cuml_object(x):
