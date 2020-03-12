@@ -51,8 +51,8 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       protobuf >=3.4.1,<4.0.0 \
       libclang \
       nccl>=2.4 \
-      dask=2.3.0 \
-      distributed=2.3.0 \
+      dask>=2.12.0 \
+      distributed>=2.12.0 \
       dask-ml \
       dask-cudf \
       dask-cuda=0.9
