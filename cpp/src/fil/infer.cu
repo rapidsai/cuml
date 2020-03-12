@@ -112,7 +112,7 @@ struct tree_aggregator_t {
     return 0;
   }
   
-  __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace):
+  __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace, size_t):
     tmp_storage((TempStorage*)shared_workspace) {}
   __device__ __forceinline__ void accumulate(vec<NITEMS, float> single_tree_prediction) {
     acc += single_tree_prediction;
@@ -146,8 +146,10 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
 
   __device__ __forceinline__ tree_aggregator_t(int num_classes_,
-                                               void* shared_workspace)
-    : num_classes(num_classes_), votes((int*)shared_workspace) {
+                                               void* shared_workspace,
+                                               size_t data_row_size)
+    : num_classes(num_classes_),
+      votes((int*)(data_row_size + (char*)shared_workspace)) {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
       for (int item = 0; item < NITEMS; ++item) votes[c * NITEMS + item] = 0;
@@ -214,7 +216,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   }
 
   tree_aggregator_t<NITEMS, leaf_payload_type> acc(
-    params.num_classes, sdata + params.num_cols * NITEMS);
+    params.num_classes, sdata, params.num_cols * NITEMS * sizeof(float));
 
   __syncthreads();  // for both row cache init and acc init
 
@@ -249,10 +251,8 @@ void infer_k_launcher(storage_type forest, predict_params params,
   int num_items = 0;
   size_t shm_sz = 0;
   // solving this linear programming problem in a single equation
-  // would be obscure
-  for(int nitems=1;
-      (nitems <= MAX_BATCH_ITEMS) && (nitems <= params.max_items);
-      ++nitems) {
+  // looks less tractable than this
+  for(int nitems=1; nitems <= params.max_items; ++nitems) {
     size_t peak_footprint;
     switch(nitems) {
       case 1:
@@ -277,9 +277,12 @@ void infer_k_launcher(storage_type forest, predict_params params,
     }
   }
   if (num_items == 0) {
-    int max_cols = params.max_shm / sizeof(float);
+    int real_num_cols = params.num_cols;
+    // since we're crashing, this will not take too long
+    while(get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm)
+      --params.num_cols;
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
-           params.num_cols, max_cols,
+           real_num_cols, params.num_cols,
            leaf_payload_type == INT_CLASS_LABEL
              ? " (accounting for shared class vote histogram)"
              : "");
