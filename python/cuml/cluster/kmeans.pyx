@@ -266,8 +266,8 @@ class KMeans(Base):
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=0, random_state=1, init='scalable-k-means++',
-                 n_init=1, oversampling_factor=2.0, max_samples_per_batch=1<<15,
-                 output_type=None):
+                 n_init=1, oversampling_factor=2.0,
+                 max_samples_per_batch=1<<15, output_type=None):
         super(KMeans, self).__init__(handle, verbose, output_type)
         self.n_clusters = n_clusters
         self.verbose = verbose
