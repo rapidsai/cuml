@@ -184,9 +184,9 @@ def mean_squared_error(y_true, y_pred,
         Defines aggregating of multiple output values.
         Array-like value defines weights used to average errors.
         'raw_values' :
-            Returns a full set of errors in case of multioutput input.
+        Returns a full set of errors in case of multioutput input.
         'uniform_average' :
-            Errors of all outputs are averaged with uniform weight.
+        Errors of all outputs are averaged with uniform weight.
     squared : boolean value, optional (default = True)
         If True returns MSE value, if False returns RMSE value.
 
@@ -228,9 +228,9 @@ def mean_absolute_error(y_true, y_pred,
         Defines aggregating of multiple output values.
         Array-like value defines weights used to average errors.
         'raw_values' :
-            Returns a full set of errors in case of multioutput input.
+        Returns a full set of errors in case of multioutput input.
         'uniform_average' :
-            Errors of all outputs are averaged with uniform weight.
+        Errors of all outputs are averaged with uniform weight.
 
     Returns
     -------
@@ -280,9 +280,9 @@ def mean_squared_log_error(y_true, y_pred,
         Defines aggregating of multiple output values.
         Array-like value defines weights used to average errors.
         'raw_values' :
-            Returns a full set of errors in case of multioutput input.
+        Returns a full set of errors in case of multioutput input.
         'uniform_average' :
-            Errors of all outputs are averaged with uniform weight.
+        Errors of all outputs are averaged with uniform weight.
     squared : boolean value, optional (default = True)
         If True returns MSE value, if False returns RMSE value.
 
