@@ -33,12 +33,37 @@ def serialize_mat_descriptor(m):
 
 try:
     from distributed.protocol import dask_deserialize, dask_serialize
+    from distributed.protocol.serialize import pickle_dumps, pickle_loads
     from distributed.protocol.cuda import cuda_deserialize, cuda_serialize
     from distributed.utils import log_errors
 
     from distributed.protocol import register_generic
 
     from cuml.naive_bayes.naive_bayes import MultinomialNB
+    from cuml.ensemble import RandomForestRegressor
+    from cuml.ensemble import RandomForestClassifier
+
+    # Registering RF Regressor and Classifier to use pickling even when
+    # Base is serialized with Dask or CUDA serializations
+    @dask_serialize.register(RandomForestRegressor)
+    @cuda_serialize.register(RandomForestRegressor)
+    def rfr_serialize(rf):
+        return pickle_dumps(rf)
+
+    @dask_deserialize.register(RandomForestRegressor)
+    @cuda_deserialize.register(RandomForestRegressor)
+    def rfr_deserialize(header, frames):
+        return pickle_loads(header, frames)
+
+    @dask_serialize.register(RandomForestClassifier)
+    @cuda_serialize.register(RandomForestClassifier)
+    def rfc_serialize(rf):
+        return pickle_dumps(rf)
+
+    @dask_deserialize.register(RandomForestClassifier)
+    @cuda_deserialize.register(RandomForestClassifier)
+    def rfc_deserialize(header, frames):
+        return pickle_loads(header, frames)
 
     register_generic(MultinomialNB, 'cuda',
                      cuda_serialize, cuda_deserialize)
