@@ -72,8 +72,7 @@ __host__ __device__ __forceinline__ float base_node::output<float>() const {
   return val.f;
 }
 template <>
-__host__ __device__ __forceinline__ int base_node::output<int>()
-  const {
+__host__ __device__ __forceinline__ int base_node::output<int>() const {
   return val.idx;
 }
 

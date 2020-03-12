@@ -98,6 +98,9 @@ struct dense_node_t {
   int bits;
 };
 
+/** sparse_node_extra_data is what's missing from a dense node to store
+    a sparse node, that is, extra indexing information due to compressing
+    a sparse tree. */
 struct sparse_node_extra_data {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
