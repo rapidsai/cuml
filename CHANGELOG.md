@@ -44,6 +44,7 @@
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1816: Add ARIMA notebook
 - PR #1837: Simplify cuML Array construction
+- PR #1825: `--nvtx` option in `build.sh`
 
 ## Bug Fixes
 - PR #1833: Fix depth issue in shallow RF regression estimators
