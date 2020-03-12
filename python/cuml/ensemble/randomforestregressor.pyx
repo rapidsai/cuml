@@ -455,11 +455,11 @@ class RandomForestRegressor(Base):
         """
         cdef uintptr_t X_ptr, y_ptr
         # Reset the old tree data for new fit call
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            new RandomForestMetaData[float, int]()
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            new RandomForestMetaData[double, int]()
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            new RandomForestMetaData[double, double]()
         self.rf_forest64 = <size_t> rf_forest64
 
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
