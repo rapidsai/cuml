@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/fast_int_div.cuh>
 #include <cuda_utils.h>
 #include <cuml/manifold/umapparams.h>
 
@@ -71,11 +72,11 @@ DI T2 attractive_grad(T2 dist_squared, UMAPParams params) {
 template <typename T, typename T2, int TPB_X, bool multicore_implem,
           bool use_shared_mem>
 __global__ void optimize_batch_kernel(
-  T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
-  const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
-  T *epoch_of_next_negative_sample, T *epoch_of_next_sample, T2 alpha,
-  int epoch, T2 gamma, uint64_t seed, double *embedding_updates,
-  bool move_other, UMAPParams params, T nsr_inv) {
+  T *head_embedding, int head_n, T *tail_embedding,
+  const MLCommon::FastIntDiv &tail_n, const int *head, const int *tail, int nnz,
+  T *epochs_per_sample, int n_vertices, T *epoch_of_next_negative_sample,
+  T *epoch_of_next_sample, T2 alpha, int epoch, T2 gamma, uint64_t seed,
+  double *embedding_updates, bool move_other, UMAPParams params, T nsr_inv) {
   extern __shared__ T embedding_shared_mem_updates[];
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row >= nnz) return;
@@ -220,12 +221,13 @@ __global__ void optimize_batch_kernel(
 
 template <typename T, int TPB_X>
 void call_optimize_batch_kernel(
-  T *head_embedding, int head_n, T *tail_embedding, int tail_n, const int *head,
-  const int *tail, int nnz, T *epochs_per_sample, int n_vertices,
-  T *epoch_of_next_negative_sample, T *epoch_of_next_sample, T alpha, int epoch,
-  T gamma, uint64_t seed, double *embedding_updates, bool move_other,
-  bool use_shared_mem, UMAPParams *params, int n, dim3 &grid, dim3 &blk,
-  size_t requiredSize, cudaStream_t &stream) {
+  T *head_embedding, int head_n, T *tail_embedding,
+  const MLCommon::FastIntDiv &tail_n, const int *head, const int *tail, int nnz,
+  T *epochs_per_sample, int n_vertices, T *epoch_of_next_negative_sample,
+  T *epoch_of_next_sample, T alpha, int epoch, T gamma, uint64_t seed,
+  double *embedding_updates, bool move_other, bool use_shared_mem,
+  UMAPParams *params, int n, dim3 &grid, dim3 &blk, size_t requiredSize,
+  cudaStream_t &stream) {
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   if (embedding_updates) {
     if (use_shared_mem) {
