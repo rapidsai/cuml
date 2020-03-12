@@ -14,23 +14,26 @@
 #
 
 import cupy as cp
+from uuid import uuid1
 
+from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import mnmg_import
+
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
+
 from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.comms import worker_state
+
 from cuml.dask.common.utils import raise_exception_from_futures
-from dask.distributed import default_client
+
 from dask.distributed import wait
-from uuid import uuid1
-
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
+from cuml.utils.memory_utils import with_cupy_rmm
 
 
-class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
+class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """
     Multi-Node Multi-GPU implementation of KMeans.
 
@@ -89,10 +92,10 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, **kwargs):
-        self.client = default_client() if client is None else client
-        patch_cupy_sparse_serialization(self.client)
-        self.kwargs = kwargs
+    def __init__(self, client=None, verbose=False, **kwargs):
+        super(KMeans, self).__init__(client=client,
+                                     verbose=verbose,
+                                     **kwargs)
 
     @staticmethod
     @mnmg_import
@@ -110,6 +113,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         ret = model.score(data)
         return ret
 
+    @with_cupy_rmm
     def fit(self, X):
         """
         Fit a multi-node multi-GPU KMeans model
@@ -124,7 +128,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.single(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False, verbose=True)
+        comms = CommsContext(comms_p2p=False, verbose=self.verbose)
         comms.init(workers=data.workers)
 
         key = uuid1()
@@ -222,6 +226,7 @@ class KMeans(DelayedPredictionMixin, DelayedTransformMixin):
         """
         return self._transform(X, n_dims=2, delayed=delayed)
 
+    @with_cupy_rmm
     def score(self, X):
         """
         Computes the inertia score for the trained KMeans centroids.
