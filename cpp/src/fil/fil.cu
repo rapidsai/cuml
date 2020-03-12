@@ -508,13 +508,15 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree,
 }
 
 size_t tl_leaf_vector_size(const tl::Model& model) {
-  auto tree = model.trees[0];
+  const tl::Tree& tree = model.trees[0];
   int node_key;
   for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
-       node_key = tl_node_at(tree, node_key).cleft())
+       node_key = tl_node_at(tree, node_key).cright())
     ;
-  auto vec = tl_node_at(tree, node_key).leaf_vector();
-  return vec.size();
+  const tl::Tree::Node& node = tl_node_at(tree, node_key);
+  if(node.has_leaf_vector())
+    return node.leaf_vector().size();
+  return 0;
 }
 
 // tl2fil_common is the part of conversion from a treelite model
