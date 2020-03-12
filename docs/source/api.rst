@@ -2,14 +2,14 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
-Module Behavior Configuration
-==============================
+Datatype Configuration
+======================
 
 Output Type
 -----------
 
- .. automethod:: cuml.memory_utils.set_global_output_type
- .. automethod:: cuml.memory_utils.using_output_type
+ .. automethod:: cuml.utils.memory_utils.set_global_output_type
+ .. automethod:: cuml.utils.memory_utils.using_output_type
 
 
 Preprocessing, Metrics, and Utilities
@@ -38,6 +38,9 @@ Dataset Generation (Dask-based Multi-GPU)
   .. automodule:: cuml.dask.datasets.blobs
      :members:
 
+  .. automodule:: cuml.dask.datasets.regression
+     :members:
+
 
 Metrics
 ---------
@@ -53,6 +56,10 @@ Metrics
 
   .. automodule:: cuml.metrics.cluster.adjustedrandindex
     :members:
+
+  .. automodule:: cuml.metrics.cluster.entropy
+    :members:
+
 
 Benchmarking
 -------------
@@ -212,7 +219,7 @@ Random Projections
     :members:
 
 .. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
-    :members:
+
 
 TSNE
 -------------
@@ -289,4 +296,13 @@ Truncated SVD
 --------------
 
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
+    :members:
+
+Linear Models
+-------------
+
+.. autoclass:: cuml.dask.linear_model.LinearRegression
+    :members:
+
+.. autoclass:: cuml.dask.linear_model.Ridge
     :members:
