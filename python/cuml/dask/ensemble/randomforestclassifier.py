@@ -278,8 +278,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
             max_leaves=max_leaves,
             n_streams=n_streams,
             quantile_per_tree=quantile_per_tree,
-            seed=seed,
-            gdf_datatype=dtype,
+            seed=seed
         )
 
     @staticmethod
