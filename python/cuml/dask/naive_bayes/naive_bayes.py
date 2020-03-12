@@ -18,6 +18,8 @@ import cupy as cp
 
 from uuid import uuid1
 
+from cuml.utils import with_cupy_rmm
+
 from cuml.naive_bayes import MultinomialNB as MNB
 
 import dask
@@ -29,12 +31,8 @@ from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import default_client
 
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
 
-from cuml.dask.common.base import DelayedPredictionMixin
-
-
-class MultinomialNB(DelayedPredictionMixin):
+class MultinomialNB(object):
 
     """
     Distributed Naive Bayes classifier for multinomial models
@@ -105,12 +103,11 @@ class MultinomialNB(DelayedPredictionMixin):
         """
 
         self.client_ = client if client is not None else default_client()
-        self.model_ = None
+        self.local_model = None
         self.kwargs = kwargs
 
-        patch_cupy_sparse_serialization(self.client_)
-
     @staticmethod
+    @with_cupy_rmm
     def _fit(Xy, classes, kwargs):
 
         model = MNB(**kwargs)
@@ -119,6 +116,10 @@ class MultinomialNB(DelayedPredictionMixin):
             model.partial_fit(x, y, classes=classes)
 
         return model.class_count_, model.feature_count_
+
+    @staticmethod
+    def _predict(model, X):
+        return [model.predict(x) for x in X]
 
     @staticmethod
     def _unique(x):
@@ -132,6 +133,7 @@ class MultinomialNB(DelayedPredictionMixin):
     def _get_feature_counts(x):
         return x[1]
 
+    @with_cupy_rmm
     def fit(self, X, y, classes=None):
 
         """
@@ -217,22 +219,60 @@ class MultinomialNB(DelayedPredictionMixin):
     def _get_size(arrs):
         return arrs.shape[0]
 
-    def predict(self, X, delayed=True, parallelism=5):
+    def predict(self, X):
+        # TODO: Once cupy sparse arrays are fully supported underneath Dask
+        # arrays, and Naive Bayes is refactored to use CumlArray, this can
+        # extend DelayedPredictionMixin.
+        # Ref: https://github.com/rapidsai/cuml/issues/1834
+        # Ref: https://github.com/rapidsai/cuml/issues/1387
         """
-        Predict classes for distributed Naive Bayes classifier model
+        Use distributed Naive Bayes model to predict the classes for a
+        given set of data samples.
 
         Parameters
         ----------
 
         X : dask.Array with blocks containing dense or sparse cupy arrays
 
+
         Returns
         -------
 
-        dask.Array containing class predictions
+        dask.Array containing predicted classes
+
         """
 
-        return self._predict(X, delayed, parallelism)
+        gpu_futures = self.client_.sync(extract_arr_partitions, X)
+        x_worker_parts = workers_to_parts(gpu_futures)
+
+        models = self.client_.scatter(self.local_model,
+                                      broadcast=True,
+                                      workers=list(x_worker_parts.keys()))
+
+        preds = dict([(w, self.client_.submit(
+            MultinomialNB._predict,
+            models,
+            p
+        )) for w, p in x_worker_parts.items()])
+
+        final_parts = {}
+        to_concat = []
+        for wp in gpu_futures:
+            w, p = wp
+            if w not in final_parts:
+                final_parts[w] = 0
+
+            to_concat.append(
+                dask.array.from_delayed(
+                    dask.delayed(self.client_.submit(MultinomialNB._get_part,
+                                                     preds[w],
+                                                     final_parts[w])),
+                    dtype=cp.int32, shape=(cp.nan,)))
+
+            final_parts[w] += 1
+
+        return dask.array.concatenate(to_concat, axis=0,
+                                      allow_unknown_chunksizes=True)
 
     def score(self, X, y):
         """

@@ -72,6 +72,7 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
         cu_rf_params = {
             'n_estimators': 40,
             'max_depth': 16,
+            'n_streams': 1,
             'n_bins': 16,
         }
 
