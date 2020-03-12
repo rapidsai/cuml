@@ -43,6 +43,7 @@
 - PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1816: Add ARIMA notebook
+- PR #1837: Simplify cuML Array construction
 - PR #1848: Rely on subclassing for cuML Array serialization
 
 ## Bug Fixes
@@ -78,6 +79,7 @@
 - PR #1810: Quickfix - chunkage in dask make_regression
 - PR #1842: DistributedDataHandler not properly setting 'multiple'
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
+- PR #1852: Remove Thrust warnings
 
 # cuML 0.12.0 (Date TBD)
 
