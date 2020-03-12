@@ -21,24 +21,34 @@ base_n_points = 250_000_000
 n_gb_data = np.asarray([2], dtype=int)
 base_n_features = np.asarray([250], dtype=int)
 
-ideal_benchmark_f = open('/gpfs/fs1/dgala/b_outs/ideal_benchmark_f.csv', 'a')
+# ideal_benchmark_f = open('/gpfs/fs1/dgala/b_outs/ideal_benchmark_f.csv', 'a')
 
-def _read_data(file_list):
-    X = []
-    for file in file_list:
-        X.append(cp.load(file))
-    X = cp.concatenate(X, axis=0)
-    X = cp.array(X, order='F')
+def _read_data(file_list, n_samples_per_gb, n_features):
+    print(file_list)
+    if n_features:
+        X = cp.zeros((n_samples_per_gb * len(file_list), n_features), dtype='float32', order='F')
+        for i in range(len(file_list)):
+            X[i * n_samples_per_gb: (i + 1) * n_samples_per_gb, :] = cp.load(file_list[i])
+    else:
+        X = cp.zeros((n_samples_per_gb * len(file_list), ), dtype='float32', order='F')
+        for i in range(len(file_list)):
+            X[i * n_samples_per_gb: (i + 1) * n_samples_per_gb] = cp.load(file_list[i])
+
+    print(X.shape)
+    print(X.strides)
+    print(X.flags)
+    # X = cp.concatenate(X, axis=0)
+    # X = cp.array(X, order='F')
     # del X
     return X
 
 
-def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb=None, gb_partitions=None):
+def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb, n_samples_per_gb, gb_partitions=None):
     total_file_list = os.listdir(path)
     total_file_list = [path + '/' + tfl for tfl in total_file_list]
     if gb_partitions:
         if len(gb_partitions) == n_workers - 1:
-            file_list = total_file_list[:n_gb] if n_gb else file_list
+            file_list = total_file_list[:n_gb]
             file_list = np.split(np.asarray(file_list), gb_partitions)
     elif n_gb:
         if n_gb % n_workers == 0:
@@ -48,7 +58,7 @@ def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb=None
         file_list = total_file_list[:n_workers]
         file_list = np.split(np.asarray(file_list), n_workers)
 
-    X = [client.submit(_read_data, file_list[i], workers=[workers[i]]) for i in range(n_workers)]
+    X = [client.submit(_read_data, file_list[i], n_samples_per_gb, n_features, workers=[workers[i]]) for i in range(n_workers)]
     wait([X])
 
     if n_features:
@@ -126,15 +136,16 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
             workers = list(client.has_what().keys())
             print(workers)
 
-            n_samples = n_points / n_features
+            n_samples = int(n_points / n_features)
+            n_samples_per_gb = int(n_samples / n_gb)
             # X, y = make_regression(n_samples=n_samples, n_features=n_features, n_informative=n_features / 10, n_parts=n_workers)
 
             # X = X.rechunk((n_samples / n_workers, n_features))
             # y = y.rechunk(n_samples / n_workers )
 
-            X = read_data(client, X_filepath, n_workers, workers, n_samples, n_features, n_gb)
+            X = read_data(client, X_filepath, n_workers, workers, n_samples, n_features, n_gb, n_samples_per_gb)
             print(X.compute_chunk_sizes().chunks)
-            y = read_data(client, y_filepath, n_workers, workers, n_samples, None, n_gb)
+            y = read_data(client, y_filepath, n_workers, workers, n_samples, None, n_gb, n_samples_per_gb)
             print(X.compute_chunk_sizes().chunks)
             print(y.compute_chunk_sizes().chunks)
             print(client.has_what())
