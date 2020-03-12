@@ -469,6 +469,10 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
     MLCommon::Sparse::Batched::CSR<double>::from_dense(
       Tb, T_mask, handle.getImpl().getcusolverSpHandle());
 
+  MLCommon::myPrintDevVector("T", Tb.raw_data(), batch_size * r * r, std::cerr);
+  MLCommon::myPrintDevVector("RR'", RRT.raw_data(), batch_size * r * r,
+                             std::cerr);
+
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
   // Use the dense version for small matrices, the sparse version otherwise
@@ -477,6 +481,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
       ? MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT)
       : MLCommon::Sparse::Batched::b_lyapunov(T_sparse, T_mask, RRT);
   ML::POP_RANGE();
+
+  MLCommon::myPrintDevVector("P0", P.raw_data(), batch_size * r * r, std::cerr);
 
   // init alpha to zero
   MLCommon::LinAlg::Batched::Matrix<double> alpha(
@@ -649,7 +655,6 @@ void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
   MLCommon::TimeSeries::batched_jones_transform(
     order, batch_size, isInv, params, Tparams, allocator, stream);
   Tparams.mu = params.mu;
-  Tparams.sigma2 = params.sigma2;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 
