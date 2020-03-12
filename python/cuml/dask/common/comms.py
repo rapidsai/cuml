@@ -372,6 +372,9 @@ class CommsContext:
                           "be disabled.")
             self.comms_p2p = False
 
+        if verbose:
+            print("Initializing comms!")
+
     def __del__(self):
         if self.nccl_initialized or self.ucx_initialized:
             self.destroy()
