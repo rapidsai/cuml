@@ -447,6 +447,8 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   auto counting = thrust::make_counting_iterator(0);
 
+  MLCommon::myPrintDevVector("sigma2", d_sigma2, batch_size, std::cerr);
+
   MLCommon::LinAlg::Batched::Matrix<double> RQb(r, 1, batch_size, cublasHandle,
                                                 allocator, stream, true);
   double* d_RQ = RQb.raw_data();
@@ -492,8 +494,11 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                       d_Fs, d_sumlogFs, fc_steps, d_fc);
 
   // Finalize loglikelihood
+  MLCommon::myPrintDevVector("sum_log_F", d_sumlogFs, batch_size, std::cerr);
   batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, batch_size, d_loglike,
                          stream);
+  MLCommon::myPrintDevVector("loglike", d_loglike, batch_size, std::cerr);
+  std::cerr << "---" << std::endl;
   handle.getDeviceAllocator()->deallocate(d_sumlogFs,
                                           sizeof(double) * batch_size, stream);
 }
