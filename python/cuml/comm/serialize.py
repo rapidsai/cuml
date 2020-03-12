@@ -47,8 +47,6 @@ try:
                      dask_serialize, dask_deserialize)
 
     copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
-
-
 except ImportError:
     # distributed is probably not installed on the system
     pass
