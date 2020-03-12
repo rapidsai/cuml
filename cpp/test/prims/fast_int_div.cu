@@ -16,10 +16,11 @@
 
 #include <gtest/gtest.h>
 #include <common/fast_int_div.cuh>
+#include "test_utils.h"
 
 namespace MLCommon {
 
-TEST(FastIntDiv, Test) {
+TEST(FastIntDiv, CpuTest) {
   for (int i = 0; i < 100; ++i) {
     // get a positive divisor
     int divisor;
