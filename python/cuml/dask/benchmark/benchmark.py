@@ -1,5 +1,5 @@
 from dask_cuda import LocalCUDACluster
-from dask.distributed import Client, wait, futures_of
+from dask.distributed import Client, wait, futures_of, performance_report
 import dask.array as da
 from cuml.dask.linear_model import LinearRegression
 from cuml.dask.datasets.regression import make_regression
@@ -23,16 +23,16 @@ base_n_features = np.asarray([250], dtype=int)
 
 # ideal_benchmark_f = open('/gpfs/fs1/dgala/b_outs/ideal_benchmark_f.csv', 'a')
 
-def _read_data(file_list, n_samples_per_gb, n_features):
+def _read_data(file_list, n_samples, n_features):
     print(file_list)
     if n_features:
-        X = cp.zeros((n_samples_per_gb * len(file_list), n_features), dtype='float32', order='F')
+        X = cp.zeros((n_samples * len(file_list), n_features), dtype='float32', order='F')
         for i in range(len(file_list)):
-            X[i * n_samples_per_gb: (i + 1) * n_samples_per_gb, :] = cp.load(file_list[i])
+            X[i * n_samples: (i + 1) * n_samples, :] = cp.load(file_list[i])[:n_samples, :]
     else:
-        X = cp.zeros((n_samples_per_gb * len(file_list), ), dtype='float32', order='F')
+        X = cp.zeros((n_samples * len(file_list), ), dtype='float32', order='F')
         for i in range(len(file_list)):
-            X[i * n_samples_per_gb: (i + 1) * n_samples_per_gb] = cp.load(file_list[i])
+            X[i * n_samples: (i + 1) * n_samples] = cp.load(file_list[i])[:n_samples]
 
     print(X.shape)
     print(X.strides)
@@ -46,19 +46,30 @@ def _read_data(file_list, n_samples_per_gb, n_features):
 def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb, n_samples_per_gb, gb_partitions=None):
     total_file_list = os.listdir(path)
     total_file_list = [path + '/' + tfl for tfl in total_file_list]
+    np.random.shuffle(total_file_list)
     if gb_partitions:
         if len(gb_partitions) == n_workers - 1:
-            file_list = total_file_list[:n_gb]
+            file_list = total_file_list[:n_gb] if n_gb > n_workers else total_file_list[:n_workers]
             file_list = np.split(np.asarray(file_list), gb_partitions)
     elif n_gb:
-        if n_gb % n_workers == 0:
+        if n_gb < n_workers:
+            file_list = total_file_list[:n_workers]
+        elif n_gb % n_workers == 0:
             file_list = total_file_list[:n_gb]
-            file_list = np.split(np.asarray(file_list), n_workers)
+        file_list = np.split(np.asarray(file_list), n_workers)
     else:
         file_list = total_file_list[:n_workers]
         file_list = np.split(np.asarray(file_list), n_workers)
+    print(file_list)
+    
+    if n_gb < n_workers:
+        print(file_list)
+        fraction_gb_per_worker = n_gb / n_workers
+        n_samples_per_worker = int(n_samples_per_gb * fraction_gb_per_worker)
+        X = [client.submit(_read_data, [file_list[i][0]], n_samples_per_worker, n_features, workers=[workers[i]]) for i in range(n_workers)]
+    else:
+        X = [client.submit(_read_data, file_list[i], n_samples_per_gb, n_features, workers=[workers[i]]) for i in range(n_workers)]
 
-    X = [client.submit(_read_data, file_list[i], n_samples_per_gb, n_features, workers=[workers[i]]) for i in range(n_workers)]
     wait([X])
 
     if n_features:
@@ -120,16 +131,17 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
 
     # for n_gb_m in n_gb_data:
     #     for n_features in base_n_features:
-    fit_time = np.zeros(5)
-    pred_time = np.zeros(5)
-    mse = np.zeros(5)
-    for i in range(5):
+    if scheduler_file == 'None':
+        cluster = LocalCUDACluster(n_workers=n_workers)
+    fit_time = np.zeros(6)
+    pred_time = np.zeros(6)
+    mse = np.zeros(6)
+    for i in range(6):
         try:
-            n_points = int(base_n_points * n_gb)
+            n_points = int(base_n_points * n_gb) if n_gb > n_workers else int(base_n_points * n_workers)
             if scheduler_file != 'None':
                 client = Client(scheduler_file=scheduler_file)
             else:
-                cluster = LocalCUDACluster(n_workers=n_workers)
                 client = Client(cluster)
             client.run(set_alloc)
 
@@ -137,7 +149,7 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
             print(workers)
 
             n_samples = int(n_points / n_features)
-            n_samples_per_gb = int(n_samples / n_gb)
+            n_samples_per_gb = int(n_samples / n_gb) if n_gb > n_workers else int(n_samples / n_workers)
             # X, y = make_regression(n_samples=n_samples, n_features=n_features, n_informative=n_features / 10, n_parts=n_workers)
 
             # X = X.rechunk((n_samples / n_workers, n_features))
@@ -146,7 +158,6 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
             X = read_data(client, X_filepath, n_workers, workers, n_samples, n_features, n_gb, n_samples_per_gb)
             print(X.compute_chunk_sizes().chunks)
             y = read_data(client, y_filepath, n_workers, workers, n_samples, None, n_gb, n_samples_per_gb)
-            print(X.compute_chunk_sizes().chunks)
             print(y.compute_chunk_sizes().chunks)
             print(client.has_what())
             
@@ -183,15 +194,22 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
                 del y
             if 'preds' in vars():
                 del preds
-            if scheduler_file == 'None':
-                cluster.close()
+
             client.close()
 
+    if scheduler_file == 'None':
+        cluster.close()
     print("starting write")
-    fit_stats = [np.mean(fit_time), np.min(fit_time), np.var(fit_time)]
-    pred_stats = [np.mean(pred_time), np.min(pred_time), np.var(pred_time), np.mean(mse)]
+    fit_stats = [fit_time[0], np.mean(fit_time[1:]), np.min(fit_time[1:]), np.var(fit_time[1:])]
+    pred_stats = [np.mean(pred_time[1:]), np.min(pred_time[1:]), np.var(pred_time[1:]), np.mean(mse[1:])]
+    if n_gb < n_workers:
+        final_samples = (n_points * n_gb) / (n_workers * n_features)
+    else:
+        final_samples = n_samples
+    to_write = ','.join(map(str, [n_workers, final_samples, n_features] + fit_stats + pred_stats))
+    print(to_write)
     with open('/gpfs/fs1/dgala/b_outs/benchmark.csv', 'a') as f:
-        f.write(','.join(map(str, [n_workers, n_samples, n_features] + fit_stats + pred_stats)))
+        f.write(to_write)
         f.write('\n')
     print("ending write")
         #     break
