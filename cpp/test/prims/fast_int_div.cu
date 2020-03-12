@@ -76,7 +76,7 @@ TEST(FastIntDiv, GpuTest) {
     } while (divisor <= 0);
     FastIntDiv fid(divisor);
     // run it against a few random numbers and compare the outputs
-    int *h_in = new int[len];
+    int* h_in = new int[len];
     for (int i = 0; i < len; ++i) {
       h_in[i] = rand();
     }

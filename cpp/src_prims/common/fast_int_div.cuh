@@ -35,9 +35,7 @@ struct FastIntDiv {
    * @brief Host-only ctor's
    * @param _d the divisor
    */
-  FastIntDiv(int _d) : d(_d) {
-    computeScalars();
-  }
+  FastIntDiv(int _d) : d(_d) { computeScalars(); }
   FastIntDiv& operator=(int _d) {
     d = _d;
     computeScalars();
@@ -51,8 +49,8 @@ struct FastIntDiv {
    * @brief host and device ctor's
    * @param other source object to be copied from
    */
-  HDI FastIntDiv(const FastIntDiv& other) : d(other.d), m(other.m), p(other.p) {
-  }
+  HDI FastIntDiv(const FastIntDiv& other)
+    : d(other.d), m(other.m), p(other.p) {}
   HDI FastIntDiv& operator=(const FastIntDiv& other) {
     d = other.d;
     m = other.m;

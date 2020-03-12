@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <common/fast_int_div.cuh>
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
 #include <internals/internals.h>
@@ -22,6 +21,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/system/cuda/execution_policy.h>
+#include <common/fast_int_div.cuh>
 #include <cstdlib>
 #include <string>
 #include "optimize_batch_kernel.cuh"
