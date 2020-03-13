@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 
+from numba import cuda
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
@@ -213,3 +214,11 @@ def get_classes_from_package(package):
     modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
     classes = [ClassEnumerator(module).get_models() for module in modules]
     return {k: v for dictionary in classes for k, v in dictionary.items()}
+
+
+def generate_random_labels(random_generation_lambda, seed=1234):
+    rng = np.random.RandomState(seed)  # makes it reproducible
+    a = random_generation_lambda(rng)
+    b = random_generation_lambda(rng)
+
+    return cuda.to_device(a), cuda.to_device(b)

@@ -119,14 +119,14 @@ class UMAPParams {
       values are set automatically as determined by ``min_dist`` and
       ``spread``.
    */
-  float a;
+  float a = -1.0;
 
   /**
    *  More specific parameters controlling the embedding. If None these
       values are set automatically as determined by ``min_dist`` and
       ``spread``.
    */
-  float b;
+  float b = -1.0;
 
   /**
          * Initial learning rate for SGD
@@ -149,6 +149,10 @@ class UMAPParams {
   MetricType target_metric = CATEGORICAL;
 
   float target_weights = 0.5;
+
+  uint64_t random_state = 0;
+
+  bool multicore_implem = true;
 
   GraphBasedDimRedCallback* callback = nullptr;
 };
