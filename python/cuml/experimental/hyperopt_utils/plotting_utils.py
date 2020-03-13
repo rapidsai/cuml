@@ -21,17 +21,17 @@ import seaborn as sns
 
 
 def plot_heatmap(df, col1, col2):
-    """    
+    """
     Generates a heatmap to highlight interactions
     of two parameters specified in col1 and col2.
-    
+
     Parameters
     ----------
     df : Pandas dataframe
          Results from Grid or Random Search
     col1 : string; Name of the first parameter
     col2: string; Name of the second parameter
-    
+
     Output
     ----------
     A heatmap using seaborn
@@ -42,14 +42,16 @@ def plot_heatmap(df, col1, col2):
 
 
 def plot_search_results(res):
-    """    
-    Plots by fixing all paramters except one parameter to 
+    """
+    Plots by fixing all paramters except one parameter to
     its best value using matplotlib.
+
+    Accepts results from grid or random search from dask-ml.
     
     Parameters
     ----------
     res : results from Grid or Random Search
-    
+
     Output
     ----------
     As many plots as the parameters that were tuned
@@ -64,6 +66,7 @@ def plot_search_results(res):
     for p_k, p_v in res.best_params_.items():
         masks.append(list(results['param_' + p_k].data == p_v))
     try:
+        # Grid Search
         params = res.param_grid
         # Ploting results
         fig, ax = plt.subplots(1, len(params), sharex='none',
@@ -83,6 +86,7 @@ def plot_search_results(res):
                            marker='o', label='test')
             ax[i].set_xlabel(p.upper())
     except Exception as e:
+        # Randomized Seach
         print("Cannot generate plots because of ", type(e), "trying again...")
         try:
             params = res.param_distributions
@@ -107,6 +111,7 @@ def plot_search_results(res):
                                marker='o', label='test')
                 ax[i].set_xlabel(p.upper())
         except Exception as e:
+            # Something else broke while attempting to plot
             print("Cannot generate plots because of ", type(e))
             return
     plt.legend()
