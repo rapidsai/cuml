@@ -152,6 +152,9 @@ set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
 set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
 
+set(SPDLOG_DIR ${CMAKE_CURRENT_BINARY_DIR}/spdlog CACHE STRING
+  "Path to spdlog install directory")
+
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
 
@@ -269,6 +272,16 @@ ExternalProject_Add(cutlass
 # compile time, helping significantly to troubleshoot build issues.
 add_dependencies(cutlass cub)
 
+ExternalProject_Add(spdlog
+  GIT_REPOSITORY    https://github.com/gabime/spdlog.git
+  GIT_TAG           v1.x
+  PREFIX            ${SPDLOG_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+  )
+add_dependencies(spdlog cutlass)
+
 ##############################################################################
 # - FAISS Build  -------------------------------------------------------------
 
@@ -291,7 +304,7 @@ ExternalProject_Add(faiss
   BUILD_IN_SOURCE   1
 )
 
-add_dependencies(faiss cutlass)
+add_dependencies(faiss spdlog)
 
 ExternalProject_Get_Property(faiss install_dir)
 
@@ -342,6 +355,7 @@ include_directories(
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
+  ${SPDLOG_DIR}/include
   ${TREELITE_DIR}/include
   ${TREELITE_DIR}/include/fmt
   ${ZLIB_INCLUDE_DIRS$})
