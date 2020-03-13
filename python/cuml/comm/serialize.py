@@ -64,6 +64,12 @@ try:
     register_generic(cuml.Base, 'dask',
                      dask_serialize, dask_deserialize)
 
+    register_generic(cuml.naive_bayes.naive_bayes.MultinomialNB, 'cuda',
+                     cuda_serialize, cuda_deserialize)
+
+    register_generic(cuml.naive_bayes.naive_bayes.MultinomialNB, 'dask',
+                     dask_serialize, dask_deserialize)
+
     copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
 except ImportError:
     # distributed is probably not installed on the system
