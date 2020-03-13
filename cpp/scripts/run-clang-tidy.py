@@ -20,6 +20,7 @@ import os
 import subprocess
 import argparse
 import json
+import multiprocessing as mp
 
 
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
@@ -38,7 +39,11 @@ def parse_args():
                            help="Regex used to ignore files from checking")
     argparser.add_argument("-select", type=str, default=None,
                            help="Regex used to select files for checking")
+    argparser.add_argument("-j", type=int, default=1,
+                           help="Number of parallel jobs to launch.")
     args = argparser.parse_args()
+    if args.j <= 0:
+        args.j = mp.cpu_count()
     args.ignore_compiled = re.compile(args.ignore) if args.ignore else None
     args.select_compiled = re.compile(args.select) if args.select else None
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
