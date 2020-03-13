@@ -110,7 +110,8 @@ def test_kmeans_sklearn_comparison(name, nrows):
 
     cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
                               output_type='numpy',
-                              random_state=random_state)
+                              random_state=random_state,
+                              oversampling_factor=0, n_init=10)
 
     X, y = pat[0]
 
