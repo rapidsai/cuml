@@ -41,6 +41,7 @@
 - PR #1768: C++: Different input and output types for add and subtract prims
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1816: Add ARIMA notebook
+- PR #1827: Add HPO demo Notebook
 
 ## Bug Fixes
 - PR #1833: Fix depth issue in shallow RF regression estimators
