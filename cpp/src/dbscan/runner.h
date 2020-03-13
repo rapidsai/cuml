@@ -27,6 +27,7 @@
 
 #include "utils.h"
 
+#include <cuml/common/logger.hpp>
 #include <sys/time.h>
 
 namespace Dbscan {
@@ -117,6 +118,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     return size;
   }
 
+  // logging level adjustment
+  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+
   // partition the temporary workspace needed for different stages of dbscan.
 
   Index_ adjlen = 0;
@@ -149,13 +153,12 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     Index_ nPoints = min(size_t(N - startVertexId), batchSize);
     if (nPoints <= 0) continue;
 
-    if (verbose)
-      std::cout << "- Iteration " << i + 1 << " / " << nBatches
-                << ". Batch size is " << nPoints << " samples." << std::endl;
+    CUML_LOG_INFO("- Iteration %d / %ld. Batch size is %ld samples\n", i + 1,
+                  (unsigned long)nBatches, (unsigned long)nPoints);
 
     int64_t start_time = curTimeMillis();
 
-    if (verbose) std::cout << "--> Computing vertex degrees" << std::endl;
+    CUML_LOG_INFO("--> Computing vertex degrees\n");
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
@@ -163,13 +166,10 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     int64_t cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
+    CUML_LOG_INFO("    |-> Took %ld ms\n", (cur_time - start_time));
 
-    if (verbose)
-      std::cout << "--> Computing adjacency graph of size " << curradjlen
-                << " samples." << std::endl;
+    CUML_LOG_INFO("--> Computing adjacency graph of size %ld samples.\n",
+                  (unsigned long)curradjlen);
     start_time = curTimeMillis();
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
@@ -187,11 +187,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
     cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
+    CUML_LOG_INFO("    |-> Took %ld ms.\n", (cur_time - start_time));
 
-    if (verbose) std::cout << "--> Computing connected components" << std::endl;
+    CUML_LOG_INFO("--> Computing connected components\n");
 
     start_time = curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
@@ -201,11 +199,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
-
-    if (verbose) std::cout << " " << std::endl;
+    CUML_LOG_INFO("    |-> Took %ld ms.\n\n", (cur_time - start_time));
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
@@ -215,7 +209,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
 
-  if (verbose) std::cout << "Done." << std::endl;
+  CUML_LOG_INFO("Done.\n");
   return (size_t)0;
 }
 }  // namespace Dbscan
