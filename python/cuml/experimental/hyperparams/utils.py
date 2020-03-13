@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from matplotlib import ticker
+
 
 def plot_heatmap(df_gridsearch, col1, col2):
     max_scores = df_gridsearch.groupby([col1, col2]).max()
@@ -30,7 +30,7 @@ def plot_search_results(grid):
         params = grid.param_grid
         # Ploting results
         fig, ax = plt.subplots(1, len(params), sharex='none',
-                               sharey='all', figsize=(20,5))
+                               sharey='all', figsize=(20, 5))
         fig.suptitle('Score per parameter')
         fig.text(0.04, 0.5, 'MEAN SCORE', va='center', rotation='vertical')
         pram_preformace_in_best = {}
@@ -46,11 +46,12 @@ def plot_search_results(grid):
                            marker='o', label='test')
             ax[i].set_xlabel(p.upper())
     except Exception as e:
+        print("Cannot generate plots because of ", type(e), "trying again...")
         try:
             params = grid.param_distributions
             # Ploting results
             fig, ax = plt.subplots(1, len(params), sharex='none',
-                                   sharey='all', figsize=(20,5))
+                                   sharey='all', figsize=(20, 5))
             fig.suptitle('Score per parameter')
             fig.text(0.04, 0.5, 'MEAN SCORE', va='center', rotation='vertical')
 
@@ -70,7 +71,7 @@ def plot_search_results(grid):
                                marker='o', label='test')
                 ax[i].set_xlabel(p.upper())
         except Exception as e:
-            print("Cannot generate")
+            print("Cannot generate plots because of ", type(e))
             return
     plt.legend()
     plt.show()
