@@ -108,9 +108,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   ASSERT(
     N * batchSize < MAX_LABEL,
     "An overflow occurred with the current choice of precision "
-    "and the number of samples. (Max allowed batch size is %d, but was %d). "
+    "and the number of samples. (Max allowed batch size is %ld, but was %ld). "
     "Consider using double precision for the output labels.",
-    MAX_LABEL / N, batchSize);
+    (unsigned long)(MAX_LABEL / N), (unsigned long)batchSize);
 
   if (workspace == NULL) {
     auto size =
