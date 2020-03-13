@@ -47,7 +47,7 @@ def plot_search_results(res):
     its best value using matplotlib.
 
     Accepts results from grid or random search from dask-ml.
-    
+
     Parameters
     ----------
     res : results from Grid or Random Search
