@@ -668,3 +668,67 @@ def test_create_classification_model(max_features,
     assert params['max_depth'] == verfiy_params['max_depth']
     assert params['n_estimators'] == verfiy_params['n_estimators']
     assert params['n_bins'] == verfiy_params['n_bins']
+
+
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_multiple_fits_classification(column_info, nrows, n_estimators, n_bins):
+    n_iter = 30
+    datatype = np.float32
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_informative=n_info, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    cuml_model = curfc(n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=10)
+
+    # Calling multiple fits
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    # Check if params are still intact
+    params = cuml_model.get_params()
+    assert params['n_estimators'] == n_estimators
+    assert params['n_bins'] == n_bins
+    
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
+    n_iter = 30
+    datatype = np.float32
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                               n_informative=n_info,
+                               random_state=123)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    cuml_model = curfr(n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=10)
+
+    # Calling multiple fits
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    # Check if params are still intact
+    params = cuml_model.get_params()
+    assert params['n_estimators'] == n_estimators
+    assert params['n_bins'] == n_bins
+
+    
