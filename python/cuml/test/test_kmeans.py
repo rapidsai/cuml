@@ -26,9 +26,6 @@ from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
-
-dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
-
 SCORE_EPS = 0.06
 
 
@@ -126,65 +123,6 @@ def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [unit_param(1000),
-                                   quality_param(5000),
-                                   stress_param(500000)])
-def test_kmeans_sklearn_comparison(name, nrows):
-
-    random_state = 5
-
-    default_base = {'quantile': .3,
-                    'eps': .3,
-                    'damping': .9,
-                    'preference': -200,
-                    'n_neighbors': 10,
-                    'n_clusters': 3}
-
-    pat = get_pattern(name, nrows)
-
-    params = default_base.copy()
-    params.update(pat[1])
-
-    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
-                              output_type='numpy',
-                              random_state=random_state,
-                              oversampling_factor=0, n_init=10)
-
-    X, y = pat[0]
-
-    X = StandardScaler().fit_transform(X)
-
-    cu_y_pred = cuml_kmeans.fit_predict(X)
-
-    if nrows < 500000:
-        kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
-        sk_y_pred = kmeans.fit_predict(X)
-
-        # Noisy circles clusters are rotated in the results,
-        # since we are comparing 2 we just need to compare that both clusters
-        # have approximately the same number of points.
-        calculation = (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred)
-        score_test = (cuml_kmeans.score(X) - kmeans.score(X)) < 2e-3
-        if name == 'noisy_circles':
-            assert (calculation < 4e-3) and score_test
-
-        else:
-            if name == 'aniso':
-                # aniso dataset border points tend to differ in the frontier
-                # between clusters when compared to sklearn
-                tol = 2e-2
-            else:
-                # We allow up to 5 points to be different for the other
-                # datasets to be robust to small behavior changes
-                # between library versions/ small changes. Visually it is
-                # very clear that the algorithm work. Will add option
-                # to plot if desired in a future version.
-                tol = 1e-2
-            assert (clusters_equal(sk_y_pred, cu_y_pred,
-                    params['n_clusters'], tol=tol)) and score_test
-
-
-@pytest.mark.parametrize('name', dataset_names)
 @pytest.mark.parametrize('nrows', [unit_param(500),
                                    quality_param(5000),
                                    stress_param(500000)])
@@ -203,6 +141,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     params.update(pat[1])
 
     cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              random_state=12,
                               output_type='numpy')
 
     X, y = pat[0]
@@ -211,7 +150,8 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
-    kmeans = cluster.KMeans(random_state=12, n_clusters=params['n_clusters'])
+    kmeans = cluster.KMeans(random_state=12,
+                            n_clusters=params['n_clusters'])
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
 
@@ -242,6 +182,7 @@ def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
     cuml_kmeans = cuml.KMeans(n_clusters=n_clusters,
                               max_iter=max_iter,
                               init=init,
+                              random_state=12,
                               oversampling_factor=oversampling_factor,
                               max_samples_per_batch=max_samples_per_batch,
                               output_type='cupy')
@@ -259,6 +200,7 @@ def test_score(nrows, ncols, nclusters):
 
     X, y = make_blobs(nrows, ncols, nclusters,
                       cluster_std=0.01,
+                      shuffle=False,
                       random_state=10)
 
     cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
