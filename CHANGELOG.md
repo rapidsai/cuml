@@ -48,6 +48,7 @@
 - PR #1837: Simplify cuML Array construction
 - PR #1848: Rely on subclassing for cuML Array serialization
 - PR #1866: Minimizing client memory pressure on Naive Bayes
+- PR #1788: Removing complexity bottleneck in S-ARIMA
 
 ## Bug Fixes
 - PR #1833: Fix depth issue in shallow RF regression estimators
