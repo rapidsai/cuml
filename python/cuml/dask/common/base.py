@@ -23,19 +23,15 @@ from dask_cudf.core import DataFrame as dcDataFrame
 from dask.distributed import default_client
 from functools import wraps
 
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
-
 
 class BaseEstimator(object):
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed estimators
         """
         self.client = default_client() if client is None else client
-
-        patch_cupy_sparse_serialization(self.client)
-
+        self.verbose = verbose
         self.kwargs = kwargs
 
 
