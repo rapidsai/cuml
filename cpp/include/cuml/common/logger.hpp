@@ -47,6 +47,7 @@ std::string format(const char* fmt, ...);
  * @note exactly match the corresponding ones in spdlog for wrapping purposes
  *
  * @{
+ */
 #define CUML_LEVEL_TRACE    0
 #define CUML_LEVEL_DEBUG    1
 #define CUML_LEVEL_INFO     2
