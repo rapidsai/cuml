@@ -25,8 +25,20 @@ class logger;
 
 namespace ML {
 
+/**
+ * @defgroup CStringFormat Expand a C-style format string
+ *
+ * @brief Expands C-style formatted string into std::string
+ *
+ * @param[in] fmt format string
+ * @param[in] vl  respective values for each of format modifiers in the string
+ *
+ * @return the expanded `std::string`
+ * @{
+ */
 std::string format(const char* fmt, va_list& vl);
 std::string format(const char* fmt, ...);
+/** @} */
 
 #define CUML_LEVEL_TRACE    0
 #define CUML_LEVEL_DEBUG    1
