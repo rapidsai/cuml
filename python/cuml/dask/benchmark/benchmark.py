@@ -46,7 +46,6 @@ def _read_data(file_list, n_samples, n_features):
 def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb, n_samples_per_gb, gb_partitions=None):
     total_file_list = os.listdir(path)
     total_file_list = [path + '/' + tfl for tfl in total_file_list]
-    np.random.shuffle(total_file_list)
     if gb_partitions:
         if len(gb_partitions) == n_workers - 1:
             file_list = total_file_list[:n_gb] if n_gb > n_workers else total_file_list[:n_workers]
@@ -63,9 +62,7 @@ def read_data(client, path, n_workers, workers, n_samples, n_features, n_gb, n_s
     print(file_list)
     
     if n_gb < n_workers:
-        print(file_list)
-        fraction_gb_per_worker = n_gb / n_workers
-        n_samples_per_worker = int(n_samples_per_gb * fraction_gb_per_worker)
+        n_samples_per_worker = int(n_samples / n_workers)
         X = [client.submit(_read_data, [file_list[i][0]], n_samples_per_worker, n_features, workers=[workers[i]]) for i in range(n_workers)]
     else:
         X = [client.submit(_read_data, file_list[i], n_samples_per_gb, n_features, workers=[workers[i]]) for i in range(n_workers)]
@@ -138,7 +135,7 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
     mse = np.zeros(6)
     for i in range(6):
         try:
-            n_points = int(base_n_points * n_gb) if n_gb > n_workers else int(base_n_points * n_workers)
+            n_points = int(base_n_points * n_gb)
             if scheduler_file != 'None':
                 client = Client(scheduler_file=scheduler_file)
             else:
@@ -149,7 +146,7 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
             print(workers)
 
             n_samples = int(n_points / n_features)
-            n_samples_per_gb = int(n_samples / n_gb) if n_gb > n_workers else int(n_samples / n_workers)
+            n_samples_per_gb = int(n_samples / n_gb)
             # X, y = make_regression(n_samples=n_samples, n_features=n_features, n_informative=n_features / 10, n_parts=n_workers)
 
             # X = X.rechunk((n_samples / n_workers, n_features))
@@ -202,11 +199,7 @@ def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, sch
     print("starting write")
     fit_stats = [fit_time[0], np.mean(fit_time[1:]), np.min(fit_time[1:]), np.var(fit_time[1:])]
     pred_stats = [np.mean(pred_time[1:]), np.min(pred_time[1:]), np.var(pred_time[1:]), np.mean(mse[1:])]
-    if n_gb < n_workers:
-        final_samples = (n_points * n_gb) / (n_workers * n_features)
-    else:
-        final_samples = n_samples
-    to_write = ','.join(map(str, [n_workers, final_samples, n_features] + fit_stats + pred_stats))
+    to_write = ','.join(map(str, [n_workers, n_samples, n_features] + fit_stats + pred_stats))
     print(to_write)
     with open('/gpfs/fs1/dgala/b_outs/benchmark.csv', 'a') as f:
         f.write(to_write)
