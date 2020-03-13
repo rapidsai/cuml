@@ -447,8 +447,6 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
 
   auto counting = thrust::make_counting_iterator(0);
 
-  MLCommon::myPrintDevVector("sigma2", d_sigma2, batch_size, std::cerr);
-
   MLCommon::LinAlg::Batched::Matrix<double> RQb(r, 1, batch_size, cublasHandle,
                                                 allocator, stream, true);
   double* d_RQ = RQb.raw_data();
@@ -469,10 +467,6 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
     MLCommon::Sparse::Batched::CSR<double>::from_dense(
       Tb, T_mask, handle.getImpl().getcusolverSpHandle());
 
-  MLCommon::myPrintDevVector("T", Tb.raw_data(), batch_size * r * r, std::cerr);
-  MLCommon::myPrintDevVector("RR'", RRT.raw_data(), batch_size * r * r,
-                             std::cerr);
-
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
   // Use the dense version for small matrices, the sparse version otherwise
@@ -481,8 +475,6 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
       ? MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT)
       : MLCommon::Sparse::Batched::b_lyapunov(T_sparse, T_mask, RRT);
   ML::POP_RANGE();
-
-  MLCommon::myPrintDevVector("P0", P.raw_data(), batch_size * r * r, std::cerr);
 
   // init alpha to zero
   MLCommon::LinAlg::Batched::Matrix<double> alpha(
@@ -500,11 +492,9 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                       d_Fs, d_sumlogFs, fc_steps, d_fc);
 
   // Finalize loglikelihood
-  MLCommon::myPrintDevVector("sum_log_F", d_sumlogFs, batch_size, std::cerr);
   batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, batch_size, d_loglike,
                          stream);
-  MLCommon::myPrintDevVector("loglike", d_loglike, batch_size, std::cerr);
-  std::cerr << "---" << std::endl;
+
   handle.getDeviceAllocator()->deallocate(d_sumlogFs,
                                           sizeof(double) * batch_size, stream);
 }
@@ -560,6 +550,11 @@ static void init_batched_kalman_matrices(
                      // shifted identity
                      for (int i = 0; i < r - 1; i++) {
                        batch_T[(i + 1) * r + i] = 1.0;
+                     }
+
+                     // If r=2 and phi_2=-1, I-TxT is singular
+                     if (r == 2 && order.p == 2 && abs(batch_T[1] + 1) < 0.01) {
+                       batch_T[1] = -0.99;
                      }
                    });
 
