@@ -26,6 +26,9 @@ from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
+
+dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
+
 SCORE_EPS = 0.06
 
 
@@ -110,7 +113,7 @@ def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
     X, y = make_blobs(nrows, ncols, nclusters,
                       cluster_std=cluster_std,
                       shuffle=False,
-                      random_state=random_state)
+                      random_state=random_state,)
 
     cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
                               n_clusters=nclusters,
@@ -120,6 +123,45 @@ def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
     preds = cuml_kmeans.fit_predict(X)
 
     assert adjusted_rand_score(preds, y) >= 0.99
+
+
+@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize('nrows', [unit_param(1000),
+                                   quality_param(5000)])
+def test_kmeans_sklearn_comparison(name, nrows):
+
+    random_state = 12
+
+    default_base = {'quantile': .3,
+                    'eps': .3,
+                    'damping': .9,
+                    'preference': -200,
+                    'n_neighbors': 10,
+                    'n_clusters': 3}
+
+    pat = get_pattern(name, nrows)
+
+    params = default_base.copy()
+    params.update(pat[1])
+
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
+                              output_type='numpy',
+                              init="k-means++",
+                              random_state=random_state,
+                              n_init=10)
+
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
+
+    cu_y_pred = cuml_kmeans.fit_predict(X)
+    cu_score = adjusted_rand_score(cu_y_pred, y)
+    kmeans = cluster.KMeans(random_state=12,
+                            n_clusters=params['n_clusters'])
+    sk_y_pred = kmeans.fit_predict(X)
+    sk_score = adjusted_rand_score(sk_y_pred, y)
+
+    assert sk_score - 1e-2 <= cu_score <= sk_score + 1e-2
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -155,8 +197,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
 
-    # cuML score should be in a close neighborhood around scikit-learn's
-    assert sk_score - 0.03 <= cu_score <= sk_score + 0.03
+    assert sk_score - 1e-2 <= cu_score <= sk_score + 1e-2
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(100),
