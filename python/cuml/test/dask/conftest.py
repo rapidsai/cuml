@@ -9,11 +9,12 @@ enable_tcp_over_ucx = True
 enable_nvlink = False
 enable_infiniband = False
 
-dask.config.set({"distributed.comm.timeouts.tcp": "50s"})
-
 
 @pytest.fixture(scope="module")
 def cluster():
+
+    dask.config.set({"distributed.comm.timeouts.connect": "50s"})
+
     cluster = LocalCUDACluster(protocol="tcp")
     yield cluster
     cluster.close()
