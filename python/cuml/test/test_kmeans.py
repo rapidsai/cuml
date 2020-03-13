@@ -19,7 +19,7 @@ import pytest
 
 from cuml.datasets import make_blobs
 
-from cuml.test.utils import get_pattern, clusters_equal, unit_param, \
+from cuml.test.utils import get_pattern, unit_param, \
     quality_param, stress_param, array_equal
 
 from sklearn import cluster
