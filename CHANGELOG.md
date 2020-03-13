@@ -43,6 +43,7 @@
 - PR #1805: Adding new Dask cuda serializers to naive bayes + a trivial perf update
 - PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
+- PR #1824: C++: improving the performance of UMAP algo
 - PR #1816: Add ARIMA notebook
 - PR #1825: `--nvtx` option in `build.sh`
 - PR #1837: Simplify cuML Array construction
