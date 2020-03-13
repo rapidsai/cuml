@@ -230,10 +230,11 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  * ARMA model (with or without seasonality)
  * @note: in this function the non-seasonal case has s=1, not s=0!
  */
-static void _arma_least_squares(
-  cumlHandle& handle, double* d_ar, double* d_ma, double* d_sigma2,
-  const MLCommon::LinAlg::Batched::Matrix<double>& bm_y, int p, int q, int s,
-  bool estimate_sigma2, int k = 0, double* d_mu = nullptr) {
+void _arma_least_squares(cumlHandle& handle, double* d_ar, double* d_ma,
+                         double* d_sigma2,
+                         const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                         int p, int q, int s, bool estimate_sigma2, int k = 0,
+                         double* d_mu = nullptr) {
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
@@ -378,9 +379,9 @@ static void _arma_least_squares(
  * Auxiliary function of estimate_x0: compute the starting parameters for
  * the series pre-processed by estimate_x0
  */
-static void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
-                          const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
-                          const ARIMAOrder& order) {
+void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
+                   const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                   const ARIMAOrder& order) {
   // Estimate an ARMA fit without seasonality
   if (order.p + order.q + order.k)
     _arma_least_squares(handle, params.ar, params.ma, params.sigma2, bm_y,

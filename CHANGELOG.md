@@ -13,6 +13,7 @@
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
 - PR #1767: Single GPU decomposition models configurable output
+- PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 
@@ -39,10 +40,14 @@
 - PR #1776: Refactoring pca/tsvd distributed
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1805: Adding new Dask cuda serializers to naive bayes + a trivial perf update
 - PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1816: Add ARIMA notebook
 - PR #1856: Update docs for 0.13
+- PR #1825: `--nvtx` option in `build.sh`
+- PR #1837: Simplify cuML Array construction
+- PR #1848: Rely on subclassing for cuML Array serialization
 
 ## Bug Fixes
 - PR #1833: Fix depth issue in shallow RF regression estimators
@@ -77,6 +82,7 @@
 - PR #1810: Quickfix - chunkage in dask make_regression
 - PR #1842: DistributedDataHandler not properly setting 'multiple'
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
+- PR #1852: Remove Thrust warnings
 
 # cuML 0.12.0 (Date TBD)
 

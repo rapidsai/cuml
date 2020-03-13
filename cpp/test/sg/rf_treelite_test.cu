@@ -64,13 +64,12 @@ template <typename T>
 template <typename T, typename L>
 class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
  protected:
-  void convertToTreelite() {
+  void ConcatenateTreeliteModels() {
     // Test the implementation for converting fitted forest into treelite format.
-    ModelHandle model;
-    std::vector<unsigned char> vec_data;
-    build_treelite_forest(&model, forest, params.n_cols, task_category,
-                          vec_data);
-
+    ModelHandle concatenated_forest_handle;
+    concatenated_forest_handle = concatenate_trees(treelite_indiv_handles);
+    compare_concat_forest_to_subforests(concatenated_forest_handle,
+                                        treelite_indiv_handles);
     std::string test_name =
       ::testing::UnitTest::GetInstance()->current_test_info()->name();
     // Get the test index from Google current_test_info.
@@ -97,8 +96,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     // Generate C code in the directory specified below.
     // The parallel comilplation is disabled. To enable it, one needs to specify parallel_comp of CompilerHandle.
     // Treelite will create a directory if it doesn't exist.
-    TREELITE_CHECK(
-      TreeliteCompilerGenerateCode(compiler, model, verbose, dir_name.c_str()));
+    TREELITE_CHECK(TreeliteCompilerGenerateCode(
+      compiler, treelite_indiv_handles[0], verbose, dir_name.c_str()));
     TREELITE_CHECK(TreeliteCompilerFree(compiler));
 
     // Options copied from
@@ -143,7 +142,10 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     TREELITE_CHECK(TreeliteDeleteDenseBatch(dense_batch));
     TREELITE_CHECK(TreelitePredictorFree(predictor));
-    TREELITE_CHECK(TreeliteFreeModel(model));
+    TREELITE_CHECK(TreeliteFreeModel(concatenated_forest_handle));
+    TREELITE_CHECK(TreeliteFreeModel(treelite_indiv_handles[0]));
+    TREELITE_CHECK(TreeliteFreeModel(treelite_indiv_handles[1]));
+    TREELITE_CHECK(TreeliteFreeModel(treelite_indiv_handles[2]));
   }
 
   void getResultAndCheck() {
@@ -187,7 +189,6 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
                     params.bootstrap_features, params.split_criterion, false);
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
                       params.rows_sample, -1, params.n_streams, tree_params);
-    // print(rf_params);
     handle.reset(new cumlHandle(rf_params.n_streams));
 
     data_len = params.n_rows * params.n_cols;
@@ -207,7 +208,11 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     forest = new typename ML::RandomForestMetaData<T, L>;
     null_trees_ptr(forest);
-
+    forest_2 = new typename ML::RandomForestMetaData<T, L>;
+    null_trees_ptr(forest_2);
+    forest_3 = new typename ML::RandomForestMetaData<T, L>;
+    null_trees_ptr(forest_3);
+    all_forest_info = {forest, forest_2, forest_3};
     data_h.resize(data_len);
     inference_data_h.resize(inference_data_len);
 
@@ -235,21 +240,27 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     delete[] forest->trees;
     delete forest;
+    delete[] forest_2->trees;
+    delete forest_2;
+    delete[] forest_3->trees;
+    delete forest_3;
+    all_forest_info.clear();
     labels_h.clear();
     predicted_labels_h.clear();
     data_h.clear();
     inference_data_h.clear();
     treelite_predicted_labels.clear();
     ref_predicted_labels.clear();
+    treelite_indiv_handles.clear();
   }
 
  protected:
   RfInputs<T> params;
   RF_params rf_params;
-
   T *data_d, *inference_data_d;
   std::vector<T> data_h;
   std::vector<T> inference_data_h;
+  std::vector<ModelHandle> treelite_indiv_handles;
 
   // Set to 1 for regression and 2 for binary classification
   // #class for multi-classification
@@ -261,10 +272,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
   cudaStream_t stream;
   std::shared_ptr<cumlHandle> handle;
-
   std::vector<float> treelite_predicted_labels;
   std::vector<float> ref_predicted_labels;
-
+  std::vector<ML::RandomForestMetaData<T, L> *> all_forest_info;
   std::string test_dir;
   std::string dir_name;
 
@@ -273,15 +283,17 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   std::vector<L> predicted_labels_h;
 
   RandomForestMetaData<T, L> *forest;
+  RandomForestMetaData<T, L> *forest_2;
+  RandomForestMetaData<T, L> *forest_3;
 };  // namespace ML
 
 template <typename T, typename L>
-class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
+class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
  protected:
   void testClassifier() {
-    this->test_dir = "./treelite_test_clf/";
+    this->test_dir = "./concat_test_clf/";
     this->is_classification = 1;
-    // task_category - 1 for regression, 2 for binary classification
+    //task_category - 1 for regression, 2 for binary classification
     // #class for multi-class classification
     this->task_category = 2;
 
@@ -311,6 +323,7 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
     temp_label_h.resize(this->params.n_rows);
     updateHost(temp_label_h.data(), temp_label_d, this->params.n_rows,
                this->stream);
+
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
     int value;
@@ -330,13 +343,23 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
 
     preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
 
-    fit(*(this->handle), this->forest, this->data_d, this->params.n_rows,
-        this->params.n_cols, this->labels_d, labels_map.size(),
-        this->rf_params);
+    for (int i = 0; i < 3; i++) {
+      ModelHandle model;
+      std::vector<unsigned char> vec_data;
+
+      this->rf_params.n_trees = this->rf_params.n_trees + i;
+
+      fit(*(this->handle), this->all_forest_info[i], this->data_d,
+          this->params.n_rows, this->params.n_cols, this->labels_d,
+          labels_map.size(), this->rf_params);
+      build_treelite_forest(&model, this->all_forest_info[i],
+                            this->params.n_cols, this->task_category, vec_data);
+      this->treelite_indiv_handles.push_back(model);
+    }
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
-    this->convertToTreelite();
+    this->ConcatenateTreeliteModels();
     this->getResultAndCheck();
 
     postprocess_labels(this->params.n_rows, this->labels_h, this->labels_map);
@@ -355,10 +378,10 @@ class RfTreeliteTestClf : public RfTreeliteTestCommon<T, L> {
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 template <typename T, typename L>
-class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
+class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
  protected:
   void testRegressor() {
-    this->test_dir = "./treelite_test_reg/";
+    this->test_dir = "./concat_test_reg/";
     this->is_classification = 0;
     // task_category - 1 for regression, 2 for binary classification
     // #class for multi-class classification
@@ -390,12 +413,21 @@ class RfTreeliteTestReg : public RfTreeliteTestCommon<T, L> {
                this->stream);
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
-    fit(*(this->handle), this->forest, this->data_d, this->params.n_rows,
-        this->params.n_cols, this->labels_d, this->rf_params);
+    for (int i = 0; i < 3; i++) {
+      ModelHandle model;
+      std::vector<unsigned char> vec_data;
+      this->rf_params.n_trees = this->rf_params.n_trees + i;
 
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      fit(*(this->handle), this->all_forest_info[i], this->data_d,
+          this->params.n_rows, this->params.n_cols, this->labels_d,
+          this->rf_params);
+      build_treelite_forest(&model, this->all_forest_info[i],
+                            this->params.n_cols, this->task_category, vec_data);
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      this->treelite_indiv_handles.push_back(model);
+    }
 
-    this->convertToTreelite();
+    this->ConcatenateTreeliteModels();
     this->getResultAndCheck();
 
     CUDA_CHECK(cudaFree(weight));
@@ -430,11 +462,10 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 0.0, 2, CRITERION::ENTROPY}};
 
-typedef RfTreeliteTestClf<float, int> RfBinaryClassifierTreeliteTestF;
-TEST_P(RfBinaryClassifierTreeliteTestF, Convert_Clf) { testClassifier(); }
+typedef RfConcatTestClf<float, int> RfClassifierConcatTestF;
+TEST_P(RfClassifierConcatTestF, Convert_Clf) { testClassifier(); }
 
-INSTANTIATE_TEST_CASE_P(RfBinaryClassifierTreeliteTests,
-                        RfBinaryClassifierTreeliteTestF,
+INSTANTIATE_TEST_CASE_P(RfBinaryClassifierConcatTests, RfClassifierConcatTestF,
                         ::testing::ValuesIn(inputsf2_clf));
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
@@ -452,9 +483,9 @@ const std::vector<RfInputs<float>> inputsf2_reg = {
   {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
-typedef RfTreeliteTestReg<float, float> RfRegressorTreeliteTestF;
-TEST_P(RfRegressorTreeliteTestF, Convert_Reg) { testRegressor(); }
+typedef RfConcatTestReg<float, float> RfRegressorConcatTestF;
+TEST_P(RfRegressorConcatTestF, Convert_Reg) { testRegressor(); }
 
-INSTANTIATE_TEST_CASE_P(RfRegressorTreeliteTests, RfRegressorTreeliteTestF,
+INSTANTIATE_TEST_CASE_P(RfRegressorConcatTests, RfRegressorConcatTestF,
                         ::testing::ValuesIn(inputsf2_reg));
 }  // end namespace ML
