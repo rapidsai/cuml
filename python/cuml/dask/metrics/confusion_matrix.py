@@ -25,7 +25,7 @@ from dask.distributed import default_client
 
 
 @with_cupy_rmm
-def local_cm(inputs, labels, use_sample_weight):
+def _local_cm(inputs, labels, use_sample_weight):
     if use_sample_weight:
         y_true, y_pred, sample_weight = inputs
     else:
@@ -52,15 +52,45 @@ def local_cm(inputs, labels, use_sample_weight):
 def confusion_matrix(y_true, y_pred,
                      labels=None,
                      normalize=None,
-                     sample_weight=None):
-    client = default_client()
+                     sample_weight=None,
+                     client=None):
+    """Compute confusion matrix to evaluate the accuracy of a classification.
+
+    Parameters
+    ----------
+    y_true : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Ground truth (correct) target values.
+    y_pred : array-like (device or host) shape = (n_samples,)
+        or (n_samples, n_outputs)
+        Estimated target values.
+    labels : array-like (device or host) shape = (n_classes,), optional
+        List of labels to index the matrix. This may be used to reorder or
+        select a subset of labels. If None is given, those that appear at least
+        once in y_true or y_pred are used in sorted order.
+    sample_weight : array-like (device or host) shape = (n_samples,), optional
+        Sample weights.
+    normalize : string in [‘true’, ‘pred’, ‘all’]
+        Normalizes confusion matrix over the true (rows), predicted (columns)
+        conditions or all the population. If None, confusion matrix will not be
+        normalized.
+    client : dask.distributed.Client, optional
+        Dask client to use. Will use the default client if None.
+
+    Returns
+    -------
+    C : array-like (device or host) shape = (n_classes, n_classes)
+        Confusion matrix.
+    """
+    client = default_client() if client is None else client
 
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
 
     if normalize not in ['true', 'pred', 'all', None]:
-        raise ValueError("normalize must be one of {'true', 'pred', "
-                         "'all', None}")
+        msg = "normalize must be one of " \
+            f"{{'true', 'pred', 'all', None}}, got {normalize}."
+        raise ValueError(msg)
 
     use_sample_weight = bool(sample_weight is not None)
     dask_arrays = [y_true, y_pred, sample_weight] if use_sample_weight else \
@@ -68,7 +98,7 @@ def confusion_matrix(y_true, y_pred,
 
     # run cm computation on each partition.
     parts = client.sync(extract_arr_partitions, dask_arrays)
-    cms = [client.submit(local_cm, p, labels, use_sample_weight,
+    cms = [client.submit(_local_cm, p, labels, use_sample_weight,
                          workers=[w]).result() for w, p in parts]
 
     # reduce each partition's result into one cupy matrix

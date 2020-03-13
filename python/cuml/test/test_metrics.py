@@ -189,7 +189,7 @@ def test_regression_metrics_random(n_samples, dtype, function):
         # stress test for float32 fails because of floating point precision
         pytest.xfail()
 
-    y_true, y_pred = generate_random_labels(
+    y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
 
     cuml_reg, sklearn_reg = {
@@ -325,7 +325,7 @@ def test_entropy(use_handle):
 def test_entropy_random(n_samples, base, use_handle):
     handle, stream = get_handle(use_handle)
 
-    clustering, _ = \
+    clustering, _, _, _ = \
         generate_random_labels(lambda rng: rng.randint(0, 1000, n_samples))
 
     # generate unormalized probabilities from clustering
@@ -363,7 +363,7 @@ def test_confusion_matrix_binary():
 def test_confusion_matrix_random(n_samples, dtype, problem_type):
     upper_range = 2 if problem_type == 'binary' else 1000
 
-    y_true, y_pred = generate_random_labels(
+    y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype))
     cm = confusion_matrix(y_true, y_pred)
     ref = sk_confusion_matrix(y_true, y_pred)
@@ -389,7 +389,7 @@ def test_confusion_matrix_normalize(normalize, expected_results):
                                     (2, 1, 4, 7),
                                     (2, 20)])
 def test_confusion_matrix_multiclass_subset_labels(labels):
-    y_true, y_pred = generate_random_labels(
+    y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 3, 10).astype(np.int32))
 
     ref = sk_confusion_matrix(y_true, y_pred, labels=labels)
@@ -402,7 +402,7 @@ def test_confusion_matrix_multiclass_subset_labels(labels):
 @pytest.mark.parametrize('dtype', [np.int32, np.int64])
 @pytest.mark.parametrize('weights_dtype', ['int', 'float'])
 def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype):
-    y_true, y_pred = generate_random_labels(
+    y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 10, n_samples).astype(dtype))
 
     if weights_dtype == 'int':
