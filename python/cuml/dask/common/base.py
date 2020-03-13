@@ -78,14 +78,15 @@ class BaseEstimator(object):
             if isinstance(local_model, Base):
                 # If model is not distributed, just return the
                 # requested attribute
-                ret_attr =  getattr(local_model, attr)
+                ret_attr = getattr(local_model, attr)
             else:
                 # Otherwise, fetch the attribute from the distributed
                 # model and return it
                 ret_attr = BaseEstimator._get_model_attr(
                     self.__dict__["local_model"], attr).compute()
         else:
-            raise ValueError("Attribute %s not found in %s" % (attr, type(self)))
+            raise ValueError("Attribute %s not found in %s" %
+                             (attr, type(self)))
 
         if isinstance(ret_attr, CumlArray):
             return ret_attr.to_output(self.output_type)

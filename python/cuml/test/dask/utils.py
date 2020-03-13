@@ -28,4 +28,3 @@ def load_text_corpus(client):
                               fancy=False).astype(cp.int32)
 
     return X, y
-
