@@ -114,6 +114,14 @@ Please see our [guide for contributing to cuML](CONTRIBUTING.md).
 
 For additional details on the technologies behind cuML, as well as a broader overview of the Python Machine Learning landscape, see [_Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence_ (2020)](https://arxiv.org/abs/2002.04803) by Sebastian Raschka, Joshua Patterson, and Corey Nolet.
 
+Please consider citing this when using cuML in a project. You can use the citation BibTeX:
+
+> @article{raschka2020machine,
+>   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
+>   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},
+>   journal={arXiv preprint arXiv:2002.04803},
+>   year={2020}
+> }
 
 ## Contact
 
