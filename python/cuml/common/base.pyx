@@ -169,7 +169,7 @@ class Base:
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
 
-        self._mirror_input = True if self.output_type is 'input' else False
+        self._mirror_input = True if self.output_type == 'input' else False
 
     def __repr__(self):
         """
@@ -233,15 +233,12 @@ class Base:
         return self
 
     def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-        return state
+        # getstate and setstate are needed to tell pickle to treat this
+        # as regular python classes instead of triggering __getattr__
+        return self.__dict__
 
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = cuml.common.handle.Handle()
+    def __setstate__(self, d):
+        self.__dict__.update(d)
 
     def __getattr__(self, attr):
         """
@@ -274,7 +271,7 @@ class Base:
         class output type and global output type.
         """
         if self._mirror_input:
-            return _input_type_to_str[type(input)]
+            return _input_to_type(input)
         else:
             return self.output_type
 

@@ -34,7 +34,9 @@ SCORE_EPS = 0.06
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
+@pytest.mark.parametrize("delayed_predict", [True, False])
+def test_end_to_end(nrows, ncols, nclusters, n_parts,
+                    delayed_predict, cluster):
 
     client = Client(cluster)
 
@@ -54,7 +56,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
                                random_state=10)
 
         cumlModel.fit(X_cudf)
-        cumlLabels = cumlModel.predict(X_cudf)
+        cumlLabels = cumlModel.predict(X_cudf, delayed_predict)
 
         n_workers = len(list(client.has_what().keys()))
 
@@ -66,15 +68,15 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts, cluster):
 
         from sklearn.metrics import adjusted_rand_score
 
-        cumlPred = cumlLabels.compute().to_pandas().values
+        cumlPred = cp.array(cumlLabels.compute())
 
         assert cumlPred.shape[0] == nrows
-        assert np.max(cumlPred) == nclusters-1
+        assert np.max(cumlPred) == nclusters - 1
         assert np.min(cumlPred) == 0
 
-        labels = y.compute().to_pandas().values
+        labels = np.squeeze(y.compute().to_pandas().values)
 
-        score = adjusted_rand_score(labels.reshape(labels.shape[0]), cumlPred)
+        score = adjusted_rand_score(labels, cp.squeeze(cumlPred.get()))
 
         assert 1.0 == score
 
@@ -112,8 +114,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         cumlModel.fit(X_cudf)
 
-        labels = y.compute().to_pandas().values
-        labels = labels.reshape(labels.shape[0])
+        labels = np.squeeze(y.compute().to_pandas().values)
 
         xformed = cumlModel.transform(X_cudf).compute()
 
@@ -121,18 +122,20 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
             # series shape is (nrows,) not (nrows, 1) but both are valid
             # and equivalent for this test
             assert xformed.shape in [(nrows, nclusters), (nrows,)]
-            xformed = xformed.to_array()
         else:
             assert xformed.shape == (nrows, nclusters)
-            xformed = xformed.as_matrix()
+
+        xformed = cp.array(xformed
+                           if len(xformed.shape) == 1
+                           else xformed.as_gpu_matrix())
 
         # The argmin of the transformed values should be equal to the labels
         # reshape is a quick manner of dealing with (nrows,) is not (nrows, 1)
-        xformed_labels = np.argmin(xformed.reshape((int(nrows),
+        xformed_labels = cp.argmin(xformed.reshape((int(nrows),
                                                     int(nclusters))), axis=1)
 
         from sklearn.metrics import adjusted_rand_score
-        assert adjusted_rand_score(labels, xformed_labels)
+        assert adjusted_rand_score(labels, cp.squeeze(xformed_labels.get()))
 
     finally:
         client.close()
@@ -169,9 +172,10 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         actual_score = cumlModel.score(X_cudf)
 
-        X = cp.asarray(X_cudf.compute().as_gpu_matrix())
+        X = cp.array(X_cudf.compute().as_gpu_matrix())
 
         predictions = cumlModel.predict(X_cudf).compute()
+        predictions = cp.array(predictions)
 
         centers = cp.array(cumlModel.cluster_centers_.as_gpu_matrix())
 
@@ -185,7 +189,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
             expected_score += dist**2
 
         assert actual_score + SCORE_EPS \
-            >= (-1*expected_score) \
+            >= (-1 * expected_score) \
             >= actual_score - SCORE_EPS
 
     finally:

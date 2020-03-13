@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
+
 #include <map>
 
 namespace ML {
@@ -25,6 +26,8 @@ enum RF_type {
   CLASSIFICATION,
   REGRESSION,
 };
+
+enum task_category { REGRESSION_MODEL = 1, CLASSIFICATION_MODEL = 2 };
 
 struct RF_metrics {
   RF_type rf_type;
@@ -121,6 +124,10 @@ void build_treelite_forest(ModelHandle* model,
 
 std::vector<unsigned char> save_model(ModelHandle model);
 
+ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles);
+
+void compare_concat_forest_to_subforests(
+  ModelHandle concat_tree_handle, std::vector<ModelHandle> treelite_handles);
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;

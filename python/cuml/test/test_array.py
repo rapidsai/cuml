@@ -25,6 +25,7 @@ from copy import deepcopy
 from numba import cuda
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
+from cuml.utils.memory_utils import _get_size_from_shape
 from rmm import DeviceBuffer
 
 test_input_types = [
@@ -69,8 +70,8 @@ unsupported_cudf_dtypes = [np.uint8, np.uint16, np.uint32, np.uint64,
 def test_array_init(input_type, dtype, shape, order):
     if input_type == 'series':
         if dtype in unsupported_cudf_dtypes or \
-             shape == (10, 5):
-            pytest.skip("Unsupported cuDF parameter")
+                shape in [(10, 5), (1, 10)]:
+            pytest.skip("Unsupported cuDF Series parameter")
 
     if input_type is not None:
         inp = create_input(input_type, dtype, shape, order)
@@ -118,6 +119,34 @@ def test_array_init(input_type, dtype, shape, order):
         assert np.array_equal(truth, data)
 
     return True
+
+
+@pytest.mark.parametrize('data_type', [bytes, bytearray, memoryview])
+@pytest.mark.parametrize('dtype', test_dtypes_all)
+@pytest.mark.parametrize('shape', test_shapes)
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_array_init_from_bytes(data_type, dtype, shape, order):
+    dtype = np.dtype(dtype)
+    bts = bytes(_get_size_from_shape(shape, dtype)[0])
+
+    if data_type != bytes:
+        bts = data_type(bts)
+
+    ary = CumlArray(bts, dtype=dtype, shape=shape, order=order)
+
+    if shape == (10, 5):
+        assert ary.order == order
+
+    if shape == 10:
+        assert ary.shape == (10,)
+    else:
+        assert ary.shape == shape
+
+    assert ary.dtype == dtype
+
+    cp_ary = cp.zeros(shape, dtype=dtype)
+
+    assert cp.all(cp.asarray(cp_ary) == cp_ary)
 
 
 @pytest.mark.parametrize('slice', test_slices)
@@ -206,7 +235,7 @@ def test_output(output_type, dtype, order, shape):
             output_type in ['series', 'dataframe', 'cudf']:
         with pytest.raises(ValueError):
             res = ary.to_output(output_type)
-    elif shape == (10, 5) and output_type == 'series':
+    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
         with pytest.raises(ValueError):
             res = ary.to_output(output_type)
     else:
@@ -216,7 +245,7 @@ def test_output(output_type, dtype, order, shape):
         if output_type == 'numba':
             assert cuda.devicearray.is_cuda_ndarray(res)
         elif output_type == 'cudf':
-            if shape == (10, 5):
+            if shape in [(10, 5), (1, 10)]:
                 assert isinstance(res, cudf.DataFrame)
             else:
                 assert isinstance(res, cudf.Series)
