@@ -43,7 +43,7 @@ Logger& Logger::get() {
 }
 
 Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")} {
-  logger->set_pattern(DefaultPattern);
+  setPattern(DefaultPattern);
   setLevel(CUML_LEVEL_INFO);
 }
 
