@@ -24,7 +24,7 @@ import umap
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors
 
 import joblib
 
@@ -373,26 +373,35 @@ def test_umap_knn_parameters(n_neighbors):
         n_samples=2000, n_features=10, centers=5, random_state=0)
     data = data.astype(np.float32)
 
-    knn = NearestNeighbors(n_neighbors=n_neighbors)
-    knn.fit(data)
-    knn_dists, knn_indices = knn.kneighbors(data)
-    knn_indices = knn_indices.astype(np.int_)
-    knn_dists = knn_dists.astype(np.float32)
+    def produce_embedding(knn_graph=None):
+        model = cuUMAP(verbose=False, random_state=42,
+                       n_neighbors=n_neighbors)
+        return model.fit_transform(data, knn_graph=knn_graph,
+                                   convert_dtype=True)
 
-    model1 = cuUMAP(verbose=False, random_state=42, n_neighbors=n_neighbors)
-    embedding1 = model1.fit_transform(data, convert_dtype=True)
+    def test_trustworthiness(embedding):
+        trust = trustworthiness(data, embedding, 10)
+        assert trust >= 0.92
 
-    model2 = cuUMAP(verbose=False, random_state=42, n_neighbors=n_neighbors)
-    embedding2 = model2.fit_transform(data, convert_dtype=True,
-                                      knn_indices=knn_indices,
-                                      knn_dists=knn_dists)
+    def test_equality(e1, e2):
+        assert array_equal(e1, e2, 1e-3, with_sign=True)
 
-    trust1 = trustworthiness(data, embedding1, 10)
-    assert trust1 >= 0.92
-    trust2 = trustworthiness(data, embedding2, 10)
-    assert trust2 >= 0.92
+    neigh = NearestNeighbors(n_neighbors=n_neighbors)
+    neigh.fit(data)
+    knn_graph = neigh.kneighbors_graph(data, mode="distance")
 
-    """
-    assert array_equal(embedding1, embedding2,
-                       1e-3, with_sign=True)
-    """
+    embedding1 = produce_embedding(None)
+    embedding2 = produce_embedding(knn_graph.tocsr())
+    embedding3 = produce_embedding(knn_graph.tocoo())
+    embedding4 = produce_embedding(knn_graph.tocsc())
+
+    test_trustworthiness(embedding1)
+    test_trustworthiness(embedding2)
+    test_trustworthiness(embedding3)
+    test_trustworthiness(embedding4)
+
+    # test_equality(embedding1, embedding2)
+    # test_equality(embedding2, embedding3)
+    # test_equality(embedding3, embedding4)
+
+    test_equality(embedding1, embedding4)
