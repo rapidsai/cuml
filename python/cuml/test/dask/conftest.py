@@ -11,6 +11,7 @@ enable_infiniband = False
 
 dask.config.set({"distributed.comm.timeouts.tcp": "50s"})
 
+
 @pytest.fixture(scope="module")
 def cluster():
     cluster = LocalCUDACluster(protocol="tcp")
