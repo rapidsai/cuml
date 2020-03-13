@@ -251,7 +251,8 @@ class MultinomialNB(BaseEstimator,
 
         delayed_parts = zip(y_hat.to_delayed(), y.to_delayed())
 
-        accuracy_parts = [_count_accurate_predictions(*p) for p in delayed_parts]
+        accuracy_parts = [_count_accurate_predictions(*p)
+                          for p in delayed_parts]
 
         reduced = first(dask.compute(tree_reduce(accuracy_parts)))
 
