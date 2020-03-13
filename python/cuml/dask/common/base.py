@@ -18,6 +18,7 @@ import dask
 import numpy as np
 from toolz import first
 
+from cuml import Base
 from cuml.common.array import CumlArray
 
 from dask_cudf.core import DataFrame as dcDataFrame
@@ -67,12 +68,22 @@ class BaseEstimator(object):
         elif real_name in self.__dict__:
             ret_attr = self.__dict__[real_name]
 
-        # Finally, check the distributed model (this is done as a
-        # last resort since it incurs a higher cost than local
-        # checks.)
-        elif "model" in self.__dict__:
-            ret_attr = BaseEstimator._get_model_attr(
-                self.__dict__["local_model"], attr).compute()
+        # Finally, check the trained model (this is done as a
+        # last resort since fetching the attribute from the
+        # distributed model will incur a higher cost than
+        # local attributes.
+        elif "local_model" in self.__dict__:
+            local_model = self.__dict__["local_model"]
+
+            if isinstance(local_model, Base):
+                # If model is not distributed, just return the
+                # requested attribute
+                ret_attr =  getattr(local_model, attr)
+            else:
+                # Otherwise, fetch the attribute from the distributed
+                # model and return it
+                ret_attr = BaseEstimator._get_model_attr(
+                    self.__dict__["local_model"], attr).compute()
         else:
             raise ValueError("Attribute %s not found in %s" % (attr, type(self)))
 

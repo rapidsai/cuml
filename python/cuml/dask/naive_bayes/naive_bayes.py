@@ -105,7 +105,6 @@ class MultinomialNB(BaseEstimator,
         super(MultinomialNB, self).__init__(client=client, verbose=verbose,
                                             **kwargs)
 
-        # TODO: This will go away once
         self.datatype = "cupy"
 
     @staticmethod
