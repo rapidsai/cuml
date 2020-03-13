@@ -63,8 +63,6 @@ def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
     kmeans.fit(X.copy_to_host())
     sk_score = kmeans.score(X.copy_to_host())
 
-    print(str(abs(cu_score - sk_score)) + " - " + str(cu_score) + " - " + str(sk_score))
-
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
 
