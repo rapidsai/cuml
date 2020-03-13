@@ -127,7 +127,6 @@ def get_tidy_args(cmd, exe):
         remove_item_plus_one(command, "-ccbin")
         remove_item(command, "--expt-extended-lambda")
         remove_item(command, "--diag_suppress=unrecognized_gcc_pragma")
-        command.append("-nocudalib")
     command.extend(get_clang_includes(exe))
     return command, is_cuda
 
