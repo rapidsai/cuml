@@ -46,6 +46,7 @@
 - PR #1824: C++: improving the performance of UMAP algo
 - PR #1816: Add ARIMA notebook
 - PR #1825: `--nvtx` option in `build.sh`
+- PR #1847: Update XGBoost version for CI
 - PR #1837: Simplify cuML Array construction
 - PR #1848: Rely on subclassing for cuML Array serialization
 - PR #1788: Removing complexity bottleneck in S-ARIMA
