@@ -33,7 +33,6 @@ try:
 
     from distributed.protocol import register_generic
 
-    from cuml.naive_bayes.naive_bayes import MultinomialNB
     from cuml.ensemble import RandomForestRegressor
     from cuml.ensemble import RandomForestClassifier
 
