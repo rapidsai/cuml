@@ -39,7 +39,7 @@ def parse_args():
                            help="Regex used to ignore files from checking")
     argparser.add_argument("-select", type=str, default=None,
                            help="Regex used to select files for checking")
-    argparser.add_argument("-j", type=int, default=1,
+    argparser.add_argument("-j", type=int, default=-1,
                            help="Number of parallel jobs to launch.")
     args = argparser.parse_args()
     if args.j <= 0:
