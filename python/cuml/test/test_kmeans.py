@@ -20,7 +20,7 @@ import pytest
 from cuml.datasets import make_blobs
 
 from cuml.test.utils import get_pattern, clusters_equal, unit_param, \
-    quality_param, stress_param
+    quality_param, stress_param, array_equal
 
 from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
@@ -30,6 +30,42 @@ from sklearn.preprocessing import StandardScaler
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
 SCORE_EPS = 0.06
+
+
+@pytest.mark.parametrize('random_state', [i for i in range(10)])
+def test_n_init_cluster_consistency(random_state):
+
+    cluster_std = 1.0
+
+    nrows = 100000
+    ncols = 100
+    nclusters = 8
+
+    X, y = make_blobs(nrows,
+                      ncols,
+                      nclusters,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=0)
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+    initial_clusters = cuml_kmeans.cluster_centers_
+
+    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X)
+
+    assert array_equal(initial_clusters, cuml_kmeans.cluster_centers_)
 
 
 @pytest.mark.parametrize('nrows', [1000, 10000])
