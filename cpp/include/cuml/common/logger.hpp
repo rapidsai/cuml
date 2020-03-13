@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <memory>
 #include <stdarg.h>
+#include <memory>
 #include <string>
 
 namespace spdlog {
@@ -48,13 +48,13 @@ std::string format(const char* fmt, ...);
  *
  * @{
  */
-#define CUML_LEVEL_TRACE    0
-#define CUML_LEVEL_DEBUG    1
-#define CUML_LEVEL_INFO     2
-#define CUML_LEVEL_WARN     3
-#define CUML_LEVEL_ERROR    4
+#define CUML_LEVEL_TRACE 0
+#define CUML_LEVEL_DEBUG 1
+#define CUML_LEVEL_INFO 2
+#define CUML_LEVEL_WARN 3
+#define CUML_LEVEL_ERROR 4
 #define CUML_LEVEL_CRITICAL 5
-#define CUML_LEVEL_OFF      6
+#define CUML_LEVEL_OFF 6
 /** @} */
 
 #if !defined(CUML_ACTIVE_LEVEL)
@@ -104,7 +104,7 @@ class Logger {
    * @param[in] level logging level of this message
    * @param[in] fmt   C-like format string, followed by respective params
    */
-  void log(int level, const char *fmt, ...);
+  void log(int level, const char* fmt, ...);
 
  private:
   Logger();
@@ -114,52 +114,53 @@ class Logger {
   static const std::string DefaultPattern;
 };  // class Logger
 
-
 /**
  * @defgroup LoggerMacros Helper macros for dealing with logging
  * @{
  */
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_TRACE)
-#define CUML_LOG_TRACE(fmt, ...) do {                                   \
+#define CUML_LOG_TRACE(fmt, ...)                                        \
+  do {                                                                  \
     auto msg = format("%s:%d " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
     ML::Logger::get().log(CUML_LEVEL_TRACE, msg);                       \
-  } while(0)
+  } while (0)
 #else
 #define CUML_LOG_TRACE(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_DEBUG)
-#define CUML_LOG_DEBUG(fmt, ...) do {                                   \
+#define CUML_LOG_DEBUG(fmt, ...)                                        \
+  do {                                                                  \
     auto msg = format("%s:%d " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
     ML::Logger::get().log(CUML_LEVEL_DEBUG, msg);                       \
-  } while(0)
+  } while (0)
 #else
 #define CUML_LOG_DEBUG(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_INFO)
-#define CUML_LOG_INFO(fmt, ...)                                 \
+#define CUML_LOG_INFO(fmt, ...) \
   ML::Logger::get().log(CUML_LEVEL_INFO, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_INFO(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_WARN)
-#define CUML_LOG_WARN(fmt, ...)                                 \
+#define CUML_LOG_WARN(fmt, ...) \
   ML::Logger::get().log(CUML_LEVEL_WARN, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_WARN(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_ERROR)
-#define CUML_LOG_ERROR(fmt, ...)                                \
+#define CUML_LOG_ERROR(fmt, ...) \
   ML::Logger::get().log(CUML_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_ERROR(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_CRITICAL)
-#define CUML_LOG_CRITICAL(fmt, ...)                                     \
+#define CUML_LOG_CRITICAL(fmt, ...) \
   ML::Logger::get().log(CUML_LEVEL_CRITICAL, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_CRITICAL(fmt, ...) void(0)

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/common/logger.hpp>
 #include <gtest/gtest.h>
+#include <cuml/common/logger.hpp>
 
 TEST(Logger, Test) {
   CUML_LOG_CRITICAL("This is a critical message");
