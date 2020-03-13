@@ -49,14 +49,14 @@ class BaseEstimator(object):
     def __getattr__(self, attr):
         """
         Method gives access to the correct format of cuml Array attribute to
-        the users. Any variable that starts with `_` is assumed to belong to
-        the distributed trained model instance and will be brought local
-        and returned only when called.
+        the users and proxies attributes to the underlying trained model.
 
-        All other attributes will ass
-
-         is a cuml Array
-        will return as the cuml Array converted to the appropriate format.
+        If the attribute being requested is not directly on the local object,
+        this function will see if the local object contains the attribute
+        prefixed with an _. In the case the attribute does not exist on this
+        local instance, the request will be proxied to self.local_model and
+        will be fetched either locally or remotely depending on whether
+        self.local_model is a local object instance or a future.
         """
         real_name = '_' + attr
 

@@ -107,6 +107,10 @@ class MultinomialNB(BaseEstimator,
 
         self.datatype = "cupy"
 
+        # Make any potential model args available and catch any potential
+        # ValueErrors before distributed training begins.
+        self.local_model = MNB(**kwargs)
+
     @staticmethod
     @dask.delayed
     @with_cupy_rmm
