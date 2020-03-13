@@ -169,7 +169,7 @@ class Base:
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
 
-        self._mirror_input = True if self.output_type is 'input' else False
+        self._mirror_input = True if self.output_type == 'input' else False
 
     def __repr__(self):
         """
