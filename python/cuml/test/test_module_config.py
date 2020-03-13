@@ -96,6 +96,9 @@ def test_output_type_context_mgr(global_type, context_type):
     res = dbscan_float.labels_
     assert isinstance(res, test_output_types[test_type])
 
+    # reset cuml global output type to 'input' for further tests
+    cuml.set_global_output_type('input')
+
 
 def get_small_dataset(output_type):
     ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
