@@ -59,14 +59,8 @@ try:
     def rfc_deserialize(header, frames):
         return pickle_loads(header, frames)
 
-    register_generic(MultinomialNB, 'cuda',
-                     cuda_serialize, cuda_deserialize)
-
     register_generic(cuml.Base, 'cuda',
                      cuda_serialize, cuda_deserialize)
-
-    register_generic(MultinomialNB, 'dask',
-                     dask_serialize, dask_deserialize)
 
     register_generic(cuml.Base, 'dask',
                      dask_serialize, dask_deserialize)
