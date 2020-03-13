@@ -36,6 +36,8 @@ try:
     from cuml.ensemble import RandomForestRegressor
     from cuml.ensemble import RandomForestClassifier
 
+    from cuml.naive_bayes import MultinomialNB
+
     # Registering RF Regressor and Classifier to use pickling even when
     # Base is serialized with Dask or CUDA serializations
     @dask_serialize.register(RandomForestRegressor)
@@ -64,10 +66,10 @@ try:
     register_generic(cuml.Base, 'dask',
                      dask_serialize, dask_deserialize)
 
-    register_generic(cuml.naive_bayes.naive_bayes.MultinomialNB, 'cuda',
+    register_generic(MultinomialNB, 'cuda',
                      cuda_serialize, cuda_deserialize)
 
-    register_generic(cuml.naive_bayes.naive_bayes.MultinomialNB, 'dask',
+    register_generic(MultinomialNB, 'dask',
                      dask_serialize, dask_deserialize)
 
     copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
