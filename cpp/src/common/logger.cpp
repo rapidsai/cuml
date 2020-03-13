@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #define SPDLOG_HEADER_ONLY
-#include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 #include <cuml/common/logger.hpp>
 
@@ -55,7 +55,7 @@ void Logger::setPattern(const std::string& pattern) {
   logger->set_pattern(pattern);
 }
 
-void Logger::log(int level, const char *fmt, ...) {
+void Logger::log(int level, const char* fmt, ...) {
   auto level_e = static_cast<spdlog::level::level_enum>(level);
   // explicit check to make sure that we only expand messages when required
   if (logger->should_log(level_e)) {
