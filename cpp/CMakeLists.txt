@@ -360,10 +360,6 @@ include_directories(
   ${TREELITE_DIR}/include/fmt
   ${ZLIB_INCLUDE_DIRS$})
 
-set(PRIMS_TEST_UTILS
-    src_prims/cuda_utils.h
-    src_prims/utils.h)
-
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
 
