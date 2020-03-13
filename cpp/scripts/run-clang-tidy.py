@@ -35,7 +35,7 @@ def parse_args():
                            help="Path to cmake-generated compilation database")
     argparser.add_argument("-exe", type=str, default="clang-tidy",
                            help="Path to clang-tidy exe")
-    argparser.add_argument("-ignore", type=str, default="[.]cu$|examples/",
+    argparser.add_argument("-ignore", type=str, default="[.]cu$|examples/kmeans/",
                            help="Regex used to ignore files from checking")
     argparser.add_argument("-select", type=str, default=None,
                            help="Regex used to select files for checking")
@@ -137,12 +137,15 @@ def get_tidy_args(cmd, exe):
 
 
 def run_clang_tidy_command(tidy_cmd):
+    out = ""
     try:
-        cmd = " ".join(tidy_cmd)
-        subprocess.check_call(cmd, shell=True)
-        return True
+        cmd = " ".join(tidy_cmd) + " 2>&1"
+        out = subprocess.check_output(cmd, shell=True)
+        out = out.decode("utf-8")
+        out = out.rstrip()
+        return True, out
     except:
-        return False
+        return False, out
 
 
 def run_clang_tidy(cmd, args):
@@ -150,22 +153,27 @@ def run_clang_tidy(cmd, args):
     tidy_cmd = [args.exe, "-header-filter=.*cuml/cpp/.*", cmd["file"], "--", ]
     tidy_cmd.extend(command)
     status = True
+    out = ""
     if is_cuda:
         tidy_cmd.append("--cuda-device-only")
         tidy_cmd.append(cmd["file"])
-        ret = run_clang_tidy_command(tidy_cmd)
+        ret, out1 = run_clang_tidy_command(tidy_cmd)
+        out += out1
+        out += "%s" % SEPARATOR
         if not ret:
             status = ret
         tidy_cmd[-2] = "--cuda-host-only"
-        ret = run_clang_tidy_command(tidy_cmd)
+        ret, out1 = run_clang_tidy_command(tidy_cmd)
         if not ret:
             status = ret
+        out += out1
     else:
         tidy_cmd.append(cmd["file"])
-        ret = run_clang_tidy_command(tidy_cmd)
+        ret, out1 = run_clang_tidy_command(tidy_cmd)
         if not ret:
             status = ret
-    return status
+        out += out1
+    return status, out
 
 
 def main():
@@ -184,10 +192,15 @@ def main():
         if args.select_compiled is not None and \
            re.search(args.select_compiled, cmd["file"]) is None:
             continue
-        ret = run_clang_tidy(cmd, args)
-        if not ret:
-            status = ret
-        print("%s ^^^ %s ^^^ %s" % (SEPARATOR, cmd["file"], SEPARATOR))
+        passed, stdout = run_clang_tidy(cmd, args)
+        status_str = "PASSED" if passed else "FAILED"
+        if not passed:
+            status = False
+        print("%s File:%s %s %s" % (SEPARATOR, cmd["file"], status_str,
+                                    SEPARATOR))
+        if stdout:
+            print(stdout)
+            print("%s File:%s ENDS %s" % (SEPARATOR, cmd["file"], SEPARATOR))
     if not status:
         raise Exception("clang-tidy failed! Refer to the errors above.")
     return
