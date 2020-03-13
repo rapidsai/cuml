@@ -18,6 +18,8 @@ import dask
 import numpy as np
 from toolz import first
 
+from cuml.common.array import CumlArray
+
 from dask_cudf.core import DataFrame as dcDataFrame
 
 from dask.distributed import default_client
@@ -33,6 +35,51 @@ class BaseEstimator(object):
         self.client = default_client() if client is None else client
         self.verbose = verbose
         self.kwargs = kwargs
+
+    @staticmethod
+    @dask.delayed
+    def _get_model_attr(model, name):
+        if hasattr(model, name):
+            return getattr(model, name)
+        else:
+            raise ValueError("Attribute %s does not exist on model %s" %
+                             (name, type(model)))
+
+    def __getattr__(self, attr):
+        """
+        Method gives access to the correct format of cuml Array attribute to
+        the users. Any variable that starts with `_` is assumed to belong to
+        the distributed trained model instance and will be brought local
+        and returned only when called.
+
+        All other attributes will ass
+
+         is a cuml Array
+        will return as the cuml Array converted to the appropriate format.
+        """
+        real_name = '_' + attr
+
+        # First check locally for attr
+        if attr in self.__dict__.keys():
+            ret_attr = self.__dict__[attr]
+
+        # Next check locally for _ prefixed attr
+        elif real_name in self.__dict__.keys():
+            ret_attr = self.__dict__[real_name]
+
+        # Finally, check the distributed model (this is done as a
+        # last resort since it incurs a higher cost than local
+        # checks.)
+        elif "model" in self.__dict__.keys():
+            ret_attr = BaseEstimator._get_model_attr(
+                self.__dict__["model"], attr)
+        else:
+            raise ValueError("Attribute %s not found in %s" % (attr, type(self)))
+
+        if isinstance(ret_attr, CumlArray):
+            return ret_attr.to_output(self.output_type)
+        else:
+            return ret_attr
 
 
 class DelayedParallelFunc(object):
