@@ -89,6 +89,7 @@ if(BUILD_CUML_TESTS)
       sg/kmeans_test.cu
       sg/knn_test.cu
       sg/lkf_test.cu
+      sg/logger.cpp
       sg/ols.cu
       sg/pca_test.cu
       sg/quasi_newton.cu
