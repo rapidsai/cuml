@@ -60,17 +60,17 @@ class BaseEstimator(object):
         real_name = '_' + attr
 
         # First check locally for attr
-        if attr in self.__dict__.keys():
+        if attr in self.__dict__:
             ret_attr = self.__dict__[attr]
 
         # Next check locally for _ prefixed attr
-        elif real_name in self.__dict__.keys():
+        elif real_name in self.__dict__:
             ret_attr = self.__dict__[real_name]
 
         # Finally, check the distributed model (this is done as a
         # last resort since it incurs a higher cost than local
         # checks.)
-        elif "model" in self.__dict__.keys():
+        elif "model" in self.__dict__:
             ret_attr = BaseEstimator._get_model_attr(
                 self.__dict__["model"], attr)
         else:
