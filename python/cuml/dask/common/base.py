@@ -72,7 +72,7 @@ class BaseEstimator(object):
         # checks.)
         elif "model" in self.__dict__:
             ret_attr = BaseEstimator._get_model_attr(
-                self.__dict__["model"], attr)
+                self.__dict__["local_model"], attr).compute()
         else:
             raise ValueError("Attribute %s not found in %s" % (attr, type(self)))
 

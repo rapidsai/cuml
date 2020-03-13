@@ -18,12 +18,13 @@ import cupy as cp
 import dask
 from toolz import first
 
-from dask.distributed import default_client
 from dask.distributed import wait
 
 from cuml.utils import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
+from cuml.dask.common.base import DelayedPredictionMixin
+
 from cuml.dask.common.func import tree_reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.utils import rmm_cupy_ary
@@ -31,7 +32,8 @@ from cuml.utils import rmm_cupy_ary
 from cuml.naive_bayes import MultinomialNB as MNB
 
 
-class MultinomialNB(BaseEstimator):
+class MultinomialNB(BaseEstimator,
+                    DelayedPredictionMixin):
 
     """
     Distributed Naive Bayes classifier for multinomial models
@@ -103,9 +105,12 @@ class MultinomialNB(BaseEstimator):
         super(MultinomialNB, self).__init__(client=client, verbose=verbose,
                                             **kwargs)
 
+        # TODO: This will go away once
+        self.datatype = "cupy"
+
     @staticmethod
-    @with_cupy_rmm
     @dask.delayed
+    @with_cupy_rmm
     def _fit(Xy, classes, kwargs):
 
         X, y = Xy
@@ -114,11 +119,6 @@ class MultinomialNB(BaseEstimator):
         model.partial_fit(X, y, classes=classes)
 
         return model
-
-    @staticmethod
-    @dask.delayed
-    def _predict(model, X):
-        return model.predict(X)
 
     @staticmethod
     def _unique(x):
@@ -180,10 +180,10 @@ class MultinomialNB(BaseEstimator):
         counts = [MultinomialNB._fit(part, classes, kwargs)
                   for w, part in futures.gpu_futures]
 
-        self.model = self.client.persist(tree_reduce(counts, self._reduce_models),
-                                      traverse=False)
+        self.local_model = self.client.persist(
+            tree_reduce(counts, self._reduce_models), traverse=False)
 
-        wait(self.model)
+        wait(self.local_model)
         return self
 
     @staticmethod
@@ -219,14 +219,7 @@ class MultinomialNB(BaseEstimator):
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
 
-        predictions = [MultinomialNB._predict(self.model, first(x))
-                       for x in X.to_delayed()]
-
-        arrs = [dask.array.from_delayed(pred, dtype=cp.int32, shape=(cp.nan,))
-                for pred in predictions]
-
-        return dask.array.concatenate(arrs, axis=0,
-                                      allow_unknown_chunksizes=True)
+        return self._predict(X, delayed=True, output_dtyle=cp.int32)
 
     def score(self, X, y):
         """
