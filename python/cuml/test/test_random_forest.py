@@ -29,7 +29,7 @@ from cuml.test.utils import get_handle, unit_param, \
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 from sklearn.model_selection import train_test_split
@@ -73,8 +73,9 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
                                    output_class=True,
                                    threshold=0.5,
                                    algo='auto')
-    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
-    cuml_acc = accuracy_score(y_test, cu_predict)
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+    cuml_acc = accuracy_score(y_test, cu_preds)
     fil_acc = accuracy_score(y_test, fil_preds)
 
     if nrows < 500000:
@@ -135,6 +136,8 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
     # Initialize, fit and predict using
@@ -172,6 +175,8 @@ def test_rf_classification_default(datatype, column_info, nrows):
     cuml_model.fit(X_train, y_train)
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+
     fil_acc = accuracy_score(y_test, fil_preds)
     cu_acc = accuracy_score(y_test, cu_preds)
 
@@ -211,16 +216,19 @@ def test_rf_regression_default(datatype, column_info, nrows):
     cuml_model = curfr()
     cuml_model.fit(X_train, y_train)
 
-    # predict using FIL
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
+
+    # predict using FIL
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
 
     # score function should be equivalent
-    score_mse = cuml_model.score(X_test, y_test)
-    manual_mse = ((fil_preds - y_test)**2).mean()
-    assert manual_mse == pytest.approx(score_mse)
+    score_mse = cuml_model.score(X_test, y_test, predict_model="GPU")
+    sk_mse = mean_squared_error(y_test, fil_preds)
+    assert sk_mse == pytest.approx(score_mse)
 
     # Initialize, fit and predict using
     # sklearn's random forest regression model
@@ -261,10 +269,12 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_orig = cu_class.predict(X_test,
-                                          predict_model="GPU").copy_to_host()
+                                          predict_model="GPU")
         cu_preds_orig = cu_class.predict(X_test,
                                          predict_model="CPU")
         cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
+        fil_preds_orig = np.reshape(fil_preds_orig, np.shape(cu_preds_orig))
+
         fil_acc_orig = accuracy_score(y_test, fil_preds_orig)
 
         # Initialize, fit and predict using cuML's
@@ -274,9 +284,11 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
         # predict using FIL
         fil_preds_rerun = cu_class2.predict(X_test,
-                                            predict_model="GPU").copy_to_host()
+                                            predict_model="GPU")
         cu_preds_rerun = cu_class2.predict(X_test, predict_model="CPU")
         cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
+        fil_preds_rerun = np.reshape(fil_preds_rerun, np.shape(cu_preds_rerun))
+
         fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
 
         assert fil_acc_orig == fil_acc_rerun
@@ -326,12 +338,15 @@ def test_rf_classification_float64(datatype, column_info,
     if datatype[0] == np.float32 and convert_dtype:
         fil_preds = cuml_model.predict(X_test, predict_model="GPU",
                                        convert_dtype=convert_dtype)
+        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+
         fil_acc = accuracy_score(y_test, fil_preds)
         assert fil_acc >= (cu_acc - 0.02)
     else:
         with pytest.raises(TypeError):
             fil_preds = cuml_model.predict(X_test, predict_model="GPU",
                                            convert_dtype=convert_dtype)
+
 
 @pytest.mark.parametrize('datatype', [(np.float64, np.float32),
                                       (np.float32, np.float64)])
@@ -376,6 +391,8 @@ def test_rf_regression_float64(datatype, column_info,
     if datatype[0] == np.float32 and convert_dtype:
         fil_preds = cuml_model.predict(X_test, predict_model="GPU",
                                        convert_dtype=convert_dtype)
+        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+
         fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
         assert fil_r2 >= (cu_r2 - 0.02)
     else:
@@ -413,10 +430,11 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         y_train_df = cudf.Series(y_train)
         X_test_df = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
         cuml_model.fit(X_train_df, y_train_df)
-        cu_preds = cuml_model.predict(X_test_df)
+        cu_preds = cuml_model.predict(X_test_df,
+                                      predict_model="CPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
-        cu_preds = cuml_model.predict(X_test)
+        cu_preds = cuml_model.predict(X_test, predict_model="CPU")
 
     cu_acc = accuracy_score(y_test, cu_preds)
 
@@ -469,8 +487,8 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
-    cu_predict = cuml_model.predict(X_test, predict_model="CPU")
-    cuml_acc = accuracy_score(y_test, cu_predict)
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    cuml_acc = accuracy_score(y_test, cu_preds)
 
     if ((not fil_sparse_format or algo == 'tree_reorg' or
             algo == 'batch_tree_reorg') or
@@ -489,10 +507,13 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                                        threshold=0.5,
                                        fil_sparse_format=fil_sparse_format,
                                        algo=algo)
+        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
         fil_acc = accuracy_score(y_test, fil_preds)
 
         fil_model = cuml_model.convert_to_fil_model()
-        fil_model_preds = fil_model.predict(X_test)
+        input_type = 'numpy'
+        fil_model_preds = fil_model.predict(X_test,
+                                            output_type=input_type)
         fil_model_acc = accuracy_score(y_test, fil_model_preds)
         assert fil_acc == fil_model_acc
 
@@ -577,10 +598,15 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
         fil_preds = cuml_model.predict(X_test, predict_model="GPU",
                                        fil_sparse_format=fil_sparse_format,
                                        algo=algo)
+        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
         fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
 
         fil_model = cuml_model.convert_to_fil_model()
-        fil_model_preds = fil_model.predict(X_test)
+
+        input_type = 'numpy'
+        fil_model_preds = fil_model.predict(X_test,
+                                            output_type=input_type)
+        fil_model_preds = np.reshape(fil_model_preds, np.shape(cu_preds))
         fil_model_r2 = r2_score(y_test, fil_model_preds,
                                 convert_dtype=datatype)
         assert fil_r2 == fil_model_r2
@@ -608,7 +634,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
 @pytest.mark.parametrize('column_info', [unit_param([100, 50]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(50000),
+@pytest.mark.parametrize('nrows', [unit_param(1000), quality_param(50000),
                          stress_param(500000)])
 def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
     n_iter = 30
@@ -630,7 +656,6 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
     # before the first call to get_memory_info.
     base_model = curfc(handle=handle)
     base_model.fit(X_train, y_train)
-
     free_mem = cuda.current_context().get_memory_info()[0]
 
     rfc_model = curfc(handle=handle)
