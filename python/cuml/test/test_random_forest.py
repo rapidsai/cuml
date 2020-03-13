@@ -730,5 +730,3 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
     params = cuml_model.get_params()
     assert params['n_estimators'] == n_estimators
     assert params['n_bins'] == n_bins
-
-    
