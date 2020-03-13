@@ -67,14 +67,14 @@ class MBSGDClassifier(Base):
 
     Parameters
     -----------
-    loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
+    loss : {'hinge', 'log', 'squared_loss'} (default = 'squared_loss')
        'hinge' uses linear SVM
 
        'log' uses logistic regression
 
        'squared_loss' uses linear regression
 
-    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
+    penalty: {'none', 'l1', 'l2', 'elasticnet'} (default = 'none')
        'none' does not perform any regularization
 
        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value

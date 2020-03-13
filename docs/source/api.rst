@@ -26,6 +26,14 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
 
+ .. autoclass:: cuml.preprocessing.LabelBinarizer
+    :members:
+
+ .. autoclass:: cuml.dask.preprocessing.LabelBinarizer
+    :members:
+
+ .. automethod:: cuml.preprocessing.label_binarize
+
 Dataset Generation (Single-GPU)
 -------------------------------
 
@@ -306,3 +314,20 @@ Linear Models
 
 .. autoclass:: cuml.dask.linear_model.Ridge
     :members:
+
+Dask Base Classes and Mixins
+----------------------------
+.. autoclass:: cuml.dask.common.base.BaseEstimator
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedParallelFunc
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedPredictionMixin
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedTransformMixin
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
+   :members:

@@ -31,7 +31,7 @@ into three categories:
 3. Comment on the issue saying you are going to work on it.
 4. Get familar with the developer guide relevant for you:
     * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
-    * For Python developers, cuML Python generally follows scikit-learn guidelines, but there are some additional considerations to ensure estimators work smoothly with all input types and configurable output types. See the documentation in `cuml.common.Base` for full details.
+    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is availabe as well.
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
