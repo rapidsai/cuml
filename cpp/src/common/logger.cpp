@@ -17,7 +17,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "logger.h"
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 
