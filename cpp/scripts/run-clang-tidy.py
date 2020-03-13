@@ -93,17 +93,17 @@ def remove_item_plus_one(arr, item):
     return loc
 
 
-def get_clang_includes():
+def get_clang_includes(exe):
     dir = os.getenv("CONDA_PREFIX")
     if dir is None:
         ret = subprocess.check_output("which %s 2>&1" % exe, shell=True)
         ret = ret.decode("utf-8")
         dir = os.path.dirname(os.path.dirname(ret))
-    header = os.path.join(dir, "include", "Headers")
+    header = os.path.join(dir, "include", "ClangHeaders")
     return ["-I", header]
 
 
-def get_tidy_args(cmd):
+def get_tidy_args(cmd, exe):
     command, file = cmd["command"], cmd["file"]
     is_cuda = file.endswith(".cu")
     command = re.split(SPACES, command)
@@ -128,7 +128,7 @@ def get_tidy_args(cmd):
         remove_item(command, "--expt-extended-lambda")
         remove_item(command, "--diag_suppress=unrecognized_gcc_pragma")
         command.append("-nocudalib")
-    command.extend(get_clang_includes())
+    command.extend(get_clang_includes(exe))
     return command, is_cuda
 
 
@@ -142,7 +142,7 @@ def run_clang_tidy_command(tidy_cmd):
 
 
 def run_clang_tidy(cmd, args):
-    command, is_cuda = get_tidy_args(cmd)
+    command, is_cuda = get_tidy_args(cmd, args.exe)
     tidy_cmd = [args.exe, "-header-filter=.*cuml/cpp/.*", cmd["file"], "--", ]
     tidy_cmd.extend(command)
     status = True
