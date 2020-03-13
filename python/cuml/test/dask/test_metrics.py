@@ -62,11 +62,10 @@ def test_confusion_matrix_random(n_samples, dtype, problem_type, cluster):
 
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype),
-        as_cupy=True,
-        with_numpy=True
+        as_cupy=True
     )
-
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
+
     cm = confusion_matrix(y_true, y_pred)
     ref = sk_confusion_matrix(np_y_true, np_y_pred)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
@@ -97,11 +96,9 @@ def test_confusion_matrix_normalize(normalize, expected_results, cluster):
                                     (2, 20)])
 def test_confusion_matrix_multiclass_subset_labels(labels, cluster):
     client = Client(cluster)
+
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
-        lambda rng: rng.randint(0, 3, 10).astype(np.int32),
-        as_cupy=True,
-        with_numpy=True
-    )
+        lambda rng: rng.randint(0, 3, 10).astype(np.int32), as_cupy=True)
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
 
     ref = sk_confusion_matrix(np_y_true, np_y_pred, labels=labels)
@@ -118,11 +115,9 @@ def test_confusion_matrix_multiclass_subset_labels(labels, cluster):
 def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype,
                                          cluster):
     client = Client(cluster)
+
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
-        lambda rng: rng.randint(0, 10, n_samples).astype(dtype),
-        as_cupy=True,
-        with_numpy=True
-    )
+        lambda rng: rng.randint(0, 10, n_samples).astype(dtype), as_cupy=True)
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
 
     if weights_dtype == 'int':

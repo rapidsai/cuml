@@ -86,8 +86,9 @@ def confusion_matrix(y_true, y_pred,
         sample_weight = sample_weight.to_output('cupy')
 
     if normalize not in ['true', 'pred', 'all', None]:
-        raise ValueError("normalize must be one of {'true', 'pred', "
-                         "'all', None}")
+        msg = "normalize must be one of " \
+              f"{{'true', 'pred', 'all', None}}, got {normalize}."
+        raise ValueError(msg)
 
     y_true, _ = make_monotonic(y_true, labels, copy=True)
     y_pred, _ = make_monotonic(y_pred, labels, copy=True)
