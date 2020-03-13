@@ -36,6 +36,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release")
 endif()
 
+# this is needed for clang-tidy runs
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
