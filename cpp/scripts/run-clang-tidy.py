@@ -173,7 +173,29 @@ def run_clang_tidy(cmd, args):
         if not ret:
             status = ret
         out += out1
-    return status, out
+    return status, out, cmd["file"]
+
+
+# yikes! global var :(
+results = []
+def collect_result(result):
+    global results
+    results.append(result)
+
+
+def print_results():
+    global results
+    status = True
+    for passed, stdout, file in results:
+        status_str = "PASSED" if passed else "FAILED"
+        if not passed:
+            status = False
+        print("%s File:%s %s %s" % (SEPARATOR, file, status_str, SEPARATOR))
+        if stdout:
+            print(stdout)
+            print("%s File:%s ENDS %s" % (SEPARATOR, file, SEPARATOR))
+    if not status:
+        raise Exception("clang-tidy failed! Refer to the errors above.")
 
 
 def main():
@@ -182,8 +204,9 @@ def main():
     if not os.path.exists(".git"):
         raise Exception("This needs to always be run from the root of repo")
     all_files = list_all_cmds(args.cdb)
+    pool = mp.Pool(args.j)
+    results = []
     # actual tidy checker
-    status = True
     for cmd in all_files:
         # skip files that we don't want to look at
         if args.ignore_compiled is not None and \
@@ -192,18 +215,11 @@ def main():
         if args.select_compiled is not None and \
            re.search(args.select_compiled, cmd["file"]) is None:
             continue
-        passed, stdout = run_clang_tidy(cmd, args)
-        status_str = "PASSED" if passed else "FAILED"
-        if not passed:
-            status = False
-        print("%s File:%s %s %s" % (SEPARATOR, cmd["file"], status_str,
-                                    SEPARATOR))
-        if stdout:
-            print(stdout)
-            print("%s File:%s ENDS %s" % (SEPARATOR, cmd["file"], SEPARATOR))
-    if not status:
-        raise Exception("clang-tidy failed! Refer to the errors above.")
-    return
+        pool.apply_async(run_clang_tidy, args=(cmd, args),
+                         callback=collect_result)
+    pool.close()
+    pool.join()
+    print_results()
 
 
 if __name__ == "__main__":
