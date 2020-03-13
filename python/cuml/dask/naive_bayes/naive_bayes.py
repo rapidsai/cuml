@@ -23,6 +23,7 @@ from dask.distributed import wait
 
 from cuml.utils import with_cupy_rmm
 
+from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.func import tree_reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.utils import rmm_cupy_ary
@@ -30,7 +31,7 @@ from cuml.utils import rmm_cupy_ary
 from cuml.naive_bayes import MultinomialNB as MNB
 
 
-class MultinomialNB(object):
+class MultinomialNB(BaseEstimator):
 
     """
     Distributed Naive Bayes classifier for multinomial models
@@ -89,7 +90,7 @@ class MultinomialNB(object):
     0.9244298934936523
 
     """
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
@@ -99,10 +100,8 @@ class MultinomialNB(object):
 
         client : dask.distributed.Client optional Dask client to use
         """
-
-        self.client_ = client if client is not None else default_client()
-        self.model = None
-        self.kwargs = kwargs
+        super(MultinomialNB, self).__init__(client=client, verbose=verbose,
+                                            **kwargs)
 
     @staticmethod
     @with_cupy_rmm
@@ -170,7 +169,7 @@ class MultinomialNB(object):
             raise ValueError("X must be chunked by row only. "
                              "Multi-dimensional chunking is not supported")
 
-        futures = DistributedDataHandler.create([X, y], self.client_)
+        futures = DistributedDataHandler.create([X, y], self.client)
 
         classes = y.map_blocks(
             MultinomialNB._unique) \
@@ -181,12 +180,10 @@ class MultinomialNB(object):
         counts = [MultinomialNB._fit(part, classes, kwargs)
                   for w, part in futures.gpu_futures]
 
-        model = self.client_.persist(tree_reduce(counts, self._reduce_models),
-                                     traverse=False)
+        self.model = self.client.persist(tree_reduce(counts, self._reduce_models),
+                                      traverse=False)
 
-        wait(model)
-
-        self.model = model
+        wait(self.model)
         return self
 
     @staticmethod
