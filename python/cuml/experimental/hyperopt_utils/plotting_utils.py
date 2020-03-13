@@ -1,33 +1,70 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
 
-def plot_heatmap(df_gridsearch, col1, col2):
-    max_scores = df_gridsearch.groupby([col1, col2]).max()
+def plot_heatmap(df, col1, col2):
+    """    
+    Generates a heatmap to highlight interactions
+    of two parameters specified in col1 and col2.
+    
+    Parameters
+    ----------
+    df : Pandas dataframe
+         Results from Grid or Random Search
+    col1 : string; Name of the first parameter
+    col2: string; Name of the second parameter
+    
+    Output
+    ----------
+    A heatmap using seaborn
+    """
+    max_scores = df.groupby([col1, col2]).max()
     max_scores = max_scores.unstack()[['mean_test_score']]
     sns.heatmap(max_scores.mean_test_score, annot=True, fmt='.3g')
 
 
-def plot_search_results(grid):
-    """
-    Plots by fixing all paramters to their best value
-    except the one we are plotting.
-    Params:
-        grid: A trained GridSearchCV object.
+def plot_search_results(res):
+    """    
+    Plots by fixing all paramters except one parameter to 
+    its best value using matplotlib.
+    
+    Parameters
+    ----------
+    res : results from Grid or Random Search
+    
+    Output
+    ----------
+    As many plots as the parameters that were tuned
     """
     # Results from grid search
-    results = grid.cv_results_
+    results = res.cv_results_
     means_test = results['mean_test_score']
     stds_test = results['std_test_score']
     # Getting indexes of values per hyper-parameter
     masks = []
-    masks_names = list(grid.best_params_.keys())
-    for p_k, p_v in grid.best_params_.items():
+    masks_names = list(res.best_params_.keys())
+    for p_k, p_v in res.best_params_.items():
         masks.append(list(results['param_' + p_k].data == p_v))
     try:
-        params = grid.param_grid
+        params = res.param_grid
         # Ploting results
         fig, ax = plt.subplots(1, len(params), sharex='none',
                                sharey='all', figsize=(20, 5))
@@ -48,20 +85,19 @@ def plot_search_results(grid):
     except Exception as e:
         print("Cannot generate plots because of ", type(e), "trying again...")
         try:
-            params = grid.param_distributions
+            params = res.param_distributions
             # Ploting results
             fig, ax = plt.subplots(1, len(params), sharex='none',
                                    sharey='all', figsize=(20, 5))
             fig.suptitle('Score per parameter')
             fig.text(0.04, 0.5, 'MEAN SCORE', va='center', rotation='vertical')
 
-            results = pd.DataFrame(grid.cv_results_)
-            # print(results.head())
+            results = pd.DataFrame(res.cv_results_)
             for i, p in enumerate(masks_names):
-                results = pd.DataFrame(grid.cv_results_)
+                results = pd.DataFrame(res.cv_results_)
                 select_names = masks_names[:i] + masks_names[i+1:]
                 for j in select_names:
-                    best_value = grid.best_params_[j]
+                    best_value = res.best_params_[j]
                     results = results[results['param_'+j] == best_value]
 
                 x = np.array(results['param_'+p])
