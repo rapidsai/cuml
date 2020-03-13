@@ -47,10 +47,11 @@ def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
                       nclusters,
                       cluster_std=cluster_std,
                       shuffle=False,
-                      random_state=random_state)
+                      random_state=0)
 
     cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
                               n_clusters=nclusters,
+                              n_init=10,
                               random_state=random_state,
                               output_type='numpy')
 
@@ -61,6 +62,8 @@ def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
                             n_clusters=nclusters)
     kmeans.fit(X.copy_to_host())
     sk_score = kmeans.score(X.copy_to_host())
+
+    print(str(abs(cu_score - sk_score)) + " - " + str(cu_score) + " - " + str(sk_score))
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
