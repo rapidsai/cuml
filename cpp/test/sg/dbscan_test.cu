@@ -30,8 +30,8 @@
 #include "ml_utils.h"
 #include "test_utils.h"
 
-#include "common/device_buffer.hpp"
 #include <cuml/common/logger.hpp>
+#include "common/device_buffer.hpp"
 
 namespace ML {
 

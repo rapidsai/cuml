@@ -180,8 +180,10 @@ class WorkingSet {
     // In case we could not find enough elements, then we just fill using the
     // still available elements.
     if (n_already_selected < n_ws) {
-      CUML_LOG_WARN("Warning: could not fill working set, found only %d"
-                    " elements\n", n_already_selected);
+      CUML_LOG_WARN(
+        "Warning: could not fill working set, found only %d"
+        " elements\n",
+        n_already_selected);
       CUML_LOG_INFO("Filling up with unused elements\n");
       CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_train));
       n_already_selected +=

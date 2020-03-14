@@ -23,9 +23,9 @@
 #include <cuml/manifold/umapparams.h>
 #include <metrics/trustworthiness.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <cuml/common/logger.hpp>
 
 #include "common/device_buffer.hpp"
 #include "umap/runner.h"
