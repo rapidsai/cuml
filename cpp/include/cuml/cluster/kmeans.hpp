@@ -55,6 +55,9 @@ struct KMeansParams {
   // MLCommon::Distance::DistanceType can be used
   int metric = 0;
 
+  // Number of instance k-means algorithm will be run with different seeds.
+  int n_init = 1;
+
   // Oversampling factor for use in the k-means|| algorithm.
   double oversampling_factor = 2.0;
 
