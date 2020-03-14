@@ -147,7 +147,6 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
     // non-transformed case: just use original parameters
     Tparams = params;
   }
-  Tparams.sigma2 = params.sigma2;
 
   if (!order.need_prep()) {
     batched_kalman_filter(handle, d_y, n_obs, Tparams, order, batch_size,
@@ -261,7 +260,7 @@ DI bool test_invparams(const double* params, int pq) {
   // Verify that the values are between -1 and 1
   bool result = true;
   for (int i = 0; i < pq; i++) {
-    if (new_params[i] <= -1 || new_params[i] >= 1) result = false;
+    result = result && !(new_params[i] <= -1 || new_params[i] >= 1);
   }
   return result;
 }
