@@ -664,7 +664,6 @@ class RandomForestClassifier(Base):
                                              algo=algo,
                                              storage_type=storage_type)
 
-        print(" PREDICT PROBA IN RF CLASSIFICATION CYTHON : ", predict_proba)
         preds = tl_to_fil_model.predict(X, output_type=out_type,
                                         predict_proba=predict_proba)
         tl.free_treelite_model(treelite_handle)
