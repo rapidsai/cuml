@@ -87,6 +87,7 @@
 - PR #1842: DistributedDataHandler not properly setting 'multiple'
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
+- PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
 
 # cuML 0.12.0 (Date TBD)
 
