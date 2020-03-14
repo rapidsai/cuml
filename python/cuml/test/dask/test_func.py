@@ -14,9 +14,6 @@
 # limitations under the License.
 #
 
-import numpy as np
-import cupy as cp
-
 from dask import delayed
 from dask.distributed import Client
 import pytest
@@ -34,11 +31,3 @@ def test_tree_reduce(n_parts, cluster):
     c = client.compute(b, sync=True)
 
     assert(sum(range(n_parts)) == c)
-
-
-
-
-
-
-
-
