@@ -98,7 +98,7 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cuml_acc - 0.02)
-    assert array_equal (fil_calc_preds, cu_preds)
+    assert array_equal (fil_calc_preds, fil_preds)
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
