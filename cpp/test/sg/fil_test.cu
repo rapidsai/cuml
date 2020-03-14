@@ -97,13 +97,6 @@ __global__ void nan_kernel(float* data, const bool* mask, int len, float nan) {
 
 float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
-typedef std::vector<int> vote_vec;
-vote_vec& operator+=(vote_vec& a, vote_vec b) {
-  ASSERT(a.size() == b.size(), "trying to add two vectors of different size");
-  for (int i = 0; i < a.size(); ++i) a[i] += b[i];
-  return a;
-}
-
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  protected:
   void SetUp() override {
@@ -147,7 +140,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate on-GPU random data
     Random::Rng r(ps.seed);
-    r.uniform(weights_d, num_nodes, -1.0f, 1.0f, stream);
+    if (ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR)
+      r.uniform(weights_d, num_nodes, -1.0f, 1.0f, stream);
+    else
+      r.uniform(weights_d, num_nodes, 0.0f,
+        // [0..num_classes + 1)
+        std::nextafterf(ps.num_classes + 1, 0.0f), stream);
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
