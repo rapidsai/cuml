@@ -31,6 +31,7 @@
 #include "test_utils.h"
 
 #include "common/device_buffer.hpp"
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 
@@ -90,14 +91,11 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                               params.n_centers - 1);
 
     if (score < 1.0) {
-      std::cout << "y: "
-                << arr2Str(labels_ref, 25, "labels_ref", handle.getStream())
-                << std::endl;
-      std::cout << "y_hat: "
-                << arr2Str(labels, 25, "labels", handle.getStream())
-                << std::endl;
-
-      std::cout << "Score = " << score << std::endl;
+      auto str = arr2Str(labels_ref, 25, "labels_ref", handle.getStream());
+      CUML_LOG_INFO("y: %s\n", str.c_str());
+      str = arr2Str(labels, 25, "labels", handle.getStream());
+      CUML_LOG_INFO("y_hat: %s\n", str.c_str());
+      CUML_LOG_INFO("Score = %lf\n", score);
     }
   }
 
