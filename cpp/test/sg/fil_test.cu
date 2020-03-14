@@ -147,7 +147,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate on-GPU random data
     Random::Rng r(ps.seed);
-    r.uniform(weights_d, num_nodes, -1.0f, 1.0f, stream);
+    if (ps.leaf_payload_type == FLOAT_SCALAR)
+      r.uniform(weights_d, num_nodes, -1.0f, 1.0f, stream);
+    else
+      r.uniform(weights_d, num_nodes, 0.0f,
+        // [0..num_classes + 1)
+        std::nextafterf(ps.num_classes + 1, 0.0f), stream);
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
@@ -182,10 +187,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       fil::val_t w;
       switch (ps.leaf_payload_type) {
         case fil::leaf_value_t::INT_CLASS_LABEL:
-          w.idx = (int)((weights_h[i] * 0.5 + 0.5)  // [0.0, 1.0]
-                          * ps.num_classes +
-                        0.5) %
-                  ps.num_classes;  // [0..num_classes]
+          w.idx = int(weights_h[i]);  
           break;
         case fil::leaf_value_t::FLOAT_SCALAR:
           w.f = weights_h[i];
