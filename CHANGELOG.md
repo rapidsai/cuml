@@ -3,6 +3,10 @@
 ## New Features
 - PR #1757: Add multi class inference in FIL for forests and treelite import of cuML RF models
 
+## Improvements
+
+## Bug Fixes
+
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
