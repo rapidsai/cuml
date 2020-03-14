@@ -15,6 +15,7 @@
  */
 
 #include <cuda_utils.h>
+#include <cuml/common/logger.hpp>
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
@@ -169,7 +170,7 @@ TEST_P(HoltWintersTestF, Fit) {
   updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
   float mae = calculate_MAE<float>(test, forecast_h.data(), batch_size, h);
-  std::cout << "MAE: " << mae << std::endl;
+  CUML_LOG_INFO("MAE: %f\n", mae);
   ASSERT_TRUE(mae < mae_tolerance);
 }
 
@@ -179,7 +180,7 @@ TEST_P(HoltWintersTestD, Fit) {
   updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
   double mae = calculate_MAE<double>(test, forecast_h.data(), batch_size, h);
-  std::cout << "MAE: " << mae << std::endl;
+  CUML_LOG_INFO("MAE: %f\n", mae);
   ASSERT_TRUE(mae < mae_tolerance);
 }
 
