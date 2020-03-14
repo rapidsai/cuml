@@ -25,6 +25,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <cuml/common/logger.hpp>
 
 #include "common/device_buffer.hpp"
 #include "umap/runner.h"
@@ -163,10 +164,9 @@ class UMAPTest : public ::testing::Test {
     fitTest();
     xformTest();
     supervisedTest();
-
-    std::cout << "fit_score=" << fit_score << std::endl;
-    std::cout << "xform_score=" << xformed_score << std::endl;
-    std::cout << "supervised_score=" << supervised_score << std::endl;
+    CUML_LOG_INFO("fit_score=%lf\n", fit_score);
+    CUML_LOG_INFO("xform_score=%lf\n", xformed_score);
+    CUML_LOG_INFO("supervised_score=%\fn", supervised_score);
   }
 
   void TearDown() override {}
