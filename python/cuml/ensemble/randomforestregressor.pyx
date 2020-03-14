@@ -414,12 +414,12 @@ class RandomForestRegressor(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
@@ -572,7 +572,7 @@ class RandomForestRegressor(Base):
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
-                              fil_sparse_format):
+                              fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
@@ -612,7 +612,8 @@ class RandomForestRegressor(Base):
                                              algo=algo,
                                              storage_type=storage_type)
 
-        preds = tl_to_fil_model.predict(X, out_type)
+        preds = tl_to_fil_model.predict(X, output_type=out_type,
+                                        predict_proba=predict_proba)
         tl.free_treelite_model(treelite_handle)
         return preds
 
@@ -720,10 +721,74 @@ class RandomForestRegressor(Base):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(X, algo, convert_dtype,
-                                               fil_sparse_format)
+            preds = self._predict_model_on_gpu(X,
+                                               algo=algo,
+                                               convert_dtype=convert_dtype,
+                                               fil_sparse_format=fil_sparse_format,
+                                               predict_proba=True)
 
         return preds
+
+    def predict_proba(self, X, output_class=True, 
+                      threshold=0.5, algo='auto',
+                      num_classes=2, convert_dtype=True,
+                      fil_sparse_format='auto'):
+        """
+        Predicts class probabilites for X. This function uses the GPU
+        implementation of predict. Therefore, data with 'dtype = np.float32'
+        should be used while using this function.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+            multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
+        Returns
+        ----------
+        y : 
+           Dense vector (float) of shape (n_samples, 1)
+        """
+        if self.dtype == np.float64:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            In order use the GPU predict the model should \
+                            also be trained using a np.float32 dataset. \
+                            If you would like to use np.float64 dtype \
+                            then please use the CPU based predict by \
+                            setting predict_model = 'CPU'")
+
+        preds_proba = self._predict_model_on_gpu(X,
+                                                 algo=algo,
+                                                 convert_dtype=convert_dtype,
+                                                 fil_sparse_format=fil_sparse_format,
+                                                 predict_proba=True)
+
+        return preds_proba
 
     def score(self, X, y, algo='auto', convert_dtype=True,
               fil_sparse_format='auto', predict_model="GPU"):
