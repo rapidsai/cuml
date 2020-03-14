@@ -48,6 +48,7 @@
 - PR #1837: Simplify cuML Array construction
 - PR #1848: Rely on subclassing for cuML Array serialization
 - PR #1788: Removing complexity bottleneck in S-ARIMA
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 
 ## Bug Fixes
 - PR #1833: Fix depth issue in shallow RF regression estimators
