@@ -27,6 +27,7 @@
 
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
+#include <cuml/common/logger.hpp>
 
 using namespace MLCommon;
 using namespace MLCommon::Score;
@@ -123,8 +124,8 @@ class TSNETest : public ::testing::Test {
 
 typedef TSNETest TSNETestF;
 TEST_F(TSNETestF, Result) {
-  if (score_bh < 0.98) printf("BH score = %f\n", score_bh);
-  if (score_exact < 0.98) printf("Exact score = %f\n", score_exact);
+  if (score_bh < 0.98) CUML_LOG_INFO("BH score = %f\n", score_bh);
+  if (score_exact < 0.98) CUML_LOG_INFO("Exact score = %f\n", score_exact);
 
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 }
