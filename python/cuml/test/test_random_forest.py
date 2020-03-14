@@ -25,7 +25,7 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
 from cuml.test.utils import get_handle, unit_param, \
-    quality_param, stress_param
+    quality_param, stress_param, array_equal
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
@@ -73,21 +73,34 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
                                    output_class=True,
                                    threshold=0.5,
                                    algo='auto')
+    fil_preds_proba = cuml_model.predict_proba(X_test,
+                                               output_class=True,
+                                               threshold=0.5,
+                                               algo='auto')
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
     fil_acc = accuracy_score(y_test, fil_preds)
-
+    fil_calc_preds = []
+    for i in range(np.shape(fil_preds_proba)[0]):
+        if fil_preds_proba[i,0] > fil_preds_proba[i,1]:
+            fil_calc_preds.append(0)
+        else:
+            fil_calc_preds.append(1)
     if nrows < 500000:
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
                          min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_preds_proba = sk_model.predict_proba(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cuml_acc - 0.02)
+    import pdb
+    pdb.set_trace()
+    assert array_equal (fil_calc_preds, cu_preds)
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
@@ -147,8 +160,8 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
                          min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+        sk_preds = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
         assert fil_r2 >= (sk_r2 - 0.07)
     assert fil_r2 >= (cu_r2 - 0.02)
 
@@ -188,8 +201,8 @@ def test_rf_classification_default(datatype, column_info, nrows):
     if nrows < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cu_acc - 0.02)
 
@@ -235,8 +248,8 @@ def test_rf_regression_default(datatype, column_info, nrows):
     if nrows < 500000:
         sk_model = skrfr(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+        sk_preds = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
         # XXX Accuracy gap exists with default parameters, requires
         # further investigation for next release
         assert fil_r2 >= (sk_r2 - 0.08)
@@ -330,8 +343,8 @@ def test_rf_classification_float64(datatype, column_info,
     if nrows < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert cu_acc >= (sk_acc - 0.07)
 
     # predict using cuML's GPU based prediction
@@ -383,8 +396,8 @@ def test_rf_regression_float64(datatype, column_info,
     if nrows < 500000:
         sk_model = skrfr(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype[0])
+        sk_preds = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype[0])
         assert cu_r2 >= (sk_r2 - 0.09)
 
     # predict using cuML's GPU based prediction
@@ -443,8 +456,8 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
     if nrows < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert cu_acc >= (sk_acc - 0.07)
 
 
@@ -528,8 +541,8 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                              min_samples_split=2, max_features=max_features,
                              random_state=10)
             sk_model.fit(X_train, y_train)
-            sk_predict = sk_model.predict(X_test)
-            sk_acc = accuracy_score(y_test, sk_predict)
+            sk_preds = sk_model.predict(X_test)
+            sk_acc = accuracy_score(y_test, sk_preds)
             assert fil_acc >= (sk_acc - 0.07)
 
         assert fil_acc >= (cuml_acc - 0.02)
@@ -624,8 +637,8 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                              max_features=max_features,
                              random_state=10)
             sk_model.fit(X_train, y_train)
-            sk_predict = sk_model.predict(X_test)
-            sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+            sk_preds = sk_model.predict(X_test)
+            sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
             assert fil_r2 >= (sk_r2 - 0.07)
         assert fil_r2 >= (cu_r2 - 0.02)
 
