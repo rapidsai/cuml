@@ -26,8 +26,8 @@
 #include "cuda_utils.h"
 
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
 #include <cuml/common/logger.hpp>
+#include "common/device_buffer.hpp"
 
 using namespace MLCommon;
 using namespace MLCommon::Score;

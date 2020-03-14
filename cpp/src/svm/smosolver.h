@@ -23,8 +23,8 @@
 #include <string>
 #include <type_traits>
 
-#include <cuml/common/logger.hpp>
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
 #include "kernelcache.h"
 #include "linalg/cublas_wrappers.h"
@@ -161,9 +161,10 @@ class SmoSolver {
       }
     }
 
-    CUML_LOG_INFO("SMO solver finished after %d outer iterations, total inner"
-                  " iterations, and diff %lf\n", n_iter, n_inner_iter,
-                  diff_prev);
+    CUML_LOG_INFO(
+      "SMO solver finished after %d outer iterations, total inner"
+      " iterations, and diff %lf\n",
+      n_iter, n_inner_iter, diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C, svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
@@ -362,8 +363,10 @@ class SmoSolver {
       n_small_diff = 0;
     }
     if (n_small_diff > nochange_steps) {
-      CUML_LOG_ERROR("SMO error: Stopping due to unchanged diff over %d"
-                     " consecutive steps\n", nochange_steps);
+      CUML_LOG_ERROR(
+        "SMO error: Stopping due to unchanged diff over %d"
+        " consecutive steps\n",
+        nochange_steps);
       keep_going = false;
     }
     if (diff < tol) keep_going = false;

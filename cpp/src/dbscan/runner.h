@@ -27,8 +27,8 @@
 
 #include "utils.h"
 
-#include <cuml/common/logger.hpp>
 #include <sys/time.h>
+#include <cuml/common/logger.hpp>
 
 namespace Dbscan {
 
