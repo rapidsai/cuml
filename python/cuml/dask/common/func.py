@@ -18,7 +18,7 @@ from toolz import first
 
 
 @dask.delayed
-def reduce_func_add(a, b): return a + b
+def reduce_func_add(a, b): return a + b if b is not None else a
 
 
 def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
@@ -33,7 +33,11 @@ def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
     Parameters
     ----------
     delayed_func : dask.delayed function
-        Delayed function to use for reduction
+        Delayed function to use for reduction. The reduction function
+        should be able to handle the case where the second argument is
+        None, and should just return a in this case. This is done to
+        save memory, rather than having to build an initializer for
+        the starting case.
     delayed_objs : array-like of dask.delayed
         Delayed objects to reduce
 
@@ -44,10 +48,13 @@ def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
     """
     while len(delayed_objs) > 1:
         new_delayed_objs = []
-        for i in range(0, len(delayed_objs), 2):
+        n_delayed_objs = len(delayed_objs)
+        for i in range(0, n_delayed_objs, 2):
             # add neighbors
-            lazy = delayed_func(delayed_objs[i],
-                                delayed_objs[i+1])
+            left = delayed_objs[i]
+            right = delayed_objs[i+1]\
+                if i < n_delayed_objs - 1 else None
+            lazy = delayed_func(left, right)
             new_delayed_objs.append(lazy)
         delayed_objs = new_delayed_objs
 
