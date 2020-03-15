@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cstdio>
+#include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
@@ -87,14 +88,11 @@ RF_metrics set_rf_metrics_regression(double mean_abs_error,
  */
 void print(const RF_metrics rf_metrics) {
   if (rf_metrics.rf_type == RF_type::CLASSIFICATION) {
-    std::cout << "Accuracy: " << rf_metrics.accuracy << std::endl;
+    CUML_LOG_INFO("Accuracy: %f\n", rf_metrics.accuracy);
   } else if (rf_metrics.rf_type == RF_type::REGRESSION) {
-    std::cout << "Mean Absolute Error: " << rf_metrics.mean_abs_error
-              << std::endl;
-    std::cout << "Mean Squared Error: " << rf_metrics.mean_squared_error
-              << std::endl;
-    std::cout << "Median Absolute Error: " << rf_metrics.median_abs_error
-              << std::endl;
+    CUML_LOG_INFO("Mean Absolute Error: %f\n", rf_metrics.mean_abs_error);
+    CUML_LOG_INFO("Mean Squared Error: %f\n", rf_metrics.mean_squared_error);
+    CUML_LOG_INFO("Median Absolute Error: %f\n", rf_metrics.median_abs_error);
   }
 }
 
@@ -110,18 +108,19 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
                        std::map<int, int>& labels_map, bool verbose) {
   std::pair<std::map<int, int>::iterator, bool> ret;
   int n_unique_labels = 0;
+  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_DEBUG : CUML_LEVEL_INFO);
 
-  if (verbose) std::cout << "Preprocessing labels\n";
+  CUML_LOG_DEBUG("Preprocessing labels\n");
   for (int i = 0; i < n_rows; i++) {
     ret = labels_map.insert(std::pair<int, int>(labels[i], n_unique_labels));
     if (ret.second) {
       n_unique_labels += 1;
     }
-    if (verbose) std::cout << "Mapping " << labels[i] << " to ";
+    auto prev = labels[i];
     labels[i] = ret.first->second;  //Update labels **IN-PLACE**
-    if (verbose) std::cout << labels[i] << std::endl;
+    CUML_LOG_DEBUG("Mapping %d to %d\n", prev, labels[i]);
   }
-  if (verbose) std::cout << "Finished preprocessing labels\n";
+  CUML_LOG_DEBUG("Finished preprocessing labels\n");
 }
 
 /**
@@ -133,7 +132,8 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
  */
 void postprocess_labels(int n_rows, std::vector<int>& labels,
                         std::map<int, int>& labels_map, bool verbose) {
-  if (verbose) std::cout << "Postrocessing labels\n";
+  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_DEBUG : CUML_LEVEL_INFO);
+  CUML_LOG_DEBUG("Postrocessing labels\n");
   std::map<int, int>::iterator it;
   int n_unique_cnt = labels_map.size();
   std::vector<int> reverse_map;
@@ -143,12 +143,11 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
   }
 
   for (int i = 0; i < n_rows; i++) {
-    if (verbose)
-      std::cout << "Mapping " << labels[i] << " back to "
-                << reverse_map[labels[i]] << std::endl;
-    labels[i] = reverse_map[labels[i]];
+    auto prev = labels[i];
+    labels[i] = reverse_map[prev];
+    CUML_LOG_DEBUG("Mapping %d back to %d\n", prev, labels[i]);
   }
-  if (verbose) std::cout << "Finished postrocessing labels\n";
+  CUML_LOG_DEBUG("Finished postrocessing labels\n");
 }
 
 /**
@@ -167,8 +166,8 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   params.seed = cfg_seed;
   params.n_streams = min(cfg_n_streams, omp_get_max_threads());
   if (params.n_streams == cfg_n_streams) {
-    std::cout << "Warning! Max setting Max streams to max openmp threads "
-              << omp_get_max_threads() << std::endl;
+    CUML_LOG_WARN("Warning! Max setting Max streams to max openmp threads %d\n",
+                  omp_get_max_threads());
   }
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
   set_tree_params(params.tree_params);  // use default tree params
@@ -213,10 +212,11 @@ void validity_check(const RF_params rf_params) {
  * @param[in] rf_params: random forest hyper-parameters
  */
 void print(const RF_params rf_params) {
-  std::cout << "n_trees: " << rf_params.n_trees << std::endl;
-  std::cout << "bootstrap: " << rf_params.bootstrap << std::endl;
-  std::cout << "rows_sample: " << rf_params.rows_sample << std::endl;
-  std::cout << "n_streams: " << rf_params.n_streams << std::endl;
+  ML::PatternSetter _("%v");
+  CUML_LOG_INFO("n_trees: %d\n", rf_params.n_trees);
+  CUML_LOG_INFO("bootstrap: %d\n", rf_params.bootstrap);
+  CUML_LOG_INFO("rows_sample: %f\n", rf_params.rows_sample);
+  CUML_LOG_INFO("n_streams: %d\n", rf_params.n_streams);
   DecisionTree::print(rf_params.tree_params);
 }
 
@@ -229,6 +229,27 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
   forest->trees = nullptr;
 }
 
+template <class T, class L>
+void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
+  ML::PatternSetter _("%v");
+  if (!forest || !forest->trees) {
+    CUML_LOG_INFO("Empty forest\n");
+  } else {
+    CUML_LOG_INFO("Forest has %d trees, max_depth %d, and max_leaves %d\n",
+                  forest->rf_params.n_trees,
+                  forest->rf_params.tree_params.max_depth,
+                  forest->rf_params.tree_params.max_leaves);
+    for (int i = 0; i < forest->rf_params.n_trees; i++) {
+      CUML_LOG_INFO("Tree #%d\n", i);
+      if (summary) {
+        DecisionTree::print_tree_summary<T, L>(&(forest->trees[i]));
+      } else {
+        DecisionTree::print_tree<T, L>(&(forest->trees[i]));
+      }
+    }
+  }
+}
+
 /**
  * @brief Print summary for all trees in the random forest.
  * @tparam T: data type for input data (float or double).
@@ -237,19 +258,7 @@ void null_trees_ptr(RandomForestMetaData<T, L>*& forest) {
  */
 template <class T, class L>
 void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
-  if (!forest || !forest->trees) {
-    std::cout << "Empty forest" << std::endl;
-  } else {
-    std::cout << "Forest has " << forest->rf_params.n_trees
-              << " trees, max_depth "
-              << forest->rf_params.tree_params.max_depth;
-    std::cout << ", and max_leaves " << forest->rf_params.tree_params.max_leaves
-              << std::endl;
-    for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      std::cout << "Tree #" << i << std::endl;
-      DecisionTree::print_tree_summary<T, L>(&(forest->trees[i]));
-    }
-  }
+  _print_rf(forest, true);
 }
 
 /**
@@ -260,19 +269,7 @@ void print_rf_summary(const RandomForestMetaData<T, L>* forest) {
  */
 template <class T, class L>
 void print_rf_detailed(const RandomForestMetaData<T, L>* forest) {
-  if (!forest || !forest->trees) {
-    std::cout << "Empty forest" << std::endl;
-  } else {
-    std::cout << "Forest has " << forest->rf_params.n_trees
-              << " trees, max_depth "
-              << forest->rf_params.tree_params.max_depth;
-    std::cout << ", and max_leaves " << forest->rf_params.tree_params.max_leaves
-              << std::endl;
-    for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      std::cout << "Tree #" << i << std::endl;
-      DecisionTree::print_tree<T, L>(&(forest->trees[i]));
-    }
-  }
+  _print_rf(forest, false);
 }
 
 template <class T, class L>
