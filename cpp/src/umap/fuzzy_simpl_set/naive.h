@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
 
@@ -322,11 +323,11 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   MLCommon::Sparse::COO<T> in(d_alloc, stream, n * n_neighbors, n, n);
 
   if (params->verbose) {
-    std::cout << "Smooth kNN Distances" << std::endl;
-    std::cout << MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream)
-              << std::endl;
-    std::cout << MLCommon::arr2Str(rhos.data(), 25, "rhos", stream)
-              << std::endl;
+    CUML_LOG_INFO("Smooth kNN Distances\n");
+    auto str = MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream);
+    CUML_LOG_INFO("%s\n", str.c_str());
+    str = MLCommon::arr2Str(rhos.data(), 25, "rhos", stream);
+    CUML_LOG_INFO("%s\n", str.c_str());
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
@@ -340,8 +341,10 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {
-    std::cout << "Compute Membership Strength" << std::endl;
-    std::cout << in << std::endl;
+    CUML_LOG_INFO("Compute Membership Strength\n");
+    std::stringstream ss;
+    ss << in << std::endl;
+    CUML_LOG_INFO("%s\n", ss.str().c_str());
   }
 
   /**
