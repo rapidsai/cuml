@@ -217,6 +217,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   p_ws += vec_size;
   T *dev_scalar = p_ws;
 
+  ML::Logger::get().setLevel(verbosity >= 0 ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+
   SimpleVec<T> svec, yvec;  // mask vectors
 
   std::vector<T> ys(param.m);
