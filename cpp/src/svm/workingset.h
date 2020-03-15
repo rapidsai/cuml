@@ -159,8 +159,10 @@ class WorkingSet {
       f_idx_sorted.data(), n_train, 0, (int)8 * sizeof(math_t), stream);
 
     if (verbose && n_train < 20) {
+      std::stringstream ss;
       MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_train,
-                                 std::cout);
+                                 ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
@@ -373,7 +375,9 @@ class WorkingSet {
       CUDA_CHECK(cudaPeekAtLastError());
     }
     if (verbose && n_train < 20) {
-      MLCommon::myPrintDevVector("avail", available, n_train, std::cout);
+      std::stringstream ss;
+      MLCommon::myPrintDevVector("avail", available, n_train, ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
 
     // Map the mask to the sorted indices
@@ -385,8 +389,10 @@ class WorkingSet {
                  thrust::make_permutation_iterator(av_ptr, idx_ptr + n_train),
                  av_sorted_ptr);
     if (verbose && n_train < 20) {
+      std::stringstream ss;
       MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
-                                 n_train, std::cout);
+                                 n_train, ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
 
     // Select the available elements
@@ -407,8 +413,10 @@ class WorkingSet {
                      idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
     if (verbose && n_train < 20) {
+      std::stringstream ss;
       MLCommon::myPrintDevVector("selected", idx.data(),
-                                 n_already_selected + n_copy, std::cout);
+                                 n_already_selected + n_copy, ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
     return n_copy;
   }
