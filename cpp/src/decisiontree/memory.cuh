@@ -20,6 +20,7 @@
 #include <algorithm>
 #include "cub/cub.cuh"
 #include "memory.h"
+#include <cuml/common/logger.hpp>
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
@@ -67,16 +68,17 @@ void TemporaryMemory<T, L>::print_info(int depth, int nrows, int ncols,
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (size_t)(ncols * colper);
 
-  std::cout << "maxnodes --> " << maxnodes << "  gather maxnodes--> "
-            << gather_max_nodes << std::endl;
-  std::cout << "Parent size --> " << parentsz << std::endl;
-  std::cout << "Child size  --> " << childsz << std::endl;
-  std::cout << "Nrows size --> " << (nrows + 1) << std::endl;
-  std::cout << "Sparse tree holder size --> " << 2 * gather_max_nodes
-            << std::endl;
-
-  std::cout << " Total temporary memory usage--> "
-            << ((double)totalmem / (1024 * 1024)) << "  MB" << std::endl;
+  auto prev = ML::Logger::get().getPattern();
+  ML::Logger::get().setPattern("%v");
+  CUML_LOG_INFO("maxnodes --> %lu gather maxnodes--> %lu\n", maxnodes,
+                gather_max_nodes);
+  CUML_LOG_INFO("Parent size --> %lu\n", parentsz);
+  CUML_LOG_INFO("Child size  --> %lu\n", childsz);
+  CUML_LOG_INFO("Nrows size --> %d\n" << (nrows + 1));
+  CUML_LOG_INFO("Sparse tree holder size --> %lu\n", 2 * gather_max_nodes);
+  CUML_LOG_INFO(" Total temporary memory usage--> %lf MB\n",
+                ((double)totalmem / (1024 * 1024)));
+  ML::Logger::get().setPattern(prev);
 }
 
 template <class T, class L>
