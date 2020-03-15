@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include "exact_kernels.h"
 #include "utils.h"
 
@@ -42,7 +42,6 @@ namespace TSNE {
  * @input param pre_momentum: The momentum used during the exaggeration phase.
  * @input param post_momentum: The momentum used after the exaggeration phase.
  * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @input param verbose: Whether to print error messages or not.
  * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
@@ -53,7 +52,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float post_learning_rate = 500.0f,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
-                const long long random_state = -1, const bool verbose = true,
+                const long long random_state = -1,
                 const bool intialize_embeddings = true) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -63,7 +62,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Allocate space
   //---------------------------------------------------
-  if (verbose) printf("[Info] Now allocating memory for TSNE.\n");
+  CUML_LOG_INFO("Now allocating memory for TSNE.\n");
   float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
   float *Z_sum = (float *)d_alloc->allocate(sizeof(float) * 2 * n, stream);
   float *means = (float *)d_alloc->allocate(sizeof(float) * dim, stream);
@@ -88,8 +87,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const float recp_df = 1.0f / degrees_of_freedom;
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
-  //
-  if (verbose) printf("[Info] Start gradient updates!\n");
+  CUML_LOG_INFO("Start gradient updates!\n");
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
   bool check_convergence = false;
@@ -122,20 +120,18 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       dim, n, min_gain, gradient, check_convergence, stream);
 
     if (check_convergence) {
-      if (verbose)
-        printf("Z at iter = %d = %f and gradient norm = %f\n", iter, Z,
-               gradient_norm);
-
+      CUML_LOG_INFO("Z at iter = %d = %f and gradient norm = %f\n", iter, Z,
+                    gradient_norm);
       if (gradient_norm < min_grad_norm) {
-        printf(
+        CUML_LOG_INFO(
           "Gradient norm = %f <= min_grad_norm = %f. Early stopped at iter = "
           "%d\n",
           gradient_norm, min_grad_norm, iter);
         break;
       }
+    } else {
+      CUML_LOG_DEBUG("Z at iter = %d = %f\n", iter, Z);
     }
-    // else if (verbose)
-    //  printf("Z at iter = %d = %f\n", iter, Z);
   }
 
   d_alloc->deallocate(norm, sizeof(float) * n, stream);

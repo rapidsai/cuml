@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
+#include <cuml/common/logger.hpp>
 #include "bh_kernels.h"
 #include "utils.h"
 
@@ -64,7 +65,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
   while ((nnodes & (32 - 1)) != 0) nnodes++;
   nnodes--;
-  if (verbose) printf("N_nodes = %d blocks = %d\n", nnodes, blocks);
+  CUML_LOG_INFO("N_nodes = %d blocks = %d\n", nnodes, blocks);
 
   // Allocate more space
   //---------------------------------------------------
@@ -149,7 +150,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Do gradient updates
   //---------------------------------------------------
-  if (verbose) printf("[Info] Start gradient updates!\n");
+  CUML_LOG_INFO("Start gradient updates!\n");
 
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
