@@ -371,14 +371,14 @@ class SmoSolver {
     }
     if (diff < tol) keep_going = false;
     if (isnan(diff)) {
-      std::string txt = "SMO error: NaN found during fitting.";
+      std::string txt;
       if (std::is_same<float, math_t>::value) {
         txt +=
           " This might be caused by floating point overflow. In such case using"
           " fp64 could help. Alternatively, try gamma='scale' kernel"
           " parameter.";
       }
-      THROW(txt.c_str());
+      THROW("SMO error: NaN found during fitting.%s", txt.c_str());
     }
     return keep_going;
   }
