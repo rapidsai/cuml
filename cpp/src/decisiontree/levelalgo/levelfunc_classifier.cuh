@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
+#include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>

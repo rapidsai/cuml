@@ -16,13 +16,13 @@
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #endif
+#include <cuml/common/logger.hpp>
 #include "../decisiontree/memory.h"
 #include "../decisiontree/quantile/quantile.h"
 #include "random/permute.h"
 #include "random/rng.h"
 #include "randomforest_impl.h"
 #include "score/scores.h"
-#include <cuml/common/logger.hpp>
 
 namespace ML {
 /**
