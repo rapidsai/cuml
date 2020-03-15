@@ -42,7 +42,7 @@ Logger& Logger::get() {
   return logger;
 }
 
-Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")} {
+Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")}, currPattern() {
   setPattern(DefaultPattern);
   setLevel(CUML_LEVEL_INFO);
 }
@@ -52,6 +52,7 @@ void Logger::setLevel(int level) {
 }
 
 void Logger::setPattern(const std::string& pattern) {
+  currPattern = pattern;
   logger->set_pattern(pattern);
 }
 
