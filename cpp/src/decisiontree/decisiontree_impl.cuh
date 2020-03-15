@@ -15,6 +15,7 @@
  */
 
 #include <utils.h>
+#include <cuml/common/logger.hpp>
 #include <queue>
 #include <random>
 #include <type_traits>
@@ -24,7 +25,6 @@
 #include "levelalgo/metric.cuh"
 #include "memory.cuh"
 #include "quantile/quantile.cuh"
-#include <cuml/common/logger.hpp>
 
 namespace ML {
 

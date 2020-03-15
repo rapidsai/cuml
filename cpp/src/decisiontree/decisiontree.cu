@@ -80,16 +80,16 @@ void validity_check(const DecisionTreeParams params) {
  * @param[in] params: decision tree hyper-parameters.
  */
 void print(const DecisionTreeParams params) {
-  CUML_LOG_INFO("max_depth: %d\n",  params.max_depth);
-  CUML_LOG_INFO("max_leaves: %d\n",  params.max_leaves);
-  CUML_LOG_INFO("max_features: %f\n",  params.max_features);
-  CUML_LOG_INFO("n_bins: %d\n",  params.n_bins);
-  CUML_LOG_INFO("split_algo: %d\n",  params.split_algo);
-  CUML_LOG_INFO("min_rows_per_node: %d\n",  params.min_rows_per_node);
-  CUML_LOG_INFO("bootstrap_features: %d\n",  params.bootstrap_features);
-  CUML_LOG_INFO("split_criterion: %d\n",  params.split_criterion);
-  CUML_LOG_INFO("quantile_per_tree: %d\n",  params.quantile_per_tree);
-  CUML_LOG_INFO("shuffle_features: %d\n",  params.shuffle_features);
+  CUML_LOG_INFO("max_depth: %d\n", params.max_depth);
+  CUML_LOG_INFO("max_leaves: %d\n", params.max_leaves);
+  CUML_LOG_INFO("max_features: %f\n", params.max_features);
+  CUML_LOG_INFO("n_bins: %d\n", params.n_bins);
+  CUML_LOG_INFO("split_algo: %d\n", params.split_algo);
+  CUML_LOG_INFO("min_rows_per_node: %d\n", params.min_rows_per_node);
+  CUML_LOG_INFO("bootstrap_features: %d\n", params.bootstrap_features);
+  CUML_LOG_INFO("split_criterion: %d\n", params.split_criterion);
+  CUML_LOG_INFO("quantile_per_tree: %d\n", params.quantile_per_tree);
+  CUML_LOG_INFO("shuffle_features: %d\n", params.shuffle_features);
 }
 
 /**
