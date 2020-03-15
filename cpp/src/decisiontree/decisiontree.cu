@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,16 +80,16 @@ void validity_check(const DecisionTreeParams params) {
  * @param[in] params: decision tree hyper-parameters.
  */
 void print(const DecisionTreeParams params) {
-  std::cout << "max_depth: " << params.max_depth << std::endl;
-  std::cout << "max_leaves: " << params.max_leaves << std::endl;
-  std::cout << "max_features: " << params.max_features << std::endl;
-  std::cout << "n_bins: " << params.n_bins << std::endl;
-  std::cout << "split_algo: " << params.split_algo << std::endl;
-  std::cout << "min_rows_per_node: " << params.min_rows_per_node << std::endl;
-  std::cout << "bootstrap_features: " << params.bootstrap_features << std::endl;
-  std::cout << "split_criterion: " << params.split_criterion << std::endl;
-  std::cout << "quantile_per_tree: " << params.quantile_per_tree << std::endl;
-  std::cout << "shuffle_features: " << params.shuffle_features << std::endl;
+  CUML_LOG_INFO("max_depth: %d\n",  params.max_depth);
+  CUML_LOG_INFO("max_leaves: %d\n",  params.max_leaves);
+  CUML_LOG_INFO("max_features: %f\n",  params.max_features);
+  CUML_LOG_INFO("n_bins: %d\n",  params.n_bins);
+  CUML_LOG_INFO("split_algo: %d\n",  params.split_algo);
+  CUML_LOG_INFO("min_rows_per_node: %d\n",  params.min_rows_per_node);
+  CUML_LOG_INFO("bootstrap_features: %d\n",  params.bootstrap_features);
+  CUML_LOG_INFO("split_criterion: %d\n",  params.split_criterion);
+  CUML_LOG_INFO("quantile_per_tree: %d\n",  params.quantile_per_tree);
+  CUML_LOG_INFO("shuffle_features: %d\n",  params.shuffle_features);
 }
 
 /**
@@ -100,14 +100,12 @@ void print(const DecisionTreeParams params) {
  */
 template <class T, class L>
 void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
-  std::cout << " Decision Tree depth --> " << tree->depth_counter
-            << " and n_leaves --> " << tree->leaf_counter << std::endl;
-  std::cout << " Tree Fitting - Overall time --> "
-            << tree->prepare_time + tree->train_time << " seconds" << std::endl;
-  std::cout << "   - preparing for fit time: " << tree->prepare_time
-            << " seconds" << std::endl;
-  std::cout << "   - tree growing time: " << tree->train_time << " seconds"
-            << std::endl;
+  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d\n",
+                tree->depth_counter, tree->leaf_counter);
+  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s\n",
+                tree->prepare_time + tree->train_time);
+  CUML_LOG_INFO("   - preparing for fit time: %lf s\n", tree->prepare_time);
+  CUML_LOG_INFO("   - tree growing time: %lf s\n", tree->train_time);
 }
 
 /**
