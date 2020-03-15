@@ -268,7 +268,7 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
                   node.best_metric_val);
     std::stringstream ss;
     ss << node.prediction;
-    CUML_LOG_INFO(ss.str.c_str());
+    CUML_LOG_INFO(ss.str().c_str());
     CUML_LOG_INFO(" ,%d )", node.left_child_id);
     if (gain != nullptr) CUML_LOG_INFO("  gain --> %f", gain[i]);
     CUML_LOG_INFO("\n");
