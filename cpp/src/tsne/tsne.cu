@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
 #include "../../src_prims/utils.h"
 #include "distances.h"
@@ -65,33 +67,31 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               bool barnes_hut) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
+  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
   if (dim > 2 and barnes_hut) {
     barnes_hut = false;
-    printf(
-      "[Warn]  Barnes Hut only works for dim == 2. Switching to exact "
-      "solution.\n");
+    CUML_LOG_WARN(
+      "Barnes Hut only works for dim == 2. Switching to exact solution.\n");
   }
   if (n_neighbors > n) n_neighbors = n;
   if (n_neighbors > 1023) {
-    printf("[Warn]  FAISS only supports maximum n_neighbors = 1023.\n");
+    CUML_LOG_WARN("FAISS only supports maximum n_neighbors = 1023.\n");
     n_neighbors = 1023;
   }
   // Perplexity must be less than number of datapoints
   // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
   if (perplexity > n) perplexity = n;
 
-  if (verbose) {
-    printf("[Info]  Data size = (%d, %d) with dim = %d perplexity = %f\n", n, p,
-           dim, perplexity);
-    if (perplexity < 5 or perplexity > 50)
-      printf(
-        "[Warn]  Perplexity should be within ranges (5, 50). Your results "
-        "might be a bit strange...\n");
-    if (n_neighbors < perplexity * 3.0f)
-      printf(
-        "[Warn]  # of Nearest Neighbors should be at least 3 * perplexity. "
-        "Your results might be a bit strange...\n");
-  }
+  CUML_LOG_INFO("Data size = (%d, %d) with dim = %d perplexity = %f\n", n, p,
+                dim, perplexity);
+  if (perplexity < 5 or perplexity > 50)
+    CUML_LOG_WARN(
+      "Perplexity should be within ranges (5, 50). Your results might be a"
+      " bit strange...\n");
+  if (n_neighbors < perplexity * 3.0f)
+    CUML_LOG_WARN(
+      "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
+      " might be a bit strange...\n");
 
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -99,7 +99,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Get distances
-  if (verbose) printf("[Info] Getting distances.\n");
+  CUML_LOG_INFO("Getting distances.\n");
   float *distances =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   long *indices =
@@ -112,8 +112,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Normalize distances
-  if (verbose)
-    printf("[Info] Now normalizing distances so exp(D) doesn't explode.\n");
+  CUML_LOG_INFO("Now normalizing distances so exp(D) doesn't explode.\n");
   TSNE::normalize_distances(n, distances, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
@@ -121,15 +120,14 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Optimal perplexity
-  if (verbose)
-    printf("[Info] Searching for optimal perplexity via bisection search.\n");
+  CUML_LOG_INFO("Searching for optimal perplexity via bisection search.\n");
   float *P =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   const float P_sum =
     TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                             perplexity_tol, n, n_neighbors, handle);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
-  if (verbose) printf("[Info] Perplexity sum = %f\n", P_sum);
+  CUML_LOG_INFO("Perplexity sum = %f\n", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
@@ -150,14 +148,12 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
                      early_exaggeration, exaggeration_iter, min_gain,
                      pre_learning_rate, post_learning_rate, max_iter,
-                     min_grad_norm, pre_momentum, post_momentum, random_state,
-                     verbose);
+                     min_grad_norm, pre_momentum, post_momentum, random_state);
   } else {
     TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim, early_exaggeration,
                      exaggeration_iter, min_gain, pre_learning_rate,
                      post_learning_rate, max_iter, min_grad_norm, pre_momentum,
-                     post_momentum, random_state, verbose,
-                     intialize_embeddings);
+                     post_momentum, random_state, intialize_embeddings);
   }
 }
 
