@@ -99,6 +99,12 @@ class Logger {
   void setPattern(const std::string& pattern);
 
   /**
+   * @brief Get the current logging pattern
+   * @return the pattern
+   */
+  std::string getPattern() const { return currPattern; }
+
+  /**
    * @brief Main logging method
    *
    * @param[in] level logging level of this message
@@ -111,6 +117,7 @@ class Logger {
   ~Logger() {}
 
   std::shared_ptr<spdlog::logger> logger;
+  std::string currPattern;
   static const std::string DefaultPattern;
 };  // class Logger
 
