@@ -121,6 +121,36 @@ class Logger {
   static const std::string DefaultPattern;
 };  // class Logger
 
+
+/**
+ * @brief RAII based pattern setter for Logger class
+ *
+ * @code{.cpp}
+ * {
+ *   PatternSetter _("%l -- %v");
+ *   CUML_LOG_INFO("Test message\n");
+ * }
+ * @endcode
+ */
+class PatternSetter {
+ public:
+  /**
+   * @brief Set the pattern for the rest of the log messages
+   * @param[in] pattern pattern to be set
+   */
+  PatternSetter(const std::string& pattern = "%v");
+
+  /**
+   * @brief This will restore the previous pattern that was active during the
+   *        moment this object was created
+   */
+  ~PatternSetter();
+
+ private:
+  std::string prevPattern;
+};  // class PatternSetter
+
+
 /**
  * @defgroup LoggerMacros Helper macros for dealing with logging
  * @{
