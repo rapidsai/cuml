@@ -22,6 +22,7 @@
 #include "random/rng.h"
 #include "randomforest_impl.h"
 #include "score/scores.h"
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 /**
@@ -273,13 +274,13 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
 
   int row_size = n_cols;
 
+  ML::PatternSetter _("%v");
   for (int row_id = 0; row_id < n_rows; row_id++) {
     if (verbose) {
-      std::cout << "\n\n";
-      std::cout << "Predict for sample: ";
+      CUML_LOG_INFO("\n\nPredict for sample: ");
       for (int i = 0; i < n_cols; i++)
-        std::cout << h_input[row_id * row_size + i] << ", ";
-      std::cout << std::endl;
+        CUML_LOG_INFO("%lf, ", (double)h_input[row_id * row_size + i]);
+      CUML_LOG_INFO("\n");
     }
 
     std::map<int, int> prediction_to_cnt;
@@ -339,11 +340,10 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
 
   for (int row_id = 0; row_id < n_rows; row_id++) {
     if (verbose) {
-      std::cout << "\n\n";
-      std::cout << "Predict for sample: ";
+      CUML_LOG_INFO("\n\nPredict for sample: ");
       for (int i = 0; i < n_cols; i++)
-        std::cout << h_input[row_id * row_size + i] << ", ";
-      std::cout << std::endl;
+        CUML_LOG_INFO("%lf, ", (double)h_input[row_id * row_size + i]);
+      CUML_LOG_INFO("\n");
     }
 
     for (int i = 0; i < num_trees; i++) {
@@ -542,11 +542,10 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
 
   for (int row_id = 0; row_id < n_rows; row_id++) {
     if (verbose) {
-      std::cout << "\n\n";
-      std::cout << "Predict for sample: ";
+      CUML_LOG_INFO("\n\nPredict for sample: ");
       for (int i = 0; i < n_cols; i++)
-        std::cout << h_input[row_id * row_size + i] << ", ";
-      std::cout << std::endl;
+        CUML_LOG_INFO("%lf, ", (double)h_input[row_id * row_size + i]);
+      CUML_LOG_INFO("\n");
     }
 
     T sum_predictions = 0;
