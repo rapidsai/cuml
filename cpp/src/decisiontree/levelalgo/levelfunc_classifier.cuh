@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>
@@ -159,7 +161,7 @@ void grow_deep_tree_classification(
   }
   // Start of gather algorithm
   //Convertor
-  //std::cout << "begin gather \n";
+  CUML_LOG_DEBUG("begin gather \n");
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
   if (n_nodes == 0) return;
