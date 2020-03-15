@@ -41,10 +41,10 @@
  */
 
 #include <cuda_utils.h>
-#include <cuml/common/logger.hpp>
 #include <glm/qn/qn_linesearch.h>
 #include <glm/qn/qn_util.h>
 #include <glm/qn/simple_mat.h>
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 namespace GLM {
@@ -104,7 +104,8 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   std::vector<T> fx_hist(param.past > 0 ? param.past : 0);
 
   *k = 0;
-  ML::Logger::get().setLevel(verbosity >= 0 ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(verbosity >= 0 ? CUML_LEVEL_INFO
+                                            : CUML_LEVEL_WARN);
 
   CUML_LOG_INFO("Running L-BFGS\n");
 
@@ -217,7 +218,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   p_ws += vec_size;
   T *dev_scalar = p_ws;
 
-  ML::Logger::get().setLevel(verbosity >= 0 ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(verbosity >= 0 ? CUML_LEVEL_INFO
+                                            : CUML_LEVEL_WARN);
 
   SimpleVec<T> svec, yvec;  // mask vectors
 
