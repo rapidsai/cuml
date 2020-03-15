@@ -18,9 +18,9 @@
 #include <thrust/extrema.h>
 #include <utils.h>
 #include <algorithm>
+#include <cuml/common/logger.hpp>
 #include "cub/cub.cuh"
 #include "memory.h"
-#include <cuml/common/logger.hpp>
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
