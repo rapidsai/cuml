@@ -74,7 +74,7 @@ void TemporaryMemory<T, L>::print_info(int depth, int nrows, int ncols,
                 gather_max_nodes);
   CUML_LOG_INFO("Parent size --> %lu\n", parentsz);
   CUML_LOG_INFO("Child size  --> %lu\n", childsz);
-  CUML_LOG_INFO("Nrows size --> %d\n" << (nrows + 1));
+  CUML_LOG_INFO("Nrows size --> %d\n", (nrows + 1));
   CUML_LOG_INFO("Sparse tree holder size --> %lu\n", 2 * gather_max_nodes);
   CUML_LOG_INFO(" Total temporary memory usage--> %lf MB\n",
                 ((double)totalmem / (1024 * 1024)));
