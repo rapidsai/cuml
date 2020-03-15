@@ -73,8 +73,6 @@ PatternSetter::PatternSetter(const std::string& pattern) : prevPattern() {
   Logger::get().setPattern(pattern);
 }
 
-PatternSetter::~PatternSetter() {
-  Logger::get().setPattern(prevPattern);
-}
+PatternSetter::~PatternSetter() { Logger::get().setPattern(prevPattern); }
 
 }  // namespace ML

@@ -121,7 +121,6 @@ class Logger {
   static const std::string DefaultPattern;
 };  // class Logger
 
-
 /**
  * @brief RAII based pattern setter for Logger class
  *
@@ -149,7 +148,6 @@ class PatternSetter {
  private:
   std::string prevPattern;
 };  // class PatternSetter
-
 
 /**
  * @defgroup LoggerMacros Helper macros for dealing with logging
