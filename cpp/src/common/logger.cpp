@@ -68,4 +68,13 @@ void Logger::log(int level, const char* fmt, ...) {
   }
 }
 
+PatternSetter::PatternSetter(const std::string& pattern) : prevPattern() {
+  prevPattern = Logger::get().getPattern();
+  Logger::get().setPattern(pattern);
+}
+
+PatternSetter::~PatternSetter() {
+  Logger::get().setPattern(prevPattern);
+}
+
 }  // namespace ML

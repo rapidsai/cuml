@@ -165,8 +165,7 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
  */
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print_tree_summary() const {
-  auto prev = ML::Logger::get().getPattern();
-  ML::Logger::get().setPattern("%v");
+  PatternSetter _("%v");
   CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d\n",
                 depth_counter, leaf_counter);
   CUML_LOG_INFO(" Total temporary memory usage--> %lf MB\n",
@@ -176,7 +175,6 @@ void DecisionTreeBase<T, L>::print_tree_summary() const {
                 prepare_time + train_time);
   CUML_LOG_INFO("   - preparing for fit time: %lf s\n", prepare_time);
   CUML_LOG_INFO("   - tree growing time: %lf s\n", train_time);
-  ML::Logger::get().setPattern(prev);
 }
 
 /**

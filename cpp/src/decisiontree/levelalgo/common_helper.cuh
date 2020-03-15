@@ -221,8 +221,7 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
   MLCommon::updateHost(nodecount, d_nodecount, n_nodes + 1, tempmem->stream);
   MLCommon::updateHost(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
-  auto prev = ML::Logger::get().getPattern();
-  ML::Logger::get().setPattern("%v");
+  ML::PatternSetter _("%v");
   CUML_LOG_INFO("Full sample list size %u\n", nodestart[n_nodes]);
   MLCommon::updateHost(samplelist, d_samplelist, nodestart[n_nodes],
                        tempmem->stream);
@@ -244,15 +243,13 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
     }
   }
   CUML_LOG_INFO("\n\n");
-  ML::Logger::get().setPattern(prev);
 }
 
 template <typename T, typename L>
 void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
                  int n_nodes, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   CUDA_CHECK(cudaDeviceSynchronize());
-  auto prev = ML::Logger::get().getPattern();
-  ML::Logger::get().setPattern("%v");
+  ML::PatternSetter _("%v");
   CUML_LOG_INFO(
     "Node format --> (colid, quesval, best_metric, prediction, left_child) \n");
   int *h_nodelist = (int *)(tempmem->h_outgain->data());
@@ -273,7 +270,6 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
     if (gain != nullptr) CUML_LOG_INFO("  gain --> %f", gain[i]);
     CUML_LOG_INFO("\n");
   }
-  ML::Logger::get().setPattern(prev);
 }
 
 template <typename T, typename L>
