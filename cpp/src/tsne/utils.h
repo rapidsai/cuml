@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
 #include "linalg/norm.h"
 
@@ -95,7 +96,7 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
        RepulsionTime + Reduction_time + attractive_time +                     \
        IntegrationKernel_time) /                                              \
       100.0;                                                                  \
-    printf(                                                                   \
+    CUML_LOG_INFO(                                                            \
       "SymmetrizeTime = %.lf (%.lf)\n"                                        \
       "DistancesTime = %.lf (%.lf)\n"                                         \
       "NormalizeTime = %.lf (%.lf)\n"                                         \
