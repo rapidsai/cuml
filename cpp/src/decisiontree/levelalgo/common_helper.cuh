@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
 #include "common_kernel.cuh"
 #include "random/rng.h"
@@ -219,35 +221,39 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
   MLCommon::updateHost(nodecount, d_nodecount, n_nodes + 1, tempmem->stream);
   MLCommon::updateHost(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
-  printf("Full sample list size %u\n", nodestart[n_nodes]);
+  auto prev = ML::Logger::get().getPattern();
+  ML::Logger::get().setPattern("%v");
+  CUML_LOG_INFO("Full sample list size %u\n", nodestart[n_nodes]);
   MLCommon::updateHost(samplelist, d_samplelist, nodestart[n_nodes],
                        tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 
-  std::cout << "Printing node count\n";
+  CUML_LOG_INFO("Printing node count\n");
   for (int i = 0; i < n_nodes + 1; i++) {
-    printf("%u ", nodecount[i]);
+    CUML_LOG_INFO("%u ", nodecount[i]);
   }
-  printf("\n");
-  std::cout << "Printing node start\n";
+  CUML_LOG_INFO("\nPrinting node start\n");
   for (int i = 0; i < n_nodes + 1; i++) {
-    printf("%u ", nodestart[i]);
+    CUML_LOG_INFO("%u ", nodestart[i]);
   }
-  printf("\n");
-  std::cout << "Printing sample list\n";
+  CUML_LOG_INFO("\nPrinting sample list\n");
   for (int i = 0; i < n_nodes; i++) {
-    printf("\nNode id %d --> ", i);
+    CUML_LOG_INFO("\nNode id %d --> ", i);
     for (int j = nodestart[i]; j < nodestart[i + 1]; j++) {
-      printf("%u ", samplelist[j]);
+      CUML_LOG_INFO("%u ", samplelist[j]);
     }
   }
-  printf("\n\n");
+  CUML_LOG_INFO("\n\n");
+  ML::Logger::get().setPattern(prev);
 }
+
 template <typename T, typename L>
 void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
                  int n_nodes, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   CUDA_CHECK(cudaDeviceSynchronize());
-  printf(
+  auto prev = ML::Logger::get().getPattern();
+  ML::Logger::get().setPattern("%v");
+  CUML_LOG_INFO(
     "Node format --> (colid, quesval, best_metric, prediction, left_child) \n");
   int *h_nodelist = (int *)(tempmem->h_outgain->data());
   if (nodelist != nullptr) {
@@ -258,14 +264,18 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
     int nodeid = i;
     if (nodelist != nullptr) nodeid = h_nodelist[i];
     SparseTreeNode<T, L> &node = sparsenodes[nodeid];
-    printf("Node id %d --> (%d ,%f ,%f, ", i, node.colid, node.quesval,
-           node.best_metric_val);
-    std::cout << node.prediction;
-    printf(" ,%d )", node.left_child_id);
-    if (gain != nullptr) printf("  gain --> %f", gain[i]);
-    printf("\n");
+    CUML_LOG_INFO("Node id %d --> (%d ,%f ,%f, ", i, node.colid, node.quesval,
+                  node.best_metric_val);
+    std::stringstream ss;
+    ss << node.prediction;
+    CUML_LOG_INFO(ss.str.c_str());
+    CUML_LOG_INFO(" ,%d )", node.left_child_id);
+    if (gain != nullptr) CUML_LOG_INFO("  gain --> %f", gain[i]);
+    CUML_LOG_INFO("\n");
   }
+  ML::Logger::get().setPattern(prev);
 }
+
 template <typename T, typename L>
 void make_split_gather(const T *data, unsigned int *nodestart,
                        unsigned int *samplelist, const int n_nodes,
