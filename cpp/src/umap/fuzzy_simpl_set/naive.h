@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include "cuda_utils.h"
