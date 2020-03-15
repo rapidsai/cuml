@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@
  */
 
 #include <cuda_utils.h>
+#include <cuml/common/logger.hpp>
 #include <glm/qn/qn_linesearch.h>
 #include <glm/qn/qn_util.h>
 #include <glm/qn/simple_mat.h>
@@ -103,10 +104,9 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   std::vector<T> fx_hist(param.past > 0 ? param.past : 0);
 
   *k = 0;
+  ML::Logger::get().setLevel(verbosity >= 0 ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
 
-  if (verbosity > 0) {
-    printf("Running L-BFGS\n");
-  }
+  CUML_LOG_INFO("Running L-BFGS\n");
 
   // Evaluate function and compute gradient
   fx = f(x, grad, dev_scalar, stream);
@@ -117,9 +117,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Early exit if the initial x is already a minimizer
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
-    if (verbosity > 0) {
-      printf("Initial solution fulfills optimality condition.\n");
-    }
+    CUML_LOG_INFO("Initial solution fulfills optimality condition.\n");
     return OPT_SUCCESS;
   }
 
@@ -151,8 +149,8 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
       return OPT_NUMERIC_ERROR;
     }
 
-    if (check_convergence(param, *k, fx, x, grad, fx_hist, verbosity,
-                          dev_scalar, stream)) {
+    if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar,
+                          stream)) {
       return OPT_SUCCESS;
     }
 
@@ -165,7 +163,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * g
     end = lbfgs_search_dir(param, *k, end, S, Y, grad, svec, yvec, drt, ys,
-                           alpha, dev_scalar, stream, verbosity);
+                           alpha, dev_scalar, stream);
 
     // step = 1.0 as initial guess
     step = T(1.0);
@@ -236,9 +234,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   };
 
   *k = 0;
-  if (verbosity > 0) {
-    printf("Running OWL-QN with lambda=%f\n", l1_penalty);
-  }
+  CUML_LOG_INFO("Running OWL-QN with lambda=%f\n", l1_penalty);
 
   // op to compute the pseudo gradients
   op_pseudo_grad<T> pseudo_grad(l1_penalty);
@@ -257,9 +253,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   // Early exit if the initial x is already a minimizer
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
-    if (verbosity > 0) {
-      printf("Initial solution fulfills optimality condition.\n");
-    }
+    CUML_LOG_INFO("Initial solution fulfills optimality condition.\n");
     return OPT_SUCCESS;
   }
 
@@ -296,8 +290,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     //  pseudo.assign_binary(x, grad, pseudo_grad);
     update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
 
-    if (check_convergence(param, *k, fx, x, pseudo, fx_hist, verbosity,
-                          dev_scalar, stream)) {
+    if (check_convergence(param, *k, fx, x, pseudo, fx_hist, dev_scalar,
+                          stream)) {
       return OPT_SUCCESS;
     }
 
@@ -308,7 +302,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * -> pseudo grad <-
     end = lbfgs_search_dir(param, *k, end, S, Y, pseudo, svec, yvec, drt, ys,
-                           alpha, dev_scalar, stream, verbosity);
+                           alpha, dev_scalar, stream);
 
     // Project drt onto orthant of -pseudog
     drt.assign_binary(drt, pseudo, project_neg, stream);
@@ -341,7 +335,7 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
                     workspace,  // scratch space
                     stream, verbosity);
 
-    if (verbosity > 0) printf("L-BFGS Done\n");
+    CUML_LOG_INFO("L-BFGS Done\n");
   } else {
     // There might not be a better way to deal with dispatching
     // for the l1 case:
@@ -363,7 +357,7 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
                     workspace,  // scratch space
                     stream, verbosity);
 
-    if (verbosity > 0) printf("OWL-QN Done\n");
+    CUML_LOG_INFO("OWL-QN Done\n");
   }
   return ret;
 }
