@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include "common/cumlHandle.hpp"
 
+#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include "ml_mg_utils.h"
@@ -88,12 +89,9 @@ void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                                    uniq_labels, n_unique, d_alloc, stream);
 }
 
-/**
-	 * Build a kNN object for training and querying a k-nearest neighbors model.
-	 * @param D 	number of features in each vector
-	 */
 kNN::kNN(const cumlHandle &handle, int D, bool verbose)
-  : D(D), total_n(0), indices(0), verbose(verbose) {
+  : D(D), total_n(0), indices(0) {
+  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
   this->handle = const_cast<cumlHandle *>(&handle);
   sizes = nullptr;
   ptrs = nullptr;
@@ -128,7 +126,7 @@ void kNN::fit(std::vector<float *> &input, std::vector<int> &sizes,
 
   int N = input.size();
 
-  if (this->verbose) std::cout << "N=" << N << std::endl;
+  CUML_LOG_INFO("N=%d\n", N);
 
   reset();
 
