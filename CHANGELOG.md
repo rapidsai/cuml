@@ -40,11 +40,13 @@
 - PR #1776: Refactoring pca/tsvd distributed
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1790: Add support for multiple seeding in k-means++
 - PR #1805: Adding new Dask cuda serializers to naive bayes + a trivial perf update
 - PR #1812: C++: bench: UMAP benchmark cases added
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1824: C++: improving the performance of UMAP algo
 - PR #1816: Add ARIMA notebook
+- PR #1827: Add HPO demo Notebook
 - PR #1825: `--nvtx` option in `build.sh`
 - PR #1847: Update XGBoost version for CI
 - PR #1837: Simplify cuML Array construction
@@ -83,8 +85,11 @@
 - PR #1793: Updated fil pyx to solve memory leakage issue
 - PR #1810: Quickfix - chunkage in dask make_regression
 - PR #1842: DistributedDataHandler not properly setting 'multiple'
+- PR #1849: Critical fix in ARIMA initial estimate
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
+- PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1877: Remove resetting index in shuffling in train_test_split
 
 # cuML 0.12.0 (Date TBD)
 
