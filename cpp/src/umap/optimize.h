@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include "common/device_buffer.hpp"
@@ -214,8 +216,7 @@ void find_params_ab(UMAPParams *params,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  if (params->verbose)
-    std::cout << "a=" << params->a << ", " << params->b << std::endl;
+  CUML_LOG_INFO("a=%f, b=%f\n", params->a, params->b);
 
   delete coeffs_h;
 }
