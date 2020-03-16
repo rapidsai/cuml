@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include "logger.hpp"
 
 namespace MLCommon {
 /** base exception class for the cuML or ml-prims project */
@@ -98,7 +99,7 @@ class Exception : public std::exception {
 #define CUDA_CHECK(call)                                                 \
   do {                                                                   \
     cudaError_t status = call;                                           \
-    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s\n", #call, \
+    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s", #call,   \
            cudaGetErrorString(status));                                  \
   } while (0)
 
@@ -111,9 +112,8 @@ class Exception : public std::exception {
   do {                                                                         \
     cudaError_t status = call;                                                 \
     if (status != cudaSuccess) {                                               \
-      std::fprintf(stderr,                                                     \
-                   "ERROR: CUDA call='%s' at file=%s line=%d failed with %s ", \
-                   #call, __FILE__, __LINE__, cudaGetErrorString(status));     \
+      CUML_LOG_ERROR("CUDA call='%s' at file=%s line=%d failed with %s ",      \
+                     #call, __FILE__, __LINE__, cudaGetErrorString(status));   \
     }                                                                          \
   } while (0)
 };  // namespace MLCommon
