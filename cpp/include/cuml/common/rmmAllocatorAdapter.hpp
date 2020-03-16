@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include <rmm/rmm.h>
 #include <cuml/common/utils.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -31,7 +32,9 @@ namespace ML {
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
   rmmAllocatorAdapter() : _rmmInitialized(rmmIsInitialized(NULL)) {
-    //@todo: Log warning if RMM is not initialized. Blocked by https://github.com/rapidsai/cuml/issues/229
+    if (!_rmmInitialized) {
+      CUML_LOG_WARN("rmm is not yet initialized!");
+    }
   }
 
   /**
@@ -67,18 +70,14 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
      * @param[in] n         size of the allocation to release in bytes
      * @param[in] stream    the stream to use for the asynchronous free
      */
-  virtual void deallocate(void* p, std::size_t, cudaStream_t stream) {
+  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
     if (!_rmmInitialized) {
-      cudaError_t status = cudaFree(p);
-      if (cudaSuccess != status) {
-        //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-        // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-      }
+      CUDA_CHECK_NO_THROW(cudaFree(p));
     } else {
       rmmError_t rmmStatus = RMM_FREE(p, stream);
       if (RMM_SUCCESS != rmmStatus) {
-        //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-        // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
+        CUML_LOG_ERROR("rmmFree: Failed to free pointer=%llx of size=%lu B!",
+                       (size_t)p, n);
       }
     }
   }
