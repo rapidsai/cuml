@@ -39,7 +39,6 @@
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>
-#include <iostream>
 
 namespace UMAPAlgo {
 
