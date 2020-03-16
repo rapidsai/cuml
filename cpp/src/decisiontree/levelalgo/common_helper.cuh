@@ -234,14 +234,16 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
       ss << nodecount[i] << " ";
     }
     CUML_LOG_INFO(ss.str().c_str());
-  } {
+  }
+  {
     std::stringstream ss;
     ss << "Printing node start\n";
     for (int i = 0; i < n_nodes + 1; i++) {
       ss << nodestart[i] << " ";
     }
     CUML_LOG_INFO(ss.str().c_str());
-  } {
+  }
+  {
     std::stringstream ss;
     ss << "Printing sample list\n";
     for (int i = 0; i < n_nodes; i++) {
