@@ -59,6 +59,10 @@ inline const char* cusparseErr2Str(cusparseStatus_t err) {
     }                                                                   \
   } while (0)
 
+/**
+ * @defgroup Gemmi cusparse gemmi operations
+ * @{
+ */
 cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
                                int nnz, const float *alpha, const float *A,
                                int lda, const float *cscValB,
@@ -67,7 +71,6 @@ cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
   return cusparseSgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
-
 cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
                                int nnz, const double *alpha, const double *A,
                                int lda, const double *cscValB,
@@ -76,7 +79,6 @@ cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
   return cusparseDgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
-
 /** @} */
 
 };  // namespace LinAlg
