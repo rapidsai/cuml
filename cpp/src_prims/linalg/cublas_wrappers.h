@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,46 +18,48 @@
 
 #include <cublas_v2.h>
 #include "cuda_utils.h"
+#include <cuml/common/utils.hpp>
+#include <cuml/common/logger.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
 
-/** check for cublas runtime API errors and assert accordingly */
-#define CUBLAS_CHECK(call)                                             \
-  {                                                                    \
-    cublasStatus_t err;                                                \
-    if ((err = (call)) != CUBLAS_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUBLAS error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                               \
-      switch (err) {                                                   \
-        case CUBLAS_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_INVALID_VALUE");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_INTERNAL_ERROR");     \
-      }                                                                \
-      exit(1);                                                         \
-      exit(1);                                                         \
-    }                                                                  \
-  }
+#define _CUBLAS_ERR_TO_STR(err) case err: return #err
+inline const char* cublasErr2Str(cublasStatus_t err) {
+  switch(err) {
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_SUCCESS);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_NOT_INITIALIZED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_ALLOC_FAILED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_INVALID_VALUE);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_ARCH_MISMATCH);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_MAPPING_ERROR);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_EXECUTION_FAILED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_INTERNAL_ERROR);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_NOT_SUPPORTED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_LICENSE_ERROR);
+    default: return "CUBLAS_STATUS_UNKNOWN";
+  };
+}
+#undef _CUBLAS_ERR_TO_STR
 
-///@todo: add a similar CUBLAS_CHECK_NO_THROW
-/// (Ref: https://github.com/rapidsai/cuml/issues/229)
+/** check for cublas runtime API errors and assert accordingly */
+#define CUBLAS_CHECK(call)                                              \
+  do {                                                                  \
+    cublasStatus_t err = call;                                          \
+    ASSERT(err == CUBLAS_STATUS_SUCCESS,                                \
+           "CUBLAS call='%s' got errorcode=%d err=%s", #call, err,      \
+           MLCommon::LinAlg::cublasErr2Str(err));                       \
+  } while (0)
+
+/** check for cublas runtime API errors but do not assert */
+#define CUBLAS_CHECK_NO_THROW(call)                                     \
+  do {                                                                  \
+    cublasStatus_t err = call;                                          \
+    if (err != CUBLAS_STATUS_SUCCESS) {                                 \
+      CUML_LOG_ERROR("CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
+                     MLCommon::LinAlg::cublasErr2Str(err));             \
+    }                                                                   \
+  } while (0)
 
 /**
  * @defgroup Axpy cublas ax+y operations
