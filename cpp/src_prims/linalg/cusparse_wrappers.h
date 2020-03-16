@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,46 +17,47 @@
 #pragma once
 
 #include <cusparse.h>
+#include <cuml/common/utils.hpp>
+#include <cuml/common/logger.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
 
+#define _CUSPARSE_ERR_TO_STR(err) case err: return #err;
+inline const char* cusparseErr2Str(cusparseStatus_t err) {
+  switch (err) {
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ALLOC_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INVALID_VALUE);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_ARCH_MISMATCH);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_EXECUTION_FAILED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INTERNAL_ERROR);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_SUPPORTED);
+    default: return "CUSPARSE_STATUS_UNKNOWN";
+  };
+}
+#undef _CUSPARSE_ERR_TO_STR
+
 /** check for cusparse runtime API errors and assert accordingly */
-#define CUSPARSE_CHECK(call)                                             \
-  {                                                                      \
-    cusparseStatus_t err;                                                \
-    if ((err = (call)) != CUSPARSE_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUSPARSE error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                                 \
-      switch (err) {                                                     \
-        case CUSPARSE_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_INVALID_VALUE");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_INTERNAL_ERROR");     \
-        case CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED:                  \
-          fprintf(stderr, "%s\n",                                        \
-                  "CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED");          \
-      }                                                                  \
-      exit(1);                                                           \
-      exit(1);                                                           \
-    }                                                                    \
-  }
+#define CUSPARSE_CHECK(call)                                            \
+  do {                                                                  \
+    cusparseStatus_t err = call;                                        \
+    ASSERT(err == CUSPARSE_STATUS_SUCCESS,                              \
+           "CUSPARSE call='%s' got errorcode=%d err=%s", #call, err,    \
+           MLCommon::LinAlg::cusparseErr2Str(err));                     \
+  } while (0)
+
+/** check for cusparse runtime API errors but do not assert */
+#define CUSPARSE_CHECK_NO_THROW(call)                                   \
+  do {                                                                  \
+    cusparseStatus_t err = call;                                        \
+    if (err != CUSPARSE_STATUS_SUCCESS) {                               \
+      CUML_LOG_ERROR("CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
+                     MLCommon::LinAlg::cusparseErr2Str(err));           \
+    }                                                                   \
+  } while (0)
 
 cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
                                int nnz, const float *alpha, const float *A,
