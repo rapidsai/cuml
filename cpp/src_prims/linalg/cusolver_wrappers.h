@@ -19,14 +19,16 @@
 #include <cuda_utils.h>
 #include <cusolverDn.h>
 #include <cusolverSp.h>
-#include <cuml/common/utils.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
 
-#define _CUSOLVER_ERR_TO_STR(err) case err: return #err;
-inline const char* cusolverErr2Str(cusolverStatus_t err) {
+#define _CUSOLVER_ERR_TO_STR(err) \
+  case err:                       \
+    return #err;
+inline const char *cusolverErr2Str(cusolverStatus_t err) {
   switch (err) {
     _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_SUCCESS);
     _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_INITIALIZED);
@@ -38,28 +40,29 @@ inline const char* cusolverErr2Str(cusolverStatus_t err) {
     _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
     _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ZERO_PIVOT);
     _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_SUPPORTED);
-    default: return "CUSOLVER_STATUS_UNKNOWN";
+    default:
+      return "CUSOLVER_STATUS_UNKNOWN";
   };
 }
 #undef _CUSOLVER_ERR_TO_STR
 
 /** check for cusolver runtime API errors and assert accordingly */
-#define CUSOLVER_CHECK(call)                                            \
-  do {                                                                  \
-    cusolverStatus_t err = call;                                        \
-    ASSERT(err == CUSOLVER_STATUS_SUCCESS,                              \
-           "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err,    \
-           MLCommon::LinAlg::cusolverErr2Str(err));                     \
+#define CUSOLVER_CHECK(call)                                         \
+  do {                                                               \
+    cusolverStatus_t err = call;                                     \
+    ASSERT(err == CUSOLVER_STATUS_SUCCESS,                           \
+           "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
+           MLCommon::LinAlg::cusolverErr2Str(err));                  \
   } while (0)
 
 /** check for cusolver runtime API errors but do not assert */
-#define CUSOLVER_CHECK_NO_THROW(call)                                   \
-  do {                                                                  \
-    cusolverStatus_t err = call;                                        \
-    if (err != CUSOLVER_STATUS_SUCCESS) {                               \
+#define CUSOLVER_CHECK_NO_THROW(call)                                          \
+  do {                                                                         \
+    cusolverStatus_t err = call;                                               \
+    if (err != CUSOLVER_STATUS_SUCCESS) {                                      \
       CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
-                     MLCommon::LinAlg::cusolverErr2Str(err));           \
-    }                                                                   \
+                     MLCommon::LinAlg::cusolverErr2Str(err));                  \
+    }                                                                          \
   } while (0)
 
 /**

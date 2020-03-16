@@ -17,16 +17,18 @@
 #pragma once
 
 #include <cublas_v2.h>
-#include "cuda_utils.h"
-#include <cuml/common/utils.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
+#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
 
-#define _CUBLAS_ERR_TO_STR(err) case err: return #err
-inline const char* cublasErr2Str(cublasStatus_t err) {
-  switch(err) {
+#define _CUBLAS_ERR_TO_STR(err) \
+  case err:                     \
+    return #err
+inline const char *cublasErr2Str(cublasStatus_t err) {
+  switch (err) {
     _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_SUCCESS);
     _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_NOT_INITIALIZED);
     _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_ALLOC_FAILED);
@@ -37,28 +39,29 @@ inline const char* cublasErr2Str(cublasStatus_t err) {
     _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_INTERNAL_ERROR);
     _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_NOT_SUPPORTED);
     _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_LICENSE_ERROR);
-    default: return "CUBLAS_STATUS_UNKNOWN";
+    default:
+      return "CUBLAS_STATUS_UNKNOWN";
   };
 }
 #undef _CUBLAS_ERR_TO_STR
 
 /** check for cublas runtime API errors and assert accordingly */
-#define CUBLAS_CHECK(call)                                              \
-  do {                                                                  \
-    cublasStatus_t err = call;                                          \
-    ASSERT(err == CUBLAS_STATUS_SUCCESS,                                \
-           "CUBLAS call='%s' got errorcode=%d err=%s", #call, err,      \
-           MLCommon::LinAlg::cublasErr2Str(err));                       \
+#define CUBLAS_CHECK(call)                                         \
+  do {                                                             \
+    cublasStatus_t err = call;                                     \
+    ASSERT(err == CUBLAS_STATUS_SUCCESS,                           \
+           "CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
+           MLCommon::LinAlg::cublasErr2Str(err));                  \
   } while (0)
 
 /** check for cublas runtime API errors but do not assert */
-#define CUBLAS_CHECK_NO_THROW(call)                                     \
-  do {                                                                  \
-    cublasStatus_t err = call;                                          \
-    if (err != CUBLAS_STATUS_SUCCESS) {                                 \
+#define CUBLAS_CHECK_NO_THROW(call)                                          \
+  do {                                                                       \
+    cublasStatus_t err = call;                                               \
+    if (err != CUBLAS_STATUS_SUCCESS) {                                      \
       CUML_LOG_ERROR("CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
-                     MLCommon::LinAlg::cublasErr2Str(err));             \
-    }                                                                   \
+                     MLCommon::LinAlg::cublasErr2Str(err));                  \
+    }                                                                        \
   } while (0)
 
 /**
