@@ -33,15 +33,16 @@ from uuid import uuid1
 class RandomForestClassifier(DelayedPredictionMixin):
 
     """
+
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
     ensemble. This uses Dask to partition data over multiple GPUs
     (possibly on different nodes).
 
     Currently, this API makes the following assumptions:
-     * The set of Dask workers used between instantiation, fit,
+    * The set of Dask workers used between instantiation, fit,
        and predict are all consistent
-     * Training data comes in the form of cuDF dataframes,
+    * Training data comes in the form of cuDF dataframes,
        distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
@@ -66,50 +67,47 @@ class RandomForestClassifier(DelayedPredictionMixin):
     n_estimators : int (default = 10)
                    total number of trees in the forest (not per-worker)
     handle : cuml.Handle
-             If it is None, a new one is created just for this class.
+        If it is None, a new one is created just for this class.
     split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-                     2 and 3 not valid for classification
-                     (default = 0)
+        0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
+        2 and 3 not valid for classification
+        (default = 0)
     split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE
-                 (default = 1)
-                 the algorithm to determine how nodes are split in the tree.
+        (default = 1)
+        the algorithm to determine how nodes are split in the tree.
     split_criterion: The criterion used to split nodes.
-                     0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-                     2 and 3 not valid for classification
-                     (default = 0)
+        0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
+        2 and 3 not valid for classification
+        (default = 0)
     bootstrap : boolean (default = True)
-                Control bootstrapping.
-                If set, each tree in the forest is built
-                on a bootstrapped sample with replacement.
-                If false, sampling without replacement is done.
+        Control bootstrapping.
+        If set, each tree in the forest is built
+        on a bootstrapped sample with replacement.
+        If false, sampling without replacement is done.
     bootstrap_features : boolean (default = False)
-                         Control bootstrapping for features.
-                         If features are drawn with or without replacement
+        Control bootstrapping for features.
+        If features are drawn with or without replacement
     rows_sample : float (default = 1.0)
-                  Ratio of dataset rows used while fitting each tree.
+        Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
-                Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1.
+        Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
     max_leaves : int (default = -1)
-                 Maximum leaf nodes per tree. Soft constraint. Unlimited,
-                 if -1.
+        Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
     max_features : float (default = 'auto')
-                   Ratio of number of features (columns) to consider
-                   per node split.
+        Ratio of number of features (columns) to consider
+        per node split.
     n_bins :  int (default = 8)
-              Number of bins used by the split algorithm.
+        Number of bins used by the split algorithm.
     min_rows_per_node : int (default = 2)
-                        The minimum number of samples (rows) needed
-                        to split a node.
+        The minimum number of samples (rows) needed to split a node.
     quantile_per_tree : boolean (default = False)
-                        Whether quantile is computed for individual RF trees.
-                        Only relevant for GLOBAL_QUANTILE split_algo.
+        Whether quantile is computed for individual RF trees.
+        Only relevant for GLOBAL_QUANTILE split_algo.
     n_streams : int (default = 4 )
-                Number of parallel streams used for forest building
+        Number of parallel streams used for forest building
     workers : optional, list of strings
-              Dask addresses of workers to use for computation.
-              If None, all available Dask workers will be used.
+        Dask addresses of workers to use for computation.
+        If None, all available Dask workers will be used.
 
     Examples
     ---------
@@ -329,6 +327,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
         the treelite format and then concatenate the different treelite models
         to create a single model. The concatenated model is then converted to
         bytes format.
+
         """
 
         mod_bytes = []
@@ -389,7 +388,9 @@ class RandomForestClassifier(DelayedPredictionMixin):
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This
             will increase memory used for the method.
+
         """
+
         c = default_client()
 
         self.num_classes = len(y.unique())
@@ -450,12 +451,12 @@ class RandomForestClassifier(DelayedPredictionMixin):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `algo` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU, that is for,
@@ -474,10 +475,10 @@ class RandomForestClassifier(DelayedPredictionMixin):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.  It is not required  while using
@@ -486,7 +487,6 @@ class RandomForestClassifier(DelayedPredictionMixin):
         Returns
         ----------
         y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
-
         """
 
         if self.num_classes > 2 or predict_model == "CPU":
@@ -528,6 +528,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
     def _predict_using_cpu(self, X, convert_dtype=True):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
@@ -539,7 +540,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
             will increase memory used for the method.
         Returns
         ----------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
         c = default_client()
         workers = self.workers
