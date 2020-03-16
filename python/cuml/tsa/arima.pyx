@@ -523,16 +523,20 @@ class ARIMA(Base):
             d_mu = cumlArray.zeros(self.batch_size, dtype=np.float64)
             d_mu_ptr = d_mu.ptr
         if order.p:
-            d_ar = cumlArray.zeros((order.p, self.batch_size), dtype=np.float64, order='F')
+            d_ar = cumlArray.zeros((order.p, self.batch_size), dtype=np.float64,
+                                   order='F')
             d_ar_ptr = d_ar.ptr
         if order.q:
-            d_ma = cumlArray.zeros((order.q, self.batch_size), dtype=np.float64, order='F')
+            d_ma = cumlArray.zeros((order.q, self.batch_size), dtype=np.float64,
+                                   order='F')
             d_ma_ptr = d_ma.ptr
         if order.P:
-            d_sar = cumlArray.zeros((order.P, self.batch_size), dtype=np.float64, order='F')
+            d_sar = cumlArray.zeros((order.P, self.batch_size), dtype=np.float64,
+                                    order='F')
             d_sar_ptr = d_sar.ptr
         if order.Q:
-            d_sma = cumlArray.zeros((order.Q, self.batch_size), dtype=np.float64, order='F')
+            d_sma = cumlArray.zeros((order.Q, self.batch_size), dtype=np.float64,
+                                    order='F')
             d_sma_ptr = d_sma.ptr
         d_sigma2 = cumlArray.zeros(self.batch_size, dtype=np.float64)
         d_sigma2_ptr = d_sigma2.ptr
