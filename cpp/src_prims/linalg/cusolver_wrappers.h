@@ -47,7 +47,7 @@ inline const char* cusolverErr2Str(cusolverStatus_t err) {
 #define CUSOLVER_CHECK(call)                                            \
   do {                                                                  \
     cusolverStatus_t err = call;                                        \
-    ASSERT(err = CUSOLVER_STATUS_SUCCESS,                               \
+    ASSERT(err == CUSOLVER_STATUS_SUCCESS,                              \
            "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err,    \
            MLCommon::LinAlg::cusolverErr2Str(err));                     \
   } while (0)
