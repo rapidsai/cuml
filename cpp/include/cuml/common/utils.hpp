@@ -77,16 +77,16 @@ class Exception : public std::exception {
 };
 
 /** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                 \
-  do {                                                                  \
-    std::string msg;                                                    \
-    char errMsg[2048];                                                  \
-    std::snprintf(errMsg, sizeof(errMsg),                               \
+#define THROW(fmt, ...)                                                        \
+  do {                                                                         \
+    std::string msg;                                                           \
+    char errMsg[2048];                                                         \
+    std::snprintf(errMsg, sizeof(errMsg),                                      \
                   "Exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
-    msg += errMsg;                                                      \
-    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);          \
-    msg += errMsg;                                                      \
-    throw MLCommon::Exception(msg);                                     \
+    msg += errMsg;                                                             \
+    std::snprintf(errMsg, sizeof(errMsg), fmt, ##__VA_ARGS__);                 \
+    msg += errMsg;                                                             \
+    throw MLCommon::Exception(msg);                                            \
   } while (0)
 
 /** macro to check for a conditional and assert on failure */
@@ -96,23 +96,23 @@ class Exception : public std::exception {
   } while (0)
 
 /** check for cuda runtime API errors and assert accordingly */
-#define CUDA_CHECK(call)                                                 \
-  do {                                                                   \
-    cudaError_t status = call;                                           \
-    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s", #call,   \
-           cudaGetErrorString(status));                                  \
+#define CUDA_CHECK(call)                                               \
+  do {                                                                 \
+    cudaError_t status = call;                                         \
+    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s", #call, \
+           cudaGetErrorString(status));                                \
   } while (0)
 
 /**
  * @brief check for cuda runtime API errors but log error instead of raising
  *        exception.
  */
-#define CUDA_CHECK_NO_THROW(call)                                              \
-  do {                                                                         \
-    cudaError_t status = call;                                                 \
-    if (status != cudaSuccess) {                                               \
-      CUML_LOG_ERROR("CUDA call='%s' at file=%s line=%d failed with %s ",      \
-                     #call, __FILE__, __LINE__, cudaGetErrorString(status));   \
-    }                                                                          \
+#define CUDA_CHECK_NO_THROW(call)                                            \
+  do {                                                                       \
+    cudaError_t status = call;                                               \
+    if (status != cudaSuccess) {                                             \
+      CUML_LOG_ERROR("CUDA call='%s' at file=%s line=%d failed with %s ",    \
+                     #call, __FILE__, __LINE__, cudaGetErrorString(status)); \
+    }                                                                        \
   } while (0)
 };  // namespace MLCommon
