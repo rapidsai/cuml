@@ -244,7 +244,7 @@ def test_integration(test_case, dtype):
     cuml_model.fit()
 
     # Predict
-    cuml_pred = cuml_model.predict(data.start, data.end).copy_to_host()
+    cuml_pred = cuml_model.predict(data.start, data.end).to_output('numpy')
     ref_preds = np.zeros((data.end - data.start, data.batch_size))
     for i in range(data.batch_size):
         ref_preds[:, i] = ref_fits[i].get_prediction(
@@ -299,9 +299,9 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         ref_preds[:, i] = ref_fits[i].get_prediction(
             start, end - 1).predicted_mean
     if num_steps is None:
-        cuml_pred = cuml_model.predict(start, end).copy_to_host()
+        cuml_pred = cuml_model.predict(start, end).to_output('numpy')
     else:
-        cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
+        cuml_pred = cuml_model.forecast(num_steps).to_output('numpy')
 
     # Compare results
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
