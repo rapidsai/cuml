@@ -29,6 +29,7 @@ def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
 
     TODO: investigate methods for doing intra-node
     before inter-node reductions.
+    Ref: https://github.com/rapidsai/cuml/issues/1881
 
     Parameters
     ----------
