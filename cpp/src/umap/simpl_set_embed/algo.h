@@ -16,7 +16,6 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/common/logger.hpp>
 #include <curand.h>
 #include <internals/internals.h>
 #include <math.h>
@@ -25,6 +24,7 @@
 #include <thrust/system/cuda/execution_policy.h>
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
+#include <cuml/common/logger.hpp>
 #include <string>
 #include "optimize_batch_kernel.cuh"
 #include "random/rng_impl.h"
