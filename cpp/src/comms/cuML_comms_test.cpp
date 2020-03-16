@@ -59,6 +59,8 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
 
   bool ret = true;
   for (int i = 0; i < numTrials; i++) {
+    std::cout << "Trial " << i << " Commsize: " << communicator.getSize()
+              << std::endl;
     std::vector<int> received_data((communicator.getSize() - 1), -1);
 
     std::vector<MLCommon::cumlCommunicator::request_t> requests;
@@ -80,8 +82,13 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
       }
     }
 
+    std::cout << "About to wait " << std::endl;
     communicator.waitall(requests.size(), requests.data());
+
+    std::cout << "Done. Calling barrier" << std::endl;
     communicator.barrier();
+
+    std::cout << "Done." << std::endl;
 
     if (communicator.getRank() == 0) {
       std::cout << "=========================" << std::endl;
