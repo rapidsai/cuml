@@ -49,6 +49,8 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
+from scipy.optimize import curve_fit
+
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 
     enum MetricType:
@@ -111,9 +113,6 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
                    int embedding_n,
                    UMAPParams * params,
                    float * out) except +
-
-    void find_ab(cumlHandle &handle,
-                 UMAPParams *params) except +
 
 
 class UMAP(Base):
@@ -302,10 +301,11 @@ class UMAP(Base):
         else:
             raise Exception("Initialization strategy not supported: %d" % init)
 
-        if a is not None:
-            umap_params.a = <float> a
-        if b is not None:
-            umap_params.b = <float> b
+        if a is None or b is None:
+            a, b = self.find_ab_params(spread, min_dist)
+
+        umap_params.a = <float> a
+        umap_params.b = <float> b
 
         umap_params.learning_rate = <float> learning_rate
         umap_params.min_dist = <float> min_dist
@@ -339,12 +339,6 @@ class UMAP(Base):
         if callback:
             callback_ptr = callback.get_native_callback()
             umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
-
-        cdef cumlHandle * handle_ = \
-            <cumlHandle*> <size_t> self.handle.getHandle()
-
-        if a is None or b is None:
-            find_ab(handle_[0], umap_params)
 
         self.umap_params = <size_t> umap_params
 
@@ -436,6 +430,25 @@ class UMAP(Base):
             return embedding
         elif isinstance(X, cupy.ndarray):
             return cupy.array(embedding)
+
+    @staticmethod
+    def find_ab_params(spread, min_dist):
+        """ Function taken from UMAP-learn : https://github.com/lmcinnes/umap
+        Fit a, b params for the differentiable curve used in lower
+        dimensional fuzzy simplicial complex construction. We want the
+        smooth curve (from a pre-defined family with simple gradient) that
+        best matches an offset exponential decay.
+        """
+
+        def curve(x, a, b):
+            return 1.0 / (1.0 + a * x ** (2 * b))
+
+        xv = np.linspace(0, spread * 3, 300)
+        yv = np.zeros(xv.shape)
+        yv[xv < min_dist] = 1.0
+        yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
+        params, covar = curve_fit(curve, xv, yv)
+        return params[0], params[1]
 
     def fit(self, X, y=None, convert_dtype=True):
         """
