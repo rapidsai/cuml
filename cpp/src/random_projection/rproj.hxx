@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,15 @@
 #include <cuml/random_projection/rproj_c.h>
 #include "utils.hxx"
 #include <linalg/cublas_wrappers.h>
-#include <linalg/cusparse_wrappers.h>
+#include <sparse/cusparse_wrappers.h>
 #include <cuda_utils.h>
 #include <common/cumlHandle.hpp>
 
 namespace ML {
 
-	using namespace MLCommon;
-	using namespace MLCommon::LinAlg;
+using namespace MLCommon;
+using namespace MLCommon::LinAlg;
+using namespace MLCommon::Sparse;
 
 	/**
 	 * @brief generates a gaussian random matrix
