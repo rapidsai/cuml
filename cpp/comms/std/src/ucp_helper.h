@@ -46,6 +46,7 @@ static const int UCP_ANY_RANK = -1;
  */
 static void send_handle(void *request, ucs_status_t status) {
   struct ucx_context *context = (struct ucx_context *)request;
+  printf("Completed %s\n", request);
   context->completed = 1;
 }
 
@@ -55,6 +56,7 @@ static void send_handle(void *request, ucs_status_t status) {
 static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
   struct ucx_context *context = (struct ucx_context *)request;
+  printf("Completed %s\n", request);
   context->completed = 1;
 }
 

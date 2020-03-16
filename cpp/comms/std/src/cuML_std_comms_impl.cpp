@@ -358,6 +358,10 @@ void cumlStdCommunicator_impl::waitall(int count,
 
       auto req = *it;
       if (req->completed == 1) {
+        std::cout << getRank() << ": request completed: " << req << " "
+                  << requests.size()
+                  << " requests to go. needs_release=" << req->needs_release
+                  << std::endl;
         req->completed = 0;
         if (req->needs_release)
           free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
