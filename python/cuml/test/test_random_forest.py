@@ -83,7 +83,7 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
     fil_acc = accuracy_score(y_test, fil_preds)
     fil_calc_preds = []
     for i in range(np.shape(fil_preds_proba)[0]):
-        if fil_preds_proba[i,0] > fil_preds_proba[i,1]:
+        if (fil_preds_proba[i, 0] >= fil_preds_proba[i, 1]):
             fil_calc_preds.append(0)
         else:
             fil_calc_preds.append(1)
@@ -94,11 +94,10 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
                          random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
-        sk_preds_proba = sk_model.predict_proba(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cuml_acc - 0.02)
-    assert array_equal (fil_calc_preds, fil_preds)
+    assert array_equal(fil_calc_preds, fil_preds)
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
