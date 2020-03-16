@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
@@ -85,14 +86,15 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                               params.n_clusters - 1);
 
     if (score < 1.0) {
-      std::cout << "Expected: "
-                << arr2Str(d_labels_ref, 25, "d_labels_ref", handle.getStream())
-                << std::endl;
-      std::cout << "Actual: "
-                << arr2Str(d_labels, 25, "d_labels", handle.getStream())
-                << std::endl;
-
-      std::cout << "Score = " << score << std::endl;
+      std::stringstream ss;
+      ss << "Expected: "
+         << arr2Str(d_labels_ref, 25, "d_labels_ref", handle.getStream());
+      CUML_LOG_INFO(ss.str().c_str());
+      ss.str(std::string());
+      ss << "Actual: "
+         << arr2Str(d_labels, 25, "d_labels", handle.getStream());
+      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_INFO("Score = %lf", score);
     }
   }
 
