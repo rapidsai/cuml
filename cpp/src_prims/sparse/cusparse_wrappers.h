@@ -21,11 +21,13 @@
 namespace MLCommon {
 namespace Sparse {
 
-#define _CUSPARSE_ERR_TO_STR(err) case err: return #err;
+#define _CUSPARSE_ERR_TO_STR(err) \
+  case err:                       \
+    return #err;
 inline const char* cusparseErr2Str(cusparseStatus_t err) {
 #if defined(CUDART_VERSION) && CUDART_VERSION >= 10100
   return cusparseGetErrorString(status);
-#else  // CUDART_VERSION
+#else   // CUDART_VERSION
   switch (err) {
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_SUCCESS);
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_INITIALIZED);
@@ -36,29 +38,30 @@ inline const char* cusparseErr2Str(cusparseStatus_t err) {
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INTERNAL_ERROR);
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_SUPPORTED);
-    default: return "CUSPARSE_STATUS_UNKNOWN";
+    default:
+      return "CUSPARSE_STATUS_UNKNOWN";
   };
 #endif  // CUDART_VERSION
 }
 #undef _CUSPARSE_ERR_TO_STR
 
 /** check for cusparse runtime API errors and assert accordingly */
-#define CUSPARSE_CHECK(call)                                            \
-  do {                                                                  \
-    cusparseStatus_t err = call;                                        \
-    ASSERT(err == CUSPARSE_STATUS_SUCCESS,                              \
-           "CUSPARSE call='%s' got errorcode=%d err=%s", #call, err,    \
-           MLCommon::Sparse::cusparseErr2Str(err));                     \
+#define CUSPARSE_CHECK(call)                                         \
+  do {                                                               \
+    cusparseStatus_t err = call;                                     \
+    ASSERT(err == CUSPARSE_STATUS_SUCCESS,                           \
+           "CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
+           MLCommon::Sparse::cusparseErr2Str(err));                  \
   } while (0)
 
 /** check for cusparse runtime API errors but do not assert */
-#define CUSPARSE_CHECK_NO_THROW(call)                                   \
-  do {                                                                  \
-    cusparseStatus_t err = call;                                        \
-    if (err != CUSPARSE_STATUS_SUCCESS) {                               \
+#define CUSPARSE_CHECK_NO_THROW(call)                                          \
+  do {                                                                         \
+    cusparseStatus_t err = call;                                               \
+    if (err != CUSPARSE_STATUS_SUCCESS) {                                      \
       CUML_LOG_ERROR("CUSPARSE call='%s' got errorcode=%d err=%s", #call, err, \
-                     MLCommon::Sparse::cusparseErr2Str(err));           \
-    }                                                                   \
+                     MLCommon::Sparse::cusparseErr2Str(err));                  \
+    }                                                                          \
   } while (0)
 
 /**
@@ -141,19 +144,17 @@ inline void cusparsecoosortByRow(cusparseHandle_t handle, int m, int n, int nnz,
  * @defgroup Gemmi cusparse gemmi operations
  * @{
  */
-inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
-                                      int nnz, const float *alpha, const float *A,
-                                      int lda, const float *cscValB,
-                                      const int *cscColPtrB, const int *cscRowIndB,
-                                      const float *beta, float *C, int ldc) {
+inline cusparseStatus_t cusparsegemmi(
+  cusparseHandle_t handle, int m, int n, int k, int nnz, const float* alpha,
+  const float* A, int lda, const float* cscValB, const int* cscColPtrB,
+  const int* cscRowIndB, const float* beta, float* C, int ldc) {
   return cusparseSgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
-inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
-                                      int nnz, const double *alpha, const double *A,
-                                      int lda, const double *cscValB,
-                                      const int *cscColPtrB, const int *cscRowIndB,
-                                      const double *beta, double *C, int ldc) {
+inline cusparseStatus_t cusparsegemmi(
+  cusparseHandle_t handle, int m, int n, int k, int nnz, const double* alpha,
+  const double* A, int lda, const double* cscValB, const int* cscColPtrB,
+  const int* cscRowIndB, const double* beta, double* C, int ldc) {
   return cusparseDgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
