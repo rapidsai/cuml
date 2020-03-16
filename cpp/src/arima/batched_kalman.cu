@@ -489,6 +489,7 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   // Finalize loglikelihood
   batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, batch_size, d_loglike,
                          stream);
+
   handle.getDeviceAllocator()->deallocate(d_sumlogFs,
                                           sizeof(double) * batch_size, stream);
 }
@@ -545,6 +546,11 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
                      // shifted identity
                      for (int i = 0; i < r - 1; i++) {
                        batch_T[(i + 1) * r + i] = 1.0;
+                     }
+
+                     // If r=2 and phi_2=-1, I-TxT is singular
+                     if (r == 2 && order.p == 2 && abs(batch_T[1] + 1) < 0.01) {
+                       batch_T[1] = -0.99;
                      }
                    });
 
@@ -640,7 +646,6 @@ void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
   MLCommon::TimeSeries::batched_jones_transform(
     order, batch_size, isInv, params, Tparams, allocator, stream);
   Tparams.mu = params.mu;
-  Tparams.sigma2 = params.sigma2;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 
