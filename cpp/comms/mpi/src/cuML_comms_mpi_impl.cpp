@@ -39,17 +39,16 @@
 
 //@todo adapt logging infrastructure for MPI_CHECK_NO_THROW once available:
 //https://github.com/rapidsai/cuml/issues/100
-#define MPI_CHECK_NO_THROW(call)                                        \
-  do {                                                                  \
-    int status = call;                                                  \
-    if (MPI_SUCCESS != status) {                                        \
-      int mpi_error_string_lenght = 0;                                  \
-      char mpi_error_string[MPI_MAX_ERROR_STRING];                      \
-      MPI_Error_string(status, mpi_error_string, &mpi_error_string_lenght);   \
-      CUML_LOG_ERROR(                                                   \
-        "MPI call='%s' at file=%s line=%d failed with %s ",             \
-        #call, __FILE__, __LINE__, mpi_error_string);                   \
-    }                                                                   \
+#define MPI_CHECK_NO_THROW(call)                                            \
+  do {                                                                      \
+    int status = call;                                                      \
+    if (MPI_SUCCESS != status) {                                            \
+      int mpi_error_string_lenght = 0;                                      \
+      char mpi_error_string[MPI_MAX_ERROR_STRING];                          \
+      MPI_Error_string(status, mpi_error_string, &mpi_error_string_lenght); \
+      CUML_LOG_ERROR("MPI call='%s' at file=%s line=%d failed with %s ",    \
+                     #call, __FILE__, __LINE__, mpi_error_string);          \
+    }                                                                       \
   } while (0)
 
 #define NCCL_CHECK(call)                                                       \
@@ -59,13 +58,13 @@
            ncclGetErrorString(status));                                        \
   } while (0)
 
-#define NCCL_CHECK_NO_THROW(call)                                       \
-  do {                                                                  \
-    ncclResult_t status = call;                                         \
-    if (status != ncclSuccess) {                                        \
-      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call,       \
-                     ncclGetErrorString(status));                       \
-    }                                                                   \
+#define NCCL_CHECK_NO_THROW(call)                                 \
+  do {                                                            \
+    ncclResult_t status = call;                                   \
+    if (status != ncclSuccess) {                                  \
+      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call, \
+                     ncclGetErrorString(status));                 \
+    }                                                             \
   } while (0)
 
 namespace ML {
