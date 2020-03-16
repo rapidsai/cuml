@@ -35,10 +35,10 @@ constexpr bool UCX_ENABLED = false;
 #include <exception>
 #include <memory>
 
+#include <cuda_runtime.h>
 #include <common/cumlHandle.hpp>
 #include <cuML_comms.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuda_runtime.h>
 
 #include <utils.h>
 
@@ -49,13 +49,13 @@ constexpr bool UCX_ENABLED = false;
            ncclGetErrorString(status));                                        \
   } while (0)
 
-#define NCCL_CHECK_NO_THROW(call)                                       \
-  do {                                                                  \
-    ncclResult_t status = call;                                         \
-    if (status != ncclSuccess) {                                        \
-      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call,       \
-                     ncclGetErrorString(status));                       \
-    }                                                                   \
+#define NCCL_CHECK_NO_THROW(call)                                 \
+  do {                                                            \
+    ncclResult_t status = call;                                   \
+    if (status != ncclSuccess) {                                  \
+      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call, \
+                     ncclGetErrorString(status));                 \
+    }                                                             \
   } while (0)
 
 namespace ML {
