@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ constexpr bool UCX_ENABLED = false;
 
 #include <common/cumlHandle.hpp>
 #include <cuML_comms.hpp>
-
+#include <cuml/common/logger.hpp>
 #include <cuda_runtime.h>
 
 #include <utils.h>
@@ -49,16 +49,13 @@ constexpr bool UCX_ENABLED = false;
            ncclGetErrorString(status));                                        \
   } while (0)
 
-//@todo adapt logging infrastructure for NCCL_CHECK_NO_THROW once available:
-//https://github.com/rapidsai/cuml/issues/100
-#define NCCL_CHECK_NO_THROW(call)                                              \
-  do {                                                                         \
-    ncclResult_t status = call;                                                \
-    if (ncclSuccess != status) {                                               \
-      std::fprintf(stderr,                                                     \
-                   "ERROR: NCCL call='%s' at file=%s line=%d failed with %s ", \
-                   #call, __FILE__, __LINE__, ncclGetErrorString(status));     \
-    }                                                                          \
+#define NCCL_CHECK_NO_THROW(call)                                       \
+  do {                                                                  \
+    ncclResult_t status = call;                                         \
+    if (status != ncclSuccess) {                                        \
+      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call,       \
+                     ncclGetErrorString(status));                       \
+    }                                                                   \
   } while (0)
 
 namespace ML {
