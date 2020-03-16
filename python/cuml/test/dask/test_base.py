@@ -13,6 +13,9 @@
 # limitations under the License.
 #
 
+import cupy
+import cudf
+
 from cuml.dask.cluster import KMeans
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.test.dask.utils import load_text_corpus
@@ -42,6 +45,7 @@ def test_getattr(cluster):
     kmeans_model.fit(X_cudf)
 
     assert kmeans_model.cluster_centers_ is not None
+    assert isinstance(kmeans_model.cluster_centers_, cudf.DataFrame)
 
     # Test getattr on trained distributed model
 
@@ -51,3 +55,4 @@ def test_getattr(cluster):
     nb_model.fit(X, y)
 
     assert nb_model.feature_count_ is not None
+    assert isinstance(nb_model.feature_count_, cupy.core.ndarray)
