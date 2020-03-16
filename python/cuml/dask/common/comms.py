@@ -179,7 +179,7 @@ def _func_init_nccl(sessionId, uniqueId):
 class ListenerThread(threading.Thread):
     def __init__(self, verbose):
         threading.Thread.__init__(self, daemon=True)
-        self.listener = ucp.create_listener(_connection_func)
+        self.listener = ucp.create_listener(_connection_func, guarantee_msg_order=False)
         self.port = self.listener.port
         self.verbose = verbose
 
@@ -305,7 +305,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
             ip, port = parse_host_port(k)
 
             ep = await ucp.create_endpoint(ip,
-                                           worker_info[k]["p"])
+                                           worker_info[k]["p"], False)
 
             eps[worker_info[k]["r"]] = ep
             count += 1
