@@ -42,7 +42,7 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/xgboost -c nvidia \
+conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cupy>=7,<8.0.0a0" \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
@@ -60,7 +60,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c rapidsai/label/x
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
-      "rapids-xgboost>=0.13" \
+      "xgboost====1.0.2dev.rapidsai0.13" \
       "lightgbm"
 
 
@@ -69,12 +69,6 @@ logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-d
 pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
 logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
 pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
-
-# Install XGBoost snapshot (1.0rc2)
-# TODO: automate pulling of latest nightlies: https://github.com/rapidsai/cuml/issues/1678
-logger "pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc2%2B69fc8a632f5d6a8afc66135ad4d8f102bb4e0d47-py2.py3-none-manylinux1_x86_64.whl --upgrade --no-deps"
-pip install https://s3-us-west-2.amazonaws.com/xgboost-nightly-builds/release_1.0.0/xgboost-1.0.0rc2%2B69fc8a632f5d6a8afc66135ad4d8f102bb4e0d47-py2.py3-none-manylinux1_x86_64.whl --upgrade --no-deps
-
 
 
 logger "Check versions..."
