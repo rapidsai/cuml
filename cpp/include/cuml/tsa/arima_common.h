@@ -90,8 +90,7 @@ struct ARIMAParams {
     if (order.Q)
       sma =
         (DataT*)alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
-    if (!tr)
-      sigma2 = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
+    sigma2 = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
   }
 
   /**
@@ -117,7 +116,7 @@ struct ARIMAParams {
       alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
     if (order.Q)
       alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
-    if (!tr) alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
+    alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
   }
 
   /**

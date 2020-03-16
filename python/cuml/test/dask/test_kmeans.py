@@ -13,15 +13,17 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
 import pytest
+
+from cuml.test.utils import unit_param
+from cuml.test.utils import quality_param
+from cuml.test.utils import stress_param
 
 from dask.distributed import Client, wait
 
-import numpy as np
-
-import cupy as cp
-
-from cuml.test.utils import unit_param, quality_param, stress_param
+from sklearn.metrics import adjusted_rand_score
 
 SCORE_EPS = 0.06
 
@@ -66,8 +68,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         else:
             assert cumlLabels.npartitions == n_workers
 
-        from sklearn.metrics import adjusted_rand_score
-
         cumlPred = cp.array(cumlLabels.compute())
 
         assert cumlPred.shape[0] == nrows
@@ -77,6 +77,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         labels = np.squeeze(y.compute().to_pandas().values)
 
         score = adjusted_rand_score(labels, cp.squeeze(cumlPred.get()))
+
+        print(str(score))
 
         assert 1.0 == score
 
@@ -104,6 +106,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                                cluster_std=0.01, verbose=False,
+                               shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
@@ -134,7 +137,6 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
         xformed_labels = cp.argmin(xformed.reshape((int(nrows),
                                                     int(nclusters))), axis=1)
 
-        from sklearn.metrics import adjusted_rand_score
         assert adjusted_rand_score(labels, cp.squeeze(xformed_labels.get()))
 
     finally:
@@ -160,6 +162,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                                cluster_std=0.01, verbose=False,
+                               shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
