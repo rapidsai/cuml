@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,11 +110,7 @@ class defaultDeviceAllocator : public deviceAllocator {
     return ptr;
   }
   virtual void deallocate(void* p, std::size_t, cudaStream_t) {
-    cudaError_t status = cudaFree(p);
-    if (cudaSuccess != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-    }
+    CUDA_CHECK_NO_THROW(cudaFree(p));
   }
 
   virtual ~defaultDeviceAllocator() {}
@@ -129,11 +125,7 @@ class defaultHostAllocator : public hostAllocator {
     return ptr;
   }
   virtual void deallocate(void* p, std::size_t, cudaStream_t) {
-    cudaError_t status = cudaFreeHost(p);
-    if (cudaSuccess != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-    }
+    CUDA_CHECK_NO_THROW(cudaFreeHost(p));
   }
 
   virtual ~defaultHostAllocator() {}
