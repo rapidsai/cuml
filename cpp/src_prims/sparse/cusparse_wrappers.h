@@ -141,19 +141,19 @@ inline void cusparsecoosortByRow(cusparseHandle_t handle, int m, int n, int nnz,
  * @defgroup Gemmi cusparse gemmi operations
  * @{
  */
-cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
-                               int nnz, const float *alpha, const float *A,
-                               int lda, const float *cscValB,
-                               const int *cscColPtrB, const int *cscRowIndB,
-                               const float *beta, float *C, int ldc) {
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
+                                      int nnz, const float *alpha, const float *A,
+                                      int lda, const float *cscValB,
+                                      const int *cscColPtrB, const int *cscRowIndB,
+                                      const float *beta, float *C, int ldc) {
   return cusparseSgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
-cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
-                               int nnz, const double *alpha, const double *A,
-                               int lda, const double *cscValB,
-                               const int *cscColPtrB, const int *cscRowIndB,
-                               const double *beta, double *C, int ldc) {
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
+                                      int nnz, const double *alpha, const double *A,
+                                      int lda, const double *cscValB,
+                                      const int *cscColPtrB, const int *cscRowIndB,
+                                      const double *beta, double *C, int ldc) {
   return cusparseDgemmi(handle, m, n, k, nnz, alpha, A, lda, cscValB,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
