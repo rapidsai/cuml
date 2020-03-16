@@ -23,6 +23,7 @@
 #include <sstream>
 #include <vector>
 #include "dataset.cuh"
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 namespace Bench {
