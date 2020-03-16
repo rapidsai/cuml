@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -182,13 +182,13 @@ struct CudaEventTimer {
    *       value given by `cudaEventElapsedTime()`.
    */
   ~CudaEventTimer() {
-    CUDA_CHECK(cudaEventRecord(stop, stream));
-    CUDA_CHECK(cudaEventSynchronize(stop));
+    CUDA_CHECK_NO_THROW(cudaEventRecord(stop, stream));
+    CUDA_CHECK_NO_THROW(cudaEventSynchronize(stop));
     float milliseconds = 0.0f;
-    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
+    CUDA_CHECK_NO_THROW(cudaEventElapsedTime(&milliseconds, start, stop));
     state->SetIterationTime(milliseconds / 1000.f);
-    CUDA_CHECK(cudaEventDestroy(start));
-    CUDA_CHECK(cudaEventDestroy(stop));
+    CUDA_CHECK_NO_THROW(cudaEventDestroy(start));
+    CUDA_CHECK_NO_THROW(cudaEventDestroy(stop));
   }
 
  private:
