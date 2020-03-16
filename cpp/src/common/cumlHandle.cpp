@@ -19,46 +19,8 @@
 #include <cuml/common/logger.hpp>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/cusolver_wrappers.h>
+#include <sparse/cusparse_wrappers.h>
 #include "../../src_prims/utils.h"
-
-//TODO: Delete CUBLAS_CHECK and CUSOLVER_CHECK once
-//      https://github.com/rapidsai/cuml/issues/239 is addressed
-#define CUSPARSE_CHECK(call)                                             \
-  {                                                                      \
-    cusparseStatus_t err;                                                \
-    if ((err = (call)) != CUSPARSE_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUSPARSE error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                                 \
-      switch (err) {                                                     \
-        case CUSPARSE_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_INVALID_VALUE");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_INTERNAL_ERROR");     \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED:                  \
-          fprintf(stderr, "%s\n",                                        \
-                  "CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED");          \
-          exit(1);                                                       \
-      }                                                                  \
-      exit(1);                                                           \
-    }                                                                    \
-  }
 
 namespace ML {
 
@@ -249,46 +211,22 @@ void cumlHandle_impl::createResources() {
 
 void cumlHandle_impl::destroyResources() {
   if (_cusparseInitialized) {
-    cusparseStatus_t status = cusparseDestroy(_cusparse_handle);
-    if (CUSPARSE_STATUS_SUCCESS != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUSPARSE_CHECK is not used.
-    }
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroy(_cusparse_handle));
   }
   if (_cusolverDnInitialized) {
-    cusolverStatus_t status = cusolverDnDestroy(_cusolverDn_handle);
-    if (CUSOLVER_STATUS_SUCCESS != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.
-    }
+    CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(_cusolverDn_handle));
   }
   if (_cusolverSpInitialized) {
-    cusolverStatus_t status = cusolverSpDestroy(_cusolverSp_handle);
-    if (CUSOLVER_STATUS_SUCCESS != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.
-    }
+    CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(_cusolverSp_handle));
   }
   if (_cublasInitialized) {
-    cublasStatus_t status = cublasDestroy(_cublas_handle);
-    if (CUBLAS_STATUS_SUCCESS != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUBLAS_CHECK is not used.
-    }
+    CUBLAS_CHECK_NO_THROW(cublasDestroy(_cublas_handle));
   }
   while (!_streams.empty()) {
-    cudaError_t status = cudaStreamDestroy(_streams.back());
-    if (cudaSuccess != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-    }
+    CUDA_CHECK_NO_THROW(cudaStreamDestroy(_streams.back()));
     _streams.pop_back();
   }
-  cudaError_t status = cudaEventDestroy(_event);
-  if (cudaSuccess != status) {
-    //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-    // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-  }
+  CUDA_CHECK_NO_THROW(cudaEventDestroy(_event));
 }
 
 HandleMap handleMap;

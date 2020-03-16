@@ -17,6 +17,8 @@
 #pragma once
 
 #include <cusparse_v2.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 namespace MLCommon {
 namespace Sparse {
@@ -37,7 +39,6 @@ inline const char* cusparseErr2Str(cusparseStatus_t err) {
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_EXECUTION_FAILED);
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_INTERNAL_ERROR);
     _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
-    _CUSPARSE_ERR_TO_STR(CUSPARSE_STATUS_NOT_SUPPORTED);
     default:
       return "CUSPARSE_STATUS_UNKNOWN";
   };
