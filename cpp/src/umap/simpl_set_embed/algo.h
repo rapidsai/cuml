@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include "random/rng_impl.h"
@@ -520,10 +522,12 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
                          epochs_per_sample.data(), stream);
 
-  if (params->verbose)
-    std::cout << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
-                                   "epochs_per_sample", stream)
-              << std::endl;
+  if (params->verbose) {
+    std::stringstream ss;
+    ss << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
+                            "epochs_per_sample", stream);
+    CUML_LOG_INFO("%s\n", ss.str().c_str());
+  }
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,
