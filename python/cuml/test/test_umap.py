@@ -382,7 +382,7 @@ def test_umap_knn_parameters(n_neighbors):
     def transform_embed(knn_graph=None):
         model = cuUMAP(verbose=False, random_state=42,
                        n_neighbors=n_neighbors)
-        model.fit(data, convert_dtype=True)
+        model.fit(data, knn_graph=knn_graph, convert_dtype=True)
         return model.transform(data, knn_graph=knn_graph,
                                convert_dtype=True)
 
@@ -415,7 +415,6 @@ def test_umap_knn_parameters(n_neighbors):
 
     # test_equality(embedding1, embedding2)
     test_equality(embedding2, embedding3)
-    # test_equality(embedding3, embedding4)
-    # test_equality(embedding4, embedding5)
+    test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)
-    # test_equality(embedding6, embedding7)
+    test_equality(embedding6, embedding7)

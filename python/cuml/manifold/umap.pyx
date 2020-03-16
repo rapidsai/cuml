@@ -452,6 +452,14 @@ class UMAP(Base):
     def _extract_knn_graph(self, knn_graph, convert_dtype=True):
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
             knn_graph = knn_graph.tocsr()
+            n_samples = knn_graph.shape[0]
+            reordering = knn_graph.data.reshape((n_samples, -1))
+            reordering = reordering.argsort()
+            n_neighbors = reordering.shape[1]
+            reordering += (np.arange(n_samples) * n_neighbors)[:, np.newaxis]
+            reordering = reordering.flatten()
+            knn_graph.indices = knn_graph.indices[reordering]
+            knn_graph.data = knn_graph.data[reordering]
 
         knn_indices = None
         if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
