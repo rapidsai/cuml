@@ -103,10 +103,9 @@ class Exception : public std::exception {
            cudaGetErrorString(status));                                  \
   } while (0)
 
-/** check for cuda runtime API errors but log error instead of raising
- *  exception.
- *  @todo: This will need to use our common logging infrastructure once
- *  that is in place.
+/**
+ * @brief check for cuda runtime API errors but log error instead of raising
+ *        exception.
  */
 #define CUDA_CHECK_NO_THROW(call)                                              \
   do {                                                                         \
