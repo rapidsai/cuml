@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <distance/distance.h>
@@ -44,11 +43,12 @@
 #include <common/tensor.hpp>
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/common/logger.hpp>
 
 #include <fstream>
+
 namespace ML {
 
-//@todo: Use GLOG once https://github.com/rapidsai/cuml/issues/100 is addressed.
 #define LOG(handle, verbose, fmt, ...)                                   \
   do {                                                                   \
     bool verbose_ = verbose;                                             \
@@ -58,11 +58,7 @@ namespace ML {
       verbose_ = verbose && (my_rank == 0);                              \
     }                                                                    \
     if (verbose_) {                                                      \
-      std::string msg;                                                   \
-      char verboseMsg[2048];                                             \
-      std::sprintf(verboseMsg, fmt, ##__VA_ARGS__);                      \
-      msg += verboseMsg;                                                 \
-      std::cerr << msg;                                                  \
+      CUML_LOG_INFO(fmt, ##__VA_ARGS__);                                 \
     }                                                                    \
   } while (0)
 
