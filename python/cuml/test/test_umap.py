@@ -373,11 +373,18 @@ def test_umap_knn_parameters(n_neighbors):
         n_samples=2000, n_features=10, centers=5, random_state=0)
     data = data.astype(np.float32)
 
-    def produce_embedding(knn_graph=None):
+    def fit_transform_embed(knn_graph=None):
         model = cuUMAP(verbose=False, random_state=42,
                        n_neighbors=n_neighbors)
         return model.fit_transform(data, knn_graph=knn_graph,
                                    convert_dtype=True)
+
+    def transform_embed(knn_graph=None):
+        model = cuUMAP(verbose=False, random_state=42,
+                       n_neighbors=n_neighbors)
+        model.fit(data, convert_dtype=True)
+        return model.transform(data, knn_graph=knn_graph,
+                               convert_dtype=True)
 
     def test_trustworthiness(embedding):
         trust = trustworthiness(data, embedding, 10)
@@ -390,18 +397,25 @@ def test_umap_knn_parameters(n_neighbors):
     neigh.fit(data)
     knn_graph = neigh.kneighbors_graph(data, mode="distance")
 
-    embedding1 = produce_embedding(None)
-    embedding2 = produce_embedding(knn_graph.tocsr())
-    embedding3 = produce_embedding(knn_graph.tocoo())
-    embedding4 = produce_embedding(knn_graph.tocsc())
+    embedding1 = fit_transform_embed(None)
+    embedding2 = fit_transform_embed(knn_graph.tocsr())
+    embedding3 = fit_transform_embed(knn_graph.tocoo())
+    embedding4 = fit_transform_embed(knn_graph.tocsc())
+    embedding5 = transform_embed(knn_graph.tocsr())
+    embedding6 = transform_embed(knn_graph.tocoo())
+    embedding7 = transform_embed(knn_graph.tocsc())
 
     test_trustworthiness(embedding1)
     test_trustworthiness(embedding2)
     test_trustworthiness(embedding3)
     test_trustworthiness(embedding4)
+    test_trustworthiness(embedding5)
+    test_trustworthiness(embedding6)
+    test_trustworthiness(embedding7)
 
     # test_equality(embedding1, embedding2)
-    # test_equality(embedding2, embedding3)
+    test_equality(embedding2, embedding3)
     # test_equality(embedding3, embedding4)
-
-    test_equality(embedding1, embedding4)
+    # test_equality(embedding4, embedding5)
+    test_equality(embedding5, embedding6)
+    # test_equality(embedding6, embedding7)

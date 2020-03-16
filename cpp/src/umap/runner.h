@@ -83,7 +83,8 @@ void _fit(const cumlHandle &handle,
           T *X,   // input matrix
           int n,  // rows
           int d,  // cols
-          long *knn_indices, T *knn_dists, UMAPParams *params, T *embeddings) {
+          int64_t *knn_indices, T *knn_dists, UMAPParams *params,
+          T *embeddings) {
   cudaStream_t stream = handle.getStream();
   auto d_alloc = handle.getDeviceAllocator();
 
@@ -153,7 +154,7 @@ template <typename T, int TPB_X>
 void _fit(const cumlHandle &handle,
           T *X,  // input matrix
           T *y,  // labels
-          int n, int d, long *knn_indices, T *knn_dists, UMAPParams *params,
+          int n, int d, int64_t *knn_indices, T *knn_dists, UMAPParams *params,
           T *embeddings) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -261,9 +262,10 @@ void _fit(const cumlHandle &handle,
 	 *
 	 */
 template <typename T, int TPB_X>
-void _transform(const cumlHandle &handle, T *X, int n, int d, long *knn_indices,
-                float *knn_dists, T *orig_X, int orig_n, T *embedding,
-                int embedding_n, UMAPParams *params, T *transformed) {
+void _transform(const cumlHandle &handle, T *X, int n, int d,
+                int64_t *knn_indices, float *knn_dists, T *orig_X, int orig_n,
+                T *embedding, int embedding_n, UMAPParams *params,
+                T *transformed) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
