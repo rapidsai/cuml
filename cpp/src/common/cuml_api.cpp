@@ -15,10 +15,10 @@
  */
 
 #include <cuml/cuml_api.h>
-#include <functional>
-#include "cumlHandle.hpp"
-#include "../../src_prims/utils.h"
 #include <cuml/common/utils.hpp>
+#include <functional>
+#include "../../src_prims/utils.h"
+#include "cumlHandle.hpp"
 
 namespace ML {
 namespace detail {
