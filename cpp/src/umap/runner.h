@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <cuml/common/logger.hpp>
 #include "optimize.h"
 #include "supervised.h"
 
@@ -89,7 +89,8 @@ void _fit(const cumlHandle &handle,
 
   int k = params->n_neighbors;
 
-  ML::Logger::get().setLevel(params->verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(params->verbose ? CUML_LEVEL_INFO
+                                             : CUML_LEVEL_WARN);
 
   CUML_LOG_INFO("n_neighbors=%d", params->n_neighbors);
 
@@ -145,7 +146,8 @@ void _fit(const cumlHandle &handle,
 
   int k = params->n_neighbors;
 
-  ML::Logger::get().setLevel(params->verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(params->verbose ? CUML_LEVEL_INFO
+                                             : CUML_LEVEL_WARN);
 
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
@@ -238,7 +240,8 @@ void _transform(const cumlHandle &handle, T *X, int n, int d, T *orig_X,
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  ML::Logger::get().setLevel(params->verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(params->verbose ? CUML_LEVEL_INFO
+                                             : CUML_LEVEL_WARN);
 
   CUML_LOG_INFO("Running transform");
 

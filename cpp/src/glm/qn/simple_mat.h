@@ -53,7 +53,7 @@ struct SimpleMat {
     len = m * n;
   }
 
-  void print(std::ostream& oss) const { oss << (*this) << std::endl; }
+  void print(std::ostream &oss) const { oss << (*this) << std::endl; }
 
   inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
                           const SimpleMat<T> &A, const bool transA,

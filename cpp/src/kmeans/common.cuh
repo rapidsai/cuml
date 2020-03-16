@@ -619,8 +619,7 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
 
   int n_pts_sampled = 0;
   for (int iter = 0; iter < n_clusters; iter++) {
-    LOG(handle, params.verbose, "KMeans++ - Iteration %d/%d", iter,
-        n_clusters);
+    LOG(handle, params.verbose, "KMeans++ - Iteration %d/%d", iter, n_clusters);
 
     MLCommon::copy(h_prob.data(), prob.data(), prob.numElements(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));

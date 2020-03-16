@@ -82,8 +82,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
   if (perplexity > n) perplexity = n;
 
-  CUML_LOG_INFO("Data size = (%d, %d) with dim = %d perplexity = %f", n, p,
-                dim, perplexity);
+  CUML_LOG_INFO("Data size = (%d, %d) with dim = %d perplexity = %f", n, p, dim,
+                perplexity);
   if (perplexity < 5 or perplexity > 50)
     CUML_LOG_WARN(
       "Perplexity should be within ranges (5, 50). Your results might be a"

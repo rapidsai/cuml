@@ -369,8 +369,8 @@ void initKMeansPlusPlus(const ML::cumlHandle_impl &handle,
   // Scalable kmeans++ paper claims 8 rounds is sufficient
   CUDA_CHECK(cudaStreamSynchronize(stream));
   int niter = std::min(8, (int)ceil(log(psi)));
-  LOG(handle, params.verbose,
-      "KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi), niter);
+  LOG(handle, params.verbose, "KMeans||: psi = %g, log(psi) = %g, niter = %d ",
+      psi, log(psi), niter);
 
   // <<<< Step-3 >>> : for O( log(psi) ) times do
   for (int iter = 0; iter < niter; ++iter) {
