@@ -33,7 +33,6 @@ from uuid import uuid1
 class RandomForestClassifier(DelayedPredictionMixin):
 
     """
-
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
     ensemble. This uses Dask to partition data over multiple GPUs
@@ -41,9 +40,9 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
     Currently, this API makes the following assumptions:
     * The set of Dask workers used between instantiation, fit,
-       and predict are all consistent
+    and predict are all consistent
     * Training data comes in the form of cuDF dataframes,
-       distributed so that each worker has at least one partition.
+    distributed so that each worker has at least one partition.
 
     Future versions of the API will support more flexible data
     distribution and additional input types.
