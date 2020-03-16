@@ -73,7 +73,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
   if (verbose) {
     Index_ batchSize = ceildiv<Index_>(n_rows, n_batches);
     if (n_batches > 1) {
-      CUML_LOG_INFO("Running batched training on %ld batches w/ %lf MB\n",
+      CUML_LOG_INFO("Running batched training on %ld batches w/ %lf MB",
                     (unsigned long)n_batches,
                     (double)(batchSize * n_rows * sizeof(T) * 1e-6));
     }

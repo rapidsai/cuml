@@ -222,27 +222,36 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
   MLCommon::updateHost(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
   ML::PatternSetter _("%v");
-  CUML_LOG_INFO("Full sample list size %u\n", nodestart[n_nodes]);
+  CUML_LOG_INFO("Full sample list size %u", nodestart[n_nodes]);
   MLCommon::updateHost(samplelist, d_samplelist, nodestart[n_nodes],
                        tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
 
-  CUML_LOG_INFO("Printing node count\n");
-  for (int i = 0; i < n_nodes + 1; i++) {
-    CUML_LOG_INFO("%u ", nodecount[i]);
-  }
-  CUML_LOG_INFO("\nPrinting node start\n");
-  for (int i = 0; i < n_nodes + 1; i++) {
-    CUML_LOG_INFO("%u ", nodestart[i]);
-  }
-  CUML_LOG_INFO("\nPrinting sample list\n");
-  for (int i = 0; i < n_nodes; i++) {
-    CUML_LOG_INFO("\nNode id %d --> ", i);
-    for (int j = nodestart[i]; j < nodestart[i + 1]; j++) {
-      CUML_LOG_INFO("%u ", samplelist[j]);
+  {
+    std::stringstream ss;
+    ss << "Printing node count\n";
+    for (int i = 0; i < n_nodes + 1; i++) {
+      ss << nodecount[i] << " ";
     }
+    CUML_LOG_INFO(ss.str().c_str());
+  } {
+    std::stringstream ss;
+    ss << "Printing node start\n";
+    for (int i = 0; i < n_nodes + 1; i++) {
+      ss << nodestart[i] << " ";
+    }
+    CUML_LOG_INFO(ss.str().c_str());
+  } {
+    std::stringstream ss;
+    ss << "Printing sample list\n";
+    for (int i = 0; i < n_nodes; i++) {
+      ss << "Node id " << i << " --> ";
+      for (int j = nodestart[i]; j < nodestart[i + 1]; j++) {
+        ss << samplelist[j] << " ";
+      }
+    }
+    CUML_LOG_INFO(ss.str().c_str());
   }
-  CUML_LOG_INFO("\n\n");
 }
 
 template <typename T, typename L>
@@ -251,7 +260,7 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
   CUDA_CHECK(cudaDeviceSynchronize());
   ML::PatternSetter _("%v");
   CUML_LOG_INFO(
-    "Node format --> (colid, quesval, best_metric, prediction, left_child) \n");
+    "Node format --> (colid, quesval, best_metric, prediction, left_child) ");
   int *h_nodelist = (int *)(tempmem->h_outgain->data());
   if (nodelist != nullptr) {
     MLCommon::updateHost(h_nodelist, nodelist, n_nodes, tempmem->stream);
@@ -261,14 +270,12 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
     int nodeid = i;
     if (nodelist != nullptr) nodeid = h_nodelist[i];
     SparseTreeNode<T, L> &node = sparsenodes[nodeid];
-    CUML_LOG_INFO("Node id %d --> (%d ,%f ,%f, ", i, node.colid, node.quesval,
-                  node.best_metric_val);
     std::stringstream ss;
-    ss << node.prediction;
+    ss << "Node id " << i << " --> (" << node.colid << " ," << node.quesval
+       << " ," << node.best_metric_val << ", ";
+    ss << node.prediction << " ," << node.left_child_id << " )";
+    if (gain != nullptr) ss << "  gain -->" << gain[i];
     CUML_LOG_INFO(ss.str().c_str());
-    CUML_LOG_INFO(" ,%d )", node.left_child_id);
-    if (gain != nullptr) CUML_LOG_INFO("  gain --> %f", gain[i]);
-    CUML_LOG_INFO("\n");
   }
 }
 

@@ -161,7 +161,7 @@ void grow_deep_tree_classification(
   }
   // Start of gather algorithm
   //Convertor
-  CUML_LOG_DEBUG("begin gather \n");
+  CUML_LOG_DEBUG("begin gather ");
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
   if (n_nodes == 0) return;

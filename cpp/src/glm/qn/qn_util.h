@@ -123,18 +123,18 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(grad, dev_scalar, stream);
 
-  CUML_LOG_INFO("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)\n", k,
+  CUML_LOG_INFO("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)", k,
                 fx, gnorm / std::max(T(1), xnorm), gnorm, xnorm);
   // Convergence test -- gradient
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
-    CUML_LOG_INFO("Converged after %d iterations: f(x)=%.6f\n", k, fx);
+    CUML_LOG_INFO("Converged after %d iterations: f(x)=%.6f", k, fx);
     return true;
   }
   // Convergence test -- objective function value
   if (param.past > 0) {
     if (k >= param.past &&
         std::abs((fx_hist[k % param.past] - fx) / fx) < param.delta) {
-      CUML_LOG_INFO("Insufficient change in objective value\n");
+      CUML_LOG_INFO("Insufficient change in objective value");
       return true;
     }
 
@@ -146,7 +146,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
 /*
  * Multiplies a vector g with the inverse hessian approximation, i.e.
  * drt = - H * g,
- * e.g. to compute the new search direction for g = \nabla f(x)
+ * e.g. to compute the new search direction for g = abla f(x)
  */
 template <typename T>
 inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
@@ -162,7 +162,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
   T ys = dot(svec, yvec, dev_scalar, stream);
   T yy = dot(yvec, yvec, dev_scalar, stream);
   if (ys == 0 || yy == 0) {
-    CUML_LOG_WARN("WARNING: zero detected\n");
+    CUML_LOG_WARN("WARNING: zero detected");
   }
   yhist[end] = ys;
 

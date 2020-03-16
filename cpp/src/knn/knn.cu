@@ -126,7 +126,7 @@ void kNN::fit(std::vector<float *> &input, std::vector<int> &sizes,
 
   int N = input.size();
 
-  CUML_LOG_INFO("N=%d\n", N);
+  CUML_LOG_INFO("N=%d", N);
 
   reset();
 

@@ -88,11 +88,11 @@ RF_metrics set_rf_metrics_regression(double mean_abs_error,
  */
 void print(const RF_metrics rf_metrics) {
   if (rf_metrics.rf_type == RF_type::CLASSIFICATION) {
-    CUML_LOG_INFO("Accuracy: %f\n", rf_metrics.accuracy);
+    CUML_LOG_INFO("Accuracy: %f", rf_metrics.accuracy);
   } else if (rf_metrics.rf_type == RF_type::REGRESSION) {
-    CUML_LOG_INFO("Mean Absolute Error: %f\n", rf_metrics.mean_abs_error);
-    CUML_LOG_INFO("Mean Squared Error: %f\n", rf_metrics.mean_squared_error);
-    CUML_LOG_INFO("Median Absolute Error: %f\n", rf_metrics.median_abs_error);
+    CUML_LOG_INFO("Mean Absolute Error: %f", rf_metrics.mean_abs_error);
+    CUML_LOG_INFO("Mean Squared Error: %f", rf_metrics.mean_squared_error);
+    CUML_LOG_INFO("Median Absolute Error: %f", rf_metrics.median_abs_error);
   }
 }
 
@@ -110,7 +110,7 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
   int n_unique_labels = 0;
   ML::Logger::get().setLevel(verbose ? CUML_LEVEL_DEBUG : CUML_LEVEL_INFO);
 
-  CUML_LOG_DEBUG("Preprocessing labels\n");
+  CUML_LOG_DEBUG("Preprocessing labels");
   for (int i = 0; i < n_rows; i++) {
     ret = labels_map.insert(std::pair<int, int>(labels[i], n_unique_labels));
     if (ret.second) {
@@ -118,9 +118,9 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
     }
     auto prev = labels[i];
     labels[i] = ret.first->second;  //Update labels **IN-PLACE**
-    CUML_LOG_DEBUG("Mapping %d to %d\n", prev, labels[i]);
+    CUML_LOG_DEBUG("Mapping %d to %d", prev, labels[i]);
   }
-  CUML_LOG_DEBUG("Finished preprocessing labels\n");
+  CUML_LOG_DEBUG("Finished preprocessing labels");
 }
 
 /**
@@ -133,7 +133,7 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
 void postprocess_labels(int n_rows, std::vector<int>& labels,
                         std::map<int, int>& labels_map, bool verbose) {
   ML::Logger::get().setLevel(verbose ? CUML_LEVEL_DEBUG : CUML_LEVEL_INFO);
-  CUML_LOG_DEBUG("Postrocessing labels\n");
+  CUML_LOG_DEBUG("Postrocessing labels");
   std::map<int, int>::iterator it;
   int n_unique_cnt = labels_map.size();
   std::vector<int> reverse_map;
@@ -145,9 +145,9 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
   for (int i = 0; i < n_rows; i++) {
     auto prev = labels[i];
     labels[i] = reverse_map[prev];
-    CUML_LOG_DEBUG("Mapping %d back to %d\n", prev, labels[i]);
+    CUML_LOG_DEBUG("Mapping %d back to %d", prev, labels[i]);
   }
-  CUML_LOG_DEBUG("Finished postrocessing labels\n");
+  CUML_LOG_DEBUG("Finished postrocessing labels");
 }
 
 /**
@@ -166,7 +166,7 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   params.seed = cfg_seed;
   params.n_streams = min(cfg_n_streams, omp_get_max_threads());
   if (params.n_streams == cfg_n_streams) {
-    CUML_LOG_WARN("Warning! Max setting Max streams to max openmp threads %d\n",
+    CUML_LOG_WARN("Warning! Max setting Max streams to max openmp threads %d",
                   omp_get_max_threads());
   }
   if (cfg_n_trees < params.n_streams) params.n_streams = cfg_n_trees;
@@ -213,10 +213,10 @@ void validity_check(const RF_params rf_params) {
  */
 void print(const RF_params rf_params) {
   ML::PatternSetter _("%v");
-  CUML_LOG_INFO("n_trees: %d\n", rf_params.n_trees);
-  CUML_LOG_INFO("bootstrap: %d\n", rf_params.bootstrap);
-  CUML_LOG_INFO("rows_sample: %f\n", rf_params.rows_sample);
-  CUML_LOG_INFO("n_streams: %d\n", rf_params.n_streams);
+  CUML_LOG_INFO("n_trees: %d", rf_params.n_trees);
+  CUML_LOG_INFO("bootstrap: %d", rf_params.bootstrap);
+  CUML_LOG_INFO("rows_sample: %f", rf_params.rows_sample);
+  CUML_LOG_INFO("n_streams: %d", rf_params.n_streams);
   DecisionTree::print(rf_params.tree_params);
 }
 
@@ -233,14 +233,14 @@ template <class T, class L>
 void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   ML::PatternSetter _("%v");
   if (!forest || !forest->trees) {
-    CUML_LOG_INFO("Empty forest\n");
+    CUML_LOG_INFO("Empty forest");
   } else {
-    CUML_LOG_INFO("Forest has %d trees, max_depth %d, and max_leaves %d\n",
+    CUML_LOG_INFO("Forest has %d trees, max_depth %d, and max_leaves %d",
                   forest->rf_params.n_trees,
                   forest->rf_params.tree_params.max_depth,
                   forest->rf_params.tree_params.max_leaves);
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      CUML_LOG_INFO("Tree #%d\n", i);
+      CUML_LOG_INFO("Tree #%d", i);
       if (summary) {
         DecisionTree::print_tree_summary<T, L>(&(forest->trees[i]));
       } else {

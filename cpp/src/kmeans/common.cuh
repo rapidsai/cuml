@@ -619,7 +619,7 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
 
   int n_pts_sampled = 0;
   for (int iter = 0; iter < n_clusters; iter++) {
-    LOG(handle, params.verbose, "KMeans++ - Iteration %d/%d\n", iter,
+    LOG(handle, params.verbose, "KMeans++ - Iteration %d/%d", iter,
         n_clusters);
 
     MLCommon::copy(h_prob.data(), prob.data(), prob.numElements(), stream);
@@ -631,7 +631,7 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
     int cIdx = d(gen) % n_pot_centroids;
 
     LOG(handle, params.verbose,
-        "Chosing centroid-%d randomly from %d potential centroids\n", cIdx,
+        "Chosing centroid-%d randomly from %d potential centroids", cIdx,
         n_pot_centroids);
 
     auto curCentroid = C.template view<2>({1, n_features}, {cIdx, 0});

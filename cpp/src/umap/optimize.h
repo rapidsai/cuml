@@ -216,7 +216,7 @@ void find_params_ab(UMAPParams *params,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  CUML_LOG_INFO("a=%f, b=%f\n", params->a, params->b);
+  CUML_LOG_INFO("a=%f, b=%f", params->a, params->b);
 
   delete coeffs_h;
 }

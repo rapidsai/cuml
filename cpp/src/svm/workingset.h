@@ -106,7 +106,7 @@ class WorkingSet {
     }
     n_ws = min(1024, n_ws);
     this->n_ws = n_ws;
-    CUML_LOG_INFO("Creating working set with %d elements\n", n_ws);
+    CUML_LOG_INFO("Creating working set with %d elements", n_ws);
     AllocateBuffers();
   }
 
@@ -184,9 +184,9 @@ class WorkingSet {
     if (n_already_selected < n_ws) {
       CUML_LOG_WARN(
         "Warning: could not fill working set, found only %d"
-        " elements\n",
+        " elements",
         n_already_selected);
-      CUML_LOG_INFO("Filling up with unused elements\n");
+      CUML_LOG_INFO("Filling up with unused elements");
       CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_train));
       n_already_selected +=
         GatherAvailable(n_already_selected, n_ws - n_already_selected, true);
