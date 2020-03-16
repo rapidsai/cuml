@@ -97,21 +97,21 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
        IntegrationKernel_time) /                                              \
       100.0;                                                                  \
     CUML_LOG_INFO(                                                            \
-      "SymmetrizeTime = %.lf (%.lf)\n"                                        \
-      "DistancesTime = %.lf (%.lf)\n"                                         \
-      "NormalizeTime = %.lf (%.lf)\n"                                         \
-      "PerplexityTime = %.lf (%.lf)\n"                                        \
-      "BoundingBoxKernel_time = %.lf (%.lf)\n"                                \
-      "ClearKernel1_time  = %.lf (%.lf)\n"                                    \
-      "TreeBuildingKernel_time  = %.lf (%.lf)\n"                              \
-      "ClearKernel2_time  = %.lf (%.lf)\n"                                    \
-      "SummarizationKernel_time  = %.lf (%.lf)\n"                             \
-      "SortKernel_time  = %.lf (%.lf)\n"                                      \
-      "RepulsionTime  = %.lf (%.lf)\n"                                        \
-      "Reduction_time  = %.lf (%.lf)\n"                                       \
-      "attractive_time  = %.lf (%.lf)\n"                                      \
-      "IntegrationKernel_time = %.lf (%.lf)\n"                                \
-      "TOTAL TIME = %.lf\n\n",                                                \
+      "SymmetrizeTime = %.lf (%.lf)"                                          \
+      "DistancesTime = %.lf (%.lf)"                                           \
+      "NormalizeTime = %.lf (%.lf)"                                           \
+      "PerplexityTime = %.lf (%.lf)"                                          \
+      "BoundingBoxKernel_time = %.lf (%.lf)"                                  \
+      "ClearKernel1_time  = %.lf (%.lf)"                                      \
+      "TreeBuildingKernel_time  = %.lf (%.lf)"                                \
+      "ClearKernel2_time  = %.lf (%.lf)"                                      \
+      "SummarizationKernel_time  = %.lf (%.lf)"                               \
+      "SortKernel_time  = %.lf (%.lf)"                                        \
+      "RepulsionTime  = %.lf (%.lf)"                                          \
+      "Reduction_time  = %.lf (%.lf)"                                         \
+      "attractive_time  = %.lf (%.lf)"                                        \
+      "IntegrationKernel_time = %.lf (%.lf)"                                  \
+      "TOTAL TIME = %.lf",                                                    \
       SymmetrizeTime, SymmetrizeTime / total, DistancesTime,                  \
       DistancesTime / total, NormalizeTime, NormalizeTime / total,            \
       PerplexityTime, PerplexityTime / total, BoundingBoxKernel_time,         \

@@ -166,15 +166,15 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print_tree_summary() const {
   PatternSetter _("%v");
-  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d\n",
+  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
                 depth_counter, leaf_counter);
-  CUML_LOG_INFO(" Total temporary memory usage--> %lf MB\n",
+  CUML_LOG_INFO(" Total temporary memory usage--> %lf MB",
                 ((double)total_temp_mem / (1024 * 1024)));
-  CUML_LOG_INFO(" Shared memory used --> %d B\n", shmem_used);
-  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s\n",
+  CUML_LOG_INFO(" Shared memory used --> %d B", shmem_used);
+  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
                 prepare_time + train_time);
-  CUML_LOG_INFO("   - preparing for fit time: %lf s\n", prepare_time);
-  CUML_LOG_INFO("   - tree growing time: %lf s\n", train_time);
+  CUML_LOG_INFO("   - preparing for fit time: %lf s", prepare_time);
+  CUML_LOG_INFO("   - tree growing time: %lf s", train_time);
 }
 
 /**
@@ -294,15 +294,15 @@ L DecisionTreeBase<T, L>::predict_one(
   int leftchild = sparsetree[idx].left_child_id;
   ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
   if (colid == -1) {
-    CUML_LOG_INFO("Leaf node. Predicting %f\n",
+    CUML_LOG_INFO("Leaf node. Predicting %f",
                   (float)sparsetree[idx].prediction);
     return sparsetree[idx].prediction;
   } else if (row[colid] <= quesval) {
-    CUML_LOG_INFO("Classifying Left @ node w/ column %d and value %f\n", colid,
+    CUML_LOG_INFO("Classifying Left @ node w/ column %d and value %f", colid,
                   (float)quesval);
     return predict_one(row, sparsetree, leftchild, verbose);
   } else {
-    CUML_LOG_INFO("Classifying Right @ node w/ column %d and value %f\n", colid,
+    CUML_LOG_INFO("Classifying Right @ node w/ column %d and value %f", colid,
                   (float)quesval);
     return predict_one(row, sparsetree, leftchild + 1, verbose);
   }
@@ -334,8 +334,8 @@ void DecisionTreeBase<T, L>::base_fit(
 
   validity_check(tree_params);
   if (tree_params.n_bins > n_sampled_rows) {
-    CUML_LOG_WARN("Calling with number of bins > number of rows!\n");
-    CUML_LOG_WARN("Resetting n_bins to %d.\n", n_sampled_rows);
+    CUML_LOG_WARN("Calling with number of bins > number of rows!");
+    CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
     tree_params.n_bins = n_sampled_rows;
   }
 

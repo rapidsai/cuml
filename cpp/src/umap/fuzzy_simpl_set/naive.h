@@ -323,11 +323,11 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   MLCommon::Sparse::COO<T> in(d_alloc, stream, n * n_neighbors, n, n);
 
   if (params->verbose) {
-    CUML_LOG_INFO("Smooth kNN Distances\n");
+    CUML_LOG_INFO("Smooth kNN Distances");
     auto str = MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream);
-    CUML_LOG_INFO("%s\n", str.c_str());
+    CUML_LOG_INFO("%s", str.c_str());
     str = MLCommon::arr2Str(rhos.data(), 25, "rhos", stream);
-    CUML_LOG_INFO("%s\n", str.c_str());
+    CUML_LOG_INFO("%s", str.c_str());
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
@@ -341,10 +341,10 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {
-    CUML_LOG_INFO("Compute Membership Strength\n");
+    CUML_LOG_INFO("Compute Membership Strength");
     std::stringstream ss;
-    ss << in << std::endl;
-    CUML_LOG_INFO("%s\n", ss.str().c_str());
+    ss << in;
+    CUML_LOG_INFO(ss.str().c_str());
   }
 
   /**

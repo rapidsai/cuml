@@ -164,9 +164,9 @@ class UMAPTest : public ::testing::Test {
     fitTest();
     xformTest();
     supervisedTest();
-    CUML_LOG_INFO("fit_score=%lf\n", fit_score);
-    CUML_LOG_INFO("xform_score=%lf\n", xformed_score);
-    CUML_LOG_INFO("supervised_score=%\fn", supervised_score);
+    CUML_LOG_INFO("fit_score=%lf", fit_score);
+    CUML_LOG_INFO("xform_score=%lf", xformed_score);
+    CUML_LOG_INFO("supervised_score=%f", supervised_score);
   }
 
   void TearDown() override {}

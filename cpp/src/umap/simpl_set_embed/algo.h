@@ -526,7 +526,7 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
     std::stringstream ss;
     ss << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
                             "epochs_per_sample", stream);
-    CUML_LOG_INFO("%s\n", ss.str().c_str());
+    CUML_LOG_INFO(ss.str().c_str());
   }
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),

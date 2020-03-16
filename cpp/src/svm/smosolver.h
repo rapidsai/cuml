@@ -157,13 +157,13 @@ class SmoSolver {
       n_inner_iter += host_return_buff[1];
       n_iter++;
       if (n_iter % 500 == 0) {
-        CUML_LOG_INFO("SMO iteration %d, diff %lf\n", n_iter, (double)diff);
+        CUML_LOG_INFO("SMO iteration %d, diff %lf", n_iter, (double)diff);
       }
     }
 
     CUML_LOG_INFO(
       "SMO solver finished after %d outer iterations, total inner"
-      " iterations, and diff %lf\n",
+      " iterations, and diff %lf",
       n_iter, n_inner_iter, diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C, svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
@@ -365,7 +365,7 @@ class SmoSolver {
     if (n_small_diff > nochange_steps) {
       CUML_LOG_ERROR(
         "SMO error: Stopping due to unchanged diff over %d"
-        " consecutive steps\n",
+        " consecutive steps",
         nochange_steps);
       keep_going = false;
     }
