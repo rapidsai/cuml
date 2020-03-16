@@ -450,37 +450,35 @@ class UMAP(Base):
             return cupy.array(embedding)
 
     def _extract_knn_graph(self, knn_graph, convert_dtype=True):
-        if isinstance(knn_graph, csc_matrix) or\
-           isinstance(knn_graph, cp_csc_matrix):
-            knn_graph = knn_graph.tocsr().sort_indices()
+        if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
+            knn_graph = knn_graph.tocsr()
 
         knn_indices = None
-        if isinstance(knn_graph, csr_matrix) or\
-           isinstance(knn_graph, cp_csr_matrix):
+        if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
             knn_indices = knn_graph.indices
-        elif isinstance(knn_graph, coo_matrix) or\
-                isinstance(knn_graph, cp_coo_matrix):
+        elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
             knn_indices = knn_graph.col
 
-        knn_indices_ctype = None
-        knn_dists_ctype = None
+        knn_indices_ptr, knn_dists_ptr = None, None
         if knn_indices is not None:
             knn_dists = knn_graph.data
-            self.knn_indices_m, knn_indices_ctype, _, _, _ = \
+            knn_indices_m, knn_indices_ptr, _, _, _ = \
                 input_to_dev_array(knn_indices, order='C',
                                    check_dtype=np.int64,
                                    convert_to_dtype=(np.int64
                                                      if convert_dtype
                                                      else None))
 
-            self.knn_dists_m, knn_dists_ctype, _, _, _ = \
+            knn_dists_m, knn_dists_ptr, _, _, _ = \
                 input_to_dev_array(knn_dists, order='C',
                                    check_dtype=np.float32,
                                    convert_to_dtype=(np.float32
                                                      if convert_dtype
                                                      else None))
 
-        return knn_indices_ctype, knn_dists_ctype
+            return (knn_indices_m, knn_indices_ptr),\
+                   (knn_dists_m, knn_dists_ptr)
+        return (None, None), (None, None)
 
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None):
@@ -499,7 +497,12 @@ class UMAP(Base):
             ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
-            knn_graph contains the distances of the KNN in a sparse way.
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
             Users using the knn_graph parameter provide UMAP
             with their own run of the KNN algorithm. This allows the user
             to pick a custom distance function (sometimes useful
@@ -532,8 +535,8 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        knn_indices_ctype, knn_dists_ctype = self._extract_knn_graph(
-            knn_graph, convert_dtype)
+        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
+            self._extract_knn_graph(knn_graph, convert_dtype)
 
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
@@ -610,17 +613,22 @@ class UMAP(Base):
             ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
-            knn_graph contains the distances of the KNN in a sparse way.
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
             Users using the knn_graph parameter provide UMAP
             with their own run of the KNN algorithm. This allows the user
             to pick a custom distance function (sometimes useful
-            for certain datasets) whereas UMAP uses euclidean by default.
+            on certain datasets) whereas UMAP uses euclidean by default.
             The custom distance function should match the metric used
             to train UMAP embeedings. Storing and reusing a knn_graph
             will also provide a speedup to the UMAP algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
-            COO/CSR preferred other formats will go through conversion to CSR
+            CSR/COO preferred other formats will go through conversion to CSR
 
         Returns
         -------
@@ -652,7 +660,12 @@ class UMAP(Base):
             ndarray, cuda array interface compliant array like CuPy
         knn_graph : sparse array-like (device or host)
             shape=(n_samples, n_samples)
-            knn_graph contains the distances of the KNN in a sparse way.
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
             Users using the knn_graph parameter provide UMAP
             with their own run of the KNN algorithm. This allows the user
             to pick a custom distance function (sometimes useful
@@ -662,7 +675,7 @@ class UMAP(Base):
             will also provide a speedup to the UMAP algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
-            COO/CSR preferred other formats will go through conversion to CSR
+            CSR/COO preferred other formats will go through conversion to CSR
 
                Returns
         -------
@@ -700,8 +713,8 @@ class UMAP(Base):
                                         order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
-        knn_indices_ctype, knn_dists_ctype = self._extract_knn_graph(
-            knn_graph, convert_dtype)
+        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
+            self._extract_knn_graph(knn_graph, convert_dtype)
 
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
