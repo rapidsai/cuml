@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,59 +19,48 @@
 #include <cuda_utils.h>
 #include <cusolverDn.h>
 #include <cusolverSp.h>
+#include <cuml/common/utils.hpp>
+#include <cuml/common/logger.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
 
-/** check for cusolver runtime API errors and assert accordingly */
-#define CUSOLVER_CHECK(call)                                             \
-  {                                                                      \
-    cusolverStatus_t err;                                                \
-    if ((err = (call)) != CUSOLVER_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUSOLVER error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                                 \
-      switch (err) {                                                     \
-        case CUSOLVER_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_VALUE");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INTERNAL_ERROR");     \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED:                  \
-          fprintf(stderr, "%s\n",                                        \
-                  "CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED");          \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_NOT_SUPPORTED:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_SUPPORTED");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ZERO_PIVOT:                                 \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ZERO_PIVOT");         \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_LICENSE:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_LICENSE");    \
-          exit(1);                                                       \
-      }                                                                  \
-      exit(1);                                                           \
-    }                                                                    \
-  }
+#define _CUSOLVER_ERR_TO_STR(err) case err: return #err;
+inline const char* cusolverErr2Str(cusolverStatus_t err) {
+  switch (err) {
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_SUCCESS);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_INITIALIZED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ALLOC_FAILED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INVALID_VALUE);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ARCH_MISMATCH);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_EXECUTION_FAILED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_INTERNAL_ERROR);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_ZERO_PIVOT);
+    _CUSOLVER_ERR_TO_STR(CUSOLVER_STATUS_NOT_SUPPORTED);
+    default: return "CUSOLVER_STATUS_UNKNOWN";
+  };
+}
+#undef _CUSOLVER_ERR_TO_STR
 
-///@todo: add a similar CUSOLVER_CHECK_NO_THROW
-/// (Ref: https://github.com/rapidsai/cuml/issues/229)
+/** check for cusolver runtime API errors and assert accordingly */
+#define CUSOLVER_CHECK(call)                                            \
+  do {                                                                  \
+    cusolverStatus_t err = call;                                        \
+    ASSERT(err = CUSOLVER_STATUS_SUCCESS,                               \
+           "CUSOLVER call='%s' got errorcode=%d err=%s", #call, err,    \
+           MLCommon::LinAlg::cusolverErr2Str(err));                     \
+  } while (0)
+
+/** check for cusolver runtime API errors but do not assert */
+#define CUSOLVER_CHECK_NO_THROW(call)                                   \
+  do {                                                                  \
+    cusolverStatus_t err = call;                                        \
+    if (err != CUSOLVER_STATUS_SUCCESS) {                               \
+      CUML_LOG_ERROR("CUSOLVER call='%s' got errorcode=%d err=%s", #call, err, \
+                     MLCommon::LinAlg::cusolverErr2Str(err));           \
+    }                                                                   \
+  } while (0)
 
 /**
  * @defgroup Getrf cusolver getrf operations
