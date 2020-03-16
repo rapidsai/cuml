@@ -216,6 +216,7 @@ class RandomForestClassifier(Base):
         Only relevant for GLOBAL_QUANTILE split_algo.
     seed : int (default = None)
         Seed for the random number generator. Unseeded by default.
+
     """
 
     variables = ['n_estimators', 'max_depth', 'handle',
@@ -426,17 +427,18 @@ class RandomForestClassifier(Base):
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
+
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -446,15 +448,15 @@ class RandomForestClassifier(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
-        fil_model :
-           A Forest Inference model which can be used to perform
-           inferencing on the random forest model.
+        fil_model : A Forest Inference model which can be used to perform
+            inferencing on the random forest model.
         """
 
         treelite_handle = self._obtain_treelite_handle()
@@ -746,18 +748,18 @@ class RandomForestClassifier(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
-                      number of different classes present in the dataset
+            number of different classes present in the dataset
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -767,10 +769,10 @@ class RandomForestClassifier(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
 
         Returns
         ----------
@@ -875,18 +877,18 @@ class RandomForestClassifier(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         y : NumPy
-           Dense vector (int) of shape (n_samples, 1)
+            Dense vector (int) of shape (n_samples, 1)
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         threshold : float
             threshold is used to for classification
             This is optional and required only while performing the
@@ -905,14 +907,14 @@ class RandomForestClassifier(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
 
         Returns
         -------
-        float
+        accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr

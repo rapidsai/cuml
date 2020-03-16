@@ -181,8 +181,8 @@ class RandomForestRegressor(Base):
         per node split.
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
-        If 'auto' then max_features=1/sqrt(n_features).
-        If 'sqrt' then max_features=1.0.
+        If 'auto' then max_features=1.0.
+        If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
     n_bins :  int (default = 8)
         Number of bins used by the split algorithm.
@@ -414,26 +414,28 @@ class RandomForestRegressor(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
         fil_model :
-           A Forest Inference model which can be used to perform
-           inferencing on the random forest model.
+            A Forest Inference model which can be used to perform
+            inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,
@@ -669,6 +671,7 @@ class RandomForestRegressor(Base):
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -684,12 +687,12 @@ class RandomForestRegressor(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -699,14 +702,16 @@ class RandomForestRegressor(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
         y: NumPy
-           Dense vector (int) of shape (n_samples, 1)
+            Dense vector (int) of shape (n_samples, 1)
+
         """
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
@@ -729,6 +734,7 @@ class RandomForestRegressor(Base):
               fil_sparse_format='auto', predict_model="GPU"):
         """
         Calculates the accuracy metric score of the model for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -746,8 +752,8 @@ class RandomForestRegressor(Base):
             'batch_tree_reorg' - similar to tree_reorg but predicting
             multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -759,10 +765,11 @@ class RandomForestRegressor(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
         mean_square_error : float or
@@ -830,6 +837,7 @@ class RandomForestRegressor(Base):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -848,6 +856,7 @@ class RandomForestRegressor(Base):
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params
