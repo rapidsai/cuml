@@ -19,7 +19,6 @@
 #include <cublas_v2.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
-#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
