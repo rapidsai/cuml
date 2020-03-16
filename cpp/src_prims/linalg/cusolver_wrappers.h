@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <cusolverDn.h>
 #include <cusolverSp.h>
 #include <cuml/common/logger.hpp>

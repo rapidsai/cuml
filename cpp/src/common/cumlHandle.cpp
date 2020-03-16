@@ -18,55 +18,11 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <linalg/cublas_wrappers.h>
+#include <linalg/cusolver_wrappers.h>
 #include "../../src_prims/utils.h"
 
 //TODO: Delete CUBLAS_CHECK and CUSOLVER_CHECK once
 //      https://github.com/rapidsai/cuml/issues/239 is addressed
-#define CUSOLVER_CHECK(call)                                             \
-  {                                                                      \
-    cusolverStatus_t err;                                                \
-    if ((err = (call)) != CUSOLVER_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUSOLVER error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                                 \
-      switch (err) {                                                     \
-        case CUSOLVER_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_VALUE");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INTERNAL_ERROR");     \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED:                  \
-          fprintf(stderr, "%s\n",                                        \
-                  "CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED");          \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_NOT_SUPPORTED:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_SUPPORTED");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ZERO_PIVOT:                                 \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ZERO_PIVOT");         \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_LICENSE:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_LICENSE");    \
-          exit(1);                                                       \
-      }                                                                  \
-      exit(1);                                                           \
-    }                                                                    \
-  }
 #define CUSPARSE_CHECK(call)                                             \
   {                                                                      \
     cusparseStatus_t err;                                                \
