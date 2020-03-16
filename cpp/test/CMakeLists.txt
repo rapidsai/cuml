@@ -268,6 +268,7 @@ if(BUILD_PRIMS_TESTS)
       prims/unary_op.cu
       prims/vMeasure.cu
       prims/weighted_mean.cu
+      ../src/common/logger.cpp  # because prims is header only!
       )
 
     add_dependencies(prims cub)
