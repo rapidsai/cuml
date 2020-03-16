@@ -80,6 +80,7 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/reduce.cu
     prims/rng.cu
     prims/main.cpp
+    ../src/common/logger.cpp  # because prims is header only!
     )
   add_dependencies(${CUML_PRIMS_BENCH_TARGET} cub)
   add_dependencies(${CUML_PRIMS_BENCH_TARGET} cutlass)

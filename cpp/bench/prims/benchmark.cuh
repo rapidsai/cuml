@@ -23,6 +23,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cuml/common/logger.hpp>
 
 namespace MLCommon {
 namespace Bench {
