@@ -30,11 +30,13 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, **kwargs):
+    def __init__(self, model_func, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed decomposition model
         """
-        super(BaseDecomposition, self).__init__(client, **kwargs)
+        super(BaseDecomposition, self).__init__(client=client,
+                                                verbose=verbose,
+                                                **kwargs)
         self._model_func = model_func
 
         # define attributes to make sure they
@@ -64,7 +66,7 @@ class DecompositionSyncFitMixin(object):
 
         X = self.client.persist(X)
 
-        data = DistributedDataHandler.single(data=X, client=self.client)
+        data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False)
