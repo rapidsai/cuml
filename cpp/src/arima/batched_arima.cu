@@ -19,6 +19,8 @@
 #include <iostream>
 #include <vector>
 
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
@@ -145,7 +147,6 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
     // non-transformed case: just use original parameters
     Tparams = params;
   }
-  Tparams.sigma2 = params.sigma2;
 
   if (!order.need_prep()) {
     batched_kalman_filter(handle, d_y, n_obs, Tparams, order, batch_size,
@@ -226,28 +227,69 @@ void information_criterion(cumlHandle& handle, const double* d_y,
 }
 
 /**
+ * Test that the parameters are valid for the inverse transform
+ * 
+ * @tparam isAr        Are these (S)AR or (S)MA parameters?
+ * @param[in]  params  Parameters
+ * @param[in]  pq      p for AR, q for MA, P for SAR, Q for SMA
+ */
+template <bool isAr>
+DI bool test_invparams(const double* params, int pq) {
+  double new_params[4];
+  double tmp[4];
+
+  constexpr double coef = isAr ? 1 : -1;
+
+  for (int i = 0; i < pq; i++) {
+    tmp[i] = params[i];
+    new_params[i] = tmp[i];
+  }
+
+  // Perform inverse transform and stop before atanh step
+  for (int j = pq - 1; j > 0; --j) {
+    double a = new_params[j];
+    for (int k = 0; k < j; ++k) {
+      tmp[k] =
+        (new_params[k] + coef * a * new_params[j - k - 1]) / (1 - (a * a));
+    }
+    for (int iter = 0; iter < j; ++iter) {
+      new_params[iter] = tmp[iter];
+    }
+  }
+
+  // Verify that the values are between -1 and 1
+  bool result = true;
+  for (int i = 0; i < pq; i++) {
+    result = result && !(new_params[i] <= -1 || new_params[i] >= 1);
+  }
+  return result;
+}
+
+/**
  * Auxiliary function of _start_params: least square approximation of an
  * ARMA model (with or without seasonality)
  * @note: in this function the non-seasonal case has s=1, not s=0!
  */
-static void _arma_least_squares(
-  cumlHandle& handle, double* d_ar, double* d_ma, double* d_sigma2,
-  const MLCommon::LinAlg::Batched::Matrix<double>& bm_y, int p, int q, int s,
-  bool estimate_sigma2, int k = 0, double* d_mu = nullptr) {
+void _arma_least_squares(cumlHandle& handle, double* d_ar, double* d_ma,
+                         double* d_sigma2,
+                         const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                         int p, int q, int s, bool estimate_sigma2, int k = 0,
+                         double* d_mu = nullptr) {
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
+  auto counting = thrust::make_counting_iterator(0);
 
   int batch_size = bm_y.batches();
   int n_obs = bm_y.shape().first;
 
   int ps = p * s, qs = q * s;
-  int p_ar = 2 * qs;
+  int p_ar = std::max(ps, 2 * qs);
   int r = std::max(p_ar + qs, ps);
 
   if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
-    // Too few observations for the estimate, fill with 0
+    // Too few observations for the estimate, fill with 0 (1 for sigma2)
     if (k)
       CUDA_CHECK(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
     if (p)
@@ -256,6 +298,12 @@ static void _arma_least_squares(
     if (q)
       CUDA_CHECK(
         cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
+    if (estimate_sigma2) {
+      thrust::device_ptr<double> sigma2_thrust =
+        thrust::device_pointer_cast(d_sigma2);
+      thrust::fill(thrust::cuda::par.on(stream), sigma2_thrust,
+                   sigma2_thrust + batch_size, 1.0);
+    }
     return;
   }
 
@@ -297,7 +345,6 @@ static void _arma_least_squares(
   }
 
   // Fill the first column of the matrix with 1 if we fit an intercept
-  auto counting = thrust::make_counting_iterator(0);
   if (k) {
     double* d_ls_ar_res = bm_ls_ar_res.raw_data();
     thrust::for_each(thrust::cuda::par.on(stream), counting,
@@ -372,15 +419,34 @@ static void _arma_least_squares(
                        d_sigma2[bid] = acc / static_cast<double>(n_obs - r - q);
                      });
   }
+
+  // If (S)AR or (S)MA are not valid for the inverse transform, set them to zero
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     if (p) {
+                       double* b_ar = d_ar + bid * p;
+                       bool valid = test_invparams<true>(b_ar, p);
+                       if (!valid) {
+                         for (int ip = 0; ip < p; ip++) b_ar[ip] = 0;
+                       }
+                     }
+                     if (q) {
+                       double* b_ma = d_ma + bid * q;
+                       bool valid = test_invparams<false>(b_ma, q);
+                       if (!valid) {
+                         for (int iq = 0; iq < q; iq++) b_ma[iq] = 0;
+                       }
+                     }
+                   });
 }
 
 /**
  * Auxiliary function of estimate_x0: compute the starting parameters for
  * the series pre-processed by estimate_x0
  */
-static void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
-                          const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
-                          const ARIMAOrder& order) {
+void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
+                   const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                   const ARIMAOrder& order) {
   // Estimate an ARMA fit without seasonality
   if (order.p + order.q + order.k)
     _arma_least_squares(handle, params.ar, params.ma, params.sigma2, bm_y,

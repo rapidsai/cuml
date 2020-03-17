@@ -33,9 +33,9 @@ from uuid import uuid1
 
 
 def create_local_data(m, n, centers, cluster_std, random_state,
-                      dtype, type, order='F'):
+                      dtype, type, order='F', shuffle=False):
     X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
-                          random_state=random_state)
+                          random_state=random_state, shuffle=shuffle)
 
     if type == 'array':
         X = rmm_cupy_ary(cp.asarray, X.astype(dtype), order=order)
@@ -67,7 +67,8 @@ def get_labels(t):
 
 def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
                center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32, output='dataframe', order='F'):
+               dtype=np.float32, output='dataframe',
+               order='F', shuffle=False):
     """
     Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
     for a randomly generated set of centroids.
@@ -141,7 +142,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
         parts.append(client.submit(create_local_data, worker_rows[idx], ncols,
                                    centers, cluster_std, random_state, dtype,
-                                   output,
+                                   output, order, shuffle,
                                    key="%s-%s" % (key, idx),
                                    workers=[worker]))
 

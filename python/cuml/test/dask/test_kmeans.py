@@ -13,15 +13,17 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
 import pytest
+
+from cuml.test.utils import unit_param
+from cuml.test.utils import quality_param
+from cuml.test.utils import stress_param
 
 from dask.distributed import Client, wait
 
-import numpy as np
-
-import cupy as cp
-
-from cuml.test.utils import unit_param, quality_param, stress_param
+from sklearn.metrics import adjusted_rand_score
 
 SCORE_EPS = 0.06
 
@@ -58,8 +60,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         cumlModel.fit(X_cudf)
         cumlLabels = cumlModel.predict(X_cudf, delayed_predict)
 
-        cumlLabels.compute_chunk_sizes()
-
         n_workers = len(list(client.has_what().keys()))
 
         # Verifying we are grouping partitions. This should be changed soon.
@@ -68,17 +68,17 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         else:
             assert cumlLabels.npartitions == n_workers
 
-        from sklearn.metrics import adjusted_rand_score
-
-        cumlPred = cumlLabels.compute().get()
+        cumlPred = cp.array(cumlLabels.compute())
 
         assert cumlPred.shape[0] == nrows
         assert np.max(cumlPred) == nclusters - 1
         assert np.min(cumlPred) == 0
 
-        labels = y.compute().to_pandas().values
+        labels = np.squeeze(y.compute().to_pandas().values)
 
-        score = adjusted_rand_score(labels.reshape(labels.shape[0]), cumlPred)
+        score = adjusted_rand_score(labels, cp.squeeze(cumlPred.get()))
+
+        print(str(score))
 
         assert 1.0 == score
 
@@ -106,6 +106,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                                cluster_std=0.01, verbose=False,
+                               shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
@@ -116,8 +117,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         cumlModel.fit(X_cudf)
 
-        labels = y.compute().to_pandas().values
-        labels = labels.reshape(labels.shape[0])
+        labels = np.squeeze(y.compute().to_pandas().values)
 
         xformed = cumlModel.transform(X_cudf).compute()
 
@@ -127,15 +127,17 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
             assert xformed.shape in [(nrows, nclusters), (nrows,)]
         else:
             assert xformed.shape == (nrows, nclusters)
-        xformed = xformed.get()
+
+        xformed = cp.array(xformed
+                           if len(xformed.shape) == 1
+                           else xformed.as_gpu_matrix())
 
         # The argmin of the transformed values should be equal to the labels
         # reshape is a quick manner of dealing with (nrows,) is not (nrows, 1)
-        xformed_labels = np.argmin(xformed.reshape((int(nrows),
+        xformed_labels = cp.argmin(xformed.reshape((int(nrows),
                                                     int(nclusters))), axis=1)
 
-        from sklearn.metrics import adjusted_rand_score
-        assert adjusted_rand_score(labels, xformed_labels)
+        assert adjusted_rand_score(labels, cp.squeeze(xformed_labels.get()))
 
     finally:
         client.close()
@@ -160,6 +162,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(nrows, ncols, nclusters, n_parts,
                                cluster_std=0.01, verbose=False,
+                               shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
@@ -172,11 +175,12 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         actual_score = cumlModel.score(X_cudf)
 
-        X = cp.asarray(X_cudf.compute().as_gpu_matrix())
+        X = cp.array(X_cudf.compute().as_gpu_matrix())
 
         predictions = cumlModel.predict(X_cudf).compute()
+        predictions = cp.array(predictions)
 
-        centers = cumlModel.cluster_centers_
+        centers = cp.array(cumlModel.cluster_centers_.as_gpu_matrix())
 
         expected_score = 0
         for idx, label in enumerate(predictions):

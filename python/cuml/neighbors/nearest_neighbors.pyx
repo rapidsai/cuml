@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ class NearestNeighbors(Base):
     the neighborhood as the closest `k` neighbors to each query point.
 
     Parameters
-        ----------
+    ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
     verbose : boolean (default=False)
@@ -124,12 +124,12 @@ class NearestNeighbors(Base):
       print(indices)
       print(distances)
 
+
     Output:
 
-    .. code-block:: python
+    .. code-block::
 
-
-    indices:
+        indices:
 
              0   1   2
         0    0  14  21
@@ -142,7 +142,7 @@ class NearestNeighbors(Base):
         23  23  16   9
         24  24  17  10
 
-    distances:
+        distances:
 
               0         1         2
         0   0.0  4.883116  5.570006
@@ -157,12 +157,12 @@ class NearestNeighbors(Base):
 
 
     Notes
-    ------
+    -----
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/notebook/blob/master/python/notebooks/nearest_neighbors_demo.ipynb>`_.
 
-    For additional docs, see `scikitlearn's NearestNeighbors
+    For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
     def __init__(self,
