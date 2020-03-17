@@ -18,6 +18,25 @@ from collections import OrderedDict
 
 from functools import reduce
 
+from cuml.dask.common.utils import parse_host_port
+
+
+def hosts_to_parts(futures):
+    """
+    Builds an ordered dict mapping each host to their list
+    of parts
+    :param futures: list of (worker, part) tuples
+    :return:
+    """
+    w_to_p_map = OrderedDict()
+    for w, p in futures:
+        host, port = parse_host_port(w)
+        host_key = [host, port]
+        if host_key not in w_to_p_map:
+            w_to_p_map[host_key] = []
+        w_to_p_map[host_key].append(p)
+    return w_to_p_map
+
 
 def workers_to_parts(futures):
     """
