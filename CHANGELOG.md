@@ -89,6 +89,7 @@
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
 - PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1887: Fix hasattr for missing attributes on base models
 
 # cuML 0.12.0 (Date TBD)
 
