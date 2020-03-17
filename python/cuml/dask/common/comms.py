@@ -204,6 +204,10 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
     :param sessionId: uuid Unique id for current instance
     :param r: float a random number to stop the function from being cached
     """
+
+    import os
+    os.environ["UCX_CUDA_IPC_CACHE"] = "n"
+
     if "ucp_listener" in worker_state(sessionId):
         print("Listener already started for sessionId=" +
               str(sessionId))
@@ -371,6 +375,9 @@ class CommsContext:
             warnings.warn("ucx-py not found. UCP Integration will "
                           "be disabled.")
             self.comms_p2p = False
+
+        if verbose:
+            print("Initializing comms!")
 
     def __del__(self):
         if self.nccl_initialized or self.ucx_initialized:

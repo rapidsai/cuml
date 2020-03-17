@@ -19,6 +19,7 @@
 # cython: language_level = 3
 
 import cudf
+import cupy as cp
 import numpy as np
 from numba import cuda
 from libc.stdint cimport uintptr_t
@@ -69,7 +70,8 @@ class ExponentialSmoothing(Base):
     data with exponentially decreasing impact. This is done by analyzing
     three components of the data: level, trend, and seasonality.
 
-    **Known Limitations**:
+    Known Limitations
+    -----------------
     This version of ExponentialSmoothing currently provides only a limited
     number of features when compared to the
     statsmodels.holtwinters.ExponentialSmoothing model. Noticeably, it lacks:
@@ -90,38 +92,38 @@ class ExponentialSmoothing(Base):
     issues in this model. Small values in endog may lead to faulty results.
     See https://github.com/rapidsai/cuml/issues/888 for more information.
 
-    **Known Differences**:
+    Known Differences
+    -----------------
     This version of ExponentialSmoothing differs from statsmodels in some
     other minor ways:
 
-        * Cannot pass trend component or damped trend component
-        * this version can take additional parameters `eps`,
-                        `start_periods`, `ts_num`, and `handle`
-        * Score returns SSE rather than gradient logL
-                     https://github.com/rapidsai/cuml/issues/876
-        * This version provides get_level(), get_trend(), get_season()
+    * Cannot pass trend component or damped trend component
+    * this version can take additional parameters `eps`,
+                    `start_periods`, `ts_num`, and `handle`
+    * Score returns SSE rather than gradient logL
+                 https://github.com/rapidsai/cuml/issues/876
+    * This version provides get_level(), get_trend(), get_season()
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
             from cuml import ExponentialSmoothing
             import cudf
             import numpy as np
-
             data = cudf.Series([1, 2, 3, 4, 5, 6,
-                                7, 8, 9, 10, 11, 12,
-                                2, 3, 4, 5, 6, 7,
-                                8, 9, 10, 11, 12, 13,
-                                3, 4, 5, 6, 7, 8, 9,
-                                10, 11, 12, 13, 14],
-                                dtype=np.float64)
+                               7, 8, 9, 10, 11, 12,
+                               2, 3, 4, 5, 6, 7,
+                               8, 9, 10, 11, 12, 13,
+                               3, 4, 5, 6, 7, 8, 9,
+                               10, 11, 12, 13, 14],
+                               dtype=np.float64)
             cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
             cu_hw.fit()
             cu_pred = cu_hw.forecast(4)
-            print("Forecasted points:\n", cu_pred)
+            print('Forecasted points:', cu_pred)
+    Output
 
-    Output:
 
     .. code-block:: python
 
@@ -132,7 +134,7 @@ class ExponentialSmoothing(Base):
             3    7.000000000000178
 
     Parameters
-    -----------
+    ----------
     endog : array-like (device or host)
         Acceptable formats: cuDF DataFrame, cuDF Series,
         NumPy ndarray, Numba device ndarray, cuda array interface
@@ -350,7 +352,7 @@ class ExponentialSmoothing(Base):
         Forecasts future points based on the fitted model.
 
         Parameters
-        -----------
+        ----------
         h : int (default=1)
             The number of points for each series to be forecasted.
         index : int (default=None)
@@ -422,7 +424,8 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) +
                                      " outside of range [0, " +
                                      str(self.ts_num) + "]")
-                return cudf.Series(self.forecasted_points[index, :h])
+                return cudf.Series(cp.asarray(
+                    self.forecasted_points[index, :h]))
         else:
             raise ValueError("Fit() the model before forecast()")
 
@@ -433,15 +436,15 @@ class ExponentialSmoothing(Base):
         **Note: Currently returns the SSE, rather than the gradient of the
                 LogLikelihood. https://github.com/rapidsai/cuml/issues/876
 
-        Parameters:
-        ------------
+        Parameters
+        ----------
         index : int (default=None)
             The index of the time series from which the SSE will be
             returned. if None, then all SSEs are returned in a cudf
             Series.
 
-        Returns:
-        -----------
+        Returns
+        -------
         score : np.float32, np.float64, or cudf.Series
             The SSE of the fitted model.
 
@@ -461,15 +464,15 @@ class ExponentialSmoothing(Base):
         """
         Returns the level component of the model.
 
-        Parameters:
-        ------------
+        Parameters
+        ----------
         index : int (default=None)
             The index of the time series from which the level will be
             returned. if None, then all level components are returned
             in a cudf.Series.
 
-        Returns:
-        ----------
+        Returns
+        -------
         level : cudf.Series or cudf.DataFrame
             The level component of the fitted model
         """
@@ -484,7 +487,7 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) + " outside "
                                      "of range [0, " + str(self.ts_num) + "]")
                 else:
-                    return cudf.Series(self.level[index])
+                    return cudf.Series(cp.asarray(self.level[index]))
         else:
             raise ValueError("Fit() the model to get level values")
 
@@ -492,15 +495,15 @@ class ExponentialSmoothing(Base):
         """
         Returns the trend component of the model.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         index : int (default=None)
             The index of the time series from which the trend will be
             returned. if None, then all trend components are returned
             in a cudf.Series.
 
-        Returns:
-        ---------
+        Returns
+        -------
         trend : cudf.Series or cudf.DataFrame
             The trend component of the fitted model.
         """
@@ -515,7 +518,7 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) + " outside "
                                      "of range [0, " + str(self.ts_num) + "]")
                 else:
-                    return cudf.Series(self.trend[index])
+                    return cudf.Series(cp.asarray(self.trend[index]))
         else:
             raise ValueError("Fit() the model to get trend values")
 
@@ -523,15 +526,15 @@ class ExponentialSmoothing(Base):
         """
         Returns the season component of the model.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         index : int (default=None)
             The index of the time series from which the season will be
             returned. if None, then all season components are returned
             in a cudf.Series.
 
-        Returns:
-        ---------
+        Returns
+        -------
         season: cudf.Series or cudf.DataFrame
             The season component of the fitted model
         """
@@ -546,6 +549,6 @@ class ExponentialSmoothing(Base):
                     raise IndexError("Index input: " + str(index) + " outside "
                                      "of range [0, " + str(self.ts_num) + "]")
                 else:
-                    return cudf.Series(self.season[index])
+                    return cudf.Series(cp.asarray(self.season[index]))
         else:
             raise ValueError("Fit() the model to get season values")

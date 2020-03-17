@@ -411,7 +411,7 @@ void leaf_eval_regression(float *gain, int curr_depth,
   sparse_nodelist.clear();
 
   int non_leaf_counter = 0;
-  bool condition_global = (curr_depth == max_depth);
+  bool condition_global = (curr_depth >= max_depth - 1);
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
