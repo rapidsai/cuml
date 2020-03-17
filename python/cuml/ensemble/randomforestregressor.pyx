@@ -499,9 +499,8 @@ class RandomForestRegressor(Base):
         self._set_output_type(X)
         cdef uintptr_t X_ptr, y_ptr
 
-
         # Reset the old tree data for new fit call
-        self.__del__() # To avoid mem leaks
+        self.__del__()  # To avoid mem leaks
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest

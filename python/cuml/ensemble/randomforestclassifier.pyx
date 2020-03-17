@@ -562,15 +562,14 @@ class RandomForestClassifier(Base):
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
-
         # Reset the old tree data for new fit call
-        self.__del__() # To avoid memory leak
+        self.__del__()  # To avoid memory leak
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
-        self.rf_forest64 = <size_t> rf_forest64    
+        self.rf_forest64 = <size_t> rf_forest64
 
         if self.seed is None:
             seed_val = <uintptr_t>NULL
