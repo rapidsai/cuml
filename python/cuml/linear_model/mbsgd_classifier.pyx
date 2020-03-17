@@ -67,18 +67,25 @@ class MBSGDClassifier(Base):
 
     Parameters
     -----------
-    loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
+    loss : {'hinge', 'log', 'squared_loss'} (default = 'squared_loss')
        'hinge' uses linear SVM
+
        'log' uses logistic regression
+
        'squared_loss' uses linear regression
-    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
+
+    penalty: {'none', 'l1', 'l2', 'elasticnet'} (default = 'none')
        'none' does not perform any regularization
+
        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
        of coefficients
+
        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
        the coefficients
+
        'elasticnet' performs Elastic Net regularization which is a weighted
        average of L1 and L2 norms
+
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
@@ -96,10 +103,13 @@ class MBSGDClassifier(Base):
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
-                    'adaptive' (default = 'constant')
+    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'}
+        (default = 'constant')
+
         `optimal` option will be supported in a future version
+
         `constant` keeps the learning rate constant
+
         `adaptive` changes the learning rate if the training loss or the
         validation accuracy does not improve for `n_iter_no_change` epochs.
         The old learning rate is generally divided by 5
@@ -108,7 +118,7 @@ class MBSGDClassifier(Base):
 
     Notes
     ------
-    For additional docs, see `scikitlearn's OLS
+    For additional docs, see `scikit-learn's SGDClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
 

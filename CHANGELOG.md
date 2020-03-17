@@ -47,6 +47,7 @@
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1824: C++: improving the performance of UMAP algo
 - PR #1816: Add ARIMA notebook
+- PR #1856: Update docs for 0.13
 - PR #1827: Add HPO demo Notebook
 - PR #1825: `--nvtx` option in `build.sh`
 - PR #1847: Update XGBoost version for CI
