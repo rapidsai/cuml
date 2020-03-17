@@ -26,6 +26,7 @@ import math
 import numpy as np
 import rmm
 import warnings
+import time
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -321,7 +322,6 @@ class RandomForestClassifier(Base):
         cdef size_t params_t = <size_t> self.rf_forest
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*>params_t
-
         cdef size_t params_t64 = <size_t> self.rf_forest64
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             <RandomForestMetaData[double, int]*>params_t64
@@ -563,12 +563,14 @@ class RandomForestClassifier(Base):
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
         # Reset the old tree data for new fit call
+        self.__del__() # To avoid memory leak
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
-        self.rf_forest64 = <size_t> rf_forest64
+        self.rf_forest64 = <size_t> rf_forest64    
+
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -831,7 +833,6 @@ class RandomForestClassifier(Base):
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
