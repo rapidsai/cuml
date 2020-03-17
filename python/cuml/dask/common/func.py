@@ -22,7 +22,7 @@ from toolz import first
 def reduce_func_add(a, b): return a + b if b is not None else a
 
 
-def tree_reduce(delayed_objs, delayed_func=reduce_func_add, client=None):
+def tree_reduce(delayed_objs, func=reduce_func_add, client=None):
     """
     Performs a binary tree reduce on an associative
     and commutative function in parallel across
@@ -34,7 +34,7 @@ def tree_reduce(delayed_objs, delayed_func=reduce_func_add, client=None):
 
     Parameters
     ----------
-    delayed_func : dask.delayed function
+    func : Python function or dask.delayed function
         Delayed function to use for reduction. The reduction function
         should be able to handle the case where the second argument is
         None, and should just return a in this case. This is done to
@@ -59,8 +59,11 @@ def tree_reduce(delayed_objs, delayed_func=reduce_func_add, client=None):
             left = delayed_objs[i]
             right = delayed_objs[i+1]\
                 if i < n_delayed_objs - 1 else None
-            lazy = client.submit(delayed_func, [left, right])
-            new_delayed_objs.append(lazy)
+            if isinstance(func, dask.delayed):
+                obj = func([left, right])
+            else:
+                obj = client.submit(func, [left, right])
+            new_delayed_objs.append(obj)
         delayed_objs = new_delayed_objs
 
     return first(delayed_objs)

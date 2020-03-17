@@ -20,8 +20,8 @@ from toolz import first
 
 from dask.distributed import wait
 import dask.array
-from dask.array.reductions import reduction
-from functools import reduce
+
+from cuml.dask.common.part_utils import workers_to_parts
 
 from cuml.utils import with_cupy_rmm
 
@@ -143,7 +143,7 @@ class MultinomialNB(BaseEstimator,
 
         for model in models[1:]:
             modela.feature_count_ += model.feature_count_
-            modela.class_count_  += model.class_count_
+            modela.class_count_ += model.class_count_
         modela.update_log_probs()
         return modela
 
@@ -186,14 +186,13 @@ class MultinomialNB(BaseEstimator,
         models = [self.client.submit(self._fit, part, classes, self.kwargs)
                   for w, part in futures.gpu_futures]
 
-        from cuml.dask.common.part_utils import workers_to_parts
-
         workers = [(first(self.client.who_has(m)), m) for m in models]
 
         worker_parts = workers_to_parts(workers)
 
         # Merge within each worker
-        models = [self.client.submit(self._merge_counts_to_model, p) for w, p in worker_parts.items()]
+        models = [self.client.submit(self._merge_counts_to_model, p)
+                  for w, p in worker_parts.items()]
         # Merge across workers
         self.local_model = tree_reduce(models, self._merge_counts_to_model)
 
