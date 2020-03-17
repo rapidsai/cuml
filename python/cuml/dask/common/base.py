@@ -18,6 +18,11 @@ import dask
 import numpy as np
 from toolz import first
 
+import cudf.comm.serialize  # noqa: F401
+
+from cuml import Base
+from cuml.common.array import CumlArray
+
 from dask_cudf.core import DataFrame as dcDataFrame
 
 from dask.distributed import default_client
@@ -33,6 +38,62 @@ class BaseEstimator(object):
         self.client = default_client() if client is None else client
         self.verbose = verbose
         self.kwargs = kwargs
+
+    @staticmethod
+    @dask.delayed
+    def _get_model_attr(model, name):
+        if hasattr(model, name):
+            return getattr(model, name)
+        else:
+            raise ValueError("Attribute %s does not exist on model %s" %
+                             (name, type(model)))
+
+    def __getattr__(self, attr):
+        """
+        Method gives access to the correct format of cuml Array attribute to
+        the users and proxies attributes to the underlying trained model.
+
+        If the attribute being requested is not directly on the local object,
+        this function will see if the local object contains the attribute
+        prefixed with an _. In the case the attribute does not exist on this
+        local instance, the request will be proxied to self.local_model and
+        will be fetched either locally or remotely depending on whether
+        self.local_model is a local object instance or a future.
+        """
+        real_name = '_' + attr
+
+        # First check locally for attr
+        if attr in self.__dict__:
+            ret_attr = self.__dict__[attr]
+
+        # Next check locally for _ prefixed attr
+        elif real_name in self.__dict__:
+            ret_attr = self.__dict__[real_name]
+
+        # Finally, check the trained model (this is done as a
+        # last resort since fetching the attribute from the
+        # distributed model will incur a higher cost than
+        # local attributes.
+        elif "local_model" in self.__dict__:
+            local_model = self.__dict__["local_model"]
+
+            if isinstance(local_model, Base):
+                # If model is not distributed, just return the
+                # requested attribute
+                ret_attr = getattr(local_model, attr)
+            else:
+                # Otherwise, fetch the attribute from the distributed
+                # model and return it
+                ret_attr = BaseEstimator._get_model_attr(
+                    self.__dict__["local_model"], attr).compute()
+        else:
+            raise ValueError("Attribute %s not found in %s" %
+                             (attr, type(self)))
+
+        if isinstance(ret_attr, CumlArray):
+            return ret_attr.to_output(self.output_type)
+        else:
+            return ret_attr
 
 
 class DelayedParallelFunc(object):
