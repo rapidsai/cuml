@@ -22,6 +22,27 @@ n_gb_data = np.asarray([2], dtype=int)
 base_n_features = np.asarray([250], dtype=int)
 
 # ideal_benchmark_f = open('/gpfs/fs1/dgala/b_outs/ideal_benchmark_f.csv', 'a')
+def make_client(n_workers=2):
+    cluster = LocalCUDACluster(n_workers=n_workers)
+    client = Client(cluster)
+    return client
+
+
+def check_order(x):
+    print(x.flags.f_contiguous, x.strides)
+    return x
+
+
+def transpose_and_move(X, client, workers, n_samples, n_workers, n_features):
+    futures = client.sync(extract_arr_partitions, X, client)
+    futures = [client.submit(cp.array, futures[i][1], order="F", workers=[workers[i]]) for i in range(len(futures))]
+    wait([futures])
+
+    X = [da.from_delayed(dask.delayed(x), meta=cp.zeros(1, dtype=cp.float64), shape=(n_samples / n_workers, n_features), dtype=cp.float64) for x in futures]
+    X = da.concatenate(X, axis=0, allow_unknown_chunksizes=True)
+    # X_arr = X_arr.map_blocks(check_order, dtype=cp.float32)
+    return X
+    # return X_arr
 
 def _read_data(file_list, n_samples, n_features):
     print(file_list)
@@ -99,29 +120,6 @@ def dask_mse(ytest, yhat, client, workers):
 
 def set_alloc():
     cp.cuda.set_allocator(rmm.rmm_cupy_allocator)
-
-
-def make_client(n_workers=2):
-    cluster = LocalCUDACluster(n_workers=n_workers)
-    client = Client(cluster)
-    return client
-
-
-def check_order(x):
-    print(x.flags.f_contiguous, x.strides)
-    return x
-
-
-def transpose_and_move(X, client, workers, n_samples, n_workers, n_features):
-    futures = client.sync(extract_arr_partitions, X, client)
-    futures = [client.submit(cp.array, futures[i][1], order="F", workers=[workers[i]]) for i in range(len(futures))]
-    wait([futures])
-
-    X = [da.from_delayed(dask.delayed(x), meta=cp.zeros(1, dtype=cp.float64), shape=(n_samples / n_workers, n_features), dtype=cp.float64) for x in futures]
-    X = da.concatenate(X, axis=0, allow_unknown_chunksizes=True)
-    # X_arr = X_arr.map_blocks(check_order, dtype=cp.float32)
-    return X
-    # return X_arr
 
 
 def run_ideal_benchmark(n_workers, X_filepath, y_filepath, n_gb, n_features, scheduler_file):
