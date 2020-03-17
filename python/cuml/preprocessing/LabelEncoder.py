@@ -15,27 +15,9 @@
 #
 
 import cudf
-import nvcategory
-import rmm
-import numpy as np
+import cupy as cp
 
-
-def _enforce_str(y: cudf.Series) -> cudf.Series:
-    ''' Ensure that nvcategory is being given strings
-    '''
-    if y.dtype != "object":
-        return y.astype("str")
-    return y
-
-
-def _enforce_npint32(y: cudf.Series) -> cudf.Series:
-    if y.dtype != np.int32:
-        return y.astype(np.int32)
-    return y
-
-
-def _get_nvstring_from_series(y: cudf.Series):
-    return y._data[list(y._data.keys())[0]].nvstrings
+from cuml.utils.memory_utils import with_cupy_rmm
 
 
 class LabelEncoder(object):
@@ -117,15 +99,16 @@ class LabelEncoder(object):
     """
 
     def __init__(self):
-        self._cats: nvcategory.nvcategory = None
-        self._dtype = None
+        self.classes_ = None
+        self.dtype = None
         self._fitted: bool = False
 
     def _check_is_fitted(self):
         if not self._fitted:
             raise RuntimeError("Model must first be .fit()")
 
-    def fit(self, y: cudf.Series) -> "LabelEncoder":
+    @with_cupy_rmm
+    def fit(self, y):
         """
         Fit a LabelEncoder (nvcategory) instance to a set of categories
 
@@ -140,16 +123,12 @@ class LabelEncoder(object):
         self : LabelEncoder
             A fitted instance of itself to allow method chaining
         """
-        self._dtype = y.dtype
+        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
-        y = _enforce_str(y)
+        print(self.dtype)
 
-        nvs = _get_nvstring_from_series(y)
-
-        if nvs is not None:
-            self._cats = nvcategory.from_strings(nvs)
-        else:
-            self._cats = {}
+        y = y.astype('category')
+        self.classes_ = y._column.categories
 
         self._fitted = True
         return self
@@ -179,16 +158,17 @@ class LabelEncoder(object):
             if a category appears that was not seen in `fit`
         """
         self._check_is_fitted()
-        y = _enforce_str(y)
-        encoded = cudf.Series(
-            nvcategory.from_strings(_get_nvstring_from_series(y))
-            .set_keys(self._cats.keys())
-            .values()
-        )
 
-        if encoded.isin([-1]).any():
+        y = y.astype('category')
+
+        encoded = y.cat.set_categories(self.classes_)._column.codes
+
+        encoded = cudf.Series(encoded)
+
+        if encoded.has_nulls:
             raise KeyError("Attempted to encode unseen key")
-        return encoded
+
+        return cudf.Series(encoded)
 
     def fit_transform(self, y: cudf.Series) -> cudf.Series:
         """
@@ -199,27 +179,13 @@ class LabelEncoder(object):
         """
         self._dtype = y.dtype
 
-        # Convert y to nvstrings series, if it isn't one
-        y = _enforce_str(y)
-
-        # Bottleneck is here, despite everything being done on the device
-
-        nvs = _get_nvstring_from_series(y)
-
-        if nvs is not None:
-            self._cats = nvcategory.from_strings(nvs)
-        else:
-            self._cats = {}
+        y = y.astype('category')
+        self.classes_ = y._column.categories
 
         self._fitted = True
-        arr: rmm.device_array = rmm.device_array(
-            len(y), dtype=np.int32
-        )
+        return cudf.Series(y._column.codes)
 
-        if nvs is not None:
-            self._cats.values(devptr=arr.device_ctypes_pointer.value)
-        return cudf.Series(arr)
-
+    @with_cupy_rmm
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
         Revert ordinal label to original label
@@ -241,18 +207,18 @@ class LabelEncoder(object):
             raise TypeError(
                 'Input of type {} is not cudf.Series'.format(type(y)))
 
-        # check if y's dtype is np.int32, otherwise convert it
-        y = _enforce_npint32(y)
-
         # check if ord_label out of bound
         ord_label = y.unique()
-        category_num = len(self._cats.keys())
+        category_num = len(self.classes_)
         for ordi in ord_label:
             if ordi < 0 or ordi >= category_num:
                 raise ValueError(
                     'y contains previously unseen label {}'.format(ordi))
-        # convert ordinal label to string label
-        reverted = cudf.Series(self._cats.gather_strings(
-            y.data.ptr, len(y)))
 
-        return reverted
+        y = y.astype(self.dtype)
+
+        ran_idx = cudf.Series(cp.arange(len(self.classes_))).astype(self.dtype)
+
+        reverted = y._column.find_and_replace(ran_idx, self.classes_, False)
+
+        return cudf.Series(reverted)
