@@ -15,24 +15,25 @@
 #
 
 import cupy as cp
+import dask
+from toolz import first
 
-from uuid import uuid1
+from dask.distributed import wait
 
 from cuml.utils import with_cupy_rmm
 
-from cuml.naive_bayes import MultinomialNB as MNB
+from cuml.dask.common.base import BaseEstimator
+from cuml.dask.common.base import DelayedPredictionMixin
 
-import dask
-
-from cuml.dask.common import extract_arr_partitions, \
-    workers_to_parts
-
+from cuml.dask.common.func import tree_reduce
+from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.utils import rmm_cupy_ary
 
-from dask.distributed import default_client
+from cuml.naive_bayes import MultinomialNB as MNB
 
 
-class MultinomialNB(object):
+class MultinomialNB(BaseEstimator,
+                    DelayedPredictionMixin):
 
     """
     Distributed Naive Bayes classifier for multinomial models
@@ -91,7 +92,7 @@ class MultinomialNB(object):
     0.9244298934936523
 
     """
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, client=None, verbose=False, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
@@ -101,25 +102,26 @@ class MultinomialNB(object):
 
         client : dask.distributed.Client optional Dask client to use
         """
+        super(MultinomialNB, self).__init__(client=client, verbose=verbose,
+                                            **kwargs)
 
-        self.client_ = client if client is not None else default_client()
-        self.local_model = None
-        self.kwargs = kwargs
+        self.datatype = "cupy"
+
+        # Make any potential model args available and catch any potential
+        # ValueErrors before distributed training begins.
+        self.local_model = MNB(**kwargs)
 
     @staticmethod
+    @dask.delayed
     @with_cupy_rmm
     def _fit(Xy, classes, kwargs):
 
+        X, y = Xy
+
         model = MNB(**kwargs)
+        model.partial_fit(X, y, classes=classes)
 
-        for x, y in Xy:
-            model.partial_fit(x, y, classes=classes)
-
-        return model.class_count_, model.feature_count_
-
-    @staticmethod
-    def _predict(model, X):
-        return [model.predict(x) for x in X]
+        return model
 
     @staticmethod
     def _unique(x):
@@ -132,6 +134,13 @@ class MultinomialNB(object):
     @staticmethod
     def _get_feature_counts(x):
         return x[1]
+
+    @staticmethod
+    def _reduce_models(modela, modelb):
+        modela.feature_count_ += modelb.feature_count_
+        modela.class_count_ += modelb.class_count_
+        modela.update_log_probs()
+        return modela
 
     @with_cupy_rmm
     def fit(self, X, y, classes=None):
@@ -163,53 +172,22 @@ class MultinomialNB(object):
             raise ValueError("X must be chunked by row only. "
                              "Multi-dimensional chunking is not supported")
 
-        worker_parts = self.client_.sync(extract_arr_partitions,
-                                         [X, y])
+        futures = DistributedDataHandler.create([X, y], self.client)
 
-        worker_parts = workers_to_parts(worker_parts)
+        classes = y.map_blocks(
+            MultinomialNB._unique) \
+            if classes is None else dask.delayed(classes)
 
-        n_features = X.shape[1]
+        kwargs = dask.delayed(self.kwargs, pure=False)
 
-        classes = MultinomialNB._unique(y.map_blocks(
-            MultinomialNB._unique).compute()) if classes is None else classes
+        counts = [MultinomialNB._fit(part, classes, kwargs)
+                  for w, part in futures.gpu_futures]
 
-        n_classes = len(classes)
+        self.local_model = self.client.persist(
+            tree_reduce(counts, self._reduce_models), traverse=False)
 
-        counts = [self.client_.submit(
-            MultinomialNB._fit,
-            p,
-            classes,
-            self.kwargs,
-            workers=[w]
-        ) for w, p in worker_parts.items()]
-
-        class_counts = self.client_.compute(
-            [self.client_.submit(MultinomialNB._get_class_counts, c)
-             for c in counts], sync=True)
-        feature_counts = self.client_.compute(
-            [self.client_.submit(MultinomialNB._get_feature_counts, c)
-             for c in counts], sync=True)
-
-        self.local_model = MNB(**self.kwargs)
-        self.local_model.classes_ = classes
-        self.local_model.n_classes = n_classes
-        self.local_model.n_features = X.shape[1]
-
-        self.local_model.class_count_ = rmm_cupy_ary(cp.zeros,
-                                                     n_classes,
-                                                     order="F",
-                                                     dtype=cp.float32)
-        self.local_model.feature_count_ = rmm_cupy_ary(cp.zeros,
-                                                       (n_classes, n_features),
-                                                       order="F",
-                                                       dtype=cp.float32)
-
-        for class_count_ in class_counts:
-            self.local_model.class_count_ += class_count_
-        for feature_count_ in feature_counts:
-            self.local_model.feature_count_ += feature_count_
-
-        self.local_model.update_log_probs()
+        wait(self.local_model)
+        return self
 
     @staticmethod
     def _get_part(parts, idx):
@@ -241,38 +219,10 @@ class MultinomialNB(object):
         dask.Array containing predicted classes
 
         """
+        if not isinstance(X, dask.array.core.Array):
+            raise ValueError("Only dask.Array is supported for X")
 
-        gpu_futures = self.client_.sync(extract_arr_partitions, X)
-        x_worker_parts = workers_to_parts(gpu_futures)
-
-        models = self.client_.scatter(self.local_model,
-                                      broadcast=True,
-                                      workers=list(x_worker_parts.keys()))
-
-        preds = dict([(w, self.client_.submit(
-            MultinomialNB._predict,
-            models,
-            p
-        )) for w, p in x_worker_parts.items()])
-
-        final_parts = {}
-        to_concat = []
-        for wp in gpu_futures:
-            w, p = wp
-            if w not in final_parts:
-                final_parts[w] = 0
-
-            to_concat.append(
-                dask.array.from_delayed(
-                    dask.delayed(self.client_.submit(MultinomialNB._get_part,
-                                                     preds[w],
-                                                     final_parts[w])),
-                    dtype=cp.int32, shape=(cp.nan,)))
-
-            final_parts[w] += 1
-
-        return dask.array.concatenate(to_concat, axis=0,
-                                      allow_unknown_chunksizes=True)
+        return self._predict(X, delayed=True, output_dtyle=cp.int32)
 
     def score(self, X, y):
         """
@@ -281,8 +231,14 @@ class MultinomialNB(object):
         Parameters
         ----------
 
-        X : Dask.Array with features to predict
-        y : Dask.Array with labels to use for computing accuracy
+        X : Dask.Array
+            Features to predict. Note- it is assumed that chunk sizes and
+            shape of X are known. This can be done for a fully delayed
+            Array by calling X.compute_chunks_sizes()
+        y : Dask.Array
+            Labels to use for computing accuracy. Note- it is assumed that
+            chunk sizes and shape of X are known. This can be done for a fully
+            delayed Array by calling X.compute_chunks_sizes()
 
         Returns
         -------
@@ -290,20 +246,18 @@ class MultinomialNB(object):
         """
 
         y_hat = self.predict(X)
-        gpu_futures = self.client_.sync(extract_arr_partitions, [y_hat, y])
 
-        def _count_accurate_predictions(y_hat_y):
-            y_hat, y = y_hat_y
+        @dask.delayed
+        def _count_accurate_predictions(y_hat, y):
             y_hat = rmm_cupy_ary(cp.asarray, y_hat, dtype=y_hat.dtype)
             y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
             return y.shape[0] - cp.count_nonzero(y-y_hat)
 
-        key = uuid1()
+        delayed_parts = zip(y_hat.to_delayed(), y.to_delayed())
 
-        futures = [self.client_.submit(_count_accurate_predictions,
-                                       wf[1],
-                                       workers=[wf[0]],
-                                       key="%s-%s" % (key, idx)).result()
-                   for idx, wf in enumerate(gpu_futures)]
+        accuracy_parts = [_count_accurate_predictions(*p)
+                          for p in delayed_parts]
 
-        return sum(futures) / X.shape[0]
+        reduced = first(dask.compute(tree_reduce(accuracy_parts)))
+
+        return reduced / X.shape[0]

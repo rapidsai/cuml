@@ -53,7 +53,7 @@ class LogisticRegression(Base):
     resolves to two different algorithms underneath:
 
     - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-    regularization
+      regularization
 
     - Limited Memory BFGS (L-BFGS) otherwise.
 
