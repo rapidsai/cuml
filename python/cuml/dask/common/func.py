@@ -14,6 +14,7 @@
 #
 
 import dask
+from dask.distributed import default_client
 from toolz import first
 
 
@@ -21,7 +22,7 @@ from toolz import first
 def reduce_func_add(a, b): return a + b if b is not None else a
 
 
-def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
+def tree_reduce(delayed_objs, delayed_func=reduce_func_add, client=None):
     """
     Performs a binary tree reduce on an associative
     and commutative function in parallel across
@@ -47,6 +48,9 @@ def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
     reduced_result : dask.delayed
         Delayed object containing the reduced result.
     """
+
+    client = default_client() if client is None else client
+
     while len(delayed_objs) > 1:
         new_delayed_objs = []
         n_delayed_objs = len(delayed_objs)
@@ -55,7 +59,7 @@ def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
             left = delayed_objs[i]
             right = delayed_objs[i+1]\
                 if i < n_delayed_objs - 1 else None
-            lazy = delayed_func(left, right)
+            lazy = client.submit(delayed_func, [left, right])
             new_delayed_objs.append(lazy)
         delayed_objs = new_delayed_objs
 
