@@ -22,6 +22,7 @@ from dask.distributed import wait
 import dask.array
 
 from cuml.dask.common.part_utils import workers_to_parts
+from cuml.dask.common.part_utils import hosts_to_parts
 
 from cuml.utils import with_cupy_rmm
 
@@ -187,16 +188,22 @@ class MultinomialNB(BaseEstimator,
             MultinomialNB._unique).compute()) \
             if classes is None else dask.delayed(classes, pure=False)
 
+        # Train models on partitions
         models = [self.client.submit(self._fit, part, classes, self.kwargs)
                   for w, part in futures.gpu_futures]
 
         workers = [(first(self.client.who_has(m)), m) for m in models]
 
-        worker_parts = workers_to_parts(workers)
-
         # Merge within each worker
         models = [self.client.submit(self._merge_counts_to_model, p)
-                  for w, p in worker_parts.items()]
+                  for w, p in workers_to_parts(workers).items()]
+
+        workers = [(first(self.client.who_has(m)), m) for m in models]
+
+        # Merge within each host
+        models = [self.client.submit(self._merge_counts_to_model, p)
+                  for w, p in workers_to_parts(workers).items()]
+
         # Merge across workers
         self.local_model = tree_reduce(models, self._merge_counts_to_model)
         self.local_model = \
