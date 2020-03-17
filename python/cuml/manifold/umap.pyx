@@ -32,6 +32,8 @@ import cupy
 
 import numba.cuda as cuda
 
+from scipy.optimize import curve_fit
+
 from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
 from cupy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
@@ -54,7 +56,6 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-from scipy.optimize import curve_fit
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 
@@ -462,7 +463,6 @@ class UMAP(Base):
         params, covar = curve_fit(curve, xv, yv)
         return params[0], params[1]
 
-    def fit(self, X, y=None, convert_dtype=True):
     @with_cupy_rmm
     def _extract_knn_graph(self, knn_graph, convert_dtype=True):
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
