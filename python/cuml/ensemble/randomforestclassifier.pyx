@@ -357,10 +357,10 @@ class RandomForestClassifier(Base):
             free(<RandomForestMetaData[float, int]*><size_t> self.rf_forest)
         else:
             free(<RandomForestMetaData[double, int]*><size_t> self.rf_forest64)
-    
+
     def _new_forest_data(self):
         # Reset the data
-        # Cannot include cdef within if condition because of compile time error
+        # Cannot include cdef in if block (compile time error)
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
@@ -371,11 +371,13 @@ class RandomForestClassifier(Base):
     def _reset_forest_data(self):
         if self.n_cols:
             # Only if model is fitted before
-            # Clears the meta data of the forest to prepare for next fit operation.
+            # Clears the data of the forest to prepare for next fit
             if self.dtype == np.float32:
-                free(<RandomForestMetaData[float, int]*><size_t> self.rf_forest)
+                free(<RandomForestMetaData[float, int]*><size_t>
+                     self.rf_forest)
             else:
-                free(<RandomForestMetaData[double, int]*><size_t> self.rf_forest64)
+                free(<RandomForestMetaData[double, int]*><size_t>
+                     self.rf_forest64)
             self._new_forest_data()
 
     def _get_max_feat_val(self):
