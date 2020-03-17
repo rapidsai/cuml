@@ -144,8 +144,12 @@ class MultinomialNB(BaseEstimator,
         for model in models[1:]:
             modela.feature_count_ += model.feature_count_
             modela.class_count_ += model.class_count_
-        modela.update_log_probs()
         return modela
+
+    @staticmethod
+    def _update_log_probs(model):
+        model.update_log_probs()
+        return model
 
     @with_cupy_rmm
     def fit(self, X, y, classes=None):
@@ -195,8 +199,10 @@ class MultinomialNB(BaseEstimator,
                   for w, p in worker_parts.items()]
         # Merge across workers
         self.local_model = tree_reduce(models, self._merge_counts_to_model)
+        self.local_model = \
+            self.client.submit(self._update_log_probs, self.local_model)
 
-        wait(self.local_model)
+        _ = wait(self.local_model)
         return self
 
     @staticmethod
