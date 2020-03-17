@@ -348,6 +348,27 @@ class RandomForestRegressor(Base):
             free(<RandomForestMetaData[double, double]*><size_t>
                  self.rf_forest64)
 
+    def _new_forest_data(self):
+        # Reset the data
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            new RandomForestMetaData[float, float]()
+        self.rf_forest = <size_t> rf_forest
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            new RandomForestMetaData[double, double]()
+        self.rf_forest64 = <size_t> rf_forest64
+
+    def _reset_forest_data(self):
+        if self.n_cols:
+            # Only if the model is fitted before
+            # Clears the meta data of the forest to prepare for next fit operation.
+            if self.dtype == np.float32:
+                free(<RandomForestMetaData[float, float]*><size_t> self.rf_forest)
+            else:
+                free(<RandomForestMetaData[double, double]*><size_t>
+                     self.rf_forest64)
+            self._new_forest_data()
+            print("fitted")
+
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
@@ -497,16 +518,15 @@ class RandomForestRegressor(Base):
             These labels should be contiguous integers from 0 to n_classes.
         """
         self._set_output_type(X)
-        cdef uintptr_t X_ptr, y_ptr
 
         # Reset the old tree data for new fit call
-        self.__del__()  # To avoid mem leaks
+        self._reset_forest_data()
+
+        cdef uintptr_t X_ptr, y_ptr
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            new RandomForestMetaData[float, float]()
-        self.rf_forest = <size_t> rf_forest
+            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            new RandomForestMetaData[double, double]()
-        self.rf_forest64 = <size_t> rf_forest64
+            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
