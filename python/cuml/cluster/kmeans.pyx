@@ -49,6 +49,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
         int verbose,
         int seed,
         int metric,
+        int n_init,
         double oversampling_factor,
         int batch_samples,
         int batch_centroids,
@@ -210,6 +211,10 @@ class KMeans(Base):
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
+    n_init: int (default = 1)
+        Number of instances the k-means algorithm will be called with different seeds.
+        The final results will be from the instance that produces lowest inertia out
+        of n_init instances.
     oversampling_factor : float64
         scalable k-means|| oversampling factor
     max_samples_per_batch : int (default=1<<15)
@@ -261,14 +266,15 @@ class KMeans(Base):
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=0, random_state=1, init='scalable-k-means++',
-                 oversampling_factor=2.0, max_samples_per_batch=1<<15,
-                 output_type=None):
+                 n_init=1, oversampling_factor=2.0,
+                 max_samples_per_batch=1<<15, output_type=None):
         super(KMeans, self).__init__(handle, verbose, output_type)
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
         self.max_iter = max_iter
         self.tol = tol
+        self.n_init = n_init
         self.inertia_ = 0
         self.n_iter_ = 0
         self.oversampling_factor=oversampling_factor
@@ -280,6 +286,12 @@ class KMeans(Base):
 
         cdef KMeansParams params
         params.n_clusters = <int>self.n_clusters
+
+        # K-means++ is the constrained case of k-means||
+        # w/ oversampling factor = 0
+        if (init == 'k-means++'):
+            init = 'k-means||'
+            self.oversampling_factor = 0
 
         if (init in ['scalable-k-means++', 'k-means||']):
             self.init = init
@@ -303,6 +315,7 @@ class KMeans(Base):
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         params.batch_samples=<int>self.max_samples_per_batch
         params.oversampling_factor=<double>self.oversampling_factor
+        params.n_init = <int>self.n_init
         self._params = params
 
     def fit(self, X):
@@ -617,6 +630,6 @@ class KMeans(Base):
         return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
-        return ['oversampling_factor', 'max_samples_per_batch',
+        return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol', 'verbose']

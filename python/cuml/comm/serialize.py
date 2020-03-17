@@ -33,9 +33,10 @@ try:
 
     from distributed.protocol import register_generic
 
-    from cuml.naive_bayes.naive_bayes import MultinomialNB
     from cuml.ensemble import RandomForestRegressor
     from cuml.ensemble import RandomForestClassifier
+
+    from cuml.naive_bayes import MultinomialNB
 
     # Registering RF Regressor and Classifier to use pickling even when
     # Base is serialized with Dask or CUDA serializations
@@ -59,16 +60,16 @@ try:
     def rfc_deserialize(header, frames):
         return pickle_loads(header, frames)
 
-    register_generic(MultinomialNB, 'cuda',
-                     cuda_serialize, cuda_deserialize)
-
     register_generic(cuml.Base, 'cuda',
                      cuda_serialize, cuda_deserialize)
 
-    register_generic(MultinomialNB, 'dask',
+    register_generic(cuml.Base, 'dask',
                      dask_serialize, dask_deserialize)
 
-    register_generic(cuml.Base, 'dask',
+    register_generic(MultinomialNB, 'cuda',
+                     cuda_serialize, cuda_deserialize)
+
+    register_generic(MultinomialNB, 'dask',
                      dask_serialize, dask_deserialize)
 
     copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
