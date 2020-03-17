@@ -795,13 +795,14 @@ class RandomForestClassifier(Base):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(X, output_class=output_class,
-                                              threshold=threshold,
-                                              algo=algo,
-                                              num_classes=num_classes,
-                                              convert_dtype=convert_dtype,
-                                              fil_sparse_format=fil_sparse_format,
-                                              predict_proba=False)
+            preds = \
+                self._predict_model_on_gpu(X, output_class=output_class,
+                                           threshold=threshold,
+                                           algo=algo,
+                                           num_classes=num_classes,
+                                           convert_dtype=convert_dtype,
+                                           fil_sparse_format=fil_sparse_format,
+                                           predict_proba=False)
 
         return preds
 
@@ -866,7 +867,7 @@ class RandomForestClassifier(Base):
         del(X_m)
         return preds.to_output(out_type)
 
-    def predict_proba(self, X, output_class=True, 
+    def predict_proba(self, X, output_class=True,
                       threshold=0.5, algo='auto',
                       num_classes=2, convert_dtype=True,
                       fil_sparse_format='auto'):
@@ -923,7 +924,7 @@ class RandomForestClassifier(Base):
 
         Returns
         ----------
-        y : 
+        y :
            Dense vector (float) of shape (n_samples, 1)
         """
         if self.dtype == np.float64:
@@ -939,13 +940,14 @@ class RandomForestClassifier(Base):
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
-        preds_proba = self._predict_model_on_gpu(X, output_class=output_class,
-                                                 threshold=threshold,
-                                                 algo=algo,
-                                                 num_classes=num_classes,
-                                                 convert_dtype=convert_dtype,
-                                                 fil_sparse_format=fil_sparse_format,
-                                                 predict_proba=True)
+        preds_proba = \
+            self._predict_model_on_gpu(X, output_class=output_class,
+                                       threshold=threshold,
+                                       algo=algo,
+                                       num_classes=num_classes,
+                                       convert_dtype=convert_dtype,
+                                       fil_sparse_format=fil_sparse_format,
+                                       predict_proba=True)
 
         return preds_proba
 
