@@ -26,7 +26,6 @@ import math
 import numpy as np
 import rmm
 import warnings
-import time
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -528,6 +527,7 @@ class RandomForestClassifier(Base):
         """
         Perform Random Forest Classification on the input data
 
+        Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).

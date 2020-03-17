@@ -227,7 +227,6 @@ class RandomForestRegressor(Base):
                  min_impurity_split=None, oob_score=None,
                  random_state=None, warm_start=None, class_weight=None,
                  quantile_per_tree=False, criterion=None, seed=None):
-
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -367,7 +366,6 @@ class RandomForestRegressor(Base):
                 free(<RandomForestMetaData[double, double]*><size_t>
                      self.rf_forest64)
             self._new_forest_data()
-            print("fitted")
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
