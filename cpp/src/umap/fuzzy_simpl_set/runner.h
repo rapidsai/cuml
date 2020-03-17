@@ -37,7 +37,7 @@ using namespace ML;
 	 * @param algorithm: the algorithm to use (allows easy comparisons)
 	 */
 template <int TPB_X, typename T>
-void run(int n, const long *knn_indices, const T *knn_dists, int n_neighbors,
+void run(int n, const int64_t *knn_indices, const T *knn_dists, int n_neighbors,
          MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
          std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
          int algorithm = 0) {
