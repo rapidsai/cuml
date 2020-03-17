@@ -16,6 +16,7 @@
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
+- PR #1815: Adding KNN parameter to UMAP
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
