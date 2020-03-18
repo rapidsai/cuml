@@ -368,7 +368,7 @@ class RandomForestClassifier(Base):
                  self.rf_forest)
         else:
             free(<RandomForestMetaData[double, int]*><size_t>
-             self.rf_forest64)
+                 self.rf_forest64)
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         self.rf_forest = <size_t> rf_forest
