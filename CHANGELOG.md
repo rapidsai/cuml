@@ -16,6 +16,7 @@
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
+- PR #1815: Adding KNN parameter to UMAP
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -46,11 +47,13 @@
 - PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
 - PR #1824: C++: improving the performance of UMAP algo
 - PR #1816: Add ARIMA notebook
+- PR #1856: Update docs for 0.13
 - PR #1827: Add HPO demo Notebook
 - PR #1825: `--nvtx` option in `build.sh`
 - PR #1847: Update XGBoost version for CI
 - PR #1837: Simplify cuML Array construction
 - PR #1848: Rely on subclassing for cuML Array serialization
+- PR #1866: Minimizing client memory pressure on Naive Bayes
 - PR #1788: Removing complexity bottleneck in S-ARIMA
 
 ## Bug Fixes
@@ -89,6 +92,7 @@
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
 - PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1877: Remove resetting index in shuffling in train_test_split
 
 # cuML 0.12.0 (Date TBD)
 
