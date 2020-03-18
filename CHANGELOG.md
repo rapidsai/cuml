@@ -93,7 +93,7 @@
 - PR #1852: Remove Thrust warnings
 - PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
 - PR #1877: Remove resetting index in shuffling in train_test_split
-- PR #1888: Small tran_test_split test fix
+- PR #1888: Small train_test_split test fix
 
 # cuML 0.12.0 (Date TBD)
 
