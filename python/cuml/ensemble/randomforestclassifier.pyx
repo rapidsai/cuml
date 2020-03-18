@@ -359,14 +359,15 @@ class RandomForestClassifier(Base):
             free(<RandomForestMetaData[double, int]*><size_t> self.rf_forest64)
 
     def _reset_forest_data(self):
-        if not self.n_cols:
-            return
-
         # Only if model is fitted before
         # Clears the data of the forest to prepare for next fit
-        free(<RandomForestMetaData[float, int]*><size_t>
-             self.rf_forest)
-        free(<RandomForestMetaData[double, int]*><size_t>
+        if not self.n_cols:
+            return
+        if self.dtype == np.float32:
+            free(<RandomForestMetaData[float, int]*><size_t>
+                 self.rf_forest)
+        else:
+            free(<RandomForestMetaData[double, int]*><size_t>
              self.rf_forest64)
         cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
