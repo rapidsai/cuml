@@ -365,9 +365,9 @@ class RandomForestClassifier(Base):
         # Only if model is fitted before
         # Clears the data of the forest to prepare for next fit
         free(<RandomForestMetaData[float, int]*><size_t>
-                 self.rf_forest)
+             self.rf_forest)
         free(<RandomForestMetaData[double, int]*><size_t>
-                self.rf_forest64)
+             self.rf_forest64)
         self.rf_forest = <size_t> new RandomForestMetaData[float, int]()
         self.rf_forest64 = <size_t> new RandomForestMetaData[double, int]()
         cdef RandomForestMetaData[float, int] *rf_forest = \
