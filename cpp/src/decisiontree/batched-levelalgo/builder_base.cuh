@@ -96,11 +96,18 @@ struct Builder {
   /** range of the currently worked upon nodes */
   IdxT node_start, node_end;
 
+  /** Memory alignment value */
+  const size_t alignValue = 512;
+
   /** checks if this struct is being used for classification or regression */
   static constexpr bool isRegression() {
     return std::is_same<DataT, LabelT>::value;
   }
-
+  size_t calculateAlignedBytes(const size_t actualSize) {
+    size_t reminder = actualSize % alignValue;
+    if (reminder == 0) return actualSize;
+    return (actualSize + (alignValue - reminder));
+  }
   /**
    * @brief Computes workspace size needed for the current computation
    * @param d_wsize (in B) of the device workspace to be allocated
@@ -154,26 +161,31 @@ struct Builder {
       block_sync_size = 0;
     }
     d_wsize = 0;
-    d_wsize += sizeof(IdxT);  // n_nodes
+    d_wsize += calculateAlignedBytes(sizeof(IdxT));  // n_nodes
     if (!isRegression()) {
-      d_wsize += sizeof(int) * nHistBins;  // hist
+      d_wsize += calculateAlignedBytes(sizeof(int) * nHistBins);  // hist
     } else {
       // x2 for left and right children
-      d_wsize += 2 * nPredCounts * sizeof(DataT);  // pred
-      d_wsize += 2 * nPredCounts * sizeof(DataT);  // pred2
-      d_wsize += nPredCounts * sizeof(DataT);      // pred2P
-      d_wsize += nPredCounts * sizeof(IdxT);       // pred_count
+      d_wsize +=
+        calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));  // pred
+      d_wsize +=
+        calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));       // pred2
+      d_wsize += calculateAlignedBytes(nPredCounts * sizeof(DataT));  // pred2P
+      d_wsize +=
+        calculateAlignedBytes(nPredCounts * sizeof(IdxT));  // pred_count
     }
-    d_wsize += sizeof(int) * max_batch * n_col_blks;  // done_count
-    d_wsize += sizeof(int) * max_batch;               // mutex
-    d_wsize += block_sync_size;                       // block_sync
-    d_wsize += sizeof(IdxT);                          // n_leaves
-    d_wsize += sizeof(IdxT);                          // n_depth
-    d_wsize += sizeof(SplitT) * max_batch;            // splits
-    d_wsize += sizeof(NodeT) * max_batch;             // curr_nodes
-    d_wsize += sizeof(NodeT) * 2 * max_batch;         // next_nodes
+    d_wsize += calculateAlignedBytes(sizeof(int) * max_batch *
+                                     n_col_blks);                  // done_count
+    d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);     // mutex
+    d_wsize += calculateAlignedBytes(block_sync_size);             // block_sync
+    d_wsize += calculateAlignedBytes(sizeof(IdxT));                // n_leaves
+    d_wsize += calculateAlignedBytes(sizeof(IdxT));                // n_depth
+    d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
+    d_wsize += calculateAlignedBytes(sizeof(NodeT) * max_batch);   // curr_nodes
+    d_wsize +=
+      calculateAlignedBytes(sizeof(NodeT) * 2 * max_batch);  // next_nodes
     // all nodes in the tree
-    h_wsize = sizeof(IdxT);  // h_n_nodes
+    h_wsize = calculateAlignedBytes(sizeof(IdxT));  // h_n_nodes
   }
 
   /**
@@ -187,34 +199,34 @@ struct Builder {
     auto n_col_blks = params.n_blks_for_cols;
     // device
     n_nodes = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += sizeof(IdxT);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT));
     if (!isRegression()) {
       hist = reinterpret_cast<int*>(d_wspace);
-      d_wspace += sizeof(int) * nHistBins;
+      d_wspace += calculateAlignedBytes(sizeof(int) * nHistBins);
     } else {
       pred = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += 2 * nPredCounts * sizeof(DataT);
+      d_wspace += calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));
       pred2 = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += 2 * nPredCounts * sizeof(DataT);
+      d_wspace += calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));
       pred2P = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += nPredCounts * sizeof(DataT);
+      d_wspace += calculateAlignedBytes(nPredCounts * sizeof(DataT));
       pred_count = reinterpret_cast<IdxT*>(d_wspace);
-      d_wspace += nPredCounts * sizeof(IdxT);
+      d_wspace += calculateAlignedBytes(nPredCounts * sizeof(IdxT));
     }
     done_count = reinterpret_cast<int*>(d_wspace);
-    d_wspace += sizeof(int) * max_batch * n_col_blks;
+    d_wspace += calculateAlignedBytes(sizeof(int) * max_batch * n_col_blks);
     mutex = reinterpret_cast<int*>(d_wspace);
-    d_wspace += sizeof(int) * max_batch;
+    d_wspace += calculateAlignedBytes(sizeof(int) * max_batch);
     block_sync = reinterpret_cast<char*>(d_wspace);
-    d_wspace += block_sync_size;
+    d_wspace += calculateAlignedBytes(block_sync_size);
     n_leaves = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += sizeof(IdxT);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT));
     n_depth = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += sizeof(IdxT);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT));
     splits = reinterpret_cast<SplitT*>(d_wspace);
-    d_wspace += sizeof(SplitT) * max_batch;
+    d_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
     curr_nodes = reinterpret_cast<NodeT*>(d_wspace);
-    d_wspace += sizeof(NodeT) * max_batch;
+    d_wspace += calculateAlignedBytes(sizeof(NodeT) * max_batch);
     next_nodes = reinterpret_cast<NodeT*>(d_wspace);
     // host
     h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
