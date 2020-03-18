@@ -348,16 +348,14 @@ class RandomForestRegressor(Base):
                  self.rf_forest64)
 
     def _reset_forest_data(self):
-        if self.n_cols == None:
+        if not self.n_cols:
             return
 
         # Only if the model is fitted before
         # Clears the data of the forest to prepare for next fit
-        if self.dtype == np.float32:
-            free(<RandomForestMetaData[float, float]*><size_t>
+        free(<RandomForestMetaData[float, float]*><size_t>
                 self.rf_forest)
-        else:
-            free(<RandomForestMetaData[double, double]*><size_t>
+        free(<RandomForestMetaData[double, double]*><size_t>
                 self.rf_forest64)
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
