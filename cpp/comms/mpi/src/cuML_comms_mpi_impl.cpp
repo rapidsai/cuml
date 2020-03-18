@@ -37,8 +37,6 @@
     }                                                                       \
   } while (0)
 
-//@todo adapt logging infrastructure for MPI_CHECK_NO_THROW once available:
-//https://github.com/rapidsai/cuml/issues/100
 #define MPI_CHECK_NO_THROW(call)                                            \
   do {                                                                      \
     int status = call;                                                      \
