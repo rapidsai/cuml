@@ -21,8 +21,7 @@ from toolz import first
 from dask.distributed import wait
 import dask.array
 
-from cuml.dask.common.part_utils import workers_to_parts
-
+from cuml.dask.common.func import reduce
 from cuml.utils import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
@@ -130,14 +129,6 @@ class MultinomialNB(BaseEstimator,
         return rmm_cupy_ary(cp.unique, x)
 
     @staticmethod
-    def _get_class_counts(model):
-        return model.class_count_
-
-    @staticmethod
-    def _get_feature_counts(model):
-        return model.feature_count_
-
-    @staticmethod
     def _merge_counts_to_model(models):
         modela = first(models)
 
@@ -150,23 +141,6 @@ class MultinomialNB(BaseEstimator,
     def _update_log_probs(model):
         model.update_log_probs()
         return model
-
-    def reduce_models(self, models):
-
-        workers = [(first(self.client.who_has(m)), m) for m in models]
-
-        # Merge within each worker
-        models = [self.client.submit(self._merge_counts_to_model, p)
-                  for w, p in workers_to_parts(workers).items()]
-
-        workers = [(first(self.client.who_has(m)), m) for m in models]
-
-        # Merge within each host
-        models = [self.client.submit(self._merge_counts_to_model, p)
-                  for w, p in workers_to_parts(workers).items()]
-
-        # Merge across workers
-        return tree_reduce(models, self._merge_counts_to_model)
 
     @with_cupy_rmm
     def fit(self, X, y, classes=None):
@@ -208,8 +182,10 @@ class MultinomialNB(BaseEstimator,
         models = [self.client.submit(self._fit, part, classes, self.kwargs)
                   for w, part in futures.gpu_futures]
 
+        models = reduce(models, self._merge_counts_to_model)
+
         self.local_model = \
-            self.client.submit(self._update_log_probs, self.reduce(models))
+            self.client.submit(self._update_log_probs, models)
 
         _ = wait(self.local_model)
         return self

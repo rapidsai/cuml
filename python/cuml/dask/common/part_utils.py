@@ -30,6 +30,7 @@ def hosts_to_parts(futures):
     """
     w_to_p_map = OrderedDict()
     for w, p in futures:
+        print(str(w))
         host, port = parse_host_port(w)
         host_key = [host, port]
         if host_key not in w_to_p_map:
