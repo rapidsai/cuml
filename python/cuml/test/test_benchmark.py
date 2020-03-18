@@ -188,6 +188,7 @@ def test_real_algos_runner(algo_name):
     print(results)
     assert results["cuml_acc"] is not None
 
+
 @pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'pandas', 'gpuarray'])
 def test_training_data_to_numpy(input_type):
     X, y, *_ = datagen.gen_data(
