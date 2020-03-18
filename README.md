@@ -78,8 +78,8 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | | Uniform Manifold Approximation and Projection (UMAP) | |
 | | Random Projection | |
 | | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
-| **Linear Models for Regression or Classification** | Linear Regression (OLS) | |
-| | Linear Regression with Lasso or Ridge Regularization | |
+| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
+| | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
@@ -109,6 +109,19 @@ See the build [guide](BUILD.md).
 ## Contributing
 
 Please see our [guide for contributing to cuML](CONTRIBUTING.md).
+
+## References
+
+For additional details on the technologies behind cuML, as well as a broader overview of the Python Machine Learning landscape, see [_Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence_ (2020)](https://arxiv.org/abs/2002.04803) by Sebastian Raschka, Joshua Patterson, and Corey Nolet.
+
+Please consider citing this when using cuML in a project. You can use the citation BibTeX:
+
+> @article{raschka2020machine,
+>   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
+>   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},
+>   journal={arXiv preprint arXiv:2002.04803},
+>   year={2020}
+> }
 
 ## Contact
 
