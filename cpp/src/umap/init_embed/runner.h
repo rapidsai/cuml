@@ -31,7 +31,7 @@ using namespace ML;
 
 template <typename T>
 void run(const cumlHandle &handle, const T *X, int n, int d,
-         const long *knn_indices, const T *knn_dists,
+         const int64_t *knn_indices, const T *knn_dists,
          MLCommon::Sparse::COO<float> *coo, UMAPParams *params, T *embedding,
          cudaStream_t stream, int algo = 0) {
   switch (algo) {
