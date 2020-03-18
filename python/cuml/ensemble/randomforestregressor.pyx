@@ -354,9 +354,9 @@ class RandomForestRegressor(Base):
         # Only if the model is fitted before
         # Clears the data of the forest to prepare for next fit
         free(<RandomForestMetaData[float, float]*><size_t>
-                self.rf_forest)
+             self.rf_forest)
         free(<RandomForestMetaData[double, double]*><size_t>
-                self.rf_forest64)
+             self.rf_forest64)
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         self.rf_forest = <size_t> rf_forest
