@@ -341,7 +341,7 @@ class RandomForestRegressor(Base):
 
     def __del__(self):
         if self.n_cols:
-            #Clear only if fitted before
+            # Clear only if fitted before
             free(<RandomForestMetaData[float, float]*><size_t>
                  self.rf_forest)
             free(<RandomForestMetaData[double, double]*><size_t>
@@ -357,7 +357,6 @@ class RandomForestRegressor(Base):
              self.rf_forest)
         free(<RandomForestMetaData[double, double]*><size_t>
              self.rf_forest64)
-        
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
