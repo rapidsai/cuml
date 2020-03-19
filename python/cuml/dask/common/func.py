@@ -15,11 +15,11 @@
 
 from dask.delayed import Delayed
 
-from dask.distributed import default_client
 from dask.distributed import wait
 
 from toolz import first
 
+from cuml.dask.common.utils import get_client
 from cuml.dask.common.part_utils import hosts_to_parts
 from cuml.dask.common.part_utils import workers_to_parts
 
@@ -51,7 +51,7 @@ def reduce(futures, func, client=None):
         object.
     """
 
-    client = default_client() if client is None else client
+    client = get_client(client)
 
     # Make sure input futures have been assigned to worker(s)
     wait(futures)
@@ -100,7 +100,7 @@ def tree_reduce(objs, func=sum, client=None):
         if func is a future, the result will be a future
     """
 
-    client = default_client() if client is None else client
+    client = get_client(client)
 
     while len(objs) > 1:
         new_delayed_objs = []
