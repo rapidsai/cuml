@@ -27,13 +27,16 @@ namespace DecisionTree {
 
 /**
  * @brief Compute gain based on gini impurity metric
- * @param shist left/right class histograms for all bins (nbins x 2 x nclasses)
- * @param sbins quantiles for the current column (len = nbins)
- * @param sp will contain the per-thread best split so far
- * @param col current column
- * @param len total number of samples for the current node to be split
- * @param nbins number of bins
- * @param nclasses number of classes
+ *
+ * @param[in]    shist    left/right class histograms for all bins
+ *                        [dim = nbins x 2 x nclasses]
+ * @param[in]    sbins    quantiles for the current column [len = nbins]
+ * @param[inout] sp       will contain the per-thread best split so far
+ * @param[in]    col      current column
+ * @param[in]    len      total number of samples for the current node to be
+ *                        split
+ * @param[in]    nbins    number of bins
+ * @param[in]    nclasses number of classes
  */
 template <typename DataT, typename IdxT>
 DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
@@ -72,14 +75,15 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
 
 /**
  * @brief Compute gain based on entropy
- * @param shist left/right class histograms for all bins
- *              (len = nbins x 2 x nclasses)
- * @param sbins quantiles for the current column (len = nbins)
- * @param sp will contain the per-thread best split so far
- * @param col current column
- * @param len total number of samples for the current node to be split
- * @param nbins number of bins
- * @param nclasses number of classes
+ *
+ * @param[in]    shist    left/right class histograms for all bins
+ *                        [dim = nbins x 2 x nclasses]
+ * @param[in]    sbins    quantiles for the current column [len = nbins]
+ * @param[inout] sp       will contain the per-thread best split so far
+ * @param[in]    col      current column
+ * @param[in]    len      total number of samples for the current node to be split
+ * @param[in]    nbins    number of bins
+ * @param[in]    nclasses number of classes
  */
 template <typename DataT, typename IdxT>
 DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
@@ -124,13 +128,15 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
 
 /**
  * @brief Compute gain based on MSE
- * @param spred left/right child mean prediction for all bins (len = 2 x bins)
- * @param scount left child count for all bins (len = nbins)
- * @param sbins quantiles for the current column (len = nbins)
- * @param sp will contain the per-thread best split so far
- * @param col current column
- * @param len total number of samples for the current node to be split
- * @param nbins number of bins
+ *
+ * @param[in]    spred  left/right child mean prediction for all bins
+ *                      [dim = 2 x bins]
+ * @param[in]    scount left child count for all bins [len = nbins]
+ * @param[in]    sbins  quantiles for the current column [len = nbins]
+ * @param[inout] sp     will contain the per-thread best split so far
+ * @param[in]    col    current column
+ * @param[in]    len    total number of samples for the current node to be split
+ * @param[in]    nbins  number of bins
  */
 template <typename DataT, typename IdxT>
 DI void mseGain(DataT* spred, IdxT* scount, DataT* sbins,
@@ -158,16 +164,17 @@ DI void mseGain(DataT* spred, IdxT* scount, DataT* sbins,
 
 /**
  * @brief Compute gain based on MAE
- * @param spred left/right child sum of abs diff of prediction for all bins
- *              (len = 2 x bins)
- * @param spredP parent's sum of abs diff of prediction for all bins
- *               (len = 2 x bins)
- * @param scount left child count for all bins (len = nbins)
- * @param sbins quantiles for the current column (len = nbins)
- * @param sp will contain the per-thread best split so far
- * @param col current column
- * @param len total number of samples for the current node to be split
- * @param nbins number of bins
+ *
+ * @param[in]    spred   left/right child sum of abs diff of prediction for all
+ *                       bins [dim = 2 x bins]
+ * @param[in]    spredP  parent's sum of abs diff of prediction for all bins
+ *                       [dim = 2 x bins]
+ * @param[in]    scount  left child count for all bins [len = nbins]
+ * @param[in]    sbins   quantiles for the current column [len = nbins]
+ * @param[inout] sp      will contain the per-thread best split so far
+ * @param[in]    col     current column
+ * @param[in]    len     total number of samples for current node to be split
+ * @param[in]    nbins   number of bins
  */
 template <typename DataT, typename IdxT>
 DI void maeGain(DataT* spred, DataT* spredP, IdxT* scount, DataT* sbins,

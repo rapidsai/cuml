@@ -21,7 +21,12 @@
 namespace ML {
 namespace DecisionTree {
 
-/** All info pertaining to splitting a node */
+/**
+ * @brief All info pertaining to splitting a node
+ *
+ * @tparam DataT input data type
+ * @tparam IdxT  indexing type
+ */
 template <typename DataT, typename IdxT>
 struct Split {
   typedef Split<DataT, IdxT> SplitT;
@@ -40,12 +45,22 @@ struct Split {
   /** number of samples in the left child */
   IdxT nLeft;
 
+  /**
+   * @brief Initialize the current object
+   */
   DI void init() {
     quesval = best_metric_val = Min;
     colid = Invalid;
     nLeft = 0;
   }
 
+  /**
+   * @brief Assignment operator overload
+   *
+   * @param[in] other source object from where to copy
+   * 
+   * @return the reference to the copied object (typically useful for chaining)
+   */
   DI SplitT& operator=(const SplitT& other) {
     quesval = other.quesval;
     colid = other.colid;
@@ -54,12 +69,16 @@ struct Split {
     return *this;
   }
 
-  /** updates the current split if the input gain is better */
+  /**
+   * @brief updates the current split if the input gain is better
+   */
   DI void update(const SplitT& other) {
     if (other.best_metric_val > best_metric_val) *this = other;
   }
 
-  /** reduce the split info in the warp. Best split will be with 0th lane */
+  /**
+   * @brief reduce the split info in the warp. Best split will be with 0th lane
+   */
   DI void warpReduce() {
     auto lane = MLCommon::laneId();
 #pragma unroll
@@ -75,9 +94,11 @@ struct Split {
 
   /**
    * @brief Computes the best split across the threadblocks
-   * @param smem shared mem for scratchpad purposes
-   * @param split current split to be updated
-   * @param mutex location which provides exclusive access to node update
+   *
+   * @param[in]    smem  shared mem for scratchpad purposes
+   * @param[inout] split current split to be updated
+   * @param[inout] mutex location which provides exclusive access to node update
+   *
    * @note all threads in the block must enter this function together. At the
    *       end thread0 will contain the best split.
    */
@@ -112,9 +133,10 @@ __global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
 
 /**
  * @brief Initialize the split array
- * @param splits the array to be initialized
- * @param len length of this array
- * @param s cuda stream where to schedule work
+ *
+ * @param[out] splits the array to be initialized
+ * @param[in]  len    length of this array
+ * @param[in]  s      cuda stream where to schedule work
  */
 template <typename DataT, typename IdxT, int TPB = 256>
 void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {

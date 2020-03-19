@@ -29,12 +29,14 @@ namespace DecisionTree {
 /**
  * @brief Decide whether the current node is to be declared as a leaf entirely
  *        based on the input hyper-params set by the user
- * @param myDepth depth of this node
- * @param max_depth maximum possible tree depth
- * @param min_rows_per_node min number of samples needed to split the node
- * @param max_leaves max leaf nodes per tree (it's a soft constraint)
- * @param n_leaves number of leaves in the tree already
- * @param nSamples number of samples belonging to this node
+ *
+ * @param[in] myDepth           depth of this node
+ * @param[in] max_depth maximum possible tree depth
+ * @param[in] min_rows_per_node min number of samples needed to split the node
+ * @param[in] max_leaves        max leaf nodes per tree (it's a soft constraint)
+ * @param[in] n_leaves          number of leaves in the tree already
+ * @param[in] nSamples          number of samples belonging to this node
+ *
  * @return true if the current node is to be declared as a leaf, else false
  */
 template <typename DataT, typename IdxT>
@@ -65,6 +67,7 @@ struct Int2Max {
 /**
  * @brief Compute the prediction value for the current leaf node for the case of
  *        classification
+ *
  * @note to be called by only one block from all participating blocks
  *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
  */
@@ -101,6 +104,7 @@ DI void computePredClassification(IdxT range_start, IdxT range_len,
 /**
  * @brief Compute the prediction value for the current leaf node for the case of
  *        regression
+ *
  * @note to be called by only one block from all participating blocks
  *       'smem' is not used, but kept for the sake of interface parity with the
  *       corresponding method for classification

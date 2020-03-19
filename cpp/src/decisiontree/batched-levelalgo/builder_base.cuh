@@ -103,29 +103,32 @@ struct Builder {
   static constexpr bool isRegression() {
     return std::is_same<DataT, LabelT>::value;
   }
+
   size_t calculateAlignedBytes(const size_t actualSize) {
-    size_t reminder = actualSize % alignValue;
-    if (reminder == 0) return actualSize;
-    return (actualSize + (alignValue - reminder));
+    return MLCommon::alignTo(actualSize, alignValue);
   }
+
   /**
    * @brief Computes workspace size needed for the current computation
-   * @param d_wsize (in B) of the device workspace to be allocated
-   * @param h_wsize (in B) of the host workspace to be allocated
-   * @param p the input params
-   * @param data input col-major dataset on device (dim = totalRows x totalCols)
-   * @param labels output label for each row in the dataset (len = totalRows)
-   *               It should be on device.
-   * @param totalRows total rows in the dataset
-   * @param totalCols total cols in the dataset
-   * @param sampledRows number of rows sampled in the dataset
-   * @param sampledCols number of cols sampled in the dataset
-   * @param rowids sampled row ids (on device) (len = sampledRows)
-   * @param colids sampled col ids (on device) (len = sampledCols)
-   * @param nclasses number of output classes (only for classification)
-   * @param quantiles histogram/quantile bins of the input dataset, for each of
-   *                  its column. Pass a nullptr if this needs to be computed
-   *                  fresh. (on device, col-major) (dim = nbins x sampledCols)
+   *
+   * @param[out] d_wsize    (in B) of the device workspace to be allocated
+   * @param[out] h_wsize    (in B) of the host workspace to be allocated
+   * @param[in]  p the      input params
+   * @param[in]  data       input dataset [on device] [col-major]
+   *                        [dim = totalRows x totalCols]
+   * @param[in]  labels     output label for each row in the dataset
+   *                        [len = totalRows] [on device].
+   * @param[in] totalRows   total rows in the dataset
+   * @param[in] totalCols   total cols in the dataset
+   * @param[in] sampledRows number of rows sampled in the dataset
+   * @param[in] sampledCols number of cols sampled in the dataset
+   * @param[in] rowids      sampled row ids [on device] [len = sampledRows]
+   * @param[in] colids      sampled col ids [on device] [len = sampledCols]
+   * @param[in] nclasses    number of output classes (only for classification)
+   * @param[in] quantiles   histogram/quantile bins of the input dataset, for
+   *                        each of its column. Pass a nullptr if this needs to
+   *                        be computed fresh. [on device] [col-major]
+   *                        [dim = nbins x sampledCols]
    */
   void workspaceSize(size_t& d_wsize, size_t& h_wsize,
                      const DecisionTreeParams& p, const DataT* data,
@@ -190,9 +193,10 @@ struct Builder {
 
   /**
    * @brief assign workspace to the current state
-   * @param d_wspace device buffer allocated by the user for the workspace. Its
-   *                 size should be atleast workspaceSize()
-   * @param h_wspace pinned host buffer mainly needed to store the learned nodes
+   *
+   * @param[in] d_wspace device buffer allocated by the user for the workspace.
+   *                     Its size should be atleast workspaceSize()
+   * @param[in] h_wspace pinned host buffer needed to store the learned nodes
    */
   void assignWorkspace(char* d_wspace, char* h_wspace) {
     auto max_batch = params.max_batch_size;
@@ -234,10 +238,12 @@ struct Builder {
 
   /**
    * @brief Main training method. To be called only after `assignWorkspace()`
-   * @param h_nodes list of nodes (must be allocated using cudaMallocHost!)
-   * @param num_leaves number of leaves created in the tree
-   * @param depth max depth of the built tree
-   * @param s cuda steam
+   *
+   * @param[out] h_nodes    list of nodes (must be allocated using
+   *                        cudaMallocHost!)
+   * @param[out] num_leaves number of leaves created in the tree
+   * @param[out] depth      max depth of the built tree
+   * @param[in]  s          cuda steam
    */
   void train(NodeT* h_nodes, IdxT& num_leaves, IdxT& depth, cudaStream_t s) {
     init(h_nodes, s);
@@ -255,8 +261,9 @@ struct Builder {
   ///@todo: support starting from arbitrary nodes
   /**
    * @brief Initialize buffers and state
-   * @param h_nodes list of nodes (must be allocated using cudaMallocHost!)
-   * @param s cuda stream
+   *
+   * @param[out] h_nodes list of nodes (must be allocated using cudaMallocHost!)
+   * @param[in]  s       cuda stream
    */
   void init(NodeT* h_nodes, cudaStream_t s) {
     *h_n_nodes = 0;
@@ -293,10 +300,11 @@ struct Builder {
   }
 
   /**
-   * Computes best split across all nodes in the current batch and splits the
-   * nodes accordingly
-   * @param h_nodes list of nodes (must be allocated using cudaMallocHost!)
-   * @param s cuda stream
+   * @brief Computes best split across all nodes in the current batch and splits
+   *        the nodes accordingly
+   *
+   * @param[out] h_nodes list of nodes (must be allocated using cudaMallocHost!)
+   * @param[in]  s cuda stream
    * @return the number of newly created nodes
    */
   IdxT doSplit(NodeT* h_nodes, cudaStream_t s) {
@@ -327,9 +335,10 @@ struct Builder {
 
 /**
  * @brief Traits used to customize the Builder for classification task
- * @tparam _data data type
+ *
+ * @tparam _data  data type
  * @tparam _label label type
- * @tparam _idx index type
+ * @tparam _idx   index type
  */
 template <typename _data, typename _label, typename _idx>
 struct ClsTraits {
@@ -347,11 +356,12 @@ struct ClsTraits {
 
   /**
    * @brief Compute best split for the currently given set of columns
-   * @param b builder object
-   * @param col start column id
-   * @param batchSize number of nodes to be processed in this call
-   * @param splitType split criterion
-   * @param s cuda stream
+   *
+   * @param[in] b         builder object
+   * @param[in] col       start column id
+   * @param[in] batchSize number of nodes to be processed in this call
+   * @param[in] splitType split criterion
+   * @param[in] s         cuda stream
    */
   static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
@@ -374,9 +384,10 @@ struct ClsTraits {
 
   /**
    * @brief Split the node into left/right children
-   * @param b builder object
-   * @param batchSize number of nodes to be processed in this call
-   * @param s cuda stream
+   *
+   * @param[in] b         builder object
+   * @param[in] batchSize number of nodes to be processed in this call
+   * @param[in] s         cuda stream
    */
   static void nodeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b,
                         IdxT batchSize, cudaStream_t s) {
@@ -392,8 +403,10 @@ struct ClsTraits {
 
 /**
  * @brief Traits used to customize the Builder for regression task
+ *
  * @tparam _data data type
- * @tparam _idx index type
+ * @tparam _idx  index type
+ *
  * @note label type is assumed to be the same as input data type
  */
 template <typename _data, typename _idx>
@@ -412,11 +425,12 @@ struct RegTraits {
 
   /**
    * @brief Compute best split for the currently given set of columns
-   * @param b builder object
-   * @param col start column id
-   * @param batchSize number of nodes to be processed in this call
-   * @param splitType split criterion
-   * @param s cuda stream
+   *
+   * @param[in] b         builder object
+   * @param[in] col       start column id
+   * @param[in] batchSize number of nodes to be processed in this call
+   * @param[in] splitType split criterion
+   * @param[in] s         cuda stream
    */
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
                            IdxT batchSize, CRITERION splitType,
@@ -446,9 +460,10 @@ struct RegTraits {
 
   /**
    * @brief Split the node into left/right children
-   * @param b builder object
-   * @param batchSize number of nodes to be processed in this call
-   * @param s cuda stream
+   *
+   * @param[in] b         builder object
+   * @param[in] batchSize number of nodes to be processed in this call
+   * @param[in] s         cuda stream
    */
   static void nodeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT batchSize,
                         cudaStream_t s) {

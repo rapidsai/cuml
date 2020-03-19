@@ -71,26 +71,32 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
 /**
  * @defgroup GrowTree Main entry point function for batched-level algo to build
  *                    a decision tree
- * @tparam DataT data type
+ *
+ * @tparam DataT  data type
  * @tparam LabelT label type
- * @tparam IdxT index type
- * @param d_allocator device allocator
- * @param h_allocator host allocator
- * @param data input dataset (on device) (col-major) (dim = nrows x ncols)
- * @param ncols number of features in the dataset
- * @param nrows number of rows in the dataset
- * @param labels labels for the input dataset (on device) (len = nrows)
- * @param quantiles histograms/quantiles of the input dataset (on device)
- *                  (col-major) (dim = params.n_bins x ncols)
- * @param rowids sampled rows (on device) (len = n_sampled_rows)
- * @param colids sampled cols (on device) (len = params.max_features * ncols)
- * @param n_sampled_rows number of sub-sampled rows
- * @param unique_labels number of classes (meaningful only for classification)
- * @param params decisiontree learning params
- * @param stream cuda stream
- * @param sparsetree output learned tree
- * @param num_leaves number of leaves created during tree build
- * @param depth max depth of the built tree
+ * @tparam IdxT   index type
+ *
+ * @param[in]  d_allocator    device allocator
+ * @param[in]  h_allocator    host allocator
+ * @param[in]  data           input dataset [on device] [col-major]
+ *                            [dim = nrows x ncols]
+ * @param[in]  ncols          number of features in the dataset
+ * @param[in]  nrows          number of rows in the dataset
+ * @param[in]  labels         labels for the input [on device] [len = nrows]
+ * @param[in]  quantiles      histograms/quantiles of the input dataset
+ *                            [on device] [col-major]
+ *                            [dim = params.n_bins x ncols]
+ * @param[in]  rowids         sampled rows [on device] [len = n_sampled_rows]
+ * @param[in]  colids         sampled cols [on device]
+ *                            [len = params.max_features * ncols]
+ * @param[in]  n_sampled_rows number of sub-sampled rows
+ * @param[in]  unique_labels  number of classes (meaningful only for
+ *                            classification)
+ * @param[in]  params         decisiontree learning params
+ * @param[in]  stream         cuda stream
+ * @param[out] sparsetree     output learned tree
+ * @param[out] num_leaves     number of leaves created during tree build
+ * @param[out] depth          max depth of the built tree
  * @{
  */
 template <typename DataT, typename LabelT, typename IdxT>
@@ -107,7 +113,6 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                     quantiles, rowids, colids, n_sampled_rows, unique_labels,
                     params, stream, sparsetree, num_leaves, depth);
 }
-
 template <typename DataT, typename IdxT>
 void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                std::shared_ptr<MLCommon::hostAllocator> h_allocator,
