@@ -133,10 +133,10 @@ class QN(Base):
     Two algorithms are implemented underneath cuML's QN class, and which one
     is executed depends on the following rule:
 
-    - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-    regularization
+    * Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+      regularization
 
-    - Limited Memory BFGS (L-BFGS) otherwise.
+    * Limited Memory BFGS (L-BFGS) otherwise.
 
     cuML's QN class can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
@@ -231,11 +231,11 @@ class QN(Base):
        This class contains implementations of two popular Quasi-Newton methods:
 
        - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
-       Wright - Numerical Optimization (1999)]
+         Wright - Numerical Optimization (1999)]
 
        - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML
-       2007]
-       <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
+         2007]
+         <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
     """
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
