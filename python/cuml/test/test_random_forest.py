@@ -671,6 +671,7 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
         delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
         assert delta_mem == 0
 
+
 @pytest.mark.parametrize('nrows', [unit_param(500),
                          stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
@@ -708,10 +709,8 @@ def test_rf_classification_proba(datatype, split_algo, rows_sample, nrows,
                                                threshold=0.5,
                                                algo='auto')
     y_proba = np.zeros(np.shape(fil_preds_proba))
-    for i in range(len(y_test)):
-        if y_test[i] == 1:
-            y_proba[i, 1] = 1
-
+    y_proba[:, 1] = y_test
+    y_proba[:, 0] = 1.0 - y_test
     fil_mse = mean_squared_error(y_proba, fil_preds_proba)
     if nrows < 500000:
         sk_model = skrfc(n_estimators=40,
@@ -721,4 +720,4 @@ def test_rf_classification_proba(datatype, split_algo, rows_sample, nrows,
         sk_model.fit(X_train, y_train)
         sk_preds_proba = sk_model.predict_proba(X_test)
         sk_mse = mean_squared_error(y_proba, sk_preds_proba)
-        assert fil_mse <= (sk_mse+0.004)
+        assert fil_mse <= (sk_mse + 0.0061)
