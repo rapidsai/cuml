@@ -81,7 +81,9 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/rng.cu
     prims/main.cpp
     )
-  add_dependencies(${CUML_PRIMS_BENCH_TARGET} cub)
+  if(NOT CUB_IS_PART_OF_CTK)
+    add_dependencies(${CUML_PRIMS_BENCH_TARGET} cub)
+  endif()
   add_dependencies(${CUML_PRIMS_BENCH_TARGET} cutlass)
   target_link_libraries(${CUML_PRIMS_BENCH_TARGET} benchmarklib)
   target_include_directories(${CUML_PRIMS_BENCH_TARGET}

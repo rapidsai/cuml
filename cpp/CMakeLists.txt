@@ -205,6 +205,14 @@ if("${GPU_ARCHS}" STREQUAL "")
   evaluate_gpu_archs(GPU_ARCHS)
 endif()
 
+
+# CUDA 11 onwards cub ships with CTK
+if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
+  set(CUB_IS_PART_OF_CTK ON)
+else()
+  set(CUB_IS_PART_OF_CTK OFF)
+endif()
+
 if("${GPU_ARCHS}" STREQUAL "ALL")
   set(GPU_ARCHS "60")
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
@@ -212,6 +220,9 @@ if("${GPU_ARCHS}" STREQUAL "ALL")
   endif()
   if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
     set(GPU_ARCHS "${GPU_ARCHS};75")
+  endif()
+  if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
+    set(GPU_ARCHS "${GPU_ARCHS};80")
   endif()
 endif()
 
@@ -245,14 +256,16 @@ set(CMAKE_CUDA_FLAGS
 
 include(ExternalProject)
 
-ExternalProject_Add(cub
-  GIT_REPOSITORY    https://github.com/NVlabs/cub.git
-  GIT_TAG           v1.8.0
-  PREFIX            ${CUB_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-)
+if(NOT CUB_IS_PART_OF_CTK)
+  ExternalProject_Add(cub
+    GIT_REPOSITORY    https://github.com/NVlabs/cub.git
+    GIT_TAG           v1.8.0
+    PREFIX            ${CUB_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   ""
+  )
+endif()
 
 ExternalProject_Add(cutlass
   GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
@@ -267,7 +280,9 @@ ExternalProject_Add(cutlass
 # after `project_a`, please add the dependency add_dependencies(project_b project_a)
 # This allows the cloning to happen sequentially, enhancing the printing at
 # compile time, helping significantly to troubleshoot build issues.
-add_dependencies(cutlass cub)
+if(NOT CUB_IS_PART_OF_CTK)
+  add_dependencies(cutlass cub)
+endif()
 
 ##############################################################################
 # - FAISS Build  -------------------------------------------------------------
@@ -342,10 +357,13 @@ include_directories(
   ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
-  ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
   ${TREELITE_DIR}/include/fmt
   ${ZLIB_INCLUDE_DIRS$})
+
+if(NOT CUB_IS_PART_OF_CTK)
+  include_directories(${CUB_DIR}/src/cub)
+endif()
 
 set(PRIMS_TEST_UTILS
     src_prims/cuda_utils.h
