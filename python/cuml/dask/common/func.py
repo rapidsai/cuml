@@ -24,12 +24,6 @@ from cuml.dask.common.part_utils import hosts_to_parts
 from cuml.dask.common.part_utils import workers_to_parts
 
 
-def add(parts):
-
-    print(str(parts))
-    return sum(parts)
-
-
 def reduce(futures, func, client=None):
     """
     Performs a cluster-wide reduction by first
@@ -88,7 +82,7 @@ def reduce(futures, func, client=None):
     return tree_reduce(futures, func)
 
 
-def tree_reduce(objs, func=add, client=None):
+def tree_reduce(objs, func=sum, client=None):
     """
     Performs a binary tree reduce on an associative
     and commutative function in parallel across
