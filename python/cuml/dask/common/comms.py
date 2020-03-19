@@ -302,9 +302,11 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     for k in worker_info:
         if str(k) != str(local_address):
 
+            print(str(k) + " - " + str(local_address))
+
             ip, port = parse_host_port(k)
 
-            ep = await ucp.create_endpoint(ip,
+            ep = await ucp.create_endpoint("10.33.227.161",
                                            worker_info[k]["p"], False)
 
             eps[worker_info[k]["r"]] = ep

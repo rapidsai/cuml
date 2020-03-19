@@ -28,6 +28,11 @@
 #include <ucp/api/ucp.h>
 struct ucx_context {
   int completed;
+//  bool needs_release = true;
+};
+
+struct ucp_request {
+  struct ucx_context *req;
   bool needs_release = true;
 };
 #endif
@@ -132,7 +137,7 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
   mutable request_t _next_request_id;
-  mutable std::unordered_map<request_t, struct ucx_context*>
+  mutable std::unordered_map<request_t, struct ucp_request*>
     _requests_in_flight;
   mutable std::unordered_set<request_t> _free_requests;
 #endif
