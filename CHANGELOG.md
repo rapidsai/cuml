@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #1897: remove segmented sort, due to very few segments
 
 # cuML 0.13.0 (Date TBD)
 
