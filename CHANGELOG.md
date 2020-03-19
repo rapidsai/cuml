@@ -1,14 +1,9 @@
 # cuML 0.14.0 (Date TBD)
-
 ## New Features
-
 ## Improvements
-
 ## Bug Fixes
 
-
 # cuML 0.13.0 (Date TBD)
-
 ## New Features
 - PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
