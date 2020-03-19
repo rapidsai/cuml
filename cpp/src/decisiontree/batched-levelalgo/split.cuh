@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_utils.h>
+#include <linalg/unary_op.h>
 
 namespace ML {
 namespace DecisionTree {
@@ -125,12 +126,6 @@ struct Split {
   }
 };  // struct Split
 
-template <typename DataT, typename IdxT>
-__global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
-  IdxT tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (tid < len) splits[tid].init();
-}
-
 /**
  * @brief Initialize the split array
  *
@@ -140,9 +135,9 @@ __global__ void initSplitKernel(Split<DataT, IdxT>* splits, IdxT len) {
  */
 template <typename DataT, typename IdxT, int TPB = 256>
 void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
-  auto nblks = MLCommon::ceildiv<IdxT>(len, TPB);
-  initSplitKernel<DataT, IdxT><<<nblks, TPB, 0, s>>>(splits, len);
-  CUDA_CHECK(cudaGetLastError());
+  auto op = [] __device__(Split<DataT, IdxT>* ptr, IdxT idx) { ptr->init(); };
+  MLCommon::LinAlg::writeOnlyUnaryOp
+    <Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
 }
 
 }  // namespace DecisionTree
