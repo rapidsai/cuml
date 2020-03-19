@@ -21,13 +21,15 @@ from toolz import first
 from dask.distributed import wait
 import dask.array
 
-from cuml.dask.common.func import reduce
+
 from cuml.utils import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 
+from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
+
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.utils import rmm_cupy_ary
 
@@ -176,18 +178,19 @@ class MultinomialNB(BaseEstimator,
 
         classes = self._unique(y.map_blocks(
             MultinomialNB._unique).compute()) \
-            if classes is None else dask.delayed(classes, pure=False)
+            if classes is None else classes
 
-        # Train models on partitions
         models = [self.client.submit(self._fit, part, classes, self.kwargs)
                   for w, part in futures.gpu_futures]
 
-        models = reduce(models, self._merge_counts_to_model)
+        self.local_model = reduce(models,
+                                  self._merge_counts_to_model,
+                                  client=self.client)
+        self.local_model = self.client.submit(self._update_log_probs,
+                                              self.local_model)
 
-        self.local_model = \
-            self.client.submit(self._update_log_probs, models)
+        wait(self.local_model)
 
-        _ = wait(self.local_model)
         return self
 
     @staticmethod
