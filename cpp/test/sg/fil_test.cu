@@ -144,8 +144,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       r.uniform(weights_d, num_nodes, -1.0f, 1.0f, stream);
     else
       r.uniform(weights_d, num_nodes, 0.0f,
-        // [0..num_classes + 1)
-        std::nextafterf(ps.num_classes + 1, 0.0f), stream);
+                // [0..num_classes)
+                std::nextafterf(ps.num_classes, 0.0f), stream);
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
@@ -180,10 +180,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       fil::val_t w;
       switch (ps.leaf_payload_type) {
         case fil::leaf_value_t::INT_CLASS_LABEL:
-          w.idx = (int)((weights_h[i] * 0.5 + 0.5)  // [0.0, 1.0]
-                          * ps.num_classes +
-                        0.5) %
-                  ps.num_classes;  // [0..num_classes]
+          w.idx = int(weights_h[i]);
           break;
         case fil::leaf_value_t::FLOAT_SCALAR:
           w.f = weights_h[i];
@@ -461,7 +458,7 @@ class TreeliteFilTest : public BaseFilTest {
           break;
         case fil::leaf_value_t::INT_CLASS_LABEL:
           std::vector<tl::tl_float> vec(ps.num_classes);
-          vec[output.idx] = 1.0;
+          for (int i = 0; i < ps.num_classes; ++i) vec[i] = i == output.idx;
           TL_CPP_CHECK(builder->SetLeafVectorNode(key, vec));
       }
     } else {
