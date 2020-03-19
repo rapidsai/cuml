@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 import numpy as np
-import cupy as cp
 import sys
 
 import ctypes
@@ -28,10 +27,6 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from typing import List, Tuple, Dict, Mapping, Optional, Union
-
-import cudf
-import cuml
-import rmm
 
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import Base
@@ -107,7 +102,7 @@ class ARIMA(Base):
     .. code-block:: python
 
         import numpy as np
-        from cuml.tsa import arima
+        from cuml.tsa.arima import ARIMA
 
         # Create seasonal data with a trend, a seasonal pattern and noise
         n_obs = 100
@@ -120,7 +115,7 @@ class ARIMA(Base):
              + np.tile(pattern, (25, 1)))
 
         # Fit a seasonal ARIMA model
-        model = arima.ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
+        model = ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
         model.fit()
 
         # Forecast
@@ -398,7 +393,7 @@ class ARIMA(Base):
         Example:
         --------
         .. code-block:: python
-            from cuml.tsa.arima import fit
+            from cuml.tsa.arima import ARIMA
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
@@ -493,8 +488,7 @@ class ARIMA(Base):
         Example:
         --------
         .. code-block:: python
-            from cuml.tsa.arima import fit
-            import cuml
+            from cuml.tsa.arima import ARIMA
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
