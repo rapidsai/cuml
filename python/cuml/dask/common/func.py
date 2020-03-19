@@ -33,11 +33,28 @@ def add(parts):
 def reduce(futures, func, client=None):
     """
     Performs a cluster-wide reduction by first
-    reducing within each worker
-    :param futures:
-    :param func:
-    :param client:
-    :return:
+    running function on worker->host->cluster. This
+    function takes locality into account by first
+    reducing partitions local to each worker before
+    reducing partitions on each host and, finally,
+    reducing the partitions across the cluster into
+    a single reduced partition.
+
+    Parameters
+    ----------
+
+    futures : array-like of dask.Future futures to reduce
+    func : Python reduction function accepting list
+           of objects to reduce and returning a single
+           reduced object.
+
+    client : dask.distributed.Client to use for scheduling
+
+    Returns
+    -------
+
+    output : dask.Future a future containing the final reduce
+        object.
     """
 
     client = default_client() if client is None else client
@@ -75,11 +92,11 @@ def tree_reduce(objs, func=add, client=None):
     """
     Performs a binary tree reduce on an associative
     and commutative function in parallel across
-    Dask workers.
-
-    TODO: investigate methods for doing intra-node
-    before inter-node reductions.
-    Ref: https://github.com/rapidsai/cuml/issues/1881
+    Dask workers. Since this supports dask.delayed
+    objects, which have yet been scheduled on workers,
+    it does not take locality into account. As a result,
+    any local reductions should be performed before
+    this function is called.
 
     Parameters
     ----------
