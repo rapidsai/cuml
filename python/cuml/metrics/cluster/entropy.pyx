@@ -74,6 +74,7 @@ def cython_entropy(clustering, base=None, handle=None):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
+
     Returns
     -------
     S : float

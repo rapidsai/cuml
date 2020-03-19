@@ -43,8 +43,8 @@ using namespace ML;
   * @tpatam T: Type of input, query, and dist matrices. Usually float
  */
 template <typename T = float>
-void run(T *X, int n, T *query, int q_n, int d, long *knn_indices, T *knn_dists,
-         int n_neighbors, UMAPParams *params,
+void run(T *X, int n, T *query, int q_n, int d, int64_t *knn_indices,
+         T *knn_dists, int n_neighbors, UMAPParams *params,
          std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
          int algo = 0) {
   switch (algo) {
