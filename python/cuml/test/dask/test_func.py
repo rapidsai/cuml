@@ -43,7 +43,9 @@ def test_tree_reduce_futures(n_parts, cluster):
 
     a = client.scatter(range(n_parts))
     b = tree_reduce(a)
-    c = b.result()
+    c = client.compute(b, sync=True)
+
+    print(str(c))
 
     assert(sum(range(n_parts)) == c)
 
