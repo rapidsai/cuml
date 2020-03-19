@@ -1,3 +1,0 @@
-repository='https://github.com/facebookresearch/faiss.git'
-module=''
-tag=''

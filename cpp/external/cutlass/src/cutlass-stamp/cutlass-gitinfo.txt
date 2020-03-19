@@ -1,3 +1,0 @@
-repository='https://github.com/NVIDIA/cutlass.git'
-module=''
-tag=''
