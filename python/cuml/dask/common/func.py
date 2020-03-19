@@ -15,6 +15,8 @@
 
 from dask.delayed import Delayed
 
+import dask
+
 from dask.distributed import wait
 
 from toolz import first
@@ -63,18 +65,19 @@ def reduce(futures, func, client=None):
         workers = [(first(who_has[m.key]), m) for m in futures]
         worker_parts = local_reduction_func(workers)
 
-        # Short circuit when all parts already on same worker
+        # Short circuit when all parts already have preferred
+        # locality
         if len(worker_parts) > 1:
-            # Merge within each worker
-            futures = [client.submit(func, p)
+            # Local tree reduction for scalability
+            futures = [client.compute(tree_reduce(p, func))
                        for w, p in worker_parts.items()]
             wait(futures)
 
     # Merge across workers
-    return tree_reduce(futures, func)
+    return client.compute(tree_reduce(futures, func))
 
 
-def tree_reduce(objs, func=sum, client=None):
+def tree_reduce(objs, func=sum):
     """
     Performs a binary tree reduce on an associative
     and commutative function in parallel across
@@ -100,7 +103,8 @@ def tree_reduce(objs, func=sum, client=None):
         if func is a future, the result will be a future
     """
 
-    client = get_client(client)
+    func = dask.delayed(func) \
+        if not isinstance(func, Delayed) else func
 
     while len(objs) > 1:
         new_delayed_objs = []
@@ -108,10 +112,9 @@ def tree_reduce(objs, func=sum, client=None):
         for i in range(0, n_delayed_objs, 2):
             inputs = objs[i:i + 2]
             # add neighbors
-            if isinstance(func, Delayed):
-                obj = func(inputs)
-            else:
-                obj = client.submit(func, inputs)
+            obj = func([dask.delayed(inp)
+                        if not isinstance(inp, Delayed) else inp
+                        for inp in inputs])
             new_delayed_objs.append(obj)
         objs = new_delayed_objs
 
