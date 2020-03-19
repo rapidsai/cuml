@@ -15,41 +15,56 @@
 
 import dask
 
+from dask.distributed import default_client
+from dask.distributed import wait
+
 from toolz import first
 
-from cuml.dask.common.utils import get_client
-from cuml.dask.common.part_utils import workers_to_parts
 from cuml.dask.common.part_utils import hosts_to_parts
-
-
-def reduce(futures, func, client=None):
-
-    client = get_client(client)
-
-    who_has = client.who_has(futures)
-
-    workers = [who_has[f.key] for f in futures]
-    print(str(workers))
-
-    # Merge within each worker
-    futures = [client.submit(func, p)
-              for w, p in workers_to_parts(workers).items()]
-
-    who_has = client.who_has(futures)
-    workers = [who_has[f.key] for f in futures]
-
-    print(str(workers))
-
-    # Merge within each host
-    futures = [client.submit(func, p)
-              for w, p in hosts_to_parts(workers).items()]
-
-    # Merge across workers
-    return tree_reduce(futures, func)
+from cuml.dask.common.part_utils import workers_to_parts
 
 
 @dask.delayed
 def reduce_func_add(a, b): return a + b if b is not None else a
+
+
+def reduce(futures, func, client=None):
+    """
+    Performs a cluster-wide aggregation/reduction
+    :param futures:
+    :param func:
+    :param client:
+    :return:
+    """
+
+    client = default_client() if client is None else client
+
+    wait(futures)
+
+    who_has = client.who_has(futures)
+
+    workers = [(first(who_has[m.key]), m) for m in futures]
+
+    worker_parts = workers_to_parts(workers)
+
+    # Merge within each worker
+    models = [client.submit(func, p) for w, p in worker_parts.items()]
+
+    wait(models)
+
+    who_has = client.who_has(models)
+
+    workers = [(first(who_has[m.key]), m) for m in models]
+    host_parts = hosts_to_parts(workers)
+
+    # Merge all workers on each host
+    models = [client.submit(func, p) for w, p in host_parts.items()]
+
+    wait(models)
+
+    # Merge across workers
+    return tree_reduce(models, func)
+
 
 
 def tree_reduce(delayed_objs, func=reduce_func_add, client=None):
