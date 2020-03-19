@@ -924,7 +924,10 @@ class RandomForestClassifier(Base):
 
         Returns
         -------
-        y : Dense vector (float) of shape (n_samples, 1)
+        y : (same as the input datatype)
+            Dense vector (float) of shape (n_samples, 1). The datatype of y
+            depend on the value of 'output_type' varaible specified by the
+            user while intializing the model.
         """
         if self.dtype == np.float64:
             raise TypeError("GPU based predict only accepts np.float32 data. \
