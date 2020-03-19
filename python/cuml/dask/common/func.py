@@ -56,27 +56,19 @@ def reduce(futures, func, client=None):
     # Make sure input futures have been assigned to worker(s)
     wait(futures)
 
-    who_has = client.who_has(futures)
+    for local_reduction_func in [workers_to_parts, hosts_to_parts]:
 
-    workers = [(first(who_has[m.key]), m) for m in futures]
-    worker_parts = workers_to_parts(workers)
+        who_has = client.who_has(futures)
 
-    # Short circuit when all parts already on same worker
-    if len(worker_parts) > 1:
-        # Merge within each worker
-        futures = [client.submit(func, p) for w, p in worker_parts.items()]
-        wait(futures)
+        workers = [(first(who_has[m.key]), m) for m in futures]
+        worker_parts = local_reduction_func(workers)
 
-    who_has = client.who_has(futures)
-
-    workers = [(first(who_has[m.key]), m) for m in futures]
-    host_parts = hosts_to_parts(workers)
-
-    # Short circuit when all parts already on same host
-    if len(host_parts) > 1:
-        # Merge all workers on each host
-        futures = [client.submit(func, p) for w, p in host_parts.items()]
-        wait(futures)
+        # Short circuit when all parts already on same worker
+        if len(worker_parts) > 1:
+            # Merge within each worker
+            futures = [client.submit(func, p)
+                       for w, p in worker_parts.items()]
+            wait(futures)
 
     # Merge across workers
     return tree_reduce(futures, func)
