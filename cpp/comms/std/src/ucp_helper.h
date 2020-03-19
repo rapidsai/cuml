@@ -35,7 +35,7 @@ struct comms_ucp_handle {
   int (*worker_progress_func)(ucp_worker_h);
 };
 
-static const ucp_tag_t default_tag_mask = -1;
+static const ucp_tag_t default_tag_mask = UINT64_MAX;
 
 static const ucp_tag_t any_rank_tag_mask = 0x0000FFFF;
 
@@ -44,7 +44,7 @@ static const int UCP_ANY_RANK = -1;
 /**
  * @brief Asynchronous send callback sets request to completed
  */
-void send_handle(void *request, ucs_status_t status) {
+static void send_handle(void *request, ucs_status_t status) {
   struct ucx_context *context = (struct ucx_context *)request;
   printf("Send Completed %s\n", request);
   context->completed = 1;
@@ -53,7 +53,7 @@ void send_handle(void *request, ucs_status_t status) {
 /**
  * @brief Asynchronous recv callback sets request to completed
  */
-void recv_handle(void *request, ucs_status_t status,
+static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
   struct ucx_context *context = (struct ucx_context *)request;
   printf("Recv Completed %s\n", request);
