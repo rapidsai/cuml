@@ -300,12 +300,13 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
          "ERROR: UCX comms not initialized on communicator.");
 
   get_request_id(request);
-  std::cout << getRank() <<  " Send Request ID: " << *request << std::endl;
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
   struct ucp_request *ucp_req =
     ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
               default_tag_mask, getRank());
+
+    std::cout << getRank() <<  ": Created send request [id=" << *request << ", ptr= " << ucp_req->req << ", to=" << dest << "]" << std::endl;
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
@@ -321,7 +322,6 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   get_request_id(request);
 
-  std::cout << getRank() << " Receive Request Id: " << *request << std::endl;
 
   ucp_ep_h ep_ptr = (*_ucp_eps)[source];
 
@@ -335,6 +335,9 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   struct ucp_request *ucp_req =
     ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
               size, tag, tag_mask, source);
+
+  std::cout << getRank() << ": Created receive request [id=" << *request << ", ptr=" << ucp_req->req << ", from=" << source << "]" << std::endl;
+
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
@@ -381,9 +384,8 @@ void cumlStdCommunicator_impl::waitall(int count,
      ASSERT(req->req->completed == 1 || req->req->completed == 0, "Request completed not a valid value: %d\n", req->req->completed);
 
       if (req->req->completed == 1) {
-        std::cout << getRank() << ": request completed: " << req << " "
-                  << requests.size()-1
-                  << " requests to go"
+        std::cout << getRank() << ": request completed. [ptr=" << req->req << ", num_left= "
+                  << requests.size()-1 << ", other_rank=" << req->other_rank << ", is_send=" << req->is_send_request << ", completed_immediately=" << !req->needs_release << "]"
                   << std::endl;
         req->req->completed = 0;
 	if(req->needs_release)

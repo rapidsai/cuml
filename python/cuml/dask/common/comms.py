@@ -207,6 +207,10 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
 
     import os
     os.environ["UCX_CUDA_IPC_CACHE"] = "n"
+    os.environ["UCXPY_NON_BLOCKING_MODE"] = "1"
+
+    ucp.reset()
+    ucp.init(blocking_progress_mode=False)
 
     if "ucp_listener" in worker_state(sessionId):
         print("Listener already started for sessionId=" +
