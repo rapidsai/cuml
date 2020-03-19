@@ -18,7 +18,6 @@ from dask import delayed
 from dask.distributed import Client
 import pytest
 
-from cuml.dask.common.func import add
 from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
 
@@ -28,7 +27,7 @@ def test_tree_reduce_delayed(n_parts, cluster):
 
     client = Client(cluster)
 
-    func = delayed(add)
+    func = delayed(sum)
 
     a = [delayed(i) for i in range(n_parts)]
     b = tree_reduce(a, func=func)
@@ -55,7 +54,7 @@ def test_reduce_futures(n_parts, cluster):
     client = Client(cluster)
 
     a = client.scatter(range(n_parts))
-    b = reduce(a, add)
+    b = reduce(a, sum)
     c = b.result()
 
     # Testing this gets the correct result for now.
