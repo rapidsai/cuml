@@ -286,12 +286,7 @@ class RandomForestRegressor(Base):
             warnings.warn("Setting the random seed does not fully guarantee"
                           " the exact same results at this time.")
         self.model_pbuf_bytes = []
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            new RandomForestMetaData[float, float]()
-        self.rf_forest = <size_t> rf_forest
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            new RandomForestMetaData[double, double]()
-        self.rf_forest64 = <size_t> rf_forest64
+
     """
     TODO:
         Add the preprocess and postprocess functions
@@ -300,24 +295,27 @@ class RandomForestRegressor(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
+        cdef size_t params_t
+        cdef  RandomForestMetaData[float, int] *rf_forest
+        cdef  RandomForestMetaData[double, int] *rf_forest64
+        cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
             self.model_pbuf_bytes = self._get_protobuf_bytes()
-        cdef size_t params_t = <size_t> self.rf_forest
-        cdef  RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*>params_t
-
-        cdef size_t params_t64 = <size_t> self.rf_forest64
-        cdef  RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*>params_t64
-
+            params_t = <size_t> self.rf_forest
+            rf_forest = \
+                <RandomForestMetaData[float, int]*>params_t
+            params_t64 = <size_t> self.rf_forest64
+            rf_forest64 = \
+                <RandomForestMetaData[double, int]*>params_t64
+            if self.dtype == np.float32:
+                state["rf_params"] = rf_forest.rf_params
+            else:
+                state["rf_params64"] = rf_forest64.rf_params
+        state['n_cols'] = self.n_cols
         state['verbose'] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
-        if self.dtype == np.float32:
-            state["rf_params"] = rf_forest.rf_params
-        else:
-            state["rf_params64"] = rf_forest64.rf_params
         return state
 
     def __setstate__(self, state):
@@ -325,25 +323,27 @@ class RandomForestRegressor(Base):
                                                     verbose=state['verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
-
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
 
-        self.model_pbuf_bytes = state["model_pbuf_bytes"]
+        self.n_cols = state['n_cols']
+        if self.n_cols:
+            if state["dtype"] == np.float32:
+                rf_forest.rf_params = state["rf_params"]
+                state["rf_forest"] = <size_t>rf_forest
+            else:
+                rf_forest64.rf_params = state["rf_params64"]
+                state["rf_forest64"] = <size_t>rf_forest64
 
-        if state["dtype"] == np.float32:
-            rf_forest.rf_params = state["rf_params"]
-            state["rf_forest"] = <size_t>rf_forest
-        else:
-            rf_forest64.rf_params = state["rf_params64"]
-            state["rf_forest64"] = <size_t>rf_forest64
+        self.model_pbuf_bytes = state["model_pbuf_bytes"]
 
         self.__dict__.update(state)
 
     def __del__(self):
-        if self.dtype == np.float32:
-            free(<RandomForestMetaData[float, float]*><size_t> self.rf_forest)
-        else:
+        if self.n_cols:
+            #Clear only if fitted before
+            free(<RandomForestMetaData[float, float]*><size_t>
+                 self.rf_forest)
             free(<RandomForestMetaData[double, double]*><size_t>
                  self.rf_forest64)
 
@@ -353,18 +353,11 @@ class RandomForestRegressor(Base):
 
         # Only if the model is fitted before
         # Clears the data of the forest to prepare for next fit
-        if self.dtype == np.float32:
-            free(<RandomForestMetaData[float, float]*><size_t>
-                 self.rf_forest)
-        else:
-            free(<RandomForestMetaData[double, double]*><size_t>
-                 self.rf_forest64)
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            new RandomForestMetaData[float, float]()
-        self.rf_forest = <size_t> rf_forest
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            new RandomForestMetaData[double, double]()
-        self.rf_forest64 = <size_t> rf_forest64
+        free(<RandomForestMetaData[float, float]*><size_t>
+             self.rf_forest)
+        free(<RandomForestMetaData[double, double]*><size_t>
+             self.rf_forest64)
+        
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
@@ -520,10 +513,6 @@ class RandomForestRegressor(Base):
         self._reset_forest_data()
 
         cdef uintptr_t X_ptr, y_ptr
-        cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
-        cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
@@ -546,6 +535,13 @@ class RandomForestRegressor(Base):
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
+
+        cdef RandomForestMetaData[float, float] *rf_forest = \
+            new RandomForestMetaData[float, float]()
+        self.rf_forest = <size_t> rf_forest
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
+            new RandomForestMetaData[double, double]()
+        self.rf_forest64 = <size_t> rf_forest64
 
         if self.seed is None:
             seed_val = <uintptr_t>NULL
