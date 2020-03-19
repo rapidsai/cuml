@@ -55,8 +55,8 @@ import cuml.tsa.arima as arima
 ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
                                      'end', 'tolerance_integration'])
 
-# ARIMA(2,0,0)
-test_200 = ARIMAData(
+# ARIMA(1,0,1) with intercept
+test_101c = ARIMAData(
     batch_size=8,
     n_obs=15,
     dataset="long_term_arrivals_by_citizenship",
@@ -95,8 +95,8 @@ test_110 = ARIMAData(
     tolerance_integration=0.001
 )
 
-# ARIMA(0,1,1)
-test_011 = ARIMAData(
+# ARIMA(0,1,1) with intercept
+test_011c = ARIMAData(
     batch_size=16,
     n_obs=28,
     dataset="deaths_by_region",
@@ -105,8 +105,8 @@ test_011 = ARIMAData(
     tolerance_integration=0.005
 )
 
-# ARIMA(1,2,1)
-test_121 = ARIMAData(
+# ARIMA(1,2,1) with intercept
+test_121c = ARIMAData(
     batch_size=2,
     n_obs=137,
     dataset="population_estimate",
@@ -125,8 +125,8 @@ test_101_111_4 = ARIMAData(
     tolerance_integration=0.02
 )
 
-# ARIMA(1,1,1)(2,0,0)_4
-test_111_200_4 = ARIMAData(
+# ARIMA(1,1,1)(2,0,0)_4 with intercept
+test_111_200_4c = ARIMAData(
     batch_size=14,
     n_obs=123,
     dataset="hourly_earnings_by_industry",
@@ -159,14 +159,14 @@ test_111_111_12 = ARIMAData(
 # (a test case could be used with different models)
 # (p, d, q, P, D, Q, s, k) -> ARIMAData
 test_data = {
-    (2, 0, 0, 0, 0, 0, 0, 0): test_200,
+    (1, 0, 1, 0, 0, 0, 0, 1): test_101c,
     (0, 0, 2, 0, 0, 0, 0, 1): test_002c,
     (0, 1, 0, 0, 0, 0, 0, 1): test_010c,
     (1, 1, 0, 0, 0, 0, 0, 0): test_110,
-    (0, 1, 1, 0, 0, 0, 0, 0): test_011,
-    (1, 2, 1, 0, 0, 0, 0, 0): test_121,
+    (0, 1, 1, 0, 0, 0, 0, 1): test_011c,
+    (1, 2, 1, 0, 0, 0, 0, 1): test_121c,
     (1, 0, 1, 1, 1, 1, 4, 0): test_101_111_4,
-    (1, 1, 1, 2, 0, 0, 4, 0): test_111_200_4,
+    (1, 1, 1, 2, 0, 0, 4, 1): test_111_200_4c,
     (1, 1, 2, 0, 1, 2, 4, 0): test_112_012_4,
     (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
 }

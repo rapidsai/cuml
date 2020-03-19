@@ -160,8 +160,7 @@ class ARIMA(Base):
     seasonal_order: Tuple[int, int, int, int]
         The seasonal ARIMA order (P, D, Q, s) of the model
     fit_intercept : bool or int
-        Whether to include a constant trend mu in the model
-        Leave to None for automatic selection based on the model order
+        Whether to include a constant trend mu in the model (default: True)
     handle: cuml.Handle
         If it is None, a new one is created just for this instance
 
@@ -211,7 +210,7 @@ class ARIMA(Base):
                  order: Tuple[int, int, int] = (1, 1, 1),
                  seasonal_order: Tuple[int, int, int, int]
                  = (0, 0, 0, 0),
-                 fit_intercept=None,
+                 fit_intercept=True,
                  handle=None):
 
         if not has_scipy():
@@ -223,9 +222,6 @@ class ARIMA(Base):
         cdef ARIMAOrder cpp_order
         cpp_order.p, cpp_order.d, cpp_order.q = order
         cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
-        if fit_intercept is None:
-            # by default, use an intercept only with non differenced models
-            fit_intercept = (order[1] + seasonal_order[1] == 0)
         cpp_order.k = int(fit_intercept)
 
         self.order = cpp_order
