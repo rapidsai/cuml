@@ -60,7 +60,6 @@ def train_test_split(
 
     Examples
     --------
-
     .. code-block:: python
 
         import cudf

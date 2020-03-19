@@ -107,12 +107,12 @@ class SVC(SVMBase):
     References
     ----------
     [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-         Algorithm for Support VectorMachine Training, IEEE Transactions on
-         Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
+    Algorithm for Support VectorMachine Training, IEEE Transactions on
+    Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
 
     [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    *      of Machine Learning Research, 19, 1-5 (2018)
-        https://github.com/Xtra-Computing/thundersvm
+    of Machine Learning Research, 19, 1-5 (2018)
+    https://github.com/Xtra-Computing/thundersvm
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,

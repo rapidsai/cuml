@@ -22,6 +22,8 @@ import cupyx
 import cudf
 import dask
 
+from cuml.utils.memory_utils import with_cupy_rmm
+
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from tornado import gen
 from dask.distributed import default_client
@@ -95,6 +97,7 @@ def _conv_df_to_sp(x):
     return cp.sparse.csr_matrix(cupy_ary)
 
 
+@with_cupy_rmm
 def to_sp_dask_array(cudf_or_array, client=None):
     """
     Converts an array or cuDF to a sparse Dask array backed by sparse CuPy.
