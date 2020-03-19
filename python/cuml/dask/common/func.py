@@ -66,7 +66,6 @@ def reduce(futures, func, client=None):
     return tree_reduce(models, func)
 
 
-
 def tree_reduce(delayed_objs, func=reduce_func_add, client=None):
     """
     Performs a binary tree reduce on an associative
