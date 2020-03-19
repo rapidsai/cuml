@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,6 +99,42 @@ void unaryOp(OutType *out, const InType *in, IdxType len, Lambda op,
     unaryOpImpl<InType, 1, Lambda, OutType, IdxType, TPB>(out, in, len, op,
                                                           stream);
   }
+}
+
+template <typename OutType, typename Lambda, typename IdxType>
+__global__ void writeOnlyUnaryOpKernel(OutType *out, IdxType len, Lambda op) {
+  IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
+  if (idx < len) {
+    op(out + idx, idx);
+  }
+}
+
+/**
+ * @brief Perform an element-wise unary operation into the output array
+ *
+ * Compared to `unaryOp()`, this method does not do any reads from any inputs
+ *
+ * @tparam OutType output data-type
+ * @tparam Lambda  the device-lambda performing the actual operation
+ * @tparam IdxType Integer type used to for addressing
+ * @tparam TPB     threads-per-block in the final kernel launched
+ *
+ * @param[out] out    the output array [on device] [len = len]
+ * @param[in]  len    number of elements in the input array
+ * @param[in]  op     the device-lambda which must be of the form:
+ *                    `void func(OutType* outLocationOffset, IdxType idx);`
+ *                    where outLocationOffset will be out + idx.
+ * @param[in]  stream cuda stream where to launch work
+ */
+template <typename OutType, typename Lambda, typename IdxType = int,
+          int TPB = 256>
+void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,
+                      cudaStream_t stream) {
+  if (len <= 0) return;  // silently skip in case of 0 length input
+  auto nblks = ceildiv<IdxType>(len, TPB);
+  writeOnlyUnaryOpKernel<OutType, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(
+    out, len, op);
+  CUDA_CHECK(cudaGetLastError());
 }
 
 };  // end namespace LinAlg
