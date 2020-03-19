@@ -60,6 +60,7 @@ def train_test_split(
 
     Examples
     --------
+
     .. code-block:: python
 
         import cudf
@@ -199,7 +200,7 @@ def train_test_split(
             X = cp.asarray(X)[idxs]
 
         if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
-            y = y.iloc[idxs]
+            y = y.iloc[idxs].reset_index(drop=True)
 
         elif cuda.is_cuda_array(y):
             if cuda.devicearray.is_cuda_ndarray(y):

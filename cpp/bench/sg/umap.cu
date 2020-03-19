@@ -128,7 +128,7 @@ class UmapSupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod() {
     fit(*this->handle, this->data.X, yFloat, this->params.nrows,
-        this->params.ncols, nullptr, nullptr, &uParams, embeddings);
+        this->params.ncols, &uParams, embeddings);
   }
 };
 CUML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
@@ -141,7 +141,7 @@ class UmapUnsupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod() {
     fit(*this->handle, this->data.X, this->params.nrows, this->params.ncols,
-        nullptr, nullptr, &uParams, embeddings);
+        &uParams, embeddings);
   }
 };
 CUML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
@@ -153,9 +153,8 @@ class UmapTransform : public UmapBase {
  protected:
   void coreBenchmarkMethod() {
     transform(*this->handle, this->data.X, this->params.nrows,
-              this->params.ncols, nullptr, nullptr, this->data.X,
-              this->params.nrows, embeddings, this->params.nrows, &uParams,
-              transformed);
+              this->params.ncols, this->data.X, this->params.nrows, embeddings,
+              this->params.nrows, &uParams, transformed);
   }
   void allocateBuffers(const ::benchmark::State& state) {
     UmapBase::allocateBuffers(state);
@@ -165,7 +164,7 @@ class UmapTransform : public UmapBase {
       this->params.nrows * uParams.n_components * sizeof(float),
       handle.getStream());
     fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
-        nullptr, nullptr, &uParams, embeddings);
+        &uParams, embeddings);
   }
   void deallocateBuffers(const ::benchmark::State& state) {
     auto& handle = *this->handle;

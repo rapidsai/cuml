@@ -16,20 +16,18 @@
 
 import cudf
 
+from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.common import extract_ddf_partitions, \
     raise_exception_from_futures, workers_to_parts
-from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.input_utils import DistributedDataHandler
 
 import math
 import random
 from uuid import uuid1
 
 
-class RandomForestRegressor(DelayedPredictionMixin):
+class RandomForestRegressor:
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -59,6 +57,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
     Please check the single-GPU implementation of Random Forest
     classifier for more information about the underlying algorithm.
+
 
      Parameters
     -----------
@@ -147,8 +146,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         class_weight=None,
         quantile_per_tree=False,
         criterion=None,
-        workers=None,
-        client=None
+        workers=None
     ):
 
         unsupported_sklearn_params = {
@@ -178,9 +176,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
 
-        self.client = default_client() if client is None else client
+        c = default_client()
         if workers is None:
-            workers = self.client.has_what().keys()
+            workers = c.has_what().keys()
         self.workers = workers
         n_workers = len(workers)
         if n_estimators < n_workers:
@@ -208,7 +206,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         key = str(uuid1())
         self.rfs = {
-            worker: self.client.submit(
+            worker: c.submit(
                 RandomForestRegressor._func_build_rf,
                 self.n_estimators_per_worker[n],
                 max_depth,
@@ -293,56 +291,8 @@ class RandomForestRegressor(DelayedPredictionMixin):
         return model.fit(X_df, y_df)
 
     @staticmethod
-    def _print_summary(model):
-        model.print_summary()
-
-    @staticmethod
-    def _predict_cpu(model, X, predict_model):
-        return model._predict_model_on_cpu(X, predict_model=predict_model)
-
-    def print_summary(self):
-        """
-        Print the summary of the forest used to train and test the model.
-        """
-        c = default_client()
-        futures = list()
-        workers = self.workers
-
-        for n, w in enumerate(workers):
-            futures.append(
-                c.submit(
-                    RandomForestRegressor._print_summary,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-
-        wait(futures)
-        raise_exception_from_futures(futures)
-        return self
-
-    def _concat_treelite_models(self):
-        """
-        Convert the cuML Random Forest model present in different workers to
-        the treelite format and then concatenate the different treelite models
-        to create a single model. The concatenated model is then converted to
-        bytes format.
-        """
-
-        mod_bytes = []
-        for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-        last_worker = w
-        all_tl_mod_handles = []
-        model = self.rfs[last_worker].result()
-        for n in range(len(self.workers)):
-            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-
-        concat_model_handle = model.concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
-        model.concatenate_model_bytes(concat_model_handle)
-
-        self.local_model = model
+    def _predict(model, X, r):
+        return model.predict(X).copy_to_host()
 
     def fit(self, X, y):
         """
@@ -412,96 +362,36 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         wait(futures)
         raise_exception_from_futures(futures)
+
         return self
 
-    def predict(self, X, predict_model="GPU", algo='auto',
-                convert_dtype=True, fil_sparse_format='auto',
-                delayed=True):
+    def predict(self, X):
         """
         Predicts the regressor outputs for X.
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
-        delayed : bool (default = True)
-            Whether to do a lazy prediction (and return Delayed objects) or an
-            eagerly executed one.
+        X : Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         Returns
         ----------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y: NumPy
+           Dense vector (float) of shape (n_samples, 1)
+
         """
-        if predict_model == "CPU":
-            preds = self._predict_using_cpu(X, predict_model=predict_model)
-
-        else:
-            preds = \
-                self._predict_using_fil(X, predict_model=predict_model,
-                                        algo=algo,
-                                        convert_dtype=convert_dtype,
-                                        fil_sparse_format=fil_sparse_format,
-                                        delayed=delayed)
-        return preds
-
-    def _predict_using_fil(self, X, predict_model="GPU", algo='auto',
-                           convert_dtype=True, fil_sparse_format='auto',
-                           delayed=True):
-        self._concat_treelite_models()
-        data = DistributedDataHandler.single(X, client=self.client)
-        self.datatype = data.datatype
-
-        kwargs = {"convert_dtype": convert_dtype,
-                  "predict_model": predict_model, "algo": algo,
-                  "fil_sparse_format": fil_sparse_format}
-        return self._predict(X, delayed=delayed, **kwargs)
-
-    """
-    TODO : Update function names used for CPU predict.
-           Cuml issue #1854 has been created to track this.
-    """
-    def _predict_using_cpu(self, X, predict_model):
+        c = default_client()
         workers = self.workers
 
-        X_Scattered = self.client.scatter(X)
+        X_Scattered = c.scatter(X)
 
         futures = list()
         for n, w in enumerate(workers):
             futures.append(
-                self.client.submit(
-                    RandomForestRegressor._predict_cpu,
+                c.submit(
+                    RandomForestRegressor._predict,
                     self.rfs[w],
                     X_Scattered,
-                    predict_model,
+                    random.random(),
                     workers=[w],
                 )
             )

@@ -31,6 +31,8 @@ from cuml.dask.common.part_utils import *
 
 from cuml.dask.common.utils import raise_exception_from_futures  # NOQA
 from cuml.dask.common.utils import raise_mg_import_exception  # NOQA
+from cuml.dask.common.utils import patch_cupy_sparse_serialization  # NOQA
+
 
 # TODO: The following will be going away soon
 from cuml.dask.common.dask_arr_utils import extract_arr_partitions

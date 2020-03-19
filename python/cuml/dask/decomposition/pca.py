@@ -152,12 +152,9 @@ class PCA(BaseDecomposition,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, client=None, **kwargs):
 
-        super(PCA, self).__init__(PCA._create_pca,
-                                  client=client,
-                                  verbose=verbose,
-                                  **kwargs)
+        super(PCA, self).__init__(PCA._create_pca, client, **kwargs)
         self.noise_variance_ = None
 
     def fit(self, X, _transform=False):

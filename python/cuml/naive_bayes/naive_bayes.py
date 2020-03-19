@@ -21,6 +21,8 @@ import numpy as np
 import cupy as cp
 import scipy.sparse
 
+from cuml.common.base import Base
+
 import cupy.prof
 
 from cuml.utils import with_cupy_rmm
@@ -116,10 +118,7 @@ def count_features_dense_kernel(float_dtype, int_dtype):
                                "count_features_dense")
 
 
-class MultinomialNB(object):
-
-    # TODO: Make this extend cuml.Base:
-    # https://github.com/rapidsai/cuml/issues/1834
+class MultinomialNB(Base):
 
     """
     Naive Bayes classifier for multinomial models
@@ -185,7 +184,9 @@ class MultinomialNB(object):
     def __init__(self,
                  alpha=1.0,
                  fit_prior=True,
-                 class_prior=None):
+                 class_prior=None,
+                 verbose=False,
+                 output_type=None):
 
         """
         Create new multinomial Naive Bayes instance
@@ -201,6 +202,10 @@ class MultinomialNB(object):
                       classes. If specified, the priors are not adjusted
                       according to the data.
         """
+
+        super(MultinomialNB, self).__init__(handle=None,
+                                            verbose=verbose,
+                                            output_type=output_type)
 
         self.alpha = alpha
         self.fit_prior = fit_prior
@@ -239,7 +244,6 @@ class MultinomialNB(object):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
-    @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
@@ -278,7 +282,6 @@ class MultinomialNB(object):
 
         return self
 
-    @with_cupy_rmm
     def update_log_probs(self):
         """
         Updates the log probabilities. This enables lazy update for
@@ -289,7 +292,6 @@ class MultinomialNB(object):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
-    @with_cupy_rmm
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples.

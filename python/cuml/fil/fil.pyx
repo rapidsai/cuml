@@ -25,7 +25,6 @@ import ctypes
 import math
 import numpy as np
 import warnings
-import pandas as pd
 
 import rmm
 
@@ -33,11 +32,9 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array
-
+from cuml.utils import get_dev_array_ptr, input_to_dev_array, zeros
 from cuml.utils.import_utils import has_treelite
 
 if has_treelite():
@@ -230,49 +227,41 @@ cdef class ForestInference_impl():
                              ' to the documentation')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, output_type='numpy', predict_proba=False, preds=None):
+    def predict(self, X, predict_proba=False, preds=None):
         """
-        Returns the results of forest inference on the examples in X
+        Returns the results of forest inference on the exampes in X
 
         Parameters
         ----------
         X : float32 array-like (device or host) shape = (n_samples, n_features)
             For optimal performance, pass a device array with C-style layout
-        output_type : string (default = 'numpy')
-            possible options are : {'input', 'cudf', 'cupy', 'numpy'}, optional
-            Variable to control output type of the results and attributes of
-            the estimators.
-        preds : float32 device array, shape = n_samples
-        predict_proba : bool, whether to output class probabilities(vs classes)
-            Supported only for binary classification. output format
-            matches sklearn
 
-        Returns
-        ----------
-        Predicted results of type as defined by the output_type variable
+        preds : float32 device array, shape = n_samples
+
+        predict_proba : bool, whether to output class probabilities(vs classes)
+        Supported only for binary classification. output format matches sklearn
         """
         cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=np.float32,
-                                check_dtype=np.float32)
-        X_ptr = X_m.ptr
+        X_m, X_ptr, n_rows, _, X_dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
         if preds is None:
-            shape = (n_rows, )
+            shape = (n_rows,)
             if predict_proba:
                 shape += (2,)
-            preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
+            preds = rmm.device_array(shape, dtype=np.float32)
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
             raise ValueError("Invalid type for output preds,"
                              " need GPU array")
 
         cdef uintptr_t preds_ptr
-        preds_ptr = preds.ptr
+        preds_m, preds_ptr, _, _, _ = input_to_dev_array(
+            preds, order='C',
+            check_dtype=np.float32)
 
         predict(handle_[0],
                 self.forest_data,
@@ -281,7 +270,7 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
-        return preds.to_output(output_type)
+        return preds
 
     def load_from_treelite_model_handle(self,
                                         uintptr_t model_handle,
@@ -411,9 +400,8 @@ class ForestInference(Base):
 
     """
     def __init__(self,
-                 handle=None, output_type=None):
-        super(ForestInference, self).__init__(handle,
-                                              output_type=output_type)
+                 handle=None):
+        super(ForestInference, self).__init__(handle)
         self._impl = ForestInference_impl(self.handle)
 
     def predict(self, X, preds=None):
@@ -440,8 +428,7 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        out_type = self._get_output_type(X)
-        return self._impl.predict(X, out_type, predict_proba=False, preds=None)
+        return self._impl.predict(X, False, preds)
 
     def predict_proba(self, X, preds=None):
         """
@@ -465,8 +452,7 @@ class ForestInference(Base):
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        out_type = self._get_output_type(X)
-        return self._impl.predict(X, out_type, predict_proba=True, preds=None)
+        return self._impl.predict(X, True, preds)
 
     def load_from_treelite_model(self, model, output_class,
                                  algo='AUTO',

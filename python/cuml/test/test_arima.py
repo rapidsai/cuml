@@ -122,7 +122,7 @@ test_101_111_4 = ARIMAData(
     dataset="alcohol",
     start=80,
     end=110,
-    tolerance_integration=0.02
+    tolerance_integration=0.005
 )
 
 # ARIMA(1,1,1)(2,0,0)_4
@@ -415,7 +415,9 @@ def test_start_params(test_case, dtype):
         y_cudf, order, seasonal_order, fit_intercept=intercept)
     ref_model = [sm.tsa.SARIMAX(y[col], order=order,
                                 seasonal_order=seasonal_order,
-                                trend='c' if intercept else 'n')
+                                trend='c' if intercept else 'n',
+                                enforce_invertibility=False,
+                                enforce_stationarity=False)
                  for col in y.columns]
 
     # Estimate reference starting parameters
@@ -423,9 +425,7 @@ def test_start_params(test_case, dtype):
     nb = data.batch_size
     x_ref = np.zeros(N * nb, dtype=dtype)
     for ib in range(nb):
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            x_ref[ib*N:(ib+1)*N] = ref_model[ib].start_params[:N]
+        x_ref[ib*N:(ib+1)*N] = ref_model[ib].start_params[:N]
 
     # Estimate cuML starting parameters
     cuml_model._estimate_x0()

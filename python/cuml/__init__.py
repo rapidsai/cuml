@@ -70,6 +70,7 @@ from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
+
 # Output type configuration
 
 global_output_type = 'input'

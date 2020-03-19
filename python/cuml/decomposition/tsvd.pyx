@@ -354,16 +354,14 @@ class TruncatedSVD(Base):
     def fit_transform(self, X):
         """
         Fit LSI model to X and perform dimensionality reduction on X.
-
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-
         Returns
-        -------
+        ----------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
             Reduced version of X as a dense cuDF DataFrame
         """
@@ -374,7 +372,6 @@ class TruncatedSVD(Base):
         """
         Transform X back to its original space.
         Returns a cuDF DataFrame X_original whose transform would be X.
-
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -385,9 +382,8 @@ class TruncatedSVD(Base):
             When set to True, the inverse_transform method will automatically
             convert the input to the data type which was used to train the
             model. This will increase memory used for the method.
-
         Returns
-        -------
+        ----------
         X_original : cuDF DataFrame, shape (n_samples, n_features)
             Note that this is always a dense cuDF DataFrame.
         """
@@ -444,9 +440,8 @@ class TruncatedSVD(Base):
             When set to True, the transform method will automatically
             convert the input to the data type which was used to train the
             model.
-
         Returns
-        -------
+        ----------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
             Reduced version of X. This will always be a dense DataFrame.
         """

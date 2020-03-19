@@ -18,9 +18,8 @@ from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel as tl
 
 
-def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
-    storage_format = _check_fil_sparse_format_value(fil_sparse_format)
-    if (depth > 16 and (storage_format == 'dense' or
+def _check_fil_parameter_validity(depth, storage_format, algo):
+    if (depth > 16 and (storage_format == 'DENSE' or
                         algo == 'tree_reorg' or
                         algo == 'batch_tree_reorg')):
         raise ValueError("While creating a forest with max_depth greater "
@@ -30,23 +29,22 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
                          "large and the process will be aborted. In "
                          "addition, `algo` must be either set to `naive' "
                          "or `auto` to set 'fil_sparse_format=True`.")
-    return storage_format
 
 
 def _check_fil_sparse_format_value(fil_sparse_format):
     accepted_vals = [True, False, 'auto']
     if fil_sparse_format == 'auto':
-        storage_format = fil_sparse_format
+        storage_type = fil_sparse_format
     elif not fil_sparse_format:
-        storage_format = 'dense'
+        storage_type = 'DENSE'
     elif fil_sparse_format not in accepted_vals:
         raise ValueError("The value entered for spares_forest is not "
                          "supported. Please refer to the documentation "
                          "to see the accepted values.")
     else:
-        storage_format = 'sparse'
+        storage_type = 'SPARSE'
 
-    return storage_format
+    return storage_type
 
 
 def _obtain_treelite_model(treelite_handle):
@@ -78,10 +76,11 @@ def _obtain_fil_model(treelite_handle, depth,
         inferencing on the random forest model.
     """
 
-    storage_format = \
-        _check_fil_parameter_validity(depth=depth,
-                                      fil_sparse_format=fil_sparse_format,
-                                      algo=algo)
+    storage_type = _check_fil_sparse_format_value(fil_sparse_format)
+
+    _check_fil_parameter_validity(depth=depth,
+                                  storage_format=storage_type,
+                                  algo=algo)
 
     fil_model = ForestInference()
     tl_to_fil_model = \
@@ -89,6 +88,6 @@ def _obtain_fil_model(treelite_handle, depth,
                                          output_class=output_class,
                                          threshold=threshold,
                                          algo=algo,
-                                         storage_type=storage_format)
+                                         storage_type=storage_type)
 
     return tl_to_fil_model
