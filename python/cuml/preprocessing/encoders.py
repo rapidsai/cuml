@@ -38,15 +38,11 @@ class OneHotEncoder:
 
     Parameters
     ----------
-    TODO: Implement categories
     categories : 'auto' or a cuml.DataFrame, default='auto'
         Categories (unique values) per feature:
         - 'auto' : Determine categories automatically from the training data.
         - DataFrame : ``categories[col]`` holds the categories expected in the
-          feature col. The passed categories should not mix strings and numeric
-          values within a single feature, and should be sorted in case of
-          numeric values. TODO: Check sorted for numeric
-        The used categories can be found in the ``categories_`` attribute.
+          feature col.
     TODO: Implement drop
     drop : 'first' or a cuml.DataFrame, default=None
         Specifies a methodology to use to drop one of the categories per
@@ -60,6 +56,7 @@ class OneHotEncoder:
           should be dropped.
     # sparse : bool, default=True
     #     Will return sparse matrix if set True else will return an array.
+    TODO: Implement dtype
     dtype : number type, default=np.float
         Desired dtype of output.
     handle_unknown : {'error', 'ignore'}, default='error'
@@ -72,16 +69,10 @@ class OneHotEncoder:
 
     Attributes
     ----------
-    categories_ : list of arrays
-        The categories of each feature determined during fitting
-        (in order of the features in X and corresponding with the output
-        of ``transform``). This includes the category specified in ``drop``
-        (if any).
     drop_idx_ : array of shape (n_features,)
         ``drop_idx_[i]`` is the index in ``categories_[i]`` of the category to
         be dropped for each feature. None if all the transformed features will
         be retained.
-
     """
     def __init__(self, categories='auto', drop=None, sparse=True,
                  dtype=np.float64, handle_unknown='error'):
@@ -91,7 +82,6 @@ class OneHotEncoder:
         self.handle_unknown = handle_unknown
         self.drop = drop
         self._fitted = False
-        self.categories_ = None
         self.drop_idx_ = None
         self._encoders = None
 
@@ -121,16 +111,20 @@ class OneHotEncoder:
         self
         """
         self._validate_keywords()
-        if self.categories == 'auto':
+        if type(self.categories) is str and self.categories == 'auto':
             self._encoders = {feature: LabelEncoder().fit(X[feature])
                               for feature in X.columns}
         else:
-            raise NotImplementedError
-        #     def filtered_label_encoder(feature):
-        #         filtered = X[feature].fil
-        #     self._encoders = {feature: filtered_label_encoder(feature)
-        #                       for feature in X.columns}
-        # self._fit(X, handle_unknown=self.handle_unknown)
+            self._encoders = dict()
+            for feature in self.categories.columns:
+                le = LabelEncoder().fit(self.categories[feature])
+                self._encoders[feature] = le
+                if self.handle_unknown == 'error':
+                    if not X[feature].isin(self.categories[feature]).all():
+                        msg = ("Found unknown categories in column {0}"
+                               " during fit".format(feature))
+                        raise ValueError(msg)
+
         # self.drop_idx_ = self._compute_drop_idx()
         self._fitted = True
         return self

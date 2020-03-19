@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import pytest
 from cudf import DataFrame
 from cuml.preprocessing import OneHotEncoder
 
@@ -45,3 +45,25 @@ def test_onehot_inverse_transform():
     inv = enc.inverse_transform(ohe)
 
     assert X.equals(inv)
+
+
+def test_onehot_categories():
+    X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
+    enc = OneHotEncoder(
+        categories=DataFrame({'chars': ['a', 'b', 'c'], 'int': [0, 1, 2]}))
+    ref = cp.array([[1., 0., 0., 1., 0., 0.],
+                    [0., 1., 0., 0., 0., 1.]])
+    res = enc.fit_transform(X)
+    cp.testing.assert_array_equal(res, ref)
+
+
+def test_onehot_fit_handle_unknown():
+    X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
+    Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
+
+    enc = OneHotEncoder(handle_unknown='error', categories=Y)
+    with pytest.raises(ValueError):
+        enc.fit(X)
+
+    enc = OneHotEncoder(handle_unknown='ignore', categories=Y)
+    enc.fit(X)
