@@ -34,7 +34,10 @@ constexpr bool UCX_ENABLED = false;
 #include <cstdio>
 #include <exception>
 #include <memory>
-
+#include <thread>
+#include <time.h>
+#include <chrono>
+#include <stdlib.h>
 #include <common/cumlHandle.hpp>
 #include <cuML_comms.hpp>
 
@@ -297,13 +300,14 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
          "ERROR: UCX comms not initialized on communicator.");
 
   get_request_id(request);
+  std::cout << getRank() <<  " Send Request ID: " << *request << std::endl;
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
-  struct ucx_context *ucp_request =
+  struct ucp_request *ucp_req =
     ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
               default_tag_mask, getRank());
 
-  _requests_in_flight.insert(std::make_pair(*request, ucp_request));
+  _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
 }
 
@@ -317,17 +321,22 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   get_request_id(request);
 
+  std::cout << getRank() << " Receive Request Id: " << *request << std::endl;
+
   ucp_ep_h ep_ptr = (*_ucp_eps)[source];
 
   ucp_tag_t tag_mask = default_tag_mask;
 
-  if (source == CUML_ANY_SOURCE) tag_mask = any_rank_tag_mask;
+  if (source == CUML_ANY_SOURCE)  {
+	  std::cout << "any source!" << std::endl;
+	  tag_mask = any_rank_tag_mask;
+  }
 
-  struct ucx_context *ucp_request =
+  struct ucp_request *ucp_req =
     ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
               size, tag, tag_mask, source);
 
-  _requests_in_flight.insert(std::make_pair(*request, ucp_request));
+  _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
 }
 
@@ -339,8 +348,10 @@ void cumlStdCommunicator_impl::waitall(int count,
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
-  std::vector<struct ucx_context *> requests;
+  std::vector<struct ucp_request *> requests;
   requests.reserve(count);
+
+  time_t start = time(NULL);
 
   for (int i = 0; i < count; ++i) {
     auto req_it = _requests_in_flight.find(array_of_requests[i]);
@@ -352,22 +363,38 @@ void cumlStdCommunicator_impl::waitall(int count,
   }
 
   while (requests.size() > 0) {
-    for (std::vector<struct ucx_context *>::iterator it = requests.begin();
-         it != requests.end();) {
-      ucp_progress((struct comms_ucp_handle *)_ucp_handle, _ucp_worker);
 
-      auto req = *it;
-      if (req->completed == 1) {
+    time_t now = time(NULL);
+
+    ASSERT(now - start < 15, "Timed out waiting for requests.");
+
+    for (std::vector<struct ucp_request *>::iterator it = requests.begin();
+         it != requests.end();) {
+     while(ucp_progress((struct comms_ucp_handle *)_ucp_handle, _ucp_worker) !=0) {}
+
+     auto req = *it;
+ 
+     ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n", UCS_PTR_STATUS(req->req));
+
+      if (req->req->completed == 1) {
         std::cout << getRank() << ": request completed: " << req << " "
-                  << requests.size()
-                  << " requests to go. needs_release=" << req->needs_release
+                  << requests.size()-1
+                  << " requests to go"
                   << std::endl;
-        req->completed = 0;
-        if (req->needs_release)
-          free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
+        req->req->completed = 0;
+	if(req->needs_release)
+    	  free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req->req);
+	else free(req->req);
+
+	free(req);
         it = requests.erase(it);
-      } else
+      } else {
         ++it;
+    }
+
+//std::this_thread::sleep_for(std::chrono::seconds(1));
+  //  std::cout << getRank() << " looping" << std::endl;
+    
     }
   }
 
@@ -453,6 +480,8 @@ MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
     }
 
     // Let other threads (including NCCL threads) use the CPU.
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
     pthread_yield();
   }
 }
