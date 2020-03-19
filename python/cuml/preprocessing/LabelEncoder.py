@@ -24,6 +24,14 @@ class LabelEncoder(object):
     """
     An nvcategory based implementation of ordinal label encoding
 
+    Parameters
+    ----------
+    handle_unknown : {'error', 'ignore'}, default='error'
+        Whether to raise an error or ignore if an unknown categorical feature
+        is present during transform (default is to raise). When this parameter
+        is set to 'ignore' and an unknown category is encountered during
+        transform or inverse transform, the resulting encoding will be null.
+
     Examples
     --------
     Converting a categorical implementation to a numerical one
@@ -98,10 +106,16 @@ class LabelEncoder(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, handle_unknown='error'):
         self.classes_ = None
         self.dtype = None
         self._fitted: bool = False
+        self.handle_unknown = handle_unknown
+
+        if self.handle_unknown not in ('error', 'ignore'):
+            msg = ("handle_unknown should be either 'error' or 'ignore', "
+                   "got {0}.".format(self.handle_unknown))
+            raise ValueError(msg)
 
     def _check_is_fitted(self):
         if not self._fitted:
@@ -165,7 +179,7 @@ class LabelEncoder(object):
 
         encoded = cudf.Series(encoded)
 
-        if encoded.has_nulls:
+        if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
 
         return cudf.Series(encoded)
@@ -210,10 +224,11 @@ class LabelEncoder(object):
         # check if ord_label out of bound
         ord_label = y.unique()
         category_num = len(self.classes_)
-        for ordi in ord_label:
-            if ordi < 0 or ordi >= category_num:
-                raise ValueError(
-                    'y contains previously unseen label {}'.format(ordi))
+        if self.handle_unknown == 'error':
+            for ordi in ord_label:
+                if ordi < 0 or ordi >= category_num:
+                    raise ValueError(
+                        'y contains previously unseen label {}'.format(ordi))
 
         y = y.astype(self.dtype)
 
