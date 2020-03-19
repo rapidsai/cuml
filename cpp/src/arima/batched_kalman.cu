@@ -126,9 +126,6 @@ __global__ void batched_kalman_loop_kernel(
 
     double mu = intercept ? d_mu[bid] : 0.0;
 
-    // Add intercept in initial state
-    l_alpha[0] += mu;
-
     for (int it = 0; it < nobs; it++) {
       // 1. & 2.
       double vs_it;
@@ -249,13 +246,6 @@ void _batched_kalman_loop_large(
   double* d_v_tmp = v_tmp.raw_data();
 
   CUDA_CHECK(cudaMemsetAsync(d_sum_logFs, 0, sizeof(double) * nb, stream));
-
-  // Add intercept in initial state
-  if (intercept) {
-    thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + nb,
-      [=] __device__(int bid) { d_alpha[bid * r] += d_mu[bid]; });
-  }
 
   for (int it = 0; it < nobs; it++) {
     // 1. & 2.
@@ -452,9 +442,10 @@ __global__ void batched_kalman_loglike_kernel(const double* d_vs,
     bid_sigma2 += partial_sum;
   }
   if (tid == 0) {
-    bid_sigma2 /= nobs;
-    loglike[bid] = -.5 * (d_sumLogFs[bid] + nobs * log(bid_sigma2)) -
-                   nobs / 2. * (log(2 * M_PI) + 1);
+    double nobs_f = static_cast<double>(nobs);
+    bid_sigma2 /= nobs_f;
+    loglike[bid] =
+      -.5 * (d_sumLogFs[bid] + nobs_f * bid_sigma2 + nobs_f * (log(2 * M_PI)));
   }
 }
 
@@ -505,10 +496,54 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
     MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT);
   ML::POP_RANGE();
 
-  // init alpha to zero
+  // Initialize the state alpha as the solution of (I - T) x = c
+  // Note: optimized as c = (mu 0 ... 0)'
   MLCommon::LinAlg::Batched::Matrix<double> alpha(
     r, 1, batch_size, handle.getImpl().getCublasHandle(),
     handle.getDeviceAllocator(), stream, true);
+  if (intercept) {
+    // Compute I-T
+    MLCommon::LinAlg::Batched::Matrix<double> ImT(
+      r, r, batch_size, cublasHandle, allocator, stream, false);
+    const double* d_T = Tb.raw_data();
+    double* d_ImT = ImT.raw_data();
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       const double* b_T = d_T + r * r * bid;
+                       double* b_ImT = d_ImT + r * r * bid;
+                       for (int i = 0; i < r; i++) {
+                         for (int j = 0; j < r; j++) {
+                           b_ImT[r * j + i] =
+                             (i == j ? 1.0 : 0.0) - b_T[r * j + i];
+                         }
+                       }
+                     });
+
+    // For r=1, prevent I-T from being too close to [[0]] -> no solution
+    if (r == 1) {
+      thrust::for_each(thrust::cuda::par.on(stream), counting,
+                       counting + batch_size, [=] __device__(int bid) {
+                         if (abs(d_ImT[bid]) < 1e-3)
+                           d_ImT[bid] = MLCommon::signPrim(d_ImT[bid]) * 1e-3;
+                       });
+    }
+
+    // Compute (I-T)^-1
+    MLCommon::LinAlg::Batched::Matrix<double> ImT_inv = ImT.inv();
+
+    // Compute (I-T)^-1 * c -> multiply 1st column by mu
+    const double* d_ImT_inv = ImT_inv.raw_data();
+    double* d_alpha = alpha.raw_data();
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       const double* b_ImT_inv = d_ImT_inv + r * r * bid;
+                       double* b_alpha = d_alpha + r * bid;
+                       double mu = d_mu[bid];
+                       for (int i = 0; i < r; i++) {
+                         b_alpha[i] = b_ImT_inv[i] * mu;
+                       }
+                     });
+  }
 
   // init vs, Fs
   // In batch-major format.
