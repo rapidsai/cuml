@@ -46,7 +46,7 @@ static const int UCP_ANY_RANK = -1;
  */
 static void send_handle(void *request, ucs_status_t status) {
   struct ucx_context *context = (struct ucx_context *)request;
-  printf("Send Completed %s\n", request);
+  printf("Send Completed %p\n", request);
   context->completed = 1;
 }
 
@@ -56,7 +56,7 @@ static void send_handle(void *request, ucs_status_t status) {
 static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
   struct ucx_context *context = (struct ucx_context *)request;
-  printf("Recv Completed %s\n", request);
+  printf("Recv Completed %p\n", request);
   context->completed = 1;
 }
 
@@ -168,6 +168,8 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
     req->needs_release=false;
   }
 
+  req->other_rank = rank;
+  req->is_send_request = true;
   req->req = ucp_req;
   return req;
 }
@@ -189,6 +191,8 @@ struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
 
     req->req = ucp_req;
     req->needs_release = true;
+    req->is_send_request = false;
+    req->other_rank = sender_rank;
 
   ASSERT(!UCS_PTR_IS_ERR(recv_result),
            "unable to receive UCX data message (%d)\n",

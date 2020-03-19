@@ -34,6 +34,8 @@ struct ucx_context {
 struct ucp_request {
   struct ucx_context *req;
   bool needs_release = true;
+  int other_rank = -1;
+  bool is_send_request = false;
 };
 #endif
 

@@ -26,6 +26,9 @@ from cuml.dask.common import perform_test_comms_recv_any_rank
 
 pytestmark = pytest.mark.mg
 
+import os
+os.environ["UCXPY_NON_BLOCKING_MODE"] = "1"
+
 
 def test_comms_init_no_p2p(cluster):
 
@@ -117,9 +120,15 @@ def test_allreduce(cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
-def test_send_recv(n_trials, ucx_cluster):
+def test_send_recv(n_trials, cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
+
+    def set_env():
+        import os
+        os.environ["UCXPY_NON_BLOCKING_MODE"] = "1"
+
+    client.run(set_env, wait=True)
 
     try:
 
