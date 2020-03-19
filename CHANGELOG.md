@@ -1,3 +1,12 @@
+# cuML 0.14.0 (Date TBD)
+
+## New Features
+- PR #1757: Add multi class inference in FIL for forests and treelite import of cuML RF models
+
+## Improvements
+
+## Bug Fixes
+
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
@@ -12,7 +21,6 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
-- PR #1757: Add multi class inference in FIL for forests and treelite import of cuML RF models
 - PR #1767: Single GPU decomposition models configurable output
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
