@@ -365,9 +365,9 @@ class RandomForestClassifier(Base):
         if not self.n_cols:
             return
         free(<RandomForestMetaData[float, int]*><size_t>
-                 self.rf_forest)
+             self.rf_forest)
         free(<RandomForestMetaData[double, int]*><size_t>
-                 self.rf_forest64)
+             self.rf_forest64)
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
