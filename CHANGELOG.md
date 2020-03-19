@@ -5,7 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
-- PR #1897: remove segmented sort, due to very few segments
+
 
 # cuML 0.13.0 (Date TBD)
 
@@ -53,6 +53,7 @@
 - PR #1816: Add ARIMA notebook
 
 ## Bug Fixes
+- PR #1897: remove segmented sort, due to very few segments
 - PR #1833: Fix depth issue in shallow RF regression estimators
 - PR #1770: Warn that KalmanFilter is deprecated
 - PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
