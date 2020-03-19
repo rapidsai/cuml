@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import dask
+from dask.delayed import Delayed
 
 from dask.distributed import default_client
 from dask.distributed import wait
@@ -24,13 +24,16 @@ from cuml.dask.common.part_utils import hosts_to_parts
 from cuml.dask.common.part_utils import workers_to_parts
 
 
-@dask.delayed
-def reduce_func_add(a, b): return a + b if b is not None else a
+def add(parts):
+
+    print(str(parts))
+    return sum(parts)
 
 
 def reduce(futures, func, client=None):
     """
-    Performs a cluster-wide aggregation/reduction
+    Performs a cluster-wide reduction by first
+    reducing within each worker
     :param futures:
     :param func:
     :param client:
@@ -39,34 +42,36 @@ def reduce(futures, func, client=None):
 
     client = default_client() if client is None else client
 
+    # Make sure input futures have been assigned to worker(s)
     wait(futures)
 
     who_has = client.who_has(futures)
 
     workers = [(first(who_has[m.key]), m) for m in futures]
-
     worker_parts = workers_to_parts(workers)
 
-    # Merge within each worker
-    models = [client.submit(func, p) for w, p in worker_parts.items()]
+    # Short circuit when all parts already on same worker
+    if len(worker_parts) > 1:
+        # Merge within each worker
+        futures = [client.submit(func, p) for w, p in worker_parts.items()]
+        wait(futures)
 
-    wait(models)
+    who_has = client.who_has(futures)
 
-    who_has = client.who_has(models)
-
-    workers = [(first(who_has[m.key]), m) for m in models]
+    workers = [(first(who_has[m.key]), m) for m in futures]
     host_parts = hosts_to_parts(workers)
 
-    # Merge all workers on each host
-    models = [client.submit(func, p) for w, p in host_parts.items()]
-
-    wait(models)
+    # Short circuit when all parts already on same host
+    if len(host_parts) > 1:
+        # Merge all workers on each host
+        futures = [client.submit(func, p) for w, p in host_parts.items()]
+        wait(futures)
 
     # Merge across workers
-    return tree_reduce(models, func)
+    return tree_reduce(futures, func)
 
 
-def tree_reduce(delayed_objs, func=reduce_func_add, client=None):
+def tree_reduce(objs, func=add, client=None):
     """
     Performs a binary tree reduce on an associative
     and commutative function in parallel across
@@ -79,33 +84,32 @@ def tree_reduce(delayed_objs, func=reduce_func_add, client=None):
     Parameters
     ----------
     func : Python function or dask.delayed function
-        Delayed function to use for reduction. The reduction function
-        should be able to handle the case where the second argument is
-        None, and should just return a in this case. This is done to
-        save memory, rather than having to build an initializer for
-        the starting case.
-    delayed_objs : array-like of dask.delayed
-        Delayed objects to reduce
+        Function to use for reduction. The reduction function
+        acceps a list of objects to reduce as an argument and
+        produces a single reduced object
+    objs : array-like of dask.delayed or future
+           objects to reduce.
 
     Returns
     -------
-    reduced_result : dask.delayed
-        Delayed object containing the reduced result.
+    reduced_result : dask.delayed or future
+        if func is delayed, the result will be delayed
+        if func is a future, the result will be a future
     """
 
-    while len(delayed_objs) > 1:
-        new_delayed_objs = []
-        n_delayed_objs = len(delayed_objs)
-        for i in range(0, n_delayed_objs, 2):
-            # add neighbors
-            left = delayed_objs[i]
-            right = delayed_objs[i+1]\
-                if i < n_delayed_objs - 1 else None
-            if isinstance(func, dask.delayed):
-                obj = func([left, right])
-            else:
-                obj = client.submit(func, [left, right])
-            new_delayed_objs.append(obj)
-        delayed_objs = new_delayed_objs
+    client = default_client() if client is None else client
 
-    return first(delayed_objs)
+    while len(objs) > 1:
+        new_delayed_objs = []
+        n_delayed_objs = len(objs)
+        for i in range(0, n_delayed_objs, 2):
+            inputs = objs[i:i + 2]
+            # add neighbors
+            if isinstance(func, Delayed):
+                obj = func(inputs)
+            else:
+                obj = client.submit(func, inputs)
+            new_delayed_objs.append(obj)
+        objs = new_delayed_objs
+
+    return first(objs)
