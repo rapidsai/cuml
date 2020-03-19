@@ -106,7 +106,9 @@ if(BUILD_CUML_TESTS)
       #sg/umap_test.cu
       )
 
-    add_dependencies(ml cub)
+    if(NOT CUB_IS_PART_OF_CTK)
+      add_dependencies(ml cub)
+    endif()
     add_dependencies(ml cutlass)
 
     target_link_libraries(ml
@@ -140,7 +142,9 @@ if(BUILD_CUML_MG_TESTS)
       mg/test_ml_mg_utils.cu
       )
 
-    add_dependencies(ml_mg cub)
+    if(NOT CUB_IS_PART_OF_CTK)
+      add_dependencies(ml_mg cub)
+    endif()
     add_dependencies(ml_mg cutlass)
 
     target_link_libraries(ml_mg
@@ -269,7 +273,9 @@ if(BUILD_PRIMS_TESTS)
       prims/weighted_mean.cu
       )
 
-    add_dependencies(prims cub)
+    if(NOT CUB_IS_PART_OF_CTK)
+      add_dependencies(prims cub)
+    endif()
     add_dependencies(prims cutlass)
 
     target_link_libraries(prims
