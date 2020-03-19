@@ -300,7 +300,15 @@ void check_params(const forest_params_t* params, bool dense) {
   }
   switch (params->leaf_payload_type) {
     case leaf_value_t::FLOAT_SCALAR:
+      /* params->num_classes is ignored in this case, since the user might call
+         predict_proba() on regression. Hence, no point checking the range of
+         an ignored variable */
+      break;
     case leaf_value_t::INT_CLASS_LABEL:
+      ASSERT(params->num_classes != 1, "trees will always predict class 0");
+      ASSERT(params->num_classes > 0,
+             "num_classes is not ignored for "
+             "leaf_payload_type == INT_CLASS_LABEL");
       break;
     default:
       ASSERT(false,
@@ -406,6 +414,7 @@ int find_class_label_from_one_hot(tl::tl_float* vector, int len) {
     } else
       ASSERT(vector[i] == 0.0f,
              "label vector contains values other than 0.0 and 1.0");
+  ASSERT(found_label, "did not find 1.0f in vector");
   return out;
 }
 
@@ -418,6 +427,9 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree::Node& tl_node,
       ASSERT(vec.size() == forest_params.num_classes,
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
+      assert(fil_node->val.idx > 0);
+      assert(fil_node->val.idx < forest_params.num_classes);
+      assert(forest_params.num_classes == 6);
       break;
     case FLOAT_SCALAR:
       fil_node->val.f = tl_node.leaf_value();
