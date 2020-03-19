@@ -370,11 +370,15 @@ void cumlStdCommunicator_impl::waitall(int count,
 
     for (std::vector<struct ucp_request *>::iterator it = requests.begin();
          it != requests.end();) {
-     while(ucp_progress((struct comms_ucp_handle *)_ucp_handle, _ucp_worker) !=0) {}
+     while(ucp_progress((struct comms_ucp_handle *)_ucp_handle, _ucp_worker) !=0) {
+         std::cout << getRank() << " executing ucp_progress " << std::endl;
+     }
 
      auto req = *it;
- 
+
+     ASSERT(UCS_PTR_IS_PTR(req->req), "UCX Request Error. Request is not valid UCX pointer"); 
      ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n", UCS_PTR_STATUS(req->req));
+     ASSERT(req->req->completed == 1 || req->req->completed == 0, "Request completed not a valid value: %d\n", req->req->completed);
 
       if (req->req->completed == 1) {
         std::cout << getRank() << ": request completed: " << req << " "
