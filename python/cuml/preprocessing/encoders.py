@@ -99,6 +99,10 @@ class OneHotEncoder:
                 "specified, as both would create categories that are all "
                 "zero.")
 
+    def _check_is_fitted(self):
+        if not self._fitted:
+            raise RuntimeError("Model must first be .fit()")
+
     def fit(self, X):
         """
         Fit OneHotEncoder to X.
@@ -112,13 +116,16 @@ class OneHotEncoder:
         """
         self._validate_keywords()
         if type(self.categories) is str and self.categories == 'auto':
-            self._encoders = {feature: LabelEncoder().fit(X[feature])
-                              for feature in X.columns}
+            self._encoders = {
+                feature: LabelEncoder(handle_unknown=self.handle_unknown).fit(
+                    X[feature])
+                for feature in X.columns
+            }
         else:
             self._encoders = dict()
             for feature in self.categories.columns:
-                le = LabelEncoder().fit(self.categories[feature])
-                self._encoders[feature] = le
+                le = LabelEncoder(handle_unknown=self.handle_unknown)
+                self._encoders[feature] = le.fit(self.categories[feature])
                 if self.handle_unknown == 'error':
                     if not X[feature].isin(self.categories[feature]).all():
                         msg = ("Found unknown categories in column {0}"
@@ -148,9 +155,14 @@ class OneHotEncoder:
     @staticmethod
     @with_cupy_rmm
     def _one_hot_encoding(encoder, X):
-        idx = encoder.transform(X).to_array()
+        col_idx = encoder.transform(X).to_gpu_array(fillna="pandas")
+        col_idx = cp.asarray(col_idx)
         ohe = cp.zeros((len(X), len(encoder.classes_)))
-        ohe[cp.arange(len(ohe)), idx] = 1
+        # Filter out rows with null values
+        idx_to_keep = col_idx > -1
+        row_idx = cp.arange(len(ohe))[idx_to_keep]
+        col_idx = col_idx[idx_to_keep]
+        ohe[row_idx, col_idx] = 1
         return ohe
 
     @with_cupy_rmm
@@ -166,8 +178,7 @@ class OneHotEncoder:
         X_out : sparse matrix if sparse=True else a 2-d array
             Transformed input.
         """
-        if not self._fitted:
-            raise RuntimeError("Model must first be .fit()")
+        self._check_is_fitted()
         onehots = [self._one_hot_encoding(self._encoders[feature], X[feature])
                    for feature in X.columns]
         return cp.concatenate(onehots, axis=1)
@@ -187,14 +198,16 @@ class OneHotEncoder:
         X_tr : cudf.DataFrame
             Inverse transformed array.
         """
-        if not self._fitted:
-            raise RuntimeError("Model must first be .fit()")
+        self._check_is_fitted()
         result = DataFrame(columns=self._encoders.keys())
         j = 0
         for feature in self._encoders.keys():
             enc_size = len(self._encoders[feature].classes_)
-            x_feature = cp.argmax(X[:, j:j + enc_size], axis=1)
-            inv = self._encoders[feature].inverse_transform(Series(x_feature))
+            x_feature = X[:, j:j + enc_size]
+            not_null_idx = x_feature.any(axis=1)
+            idx = cp.argmax(x_feature, axis=1)
+            inv = self._encoders[feature].inverse_transform(Series(idx))
+            inv.iloc[~not_null_idx] = None
             result[feature] = inv
             j += enc_size
         return result
