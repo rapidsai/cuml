@@ -25,7 +25,7 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
 from cuml.test.utils import get_handle, unit_param, \
-    quality_param, stress_param, array_equal
+    quality_param, stress_param
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
@@ -73,20 +73,10 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
                                    output_class=True,
                                    threshold=0.5,
                                    algo='auto')
-    fil_preds_proba = cuml_model.predict_proba(X_test,
-                                               output_class=True,
-                                               threshold=0.5,
-                                               algo='auto')
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
     fil_acc = accuracy_score(y_test, fil_preds)
-    fil_calc_preds = []
-    for i in range(np.shape(fil_preds_proba)[0]):
-        if (fil_preds_proba[i, 0] >= fil_preds_proba[i, 1]):
-            fil_calc_preds.append(0)
-        else:
-            fil_calc_preds.append(1)
     if nrows < 500000:
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
@@ -97,7 +87,6 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cuml_acc - 0.02)
-    assert array_equal(fil_calc_preds, fil_preds)
 
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
@@ -681,3 +670,55 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
         handle.sync()
         delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
         assert delta_mem == 0
+
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                         stress_param(500000)])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0),
+                         stress_param(0.95)])
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('split_algo', [0, 1])
+@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+def test_rf_classification_proba(datatype, split_algo, rows_sample, nrows,
+                                 column_info, max_features):
+    use_handle = True
+    ncols, n_info = column_info
+
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
+                       n_bins=16, split_algo=split_algo, split_criterion=0,
+                       min_rows_per_node=2, seed=123, n_streams=1,
+                       n_estimators=40, handle=handle, max_leaves=-1,
+                       max_depth=16)
+    cuml_model.fit(X_train, y_train)
+    fil_preds_proba = cuml_model.predict_proba(X_test,
+                                               output_class=True,
+                                               threshold=0.5,
+                                               algo='auto')
+    y_proba = np.zeros(np.shape(fil_preds_proba))
+    for i in range(len(y_test)):
+        if y_test[i] == 1:
+            y_proba[i, 1] = 1
+
+    fil_mse = mean_squared_error(y_proba, fil_preds_proba)
+    if nrows < 500000:
+        sk_model = skrfc(n_estimators=40,
+                         max_depth=16,
+                         min_samples_split=2, max_features=max_features,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_preds_proba = sk_model.predict_proba(X_test)
+        sk_mse = mean_squared_error(y_proba, sk_preds_proba)
+        assert fil_mse <= (sk_mse+0.004)
