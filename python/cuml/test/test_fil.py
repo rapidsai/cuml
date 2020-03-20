@@ -66,6 +66,12 @@ def _build_and_save_xgboost(model_path,
     if classification:
         params['eval_metric'] = 'error'
         params['objective'] = 'binary:logistic'
+        # cannot use this interface as it's not supported by treelite
+        # will cause "softmax" as the output transform
+        #params['objective'] = 'multi:softprob'
+        # output transform == 'max_index'
+        params['objective'] = 'multi:softmax'
+        params['num_class'] = 3
     else:
         params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
@@ -95,7 +101,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds, tmp_path):
     classification = True  # change this to false to use regression
     n_rows = n_rows  # we'll use 1 millions rows
     n_columns = n_columns
-    n_categories = 2
+    n_categories = 3
     random_state = np.random.RandomState(43210)
 
     X, y = simulate_data(n_rows, n_columns, n_categories,

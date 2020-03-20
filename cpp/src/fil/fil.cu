@@ -152,7 +152,8 @@ struct forest {
     output_t ot = output_;
     if (predict_proba)
       ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-    bool complement_proba = predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
+    bool complement_proba = predict_proba && leaf_payload_type_ == FLOAT_SCALAR
+      && num_classes_ == 1;
     bool do_transform =
       ot != output_t::RAW || global_bias_ != 0.0f || complement_proba;
     if (leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba) {
@@ -535,18 +536,18 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   // fill in forest-indendent params
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
+  diprint(model.num_output_group);
 
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
   if (leaf_vec_size > 0) {
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
-    params->num_classes = leaf_vec_size;
     params->leaf_payload_type = INT_CLASS_LABEL;
   } else {
     params->leaf_payload_type = FLOAT_SCALAR;
-    params->num_classes = 0;  // ignored
   }
+  params->num_classes = model.num_output_group;
 
   // fill in forest-dependent params
   params->num_cols = model.num_feature;
@@ -554,19 +555,24 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
   params->global_bias = param.global_bias;
   params->output = output_t::RAW;
+  dbprint(tl_params->output_class);
   if (tl_params->output_class) {
     params->output = output_t(params->output | output_t::CLASS);
   }
   // "random forest" in treelite means tree output averaging
+  dbprint(model.random_forest_flag);
   if (model.random_forest_flag) {
     params->output = output_t(params->output | output_t::AVG);
   }
   if (param.pred_transform == "sigmoid") {
     params->output = output_t(params->output | output_t::SIGMOID);
-  } else if (param.pred_transform != "identity") {
+  } else if (param.pred_transform == "max_index") {
+      params->output = output_t(params->output & ~output_t::CLASS);
+      // will choose best class in fil.pyx, don't use threshold
+  } else if (param.pred_transform != "identity") 
     ASSERT(false, "%s: unsupported treelite prediction transform",
            param.pred_transform.c_str());
-  }
+
   params->num_trees = model.trees.size();
   params->depth = max_depth(model);
 }
@@ -580,8 +586,16 @@ void tl2fil_dense(std::vector<dense_node_t>* pnodes, forest_params_t* params,
   // convert the nodes
   int num_nodes = forest_num_nodes(params->num_trees, params->depth);
   pnodes->resize(num_nodes, dense_node_t{0, 0});
-  for (int i = 0; i < model.trees.size(); ++i) {
-    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i],
+  int tree0, tree_stride;
+  if (params.leaf_payload_type == FLOAT_SCALAR) {
+    tree0 = output_group_num;
+    tree_stride = model.num_output_group;
+  } else { // INT_CLASS_LABEL
+    tree0 = 0;
+    tree_stride = 1;
+  }
+  for (int i = 0; tree0 + i * tree_stride < model.trees.size(); ++i) {
+    tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[tree0 + i * tree_stride],
                    *params);
   }
 }

@@ -98,6 +98,11 @@ struct dense_node_t {
   int bits;
 };
 
+#define diprint(a) printf(#a " = %d\n", a)
+#define dsprint(a) printf(#a " = %s\n", a)
+#define dfprint(a) printf(#a " = %f\n", a)
+#define dbprint(a) printf(#a " = %s\n", a ? "true" : "false")
+
 /** sparse_node_extra_data is what's missing from a dense node to store
     a sparse node, that is, extra indexing information due to compressing
     a sparse tree. */
@@ -198,6 +203,12 @@ struct treelite_params_t {
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
   storage_type_t storage_type;
+  // output_group_num is used in xgboost-style inference, when
+  // tl_model.random_forest_flag == false,
+  // tl_model.param.pred_transform == "max_index",
+  // tl_model.num_output_group > 1
+  // it determines which of the output groups this forest predicts
+  int output_group_num;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
