@@ -35,7 +35,8 @@ import numba.cuda as cuda
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+    input_to_cuml_array, zeros, row_matrix
+from cuml.common.array import CumlArray
 
 import rmm
 
@@ -280,9 +281,12 @@ class UMAP(Base):
                  handle=None,
                  hash_input=False,
                  random_state=None,
-                 callback=None):
+                 callback=None,
+                 MNMG=False):
 
         super(UMAP, self).__init__(handle, verbose)
+
+        self.MNMG = MNMG
 
         cdef UMAPParams * umap_params = new UMAPParams()
 
@@ -348,19 +352,25 @@ class UMAP(Base):
 
         self.umap_params = <size_t> umap_params
 
+        if self.MNMG:
+            self.state = self.__getstate__()
+            free(umap_params)
+            self.umap_params = 0
+
         self.callback = callback  # prevent callback destruction
         self.X_m = None
         self.embedding_ = None
 
     def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
+        state = dict()
+        if not self.MNMG:
+            state = self.__dict__.copy()
+            del state['handle']
 
         cdef size_t params_t = <size_t>self.umap_params
         cdef UMAPParams* umap_params = <UMAPParams*>params_t
 
-        if hasattr(self, "X_m") and self.X_m is not None:
+        if not self.MNMG and hasattr(self, "X_m") and self.X_m is not None:
             # fit has not yet been called
             state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
             state['embedding_'] = \
@@ -384,25 +394,30 @@ class UMAP(Base):
         state["target_weights"] = umap_params.target_weights
         state["target_metric"] = umap_params.target_metric
 
-        del state["umap_params"]
+        if not self.MNMG:
+            del state["umap_params"]
 
         return state
 
     def __del__(self):
         cdef UMAPParams * umap_params
         if hasattr(self, 'umap_params'):
-            umap_params = <UMAPParams*><size_t>self.umap_params
-            free(umap_params)
+            if self.umap_params != 0:
+                umap_params = <UMAPParams*><size_t>self.umap_params
+                free(umap_params)
 
     def __setstate__(self, state):
-        super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
 
-        if "X_m" in state and state["X_m"] is not None:
-            # fit has not yet been called
-            state["X_m"] = row_matrix(state["X_m"])
-            state["embedding_"] = row_matrix(state["embedding_"])
+        if not self.MNMG:
+            super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
+
+            if "X_m" in state and state["X_m"] is not None:
+                # fit has not yet been called
+                state["X_m"] = row_matrix(state["X_m"])
+                state["embedding_"] = row_matrix(state["embedding_"])
 
         cdef UMAPParams *umap_params = new UMAPParams()
+        self.umap_params = <size_t> umap_params
 
         umap_params.n_neighbors = state["n_neighbors"]
         umap_params.n_components = state["n_components"]
@@ -424,18 +439,19 @@ class UMAP(Base):
 
         state["umap_params"] = <size_t>umap_params
 
-        self.__dict__.update(state)
+        if not self.MNMG:
+            self.__dict__.update(state)
 
     @staticmethod
     def _prep_output(X, embedding):
         if isinstance(X, cudf.DataFrame):
-            return cudf.DataFrame.from_gpu_matrix(embedding)
+            return embedding.to_output('dataframe')
         elif isinstance(X, np.ndarray):
-            return np.asarray(embedding)
-        elif isinstance(X, cuda.is_cuda_array(X)):
-            return embedding
+            return embedding.to_output('numpy')
         elif isinstance(X, cupy.ndarray):
-            return cupy.array(embedding)
+            return embedding.to_output('cupy')
+        elif cuda.is_cuda_array(X):
+            return embedding.to_output('numba')
 
     def fit(self, X, y=None, convert_dtype=True):
         """
@@ -452,14 +468,16 @@ class UMAP(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
+        if self.MNMG:
+            self.__setstate__(self.state)
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        self.X_m, X_ctype, self.n_rows, self.n_dims, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
-                                                 else None))
+        self.X_m, self.n_rows, self.n_dims, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None))
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -469,30 +487,29 @@ class UMAP(Base):
             <UMAPParams*> <size_t> self.umap_params
         umap_params.n_neighbors = min(self.n_rows, umap_params.n_neighbors)
 
-        self.embedding_ = rmm.to_device(zeros((self.n_rows,
-                                              umap_params.n_components),
-                                              order="C", dtype=np.float32))
+        self.embedding_ = CumlArray.zeros((self.n_rows,
+                                           umap_params.n_components),
+                                          order="C", dtype=np.float32)
 
         if self.hash_input:
-            self.input_hash = joblib.hash(self.X_m.copy_to_host())
-
-        embeddings = \
-            self.embedding_.device_ctypes_pointer.value
+            self.input_hash = joblib.hash(self.X_m.to_output('numpy'))
 
         cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef uintptr_t y_raw
-        cdef uintptr_t x_raw = X_ctype
+        cdef uintptr_t x_raw = self.X_m.ptr
 
-        cdef uintptr_t embed_raw = embeddings
+        cdef uintptr_t embed_raw = self.embedding_.ptr
 
+        cdef uintptr_t y_raw = 0
         if y is not None:
-            y_m, y_raw, _, _, _ = \
-                input_to_dev_array(y, check_dtype=np.float32,
-                                   convert_to_dtype=(np.float32
-                                                     if convert_dtype
-                                                     else None))
+            y_m, _, _, _ = \
+                input_to_cuml_array(y, check_dtype=np.float32,
+                                    convert_to_dtype=(np.float32
+                                                      if convert_dtype
+                                                      else None))
+            y_raw = y_m.ptr
+
             fit(handle_[0],
                 <float*> x_raw,
                 <float*> y_raw,
@@ -511,6 +528,11 @@ class UMAP(Base):
                 <float*>embed_raw)
 
         self.handle.sync()
+
+        if self.MNMG:
+            self.state = self.__getstate__()
+            free(umap_params)
+            self.umap_params = 0
 
         return self
 
@@ -565,15 +587,18 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
         """
+        if self.MNMG:
+            self.__setstate__(self.state)
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        cdef uintptr_t x_ptr
-        X_m, x_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
-                                                 else None))
+        cdef uintptr_t x_ptr = 0
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None))
+        x_ptr = X_m.ptr
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -583,7 +608,7 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
-        if self.hash_input and joblib.hash(X_m.copy_to_host()) == \
+        if self.hash_input and joblib.hash(X_m.to_output('numpy')) == \
                 self.input_hash:
             ret = UMAP._prep_output(X, self.embedding_)
             del X_m
@@ -591,17 +616,18 @@ class UMAP(Base):
 
         cdef UMAPParams * umap_params = \
             <UMAPParams*> <size_t> self.umap_params
-        embedding = rmm.to_device(zeros((X_m.shape[0],
-                                         umap_params.n_components),
-                                        order="C", dtype=np.float32))
-        cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
+
+        embedding = CumlArray.zeros((X_m.shape[0],
+                                     umap_params.n_components),
+                                    order="C", dtype=np.float32)
+        cdef uintptr_t xformed_ptr = embedding.ptr
 
         cdef cumlHandle *handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef uintptr_t orig_x_raw = self.X_m.device_ctypes_pointer.value
+        cdef uintptr_t orig_x_raw = self.X_m.ptr
 
-        cdef uintptr_t embed_ptr = self.embedding_.device_ctypes_pointer.value
+        cdef uintptr_t embed_ptr = self.embedding_.ptr
 
         transform(handle_[0],
                   <float*>x_ptr,
@@ -614,6 +640,11 @@ class UMAP(Base):
                   <UMAPParams*> umap_params,
                   <float*> xformed_ptr)
         self.handle.sync()
+
+        if self.MNMG:
+            self.state = self.__getstate__()
+            free(umap_params)
+            self.umap_params = 0
 
         ret = UMAP._prep_output(X, embedding)
         del X_m
