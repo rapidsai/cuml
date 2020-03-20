@@ -362,7 +362,7 @@ class PCA(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        y : ignore
+        y : ignored
 
         Returns
         -------
