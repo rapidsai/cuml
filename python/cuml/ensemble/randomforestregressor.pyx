@@ -321,9 +321,9 @@ class RandomForestRegressor(Base):
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(handle=None,
                                                     verbose=state['verbose'])
-        cdef  RandomForestMetaData[float, float] *rf_forest = \
+        cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
-        cdef  RandomForestMetaData[double, double] *rf_forest64 = \
+        cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
 
         self.n_cols = state['n_cols']
