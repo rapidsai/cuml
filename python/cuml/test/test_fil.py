@@ -303,7 +303,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     fil_mse = mean_squared_error(y_validation, fil_preds)
 
     # if fil is better than skl, no need to fail the test
-    assert fil_mse <= skl_mse + 1e-4
+    assert fil_mse <= skl_mse * (1. + 1e-7) + 1e-4
     assert array_equal(fil_preds, skl_preds)
 
 

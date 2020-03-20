@@ -427,9 +427,6 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree::Node& tl_node,
       ASSERT(vec.size() == forest_params.num_classes,
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
-      assert(fil_node->val.idx > 0);
-      assert(fil_node->val.idx < forest_params.num_classes);
-      assert(forest_params.num_classes == 6);
       break;
     case FLOAT_SCALAR:
       fil_node->val.f = tl_node.leaf_value();

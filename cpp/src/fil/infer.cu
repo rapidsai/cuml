@@ -94,6 +94,9 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
 template <int NITEMS,
           leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
 struct tree_aggregator_t {
+  /** To compute accurately, would need to know the latest __CUDA_ARCH__
+      for which the code is compiled and which fits the SM being run on.
+      This is an approximation */
   static const int ptx_arch = 750;
   typedef cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
                            cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, ptx_arch>
@@ -104,9 +107,6 @@ struct tree_aggregator_t {
   TempStorage* tmp_storage;
 
   static size_t smem_finalize_footprint(int) {
-    /** To compute accurately, would need to know the latest __CUDA_ARCH__
-        for which the code is compiled and which fits the SM being run on.
-        This is an approximation */
     return sizeof(TempStorage);
   }
   static size_t smem_accumulate_footprint(int) { return 0; }
