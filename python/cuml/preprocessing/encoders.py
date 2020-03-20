@@ -56,9 +56,8 @@ class OneHotEncoder:
           should be dropped.
     # sparse : bool, default=True
     #     Will return sparse matrix if set True else will return an array.
-    TODO: Implement dtype
     dtype : number type, default=np.float
-        Desired dtype of output.
+        Desired datatype of transform's output.
     handle_unknown : {'error', 'ignore'}, default='error'
         Whether to raise an error or ignore if an unknown categorical feature
         is present during transform (default is to raise). When this parameter
@@ -152,12 +151,11 @@ class OneHotEncoder:
         """
         return self.fit(X).transform(X)
 
-    @staticmethod
     @with_cupy_rmm
-    def _one_hot_encoding(encoder, X):
+    def _one_hot_encoding(self, encoder, X):
         col_idx = encoder.transform(X).to_gpu_array(fillna="pandas")
         col_idx = cp.asarray(col_idx)
-        ohe = cp.zeros((len(X), len(encoder.classes_)))
+        ohe = cp.zeros((len(X), len(encoder.classes_)), dtype=self.dtype)
         # Filter out rows with null values
         idx_to_keep = col_idx > -1
         row_idx = cp.arange(len(ohe))[idx_to_keep]
