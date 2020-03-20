@@ -212,14 +212,15 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
+    dask_obj = client.persist(dask_obj)
     # dask.dataframe or dask.array
     if isinstance(dask_obj, dcDataFrame) or \
             isinstance(dask_obj, daskArray):
-        parts = client.compute(futures_of(client.persist(dask_obj)))
+        parts = client.compute(futures_of(dask_obj))
 
     # iterable of dask collections (need to colocate them)
     elif isinstance(dask_obj, Sequence):
-        parts = [client.compute(futures_of(client.persist(d)))
+        parts = [client.compute(futures_of(d))
                  for d in dask_obj]
         to_map = zip(*parts)
         parts = client.compute(list(map(delayed, to_map)))
