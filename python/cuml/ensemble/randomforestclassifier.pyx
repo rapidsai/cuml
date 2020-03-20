@@ -337,9 +337,9 @@ class RandomForestClassifier(Base):
 
         super(RandomForestClassifier, self).__init__(handle=None,
                                                      verbose=state['verbose'])
-        cdef  RandomForestMetaData[float, int] *rf_forest = \
+        cdef RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
-        cdef  RandomForestMetaData[double, int] *rf_forest64 = \
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
         self.n_cols = state['n_cols']
         if self.n_cols:
