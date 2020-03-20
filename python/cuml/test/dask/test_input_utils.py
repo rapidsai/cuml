@@ -28,6 +28,7 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
     finally:
         client.close()
 
+
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [24])
 @pytest.mark.parametrize("ncols", [2])
@@ -53,15 +54,15 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
         else:
             gpu_futures = client.sync(_extract_partitions, X, client)
 
-        parts = list(map(lambda x: x[1].result(), gpu_futures))
+        parts = [part.result() for worker, part in gpu_futures]
 
         if colocated:
             for i in range(len(parts)):
-                assert (parts[i][0].shape[0] == X_len_parts[i]) and (parts[i][1].shape[0] == y_len_parts[i])
+                assert (parts[i][0].shape[0] == X_len_parts[i]) and (
+                        parts[i][1].shape[0] == y_len_parts[i])
         else:
             for i in range(len(parts)):
                 assert (parts[i].shape[0] == X_len_parts[i])
 
-        
     finally:
         client.close()
