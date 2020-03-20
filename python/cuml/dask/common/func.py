@@ -70,7 +70,7 @@ def reduce(futures, func, client=None):
         if len(worker_parts) > 1:
             # Local tree reduction for scalability
             futures = client.compute([tree_reduce(p, func)
-                       for w, p in worker_parts.items()])
+                                     for w, p in worker_parts.items()])
 
             wait(futures)
 
