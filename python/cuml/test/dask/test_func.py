@@ -17,7 +17,6 @@
 from dask import delayed
 from dask.distributed import Client
 import pytest
-from dask.distributed import wait
 
 from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
@@ -58,8 +57,6 @@ def test_tree_reduce_futures(n_parts, cluster):
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
 def test_reduce_futures(n_parts, cluster):
-
-    from dask.distributed import performance_report
 
     def s(x):
         return x
