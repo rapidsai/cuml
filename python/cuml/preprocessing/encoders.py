@@ -130,7 +130,7 @@ class OneHotEncoder:
                     if not X[feature].isin(self.categories[feature]).all():
                         msg = ("Found unknown categories in column {0}"
                                " during fit".format(feature))
-                        raise ValueError(msg)
+                        raise KeyError(msg)
 
         # self.drop_idx_ = self._compute_drop_idx()
         self._fitted = True
