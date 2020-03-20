@@ -120,4 +120,6 @@ def tree_reduce(objs, func=sum):
         wait(new_objs)
         objs = new_objs
 
+    print(str(objs))
+
     return first(objs)
