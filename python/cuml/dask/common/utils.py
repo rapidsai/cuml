@@ -166,6 +166,7 @@ def patch_cupy_sparse_serialization(client):
             return cp.cupy.cusparse.MatDescriptor.create, ()
 
         from cuml.naive_bayes.naive_bayes import MultinomialNB
+        from cuml.manifold.umap import UMAP
         from distributed.protocol.cuda import cuda_serialize, cuda_deserialize
         from distributed.protocol.serialize import dask_serialize, \
             dask_deserialize, register_generic
@@ -176,6 +177,11 @@ def patch_cupy_sparse_serialization(client):
         register_generic(MultinomialNB, "cuda",
                          cuda_serialize, cuda_deserialize)
         register_generic(MultinomialNB, "dask",
+                         dask_serialize, dask_deserialize)
+
+        register_generic(UMAP, "cuda",
+                         cuda_serialize, cuda_deserialize)
+        register_generic(UMAP, "dask",
                          dask_serialize, dask_deserialize)
 
         copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
