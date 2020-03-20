@@ -16,12 +16,11 @@ from cuml.preprocessing.LabelEncoder import LabelEncoder
 import cudf
 import numpy as np
 
-from cuml.test import utils
 import pytest
 
 
 def _df_to_similarity_mat(df):
-    arr = utils.to_nparray(df).reshape(1, -1)
+    arr = df.to_array().reshape(1, -1)
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
 
 
@@ -107,6 +106,11 @@ def test_inverse_transform(orig_label, ord_label,
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)
     assert(len(reverted) == len(expected_reverted))
+
+    print(reverted)
+    print(expected_reverted)
+    print(le.dtype)
+
     assert(len(reverted)
            == len(reverted[reverted == expected_reverted]))
     # test if correctly raies ValueError
