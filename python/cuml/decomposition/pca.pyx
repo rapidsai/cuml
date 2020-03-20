@@ -425,7 +425,7 @@ class PCA(Base):
             self._noise_variance_.ptr
 
         _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
-                                         dtype=self.dtype)
+                                        dtype=self.dtype)
         cdef uintptr_t t_input_ptr = _trans_input_.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
