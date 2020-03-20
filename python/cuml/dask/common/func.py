@@ -69,12 +69,16 @@ def reduce(futures, func, client=None):
         # locality
         if len(worker_parts) > 1:
             # Local tree reduction for scalability
-            futures = [client.compute(tree_reduce(p, func))
-                       for w, p in worker_parts.items()]
+            futures = client.compute([tree_reduce(p, func)
+                       for w, p in worker_parts.items()])
+
             wait(futures)
 
     # Merge across workers
-    return client.compute(tree_reduce(futures, func))
+    ret = client.compute(tree_reduce(futures, func))
+    wait(ret)
+
+    return ret
 
 
 def tree_reduce(objs, func=sum):
@@ -107,15 +111,13 @@ def tree_reduce(objs, func=sum):
         if not isinstance(func, Delayed) else func
 
     while len(objs) > 1:
-        new_delayed_objs = []
-        n_delayed_objs = len(objs)
-        for i in range(0, n_delayed_objs, 2):
-            inputs = objs[i:i + 2]
-            # add neighbors
-            obj = func([dask.delayed(inp)
-                        if not isinstance(inp, Delayed) else inp
-                        for inp in inputs])
-            new_delayed_objs.append(obj)
-        objs = new_delayed_objs
+        new_objs = []
+        n_objs = len(objs)
+        for i in range(0, n_objs, 2):
+            inputs = dask.delayed(objs[i:i + 2])
+            obj = func(inputs)
+            new_objs.append(obj)
+        wait(new_objs)
+        objs = new_objs
 
     return first(objs)

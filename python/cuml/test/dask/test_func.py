@@ -17,6 +17,7 @@
 from dask import delayed
 from dask.distributed import Client
 import pytest
+from dask.distributed import wait
 
 from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
@@ -36,28 +37,38 @@ def test_tree_reduce_delayed(n_parts, cluster):
     assert(sum(range(n_parts)) == c)
 
 
+# Using custom remote task for storing data on workers.
+# `client.scatter` doesn't seem to work reliably
+# Ref: https://github.com/dask/dask/issues/6027
+def s(x):
+    return x
+
+
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
 def test_tree_reduce_futures(n_parts, cluster):
 
     client = Client(cluster)
 
-    a = client.scatter(range(n_parts))
+    a = [client.submit(s, i) for i in range(n_parts)]
     b = tree_reduce(a)
-    c = client.compute(b, sync=True)
+    b = client.compute(b, sync=True)
 
-    print(str(c))
-
-    assert(sum(range(n_parts)) == c)
+    assert(sum(range(n_parts)) == b)
 
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
 def test_reduce_futures(n_parts, cluster):
 
+    from dask.distributed import performance_report
+
+    def s(x):
+        return x
+
     client = Client(cluster)
 
-    a = client.scatter(range(n_parts))
+    a = [client.submit(s, i) for i in range(n_parts)]
     b = reduce(a, sum)
-    c = b.result()
+    b = client.compute(b, sync=True)
 
     # Testing this gets the correct result for now.
-    assert(sum(range(n_parts)) == c)
+    assert(sum(range(n_parts)) == b)
