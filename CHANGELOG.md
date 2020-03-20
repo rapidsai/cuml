@@ -1,7 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
-- PR #1757: Add multi class inference in FIL for forests from cuML RF
+- PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 
 ## Improvements
 
