@@ -175,10 +175,10 @@ class BaseDecompositionMG(object):
 
         del(X_m)
 
-        trans_cudf = []
+        trans_out = []
         if _transform:
             for x_i in arr_interfaces_trans:
-                trans_cudf.append(x_i["obj"].to_output(output_type="cudf"))
+                trans_out.append(x_i["obj"])
 
             if self.dtype == np.float32:
                 self._freeFloatD(trans_data, arr_interfaces_trans)
@@ -187,6 +187,6 @@ class BaseDecompositionMG(object):
                 self._freeDoubleD(trans_data, arr_interfaces_trans)
                 self._freeDoubleD(data, arr_interfaces)
 
-            return trans_cudf
+            return trans_out
 
         return self
