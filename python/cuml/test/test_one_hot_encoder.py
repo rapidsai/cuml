@@ -16,8 +16,12 @@ from cudf import DataFrame
 from cuml.preprocessing import OneHotEncoder
 
 import cupy as cp
+import pandas as pd
+import numpy as np
 
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
+
+from cuml.test.utils import stress_param
 
 
 def _from_df_to_array(df):
@@ -96,3 +100,32 @@ def test_onehot_inverse_transform_handle_unknown():
     df = enc.inverse_transform(Y_ohe)
     ref = DataFrame({'chars': [None, 'b'], 'int': [0, 2]})
     assert df.equals(ref)
+
+
+def generate_inputs_from_categories(categories=None,
+                                    n_samples=10, seed=5060):
+    if categories is None:
+        categories = {'strings': ['Foo', 'Bar', 'Baz'],
+                      'integers': list(range(1000))}
+
+    rd = np.random.RandomState(seed)
+    pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
+                              for name, cat in categories.items()})
+    ary = _from_df_to_array(pandas_df)
+    df = DataFrame.from_pandas(pandas_df)
+    return df, ary
+
+
+@pytest.mark.parametrize("n_samples", [10, 10000, stress_param(250000)])
+def test_onehot_random_inputs(n_samples):
+    df, ary = generate_inputs_from_categories(n_samples=n_samples)
+
+    enc = OneHotEncoder(sparse=False)
+    sk_enc = SkOneHotEncoder(sparse=False)
+    ohe = enc.fit_transform(df)
+    ref = sk_enc.fit_transform(ary)
+    cp.testing.assert_array_equal(ohe, ref)
+
+    inv_ohe = enc.inverse_transform(ohe)
+
+    assert inv_ohe.equals(df)
