@@ -720,4 +720,6 @@ def test_rf_classification_proba(datatype, split_algo, rows_sample, nrows,
         sk_model.fit(X_train, y_train)
         sk_preds_proba = sk_model.predict_proba(X_test)
         sk_mse = mean_squared_error(y_proba, sk_preds_proba)
+        # Max difference of 0.0061 is seen between the mse values of
+        # predict proba function of fil and sklearn
         assert fil_mse <= (sk_mse + 0.0061)
