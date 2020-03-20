@@ -106,9 +106,7 @@ struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   TempStorage* tmp_storage;
 
-  static size_t smem_finalize_footprint(int) {
-    return sizeof(TempStorage);
-  }
+  static size_t smem_finalize_footprint(int) { return sizeof(TempStorage); }
   static size_t smem_accumulate_footprint(int) { return 0; }
 
   __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace,
