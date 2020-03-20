@@ -62,8 +62,37 @@ def test_onehot_fit_handle_unknown():
     Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
 
     enc = OneHotEncoder(handle_unknown='error', categories=Y)
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         enc.fit(X)
 
     enc = OneHotEncoder(handle_unknown='ignore', categories=Y)
     enc.fit(X)
+
+
+def test_onehot_transform_handle_unknown():
+    X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
+    Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
+
+    enc = OneHotEncoder(handle_unknown='error')
+    enc = enc.fit(X)
+    with pytest.raises(KeyError):
+        enc.transform(Y)
+
+    enc = OneHotEncoder(handle_unknown='ignore')
+    enc = enc.fit(X)
+    ohe = enc.transform(Y)
+    ref = cp.array([[0., 0., 1., 0.],
+                    [0., 1., 0., 1.]])
+    cp.testing.assert_array_equal(ohe, ref)
+
+
+def test_onehot_inverse_transform_handle_unknown():
+    X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
+    Y_ohe = cp.array([[0., 0., 1., 0.],
+                      [0., 1., 0., 1.]])
+
+    enc = OneHotEncoder(handle_unknown='ignore')
+    enc = enc.fit(X)
+    df = enc.inverse_transform(Y_ohe)
+    ref = DataFrame({'chars': [None, 'b'], 'int': [0, 2]})
+    assert df.equals(ref)
