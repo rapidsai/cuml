@@ -35,7 +35,7 @@ struct comms_ucp_handle {
   int (*worker_progress_func)(ucp_worker_h);
 };
 
-static const ucp_tag_t default_tag_mask = UINT64_MAX;
+static const ucp_tag_t default_tag_mask = -1;
 
 static const ucp_tag_t any_rank_tag_mask = 0x0000FFFF;
 
@@ -141,7 +141,9 @@ int ucp_progress(struct comms_ucp_handle *ucp_handle, ucp_worker_h worker) {
 struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
                               ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag, ucp_tag_t tag_mask, int rank) {
-  ucp_tag_t ucp_tag = ((uint32_t)rank << 31) | (uint32_t)tag;
+  ucp_tag_t ucp_tag =  (ucp_tag_t) rank;//((uint32_t)tag << 31) | (uint32_t) rank;
+
+  printf("Sending tag: %ld\n", ucp_tag);
 
   ucs_status_ptr_t send_result = (*(ucp_handle->send_func))(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
@@ -181,7 +183,9 @@ struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
                               int size, int tag, ucp_tag_t tag_mask,
                               int sender_rank) {
-  ucp_tag_t ucp_tag = ((uint32_t)sender_rank << 31) | (uint32_t)tag;
+  ucp_tag_t ucp_tag =  (ucp_tag_t) sender_rank;//((uint32_t)tag << 31) | (uint32_t)sender_rank ;
+
+  printf("Receiving tag: %ld\n", ucp_tag);
 
   ucs_status_ptr_t recv_result = (*(ucp_handle->recv_func))(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
