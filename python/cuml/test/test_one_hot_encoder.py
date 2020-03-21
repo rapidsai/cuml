@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from cudf import DataFrame
+from cudf import DataFrame, Series
 from cuml.preprocessing import OneHotEncoder
 
 import cupy as cp
@@ -129,3 +129,38 @@ def test_onehot_random_inputs(n_samples):
     inv_ohe = enc.inverse_transform(ohe)
 
     assert inv_ohe.equals(df)
+
+
+def test_onehot_drop_idx_first():
+    X_ary = [['c', 2, 'a'],
+             ['b', 2, 'b']]
+    X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
+
+    enc = OneHotEncoder(sparse=False, drop='first')
+    sk_enc = SkOneHotEncoder(sparse=False, drop='first')
+    ohe = enc.fit_transform(X)
+    ref = sk_enc.fit_transform(X_ary)
+    cp.testing.assert_array_equal(ohe, ref)
+
+
+def test_onehot_drop_idx_series():
+    X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
+    drop = dict({'chars': Series(['b']),
+                 'int': Series([]),
+                 'letters': Series(['a', 'b'])})
+    enc = OneHotEncoder(sparse=False, drop=drop)
+    ohe = enc.fit_transform(X)
+    ref = cp.array([[1., 1.],
+                    [0., 1.]])
+    cp.testing.assert_array_equal(ohe, ref)
+
+
+def test_onehot_drop_idx():
+    X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
+    drop = dict({'chars': Series('b'),
+                 'int': Series([2]),
+                 'letters': Series('b')})
+    enc = OneHotEncoder(sparse=False, drop=drop)
+    ohe = enc.fit_transform(X)
+    ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
+    cp.testing.assert_array_equal(ohe, ref)

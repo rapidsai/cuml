@@ -43,7 +43,7 @@ class OneHotEncoder:
         - 'auto' : Determine categories automatically from the training data.
         - DataFrame : ``categories[col]`` holds the categories expected in the
           feature col.
-    TODO: Implement drop
+    TODO: Change documentation to reflect dict[Series] instead of DataFrame
     drop : 'first' or a cuml.DataFrame, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
@@ -102,6 +102,34 @@ class OneHotEncoder:
         if not self._fitted:
             raise RuntimeError("Model must first be .fit()")
 
+    def _compute_drop_idx(self):
+        if self.drop is None:
+            return None
+        elif isinstance(self.drop, str) and self.drop == 'first':
+            return {feature: cp.array(0) for feature in self._encoders.keys()}
+        elif not isinstance(self.drop, str):
+            if len(self.drop.keys()) != len(self._encoders):
+                msg = ("`drop` should have as many columns as the number "
+                       "of features ({}), got {}")
+                raise ValueError(msg.format(len(self._encoders),
+                                            len(self.drop.keys())))
+            drop_idx = dict()
+            for feature in self.drop.keys():
+                cats = self._encoders[feature].classes_
+                if not self.drop[feature].isin(cats).all():
+                    msg = ("Some categories for feature {} were supposed "
+                           "to be dropped, but were not found in the encoder "
+                           "categories.".format(feature))
+                    raise ValueError(msg)
+                cats = Series(cats.to_gpu_array())
+                idx = cats.isin(self.drop[feature])
+                drop_idx[feature] = cp.asarray(cats[idx].index)
+            return drop_idx
+        else:
+            msg = ("Wrong input for parameter `drop`. Expected "
+                   "'first', None or a dataframe, got {}")
+            raise ValueError(msg.format(type(self.drop)))
+
     def fit(self, X):
         """
         Fit OneHotEncoder to X.
@@ -131,7 +159,7 @@ class OneHotEncoder:
                                " during fit".format(feature))
                         raise KeyError(msg)
 
-        # self.drop_idx_ = self._compute_drop_idx()
+        self.drop_idx_ = self._compute_drop_idx()
         self._fitted = True
         return self
 
@@ -152,15 +180,25 @@ class OneHotEncoder:
         return self.fit(X).transform(X)
 
     @with_cupy_rmm
-    def _one_hot_encoding(self, encoder, X):
+    def _one_hot_encoding(self, feature, X):
+        encoder = self._encoders[feature]
+
         col_idx = encoder.transform(X).to_gpu_array(fillna="pandas")
         col_idx = cp.asarray(col_idx)
+
         ohe = cp.zeros((len(X), len(encoder.classes_)), dtype=self.dtype)
         # Filter out rows with null values
         idx_to_keep = col_idx > -1
         row_idx = cp.arange(len(ohe))[idx_to_keep]
         col_idx = col_idx[idx_to_keep]
         ohe[row_idx, col_idx] = 1
+
+        if self.drop_idx_ is not None:
+            drop_idx = self.drop_idx_[feature]
+            mask = cp.ones((ohe.shape[1]), dtype=cp.bool)
+            mask[drop_idx] = False
+            ohe = ohe[:, mask]
+
         return ohe
 
     @with_cupy_rmm
@@ -177,7 +215,7 @@ class OneHotEncoder:
             Transformed input.
         """
         self._check_is_fitted()
-        onehots = [self._one_hot_encoding(self._encoders[feature], X[feature])
+        onehots = [self._one_hot_encoding(feature, X[feature])
                    for feature in X.columns]
         return cp.concatenate(onehots, axis=1)
 
@@ -196,6 +234,7 @@ class OneHotEncoder:
         X_tr : cudf.DataFrame
             Inverse transformed array.
         """
+        # TODO: drop_idx for inverse transform
         self._check_is_fitted()
         result = DataFrame(columns=self._encoders.keys())
         j = 0
