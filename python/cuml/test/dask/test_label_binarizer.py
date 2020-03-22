@@ -32,7 +32,6 @@ def test_basic_functions(labels, cluster):
 
     client = None
 
-
     try:
 
         client = Client(cluster)

@@ -36,7 +36,4 @@ def test_dask_exceptions(cluster):
     finally:
 
         if c is not None:
-            try:
-                c.close()
-            except:
-                print("Error trying to close client.")
+            c.close()
