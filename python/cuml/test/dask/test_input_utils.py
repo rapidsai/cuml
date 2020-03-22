@@ -1,6 +1,6 @@
 import pytest
 from cuml.dask.datasets.blobs import make_blobs
-from cuml.dask.common.input_utils import _extract_partitions
+from cuml.dask.common.part_utils import _extract_partitions
 from dask.distributed import Client
 import dask.array as da
 import cupy as cp

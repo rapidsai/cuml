@@ -30,6 +30,8 @@ from dask_cudf.core import DataFrame as dcDataFrame
 from dask import delayed
 
 from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.dask.common.dask_arr_utils import validate_dask_array
+from cuml.dask.common.part_utils import _extract_partitions
 from dask.distributed import wait
 from dask.distributed import default_client
 from dask.distributed import futures_of
@@ -99,11 +101,18 @@ class DistributedDataHandler:
 
         multiple = isinstance(data, Sequence)
 
+        datatype = 'cudf' if isinstance(first(data) if multiple else data,
+                                dcDataFrame) else 'cupy'
+        
+        if datatype == 'cupy':
+            if multiple:
+                for d in data:
+                    validate_dask_array(d)
+            else:
+                validate_dask_array(data)
+
         gpu_futures = client.sync(_extract_partitions, data, client)
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
-
-        datatype = 'cudf' if isinstance(first(data) if multiple else data,
-                                        dcDataFrame) else 'cupy'
 
         return DistributedDataHandler(gpu_futures=gpu_futures, workers=workers,
                                       datatype=datatype, multiple=multiple,
@@ -205,38 +214,6 @@ def _to_dask_cudf(futures, client=None, verbose=False):
 
 
 """ Internal methods, API subject to change """
-
-
-@gen.coroutine
-def _extract_partitions(dask_obj, client=None):
-
-    client = default_client() if client is None else client
-
-    # dask.dataframe or dask.array
-    if isinstance(dask_obj, dcDataFrame) or \
-            isinstance(dask_obj, daskArray):
-        parts = futures_of(client.persist(dask_obj))
-
-    # iterable of dask collections (need to colocate them)
-    elif isinstance(dask_obj, Sequence):
-        # NOTE: We colocate (X, y) here by zipping delayed
-        # n partitions of them as (X1, y1), (X2, y2)...
-        # and asking client to compute a single future for
-        # each tuple in the list
-        parts = [d.to_delayed().ravel() if isinstance(d, daskArray)
-                 else d.to_delayed() for d in dask_obj]
-        parts = client.compute([p for p in zip(*parts)])
-
-    else:
-        raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
-
-    yield wait(parts)
-
-    key_to_part = [(str(part.key), part) for part in parts]
-    who_has = yield client.who_has(parts)
-
-    raise gen.Return([(first(who_has[key]), part)
-                      for key, part in key_to_part])
 
 
 # TODO: This can go away once all remaining estimators are updated
