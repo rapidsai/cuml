@@ -187,7 +187,7 @@ class ListenerThread(threading.Thread):
         if self.verbose:
             print("Running listener thread")
         while not self.listener.closed():
-            time.sleep(1)
+            time.sleep(0.001)
 
     def close(self):
         if self.verbose:
@@ -208,9 +208,6 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
     import os
     os.environ["UCX_CUDA_IPC_CACHE"] = "n"
     os.environ["UCXPY_NON_BLOCKING_MODE"] = "1"
-
-    ucp.reset()
-    ucp.init(blocking_progress_mode=False)
 
     if "ucp_listener" in worker_state(sessionId):
         print("Listener already started for sessionId=" +
@@ -306,11 +303,10 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     for k in worker_info:
         if str(k) != str(local_address):
 
-            print(str(k) + " - " + str(local_address))
 
             ip, port = parse_host_port(k)
 
-            ep = await ucp.create_endpoint("10.33.227.161",
+            ep = await ucp.create_endpoint(ip,
                                            worker_info[k]["p"], False)
 
             eps[worker_info[k]["r"]] = ep

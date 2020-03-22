@@ -124,12 +124,6 @@ def test_send_recv(n_trials, cluster):
 
     client = Client(cluster)
 
-    def set_env():
-        import os
-        os.environ["UCXPY_NON_BLOCKING_MODE"] = "1"
-
-    client.run(set_env, wait=True)
-
     try:
 
         cb = CommsContext(comms_p2p=True, verbose=True)
@@ -140,8 +134,8 @@ def test_send_recv(n_trials, cluster):
                              n_trials,
                              random.random(),
                              workers=[w])
-               for wid, w in zip(range(len(cb.worker_addresses)),
-                                 cb.worker_addresses)]
+               for wid, w in list(zip(range(len(cb.worker_addresses)),
+                   cb.worker_addresses))]
 
         wait(dfs)
 

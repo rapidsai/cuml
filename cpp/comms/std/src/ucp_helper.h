@@ -141,7 +141,7 @@ int ucp_progress(struct comms_ucp_handle *ucp_handle, ucp_worker_h worker) {
 struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
                               ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag, ucp_tag_t tag_mask, int rank) {
-  ucp_tag_t ucp_tag =  (ucp_tag_t) rank;//((uint32_t)tag << 31) | (uint32_t) rank;
+  ucp_tag_t ucp_tag =  ((uint32_t)tag << 31) | (uint32_t) rank;
 
   printf("Sending tag: %ld\n", ucp_tag);
 
@@ -183,7 +183,7 @@ struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
                               int size, int tag, ucp_tag_t tag_mask,
                               int sender_rank) {
-  ucp_tag_t ucp_tag =  (ucp_tag_t) sender_rank;//((uint32_t)tag << 31) | (uint32_t)sender_rank ;
+  ucp_tag_t ucp_tag =  ((uint32_t)tag << 31) | (uint32_t)sender_rank ;
 
   printf("Receiving tag: %ld\n", ucp_tag);
 

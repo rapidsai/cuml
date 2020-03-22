@@ -131,12 +131,13 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     """
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 
-    cdef void* ep_st
     for i in range(len(eps)):
         if eps[i] is not None:
-            ep_st = PyLong_AsVoidPtr(eps[i].get_ucp_endpoint())
-            pv = <size_t>&ep_st
-            ucp_eps[i] = pv
+            ep_st = <uintptr_t>eps[i].get_ucp_endpoint()
+
+            ucp_eps[i] = <size_t>ep_st
+
+            print("ucp_eps: "+ str(hex(ucp_eps[i])))
         else:
             ucp_eps[i] = 0
 
