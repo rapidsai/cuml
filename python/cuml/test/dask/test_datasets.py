@@ -66,7 +66,7 @@ def test_make_blobs(nrows,
         y = y.compute()
 
         assert X.shape == (nrows, ncols)
-        assert y.shape == (nrows, 1)
+        assert y.shape == (nrows,)
 
         if output == 'dataframe':
             assert len(y[0].unique()) == centers
