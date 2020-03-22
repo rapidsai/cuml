@@ -212,17 +212,20 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    dask_obj = client.persist(dask_obj)
     # dask.dataframe or dask.array
     if isinstance(dask_obj, dcDataFrame) or \
             isinstance(dask_obj, daskArray):
-        parts = futures_of(dask_obj)
+        parts = futures_of(client.persist(dask_obj))
 
     # iterable of dask collections (need to colocate them)
     elif isinstance(dask_obj, Sequence):
-        parts = [futures_of(d) for d in dask_obj]
-        to_map = zip(*parts)
-        parts = client.compute(list(map(delayed, to_map)))
+        # NOTE: We colocate (X, y) here by zipping delayed
+        # n partitions of them as (X1, y1), (X2, y2)...
+        # and asking client to compute a single future for
+        # each tuple in the list
+        parts = [d.to_delayed().ravel() if isinstance(d, daskArray)
+                 else d.to_delayed() for d in dask_obj]
+        parts = client.compute([p for p in zip(*parts)])
 
     else:
         raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
