@@ -66,6 +66,8 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
     std::vector<MLCommon::cumlCommunicator::request_t> requests;
     requests.resize(2 * (communicator.getSize() - 1));
     int request_idx = 0;
+
+
     //post receives
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
@@ -75,6 +77,9 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
       }
     }
 
+
+
+
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
         communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
@@ -82,13 +87,9 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
       }
     }
 
-    std::cout << "About to wait " << std::endl;
     communicator.waitall(requests.size(), requests.data());
 
-    std::cout << "Done. Calling barrier" << std::endl;
     communicator.barrier();
-
-    std::cout << "Done." << std::endl;
 
     if (communicator.getRank() == 0) {
       std::cout << "=========================" << std::endl;

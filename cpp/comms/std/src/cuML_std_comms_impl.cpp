@@ -174,11 +174,13 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
 
   for (int i = 0; i < size; i++) {
     size_t ptr = size_t_ep_arr[i];
-    ucp_ep_h *ucp_ep_v = *eps_sp;
+    ucp_ep_h *ucp_ep_v = (ucp_ep_h*)*eps_sp;
 
     if (ptr != 0) {
-      ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
-      ucp_ep_v[i] = *eps_ptr;
+      ucp_ep_h eps_ptr = (ucp_ep_h)size_t_ep_arr[i];
+
+      std::cout << rank << " injecting: " << i << ", ptr=" << eps_ptr << std::endl;
+      ucp_ep_v[i] = eps_ptr;
     } else {
       ucp_ep_v[i] = nullptr;
     }
@@ -301,12 +303,13 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   get_request_id(request);
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
+  std::cout << getRank() <<  ": Created send request [to=" << dest << ", ep=" << ep_ptr << "]" << std::endl;
 
   struct ucp_request *ucp_req =
     ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
               default_tag_mask, getRank());
 
-    std::cout << getRank() <<  ": Created send request [id=" << *request << ", ptr= " << ucp_req->req << ", to=" << dest << "]" << std::endl;
+    std::cout << getRank() <<  ": Created send request [id=" << *request << ", ptr= " << ucp_req->req << ", to=" << dest << ", ep=" << ep_ptr << "]" << std::endl;
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
@@ -336,7 +339,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
     ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
               size, tag, tag_mask, source);
 
-  std::cout << getRank() << ": Created receive request [id=" << *request << ", ptr=" << ucp_req->req << ", from=" << source << "]" << std::endl;
+  std::cout << getRank() << ": Created receive request [id=" << *request << ", ptr=" << ucp_req->req << ", from=" << source << "ep=" << ep_ptr << "]" << std::endl;
 
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
@@ -369,7 +372,7 @@ void cumlStdCommunicator_impl::waitall(int count,
 
     time_t now = time(NULL);
 
-    ASSERT(now - start < 15, "Timed out waiting for requests.");
+    ASSERT(now - start < 10, "Timed out waiting for requests.");
 
     for (std::vector<struct ucp_request *>::iterator it = requests.begin();
          it != requests.end();) {
@@ -395,11 +398,10 @@ void cumlStdCommunicator_impl::waitall(int count,
 	free(req);
         it = requests.erase(it);
       } else {
+
         ++it;
     }
 
-//std::this_thread::sleep_for(std::chrono::seconds(1));
-  //  std::cout << getRank() << " looping" << std::endl;
     
     }
   }
@@ -484,9 +486,6 @@ MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
         // Caller may abort with an exception or try to re-create a new communicator.
         return status_t::commStatusAbort;
     }
-
-    // Let other threads (including NCCL threads) use the CPU.
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     pthread_yield();
   }
