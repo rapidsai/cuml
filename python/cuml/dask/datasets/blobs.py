@@ -164,10 +164,12 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     elif output == 'array':
 
         X = [da.from_delayed(chunk, shape=(worker_rows[idx], ncols),
-                             dtype=dtype, meta=cp.zeros((1,), dtype=cp.float32))
+                             dtype=dtype,
+                             meta=cp.zeros((1,), dtype=cp.float32))
              for idx, chunk in enumerate(X)]
         y = [da.from_delayed(chunk, shape=(worker_rows[idx],),
-                             dtype=dtype, meta=cp.zeros((1,), dtype=cp.float32))
+                             dtype=dtype,
+                             meta=cp.zeros((1,), dtype=cp.float32))
              for idx, chunk in enumerate(y)]
 
         X = da.concatenate(X, axis=0)
