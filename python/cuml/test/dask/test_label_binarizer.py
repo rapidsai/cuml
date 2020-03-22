@@ -32,7 +32,10 @@ def test_basic_functions(labels, cluster):
 
     client = Client(cluster)
 
+
     try:
+
+        print("GOT HERE!")
         fit_labels, xform_labels = labels
 
         s = cp.asarray(fit_labels, dtype=np.int32)
@@ -73,8 +76,8 @@ def test_basic_functions(labels, cluster):
                                              "arrays")
 def test_sparse_output_fails(labels, cluster):
 
+    client = Client(cluster)
     try:
-        client = Client(cluster)
         LabelBinarizer(client=client, sparse_output=True)
     finally:
         client.close()
