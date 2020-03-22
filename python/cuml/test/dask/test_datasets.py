@@ -66,16 +66,17 @@ def test_make_blobs(nrows,
         y = y.compute()
 
         assert X.shape == (nrows, ncols)
-        assert y.shape == (nrows,)
 
         if output == 'dataframe':
             assert len(y[0].unique()) == centers
             assert X.dtypes.unique() == [dtype]
+            assert y.shape == (nrows, 1)
 
         elif output == 'array':
             import cupy as cp
             assert len(cp.unique(y)) == centers
             assert y.dtype == dtype
+            assert y.shape == (nrows, )
 
     finally:
         c.close()
