@@ -47,12 +47,15 @@ def s(x):
 def test_tree_reduce_futures(n_parts, cluster):
 
     client = Client(cluster)
+    try:
 
-    a = [client.submit(s, i) for i in range(n_parts)]
-    b = tree_reduce(a)
-    b = client.compute(b, sync=True)
+        a = [client.submit(s, i) for i in range(n_parts)]
+        b = tree_reduce(a)
+        b = client.compute(b, sync=True)
 
-    assert(sum(range(n_parts)) == b)
+        assert(sum(range(n_parts)) == b)
+    finally:
+        client.close()
 
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
@@ -63,9 +66,13 @@ def test_reduce_futures(n_parts, cluster):
 
     client = Client(cluster)
 
-    a = [client.submit(s, i) for i in range(n_parts)]
-    b = reduce(a, sum)
-    b = client.compute(b, sync=True)
+    try:
 
-    # Testing this gets the correct result for now.
-    assert(sum(range(n_parts)) == b)
+        a = [client.submit(s, i) for i in range(n_parts)]
+        b = reduce(a, sum)
+        b = client.compute(b, sync=True)
+
+        # Testing this gets the correct result for now.
+        assert(sum(range(n_parts)) == b)
+    finally:
+        client.close()
