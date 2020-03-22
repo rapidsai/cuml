@@ -87,7 +87,7 @@ def test_to_sp_dask_array(input_type, nrows, ncols, cluster):
 @pytest.mark.parametrize("n_parts", [2, 12])
 @pytest.mark.parametrize("col_chunking", [True, False])
 @pytest.mark.parametrize("n_col_chunks", [2, 4])
-def test_validate_dask_array(nrows, ncols, n_parts, col_chunking, 
+def test_validate_dask_array(nrows, ncols, n_parts, col_chunking,
                              n_col_chunks, cluster):
     client = Client(cluster)
 
