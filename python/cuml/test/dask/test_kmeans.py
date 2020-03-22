@@ -40,7 +40,6 @@ SCORE_EPS = 0.06
 def test_end_to_end(nrows, ncols, nclusters, n_parts,
                     delayed_predict, cluster):
 
-
     client = None
 
     try:

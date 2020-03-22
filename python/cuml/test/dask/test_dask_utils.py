@@ -33,9 +33,10 @@ def test_dask_exceptions(cluster):
         with pytest.raises(RuntimeError):
             raise_exception_from_futures([fut])
 
-    except:
-        print("EXCEPTION!!!")
     finally:
 
         if c is not None:
-            c.close()
+            try:
+                c.close()
+            except:
+                print("Error trying to close client.")
