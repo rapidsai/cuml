@@ -166,7 +166,7 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
         X = [da.from_delayed(chunk, shape=(worker_rows[idx], ncols),
                              dtype=dtype)
              for idx, chunk in enumerate(X)]
-        y = [da.from_delayed(chunk, shape=(worker_rows[idx], 1),
+        y = [da.from_delayed(chunk, shape=(worker_rows[idx],),
                              dtype=dtype)
              for idx, chunk in enumerate(y)]
 
