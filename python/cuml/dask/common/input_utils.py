@@ -34,10 +34,8 @@ from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.part_utils import _extract_partitions
 from dask.distributed import wait
 from dask.distributed import default_client
-from dask.distributed import futures_of
 from tornado import gen
 from toolz import first
-from dask.array.core import Array as daskArray
 from uuid import uuid1
 
 from functools import reduce
@@ -102,8 +100,8 @@ class DistributedDataHandler:
         multiple = isinstance(data, Sequence)
 
         datatype = 'cudf' if isinstance(first(data) if multiple else data,
-                                dcDataFrame) else 'cupy'
-        
+                                        dcDataFrame) else 'cupy'
+
         if datatype == 'cupy':
             if multiple:
                 for d in data:
