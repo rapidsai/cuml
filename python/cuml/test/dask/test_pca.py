@@ -70,8 +70,6 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
         client.close()
 
 
-
-
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [4e3, 7e5])
 @pytest.mark.parametrize("ncols", [100, 1000])
