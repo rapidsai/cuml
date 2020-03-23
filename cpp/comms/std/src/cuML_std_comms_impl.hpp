@@ -28,7 +28,6 @@
 #include <ucp/api/ucp.h>
 struct ucx_context {
   int completed;
-//  bool needs_release = true;
 };
 
 struct ucp_request {
@@ -68,7 +67,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
    * @param rank rank of the current worker
    */
   cumlStdCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker,
-                           std::shared_ptr<ucp_ep_h*> eps, int size, int rank);
+                           std::shared_ptr<ucp_ep_h*> eps, int size, int rank,
+                           bool verbose = false);
 #endif
 
   /**
@@ -77,7 +77,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
    * @param size size of the cluster
    * @param rank rank of the current worker
    */
-  cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank);
+  cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank,
+      bool verbose=false);
 
   virtual ~cumlStdCommunicator_impl();
 
@@ -130,6 +131,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 
   int _size;
   int _rank;
+
+  bool _verbose;
 
   void initialize();
   void get_request_id(request_t* req) const;

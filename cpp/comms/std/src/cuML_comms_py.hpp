@@ -44,7 +44,7 @@ void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
 #else
                      void *, void *,
 #endif
-                     int size, int rank);
+                     int size, int rank, bool verbose);
 
 /**
    * @brief This function follows the design of the wrapper function in
@@ -57,7 +57,7 @@ void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
    */
 
 void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
-                          int rank);
+                          int rank, bool verbose);
 
 /**
    * @brief Stores the given character array on the given ncclUniqueId struct.
