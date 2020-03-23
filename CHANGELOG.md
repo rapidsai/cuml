@@ -102,6 +102,7 @@
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
 - PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1876: UMAP exponential decay parameters fix
 - PR #1887: Fix hasattr for missing attributes on base models
 - PR #1877: Remove resetting index in shuffling in train_test_split
 - PR #1888: Small train_test_split test fix
