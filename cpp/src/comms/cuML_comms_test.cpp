@@ -67,7 +67,6 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
     requests.resize(2 * (communicator.getSize() - 1));
     int request_idx = 0;
 
-
     //post receives
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
@@ -76,9 +75,6 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
         ++request_idx;
       }
     }
-
-
-
 
     for (int r = 0; r < communicator.getSize(); ++r) {
       if (r != rank) {
