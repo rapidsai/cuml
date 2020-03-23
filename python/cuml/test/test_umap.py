@@ -120,7 +120,7 @@ def test_umap_transform_on_iris():
         [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
-    fitter = cuUMAP(n_neighbors=10, n_epochs=800, min_dist=0.01,
+    fitter = cuUMAP(n_neighbors=10, init="random", n_epochs=800, min_dist=0.01,
                     random_state=42, verbose=False)
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
@@ -137,8 +137,12 @@ def test_umap_transform_on_digits():
         [True, False], 1797, replace=True, p=[0.75, 0.25])
     data = digits.data[digits_selection]
 
-    fitter = cuUMAP(n_neighbors=15, n_epochs=0, min_dist=0.01,
-                    random_state=42, verbose=False)
+    fitter = cuUMAP(n_neighbors=15,
+                    init="random",
+                    n_epochs=0,
+                    min_dist=0.01,
+                    random_state=42,
+                    verbose=False)
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
@@ -279,7 +283,8 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
                               centers=10, random_state=42)
 
     def get_embedding(n_components, random_state):
-        reducer = cuUMAP(verbose=False, n_components=n_components,
+        reducer = cuUMAP(verbose=False, init="random",
+                         n_components=n_components,
                          random_state=random_state)
         return reducer.fit_transform(data, convert_dtype=True)
 
@@ -320,7 +325,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
     transform_data = data[~selection]
 
     def get_embedding(n_components, random_state):
-        reducer = cuUMAP(verbose=False, n_components=n_components,
+        reducer = cuUMAP(verbose=False, init="random",
+                         n_components=n_components,
                          random_state=random_state)
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)

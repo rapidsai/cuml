@@ -262,7 +262,7 @@ def test_output(output_type, dtype, order, shape):
             assert cp.all(cp.asarray(cuda.to_device(inp)) == cp.asarray(res))
 
         elif output_type == 'series':
-            comp = cudf.Series(inp) == res
+            comp = cudf.Series(np.ravel(inp)) == res
             assert np.all(comp.to_array())
 
         elif output_type == 'dataframe':
