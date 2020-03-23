@@ -147,13 +147,13 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
                   elapsed)
             print("Building handle")
 
-        _func_build_handle_p2p(sessionId, streams_per_handle)
+        _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
 
         if verbose:
             print("Done building handle.")
 
     else:
-        _func_build_handle(sessionId, streams_per_handle)
+        _func_build_handle(sessionId, streams_per_handle, verbose)
 
 
 def _func_init_nccl(sessionId, uniqueId):
@@ -236,7 +236,7 @@ async def _func_ucp_stop_listener(sessionId):
         print("Listener not found with sessionId=" + str(sessionId))
 
 
-def _func_build_handle_p2p(sessionId, streams_per_handle):
+def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -255,12 +255,12 @@ def _func_build_handle_p2p(sessionId, streams_per_handle):
     workerId = session_state["wid"]
 
     inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
-                           nWorkers, workerId)
+                           nWorkers, workerId, verbose)
 
     worker_state(sessionId)["handle"] = handle
 
 
-def _func_build_handle(sessionId, streams_per_handle):
+def _func_build_handle(sessionId, streams_per_handle, verbose):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -276,7 +276,8 @@ def _func_build_handle(sessionId, streams_per_handle):
     nWorkers = session_state["nworkers"]
 
     nccl_comm = session_state["nccl"]
-    inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers, workerId)
+    inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers,
+                                     workerId, verbose)
     session_state["handle"] = handle
 
 
@@ -302,7 +303,6 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
 
     for k in worker_info:
         if str(k) != str(local_address):
-
 
             ip, port = parse_host_port(k)
 
