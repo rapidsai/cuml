@@ -15,7 +15,7 @@ def cluster():
 
     dask.config.set({"distributed.comm.timeouts.connect": "50s"})
 
-    cluster = LocalCUDACluster(protocol="tcp")
+    cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
     yield cluster
     cluster.close()
 
