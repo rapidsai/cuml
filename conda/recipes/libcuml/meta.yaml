@@ -33,12 +33,12 @@ requirements:
     - nccl 2.5.*
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - libcumlprims {{ minor_version }}
+    - libcumlprims>=0.13
     - ucx-py {{ minor_version }}
     - lapack
     - protobuf >=3.4.1,<4.0.0
   run:
-    - libcumlprims {{ minor_version }}
+    - libcumlprims>=0.13
     - cudf {{ minor_version }}
     - nccl>=2.5
     - ucx-py {{ minor_version }}

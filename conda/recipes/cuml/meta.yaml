@@ -32,7 +32,7 @@ requirements:
     - protobuf >=3.4.1,<4.0.0
     - cudf {{ minor_version }}
     - libcuml={{ version }}
-    - libcumlprims {{ minor_version }}
+    - libcumlprims>=0.13
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
   run:
@@ -40,7 +40,7 @@ requirements:
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
-    - libcumlprims {{ minor_version }}
+    - libcumlprims>=0.13
     - cupy>=7,<8.0.0a0
     - nccl>=2.5
     - ucx-py {{ minor_version }}
