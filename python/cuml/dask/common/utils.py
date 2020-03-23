@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import logging
 import os
 import numba.cuda
@@ -19,14 +20,10 @@ import random
 import time
 
 from cuml.utils import device_of_gpu_matrix
-from cuml import Base
 
 from asyncio import InvalidStateError
 
 from threading import Lock
-
-import cupy as cp
-import copyreg
 
 
 def get_visible_devices():
@@ -148,6 +145,7 @@ def raise_mg_import_exception():
                     " enable multiGPU support.")
 
 
+<<<<<<< HEAD
 def patch_cupy_sparse_serialization(client):
     """
     This function provides a temporary fix for a bug
@@ -191,6 +189,8 @@ def patch_cupy_sparse_serialization(client):
     client.run(patch_func)
 
 
+=======
+>>>>>>> e1875e749a3b843ad3d6db00ef50628c605b011f
 class MultiHolderLock:
     """
     A per-process synchronization lock allowing multiple concurrent holders
