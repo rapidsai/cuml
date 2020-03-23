@@ -46,7 +46,6 @@ static const int UCP_ANY_RANK = -1;
  */
 static void send_handle(void *request, ucs_status_t status) {
   struct ucx_context *context = (struct ucx_context *)request;
-  printf("Send Completed %p\n", request);
   context->completed = 1;
 }
 
@@ -56,7 +55,6 @@ static void send_handle(void *request, ucs_status_t status) {
 static void recv_handle(void *request, ucs_status_t status,
                         ucp_tag_recv_info_t *info) {
   struct ucx_context *context = (struct ucx_context *)request;
-  printf("Recv Completed %p\n", request);
   context->completed = 1;
 }
 
@@ -127,8 +125,12 @@ void init_comms_ucp_handle(struct comms_ucp_handle *handle) {
 /**
  * @brief Frees any memory underlying the given ucp request object
  */
-void free_ucp_request(struct comms_ucp_handle *ucp_handle, void *request) {
-  (*(ucp_handle->req_free_func))(request);
+void free_ucp_request(struct comms_ucp_handle *ucp_handle, ucp_request *request) {
+  if(request->needs_release) {
+    request->req->completed = 0;
+    (*(ucp_handle->req_free_func))(request);
+  }
+  free(request);
 }
 
 int ucp_progress(struct comms_ucp_handle *ucp_handle, ucp_worker_h worker) {
@@ -140,10 +142,11 @@ int ucp_progress(struct comms_ucp_handle *ucp_handle, ucp_worker_h worker) {
  */
 struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
                               ucp_ep_h ep_ptr, const void *buf, int size,
-                              int tag, ucp_tag_t tag_mask, int rank) {
+                              int tag, ucp_tag_t tag_mask, int rank,
+                              bool verbose) {
   ucp_tag_t ucp_tag =  ((uint32_t)tag << 31) | (uint32_t) rank;
 
-  printf("Sending tag: %ld\n", ucp_tag);
+  if(verbose) printf("Sending tag: %ld\n", ucp_tag);
 
   ucs_status_ptr_t send_result = (*(ucp_handle->send_func))(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
@@ -165,8 +168,6 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
     */
 	 req->needs_release=true;
   } else {
-    ucp_req = (struct ucx_context *)malloc(sizeof(struct ucx_context));
-    ucp_req->completed = 1;
     req->needs_release=false;
   }
 
@@ -182,10 +183,10 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
 struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
                               int size, int tag, ucp_tag_t tag_mask,
-                              int sender_rank) {
+                              int sender_rank, bool verbose) {
   ucp_tag_t ucp_tag =  ((uint32_t)tag << 31) | (uint32_t)sender_rank ;
 
-  printf("Receiving tag: %ld\n", ucp_tag);
+  if(verbose) printf("%d: Receiving tag: %ld\n", ucp_tag);
 
   ucs_status_ptr_t recv_result = (*(ucp_handle->recv_func))(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
