@@ -149,8 +149,10 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
 
 
 def test_rf_throws_exceptions(cluster):
-    c = Client(cluster)
+    c = None
     try:
+
+        c = Client(cluster)
         cu_rf_params = {'n_estimators': 10, 'max_depth': 8}
         cu_rf_mg = cuRFR_mg(**cu_rf_params)
         X_train, y_train = make_regression(n_samples=100, n_features=20,
@@ -163,7 +165,9 @@ def test_rf_throws_exceptions(cluster):
         with pytest.raises(RuntimeError):
             cu_rf_mg.fit(X_train_df, y_train_df)
     finally:
-        c.close()
+
+        if c is not None:
+            c.close()
 
 
 @pytest.mark.parametrize('partitions_per_worker', [1, 5])
