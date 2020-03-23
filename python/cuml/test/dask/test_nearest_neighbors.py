@@ -152,9 +152,9 @@ def test_batch_size(nrows, ncols, n_parts,
         client.close()
 
 
-def test_return_distance(ucx_cluster):
+def test_return_distance(cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     n_samples = 50
     n_feats = 50
