@@ -384,7 +384,6 @@ void cumlStdCommunicator_impl::waitall(int count,
 
     for (std::vector<struct ucp_request *>::iterator it = requests.begin();
          it != requests.end();) {
-
       bool restart = false;  // resets the timeout when any progress was made
 
       // Causes UCP to progress through the send/recv message queue
