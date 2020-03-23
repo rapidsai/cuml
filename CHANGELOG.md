@@ -99,6 +99,7 @@
 - PR #1893: Updating UCX in comms to match current UCX-py
 - PR #1888: Small train_test_split test fix
 - PR #1920: Temporarily raising threshold for UMAP reproducibility tests
+- PR #1918: Create memleak fixture to skip memleak tests in CI for now
 
 # cuML 0.12.0 (Date TBD)
 
