@@ -51,6 +51,8 @@ def test_getattr(cluster):
 
     X, y = load_text_corpus(client)
 
+    print(str(X.compute()))
+
     nb_model = MultinomialNB(client=client)
     nb_model.fit(X, y)
 
