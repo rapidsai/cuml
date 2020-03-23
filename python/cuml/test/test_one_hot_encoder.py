@@ -28,6 +28,20 @@ def _from_df_to_array(df):
     return list(zip(*[df[feature] for feature in df.columns]))
 
 
+def _generate_inputs_from_categories(categories=None,
+                                     n_samples=10, seed=5060):
+    if categories is None:
+        categories = {'strings': ['Foo', 'Bar', 'Baz'],
+                      'integers': list(range(1000))}
+
+    rd = np.random.RandomState(seed)
+    pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
+                              for name, cat in categories.items()})
+    ary = _from_df_to_array(pandas_df)
+    df = DataFrame.from_pandas(pandas_df)
+    return df, ary
+
+
 def test_onehot_vs_skonehot():
     X = DataFrame({'gender': ['Male', 'Female', 'Female'], 'int': [1, 3, 2]})
     skX = _from_df_to_array(X)
@@ -102,23 +116,9 @@ def test_onehot_inverse_transform_handle_unknown():
     assert df.equals(ref)
 
 
-def generate_inputs_from_categories(categories=None,
-                                    n_samples=10, seed=5060):
-    if categories is None:
-        categories = {'strings': ['Foo', 'Bar', 'Baz'],
-                      'integers': list(range(1000))}
-
-    rd = np.random.RandomState(seed)
-    pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
-                              for name, cat in categories.items()})
-    ary = _from_df_to_array(pandas_df)
-    df = DataFrame.from_pandas(pandas_df)
-    return df, ary
-
-
 @pytest.mark.parametrize("n_samples", [10, 10000, stress_param(250000)])
 def test_onehot_random_inputs(n_samples):
-    df, ary = generate_inputs_from_categories(n_samples=n_samples)
+    df, ary = _generate_inputs_from_categories(n_samples=n_samples)
 
     enc = OneHotEncoder(sparse=False)
     sk_enc = SkOneHotEncoder(sparse=False)
@@ -155,7 +155,7 @@ def test_onehot_drop_idx_series():
     cp.testing.assert_array_equal(ohe, ref)
 
 
-def test_onehot_drop_idx():
+def test_onehot_drop_one_of_each():
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
     drop = dict({'chars': Series('b'),
                  'int': Series([2]),
@@ -164,3 +164,17 @@ def test_onehot_drop_idx():
     ohe = enc.fit_transform(X)
     ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
     cp.testing.assert_array_equal(ohe, ref)
+
+
+@pytest.mark.parametrize("drop, pattern",
+                         [[dict({'chars': Series('b')}),
+                           '`drop` should have as many columns'],
+                          [dict({'chars': Series('b'), 'int': Series(3)}),
+                           'Some categories [a-zA-Z, ]* were not found'],
+                          [DataFrame({'chars': Series('b'), 'int': Series(3)}),
+                           'Wrong input for parameter `drop`.']])
+def test_onehot_drop_exceptions(drop, pattern):
+    X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2]})
+
+    with pytest.raises(ValueError, match=pattern):
+        OneHotEncoder(sparse=False, drop=drop).fit(X)

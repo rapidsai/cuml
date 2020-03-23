@@ -43,7 +43,6 @@ class OneHotEncoder:
         - 'auto' : Determine categories automatically from the training data.
         - DataFrame : ``categories[col]`` holds the categories expected in the
           feature col.
-    TODO: Change documentation to reflect dict[Series] instead of DataFrame
     drop : 'first' or a cuml.DataFrame, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
@@ -52,7 +51,7 @@ class OneHotEncoder:
         - None : retain all features (the default).
         - 'first' : drop the first category in each feature. If only one
           category is present, the feature will be dropped entirely.
-        - DataFrame : ``drop[col]`` is the category in feature col that
+        - Dict[Series] : ``drop[col]`` are the categories in feature col that
           should be dropped.
     # sparse : bool, default=True
     #     Will return sparse matrix if set True else will return an array.
@@ -107,7 +106,7 @@ class OneHotEncoder:
             return None
         elif isinstance(self.drop, str) and self.drop == 'first':
             return {feature: cp.array(0) for feature in self._encoders.keys()}
-        elif not isinstance(self.drop, str):
+        elif isinstance(self.drop, dict):
             if len(self.drop.keys()) != len(self._encoders):
                 msg = ("`drop` should have as many columns as the number "
                        "of features ({}), got {}")
@@ -127,7 +126,7 @@ class OneHotEncoder:
             return drop_idx
         else:
             msg = ("Wrong input for parameter `drop`. Expected "
-                   "'first', None or a dataframe, got {}")
+                   "'first', None or a dict, got {}")
             raise ValueError(msg.format(type(self.drop)))
 
     def fit(self, X):
