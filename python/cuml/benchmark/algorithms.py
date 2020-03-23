@@ -284,7 +284,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
-            shared_args=dict(solver="lbfgs"),
+            shared_args=dict(),  # Use default solvers
             name="LogisticRegression",
             accepts_labels=True,
             accuracy_function=metrics.accuracy_score,
