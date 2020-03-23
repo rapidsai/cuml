@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1914: Change the meaning of ARIMA's intercept to match the literature
 
 ## Bug Fixes
 
