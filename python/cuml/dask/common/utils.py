@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import logging
 import os
 import numba.cuda
 import random
 import time
 
+from dask.distributed import default_client
+
 from cuml.utils import device_of_gpu_matrix
-from cuml import Base
 
 from asyncio import InvalidStateError
 
 from threading import Lock
-
-import cupy as cp
-import copyreg
 
 
 def get_visible_devices():
@@ -81,6 +80,10 @@ def select_device(dev, close=True):
             logging.warn("Current device " +
                          str(numba.cuda.get_current_device()) +
                          " does not match expected " + str(dev))
+
+
+def get_client(client=None):
+    return default_client() if client is None else client
 
 
 def parse_host_port(address):
@@ -146,43 +149,6 @@ def raise_mg_import_exception():
     raise Exception("cuML has not been built with multiGPU support "
                     "enabled. Build with the --multigpu flag to"
                     " enable multiGPU support.")
-
-
-def patch_cupy_sparse_serialization(client):
-    """
-    This function provides a temporary fix for a bug
-    in CuPy that doesn't properly serialize cuSPARSE handles.
-
-    Reference: https://github.com/cupy/cupy/issues/3061
-
-    Parameters
-    ----------
-
-    client : dask.distributed.Client client to use
-    """
-
-    def patch_func():
-        def serialize_mat_descriptor(m):
-            return cp.cupy.cusparse.MatDescriptor.create, ()
-
-        from cuml.naive_bayes.naive_bayes import MultinomialNB
-        from distributed.protocol.cuda import cuda_serialize, cuda_deserialize
-        from distributed.protocol.serialize import dask_serialize, \
-            dask_deserialize, register_generic
-
-        register_generic(Base, "cuda", cuda_serialize, cuda_deserialize)
-        register_generic(Base, "dask", dask_serialize, dask_deserialize)
-
-        register_generic(MultinomialNB, "cuda",
-                         cuda_serialize, cuda_deserialize)
-        register_generic(MultinomialNB, "dask",
-                         dask_serialize, dask_deserialize)
-
-        copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
-                       serialize_mat_descriptor)
-
-    patch_func()
-    client.run(patch_func)
 
 
 class MultiHolderLock:

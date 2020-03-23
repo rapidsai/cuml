@@ -1,5 +1,7 @@
 import pytest
 
+import dask
+
 from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
 
@@ -10,7 +12,10 @@ enable_infiniband = False
 
 @pytest.fixture(scope="module")
 def cluster():
-    cluster = LocalCUDACluster(protocol="tcp")
+
+    dask.config.set({"distributed.comm.timeouts.connect": "50s"})
+
+    cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
     yield cluster
     cluster.close()
 
