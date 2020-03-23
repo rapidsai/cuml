@@ -36,6 +36,7 @@ bool ucx_enabled();
    * @param eps an array of ucp_ep_h endpoints to the other ucp workers in the cluster
    * @param size the size of the cluster (number of elements in eps)
    * @param rank rank of the current worker
+   * @param verbose print verbose logging
    */
 void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
 
@@ -54,6 +55,7 @@ void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
    * @param comm initialized nccl communicator
    * @param size the size of the cluster (number of elements in eps)
    * @param rank rank of the current worker
+   * @param verbose print verbose logging
    */
 
 void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,

@@ -190,7 +190,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
   inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank,
                verbose);
 #else
-  inject_comms(*handle, comm, size, rank, verbos);
+  inject_comms(*handle, comm, size, rank, verbose);
 #endif
 }
 
@@ -384,7 +384,10 @@ void cumlStdCommunicator_impl::waitall(int count,
 
     for (std::vector<struct ucp_request *>::iterator it = requests.begin();
          it != requests.end();) {
-      bool restart = false;
+
+      bool restart = false;  // resets the timeout when any progress was made
+
+      // Causes UCP to progress through the send/recv message queue
       while (ucp_progress((struct comms_ucp_handle *)_ucp_handle,
                           _ucp_worker) != 0) {
         restart = true;
@@ -392,6 +395,8 @@ void cumlStdCommunicator_impl::waitall(int count,
 
       auto req = *it;
 
+      // If the message needs release, we know it will be sent/received
+      // asynchronously, so we will need to track and verify its state
       if (req->needs_release) {
         ASSERT(UCS_PTR_IS_PTR(req->req),
                "UCX Request Error. Request is not valid UCX pointer");
@@ -402,6 +407,9 @@ void cumlStdCommunicator_impl::waitall(int count,
                req->req->completed);
       }
 
+      // If a message was sent synchronously (eg. completed before
+      // `isend`/`irecv` completed) or an asynchronous message
+      // is complete, we can go ahead and clean it up.
       if (!req->needs_release || req->req->completed == 1) {
         restart = true;
         if (_verbose) {
@@ -412,11 +420,16 @@ void cumlStdCommunicator_impl::waitall(int count,
                     << ", completed_immediately=" << !req->needs_release << "]"
                     << std::endl;
         }
+
+        // perform cleanup
         free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
+
+        // remove from pending requests
         it = requests.erase(it);
       } else {
         ++it;
       }
+      // if any progress was made, reset the timeout start time
       if (restart) {
         start = time(NULL);
       }
@@ -504,6 +517,7 @@ MLCommon::cumlCommunicator::status_t cumlStdCommunicator_impl::syncStream(
         return status_t::commStatusAbort;
     }
 
+    // Let other threads (including NCCL threads) use the CPU.
     pthread_yield();
   }
 }
