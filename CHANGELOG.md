@@ -55,6 +55,7 @@
 - PR #1848: Rely on subclassing for cuML Array serialization
 - PR #1866: Minimizing client memory pressure on Naive Bayes
 - PR #1788: Removing complexity bottleneck in S-ARIMA
+- PR #1891: Additional improvements to naive bayes tree reduction
 
 ## Bug Fixes
 - PT #1904: replace cub sort
