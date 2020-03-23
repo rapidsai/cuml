@@ -112,12 +112,12 @@ class RandomForestRegressor(Base):
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-      * GPU-based inference is only supported if the model was trained
-      with 32-bit (float32) datatypes CPU-based inference may be used
-      in this case as a slower fallback.
-      * Very deep / very wide models may exhaust available GPU memory.
-      Future versions of cuML will provide an alternative algorithm to
-      reduce memory consumption.
+       * GPU-based inference is only supported if the model was trained
+         with 32-bit (float32) datatypes. CPU-based inference may be used
+         in this case as a slower fallback.
+       * Very deep / very wide models may exhaust available GPU memory.
+         Future versions of cuML will provide an alternative algorithm to
+         reduce memory consumption.
 
     Examples
     ---------
@@ -462,7 +462,7 @@ class RandomForestRegressor(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def concatenate_treelite_handle(self, treelite_handle):
+    def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
@@ -477,7 +477,7 @@ class RandomForestRegressor(Base):
         concat_model_ptr = <size_t> concat_model_handle
         return ctypes.c_void_p(concat_model_ptr).value
 
-    def concatenate_model_bytes(self, concat_model_handle):
+    def _concatenate_model_bytes(self, concat_model_handle):
         cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
         concat_model_bytes = save_model(<ModelHandle> model_ptr)
         self.model_pbuf_bytes = concat_model_bytes
