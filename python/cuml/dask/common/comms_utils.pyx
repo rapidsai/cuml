@@ -121,7 +121,8 @@ def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
                          verbose)
 
 
-def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank, verbose):
+def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
+                           rank, verbose):
     """
     Given a handle and initialized comms, creates a cumlCommunicator instance
     and injects it into the handle.

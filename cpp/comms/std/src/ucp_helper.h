@@ -128,7 +128,7 @@ void init_comms_ucp_handle(struct comms_ucp_handle *handle) {
 void free_ucp_request(struct comms_ucp_handle *ucp_handle, ucp_request *request) {
   if(request->needs_release) {
     request->req->completed = 0;
-    (*(ucp_handle->req_free_func))(request);
+    (*(ucp_handle->req_free_func))(request->req);
   }
   free(request);
 }

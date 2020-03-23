@@ -179,7 +179,7 @@ def _func_init_nccl(sessionId, uniqueId):
 class ListenerThread(threading.Thread):
     def __init__(self, verbose):
         threading.Thread.__init__(self, daemon=True)
-        self.listener = ucp.create_listener(_connection_func, guarantee_msg_order=False)
+        self.listener = ucp.create_listener(_connection_func)
         self.port = self.listener.port
         self.verbose = verbose
 
@@ -204,10 +204,6 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
     :param sessionId: uuid Unique id for current instance
     :param r: float a random number to stop the function from being cached
     """
-
-    import os
-    os.environ["UCX_CUDA_IPC_CACHE"] = "n"
-    os.environ["UCXPY_NON_BLOCKING_MODE"] = "1"
 
     if "ucp_listener" in worker_state(sessionId):
         print("Listener already started for sessionId=" +
@@ -307,7 +303,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
             ip, port = parse_host_port(k)
 
             ep = await ucp.create_endpoint(ip,
-                                           worker_info[k]["p"], False)
+                                           worker_info[k]["p"])
 
             eps[worker_info[k]["r"]] = ep
             count += 1
