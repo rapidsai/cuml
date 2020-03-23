@@ -54,6 +54,8 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
                                      classes.shape[0]),
                               dtype=cp.float32)
 
+    cp.cuda.Stream.null.synchronize()
+
     if sparse_output:
         sp = sp.tocsr()
         return sp
@@ -169,6 +171,8 @@ class LabelBinarizer(object):
             self.classes_ = rmm_cupy_ary(cp.arange, 0, y.shape[1])
         else:
             self.classes_ = rmm_cupy_ary(cp.unique, y).astype(y.dtype)
+
+        cp.cuda.Stream.null.synchronize()
 
         return self
 
