@@ -32,10 +32,14 @@ import cupy
 
 import numba.cuda as cuda
 
+from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
+from cupy.sparse import csr_matrix as cp_csr_matrix,\
+    coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
+
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array, zeros, row_matrix
+    input_to_cuml_array, zeros, row_matrix, with_cupy_rmm
 from cuml.common.array import CumlArray
 
 import rmm
@@ -43,6 +47,7 @@ import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport uint64_t
+from libc.stdint cimport int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
@@ -83,7 +88,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         MetricType target_metric,
         uint64_t random_state,
         bool multicore_implem,
-        GraphBasedDimRedCallback* callback
+        GraphBasedDimRedCallback * callback
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
@@ -91,6 +96,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              float * X,
              int n,
              int d,
+             int64_t * knn_indices,
+             float * knn_dists,
              UMAPParams * params,
              float * embeddings) except +
 
@@ -99,6 +106,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
              float * y,
              int n,
              int d,
+             int64_t * knn_indices,
+             float * knn_dists,
              UMAPParams * params,
              float * embeddings) except +
 
@@ -106,6 +115,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
                    float * X,
                    int n,
                    int d,
+                   int64_t * knn_indices,
+                   float * knn_dists,
                    float * orig_X,
                    int orig_n,
                    float * embedding,
@@ -113,8 +124,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML":
                    UMAPParams * params,
                    float * out) except +
 
-    void find_ab(cumlHandle &handle,
-                 UMAPParams *params) except +
+    void find_ab(cumlHandle & handle,
+                 UMAPParams * params) except +
 
 
 class UMAP(Base):
@@ -328,9 +339,10 @@ class UMAP(Base):
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        umap_params.random_state = long(rs.randint(low=0,
-                                        high=np.iinfo(np.uint64).max,
-                                        dtype=np.uint64))
+        umap_params.random_state = rs.randint(low=0,
+                                              high=np.iinfo(
+                                                  np.uint64).max,
+                                              dtype=np.uint64)
 
         if target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
@@ -367,8 +379,8 @@ class UMAP(Base):
             state = self.__dict__.copy()
             del state['handle']
 
-        cdef size_t params_t = <size_t>self.umap_params
-        cdef UMAPParams* umap_params = <UMAPParams*>params_t
+        cdef size_t params_t = <size_t> self.umap_params
+        cdef UMAPParams * umap_params = <UMAPParams*>params_t
 
         if not self.MNMG and hasattr(self, "X_m") and self.X_m is not None:
             # fit has not yet been called
@@ -437,7 +449,7 @@ class UMAP(Base):
         umap_params.target_weights = state["target_weights"]
         umap_params.target_metric = state["target_metric"]
 
-        state["umap_params"] = <size_t>umap_params
+        state["umap_params"] = <size_t> umap_params
 
         if not self.MNMG:
             self.__dict__.update(state)
@@ -453,7 +465,49 @@ class UMAP(Base):
         elif cuda.is_cuda_array(X):
             return embedding.to_output('numba')
 
-    def fit(self, X, y=None, convert_dtype=True):
+    @with_cupy_rmm
+    def _extract_knn_graph(self, knn_graph, convert_dtype=True):
+        if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
+            knn_graph = cupy.sparse.csr_matrix(knn_graph)
+            n_samples = knn_graph.shape[0]
+            reordering = knn_graph.data.reshape((n_samples, -1))
+            reordering = reordering.argsort()
+            n_neighbors = reordering.shape[1]
+            reordering += (cupy.arange(n_samples) * n_neighbors)[:, np.newaxis]
+            reordering = reordering.flatten()
+            knn_graph.indices = knn_graph.indices[reordering]
+            knn_graph.data = knn_graph.data[reordering]
+
+        knn_indices = None
+        if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
+            knn_indices = knn_graph.indices
+        elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
+            knn_indices = knn_graph.col
+
+        knn_indices_ptr, knn_dists_ptr = None, None
+        if knn_indices is not None:
+            knn_dists = knn_graph.data
+            knn_indices_m, knn_indices_ptr, _, _, _ = \
+                input_to_dev_array(knn_indices, order='C',
+                                   check_dtype=np.int64,
+                                   convert_to_dtype=(np.int64
+                                                     if convert_dtype
+                                                     else None))
+
+            knn_dists_m, knn_dists_ptr, _, _, _ = \
+                input_to_dev_array(knn_dists, order='C',
+                                   check_dtype=np.float32,
+                                   convert_to_dtype=(np.float32
+                                                     if convert_dtype
+                                                     else None))
+
+            return (knn_indices_m, knn_indices_ptr),\
+                   (knn_dists_m, knn_dists_ptr)
+        return (None, None), (None, None)
+
+    @with_cupy_rmm
+    def fit(self, X, y=None, convert_dtype=True,
+            knn_graph=None):
         """
         Fit X into an embedded space.
 
@@ -467,24 +521,52 @@ class UMAP(Base):
             y contains a label per row.
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        knn_graph : sparse array-like (device or host)
+            shape=(n_samples, n_samples)
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
+            Users using the knn_graph parameter provide UMAP
+            with their own run of the KNN algorithm. This allows the user
+            to pick a custom distance function (sometimes useful
+            on certain datasets) whereas UMAP uses euclidean by default.
+            The custom distance function should match the metric used
+            to train UMAP embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the UMAP algorithm
+            when performing a grid search.
+            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
+            CSR/COO preferred other formats will go through conversion to CSR
         """
-        if self.MNMG:
-            self.__setstate__(self.state)
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        self.X_m, self.n_rows, self.n_dims, dtype = \
-            input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None))
+        cdef UMAPParams * umap_params = \
+            <UMAPParams*> <size_t> self.umap_params
+
+        if y is not None and knn_graph is not None\
+                and umap_params.target_metric != MetricType.CATEGORICAL:
+            raise ValueError("Cannot provide a KNN graph when in \
+            semi-supervised mode with categorical target_metric for now.")
+
+        self.X_m, X_ctype, self.n_rows, self.n_dims, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32
+                                                 if convert_dtype
+                                                 else None))
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        cdef UMAPParams * umap_params = \
-            <UMAPParams*> <size_t> self.umap_params
+        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
+            self._extract_knn_graph(knn_graph, convert_dtype)
+
+        cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
+        cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
+
         umap_params.n_neighbors = min(self.n_rows, umap_params.n_neighbors)
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
@@ -515,6 +597,8 @@ class UMAP(Base):
                 <float*> y_raw,
                 <int> self.n_rows,
                 <int> self.n_dims,
+                <int64_t*> knn_indices_raw,
+                <float*> knn_dists_raw,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw)
 
@@ -524,6 +608,8 @@ class UMAP(Base):
                 <float*> x_raw,
                 <int> self.n_rows,
                 <int> self.n_dims,
+                <int64_t*> knn_indices_raw,
+                <float*> knn_dists_raw,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw)
 
@@ -536,7 +622,8 @@ class UMAP(Base):
 
         return self
 
-    def fit_transform(self, X, y=None, convert_dtype=True):
+    def fit_transform(self, X, y=None, convert_dtype=True,
+                      knn_graph=None):
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -554,16 +641,37 @@ class UMAP(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        knn_graph : sparse array-like (device or host)
+            shape=(n_samples, n_samples)
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
+            Users using the knn_graph parameter provide UMAP
+            with their own run of the KNN algorithm. This allows the user
+            to pick a custom distance function (sometimes useful
+            on certain datasets) whereas UMAP uses euclidean by default.
+            The custom distance function should match the metric used
+            to train UMAP embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the UMAP algorithm
+            when performing a grid search.
+            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
+            CSR/COO preferred other formats will go through conversion to CSR
 
         Returns
         -------
         X_new : array, shape (n_samples, n_components)
             Embedding of the training data in low-dimensional space.
         """
-        self.fit(X, y, convert_dtype=convert_dtype)
+        self.fit(X, y, convert_dtype=convert_dtype,
+                 knn_graph=knn_graph)
         return UMAP._prep_output(X, self.embedding_)
 
-    def transform(self, X, convert_dtype=True):
+    @with_cupy_rmm
+    def transform(self, X, convert_dtype=True,
+                  knn_graph=None):
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -581,8 +689,26 @@ class UMAP(Base):
             New data to be transformed.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        knn_graph : sparse array-like (device or host)
+            shape=(n_samples, n_samples)
+            A sparse array containing the k-nearest neighbors of X,
+            where the columns are the nearest neighbor indices
+            for each row and the values are their distances.
+            It's important that `k>=n_neighbors`,
+            so that UMAP can model the neighbors from this graph,
+            instead of building its own internally.
+            Users using the knn_graph parameter provide UMAP
+            with their own run of the KNN algorithm. This allows the user
+            to pick a custom distance function (sometimes useful
+            on certain datasets) whereas UMAP uses euclidean by default.
+            The custom distance function should match the metric used
+            to train UMAP embeedings. Storing and reusing a knn_graph
+            will also provide a speedup to the UMAP algorithm
+            when performing a grid search.
+            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
+            CSR/COO preferred other formats will go through conversion to CSR
 
-        Returns
+               Returns
         -------
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
@@ -622,7 +748,13 @@ class UMAP(Base):
                                     order="C", dtype=np.float32)
         cdef uintptr_t xformed_ptr = embedding.ptr
 
-        cdef cumlHandle *handle_ = \
+        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
+            self._extract_knn_graph(knn_graph, convert_dtype)
+
+        cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
+        cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
+
+        cdef cumlHandle * handle_ = \
             <cumlHandle*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.X_m.ptr
@@ -633,6 +765,8 @@ class UMAP(Base):
                   <float*>x_ptr,
                   <int> X_m.shape[0],
                   <int> X_m.shape[1],
+                  <int64_t*> knn_indices_raw,
+                  <float*> knn_dists_raw,
                   <float*>orig_x_raw,
                   <int> self.n_rows,
                   <float*> embed_ptr,
