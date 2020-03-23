@@ -27,7 +27,6 @@ def ucx_cluster():
                           enable_nvlink=enable_nvlink,
                           enable_infiniband=enable_infiniband)
     cluster = LocalCUDACluster(protocol="ucx",
-                               threads_per_worker=1,
                                enable_tcp_over_ucx=enable_tcp_over_ucx,
                                enable_nvlink=enable_nvlink,
                                enable_infiniband=enable_infiniband,

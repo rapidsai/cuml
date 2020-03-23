@@ -22,6 +22,10 @@
 
 #include <utils.h>
 
+/**
+ * An opaque handle for managing `dlopen` state within
+ * a cuml comms instance.
+ */
 struct comms_ucp_handle {
   void *ucp_handle;
 
@@ -35,10 +39,15 @@ struct comms_ucp_handle {
   int (*worker_progress_func)(ucp_worker_h);
 };
 
+// by default, match the whole tag
 static const ucp_tag_t default_tag_mask = -1;
 
-static const ucp_tag_t any_rank_tag_mask = 0x0000FFFF;
+// Only match the passed in tag, not the rank. This
+// enables simulated multi-cast.
+static const ucp_tag_t any_rank_tag_mask = 0xFFFF0000;
 
+// Per the MPI API, receiving from a rank of -1 denotes receiving
+// from any rank that used the expected tag.
 static const int UCP_ANY_RANK = -1;
 
 /**
@@ -138,6 +147,11 @@ int ucp_progress(struct comms_ucp_handle *ucp_handle, ucp_worker_h worker) {
   return (*(ucp_handle->worker_progress_func))(worker);
 }
 
+ucp_tag_t build_message_tag(int rank, int tag) {
+  // keeping the rank in the lower bits enables debugging.
+  return ((uint32_t)tag << 31) | (uint32_t)rank;
+}
+
 /**
  * @brief Asynchronously send data to the given endpoint using the given tag
  */
@@ -145,7 +159,7 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
                               ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag, ucp_tag_t tag_mask, int rank,
                               bool verbose) {
-  ucp_tag_t ucp_tag = ((uint32_t)tag << 31) | (uint32_t)rank;
+  ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
   if (verbose) printf("Sending tag: %ld\n", ucp_tag);
 
@@ -185,7 +199,7 @@ struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
                               int size, int tag, ucp_tag_t tag_mask,
                               int sender_rank, bool verbose) {
-  ucp_tag_t ucp_tag = ((uint32_t)tag << 31) | (uint32_t)sender_rank;
+  ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 
   if (verbose) printf("%d: Receiving tag: %ld\n", ucp_tag);
 

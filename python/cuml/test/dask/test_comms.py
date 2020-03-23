@@ -116,9 +116,9 @@ def test_allreduce(cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
-def test_send_recv(n_trials, cluster):
+def test_send_recv(n_trials, ucx_cluster):
 
-    client = Client(cluster)
+    client = Client(ucx_cluster)
 
     try:
 
@@ -143,9 +143,9 @@ def test_send_recv(n_trials, cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
-def test_recv_any_rank(n_trials, cluster):
+def test_recv_any_rank(n_trials, ucx_cluster):
 
-    client = Client(cluster)
+    client = Client(ucx_cluster)
 
     try:
 
