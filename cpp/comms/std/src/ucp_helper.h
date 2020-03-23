@@ -100,8 +100,8 @@ void load_print_info_func(struct comms_ucp_handle *ucp_handle) {
 }
 
 void load_worker_progress_func(struct comms_ucp_handle *ucp_handle) {
-  ucp_handle->worker_progress_func = (int (*)(ucp_worker_h))dlsym(
-    ucp_handle->ucp_handle, "ucp_worker_progress");
+  ucp_handle->worker_progress_func =
+    (int (*)(ucp_worker_h))dlsym(ucp_handle->ucp_handle, "ucp_worker_progress");
   assert_dlerror();
 }
 
@@ -125,8 +125,9 @@ void init_comms_ucp_handle(struct comms_ucp_handle *handle) {
 /**
  * @brief Frees any memory underlying the given ucp request object
  */
-void free_ucp_request(struct comms_ucp_handle *ucp_handle, ucp_request *request) {
-  if(request->needs_release) {
+void free_ucp_request(struct comms_ucp_handle *ucp_handle,
+                      ucp_request *request) {
+  if (request->needs_release) {
     request->req->completed = 0;
     (*(ucp_handle->req_free_func))(request->req);
   }
@@ -144,14 +145,14 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
                               ucp_ep_h ep_ptr, const void *buf, int size,
                               int tag, ucp_tag_t tag_mask, int rank,
                               bool verbose) {
-  ucp_tag_t ucp_tag =  ((uint32_t)tag << 31) | (uint32_t) rank;
+  ucp_tag_t ucp_tag = ((uint32_t)tag << 31) | (uint32_t)rank;
 
-  if(verbose) printf("Sending tag: %ld\n", ucp_tag);
+  if (verbose) printf("Sending tag: %ld\n", ucp_tag);
 
   ucs_status_ptr_t send_result = (*(ucp_handle->send_func))(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
   struct ucx_context *ucp_req = (struct ucx_context *)send_result;
-  struct ucp_request *req = (struct ucp_request*)malloc(sizeof(ucp_request));
+  struct ucp_request *req = (struct ucp_request *)malloc(sizeof(ucp_request));
   if (UCS_PTR_IS_ERR(send_result)) {
     ASSERT(!UCS_PTR_IS_ERR(send_result),
            "unable to send UCX data message (%d)\n",
@@ -166,9 +167,9 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
     * The request will be a nullptr, however, so we need to create a new request
     * and set it to completed to make the "waitall()" function work properly.
     */
-	 req->needs_release=true;
+    req->needs_release = true;
   } else {
-    req->needs_release=false;
+    req->needs_release = false;
   }
 
   req->other_rank = rank;
@@ -184,23 +185,23 @@ struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
                               int size, int tag, ucp_tag_t tag_mask,
                               int sender_rank, bool verbose) {
-  ucp_tag_t ucp_tag =  ((uint32_t)tag << 31) | (uint32_t)sender_rank ;
+  ucp_tag_t ucp_tag = ((uint32_t)tag << 31) | (uint32_t)sender_rank;
 
-  if(verbose) printf("%d: Receiving tag: %ld\n", ucp_tag);
+  if (verbose) printf("%d: Receiving tag: %ld\n", ucp_tag);
 
   ucs_status_ptr_t recv_result = (*(ucp_handle->recv_func))(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);
   struct ucx_context *ucp_req = (struct ucx_context *)recv_result;
 
-    struct ucp_request *req = (struct ucp_request*)malloc(sizeof(ucp_request));
+  struct ucp_request *req = (struct ucp_request *)malloc(sizeof(ucp_request));
 
-    req->req = ucp_req;
-    req->needs_release = true;
-    req->is_send_request = false;
-    req->other_rank = sender_rank;
+  req->req = ucp_req;
+  req->needs_release = true;
+  req->is_send_request = false;
+  req->other_rank = sender_rank;
 
   ASSERT(!UCS_PTR_IS_ERR(recv_result),
-           "unable to receive UCX data message (%d)\n",
-           UCS_PTR_STATUS(recv_result));
+         "unable to receive UCX data message (%d)\n",
+         UCS_PTR_STATUS(recv_result));
   return req;
 }
