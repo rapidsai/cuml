@@ -367,6 +367,23 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     assert trust >= 0.92
 
 
+def test_exp_decay_params():
+    def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
+        cuml_model = cuUMAP(a=a, b=b, min_dist=min_dist, spread=spread)
+        state = cuml_model.__getstate__()
+        cuml_a, cuml_b = round(state['a'], 4), round(state['b'], 4)
+        skl_model = umap.UMAP(a=a, b=b, min_dist=min_dist, spread=spread)
+        skl_model.fit(np.zeros((1, 1)))
+        sklearn_a, sklearn_b = round(skl_model._a, 4), round(skl_model._b, 4)
+        assert cuml_a == sklearn_a and cuml_b == sklearn_b
+
+    compare_exp_decay_params(min_dist=0.1, spread=1.0)
+    compare_exp_decay_params(a=0.5, b=2.0)
+    compare_exp_decay_params(a=0.5)
+    compare_exp_decay_params(b=0.5)
+    compare_exp_decay_params(min_dist=0.1, spread=10.0)
+
+
 @pytest.mark.parametrize('n_neighbors', [5, 15])
 def test_umap_knn_parameters(n_neighbors):
     data, labels = datasets.make_blobs(
