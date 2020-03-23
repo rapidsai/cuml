@@ -97,6 +97,7 @@
 - PR #1887: Fix hasattr for missing attributes on base models
 - PR #1877: Remove resetting index in shuffling in train_test_split
 - PR #1888: Small train_test_split test fix
+- PR #1920: Temporarily raising threshold for UMAP reproducibility tests
 
 # cuML 0.12.0 (Date TBD)
 
