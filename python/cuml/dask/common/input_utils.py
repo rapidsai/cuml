@@ -29,6 +29,7 @@ from dask_cudf.core import DataFrame as dcDataFrame
 
 from dask import delayed
 
+from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.part_utils import _extract_partitions
@@ -62,7 +63,7 @@ class DistributedDataHandler:
 
     def __init__(self, gpu_futures=None, workers=None,
                  datatype=None, multiple=False, client=None):
-        self.client = default_client() if client is None else client
+        self.client = get_client(client)
         self.gpu_futures = gpu_futures
         self.worker_to_parts = _workers_to_parts(gpu_futures)
         self.workers = workers
@@ -212,7 +213,6 @@ def _to_dask_cudf(futures, client=None, verbose=False):
 
 
 """ Internal methods, API subject to change """
-
 
 # TODO: This can go away once all remaining estimators are updated
 #  to use _extract_partitions
