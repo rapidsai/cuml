@@ -55,10 +55,13 @@ def test_onehot_vs_skonehot():
     cp.testing.assert_array_equal(ohe, ref)
 
 
-def test_onehot_inverse_transform():
-    X = DataFrame({'gender': ['Male', 'Female', 'Female'], 'int': [1, 3, 2]})
+@pytest.mark.parametrize('drop', [None,
+                                  'first',
+                                  {'g': Series('F'), 'i': Series(3)}])
+def test_onehot_inverse_transform(drop):
+    X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2]})
 
-    enc = OneHotEncoder()
+    enc = OneHotEncoder(drop=drop)
     ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
 
@@ -143,23 +146,9 @@ def test_onehot_drop_idx_first():
     cp.testing.assert_array_equal(ohe, ref)
 
 
-def test_onehot_drop_idx_series():
-    X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
-    drop = dict({'chars': Series(['b']),
-                 'int': Series([]),
-                 'letters': Series(['a', 'b'])})
-    enc = OneHotEncoder(sparse=False, drop=drop)
-    ohe = enc.fit_transform(X)
-    ref = cp.array([[1., 1.],
-                    [0., 1.]])
-    cp.testing.assert_array_equal(ohe, ref)
-
-
 def test_onehot_drop_one_of_each():
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
-    drop = dict({'chars': Series('b'),
-                 'int': Series([2]),
-                 'letters': Series('b')})
+    drop = dict({'chars': 'b', 'int': 2, 'letters': 'b'})
     enc = OneHotEncoder(sparse=False, drop=drop)
     ohe = enc.fit_transform(X)
     ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
@@ -167,14 +156,16 @@ def test_onehot_drop_one_of_each():
 
 
 @pytest.mark.parametrize("drop, pattern",
-                         [[dict({'chars': Series('b')}),
+                         [[dict({'chars': 'b'}),
                            '`drop` should have as many columns'],
-                          [dict({'chars': Series('b'), 'int': Series(3)}),
+                          [dict({'chars': 'b', 'int': [2, 0]}),
+                           'Trying to drop multiple values'],
+                          [dict({'chars': 'b', 'int': 3}),
                            'Some categories [a-zA-Z, ]* were not found'],
-                          [DataFrame({'chars': Series('b'), 'int': Series(3)}),
+                          [DataFrame({'chars': 'b', 'int': 3}),
                            'Wrong input for parameter `drop`.']])
 def test_onehot_drop_exceptions(drop, pattern):
-    X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2]})
+    X = DataFrame({'chars': ['c', 'b', 'd'], 'int': [2, 1, 0]})
 
     with pytest.raises(ValueError, match=pattern):
         OneHotEncoder(sparse=False, drop=drop).fit(X)

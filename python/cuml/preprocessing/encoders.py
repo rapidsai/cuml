@@ -51,7 +51,7 @@ class OneHotEncoder:
         - None : retain all features (the default).
         - 'first' : drop the first category in each feature. If only one
           category is present, the feature will be dropped entirely.
-        - Dict[Series] : ``drop[col]`` are the categories in feature col that
+        - Dict : ``drop[col]`` is the category in feature col that
           should be dropped.
     # sparse : bool, default=True
     #     Will return sparse matrix if set True else will return an array.
@@ -105,7 +105,8 @@ class OneHotEncoder:
         if self.drop is None:
             return None
         elif isinstance(self.drop, str) and self.drop == 'first':
-            return {feature: cp.array(0) for feature in self._encoders.keys()}
+            return {feature: cp.array([0])
+                    for feature in self._encoders.keys()}
         elif isinstance(self.drop, dict):
             if len(self.drop.keys()) != len(self._encoders):
                 msg = ("`drop` should have as many columns as the number "
@@ -115,12 +116,21 @@ class OneHotEncoder:
             drop_idx = dict()
             for feature in self.drop.keys():
                 cats = self._encoders[feature].classes_
+                self.drop[feature] = Series(self.drop[feature])
+                if len(self.drop[feature]) != 1:
+                    msg = ("Trying to drop multiple values for feature {}, "
+                           "this is not supported.").format(feature)
+                    # Dropping multiple values actually works except in inverse
+                    # transform where there is no way to know which categories
+                    # where present before one hot encoding if multiples
+                    # categories where dropped.
+                    raise ValueError(msg)
                 if not self.drop[feature].isin(cats).all():
                     msg = ("Some categories for feature {} were supposed "
                            "to be dropped, but were not found in the encoder "
                            "categories.".format(feature))
                     raise ValueError(msg)
-                cats = Series(cats.to_gpu_array())
+                cats = Series(cats)
                 idx = cats.isin(self.drop[feature])
                 drop_idx[feature] = cp.asarray(cats[idx].index)
             return drop_idx
@@ -233,17 +243,36 @@ class OneHotEncoder:
         X_tr : cudf.DataFrame
             Inverse transformed array.
         """
-        # TODO: drop_idx for inverse transform
         self._check_is_fitted()
         result = DataFrame(columns=self._encoders.keys())
         j = 0
         for feature in self._encoders.keys():
-            enc_size = len(self._encoders[feature].classes_)
+            feature_enc = self._encoders[feature]
+            cats = feature_enc.classes_
+
+            if self.drop is not None:
+                # Remove dropped categories
+                dropped_class_idx = Series(self.drop_idx_[feature])
+                dropped_class_mask = Series(cats).isin(cats[dropped_class_idx])
+                cats = cats[~dropped_class_mask]
+
+            enc_size = len(cats)
             x_feature = X[:, j:j + enc_size]
-            not_null_idx = x_feature.any(axis=1)
             idx = cp.argmax(x_feature, axis=1)
-            inv = self._encoders[feature].inverse_transform(Series(idx))
-            inv.iloc[~not_null_idx] = None
+            inv = Series(cats[idx])
+
+            if self.handle_unknown == 'ignore':
+                not_null_idx = x_feature.any(axis=1)
+                inv.iloc[~not_null_idx] = None
+            elif self.drop is not None:
+                # drop will either be None or handle_unknown will be error. If
+                # self.drop is not None, then we can safely assume that all of
+                # the nulls in each column are the dropped value
+                dropped_mask = cp.asarray(x_feature.sum(axis=1) == 0).flatten()
+                if dropped_mask.any():
+                    inv[dropped_mask] = feature_enc.inverse_transform(
+                        Series(self.drop_idx_[feature]))[0]
+
             result[feature] = inv
             j += enc_size
         return result
