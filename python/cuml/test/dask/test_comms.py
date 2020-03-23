@@ -26,9 +26,6 @@ from cuml.dask.common import perform_test_comms_recv_any_rank
 
 pytestmark = pytest.mark.mg
 
-import os
-os.environ["UCXPY_NON_BLOCKING_MODE"] = "1"
-
 
 def test_comms_init_no_p2p(cluster):
 
