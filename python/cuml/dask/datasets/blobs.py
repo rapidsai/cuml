@@ -23,7 +23,6 @@ import numpy as np
 import pandas as pd
 
 from cuml.utils import rmm_cupy_ary
-from dask import delayed
 from dask.dataframe import from_delayed
 from dask.distributed import default_client
 
@@ -38,8 +37,8 @@ def create_local_data(m, n, centers, cluster_std, random_state,
                           random_state=random_state, shuffle=shuffle)
 
     if type == 'array':
-        X = rmm_cupy_ary(cp.asarray, X.astype(dtype), order=order)
-        y = rmm_cupy_ary(cp.asarray, y.astype(dtype),
+        X = rmm_cupy_ary(cp.array, X.astype(dtype), order=order)
+        y = rmm_cupy_ary(cp.array, y.astype(dtype),
                          order=order).reshape(m, 1)
 
     elif type == 'dataframe':
@@ -164,11 +163,13 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     elif output == 'array':
 
-        X = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], ncols),
-                             dtype=dtype)
+        X = [da.from_delayed(chunk, shape=(worker_rows[idx], ncols),
+                             dtype=dtype,
+                             meta=cp.zeros((1,), dtype=cp.float32))
              for idx, chunk in enumerate(X)]
-        y = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], 1),
-                             dtype=dtype)
+        y = [da.from_delayed(chunk, shape=(worker_rows[idx],),
+                             dtype=dtype,
+                             meta=cp.zeros((1,), dtype=cp.float32))
              for idx, chunk in enumerate(y)]
 
         X = da.concatenate(X, axis=0)
