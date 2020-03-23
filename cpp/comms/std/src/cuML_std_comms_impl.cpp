@@ -30,16 +30,16 @@ constexpr bool UCX_ENABLED = false;
 #include "ucp_helper.h"
 #endif
 
+#include <stdlib.h>
+#include <time.h>
 #include <algorithm>
+#include <chrono>
+#include <common/cumlHandle.hpp>
 #include <cstdio>
+#include <cuML_comms.hpp>
 #include <exception>
 #include <memory>
 #include <thread>
-#include <time.h>
-#include <chrono>
-#include <stdlib.h>
-#include <common/cumlHandle.hpp>
-#include <cuML_comms.hpp>
 
 #include <cuda_runtime.h>
 
@@ -138,15 +138,18 @@ bool ucx_enabled() { return UCX_ENABLED; }
  */
 #ifdef WITH_UCX
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
-                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank, bool verbose) {
+                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank,
+                  bool verbose) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlStdCommunicator_impl(comm, ucp_worker, eps, size, rank, verbose)));
+      new cumlStdCommunicator_impl(comm, ucp_worker, eps, size, rank,
+                                   verbose)));
   handle.getImpl().setCommunicator(communicator);
 }
 #endif
 
-void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank, bool verbose) {
+void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank,
+                  bool verbose) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
       new cumlStdCommunicator_impl(comm, size, rank, verbose)));
@@ -174,7 +177,7 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
 
   for (int i = 0; i < size; i++) {
     size_t ptr = size_t_ep_arr[i];
-    ucp_ep_h *ucp_ep_v = (ucp_ep_h*)*eps_sp;
+    ucp_ep_h *ucp_ep_v = (ucp_ep_h *)*eps_sp;
 
     if (ptr != 0) {
       ucp_ep_h eps_ptr = (ucp_ep_h)size_t_ep_arr[i];
@@ -184,7 +187,8 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
     }
   }
 
-  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank, verbose);
+  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank,
+               verbose);
 #else
   inject_comms(*handle, comm, size, rank, verbos);
 #endif
@@ -307,9 +311,10 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
     ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
               default_tag_mask, getRank(), _verbose);
 
-  if(_verbose) {
-    std::cout << getRank() <<  ": Created send request [id=" << *request << ", ptr= "
-        << ucp_req->req << ", to=" << dest << ", ep=" << ep_ptr << "]" << std::endl;
+  if (_verbose) {
+    std::cout << getRank() << ": Created send request [id=" << *request
+              << ", ptr= " << ucp_req->req << ", to=" << dest
+              << ", ep=" << ep_ptr << "]" << std::endl;
   }
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
@@ -326,22 +331,22 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   get_request_id(request);
 
-
   ucp_ep_h ep_ptr = (*_ucp_eps)[source];
 
   ucp_tag_t tag_mask = default_tag_mask;
 
-  if (source == CUML_ANY_SOURCE)  {
-	  tag_mask = any_rank_tag_mask;
+  if (source == CUML_ANY_SOURCE) {
+    tag_mask = any_rank_tag_mask;
   }
 
   struct ucp_request *ucp_req =
     ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
               size, tag, tag_mask, source, _verbose);
 
-  if(_verbose) {
+  if (_verbose) {
     std::cout << getRank() << ": Created receive request [id=" << *request
-        << ", ptr=" << ucp_req->req << ", from=" << source << "ep=" << ep_ptr << "]" << std::endl;
+              << ", ptr=" << ucp_req->req << ", from=" << source
+              << "ep=" << ep_ptr << "]" << std::endl;
   }
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
@@ -371,7 +376,6 @@ void cumlStdCommunicator_impl::waitall(int count,
   }
 
   while (requests.size() > 0) {
-
     time_t now = time(NULL);
 
     // Timeout if we have not gotten progress or completed any requests
@@ -380,37 +384,42 @@ void cumlStdCommunicator_impl::waitall(int count,
 
     for (std::vector<struct ucp_request *>::iterator it = requests.begin();
          it != requests.end();) {
+      bool restart = false;
+      while (ucp_progress((struct comms_ucp_handle *)_ucp_handle,
+                          _ucp_worker) != 0) {
+        restart = true;
+      }
 
-     bool restart = false;
-     while(ucp_progress((struct comms_ucp_handle *)_ucp_handle, _ucp_worker) !=0) {
-       restart = true;
-     }
+      auto req = *it;
 
-     auto req = *it;
+      if (req->needs_release) {
+        ASSERT(UCS_PTR_IS_PTR(req->req),
+               "UCX Request Error. Request is not valid UCX pointer");
+        ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n",
+               UCS_PTR_STATUS(req->req));
+        ASSERT(req->req->completed == 1 || req->req->completed == 0,
+               "request->completed not a valid value: %d\n",
+               req->req->completed);
+      }
 
-     if(req->needs_release) {
-       ASSERT(UCS_PTR_IS_PTR(req->req), "UCX Request Error. Request is not valid UCX pointer");
-       ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n", UCS_PTR_STATUS(req->req));
-       ASSERT(req->req->completed == 1 || req->req->completed == 0,
-           "request->completed not a valid value: %d\n", req->req->completed);
-     }
-
-     if (!req->needs_release || req->req->completed == 1) {
-       restart = true;
-        if(_verbose) {
-          std::cout << getRank() << ": request completed. [ptr=" << req->req << ", num_left= "
-                    << requests.size()-1 << ", other_rank=" << req->other_rank << ", is_send="
-                    << req->is_send_request << ", completed_immediately=" << !req->needs_release << "]"
+      if (!req->needs_release || req->req->completed == 1) {
+        restart = true;
+        if (_verbose) {
+          std::cout << getRank() << ": request completed. [ptr=" << req->req
+                    << ", num_left= " << requests.size() - 1
+                    << ", other_rank=" << req->other_rank
+                    << ", is_send=" << req->is_send_request
+                    << ", completed_immediately=" << !req->needs_release << "]"
                     << std::endl;
         }
-    	  free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
-    	  it = requests.erase(it);
+        free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
+        it = requests.erase(it);
       } else {
         ++it;
       }
-     if(restart) {
-       start = time(NULL);
-     }
+      if (restart) {
+        start = time(NULL);
+      }
     }
   }
 

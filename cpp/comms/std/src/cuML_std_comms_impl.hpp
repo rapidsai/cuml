@@ -31,7 +31,7 @@ struct ucx_context {
 };
 
 struct ucp_request {
-  struct ucx_context *req;
+  struct ucx_context* req;
   bool needs_release = true;
   int other_rank = -1;
   bool is_send_request = false;
@@ -78,7 +78,7 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
    * @param rank rank of the current worker
    */
   cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank,
-      bool verbose=false);
+                           bool verbose = false);
 
   virtual ~cumlStdCommunicator_impl();
 
