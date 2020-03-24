@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <cmath>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/cuml.hpp>
 #include <random>
@@ -31,16 +32,19 @@ namespace LinAlg {
 namespace Batched {
 
 enum MatrixOperation {
-  AB_op,
-  AZT_op,
-  ZA_op,
-  ApB_op,
-  AmB_op,
-  AkB_op,
-  AsolveZ_op,
-  LaggedZ_op,
-  CopyA2D_op,
-  DiffA_op
+  AB_op,          // Matrix-matrix product (with GEMM)
+  AZT_op,         // Matrix-vector product (with GEMM)
+  ZA_op,          // Vector-matrix product (with GEMM)
+  ApB_op,         // Addition
+  AmB_op,         // Substraction
+  AkB_op,         // Kronecker product
+  AsolveZ_op,     // Linear equation solver Ax=b
+  LaggedZ_op,     // Lag matrix
+  CopyA2D_op,     // 2D copy
+  DiffA_op,       // Vector first difference
+  Hessenberg_op,  // Hessenberg decomposition A=UHU'
+  Schur_op,       // Schur decomposition A=USU'
+  Lyapunov_op,    // Lyapunov equation solver AXA'-X+B=0
 };
 
 template <typename T>
@@ -66,7 +70,8 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     // Find out whether A, B and Z will be used (depending on the operation)
     bool use_A = (params.operation != LaggedZ_op);
     bool use_B = (params.operation == AB_op) || (params.operation == ApB_op) ||
-                 (params.operation == AmB_op) || (params.operation == AkB_op);
+                 (params.operation == AmB_op) || (params.operation == AkB_op) ||
+                 (params.operation == Lyapunov_op);
     bool use_Z = (params.operation == AZT_op) || (params.operation == ZA_op) ||
                  (params.operation == AsolveZ_op) ||
                  (params.operation == LaggedZ_op);
@@ -120,6 +125,15 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         ASSERT_TRUE(params.m == 1 || params.n == 1);
         m_r = std::max(1, params.m - 1);
         n_r = std::max(1, params.n - 1);
+        break;
+      case Hessenberg_op:
+      case Schur_op:
+      case Lyapunov_op:
+        ASSERT_TRUE(params.m == params.n && params.m == params.p &&
+                    params.m == params.q);
+        m_r = params.m;
+        n_r = params.m;
+        break;
     }
 
     // Create test matrices and vector
@@ -192,6 +206,99 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
       case DiffA_op:
         *res_bM = AbM.difference();
         break;
+      case Hessenberg_op: {
+        constexpr T zero_tolerance =
+          std::is_same<T, double>::value ? 1e-8 : 1e-4f;
+
+        int n = params.m;
+        Matrix<T> HbM(n, n, params.batch_size, handle, allocator, stream);
+        Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
+        b_hessenberg(AbM, UbM, HbM);
+
+        // Check that H is in Hessenberg form
+        std::vector<T> H = std::vector<T>(n * n * params.batch_size);
+        updateHost(H.data(), HbM.raw_data(), H.size(), stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        for (int ib = 0; ib < params.batch_size; ib++) {
+          for (int j = 0; j < n - 2; j++) {
+            for (int i = j + 2; i < n; i++) {
+              ASSERT_TRUE(std::abs(H[n * n * ib + n * j + i]) < zero_tolerance);
+            }
+          }
+        }
+
+        // Check that U is unitary (UU'=I)
+        std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
+        updateHost(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
+                   UUt.size(), stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        for (int ib = 0; ib < params.batch_size; ib++) {
+          for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+              ASSERT_TRUE(std::abs(UUt[n * n * ib + n * j + i] -
+                                   (i == j ? (T)1 : (T)0)) < zero_tolerance);
+            }
+          }
+        }
+
+        // Write UHU' in the result (will be compared against A)
+        *res_bM = UbM * b_gemm(HbM, UbM, false, true);
+        break;
+      }
+      case Schur_op: {
+        constexpr T zero_tolerance =
+          std::is_same<T, double>::value ? 1e-8 : 1e-4f;
+
+        int n = params.m;
+        Matrix<T> SbM(n, n, params.batch_size, handle, allocator, stream);
+        Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
+        b_schur(AbM, UbM, SbM);
+
+        // Check that S is in Schur form
+        std::vector<T> S = std::vector<T>(n * n * params.batch_size);
+        updateHost(S.data(), SbM.raw_data(), S.size(), stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        for (int ib = 0; ib < params.batch_size; ib++) {
+          for (int j = 0; j < n - 2; j++) {
+            for (int i = j + 2; i < n; i++) {
+              ASSERT_TRUE(std::abs(S[n * n * ib + n * j + i]) < zero_tolerance);
+            }
+          }
+        }
+        for (int ib = 0; ib < params.batch_size; ib++) {
+          for (int k = 0; k < n - 3; k++) {
+            ASSERT_FALSE(
+              std::abs(S[n * n * ib + n * k + k + 1]) > zero_tolerance &&
+              std::abs(S[n * n * ib + n * (k + 1) + k + 2]) > zero_tolerance &&
+              std::abs(S[n * n * ib + n * (k + 2) + k + 3]) > zero_tolerance);
+          }
+        }
+
+        // Check that U is unitary (UU'=I)
+        std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
+        updateHost(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
+                   UUt.size(), stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        for (int ib = 0; ib < params.batch_size; ib++) {
+          for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+              ASSERT_TRUE(std::abs(UUt[n * n * ib + n * j + i] -
+                                   (i == j ? (T)1 : (T)0)) < zero_tolerance);
+            }
+          }
+        }
+
+        // Write USU' in the result (will be compared against A)
+        *res_bM = UbM * b_gemm(SbM, UbM, false, true);
+        break;
+      }
+      case Lyapunov_op: {
+        Matrix<T> XbM = b_lyapunov(AbM, BbM);
+
+        // Write AXA'-X in the result (will be compared against -B)
+        *res_bM = AbM * b_gemm(XbM, AbM, false, true) - XbM;
+        break;
+      }
     }
 
     // Compute the expected results
@@ -250,11 +357,24 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
                         params.t, params.m, m_r, n_r);
         }
         break;
-      case DiffA_op:
+      case DiffA_op: {
         int len = params.m * params.n;
         for (int bid = 0; bid < params.batch_size; bid++) {
           Naive::diff(res_h.data() + bid * (len - 1), A.data() + bid * len,
                       len);
+        }
+        break;
+      }
+      case Hessenberg_op:
+      case Schur_op:
+        // Simply copy A (will be compared against UHU')
+        memcpy(res_h.data(), A.data(),
+               params.m * params.m * params.batch_size * sizeof(T));
+        break;
+      case Lyapunov_op:
+        // Simply copy -B (will be compared against AXA'-X)
+        for (int i = 0; i < params.m * params.m * params.batch_size; i++) {
+          res_h[i] = -B[i];
         }
         break;
     }
@@ -292,7 +412,13 @@ const std::vector<MatrixInputs<double>> inputsd = {
   {CopyA2D_op, 11, 31, 63, 17, 14, 5, 9, 1e-6},
   {CopyA2D_op, 4, 33, 7, 30, 4, 3, 0, 1e-6},
   {DiffA_op, 5, 11, 1, 1, 1, 0, 0, 1e-6},
-  {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-6}};
+  {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-6},
+  {Hessenberg_op, 10, 15, 15, 15, 15, 0, 0, 1e-6},
+  {Hessenberg_op, 30, 61, 61, 61, 61, 0, 0, 1e-6},
+  {Schur_op, 7, 12, 12, 12, 12, 0, 0, 1e-4},
+  {Schur_op, 17, 77, 77, 77, 77, 0, 0, 1e-4},
+  {Lyapunov_op, 5, 14, 14, 14, 14, 0, 0, 1e-3},
+  {Lyapunov_op, 13, 100, 100, 100, 100, 0, 0, 1e-3}};
 
 // Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)
 const std::vector<MatrixInputs<float>> inputsf = {
@@ -310,7 +436,17 @@ const std::vector<MatrixInputs<float>> inputsf = {
   {CopyA2D_op, 11, 31, 63, 17, 14, 5, 9, 1e-5},
   {CopyA2D_op, 4, 33, 7, 30, 4, 3, 0, 1e-5},
   {DiffA_op, 5, 11, 1, 1, 1, 0, 0, 1e-2},
-  {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-2}};
+  {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-2},
+  {Hessenberg_op, 10, 15, 15, 15, 15, 0, 0, 1e-2},
+  {Hessenberg_op, 30, 61, 61, 61, 61, 0, 0, 1e-2},
+  // {Schur_op, 7, 12, 12, 12, 12, 0, 0, 1e-2},
+  // {Schur_op, 17, 77, 77, 77, 77, 0, 0, 1e-2},
+  // {Lyapunov_op, 5, 14, 14, 14, 14, 0, 0, 1e-2},
+  // {Lyapunov_op, 13, 100, 100, 100, 100, 0, 0, 1e-2}
+};
+
+// Note: Schur and Lyapunov operations don't give good precision for
+// single-precision floating-point numbers yet...
 
 using BatchedMatrixTestD = MatrixTest<double>;
 using BatchedMatrixTestF = MatrixTest<float>;

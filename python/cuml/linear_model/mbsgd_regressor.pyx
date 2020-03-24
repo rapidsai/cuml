@@ -53,8 +53,11 @@ class MBSGDRegressor(Base):
         print(" cuML intercept : ", cu_mbsgd_regressor.intercept_)
         print(" cuML coef : ", cu_mbsgd_regressor.coef_)
         print("cuML predictions : ", cu_pred)
+
     Output:
-    .. code-block:: python
+
+    .. code-block::
+
         cuML intercept :  0.7150013446807861
         cuML coef :  0    0.27320495
                     1     0.1875956
@@ -75,7 +78,7 @@ class MBSGDRegressor(Base):
        'elasticnet' performs Elastic Net regularization which is a weighted
        average of L1 and L2 norms
     alpha: float (default = 0.0001)
-        The constant value which decides the degree of regularization
+       The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
@@ -91,10 +94,13 @@ class MBSGDRegressor(Base):
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
-                    'adaptive' (default = 'constant')
+    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'}
+        (default = 'constant')
+
         `optimal` option will be supported in a future version
+
         `constant` keeps the learning rate constant
+
         `adaptive` changes the learning rate if the training loss or the
         validation accuracy does not improve for `n_iter_no_change` epochs.
         The old learning rate is generally divided by 5
