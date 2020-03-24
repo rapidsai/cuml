@@ -146,7 +146,7 @@ class RandomForestRegressor(Base):
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    handle: cuml.Handle
+    handle : cuml.Handle
         If it is None, a new one is created just for this class.
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
@@ -389,7 +389,7 @@ class RandomForestRegressor(Base):
 
         Returns
         ----------
-        tl_to_fil_model: Treelite version of this model
+        tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_treelite_model(treelite_handle)
@@ -678,7 +678,7 @@ class RandomForestRegressor(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        predict_model: String (default = 'GPU')
+        predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True.

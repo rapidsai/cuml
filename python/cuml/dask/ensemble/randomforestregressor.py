@@ -62,33 +62,33 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
     Parameters
     -----------
-    n_estimators: int (default = 10)
+    n_estimators : int (default = 10)
         total number of trees in the forest (not per-worker)
     handle : cuml.Handle
         If it is None, a new one is created just for this class.
-    split_algo: int (default = 1)
+    split_algo : int (default = 1)
         0 for HIST, 1 for GLOBAL_QUANTILE
         The type of algorithm to be used to create the trees.
-    split_criterion: int (default = 2)
+    split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
         2 for MSE, 3 for MAE and 4 for CRITERION_END.
         0 and 1 not valid for regression
-    bootstrap: boolean (default = True)
+    bootstrap : boolean (default = True)
         Control bootstrapping.
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If false, sampling without replacement is done.
-    bootstrap_features: boolean (default = False)
+    bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample: float (default = 1.0)
+    rows_sample : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth: int (default = -1)
+    max_depth : int (default = -1)
         Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
-    max_leaves: int (default = -1)
+    max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
-    max_features: int or float or string or None (default = 'auto')
+    max_features : int or float or string or None (default = 'auto')
         Ratio of number of features (columns) to consider
         per node split.
         If int then max_features/n_features.
@@ -97,20 +97,20 @@ class RandomForestRegressor(DelayedPredictionMixin):
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
         If None, then max_features=n_features which is 1.0.
-    n_bins:  int (default = 8)
+    n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node: int or float (default = 2)
+    min_rows_per_node : int or float (default = 2)
         The minimum number of samples (rows) needed to split a node.
         If int then number of sample rows
         If float the min_rows_per_sample*n_rows
-    accuracy_metric: string (default = 'mse')
+    accuracy_metric : string (default = 'mse')
         Decides the metric used to evaluate the performance of the model.
-        for median of abs error: 'median_ae'
-        for mean of abs error: 'mean_ae'
-        for mean square error': 'mse'
-    n_streams: int (default = 4 )
+        for median of abs error : 'median_ae'
+        for mean of abs error : 'mean_ae'
+        for mean square error' : 'mse'
+    n_streams : int (default = 4 )
         Number of parallel streams used for forest building
-    workers: optional, list of strings
+    workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
 
@@ -367,11 +367,11 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         Parameters
         ----------
-        X: dask_cudf.Dataframe
+        X : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Features of training examples.
 
-        y: dask_cudf.Dataframe
+        y : dask_cudf.Dataframe
             Dense matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
             y must be partitioned the same way as X
@@ -420,10 +420,10 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         Parameters
         ----------
-        X: Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
-        algo: string (default = 'auto')
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
             'naive' - simple inference using shared memory
@@ -434,15 +434,15 @@ class RandomForestRegressor(DelayedPredictionMixin):
             `algo` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        convert_dtype: bool, optional (default = True)
+        convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        predict_model: String (default = 'GPU')
+        predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True.
-        fil_sparse_format: boolean or string (default = auto)
+        fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
@@ -451,13 +451,13 @@ class RandomForestRegressor(DelayedPredictionMixin):
             False - create a dense forest
             True - create a sparse forest, requires algo='naive'
             or algo='auto'
-        delayed: bool (default = True)
+        delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
 
         Returns
         ----------
-        y: Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
         """
         if predict_model == "CPU":
             preds = self._predict_using_cpu(X, predict_model=predict_model)
@@ -531,7 +531,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         Parameters
         -----------
-        deep: boolean (default = True)
+        deep : boolean (default = True)
         """
         params = dict()
         for key in RandomForestRegressor.variables:
@@ -547,7 +547,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         Parameters
         -----------
-        params: dict of new params
+        params : dict of new params
         """
         if not params:
             return self
