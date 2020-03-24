@@ -65,7 +65,8 @@ from cuml.solvers.qn import QN
 from cuml.svm import SVC
 from cuml.svm import SVR
 
-from cuml.tsa import stationarity
+from cuml.tsa.arima import ARIMA
+from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix

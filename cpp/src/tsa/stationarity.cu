@@ -16,34 +16,37 @@
 
 #include "cuml/tsa/stationarity.h"
 
-#include "../../src_prims/timeSeries/stationarity.h"
 #include "common/cumlHandle.hpp"
+#include "timeSeries/stationarity.h"
 
 namespace ML {
 
 namespace Stationarity {
 
 template <typename DataT>
-int stationarity_helper(const cumlHandle& handle, const DataT* y_d, int* d,
-                        int n_batches, int n_samples, DataT pval_threshold) {
+inline void kpss_test_helper(const cumlHandle& handle, const DataT* d_y,
+                             bool* results, int batch_size, int n_obs, int d,
+                             int D, int s, DataT pval_threshold) {
   const auto& handle_impl = handle.getImpl();
   cudaStream_t stream = handle_impl.getStream();
   auto allocator = handle_impl.getDeviceAllocator();
 
-  return MLCommon::TimeSeries::stationarity(y_d, d, n_batches, n_samples,
-                                            allocator, stream, pval_threshold);
+  MLCommon::TimeSeries::kpss_test(d_y, results, batch_size, n_obs, d, D, s,
+                                  allocator, stream, pval_threshold);
 }
 
-int stationarity(const cumlHandle& handle, const float* y_d, int* d,
-                 int n_batches, int n_samples, float pval_threshold) {
-  return stationarity_helper<float>(handle, y_d, d, n_batches, n_samples,
-                                    pval_threshold);
+void kpss_test(const cumlHandle& handle, const float* d_y, bool* results,
+               int batch_size, int n_obs, int d, int D, int s,
+               float pval_threshold) {
+  kpss_test_helper<float>(handle, d_y, results, batch_size, n_obs, d, D, s,
+                          pval_threshold);
 }
 
-int stationarity(const cumlHandle& handle, const double* y_d, int* d,
-                 int n_batches, int n_samples, double pval_threshold) {
-  return stationarity_helper<double>(handle, y_d, d, n_batches, n_samples,
-                                     pval_threshold);
+void kpss_test(const cumlHandle& handle, const double* d_y, bool* results,
+               int batch_size, int n_obs, int d, int D, int s,
+               double pval_threshold) {
+  kpss_test_helper<double>(handle, d_y, results, batch_size, n_obs, d, D, s,
+                           pval_threshold);
 }
 
 }  // namespace Stationarity
