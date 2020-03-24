@@ -341,7 +341,6 @@ def test_umap_transform_reproducibility(n_components, random_state):
 
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
-    threshold = 1e0
 
     assert np.abs((cuml_embedding1 - cuml_embedding2)).max() < 1
 
