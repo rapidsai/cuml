@@ -630,6 +630,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
         assert fil_r2 >= (cu_r2 - 0.02)
 
 
+@pytest.mark.memleak
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
 @pytest.mark.parametrize('column_info', [unit_param([100, 50]),
                          quality_param([200, 100]),
