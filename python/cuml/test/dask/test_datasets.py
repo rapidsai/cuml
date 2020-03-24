@@ -62,20 +62,20 @@ def test_make_blobs(nrows,
         assert X.npartitions == nparts
         assert y.npartitions == nparts
 
-        X = X.compute()
-        y = y.compute()
+        X_local = X.compute()
+        y_local = y.compute()
 
-        assert X.shape == (nrows, ncols)
-        assert y.shape == (nrows, 1)
+        assert X_local.shape == (nrows, ncols)
+        assert y_local.shape == (nrows, 1)
 
         if output == 'dataframe':
-            assert len(y[0].unique()) == centers
-            assert X.dtypes.unique() == [dtype]
+            assert len(y_local[0].unique()) == centers
+            assert X_local.dtypes.unique() == [dtype]
 
         elif output == 'array':
             import cupy as cp
-            assert len(cp.unique(y)) == centers
-            assert y.dtype == dtype
+            assert len(cp.unique(y_local)) == centers
+            assert y_local.dtype == dtype
 
     finally:
         c.close()
