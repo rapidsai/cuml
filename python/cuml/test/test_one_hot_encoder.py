@@ -58,10 +58,11 @@ def test_onehot_vs_skonehot():
 @pytest.mark.parametrize('drop', [None,
                                   'first',
                                   {'g': Series('F'), 'i': Series(3)}])
-def test_onehot_inverse_transform(drop):
+@pytest.mark.parametrize('sparse', [True, False])
+def test_onehot_inverse_transform(drop, sparse):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2]})
 
-    enc = OneHotEncoder(drop=drop)
+    enc = OneHotEncoder(drop=drop, sparse=sparse)
     ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
 
@@ -71,7 +72,9 @@ def test_onehot_inverse_transform(drop):
 def test_onehot_categories():
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     enc = OneHotEncoder(
-        categories=DataFrame({'chars': ['a', 'b', 'c'], 'int': [0, 1, 2]}))
+        categories=DataFrame({'chars': ['a', 'b', 'c'], 'int': [0, 1, 2]}),
+        sparse=False
+    )
     ref = cp.array([[1., 0., 0., 1., 0., 0.],
                     [0., 1., 0., 0., 0., 1.]])
     res = enc.fit_transform(X)
@@ -94,12 +97,12 @@ def test_onehot_transform_handle_unknown():
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
 
-    enc = OneHotEncoder(handle_unknown='error')
+    enc = OneHotEncoder(handle_unknown='error', sparse=False)
     enc = enc.fit(X)
     with pytest.raises(KeyError):
         enc.transform(Y)
 
-    enc = OneHotEncoder(handle_unknown='ignore')
+    enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
     enc = enc.fit(X)
     ohe = enc.transform(Y)
     ref = cp.array([[0., 0., 1., 0.],

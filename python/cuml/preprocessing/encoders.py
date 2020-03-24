@@ -53,8 +53,8 @@ class OneHotEncoder:
           category is present, the feature will be dropped entirely.
         - Dict : ``drop[col]`` is the category in feature col that
           should be dropped.
-    # sparse : bool, default=True
-    #     Will return sparse matrix if set True else will return an array.
+    sparse : bool, default=True
+        Transform will return sparse matrix if True else will return an array.
     dtype : number type, default=np.float
         Desired datatype of transform's output.
     handle_unknown : {'error', 'ignore'}, default='error'
@@ -73,7 +73,7 @@ class OneHotEncoder:
         be retained.
     """
     def __init__(self, categories='auto', drop=None, sparse=True,
-                 dtype=np.float64, handle_unknown='error'):
+                 dtype=np.float, handle_unknown='error'):
         self.categories = categories
         self.sparse = sparse
         self.dtype = dtype
@@ -82,6 +82,9 @@ class OneHotEncoder:
         self._fitted = False
         self.drop_idx_ = None
         self._encoders = None
+        if sparse and np.dtype(dtype) not in ['f', 'd', 'F', 'D']:
+            raise ValueError('Only float32, float64, complex64 and complex128 '
+                             'are supported when using sparse')
 
     def _validate_keywords(self):
         if self.handle_unknown not in ('error', 'ignore'):
@@ -226,7 +229,10 @@ class OneHotEncoder:
         self._check_is_fitted()
         onehots = [self._one_hot_encoding(feature, X[feature])
                    for feature in X.columns]
-        return cp.concatenate(onehots, axis=1)
+        onehots = cp.concatenate(onehots, axis=1)
+        if self.sparse:
+            onehots = cp.sparse.csr_matrix(onehots)
+        return onehots
 
     @with_cupy_rmm
     def inverse_transform(self, X):
@@ -244,6 +250,8 @@ class OneHotEncoder:
             Inverse transformed array.
         """
         self._check_is_fitted()
+        if cp.sparse.issparse(X):
+            X = X.toarray()
         result = DataFrame(columns=self._encoders.keys())
         j = 0
         for feature in self._encoders.keys():
