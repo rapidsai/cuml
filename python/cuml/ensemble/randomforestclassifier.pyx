@@ -164,54 +164,54 @@ class RandomForestClassifier(Base):
 
     Parameters
     -----------
-    n_estimators: int (default = 100)
+    n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    handle: cuml.Handle
+    handle : cuml.Handle
         If it is None, a new one is created just for this class.
-    split_criterion: The criterion used to split nodes.
+    split_criterion : The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY
         2 and 3 not valid for classification
         (default = 0)
-    split_algo: int (default = 1)
+    split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
         0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
         tree-building algorithm so GLOBAL_QUANTILE is recommended for most
         cases.
-    bootstrap: boolean (default = True)
+    bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, sampling without replacement is done.
-    bootstrap_features: boolean (default = False)
+    bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample: float (default = 1.0)
+    rows_sample : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth: int (default = 16)
+    max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
         if -1. Unlimited depth is not supported.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
-    max_leaves: int (default = -1)
+    max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         if -1.
-    max_features: int, float, or string (default = 'auto')
+    max_features : int, float, or string (default = 'auto')
         Ratio of number of features (columns) to consider per node split.
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
         If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins:  int (default = 8)
+    n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node: int or float (default = 2)
+    min_rows_per_node : int or float (default = 2)
         The minimum number of samples (rows) needed to split a node.
         If int then number of sample rows.
         If float the min_rows_per_sample*n_rows
-    min_impurity_decrease: float (default = 0.0)
+    min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
-    quantile_per_tree: boolean (default = False)
+    quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individal trees in RF.
         Only relevant for GLOBAL_QUANTILE split_algo.
     seed : int (default = None)
@@ -406,7 +406,7 @@ class RandomForestClassifier(Base):
 
         Returns
         ----------
-        tl_to_fil_model: Treelite version of this model
+        tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_treelite_model(treelite_handle)
@@ -420,13 +420,13 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        output_class: boolean (default = True)
+        output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
-        algo: string (default = 'auto')
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
             'naive' - simple inference using shared memory
@@ -437,11 +437,11 @@ class RandomForestClassifier(Base):
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        threshold: float (default = 0.5)
+        threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        fil_sparse_format: boolean or string (default = auto)
+        fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
@@ -453,7 +453,7 @@ class RandomForestClassifier(Base):
 
         Returns
         ----------
-        fil_model:
+        fil_model :
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
@@ -486,7 +486,7 @@ class RandomForestClassifier(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def concatenate_treelite_handle(self, treelite_handle):
+    def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
@@ -501,7 +501,7 @@ class RandomForestClassifier(Base):
         concat_model_ptr = <size_t> concat_model_handle
         return ctypes.c_void_p(concat_model_ptr).value
 
-    def concatenate_model_bytes(self, concat_model_handle):
+    def _concatenate_model_bytes(self, concat_model_handle):
         cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
         concat_model_bytes = save_model(<ModelHandle> model_ptr)
         self._model_pbuf_bytes = concat_model_bytes
@@ -512,16 +512,16 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        X: array-like (device or host) shape = (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y: array-like (device or host) shape = (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
             Dense vector (int32) of shape (n_samples, 1).
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
-        convert_dtype: bool, optional (default = False)
+        convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This will increase
             memory used for the method.
@@ -728,22 +728,22 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        X: array-like (device or host) shape = (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        predict_model: String (default = 'GPU')
+        predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
             used for binary classification problems.
-        output_class: boolean (default = True)
+        output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
             If true, return a 1 or 0 depending on whether the raw
             prediction exceeds the threshold. If False, just return
             the raw prediction.
-        algo: string (default = 'auto')
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
             'naive' - simple inference using shared memory
@@ -754,17 +754,17 @@ class RandomForestClassifier(Base):
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        threshold: float (default = 0.5)
+        threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
-        num_classes: int (default = 2)
+        num_classes : int (default = 2)
             number of different classes present in the dataset
-        convert_dtype: bool, optional (default = True)
+        convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        fil_sparse_format: boolean or string (default = auto)
+        fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
@@ -776,7 +776,7 @@ class RandomForestClassifier(Base):
 
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
 
@@ -809,14 +809,14 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        X: array-like (device or host) shape = (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------
-        y: NumPy
+        y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
         out_type = self._get_output_type(X)
@@ -872,13 +872,13 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        X: array-like (device or host) shape = (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y: NumPy
+        y : NumPy
             Dense vector (int) of shape (n_samples, 1)
-        algo: string (default = 'auto')
+        algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
             'naive' - simple inference using shared memory
@@ -889,20 +889,20 @@ class RandomForestClassifier(Base):
             `auto` - choose the algorithm automatically. Currently
             'batch_tree_reorg' is used for dense storage
             and 'naive' for sparse storage
-        threshold: float
+        threshold : float
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
-        num_classes: integer
+        num_classes : integer
             number of different classes present in the dataset
-        convert_dtype: boolean, default=True
+        convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
-        predict_model: String (default = 'GPU')
+        predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
             used for binary classification problems.
-        fil_sparse_format: boolean or string (default = auto)
+        fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
@@ -914,7 +914,7 @@ class RandomForestClassifier(Base):
 
         Returns
         -------
-        accuracy: float
+        accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
@@ -980,7 +980,7 @@ class RandomForestClassifier(Base):
 
         Parameters
         -----------
-        deep: boolean (default = True)
+        deep : boolean (default = True)
         """
 
         params = dict()
@@ -999,7 +999,7 @@ class RandomForestClassifier(Base):
 
         Parameters
         -----------
-        params: dict of new params
+        params : dict of new params
         """
         if not params:
             return self

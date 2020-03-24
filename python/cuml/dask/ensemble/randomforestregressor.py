@@ -335,9 +335,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_model_handle = model.concatenate_treelite_handle(
+        concat_model_handle = model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model.concatenate_model_bytes(concat_model_handle)
+        model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
