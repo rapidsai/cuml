@@ -270,7 +270,7 @@ def test_umap_fit_transform_against_fit_and_transform():
 
 
 @pytest.mark.parametrize('n_components', [2, 13])
-@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+@pytest.mark.parametrize('random_state', [8, np.random.RandomState(42)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
@@ -300,18 +300,12 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
-    threshold = 1e0
 
-    if random_state is not None:
-        assert array_equal(cuml_embedding1, cuml_embedding2,
-                           threshold, with_sign=True)
-    else:
-        assert not array_equal(cuml_embedding1, cuml_embedding2,
-                               threshold, with_sign=True)
+    assert np.abs((cuml_embedding1 - cuml_embedding2)).max() < 1
 
 
 @pytest.mark.parametrize('n_components', [2, 25])
-@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+@pytest.mark.parametrize('random_state', [8, np.random.RandomState(42)])
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -349,12 +343,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
     # Ref: https://github.com/rapidsai/cuml/issues/1903
     threshold = 1e0
 
-    if random_state is not None:
-        assert array_equal(cuml_embedding1, cuml_embedding2,
-                           threshold, with_sign=True)
-    else:
-        assert not array_equal(cuml_embedding1, cuml_embedding2,
-                               threshold, with_sign=True)
+    assert np.abs((cuml_embedding1 - cuml_embedding2)).max() < 1
 
 
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
