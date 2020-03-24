@@ -58,11 +58,10 @@ def test_onehot_vs_skonehot():
 @pytest.mark.parametrize('drop', [None,
                                   'first',
                                   {'g': Series('F'), 'i': Series(3)}])
-@pytest.mark.parametrize('sparse', [True, False])
-def test_onehot_inverse_transform(drop, sparse):
+def test_onehot_inverse_transform(drop):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2]})
 
-    enc = OneHotEncoder(drop=drop, sparse=sparse)
+    enc = OneHotEncoder(drop=drop)
     ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
 
@@ -122,15 +121,23 @@ def test_onehot_inverse_transform_handle_unknown():
     assert df.equals(ref)
 
 
-@pytest.mark.parametrize("n_samples", [10, 10000, stress_param(250000)])
-def test_onehot_random_inputs(n_samples):
+@pytest.mark.parametrize('drop', [None, 'first'])
+@pytest.mark.parametrize('sparse', [True, False])
+@pytest.mark.parametrize("n_samples", [10, 10000, 50000, stress_param(250000)])
+def test_onehot_random_inputs(drop, sparse, n_samples):
+    if sparse:
+        pytest.xfail("Sparse arrays are not fully supported by cupy.")
+
     df, ary = _generate_inputs_from_categories(n_samples=n_samples)
 
-    enc = OneHotEncoder(sparse=False)
-    sk_enc = SkOneHotEncoder(sparse=False)
+    enc = OneHotEncoder(sparse=sparse, drop=drop)
+    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop)
     ohe = enc.fit_transform(df)
     ref = sk_enc.fit_transform(ary)
-    cp.testing.assert_array_equal(ohe, ref)
+    if sparse:
+        cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())
+    else:
+        cp.testing.assert_array_equal(ohe, ref)
 
     inv_ohe = enc.inverse_transform(ohe)
 
