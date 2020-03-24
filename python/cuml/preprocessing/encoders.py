@@ -54,8 +54,11 @@ class OneHotEncoder:
           category is present, the feature will be dropped entirely.
         - Dict : ``drop[col]`` is the category in feature col that
           should be dropped.
-    sparse : bool, default=True
-        Transform will return sparse matrix if True else will return an array.
+    sparse : bool, default=False
+        This feature was deactivated and will give an exception when True.
+        The reason is because sparse matrix are not fully supported by cupy
+        yet, causing incorrect values when computing one hot encodings.
+        See https://github.com/cupy/cupy/issues/3223
     dtype : number type, default=np.float
         Desired datatype of transform's output.
     handle_unknown : {'error', 'ignore'}, default='error'
@@ -73,7 +76,7 @@ class OneHotEncoder:
         be dropped for each feature. None if all the transformed features will
         be retained.
     """
-    def __init__(self, categories='auto', drop=None, sparse=True,
+    def __init__(self, categories='auto', drop=None, sparse=False,
                  dtype=np.float, handle_unknown='error'):
         self.categories = categories
         self.sparse = sparse
@@ -83,6 +86,9 @@ class OneHotEncoder:
         self._fitted = False
         self.drop_idx_ = None
         self._encoders = None
+        if sparse:
+            raise ValueError('Sparse matrix are not fully supported by cupy '
+                             'yet, causing incorrect values')
         if sparse and np.dtype(dtype) not in ['f', 'd', 'F', 'D']:
             raise ValueError('Only float32, float64, complex64 and complex128 '
                              'are supported when using sparse')
