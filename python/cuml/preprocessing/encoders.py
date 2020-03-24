@@ -17,6 +17,7 @@ import cupy as cp
 
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
+from cudf.core import GenericIndex
 
 from cuml.utils import with_cupy_rmm
 
@@ -262,6 +263,10 @@ class OneHotEncoder:
                 # Remove dropped categories
                 dropped_class_idx = Series(self.drop_idx_[feature])
                 dropped_class_mask = Series(cats).isin(cats[dropped_class_idx])
+                if len(cats) == 1:
+                    inv = Series(GenericIndex(cats[0]).repeat(X.shape[0]))
+                    result[feature] = inv
+                    continue
                 cats = cats[~dropped_class_mask]
 
             enc_size = len(cats)
