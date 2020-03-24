@@ -47,12 +47,14 @@ cdef extern from "cuML_comms_py.hpp" namespace "ML":
                          void *ucp_worker,
                          void *eps,
                          int size,
-                         int rank) except +
+                         int rank,
+                         bool verbose) except +
 
     void inject_comms_py_coll(cumlHandle *handle,
                               ncclComm_t comm,
                               int size,
-                              int rank) except +
+                              int rank,
+                              bool verbose) except +
 
     bool ucx_enabled()
 
@@ -96,7 +98,7 @@ def perform_test_comms_recv_any_rank(handle, n_trials):
     return test_pointToPoint_recv_any_rank(deref(h), < int > n_trials)
 
 
-def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank):
+def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank, verbose):
     """
     Given a handle and initialized nccl comm, creates a cumlCommunicator
     instance and injects it into the handle.
@@ -115,10 +117,12 @@ def inject_comms_on_handle_coll_only(handle, nccl_inst, size, rank):
     inject_comms_py_coll(handle_,
                          deref(nccl_comm_),
                          size,
-                         rank)
+                         rank,
+                         verbose)
 
 
-def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
+def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
+                           rank, verbose):
     """
     Given a handle and initialized comms, creates a cumlCommunicator instance
     and injects it into the handle.
@@ -131,12 +135,10 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
     """
     cdef size_t *ucp_eps = <size_t*> malloc(len(eps)*sizeof(size_t))
 
-    cdef void* ep_st
     for i in range(len(eps)):
         if eps[i] is not None:
-            ep_st = PyLong_AsVoidPtr(eps[i].get_ucp_endpoint())
-            pv = <size_t>&ep_st
-            ucp_eps[i] = pv
+            ep_st = <uintptr_t>eps[i].get_ucp_endpoint()
+            ucp_eps[i] = <size_t>ep_st
         else:
             ucp_eps[i] = 0
 
@@ -153,6 +155,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size, rank):
                     <void*>ucp_worker_st,
                     <void*>ucp_eps,
                     size,
-                    rank)
+                    rank,
+                    <bool>verbose)
 
     free(ucp_eps)

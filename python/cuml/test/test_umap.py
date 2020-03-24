@@ -42,6 +42,7 @@ dataset_names = ['iris', 'digits', 'wine', 'blobs']
 @pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
                          stress_param(1000)])
 def test_blobs_cluster(nrows, n_feats):
+
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0)
     embedding = cuUMAP(verbose=False).fit_transform(data, convert_dtype=True)
