@@ -326,7 +326,7 @@ class NearestNeighborsMG(NearestNeighbors):
             False,  # column-major query
             n_neighbors,
             <size_t>self.batch_size,
-            <bool>True
+            <bool>self.verbose
         )
 
         self.handle.sync()
