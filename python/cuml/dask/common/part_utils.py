@@ -17,6 +17,32 @@ from uuid import uuid1
 from collections import OrderedDict
 
 from functools import reduce
+from tornado import gen
+from collections import Sequence
+from dask.distributed import futures_of, default_client, wait
+from toolz import first
+
+from dask.array.core import Array as daskArray
+from dask_cudf.core import DataFrame as dcDataFrame
+
+from cuml.dask.common.utils import parse_host_port
+
+
+def hosts_to_parts(futures):
+    """
+    Builds an ordered dict mapping each host to their list
+    of parts
+    :param futures: list of (worker, part) tuples
+    :return:
+    """
+    w_to_p_map = OrderedDict()
+    for w, p in futures:
+        host, port = parse_host_port(w)
+        host_key = (host, port)
+        if host_key not in w_to_p_map:
+            w_to_p_map[host_key] = []
+        w_to_p_map[host_key].append(p)
+    return w_to_p_map
 
 
 def workers_to_parts(futures):
@@ -96,3 +122,35 @@ def flatten_grouped_results(client, gpu_futures,
         completed_part_map[rank] += 1
 
     return futures
+
+
+@gen.coroutine
+def _extract_partitions(dask_obj, client=None):
+
+    client = default_client() if client is None else client
+
+    # dask.dataframe or dask.array
+    if isinstance(dask_obj, dcDataFrame) or \
+            isinstance(dask_obj, daskArray):
+        parts = futures_of(client.persist(dask_obj))
+
+    # iterable of dask collections (need to colocate them)
+    elif isinstance(dask_obj, Sequence):
+        # NOTE: We colocate (X, y) here by zipping delayed
+        # n partitions of them as (X1, y1), (X2, y2)...
+        # and asking client to compute a single future for
+        # each tuple in the list
+        parts = [d.to_delayed().ravel() if isinstance(d, daskArray)
+                 else d.to_delayed() for d in dask_obj]
+        parts = client.compute([p for p in zip(*parts)])
+
+    else:
+        raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
+
+    yield wait(parts)
+
+    key_to_part = [(str(part.key), part) for part in parts]
+    who_has = yield client.who_has(parts)
+
+    raise gen.Return([(first(who_has[key]), part)
+                      for key, part in key_to_part])
