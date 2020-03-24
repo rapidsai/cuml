@@ -147,6 +147,7 @@ def test_onehot_drop_idx_first():
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
+    assert X.equals(enc.inverse_transform(ohe))
 
 
 def test_onehot_drop_one_of_each():
@@ -156,6 +157,7 @@ def test_onehot_drop_one_of_each():
     ohe = enc.fit_transform(X)
     ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
     cp.testing.assert_array_equal(ohe, ref)
+    assert X.equals(enc.inverse_transform(ohe))
 
 
 @pytest.mark.parametrize("drop, pattern",
