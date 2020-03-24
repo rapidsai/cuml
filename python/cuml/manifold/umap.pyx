@@ -41,7 +41,7 @@ from cupy.sparse import csr_matrix as cp_csr_matrix,\
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+    input_to_dev_array, zeros, row_matrix, with_cupy_rmm
 
 import rmm
 
@@ -463,6 +463,7 @@ class UMAP(Base):
         params, covar = curve_fit(curve, xv, yv)
         return params[0], params[1]
 
+    @with_cupy_rmm
     def _extract_knn_graph(self, knn_graph, convert_dtype=True):
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
             knn_graph = cupy.sparse.csr_matrix(knn_graph)
@@ -502,6 +503,7 @@ class UMAP(Base):
                    (knn_dists_m, knn_dists_ptr)
         return (None, None), (None, None)
 
+    @with_cupy_rmm
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None):
         """
@@ -661,6 +663,7 @@ class UMAP(Base):
                  knn_graph=knn_graph)
         return UMAP._prep_output(X, self.embedding_)
 
+    @with_cupy_rmm
     def transform(self, X, convert_dtype=True,
                   knn_graph=None):
         """
