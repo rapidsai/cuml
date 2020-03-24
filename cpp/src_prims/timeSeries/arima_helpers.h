@@ -18,14 +18,11 @@
 
 #include <cuda_runtime.h>
 
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-
 #include "cuda_utils.h"
 #include "cuml/tsa/arima_common.h"
 #include "linalg/batched/matrix.h"
 #include "linalg/matrix_vector_op.h"
+#include "linalg/unary_op.h"
 #include "timeSeries/jones_transform.h"
 
 namespace MLCommon {
@@ -218,79 +215,6 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
   }
 }
 
-/* AR and MA parameters have to be within a "triangle" region (i.e., subject to
- * an inequality) for the inverse transform to not return 'NaN' due to the
- * logarithm within the inverse. This function ensures that inequality is
- * satisfied for all parameters.
- */
-template <typename DataT>
-void fix_ar_ma_invparams(const DataT* d_old_params, DataT* d_new_params,
-                         int batch_size, int pq, cudaStream_t stream,
-                         bool isAr = true) {
-  CUDA_CHECK(cudaMemcpyAsync(d_new_params, d_old_params,
-                             batch_size * pq * sizeof(DataT),
-                             cudaMemcpyDeviceToDevice, stream));
-  int n = pq;
-
-  // The parameter must be within a "triangle" region. If not, we bring the
-  // parameter inside by 1%.
-  DataT eps = 0.99;
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + batch_size,
-    [=] __device__(int ib) {
-      for (int i = 0; i < n; i++) {
-        DataT sum = 0.0;
-        for (int j = 0; j < i; j++) {
-          sum += d_new_params[n - j - 1 + ib * n];
-        }
-        // AR is minus
-        if (isAr) {
-          // param < 1-sum(param)
-          d_new_params[n - i - 1 + ib * n] =
-            fmin((1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
-          // param > -(1-sum(param))
-          d_new_params[n - i - 1 + ib * n] =
-            fmax(-(1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
-        } else {
-          // MA is plus
-          // param < 1+sum(param)
-          d_new_params[n - i - 1 + ib * n] =
-            fmin((1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
-          // param > -(1+sum(param))
-          d_new_params[n - i - 1 + ib * n] =
-            fmax(-(1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
-        }
-      }
-    });
-}
-
-/**
- * Auxiliary function of batched_jones_transform to remove redundancy.
- * Applies the transform to the given batched parameters.
- */
-template <typename DataT>
-void _transform_helper(const DataT* d_param, DataT* d_Tparam, int k,
-                       int batch_size, bool isInv, bool isAr,
-                       std::shared_ptr<deviceAllocator> allocator,
-                       cudaStream_t stream) {
-  // inverse transform will produce NaN if parameters are outside of a
-  // "triangle" region
-  DataT* d_param_fixed =
-    (DataT*)allocator->allocate(sizeof(DataT) * batch_size * k, stream);
-  if (isInv) {
-    fix_ar_ma_invparams(d_param, d_param_fixed, batch_size, k, stream, isAr);
-  } else {
-    CUDA_CHECK(cudaMemcpyAsync(d_param_fixed, d_param,
-                               sizeof(DataT) * batch_size * k,
-                               cudaMemcpyDeviceToDevice, stream));
-  }
-  MLCommon::TimeSeries::jones_transform(d_param_fixed, batch_size, k, d_Tparam,
-                                        isAr, isInv, allocator, stream);
-
-  allocator->deallocate(d_param_fixed, sizeof(DataT) * batch_size * k, stream);
-}
-
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure
  * certain properties of the AR and MA parameters
@@ -311,17 +235,23 @@ void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
                              std::shared_ptr<deviceAllocator> allocator,
                              cudaStream_t stream) {
   if (order.p)
-    _transform_helper(params.ar, Tparams.ar, order.p, batch_size, isInv, true,
-                      allocator, stream);
+    jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv,
+                    allocator, stream);
   if (order.q)
-    _transform_helper(params.ma, Tparams.ma, order.q, batch_size, isInv, false,
-                      allocator, stream);
+    jones_transform(params.ma, batch_size, order.q, Tparams.ma, false, isInv,
+                    allocator, stream);
   if (order.P)
-    _transform_helper(params.sar, Tparams.sar, order.P, batch_size, isInv, true,
-                      allocator, stream);
+    jones_transform(params.sar, batch_size, order.P, Tparams.sar, true, isInv,
+                    allocator, stream);
   if (order.Q)
-    _transform_helper(params.sma, Tparams.sma, order.Q, batch_size, isInv,
-                      false, allocator, stream);
+    jones_transform(params.sma, batch_size, order.Q, Tparams.sma, false, isInv,
+                    allocator, stream);
+
+  // Constrain sigma2 to be strictly positive
+  constexpr DataT min_sigma2 = 1e-6;
+  LinAlg::unaryOp<DataT>(
+    Tparams.sigma2, params.sigma2, batch_size,
+    [=] __device__(DataT input) { return max(input, min_sigma2); }, stream);
 }
 
 }  // namespace TimeSeries

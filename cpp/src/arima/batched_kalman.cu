@@ -318,15 +318,15 @@ void _batched_kalman_loop_large(
  * Wrapper around multiple functions that can execute the Kalman loop in
  * difference cases (for performance)
  */
-void batched_kalman_loop(const double* ys, int nobs,
+void batched_kalman_loop(cumlHandle& handle, const double* ys, int nobs,
                          const MLCommon::LinAlg::Batched::Matrix<double>& T,
                          const MLCommon::LinAlg::Batched::Matrix<double>& Z,
                          const MLCommon::LinAlg::Batched::Matrix<double>& RRT,
                          MLCommon::LinAlg::Batched::Matrix<double>& P0,
                          MLCommon::LinAlg::Batched::Matrix<double>& alpha,
-                         MLCommon::Sparse::Batched::CSR<double>& T_sparse,
-                         int r, double* vs, double* Fs, double* sum_logFs,
-                         int fc_steps = 0, double* d_fc = nullptr) {
+                         std::vector<bool>& T_mask, int r, double* vs,
+                         double* Fs, double* sum_logFs, int fc_steps = 0,
+                         double* d_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
   dim3 numThreadsPerBlock(32, 1);
@@ -384,6 +384,10 @@ void batched_kalman_loop(const double* ys, int nobs,
     }
     CUDA_CHECK(cudaPeekAtLastError());
   } else {
+    // Note: not always used
+    MLCommon::Sparse::Batched::CSR<double> T_sparse =
+      MLCommon::Sparse::Batched::CSR<double>::from_dense(
+        T, T_mask, handle.getImpl().getcusolverSpHandle());
     _batched_kalman_loop_large(ys, nobs, T, Z, RRT, P0, alpha, T_sparse, r, vs,
                                Fs, sum_logFs, fc_steps, d_fc);
   }
@@ -461,19 +465,10 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   MLCommon::LinAlg::Batched::Matrix<double> RRT =
     MLCommon::LinAlg::Batched::b_gemm(RQb, Rb, false, true);
 
-  // Note: not always used
-  // (TODO: condition here and passed to Kalman loop?)
-  MLCommon::Sparse::Batched::CSR<double> T_sparse =
-    MLCommon::Sparse::Batched::CSR<double>::from_dense(
-      Tb, T_mask, handle.getImpl().getcusolverSpHandle());
-
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
-  // Use the dense version for small matrices, the sparse version otherwise
   MLCommon::LinAlg::Batched::Matrix<double> P =
-    (r <= 8 && batch_size <= 1024)
-      ? MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT)
-      : MLCommon::Sparse::Batched::b_lyapunov(T_sparse, T_mask, RRT);
+    MLCommon::LinAlg::Batched::b_lyapunov(Tb, RRT);
   ML::POP_RANGE();
 
   // init alpha to zero
@@ -488,21 +483,23 @@ void _batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   d_sumlogFs = (double*)handle.getDeviceAllocator()->allocate(
     sizeof(double) * batch_size, stream);
 
-  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, T_sparse, r, d_vs,
-                      d_Fs, d_sumlogFs, fc_steps, d_fc);
+  batched_kalman_loop(handle, d_ys, nobs, Tb, Zb, RRT, P, alpha, T_mask, r,
+                      d_vs, d_Fs, d_sumlogFs, fc_steps, d_fc);
 
   // Finalize loglikelihood
   batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, batch_size, d_loglike,
                          stream);
+
   handle.getDeviceAllocator()->deallocate(d_sumlogFs,
                                           sizeof(double) * batch_size, stream);
 }
 
-static void init_batched_kalman_matrices(
-  cumlHandle& handle, const double* d_ar, const double* d_ma,
-  const double* d_sar, const double* d_sma, int nb, const ARIMAOrder& order,
-  int r, double* d_Z_b, double* d_R_b, double* d_T_b,
-  std::vector<bool>& T_mask) {
+void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
+                                  const double* d_ma, const double* d_sar,
+                                  const double* d_sma, int nb,
+                                  const ARIMAOrder& order, int r, double* d_Z_b,
+                                  double* d_R_b, double* d_T_b,
+                                  std::vector<bool>& T_mask) {
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.getStream();
@@ -549,6 +546,11 @@ static void init_batched_kalman_matrices(
                      // shifted identity
                      for (int i = 0; i < r - 1; i++) {
                        batch_T[(i + 1) * r + i] = 1.0;
+                     }
+
+                     // If r=2 and phi_2=-1, I-TxT is singular
+                     if (r == 2 && order.p == 2 && abs(batch_T[1] + 1) < 0.01) {
+                       batch_T[1] = -0.99;
                      }
                    });
 
@@ -644,7 +646,6 @@ void batched_jones_transform(cumlHandle& handle, const ARIMAOrder& order,
   MLCommon::TimeSeries::batched_jones_transform(
     order, batch_size, isInv, params, Tparams, allocator, stream);
   Tparams.mu = params.mu;
-  Tparams.sigma2 = params.sigma2;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 
