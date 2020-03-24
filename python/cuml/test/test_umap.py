@@ -382,11 +382,13 @@ def test_exp_decay_params():
     def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
         cuml_model = cuUMAP(a=a, b=b, min_dist=min_dist, spread=spread)
         state = cuml_model.__getstate__()
-        cuml_a, cuml_b = round(state['a'], 4), round(state['b'], 4)
+        cuml_a, cuml_b = state['a'], state['b']
         skl_model = umap.UMAP(a=a, b=b, min_dist=min_dist, spread=spread)
         skl_model.fit(np.zeros((1, 1)))
-        sklearn_a, sklearn_b = round(skl_model._a, 4), round(skl_model._b, 4)
-        assert cuml_a == sklearn_a and cuml_b == sklearn_b
+        sklearn_a, sklearn_b = skl_model._a, skl_model._b
+
+        assert abs(cuml_a) - abs(sklearn_a) < 1e-6
+        assert abs(cuml_b) - abs(sklearn_b) < 1e-6
 
     compare_exp_decay_params(min_dist=0.1, spread=1.0)
     compare_exp_decay_params(a=0.5, b=2.0)
