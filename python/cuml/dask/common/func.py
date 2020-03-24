@@ -13,50 +13,113 @@
 # limitations under the License.
 #
 
+from dask.delayed import Delayed
+
 import dask
+
+from dask.distributed import wait
+
 from toolz import first
 
+from cuml.dask.common.utils import get_client
+from cuml.dask.common.part_utils import hosts_to_parts
+from cuml.dask.common.part_utils import workers_to_parts
 
-@dask.delayed
-def reduce_func_add(a, b): return a + b if b is not None else a
 
-
-def tree_reduce(delayed_objs, delayed_func=reduce_func_add):
+def reduce(futures, func, client=None):
     """
-    Performs a binary tree reduce on an associative
-    and commutative function in parallel across
-    Dask workers.
-
-    TODO: investigate methods for doing intra-node
-    before inter-node reductions.
-    Ref: https://github.com/rapidsai/cuml/issues/1881
+    Performs a cluster-wide reduction by first
+    running function on worker->host->cluster. This
+    function takes locality into account by first
+    reducing partitions local to each worker before
+    reducing partitions on each host and, finally,
+    reducing the partitions across the cluster into
+    a single reduced partition.
 
     Parameters
     ----------
-    delayed_func : dask.delayed function
-        Delayed function to use for reduction. The reduction function
-        should be able to handle the case where the second argument is
-        None, and should just return a in this case. This is done to
-        save memory, rather than having to build an initializer for
-        the starting case.
-    delayed_objs : array-like of dask.delayed
-        Delayed objects to reduce
+
+    futures : array-like of dask.Future futures to reduce
+    func : Python reduction function accepting list
+           of objects to reduce and returning a single
+           reduced object.
+
+    client : dask.distributed.Client to use for scheduling
 
     Returns
     -------
-    reduced_result : dask.delayed
-        Delayed object containing the reduced result.
-    """
-    while len(delayed_objs) > 1:
-        new_delayed_objs = []
-        n_delayed_objs = len(delayed_objs)
-        for i in range(0, n_delayed_objs, 2):
-            # add neighbors
-            left = delayed_objs[i]
-            right = delayed_objs[i+1]\
-                if i < n_delayed_objs - 1 else None
-            lazy = delayed_func(left, right)
-            new_delayed_objs.append(lazy)
-        delayed_objs = new_delayed_objs
 
-    return first(delayed_objs)
+    output : dask.Future a future containing the final reduce
+        object.
+    """
+
+    client = get_client(client)
+
+    # Make sure input futures have been assigned to worker(s)
+    wait(futures)
+
+    for local_reduction_func in [workers_to_parts, hosts_to_parts]:
+
+        who_has = client.who_has(futures)
+
+        workers = [(first(who_has[m.key]), m) for m in futures]
+        worker_parts = local_reduction_func(workers)
+
+        # Short circuit when all parts already have preferred
+        # locality
+        if len(worker_parts) > 1:
+            # Local tree reduction for scalability
+            futures = client.compute([tree_reduce(p, func)
+                                     for w, p in worker_parts.items()])
+
+            wait(futures)
+
+    # Merge across workers
+    ret = client.compute(tree_reduce(futures, func))
+    wait(ret)
+
+    return ret
+
+
+def tree_reduce(objs, func=sum):
+    """
+    Performs a binary tree reduce on an associative
+    and commutative function in parallel across
+    Dask workers. Since this supports dask.delayed
+    objects, which have yet been scheduled on workers,
+    it does not take locality into account. As a result,
+    any local reductions should be performed before
+    this function is called.
+
+    Parameters
+    ----------
+    func : Python function or dask.delayed function
+        Function to use for reduction. The reduction function
+        acceps a list of objects to reduce as an argument and
+        produces a single reduced object
+    objs : array-like of dask.delayed or future
+           objects to reduce.
+
+    Returns
+    -------
+    reduced_result : dask.delayed or future
+        if func is delayed, the result will be delayed
+        if func is a future, the result will be a future
+    """
+
+    func = dask.delayed(func) \
+        if not isinstance(func, Delayed) else func
+
+    while len(objs) > 1:
+        new_objs = []
+        n_objs = len(objs)
+        for i in range(0, n_objs, 2):
+            inputs = dask.delayed(objs[i:i + 2])
+            obj = func(inputs)
+            new_objs.append(obj)
+        wait(new_objs)
+        objs = new_objs
+
+    print(str(objs))
+
+    return first(objs)
