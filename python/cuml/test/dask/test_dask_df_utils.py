@@ -36,14 +36,14 @@ def test_to_dask_df(dtype, nparts, cluster):
         X_df = to_dask_df(X).compute()
         y_df = to_dask_df(y).compute()
 
-        X = X.compute()
-        y = y.compute()
+        X_local = X.compute()
+        y_local = y.compute()
 
-        assert X.shape == X_df.shape
-        assert y.shape == y_df.shape
+        assert X_local.shape == X_df.shape
+        assert y_local.shape == y_df.shape
 
-        assert X.dtypes.unique() == X_df.dtypes.unique()
-        assert y.dtypes.unique() == y_df.dtypes.unique()
+        assert X_local.dtypes.unique() == X_df.dtypes.unique()
+        assert y_local.dtypes.unique() == y_df.dtypes.unique()
 
     finally:
         c.close()
