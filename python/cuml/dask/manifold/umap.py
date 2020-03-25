@@ -23,19 +23,9 @@ from cuml.manifold.umap import UMAP as cumlUMAP
 
 class UMAP(BaseEstimator,
            DelayedTransformMixin):
-    def __init__(self, client=None, verbose=False, n_sampling=500, **kwargs):
+    def __init__(self, model, client=None, **kwargs):
         super(UMAP, self).__init__(client, **kwargs)
-        self.local_model = cumlUMAP(verbose=verbose, **kwargs)
-        self.n_sampling = n_sampling
-
-    def fit(self, X, y=None, convert_dtype=True):
-        selection = np.random.choice(len(X), self.n_sampling)
-        X = X[selection]
-        X = X.compute()
-        if y is not None:
-            y = y[selection]
-            y = y.compute()
-        self.local_model.fit(X, y=y, convert_dtype=convert_dtype)
+        self.local_model = model
 
     def fit_transform(self, X, y=None, convert_dtype=True):
         self.fit(X, y=y, convert_dtype=convert_dtype)

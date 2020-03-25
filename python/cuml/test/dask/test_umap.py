@@ -17,6 +17,7 @@ import pytest
 from dask.distributed import Client
 
 import cupy as cp
+import numpy as np
 from sklearn.manifold.t_sne import trustworthiness
 from cuml.dask.datasets import make_blobs
 
@@ -24,12 +25,16 @@ from cuml.dask.datasets import make_blobs
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2, 5])
 @pytest.mark.parametrize("sampling_ratio", [0.1, 0.4])
-def test_umap_mnmg(n_parts, sampling_ratio, cluster):
+@pytest.mark.parametrize("supervised", [True, False])
+def test_umap_mnmg(n_parts, sampling_ratio, supervised, cluster):
 
     client = Client(cluster)
 
     try:
-        from cuml.dask.manifold import UMAP
+        from cuml.manifold import UMAP
+        from cuml.dask.manifold import UMAP as MNMG_UMAP
+
+        n_neighbors = 10
 
         X, y = make_blobs(10000, 10,
                           centers=42,
@@ -40,11 +45,22 @@ def test_umap_mnmg(n_parts, sampling_ratio, cluster):
 
         n_samples = X.shape[0]
         n_sampling = int(n_samples * sampling_ratio)
-        n_neighbors = 10
 
-        model = UMAP(n_sampling=n_sampling, n_neighbors=n_neighbors)
-        model.fit(X)
-        embedding = model.transform(X)
+        local_model = UMAP(n_neighbors=n_neighbors)
+
+        selection = np.random.choice(n_samples, n_sampling)
+        X_train = X[selection]
+        X_train = X_train.compute()
+
+        y_train = None
+        if supervised:
+            y_train = y[selection]
+            y_train = y_train.compute()
+        
+        local_model.fit(X_train, y=y_train)
+
+        distributed_model = MNMG_UMAP(local_model)
+        embedding = distributed_model.transform(X)
 
         X = cp.asnumpy(X.compute())
         embedding = cp.asnumpy(embedding.compute())
