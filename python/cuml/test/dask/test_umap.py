@@ -56,7 +56,7 @@ def test_umap_mnmg(n_parts, sampling_ratio, supervised, cluster):
         if supervised:
             y_train = y[selection]
             y_train = y_train.compute()
-        
+
         local_model.fit(X_train, y=y_train)
 
         distributed_model = MNMG_UMAP(local_model)
