@@ -40,9 +40,11 @@ SCORE_EPS = 0.06
 def test_end_to_end(nrows, ncols, nclusters, n_parts,
                     delayed_predict, cluster):
 
-    client = Client(cluster)
+    client = None
 
     try:
+
+        client = Client(cluster)
         from cuml.dask.cluster import KMeans as cumlKMeans
 
         from cuml.dask.datasets import make_blobs
@@ -96,9 +98,11 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
                                      stress_param(50)])
 def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
-    client = Client(cluster)
+    client = None
 
     try:
+
+        client = Client(cluster)
 
         from cuml.dask.cluster import KMeans as cumlKMeans
 
@@ -153,9 +157,11 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
                                      stress_param(50)])
 def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
-    client = Client(cluster)
+    client = None
 
     try:
+
+        client = Client(cluster)
         from cuml.dask.cluster import KMeans as cumlKMeans
 
         from cuml.dask.datasets import make_blobs

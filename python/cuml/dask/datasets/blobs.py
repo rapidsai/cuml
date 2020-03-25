@@ -17,13 +17,13 @@
 
 import cudf
 import cupy as cp
+import dask
 import dask.array as da
 import math
 import numpy as np
 import pandas as pd
 
 from cuml.utils import rmm_cupy_ary
-from dask import delayed
 from dask.dataframe import from_delayed
 from dask.distributed import default_client
 
@@ -38,8 +38,8 @@ def create_local_data(m, n, centers, cluster_std, random_state,
                           random_state=random_state, shuffle=shuffle)
 
     if type == 'array':
-        X = rmm_cupy_ary(cp.asarray, X.astype(dtype), order=order)
-        y = rmm_cupy_ary(cp.asarray, y.astype(dtype),
+        X = rmm_cupy_ary(cp.array, X.astype(dtype), order=order)
+        y = rmm_cupy_ary(cp.array, y.astype(dtype),
                          order=order).reshape(m, 1)
 
     elif type == 'dataframe':
@@ -151,27 +151,29 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     X = [client.submit(get_X, f, key="%s-%s" % (x_key, idx))
          for idx, f in enumerate(parts)]
-    y = [client.submit(get_labels, f, key="%s-%s" % (y_key, idx))
+    Y = [client.submit(get_labels, f, key="%s-%s" % (y_key, idx))
          for idx, f in enumerate(parts)]
 
     if output == 'dataframe':
 
         meta_X = client.submit(get_meta, X[0]).result()
-        X = from_delayed(X, meta=meta_X)
+        X = from_delayed([dask.delayed(x) for x in X], meta=meta_X)
 
-        meta_y = client.submit(get_meta, y[0]).result()
-        y = from_delayed(y, meta=meta_y)
+        meta_y = client.submit(get_meta, Y[0]).result()
+        Y = from_delayed([dask.delayed(y) for y in Y], meta=meta_y)
 
     elif output == 'array':
 
-        X = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], ncols),
-                             dtype=dtype)
+        X = [da.from_delayed(chunk, shape=(worker_rows[idx], ncols),
+                             dtype=dtype,
+                             meta=cp.zeros((1,), dtype=cp.float32))
              for idx, chunk in enumerate(X)]
-        y = [da.from_delayed(delayed(chunk), shape=(worker_rows[idx], 1),
-                             dtype=dtype)
-             for idx, chunk in enumerate(y)]
+        Y = [da.from_delayed(chunk, shape=(worker_rows[idx],),
+                             dtype=dtype,
+                             meta=cp.zeros((1,), dtype=cp.float32))
+             for idx, chunk in enumerate(Y)]
 
         X = da.concatenate(X, axis=0)
-        y = da.concatenate(y, axis=0)
+        Y = da.concatenate(Y, axis=0)
 
-    return X, y
+    return X, Y

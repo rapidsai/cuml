@@ -19,6 +19,8 @@ import numba.cuda
 import random
 import time
 
+from dask.distributed import default_client
+
 from cuml.utils import device_of_gpu_matrix
 
 from asyncio import InvalidStateError
@@ -78,6 +80,10 @@ def select_device(dev, close=True):
             logging.warn("Current device " +
                          str(numba.cuda.get_current_device()) +
                          " does not match expected " + str(dev))
+
+
+def get_client(client=None):
+    return default_client() if client is None else client
 
 
 def parse_host_port(address):
