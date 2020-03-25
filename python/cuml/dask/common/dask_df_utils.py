@@ -147,6 +147,7 @@ def to_dask_df(dask_cudf, client=None):
     meta = c.submit(get_meta, dfs[0])
     # Inserting this wait to stop race-condition in scheduler
     # Ref: https://github.com/dask/dask/issues/6027
-    wait(meta)
 
-    return dd.from_delayed(dfs, meta=meta.result())
+    meta_local = meta.result()
+
+    return dd.from_delayed(dfs, meta=meta_local)
