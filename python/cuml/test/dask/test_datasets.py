@@ -65,6 +65,9 @@ def test_make_blobs(nrows,
         X_local = X.compute()
         y_local = y.compute()
 
+        print("y=" + str(type(y_local)))
+        print("X=" + str(type(X_local)))
+
         assert X_local.shape == (nrows, ncols)
         assert y_local.shape == (nrows, 1)
 
