@@ -69,16 +69,17 @@ def test_make_blobs(nrows,
         print("X=" + str(type(X_local)))
 
         assert X_local.shape == (nrows, ncols)
-        assert y_local.shape == (nrows, 1)
 
         if output == 'dataframe':
             assert len(y_local[0].unique()) == centers
             assert X_local.dtypes.unique() == [dtype]
+            assert y_local.shape == (nrows, 1)
 
         elif output == 'array':
             import cupy as cp
             assert len(cp.unique(y_local)) == centers
             assert y_local.dtype == dtype
+            assert y_local.shape == (nrows, )
 
     finally:
         c.close()

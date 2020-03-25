@@ -158,25 +158,25 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
         meta_X = client.submit(get_meta, X[0])
         meta_X_local = meta_X.result()
-        X = from_delayed([dask.delayed(x) for x in X], meta=meta_X_local)
+        X_final = from_delayed([dask.delayed(x) for x in X], meta=meta_X_local)
 
         meta_y = client.submit(get_meta, Y[0])
         meta_y_local = meta_y.result()
-        Y = from_delayed([dask.delayed(y) for y in Y], meta=meta_y_local)
+        Y_final = from_delayed([dask.delayed(y) for y in Y], meta=meta_y_local)
 
     elif output == 'array':
 
-        X = [da.from_delayed(dask.delayed(chunk),
+        X_del = [da.from_delayed(dask.delayed(chunk),
                              shape=(worker_rows[idx], ncols),
                              dtype=dtype,
                              meta=cp.zeros((1)))
              for idx, chunk in enumerate(X)]
-        Y = [da.from_delayed(dask.delayed(chunk), shape=(worker_rows[idx],),
+        Y_del = [da.from_delayed(dask.delayed(chunk), shape=(worker_rows[idx],),
                              dtype=dtype,
                              meta=cp.zeros((1)))
              for idx, chunk in enumerate(Y)]
 
-        X_arr = da.concatenate(X, axis=0)
-        Y_arr = da.concatenate(Y, axis=0)
+        X_final = da.concatenate(X_del, axis=0)
+        Y_final = da.concatenate(Y_del, axis=0)
 
-    return X_arr, Y_arr
+    return X_final, Y_final
