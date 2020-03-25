@@ -250,7 +250,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
           std::is_same<T, double>::value ? 1e-7 : 1e-3f;
 
         int n = params.m;
-        Matrix<T> SbM(n, n, params.batch_size, handlee, allocator, stream);
+        Matrix<T> SbM(n, n, params.batch_size, handle, allocator, stream);
         Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
         b_schur(AbM, UbM, SbM);
 
