@@ -55,6 +55,7 @@
 - PR #1848: Rely on subclassing for cuML Array serialization
 - PR #1866: Minimizing client memory pressure on Naive Bayes
 - PR #1788: Removing complexity bottleneck in S-ARIMA
+- PR #1891: Additional improvements to naive bayes tree reduction
 
 ## Bug Fixes
 - PR #1835 : Fix calling default RF Classification always
@@ -96,7 +97,11 @@
 - PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
 - PR #1887: Fix hasattr for missing attributes on base models
 - PR #1877: Remove resetting index in shuffling in train_test_split
+- PR #1893: Updating UCX in comms to match current UCX-py
 - PR #1888: Small train_test_split test fix
+- PR #1899: Fix dask `extract_partitions()`, remove transformation as instance variable in PCA and TSVD and match sklearn APIs
+- PR #1920: Temporarily raising threshold for UMAP reproducibility tests
+- PR #1918: Create memleak fixture to skip memleak tests in CI for now
 
 # cuML 0.12.0 (Date TBD)
 
