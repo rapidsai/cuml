@@ -311,8 +311,8 @@ class RandomForestClassifier(Base):
         state = self.__dict__.copy()
         del state['handle']
         cdef size_t params_t
-        cdef RandomForestMetaData[float, int] *rf_forest
-        cdef RandomForestMetaData[double, int] *rf_forest64
+        cdef  RandomForestMetaData[float, int] *rf_forest
+        cdef  RandomForestMetaData[double, int] *rf_forest64
         cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
@@ -337,9 +337,9 @@ class RandomForestClassifier(Base):
 
         super(RandomForestClassifier, self).__init__(handle=None,
                                                      verbose=state['verbose'])
-        cdef RandomForestMetaData[float, int] *rf_forest = \
+        cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+        cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
         self.n_cols = state['n_cols']
         if self.n_cols:
@@ -354,9 +354,9 @@ class RandomForestClassifier(Base):
         self.__dict__.update(state)
 
     def __del__(self):
-        if self.n_cols:
-            # Only if model is fitted, we need to clear
+        if self.dtype == np.float32:
             free(<RandomForestMetaData[float, int]*><size_t> self.rf_forest)
+        else:
             free(<RandomForestMetaData[double, int]*><size_t> self.rf_forest64)
 
     def _reset_forest_data(self):
@@ -364,10 +364,18 @@ class RandomForestClassifier(Base):
         # Clears the data of the forest to prepare for next fit
         if not self.n_cols:
             return
-        free(<RandomForestMetaData[float, int]*><size_t>
-             self.rf_forest)
-        free(<RandomForestMetaData[double, int]*><size_t>
-             self.rf_forest64)
+        if self.dtype == np.float32:
+            free(<RandomForestMetaData[float, int]*><size_t>
+                 self.rf_forest)
+        else:
+            free(<RandomForestMetaData[double, int]*><size_t>
+                 self.rf_forest64)
+        cdef RandomForestMetaData[float, int] *rf_forest = \
+            new RandomForestMetaData[float, int]()
+        self.rf_forest = <size_t> rf_forest
+        cdef RandomForestMetaData[double, int] *rf_forest64 = \
+            new RandomForestMetaData[double, int]()
+        self.rf_forest64 = <size_t> rf_forest64
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
