@@ -245,7 +245,6 @@ class UMAP(Base):
     This module is heavily based on Leland McInnes' reference UMAP package.
     However, there are a number of differences and features that are not yet
     implemented in cuml.umap:
-      * Specifying the random seed
       * Using a non-Euclidean distance metric (support for a fixed set
         of non-Euclidean metrics is planned for an upcoming release).
       * Using a pre-computed pairwise distance matrix (under consideration
@@ -331,9 +330,8 @@ class UMAP(Base):
         else:
             rs = np.random.RandomState(random_state)
         self.random_state = rs.randint(low=0,
-                                              high=np.iinfo(
-                                                  np.uint64).max,
-                                              dtype=np.uint64)
+                                       high=np.iinfo(np.uint64).max,
+                                       dtype=np.uint64)
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
@@ -361,7 +359,7 @@ class UMAP(Base):
         umap_params.transform_queue_size = <int> cls.transform_queue_size
         if cls.init == "spectral":
             umap_params.init = <int> 1
-        else: # self.init == "random"
+        else:  # self.init == "random"
             umap_params.init = <int> 0
         umap_params.a = <float> cls.a
         umap_params.b = <float> cls.b
@@ -369,7 +367,7 @@ class UMAP(Base):
         umap_params.target_weights = <float> cls.target_weights
         if cls.target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
-        else: # self.target_metric == "categorical"
+        else:  # self.target_metric == "categorical"
             umap_params.target_metric = MetricType.CATEGORICAL
         umap_params.random_state = <uint64_t> cls.random_state
 
@@ -441,15 +439,15 @@ class UMAP(Base):
                 input_to_cuml_array(knn_indices, order='C',
                                     check_dtype=np.int64,
                                     convert_to_dtype=(np.int64
-                                                     if convert_dtype
-                                                     else None))
+                                                      if convert_dtype
+                                                      else None))
 
             knn_dists_m, _, _, _ = \
                 input_to_cuml_array(knn_dists, order='C',
                                     check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
-                                                     if convert_dtype
-                                                     else None))
+                                                      if convert_dtype
+                                                      else None))
 
             return (knn_indices_m, knn_indices_m.ptr),\
                    (knn_dists_m, knn_dists_m.ptr)
@@ -500,9 +498,9 @@ class UMAP(Base):
 
         self.X_m, self.n_rows, self.n_dims, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None))
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -652,7 +650,7 @@ class UMAP(Base):
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
             CSR/COO preferred other formats will go through conversion to CSR
 
-               Returns
+        Returns
         -------
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.

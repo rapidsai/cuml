@@ -144,10 +144,12 @@ def raise_exception_from_futures(futures):
             len(errs), len(futures), ", ".join(map(str, errs))
             ))
 
+
 def raise_mg_import_exception():
     raise Exception("cuML has not been built with multiGPU support "
                     "enabled. Build with the --multigpu flag to"
                     " enable multiGPU support.")
+
 
 class MultiHolderLock:
     """
