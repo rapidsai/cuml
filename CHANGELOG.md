@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1927: Use Cython's `new_build_ext` (if available)
 
 ## Bug Fixes
 
