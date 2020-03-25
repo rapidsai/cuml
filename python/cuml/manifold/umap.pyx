@@ -370,6 +370,7 @@ class UMAP(Base):
         else:  # self.target_metric == "categorical"
             umap_params.target_metric = MetricType.CATEGORICAL
         umap_params.random_state = <uint64_t> cls.random_state
+        umap_params.multicore_implem = <bool> cls.multicore_implem
 
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
