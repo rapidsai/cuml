@@ -101,6 +101,7 @@
 - PR #1899: Fix dask `extract_partitions()`, remove transformation as instance variable in PCA and TSVD and match sklearn APIs
 - PR #1920: Temporarily raising threshold for UMAP reproducibility tests
 - PR #1918: Create memleak fixture to skip memleak tests in CI for now
+- PR #1925: Attempting to fix failing dask tests
 
 # cuML 0.12.0 (Date TBD)
 
