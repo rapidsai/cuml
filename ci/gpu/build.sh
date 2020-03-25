@@ -65,10 +65,10 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
 
 
 # Install the master version of dask, distributed, and dask-ml
-logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
-pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
-logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
-pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
+#logger "pip install git+https://github.com/dask/distributed.git --upgrade --no-deps"
+#pip install "git+https://github.com/dask/distributed.git" --upgrade --no-deps
+#logger "pip install git+https://github.com/dask/dask.git --upgrade --no-deps"
+#pip install "git+https://github.com/dask/dask.git" --upgrade --no-deps
 
 
 logger "Check versions..."
