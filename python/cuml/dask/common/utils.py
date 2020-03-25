@@ -138,59 +138,11 @@ def raise_exception_from_futures(futures):
             len(errs), len(futures), ", ".join(map(str, errs))
             ))
 
-
 def raise_mg_import_exception():
     raise Exception("cuML has not been built with multiGPU support "
                     "enabled. Build with the --multigpu flag to"
                     " enable multiGPU support.")
 
-
-<<<<<<< HEAD
-def patch_cupy_sparse_serialization(client):
-    """
-    This function provides a temporary fix for a bug
-    in CuPy that doesn't properly serialize cuSPARSE handles.
-
-    Reference: https://github.com/cupy/cupy/issues/3061
-
-    Parameters
-    ----------
-
-    client : dask.distributed.Client client to use
-    """
-
-    def patch_func():
-        def serialize_mat_descriptor(m):
-            return cp.cupy.cusparse.MatDescriptor.create, ()
-
-        from cuml.naive_bayes.naive_bayes import MultinomialNB
-        from cuml.manifold.umap import UMAP
-        from distributed.protocol.cuda import cuda_serialize, cuda_deserialize
-        from distributed.protocol.serialize import dask_serialize, \
-            dask_deserialize, register_generic
-
-        register_generic(Base, "cuda", cuda_serialize, cuda_deserialize)
-        register_generic(Base, "dask", dask_serialize, dask_deserialize)
-
-        register_generic(MultinomialNB, "cuda",
-                         cuda_serialize, cuda_deserialize)
-        register_generic(MultinomialNB, "dask",
-                         dask_serialize, dask_deserialize)
-
-        register_generic(UMAP, "cuda",
-                         cuda_serialize, cuda_deserialize)
-        register_generic(UMAP, "dask",
-                         dask_serialize, dask_deserialize)
-
-        copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
-                       serialize_mat_descriptor)
-
-    patch_func()
-    client.run(patch_func)
-
-
-=======
->>>>>>> e1875e749a3b843ad3d6db00ef50628c605b011f
 class MultiHolderLock:
     """
     A per-process synchronization lock allowing multiple concurrent holders

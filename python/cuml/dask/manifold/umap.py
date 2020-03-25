@@ -15,18 +15,17 @@
 
 import numpy as np
 
+from cuml.dask.common.base import BaseEstimator, DelayedTransformMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.manifold.base import BaseManifold
 
 from cuml.manifold.umap import UMAP as cumlUMAP
 
 
-class UMAP(BaseManifold,
+class UMAP(BaseEstimator,
            DelayedTransformMixin):
     def __init__(self, client=None, verbose=False, n_sampling=500, **kwargs):
         super(UMAP, self).__init__(client, **kwargs)
-        self.local_model = cumlUMAP(verbose=verbose, MNMG=True, **kwargs)
+        self.local_model = cumlUMAP(verbose=verbose, **kwargs)
         self.n_sampling = n_sampling
 
     def fit(self, X, y=None, convert_dtype=True):

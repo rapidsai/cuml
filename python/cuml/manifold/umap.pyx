@@ -41,7 +41,7 @@ from cupy.sparse import csr_matrix as cp_csr_matrix,\
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array, zeros, row_matrix, with_cupy_rmm
+    input_to_cuml_array, zeros, with_cupy_rmm
 from cuml.common.array import CumlArray
 
 import rmm
@@ -292,162 +292,98 @@ class UMAP(Base):
                  handle=None,
                  hash_input=False,
                  random_state=None,
-                 callback=None,
-                 MNMG=False):
+                 callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
-
-        self.MNMG = MNMG
-
-        cdef UMAPParams * umap_params = new UMAPParams()
 
         self.hash_input = hash_input
 
         self.n_neighbors = n_neighbors
-        umap_params.n_neighbors = n_neighbors
+        self.n_components = n_components
+        self.n_epochs = n_epochs
+        self.verbose = verbose
 
-        umap_params.n_components = <int> n_components
-        umap_params.n_epochs = <int> n_epochs
-        umap_params.verbose = <bool> verbose
-
-        if(init == "spectral"):
-            umap_params.init = <int> 1
-        elif(init == "random"):
-            umap_params.init = <int> 0
+        if init == "spectral" or init == "random":
+            self.init = init
         else:
             raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is None or b is None:
             a, b = self.find_ab_params(spread, min_dist)
 
-        umap_params.a = <float> a
-        umap_params.b = <float> b
+        self.a = a
+        self.b = b
 
-        umap_params.learning_rate = <float> learning_rate
-        umap_params.min_dist = <float> min_dist
-        umap_params.spread = <float> spread
-        umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
-        umap_params.local_connectivity = <float> local_connectivity
-        umap_params.repulsion_strength = <float> repulsion_strength
-        umap_params.negative_sample_rate = <int> negative_sample_rate
-        umap_params.transform_queue_size = <int> transform_queue_size
+        self.learning_rate = learning_rate
+        self.min_dist = min_dist
+        self.spread = spread
+        self.set_op_mix_ratio = set_op_mix_ratio
+        self.local_connectivity = local_connectivity
+        self.repulsion_strength = repulsion_strength
+        self.negative_sample_rate = negative_sample_rate
+        self.transform_queue_size = transform_queue_size
+        self.target_n_neighbors = target_n_neighbors
+        self.target_weights = target_weights
 
-        umap_params.target_n_neighbors = target_n_neighbors
-        umap_params.target_weights = target_weights
-
-        umap_params.multicore_implem = random_state is None
+        self.multicore_implem = random_state is None
         if isinstance(random_state, np.random.RandomState):
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        umap_params.random_state = rs.randint(low=0,
+        self.random_state = rs.randint(low=0,
                                               high=np.iinfo(
                                                   np.uint64).max,
                                               dtype=np.uint64)
 
-        if target_metric == "euclidean":
-            umap_params.target_metric = MetricType.EUCLIDEAN
-        elif target_metric == "categorical":
-            umap_params.target_metric = MetricType.CATEGORICAL
+        if target_metric == "euclidean" or target_metric == "categorical":
+            self.target_metric = target_metric
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
-
-        cdef uintptr_t callback_ptr = 0
-        if callback:
-            callback_ptr = callback.get_native_callback()
-            umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
-
-        self.umap_params = <size_t> umap_params
-
-        if self.MNMG:
-            self.state = self.__getstate__()
-            free(umap_params)
-            self.umap_params = 0
 
         self.callback = callback  # prevent callback destruction
         self.X_m = None
         self.embedding_ = None
 
-    def __getstate__(self):
-        state = dict()
-        if not self.MNMG:
-            state = self.__dict__.copy()
-            del state['handle']
+    @staticmethod
+    def _build_umap_params(cls):
+        cdef UMAPParams* umap_params = new UMAPParams()
+        umap_params.n_neighbors = <int> cls.n_neighbors
+        umap_params.n_components = <int> cls.n_components
+        umap_params.n_epochs = <int> cls.n_epochs
+        umap_params.verbose = <bool> cls.verbose
+        umap_params.learning_rate = <float> cls.learning_rate
+        umap_params.min_dist = <float> cls.min_dist
+        umap_params.spread = <float> cls.spread
+        umap_params.set_op_mix_ratio = <float> cls.set_op_mix_ratio
+        umap_params.local_connectivity = <float> cls.local_connectivity
+        umap_params.repulsion_strength = <float> cls.repulsion_strength
+        umap_params.negative_sample_rate = <int> cls.negative_sample_rate
+        umap_params.transform_queue_size = <int> cls.transform_queue_size
+        if cls.init == "spectral":
+            umap_params.init = <int> 1
+        else: # self.init == "random"
+            umap_params.init = <int> 0
+        umap_params.a = <float> cls.a
+        umap_params.b = <float> cls.b
+        umap_params.target_n_neighbors = <int> cls.target_n_neighbors
+        umap_params.target_weights = <float> cls.target_weights
+        if cls.target_metric == "euclidean":
+            umap_params.target_metric = MetricType.EUCLIDEAN
+        else: # self.target_metric == "categorical"
+            umap_params.target_metric = MetricType.CATEGORICAL
+        umap_params.random_state = <uint64_t> cls.random_state
 
-        cdef size_t params_t = <size_t> self.umap_params
-        cdef UMAPParams * umap_params = <UMAPParams*>params_t
+        cdef uintptr_t callback_ptr = 0
+        if cls.callback:
+            callback_ptr = cls.callback.get_native_callback()
+            umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
-        if not self.MNMG and hasattr(self, "X_m") and self.X_m is not None:
-            # fit has not yet been called
-            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-            state['embedding_'] = \
-                cudf.DataFrame.from_gpu_matrix(self.embedding_)
+        return <size_t>umap_params
 
-        state["n_neighbors"] = umap_params.n_neighbors
-        state["n_components"] = umap_params.n_components
-        state["n_epochs"] = umap_params.n_epochs
-        state["learning_rate"] = umap_params.learning_rate
-        state["min_dist"] = umap_params.min_dist
-        state["spread"] = umap_params.spread
-        state["set_op_mix_ratio"] = umap_params.set_op_mix_ratio
-        state["local_connectivity"] = umap_params.local_connectivity
-        state["repulsion_strength"] = umap_params.repulsion_strength
-        state["negative_sample_rate"] = umap_params.negative_sample_rate
-        state["transform_queue_size"] = umap_params.transform_queue_size
-        state["init"] = umap_params.init
-        state["a"] = umap_params.a
-        state["b"] = umap_params.b
-        state["target_n_neighbors"] = umap_params.target_n_neighbors
-        state["target_weights"] = umap_params.target_weights
-        state["target_metric"] = umap_params.target_metric
-
-        if not self.MNMG:
-            del state["umap_params"]
-
-        return state
-
-    def __del__(self):
-        cdef UMAPParams * umap_params
-        if hasattr(self, 'umap_params'):
-            if self.umap_params != 0:
-                umap_params = <UMAPParams*><size_t>self.umap_params
-                free(umap_params)
-
-    def __setstate__(self, state):
-
-        if not self.MNMG:
-            super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
-
-            if "X_m" in state and state["X_m"] is not None:
-                # fit has not yet been called
-                state["X_m"] = row_matrix(state["X_m"])
-                state["embedding_"] = row_matrix(state["embedding_"])
-
-        cdef UMAPParams *umap_params = new UMAPParams()
-        self.umap_params = <size_t> umap_params
-
-        umap_params.n_neighbors = state["n_neighbors"]
-        umap_params.n_components = state["n_components"]
-        umap_params.n_epochs = state["n_epochs"]
-        umap_params.learning_rate = state["learning_rate"]
-        umap_params.min_dist = state["min_dist"]
-        umap_params.spread = state["spread"]
-        umap_params.set_op_mix_ratio = state["set_op_mix_ratio"]
-        umap_params.local_connectivity = state["local_connectivity"]
-        umap_params.repulsion_strength = state["repulsion_strength"]
-        umap_params.negative_sample_rate = state["negative_sample_rate"]
-        umap_params.transform_queue_size = state["transform_queue_size"]
-        umap_params.init = state["init"]
-        umap_params.a = state["a"]
-        umap_params.b = state["b"]
-        umap_params.target_n_neighbors = state["target_n_neighbors"]
-        umap_params.target_weights = state["target_weights"]
-        umap_params.target_metric = state["target_metric"]
-
-        state["umap_params"] = <size_t> umap_params
-
-        if not self.MNMG:
-            self.__dict__.update(state)
+    @staticmethod
+    def _destroy_umap_params(ptr):
+        cdef UMAPParams* umap_params = <UMAPParams*> <size_t> ptr
+        free(umap_params)
 
     @staticmethod
     def _prep_output(X, embedding):
@@ -501,22 +437,22 @@ class UMAP(Base):
         knn_indices_ptr, knn_dists_ptr = None, None
         if knn_indices is not None:
             knn_dists = knn_graph.data
-            knn_indices_m, knn_indices_ptr, _, _, _ = \
-                input_to_dev_array(knn_indices, order='C',
-                                   check_dtype=np.int64,
-                                   convert_to_dtype=(np.int64
+            knn_indices_m, _, _, _ = \
+                input_to_cuml_array(knn_indices, order='C',
+                                    check_dtype=np.int64,
+                                    convert_to_dtype=(np.int64
                                                      if convert_dtype
                                                      else None))
 
-            knn_dists_m, knn_dists_ptr, _, _, _ = \
-                input_to_dev_array(knn_dists, order='C',
-                                   check_dtype=np.float32,
-                                   convert_to_dtype=(np.float32
+            knn_dists_m, _, _, _ = \
+                input_to_cuml_array(knn_dists, order='C',
+                                    check_dtype=np.float32,
+                                    convert_to_dtype=(np.float32
                                                      if convert_dtype
                                                      else None))
 
-            return (knn_indices_m, knn_indices_ptr),\
-                   (knn_dists_m, knn_dists_ptr)
+            return (knn_indices_m, knn_indices_m.ptr),\
+                   (knn_dists_m, knn_dists_m.ptr)
         return (None, None), (None, None)
 
     @with_cupy_rmm
@@ -557,16 +493,13 @@ class UMAP(Base):
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
-        cdef UMAPParams * umap_params = \
-            <UMAPParams*> <size_t> self.umap_params
-
         if y is not None and knn_graph is not None\
-                and umap_params.target_metric != MetricType.CATEGORICAL:
+                and self.target_metric != "categorical":
             raise ValueError("Cannot provide a KNN graph when in \
             semi-supervised mode with categorical target_metric for now.")
 
-        self.X_m, X_ctype, self.n_rows, self.n_dims, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
+        self.X_m, self.n_rows, self.n_dims, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32
                                                  if convert_dtype
                                                  else None))
@@ -581,10 +514,10 @@ class UMAP(Base):
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
-        umap_params.n_neighbors = min(self.n_rows, umap_params.n_neighbors)
+        self.n_neighbors = min(self.n_rows, self.n_neighbors)
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
-                                           umap_params.n_components),
+                                           self.n_components),
                                           order="C", dtype=np.float32)
 
         if self.hash_input:
@@ -594,8 +527,10 @@ class UMAP(Base):
             <cumlHandle*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t x_raw = self.X_m.ptr
-
         cdef uintptr_t embed_raw = self.embedding_.ptr
+
+        cdef UMAPParams* umap_params = \
+            <UMAPParams*> <size_t> UMAP._build_umap_params(self)
 
         cdef uintptr_t y_raw = 0
         if y is not None:
@@ -617,7 +552,6 @@ class UMAP(Base):
                 <float*>embed_raw)
 
         else:
-
             fit(handle_[0],
                 <float*> x_raw,
                 <int> self.n_rows,
@@ -626,13 +560,9 @@ class UMAP(Base):
                 <float*> knn_dists_raw,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw)
-
         self.handle.sync()
 
-        if self.MNMG:
-            self.state = self.__getstate__()
-            free(umap_params)
-            self.umap_params = 0
+        UMAP._destroy_umap_params(<size_t>umap_params)
 
         return self
 
@@ -727,9 +657,6 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
         """
-        if self.MNMG:
-            self.__setstate__(self.state)
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
@@ -754,11 +681,8 @@ class UMAP(Base):
             del X_m
             return ret
 
-        cdef UMAPParams * umap_params = \
-            <UMAPParams*> <size_t> self.umap_params
-
         embedding = CumlArray.zeros((X_m.shape[0],
-                                     umap_params.n_components),
+                                     self.n_components),
                                     order="C", dtype=np.float32)
         cdef uintptr_t xformed_ptr = embedding.ptr
 
@@ -772,8 +696,10 @@ class UMAP(Base):
             <cumlHandle*> <size_t> self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.X_m.ptr
-
         cdef uintptr_t embed_ptr = self.embedding_.ptr
+
+        cdef UMAPParams* umap_params = \
+            <UMAPParams*> <size_t> UMAP._build_umap_params(self)
 
         transform(handle_[0],
                   <float*>x_ptr,
@@ -789,10 +715,7 @@ class UMAP(Base):
                   <float*> xformed_ptr)
         self.handle.sync()
 
-        if self.MNMG:
-            self.state = self.__getstate__()
-            free(umap_params)
-            self.umap_params = 0
+        UMAP._destroy_umap_params(<size_t>umap_params)
 
         ret = UMAP._prep_output(X, embedding)
         del X_m
