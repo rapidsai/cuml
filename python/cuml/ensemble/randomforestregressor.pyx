@@ -354,7 +354,7 @@ class RandomForestRegressor(Base):
             # Clears the data of the forest to prepare for next fit
             free(<RandomForestMetaData[float, float]*><size_t> self.rf_forest)
             free(<RandomForestMetaData[double, double]*><size_t>
-                     self.rf_forest64)
+                 self.rf_forest64)
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
