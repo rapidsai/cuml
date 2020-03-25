@@ -19,13 +19,17 @@ import dask
 from toolz import first
 
 from dask.distributed import wait
+import dask.array
+
 
 from cuml.utils import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 
+from cuml.dask.common.func import reduce
 from cuml.dask.common.func import tree_reduce
+
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.utils import rmm_cupy_ary
 
@@ -112,7 +116,6 @@ class MultinomialNB(BaseEstimator,
         self.local_model = MNB(**kwargs)
 
     @staticmethod
-    @dask.delayed
     @with_cupy_rmm
     def _fit(Xy, classes, kwargs):
 
@@ -128,19 +131,18 @@ class MultinomialNB(BaseEstimator,
         return rmm_cupy_ary(cp.unique, x)
 
     @staticmethod
-    def _get_class_counts(x):
-        return x[0]
+    def _merge_counts_to_model(models):
+        modela = first(models)
 
-    @staticmethod
-    def _get_feature_counts(x):
-        return x[1]
-
-    @staticmethod
-    def _reduce_models(modela, modelb):
-        modela.feature_count_ += modelb.feature_count_
-        modela.class_count_ += modelb.class_count_
-        modela.update_log_probs()
+        for model in models[1:]:
+            modela.feature_count_ += model.feature_count_
+            modela.class_count_ += model.class_count_
         return modela
+
+    @staticmethod
+    def _update_log_probs(model):
+        model.update_log_probs()
+        return model
 
     @with_cupy_rmm
     def fit(self, X, y, classes=None):
@@ -174,19 +176,21 @@ class MultinomialNB(BaseEstimator,
 
         futures = DistributedDataHandler.create([X, y], self.client)
 
-        classes = y.map_blocks(
-            MultinomialNB._unique) \
-            if classes is None else dask.delayed(classes)
+        classes = self._unique(y.map_blocks(
+            MultinomialNB._unique).compute()) \
+            if classes is None else classes
 
-        kwargs = dask.delayed(self.kwargs, pure=False)
-
-        counts = [MultinomialNB._fit(part, classes, kwargs)
+        models = [self.client.submit(self._fit, part, classes, self.kwargs)
                   for w, part in futures.gpu_futures]
 
-        self.local_model = self.client.persist(
-            tree_reduce(counts, self._reduce_models), traverse=False)
+        self.local_model = reduce(models,
+                                  self._merge_counts_to_model,
+                                  client=self.client)
+        self.local_model = self.client.submit(self._update_log_probs,
+                                              self.local_model)
 
         wait(self.local_model)
+
         return self
 
     @staticmethod
@@ -222,7 +226,7 @@ class MultinomialNB(BaseEstimator,
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
 
-        return self._predict(X, delayed=True, output_dtyle=cp.int32)
+        return self._predict(X, delayed=True, output_dtype=cp.int32)
 
     def score(self, X, y):
         """
