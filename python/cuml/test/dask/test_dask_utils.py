@@ -23,6 +23,7 @@ def _raise_exception():
     raise ValueError("intentional exception")
 
 
+@pytest.mark.mg
 def test_dask_exceptions(cluster):
     c = None
     try:

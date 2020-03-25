@@ -70,6 +70,7 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
 def test_rf_classification_dask(partitions_per_worker, cluster):
 
@@ -108,6 +109,7 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
         c.close()
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize('partitions_per_worker', [1, 3])
 def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
 
@@ -148,6 +150,7 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
         c.close()
 
 
+@pytest.mark.mg
 def test_rf_throws_exceptions(cluster):
     c = None
     try:
@@ -170,6 +173,7 @@ def test_rf_throws_exceptions(cluster):
             c.close()
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize('partitions_per_worker', [1, 5])
 def test_rf_regression_dask_fil(partitions_per_worker, cluster):
 
@@ -226,6 +230,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster):
         c.close()
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize('partitions_per_worker', [1, 5])
 @pytest.mark.parametrize('output_class', [True, False])
 def test_rf_classification_dask_fil(partitions_per_worker, cluster,
@@ -271,6 +276,7 @@ def test_rf_classification_dask_fil(partitions_per_worker, cluster,
         c.close()
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize('partitions_per_worker', [1, 5])
 @pytest.mark.parametrize('output_class', [True, False])
 def test_rf_classification_dask_array(partitions_per_worker, cluster,

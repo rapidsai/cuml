@@ -24,8 +24,9 @@ from dask.distributed import Client
 from dask.distributed import wait
 
 from cuml.dask.datasets import make_blobs
+import pytest
 
-
+@pytest.mark.mg
 def test_getattr(cluster):
 
     client = Client(cluster)

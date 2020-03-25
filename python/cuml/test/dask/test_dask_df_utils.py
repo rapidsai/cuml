@@ -20,6 +20,7 @@ import numpy as np
 from dask.distributed import Client
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("nparts", [1, 5, 7])
 def test_to_dask_df(dtype, nparts, cluster):
