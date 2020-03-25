@@ -354,6 +354,8 @@ class RandomForestClassifier(Base):
         self.__dict__.update(state)
 
     def __del__(self):
+        if not self.n_cols:
+            return
         if self.dtype == np.float32:
             free(<RandomForestMetaData[float, int]*><size_t> self.rf_forest)
         else:
@@ -364,18 +366,10 @@ class RandomForestClassifier(Base):
         # Clears the data of the forest to prepare for next fit
         if not self.n_cols:
             return
-        if self.dtype == np.float32:
-            free(<RandomForestMetaData[float, int]*><size_t>
-                 self.rf_forest)
-        else:
-            free(<RandomForestMetaData[double, int]*><size_t>
-                 self.rf_forest64)
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            new RandomForestMetaData[float, int]()
-        self.rf_forest = <size_t> rf_forest
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            new RandomForestMetaData[double, int]()
-        self.rf_forest64 = <size_t> rf_forest64
+        free(<RandomForestMetaData[float, int]*><size_t>
+             self.rf_forest)
+        free(<RandomForestMetaData[double, int]*><size_t>
+             self.rf_forest64)
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
