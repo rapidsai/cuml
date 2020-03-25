@@ -28,6 +28,7 @@ import dask
 from dask.distributed import Client
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize("input_type", ["dask_array",
                                         "dask_dataframe",
                                         "dataframe",

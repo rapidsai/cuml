@@ -37,6 +37,7 @@ from cuml.test.utils import unit_param, quality_param, stress_param
                                     stress_param(1000)])
 @pytest.mark.parametrize("order", ['F', 'C'])
 @pytest.mark.parametrize("output", ['array', 'dataframe'])
+@pytest.mark.mg
 def test_make_blobs(nrows,
                     ncols,
                     centers,
@@ -81,6 +82,7 @@ def test_make_blobs(nrows,
         c.close()
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize('n_samples', [unit_param(int(1e3)),
                          stress_param(int(1e6))])
 @pytest.mark.parametrize('n_features', [unit_param(int(1e2)),
