@@ -36,7 +36,7 @@ namespace ML {
 	 * @brief generates a gaussian random matrix
 	 * @param[in] h: cuML handle
 	 * @param[out] random_matrix: the random matrix to be allocated and generated
-	 * @param[in] param params: data structure that includes all the parameters of the model
+	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
 	void gaussian_random_matrix(const cumlHandle& h, rand_mat<math_t> *random_matrix,
