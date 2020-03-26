@@ -58,7 +58,9 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
  * sign(f(x_i)).
  *
  * The predictions are calculated according to the following formulas:
- * f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
+ * \f[
+ *    f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
+ * \f]
  *
  * pred(x_i) = label[sign(f(x_i))], if predict_class==true, or
  * pred(x_i) = f(x_i),       if predict_class==falsee.
