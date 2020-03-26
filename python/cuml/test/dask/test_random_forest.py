@@ -148,7 +148,8 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
         c.close()
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(reason="intermitent failure of test with low scores"
+                   "observed")
 @pytest.mark.parametrize('partitions_per_worker', [1, 5])
 def test_rf_regression_dask_fil(partitions_per_worker, cluster):
 
