@@ -204,8 +204,8 @@ void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
  * converted to a native Python string by Cython and further
  * serialized to be sent across process & node boundaries.
  *
- * @returns the generated NCCL unique ID for establishing a
- * new clique.
+ * @param uid nccl unique id for establishing a new clique.
+ * @param size uid size
  */
 void get_unique_id(char *uid, int size) {
   ncclUniqueId id;
