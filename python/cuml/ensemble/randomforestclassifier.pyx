@@ -238,7 +238,6 @@ class RandomForestClassifier(Base):
                  min_impurity_split=None, oob_score=None, n_jobs=None,
                  random_state=None, warm_start=None, class_weight=None,
                  seed=None):
-
         sklearn_params = {"criterion": criterion,
                           "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -300,12 +299,7 @@ class RandomForestClassifier(Base):
                           "due to stream/thread timing differences, even when "
                           "random_seed is set")
         self.model_pbuf_bytes = []
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            new RandomForestMetaData[float, int]()
-        self.rf_forest = <size_t> rf_forest
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            new RandomForestMetaData[double, int]()
-        self.rf_forest64 = <size_t> rf_forest64
+
     """
     TODO:
         Add the preprocess and postprocess functions
@@ -316,23 +310,27 @@ class RandomForestClassifier(Base):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
+        cdef size_t params_t
+        cdef  RandomForestMetaData[float, int] *rf_forest
+        cdef  RandomForestMetaData[double, int] *rf_forest64
+        cdef size_t params_t64
         if self.n_cols:
             # only if model has been fit previously
             self.model_pbuf_bytes = self._get_protobuf_bytes()
-        cdef size_t params_t = <size_t> self.rf_forest
-        cdef  RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*>params_t
-
-        cdef size_t params_t64 = <size_t> self.rf_forest64
-        cdef  RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*>params_t64
-
+            params_t = <size_t> self.rf_forest
+            rf_forest = \
+                <RandomForestMetaData[float, int]*>params_t
+            params_t64 = <size_t> self.rf_forest64
+            rf_forest64 = \
+                <RandomForestMetaData[double, int]*>params_t64
+            if self.dtype == np.float32:
+                state["rf_params"] = rf_forest.rf_params
+            else:
+                state["rf_params64"] = rf_forest64.rf_params
+        state['n_cols'] = self.n_cols
         state["verbose"] = self.verbose
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
-        if self.dtype == np.float32:
-            state["rf_params"] = rf_forest.rf_params
-        else:
-            state["rf_params64"] = rf_forest64.rf_params
+
         return state
 
     def __setstate__(self, state):
@@ -343,22 +341,35 @@ class RandomForestClassifier(Base):
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
             new RandomForestMetaData[double, int]()
+        self.n_cols = state['n_cols']
+        if self.n_cols:
+            if state["dtype"] == np.float32:
+                rf_forest.rf_params = state["rf_params"]
+                state["rf_forest"] = <size_t>rf_forest
+            else:
+                rf_forest64.rf_params = state["rf_params64"]
+                state["rf_forest64"] = <size_t>rf_forest64
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
-        if state["dtype"] == np.float32:
-            rf_forest.rf_params = state["rf_params"]
-            state["rf_forest"] = <size_t>rf_forest
-        else:
-            rf_forest64.rf_params = state["rf_params64"]
-            state["rf_forest64"] = <size_t>rf_forest64
-
         self.__dict__.update(state)
 
     def __del__(self):
-        if self.dtype == np.float32:
-            free(<RandomForestMetaData[float, int]*><size_t> self.rf_forest)
-        else:
-            free(<RandomForestMetaData[double, int]*><size_t> self.rf_forest64)
+        if self.n_cols:
+            if self.dtype == np.float32:
+                free(<RandomForestMetaData[float, int]*><size_t>
+                     self.rf_forest)
+            else:
+                free(<RandomForestMetaData[double, int]*><size_t>
+                     self.rf_forest64)
+
+    def _reset_forest_data(self):
+        # Only if model is fitted before
+        # Clears the data of the forest to prepare for next fit
+        if self.n_cols:
+            free(<RandomForestMetaData[float, int]*><size_t>
+                 self.rf_forest)
+            free(<RandomForestMetaData[double, int]*><size_t>
+                 self.rf_forest64)
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
@@ -529,6 +540,9 @@ class RandomForestClassifier(Base):
         """
         self._set_output_type(X)
 
+        # Reset the old tree data for new fit call
+        self._reset_forest_data()
+
         cdef uintptr_t X_ptr, y_ptr
 
         X_m, n_rows, self.n_cols, self.dtype = \
@@ -566,9 +580,12 @@ class RandomForestClassifier(Base):
             self.min_rows_per_node = math.ceil(self.min_rows_per_node*n_rows)
 
         cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><size_t> self.rf_forest
+            new RandomForestMetaData[float, int]()
+        self.rf_forest = <size_t> rf_forest
         cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><size_t> self.rf_forest64
+            new RandomForestMetaData[double, int]()
+        self.rf_forest64 = <size_t> rf_forest64
+
         if self.seed is None:
             seed_val = <uintptr_t>NULL
         else:
@@ -589,7 +606,6 @@ class RandomForestClassifier(Base):
                                      <CRITERION> self.split_criterion,
                                      <bool> self.quantile_per_tree,
                                      <int> self.n_streams)
-
         if self.dtype == np.float32:
             fit(handle_[0],
                 rf_forest,
@@ -780,7 +796,6 @@ class RandomForestClassifier(Base):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-
         if predict_model == "CPU" or self.num_classes > 2:
             if self.num_classes > 2 and predict_model == "GPU":
                 warnings.warn("Switching over to use the CPU predict since "
@@ -838,7 +853,6 @@ class RandomForestClassifier(Base):
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
 
@@ -1073,7 +1087,6 @@ class RandomForestClassifier(Base):
         -----------
         deep : boolean (default = True)
         """
-
         params = dict()
         for key in RandomForestClassifier.variables:
             if key in ['handle']:
@@ -1092,6 +1105,10 @@ class RandomForestClassifier(Base):
         -----------
         params : dict of new params
         """
+        # Resetting handle as __setstate__ overwrites with handle=None
+        self.handle.__setstate__(self.n_streams)
+        self.model_pbuf_bytes = []
+
         if not params:
             return self
         for key, value in params.items():
@@ -1099,7 +1116,6 @@ class RandomForestClassifier(Base):
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
-        self.__init__()
         return self
 
     def print_summary(self):
