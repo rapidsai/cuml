@@ -249,7 +249,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
 #endif
 
 /**
- * @defgroup PairwiseDistance
+ * @defgroup PairwiseDistance pairwise distance prims
  * @{
  * @brief Convenience wrapper around 'distance' prim to convert runtime metric
  * into compile time for the purpose of dispatch
