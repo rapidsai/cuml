@@ -15,4 +15,6 @@
 #
 
 from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.cluster.homogeneity_score import homogeneity_score
+from cuml.metrics.cluster.mutual_info_score import mutual_info_score
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
