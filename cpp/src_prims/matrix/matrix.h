@@ -143,6 +143,7 @@ void colReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
  * @param inout: input and output matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
@@ -171,6 +172,8 @@ void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
  * @param in: input matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
+ * @param h_separator: horizontal separator character
+ * @param v_separator: vertical separator character
  */
 template <typename m_t>
 void print(const m_t *in, int n_rows, int n_cols, char h_separator = ' ',
@@ -231,11 +234,13 @@ __global__ void slice(m_t *src_d, int m, int n, m_t *dst_d, int x1, int y1,
  * @param in: input matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
+ * @param out: output matrix
  * @param x1, y1: coordinate of the top-left point of the wanted area (0-based)
  * @param x2, y2: coordinate of the bottom-right point of the wanted area
  * (1-based)
  * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice_matrix(M_d, 4,
  * 3, 0, 1, 4, 3);
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void sliceMatrix(m_t *in, int n_rows, int n_cols, m_t *out, int x1, int y1,
