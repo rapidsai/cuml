@@ -23,12 +23,11 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup transpose on the column major input matrix using Jacobi method
+ * @brief transpose on the column major input matrix using Jacobi method
  * @param in: input matrix
  * @param out: output. Transposed input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
- * @{
  */
 template <typename math_t>
 void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
@@ -44,10 +43,9 @@ void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
 }
 
 /**
- * @defgroup transpose on the column major input matrix using Jacobi method
+ * @brief transpose on the column major input matrix using Jacobi method
  * @param inout: input and output matrix
  * @param n: number of rows and columns of input matrix
- * @{
  */
 template <typename math_t>
 void transpose(math_t *inout, int n, cudaStream_t stream) {
