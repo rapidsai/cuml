@@ -673,6 +673,90 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
         assert delta_mem == 0
 
 
+@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('max_depth', [10, 13, 16])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_create_classification_model(max_features,
+                                     max_depth, n_estimators, n_bins):
+
+    # random forest classification model
+    cuml_model = curfc(max_features=max_features,
+                       n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=max_depth)
+    params = cuml_model.get_params()
+    cuml_model2 = curfc()
+    cuml_model2.set_params(**params)
+    verfiy_params = cuml_model2.get_params()
+    assert params['max_features'] == verfiy_params['max_features']
+    assert params['max_depth'] == verfiy_params['max_depth']
+    assert params['n_estimators'] == verfiy_params['n_estimators']
+    assert params['n_bins'] == verfiy_params['n_bins']
+
+
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_multiple_fits_classification(column_info,
+                                      nrows, n_estimators, n_bins):
+    datatype = np.float32
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_informative=n_info, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    cuml_model = curfc(n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=10)
+
+    # Calling multiple fits
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    # Check if params are still intact
+    params = cuml_model.get_params()
+    assert params['n_estimators'] == n_estimators
+    assert params['n_bins'] == n_bins
+
+
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
+    datatype = np.float32
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info,
+                           random_state=123)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    cuml_model = curfr(n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=10)
+
+    # Calling multiple fits
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    # Check if params are still intact
+    params = cuml_model.get_params()
+    assert params['n_estimators'] == n_estimators
+    assert params['n_bins'] == n_bins
+
+
 @pytest.mark.parametrize('nrows', [unit_param(500),
                          stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),

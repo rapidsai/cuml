@@ -59,6 +59,7 @@
 - PR #1891: Additional improvements to naive bayes tree reduction
 
 ## Bug Fixes
+- PR #1835 : Fix calling default RF Classification always
 - PT #1904: replace cub sort
 - PR #1833: Fix depth issue in shallow RF regression estimators
 - PR #1770: Warn that KalmanFilter is deprecated
