@@ -82,7 +82,6 @@ class hostAllocator {
    * 
    * @param[in] n         number of bytes to allocate
    * @param[in] stream    stream to issue the possible asynchronous allocation in
-   * @returns a pointer to a n byte properly aligned host buffer.
    */
   virtual void* allocate(std::size_t n, cudaStream_t stream) = 0;
 
