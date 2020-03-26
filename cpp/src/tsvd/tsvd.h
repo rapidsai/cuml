@@ -260,6 +260,7 @@ void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
  * @param[in] handle the internal cuml handle object
  * @param[in] input: the data is transformed. Size n_rows x n_components.
  * @param[in] components: principal components of the input data. Size n_cols * n_components.
+ * @param[out] trans_input: output that is transformed version of input
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
  */
