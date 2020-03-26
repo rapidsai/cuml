@@ -147,8 +147,6 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     Y = [client.submit(get_labels, f, pure=False)
          for idx, f in enumerate(parts)]
 
-    print("Y KEYS: " + str([y.key for y in Y]))
-
     if output == 'dataframe':
 
         meta_X = client.submit(get_meta, X[0])
