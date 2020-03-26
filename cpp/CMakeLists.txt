@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -481,7 +481,7 @@ add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
 
-# include(cmake/doxygen.cmake)
-# add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
-#   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-#   CWD ${CMAKE_CURRENT_BINARY_DIR})
+include(cmake/doxygen.cmake)
+add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
+  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_BINARY_DIR})
