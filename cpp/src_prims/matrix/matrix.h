@@ -67,12 +67,11 @@ void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
 }
 
 /**
- * @defgroup copy matrix operation for column major matrices.
+ * @brief copy matrix operation for column major matrices.
  * @param in: input matrix
  * @param out: output matrix
  * @param n_rows: number of rows of output matrix
  * @param n_cols: number of columns of output matrix
- * @{
  */
 template <typename m_t>
 void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
@@ -81,14 +80,13 @@ void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
 }
 
 /**
- * @defgroup copy matrix operation for column major matrices. First n_rows and
+ * @brief copy matrix operation for column major matrices. First n_rows and
  * n_cols of input matrix "in" is copied to "out" matrix.
  * @param in: input matrix
  * @param in_n_rows: number of rows of input matrix
  * @param out: output matrix
  * @param out_n_rows: number of rows of output matrix
  * @param out_n_cols: number of columns of output matrix
- * @{
  */
 template <typename m_t>
 void truncZeroOrigin(m_t *in, int in_n_rows, m_t *out, int out_n_rows,
@@ -107,15 +105,13 @@ void truncZeroOrigin(m_t *in, int in_n_rows, m_t *out, int out_n_rows,
                      d_q_trunc[col * m + row] = d_q[col * k + row];
                    });
 }
-/** @} */
 
 /**
- * @defgroup Columns of a column major matrix is reversed (i.e. first column and
+ * @brief Columns of a column major matrix is reversed (i.e. first column and
  * last column are swapped)
  * @param inout: input and output matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
- * @{
  */
 template <typename m_t>
 void colReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
@@ -137,15 +133,13 @@ void colReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
                      d_q[src_col * m + src_row] = temp;
                    });
 }
-/** @} */
 
 /**
- * @defgroup Rows of a column major matrix is reversed (i.e. first row and last
+ * @brief Rows of a column major matrix is reversed (i.e. first row and last
  * row are swapped)
  * @param inout: input and output matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
- * @{
  */
 template <typename m_t>
 void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
@@ -168,14 +162,12 @@ void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
                      d_q[src_col * m + src_row] = temp;
                    });
 }
-/** @} */
 
 /**
- * @defgroup Prints the data stored in GPU memory
+ * @brief Prints the data stored in GPU memory
  * @param in: input matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
- * @{
  */
 template <typename m_t>
 void print(const m_t *in, int n_rows, int n_cols, char h_separator = ' ',
@@ -191,14 +183,12 @@ void print(const m_t *in, int n_rows, int n_cols, char h_separator = ' ',
     }
   }
 }
-/** @} */
 
 /**
- * @defgroup Prints the data stored in CPU memory
+ * @brief Prints the data stored in CPU memory
  * @param in: input matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
- * @{
  */
 template <typename m_t>
 void printHost(const m_t *in, int n_rows, int n_cols) {
@@ -209,10 +199,9 @@ void printHost(const m_t *in, int n_rows, int n_cols) {
     printf("\n");
   }
 }
-/** @} */
 
 /**
- * @defgroup Kernel for copying a slice of a big matrix to a small matrix with a
+ * @brief Kernel for copying a slice of a big matrix to a small matrix with a
  * size matches that slice
  * @param src_d: input matrix
  * @param m: number of rows of input matrix
@@ -221,7 +210,6 @@ void printHost(const m_t *in, int n_rows, int n_cols) {
  * @param x1, y1: coordinate of the top-left point of the wanted area (0-based)
  * @param x2, y2: coordinate of the bottom-right point of the wanted area
  * (1-based)
- * @{
  */
 template <typename m_t>
 __global__ void slice(m_t *src_d, int m, int n, m_t *dst_d, int x1, int y1,
@@ -236,7 +224,7 @@ __global__ void slice(m_t *src_d, int m, int n, m_t *dst_d, int x1, int y1,
 }
 
 /**
- * @defgroup Slice a matrix (in-place)
+ * @brief Slice a matrix (in-place)
  * @param in: input matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
@@ -245,7 +233,6 @@ __global__ void slice(m_t *src_d, int m, int n, m_t *dst_d, int x1, int y1,
  * (1-based)
  * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice_matrix(M_d, 4,
  * 3, 0, 1, 4, 3);
- * @{
  */
 template <typename m_t>
 void sliceMatrix(m_t *in, int n_rows, int n_cols, m_t *out, int x1, int y1,
@@ -255,18 +242,15 @@ void sliceMatrix(m_t *in, int n_rows, int n_cols, m_t *out, int x1, int y1,
   dim3 grid(((x2 - x1) * (y2 - y1) + block.x - 1) / block.x);
   slice<<<grid, block, 0, stream>>>(in, n_rows, n_cols, out, x1, y1, x2, y2);
 }
-/** @} */
 
 /**
- * @defgroup Kernel for copying the upper triangular part of a matrix to another
+ * @brief Kernel for copying the upper triangular part of a matrix to another
  * @param src: input matrix with a size of mxn
  * @param dst: output matrix with a size of kxk
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
  * @param k: min(n_rows, n_cols)
- * @{
  */
-
 template <typename m_t>
 __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
                                    int k) {
@@ -279,15 +263,13 @@ __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
     }
   }
 }
-/** @} */
 
 /**
- * @defgroup Copy the upper triangular part of a matrix to another
+ * @brief Copy the upper triangular part of a matrix to another
  * @param src: input matrix with a size of n_rows x n_cols
  * @param dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
- * @{
  */
 template <typename m_t>
 void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
@@ -298,15 +280,13 @@ void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
   dim3 grid((m * n + block.x - 1) / block.x);
   getUpperTriangular<<<grid, block, 0, stream>>>(src, dst, m, n, k);
 }
-/** @} */
 
 /**
- * @defgroup Copy a vector to the diagonal of a matrix
+ * @brief Copy a vector to the diagonal of a matrix
  * @param vec: vector of length k = min(n_rows, n_cols)
  * @param matrix: matrix of size n_rows x n_cols
  * @param n_rows: number of rows of the matrix
  * @param n_cols: number of columns of the matrix
- * @{
  */
 template <typename m_t>
 __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
@@ -317,15 +297,13 @@ __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
     matrix[idx + idx * m] = vec[idx];
   }
 }
-/** @} */
 
 /**
- * @defgroup Initialize a diagonal matrix with a vector
+ * @brief Initialize a diagonal matrix with a vector
  * @param vec: vector of length k = min(n_rows, n_cols)
  * @param matrix: matrix of size n_rows x n_cols
  * @param n_rows: number of rows of the matrix
  * @param n_cols: number of columns of the matrix
- * @{
  */
 template <typename m_t>
 void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols,
@@ -336,14 +314,12 @@ void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols,
   copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows,
                                                          n_cols, k);
 }
-/** @} */
 
 /**
- * @defgroup Calculate the inverse of the diagonal of a square matrix
+ * @brief Calculate the inverse of the diagonal of a square matrix
  * element-wise and in place
  * @param in: square input matrix with size len x len
  * @param len: size of one side of the matrix
- * @{
  */
 template <typename m_t>
 __global__ void matrixDiagonalInverse(m_t *in, int len) {
@@ -352,13 +328,11 @@ __global__ void matrixDiagonalInverse(m_t *in, int len) {
     in[idx + idx * len] = 1.0 / in[idx + idx * len];
   }
 }
-/** @} */
 
 /**
- * @defgroup Get a square matrix with elements on diagonal reversed (in-place)
+ * @brief Get a square matrix with elements on diagonal reversed (in-place)
  * @param in: square input matrix with size len x len
  * @param len: size of one side of the matrix
- * @{
  */
 template <typename m_t>
 void getDiagonalInverseMatrix(m_t *in, int len, cudaStream_t stream) {
@@ -366,14 +340,12 @@ void getDiagonalInverseMatrix(m_t *in, int len, cudaStream_t stream) {
   dim3 grid((len + block.x - 1) / block.x);
   matrixDiagonalInverse<m_t><<<grid, block, 0, stream>>>(in, len);
 }
-/** @} */
 
 /**
- * @defgroup Get the L2/F-norm of a matrix/vector
+ * @brief Get the L2/F-norm of a matrix/vector
  * @param in: input matrix/vector with totally size elements
  * @param len: size of the matrix/vector
  * @param cublasH cublas handle
- * @{
  */
 template <typename m_t>
 m_t getL2Norm(m_t *in, int size, cublasHandle_t cublasH, cudaStream_t stream) {
@@ -381,7 +353,6 @@ m_t getL2Norm(m_t *in, int size, cublasHandle_t cublasH, cudaStream_t stream) {
   CUBLAS_CHECK(LinAlg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
 }
-/** @} */
 
 };  // end namespace Matrix
 };  // end namespace MLCommon
