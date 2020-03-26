@@ -162,13 +162,8 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
 }
 
 void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
-#ifdef WITH_UCX
                      void *ucp_worker, void *eps,
-#else
-                     void *, void *,
-#endif
                      int size, int rank, bool verbose) {
-
 #ifdef WITH_UCX
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
@@ -194,6 +189,12 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
 #endif
 }
 
+/**
+ * @brief copy unique id
+ * @param id output uid
+ * @param uniqueId input unique id to be copied
+ * @param size uid size
+ */
 void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
   memcpy(id->internal, uniqueId, size);
 }
