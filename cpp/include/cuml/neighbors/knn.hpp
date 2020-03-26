@@ -82,6 +82,7 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  * @param handle the cuml handle to use
  * @param out vector of output arrays on device. vector size = n_outputs.
  * Each array should have size(n_samples, n_classes)
+ * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
@@ -105,9 +106,11 @@ class kNN {
 
  public:
   /**
-	     * Build a kNN object for training and querying a k-nearest neighbors model.
-	     * @param D     number of features in each vector
-	     */
+   * Build a kNN object for training and querying a k-nearest neighbors model.
+   * @param handle  cuml handle
+   * @param D       number of features in each vector
+   * @param verbose whether to print debug messages
+   */
   kNN(const cumlHandle &handle, int D, bool verbose = false);
   ~kNN();
 
