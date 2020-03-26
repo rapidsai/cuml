@@ -22,8 +22,6 @@ from cuml.dask.common.part_utils import flatten_grouped_results
 
 from dask.distributed import wait
 
-from uuid import uuid1
-
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import DistributedDataHandler
 
@@ -77,18 +75,16 @@ class DecompositionSyncFitMixin(object):
         total_rows = data.total_rows
         n_cols = X.shape[1]
 
-        key = uuid1()
         models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
             self._create_model,
             comms.sessionId,
             self._model_func,
             self.datatype,
             **self.kwargs,
-            key="%s-%s" % (key, idx),
+            pure=False,
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
 
-        key = uuid1()
         pca_fit = dict([(wf[0], self.client.submit(
             DecompositionSyncFitMixin._func_fit,
             models[data.worker_info[wf[0]]["r"]],
@@ -97,7 +93,7 @@ class DecompositionSyncFitMixin(object):
             data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
             data.worker_info[wf[0]]["r"],
             _transform,
-            key="%s-%s" % (key, idx),
+            pure=False,
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
 

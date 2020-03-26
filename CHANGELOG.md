@@ -106,6 +106,7 @@
 - PR #1918: Create memleak fixture to skip memleak tests in CI for now
 - PR #1926: Update batch matrix test margins
 - PR #1925: Fix failing dask tests
+- PR #1932: Isolating cause of make_blobs failure
 
 # cuML 0.12.0 (Date TBD)
 
