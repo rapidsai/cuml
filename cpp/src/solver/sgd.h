@@ -44,7 +44,7 @@ using namespace MLCommon;
 
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
- * @param cumlHandle_impl
+ * @param handle
  *        Reference of cumlHandle
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
@@ -245,7 +245,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
 
 /**
  * Make predictions
- * @param cumlHandle_impl
+ * @param handle
  *        Reference of cumlHandle
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
@@ -289,7 +289,7 @@ void sgdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
 
 /**
  * Make binary classifications
- * @param cumlHandle_impl
+ * @param handle
  *        Reference of cumlHandle
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
