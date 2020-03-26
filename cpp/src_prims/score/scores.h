@@ -74,6 +74,7 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
  * @param input Input matrix holding the dataset
  * @param n Number of samples
  * @param d Number of features
+ * @param n_neighbors number of neighbors
  * @param d_alloc the device allocator to use for temp device memory
  * @param stream cuda stream to use
  * @return Matrix holding the indices of the nearest neighbors
@@ -103,13 +104,14 @@ long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
  * @brief Compute the trustworthiness score
  * @tparam distance_type: Distance type to consider
  * @param X: Data in original dimension
- * @param X_embedde: Data in target dimension (embedding)
+ * @param X_embedded: Data in target dimension (embedding)
  * @param n: Number of samples
  * @param m: Number of features in high/original dimension
  * @param d: Number of features in low/embedded dimension
  * @param n_neighbors Number of neighbors considered by trustworthiness score
  * @param d_alloc device allocator to use for temp device memory
  * @param stream the cuda stream to use
+ * @param batchSize batch size
  * @return Trustworthiness score
  */
 template <typename math_t, Distance::DistanceType distance_type>
@@ -211,6 +213,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
  * @param y: Array of ground-truth response variables
  * @param y_hat: Array of predicted response variables
  * @param n: Number of elements in y and y_hat
+ * @param stream: cuda stream
  * @return: The R-squared value.
  */
 template <typename math_t>
