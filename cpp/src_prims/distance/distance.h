@@ -262,7 +262,7 @@ void distance(const InType *x, const InType *y, OutType *dist, Index_ m,
  * @param n number of points in y
  * @param k dimensionality
  * @param workspace temporary workspace buffer which can get resized as per the
- * @needed workspace size
+ * needed workspace size
  * @param metric distance metric
  * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
