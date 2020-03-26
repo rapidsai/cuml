@@ -214,6 +214,7 @@ void pcaScoreSamples() {
  * @param[in] components: principal components of the input data. Size n_cols * n_components.
  * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
  * @param[in] singular_vals: singular values of the data. Size n_components * 1.
+ * @param[in] mu: mean value of the input data
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
  */
