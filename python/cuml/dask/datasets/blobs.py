@@ -40,7 +40,7 @@ def create_local_data(m, n, centers, cluster_std, random_state,
     if type == 'array':
         X = rmm_cupy_ary(cp.array, X.astype(dtype), order=order)
         y = rmm_cupy_ary(cp.array, y.astype(dtype),
-                         order=order).reshape(m, 1)
+                         order=order).reshape(m)
 
     elif type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
@@ -156,24 +156,28 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     if output == 'dataframe':
 
-        meta_X = client.submit(get_meta, X[0]).result()
-        X = from_delayed([dask.delayed(x) for x in X], meta=meta_X)
+        meta_X = client.submit(get_meta, X[0])
+        meta_X_local = meta_X.result()
+        X_final = from_delayed([dask.delayed(x) for x in X], meta=meta_X_local)
 
-        meta_y = client.submit(get_meta, Y[0]).result()
-        Y = from_delayed([dask.delayed(y) for y in Y], meta=meta_y)
+        meta_y = client.submit(get_meta, Y[0])
+        meta_y_local = meta_y.result()
+        Y_final = from_delayed([dask.delayed(y) for y in Y], meta=meta_y_local)
 
     elif output == 'array':
 
-        X = [da.from_delayed(chunk, shape=(worker_rows[idx], ncols),
-                             dtype=dtype,
-                             meta=cp.zeros((1,), dtype=cp.float32))
-             for idx, chunk in enumerate(X)]
-        Y = [da.from_delayed(chunk, shape=(worker_rows[idx],),
-                             dtype=dtype,
-                             meta=cp.zeros((1,), dtype=cp.float32))
-             for idx, chunk in enumerate(Y)]
+        X_del = [da.from_delayed(dask.delayed(chunk),
+                                 shape=(worker_rows[idx], ncols),
+                                 dtype=dtype,
+                                 meta=cp.zeros((1)))
+                 for idx, chunk in enumerate(X)]
+        Y_del = [da.from_delayed(dask.delayed(chunk),
+                                 shape=(worker_rows[idx],),
+                                 dtype=dtype,
+                                 meta=cp.zeros((1)))
+                 for idx, chunk in enumerate(Y)]
 
-        X = da.concatenate(X, axis=0)
-        Y = da.concatenate(Y, axis=0)
+        X_final = da.concatenate(X_del, axis=0)
+        Y_final = da.concatenate(Y_del, axis=0)
 
-    return X, Y
+    return X_final, Y_final
