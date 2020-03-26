@@ -624,7 +624,7 @@ class RandomForestClassifier(Base):
     def _predict_model_on_gpu(self, X, output_class,
                               threshold, algo,
                               num_classes, convert_dtype,
-                              fil_sparse_format):
+                              fil_sparse_format, predict_proba):
         out_type = self._get_output_type(X)
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
@@ -664,7 +664,8 @@ class RandomForestClassifier(Base):
                                              algo=algo,
                                              storage_type=storage_type)
 
-        preds = tl_to_fil_model.predict(X, out_type)
+        preds = tl_to_fil_model.predict(X, output_type=out_type,
+                                        predict_proba=predict_proba)
         tl.free_treelite_model(treelite_handle)
         return preds
 
@@ -794,10 +795,14 @@ class RandomForestClassifier(Base):
                             setting predict_model = 'CPU'")
 
         else:
-            preds = self._predict_model_on_gpu(X, output_class,
-                                               threshold, algo,
-                                               num_classes, convert_dtype,
-                                               fil_sparse_format)
+            preds = \
+                self._predict_model_on_gpu(X, output_class=output_class,
+                                           threshold=threshold,
+                                           algo=algo,
+                                           num_classes=num_classes,
+                                           convert_dtype=convert_dtype,
+                                           fil_sparse_format=fil_sparse_format,
+                                           predict_proba=False)
 
         return preds
 
@@ -861,6 +866,92 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         del(X_m)
         return preds.to_output(out_type)
+
+    def predict_proba(self, X, output_class=True,
+                      threshold=0.5, algo='auto',
+                      num_classes=2, convert_dtype=True,
+                      fil_sparse_format='auto'):
+        """
+        Predicts class probabilites for X. This function uses the GPU
+        implementation of predict. Therefore, data with 'dtype = np.float32'
+        and 'num_classes = 2' should be used while using this function.
+        The option to use predict_proba for multi_class classification is not
+        currently implemented. Please check cuml issue #1679 for more
+        information.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        output_class: boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+            multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
+        threshold : float (default = 0.5)
+            Threshold used for classification. Optional and required only
+            while performing the predict operation on the GPU.
+            It is applied if output_class == True, else it is ignored
+        num_classes : int (default = 2)
+            number of different classes present in the dataset
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
+        Returns
+        -------
+        y : (same as the input datatype)
+            Dense vector (float) of shape (n_samples, 1). The datatype of y
+            depend on the value of 'output_type' varaible specified by the
+            user while intializing the model.
+        """
+        if self.dtype == np.float64:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            In order use the GPU predict the model should \
+                            also be trained using a np.float32 dataset. \
+                            If you would like to use np.float64 dtype \
+                            then please use the CPU based predict by \
+                            setting predict_model = 'CPU'")
+
+        elif self.num_classes > 2:
+            raise NotImplementedError("Predict_proba for multi-class "
+                                      "classification models is currently not "
+                                      "implemented. Please check cuml issue "
+                                      "#1679 for more information.")
+        preds_proba = \
+            self._predict_model_on_gpu(X, output_class=output_class,
+                                       threshold=threshold,
+                                       algo=algo,
+                                       num_classes=num_classes,
+                                       convert_dtype=convert_dtype,
+                                       fil_sparse_format=fil_sparse_format,
+                                       predict_proba=True)
+
+        return preds_proba
 
     def score(self, X, y, threshold=0.5,
               algo='auto', num_classes=2, predict_model="GPU",
