@@ -37,6 +37,7 @@ namespace Matrix {
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar.
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  */
 template <typename math_t>
 void power(math_t *in, math_t *out, math_t scalar, int len,
@@ -54,6 +55,7 @@ void power(math_t *in, math_t *out, math_t scalar, int len,
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar.
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  */
 template <typename math_t>
 void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
@@ -64,6 +66,7 @@ void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
  * @brief Power of every element in the input matrix
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  */
 template <typename math_t>
 void power(math_t *inout, int len, cudaStream_t stream) {
@@ -76,6 +79,7 @@ void power(math_t *inout, int len, cudaStream_t stream) {
  * @param in: input matrix
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  * @{
  */
 template <typename math_t>
@@ -92,6 +96,8 @@ void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
+ * @param stream cuda stream
+ * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t *in, math_t *out, math_t scalar, IdxType len,
@@ -122,6 +128,8 @@ void seqRoot(math_t *in, math_t *out, math_t scalar, IdxType len,
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
+ * @param stream cuda stream
+ * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
@@ -136,6 +144,7 @@ void seqRoot(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
@@ -170,6 +179,7 @@ void setSmallValuesZero(math_t *out, const math_t *in, IdxType len,
  * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  * @param thres: threshold
  */
 template <typename math_t, typename IdxType = int>
@@ -186,6 +196,9 @@ void setSmallValuesZero(math_t *inout, IdxType len, cudaStream_t stream,
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
+ * @param stream cuda stream
+ * @param setzero round down to zero if the input is less the threshold
+ * @param thres the threshold used to forcibly set inputs to zero
  * @{
  */
 template <typename math_t, typename IdxType = int>
@@ -218,6 +231,7 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  * @param setzero: (default false) when true and |value|<thres, avoid dividing by (almost) zero
  * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
  */
@@ -233,6 +247,7 @@ void reciprocal(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
  * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
@@ -247,6 +262,7 @@ void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
@@ -317,6 +333,7 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
  * @param out: output vector of size n_cols
+ * @param stream: cuda stream
  */
 template <typename math_t>
 void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
@@ -374,6 +391,7 @@ __global__ void signFlipKernel(T *d_in, int D, int N) {
  * @param inout: input matrix. Result also stored in this parameter
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
+ * @param stream cuda stream
  */
 template <typename math_t>
 void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
