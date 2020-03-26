@@ -57,15 +57,21 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
                           int rank, bool verbose);
 
 /**
-   * @brief Stores the given character array on the given ncclUniqueId struct.
-   * @param id the ncclUniqueId struct instance to store the given character array
-   * @param uniqueId the unique id char array to store on the ncclUniqueId
-   */
+ * @brief Stores the given character array on the given ncclUniqueId struct.
+ * @param id the ncclUniqueId struct instance to store the given character array
+ * @param uniqueId the unique id char array to store on the ncclUniqueId
+ * @param size id size
+ */
 void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size);
 
 /**
-   * @brief Returns a new ncclUniqueId from the nccl API and stores in
-   * the given character array for serialization
-   */
+ * @brief Returns a NCCL unique ID as a character array. PyTorch
+ * uses this same approach, so that it can be more easily
+ * converted to a native Python string by Cython and further
+ * serialized to be sent across process & node boundaries.
+ *
+ * @param uid nccl unique id for establishing a new clique.
+ * @param size uid size
+ */
 void get_unique_id(char *uid, int size);
 }  // namespace ML
