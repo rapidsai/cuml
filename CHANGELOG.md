@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #1930: Downgrade dask-cuda to 0.13
 
 # cuML 0.13.0 (Date TBD)
 
