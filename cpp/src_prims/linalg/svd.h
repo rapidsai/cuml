@@ -31,7 +31,7 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup singular value decomposition (SVD) on the column major float type
+ * @brief singular value decomposition (SVD) on the column major float type
  * input matrix using QR method
  * @param in: input matrix
  * @param n_rows: number rows of input matrix
@@ -45,7 +45,6 @@ namespace LinAlg {
  * @param cublasH cublas handle
  * @param allocator device allocator for temporary buffers during computation
  * @param stream cuda stream
- * @{
  */
 // TODO: activate gen_left_vec and gen_right_vec options
 // TODO: couldn't template this function due to cusolverDnSgesvd and
@@ -135,7 +134,7 @@ void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
 }
 
 /**
- * @defgroup singular value decomposition (SVD) on the column major input matrix
+ * @brief on the column major input matrix
  * using Jacobi method
  * @param in: input matrix
  * @param n_rows: number rows of input matrix
@@ -151,9 +150,7 @@ void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
  * accuracy.
  * @param cusolverH cusolver handle
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
-
 template <typename math_t>
 void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
                math_t *left_sing_vecs, math_t *right_sing_vecs,
@@ -190,7 +187,7 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
 }
 
 /**
- * @defgroup reconstruct a matrix use left and right singular vectors and
+ * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
  * @param U: left singular vectors of size n_rows x k
  * @param S: square matrix with singular values on its diagonal, k x k
@@ -201,7 +198,6 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
  * @param k: number of singular values
  * @param cublasH cublas handle
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
 template <typename math_t>
 void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
@@ -218,7 +214,7 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
 }
 
 /**
- * @defgroup reconstruct a matrix use left and right singular vectors and
+ * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
  * @param U: left singular vectors of size n_rows x k
  * @param S_vec: singular values as a vector
@@ -229,7 +225,6 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
  * @param tol: tolerance for the evaluation
  * @param cublasH cublas handle
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
 template <typename math_t>
 bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
