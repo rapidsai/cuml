@@ -44,10 +44,14 @@ namespace LinAlg {
  * @param k: no. of singular values to be computed
  * @param p: no. of upsamples
  * @param use_bbt: whether use eigen decomposition in computation or not
+ * @param gen_left_vec: left vector needs to be generated or not?
+ * @param gen_right_vec: right vector needs to be generated or not?
+ * @param use_jacobi: whether to jacobi solver for decomposition
  * @param tol: tolerance for Jacobi-based solvers
  * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
  * @param cusolverH cusolver handle
  * @param cublasH cublas handle
+ * @param stream cuda stream
  * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
@@ -233,6 +237,9 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
  * @param PC_perc: percentage of singular values to be computed
  * @param UpS_perc: upsampling percentage
  * @param use_bbt: whether use eigen decomposition in computation or not
+ * @param gen_left_vec: left vector needs to be generated or not?
+ * @param gen_right_vec: right vector needs to be generated or not?
+ * @param use_jacobi: whether to jacobi solver for decomposition
  * @param tol: tolerance for Jacobi-based solvers
  * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
  * @param cusolverH cusolver handle
