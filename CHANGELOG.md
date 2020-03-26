@@ -107,6 +107,7 @@
 - PR #1926: Update batch matrix test margins
 - PR #1925: Fix failing dask tests
 - PR #1936: Update DaskRF regression test to xfail
+- PR #1932: Isolating cause of make_blobs failure
 
 # cuML 0.12.0 (Date TBD)
 
