@@ -86,9 +86,9 @@ def test_score(cluster):
 
         score = model.score(X, y)
 
-        y_hat = y_hat.compute()
-        y = y.compute()
+        y_hat_local = y_hat.compute()
+        y_local = y.compute()
 
-        assert(accuracy_score(y_hat.get(), y) == score)
+        assert(accuracy_score(y_hat_local.get(), y_local) == score)
     finally:
         client.close()
