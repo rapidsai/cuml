@@ -189,25 +189,10 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
 #endif
 }
 
-/**
- * @brief copy unique id
- * @param id output uid
- * @param uniqueId input unique id to be copied
- * @param size uid size
- */
 void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
   memcpy(id->internal, uniqueId, size);
 }
 
-/**
- * @brief Returns a NCCL unique ID as a character array. PyTorch
- * uses this same approach, so that it can be more easily
- * converted to a native Python string by Cython and further
- * serialized to be sent across process & node boundaries.
- *
- * @param uid nccl unique id for establishing a new clique.
- * @param size uid size
- */
 void get_unique_id(char *uid, int size) {
   ncclUniqueId id;
   ncclGetUniqueId(&id);
