@@ -41,7 +41,7 @@ using namespace MLCommon;
 
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
- * @param cumlHandle_impl
+ * @param handle
  *        Reference of cumlHandle
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
@@ -200,6 +200,8 @@ void cdFit(const cumlHandle_impl &handle, math_t *input, int n_rows, int n_cols,
 
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * @param handle
+ *        cuml handle
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -216,8 +218,6 @@ void cdFit(const cumlHandle_impl &handle, math_t *input, int n_rows, int n_cols,
  *        enum to use different loss functions. Only linear regression loss functions is supported right now.
  * @param stream
  *        cuda stream
- * @param cublas_handle
- *        cublas handle
  */
 template <typename math_t>
 void cdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
