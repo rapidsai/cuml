@@ -43,7 +43,7 @@ using namespace std;
  * @param indices of the rows to be copied
  * @param n_rows_indices number of rows to copy
  * @param stream cuda stream
- * @param rowMajor, whether the matrix has row major layout
+ * @param rowMajor whether the matrix has row major layout
  */
 template <typename m_t>
 void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
@@ -72,6 +72,7 @@ void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
  * @param out: output matrix
  * @param n_rows: number of rows of output matrix
  * @param n_cols: number of columns of output matrix
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
@@ -87,6 +88,7 @@ void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
  * @param out: output matrix
  * @param out_n_rows: number of rows of output matrix
  * @param out_n_cols: number of columns of output matrix
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void truncZeroOrigin(m_t *in, int in_n_rows, m_t *out, int out_n_rows,
@@ -112,6 +114,7 @@ void truncZeroOrigin(m_t *in, int in_n_rows, m_t *out, int out_n_rows,
  * @param inout: input and output matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void colReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
@@ -270,6 +273,7 @@ __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
  * @param dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
@@ -285,8 +289,9 @@ void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
  * @brief Copy a vector to the diagonal of a matrix
  * @param vec: vector of length k = min(n_rows, n_cols)
  * @param matrix: matrix of size n_rows x n_cols
- * @param n_rows: number of rows of the matrix
- * @param n_cols: number of columns of the matrix
+ * @param m: number of rows of the matrix
+ * @param n: number of columns of the matrix
+ * @param k: dimensionality
  */
 template <typename m_t>
 __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
@@ -304,6 +309,7 @@ __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
  * @param matrix: matrix of size n_rows x n_cols
  * @param n_rows: number of rows of the matrix
  * @param n_cols: number of columns of the matrix
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols,
@@ -333,6 +339,7 @@ __global__ void matrixDiagonalInverse(m_t *in, int len) {
  * @brief Get a square matrix with elements on diagonal reversed (in-place)
  * @param in: square input matrix with size len x len
  * @param len: size of one side of the matrix
+ * @param stream: cuda stream
  */
 template <typename m_t>
 void getDiagonalInverseMatrix(m_t *in, int len, cudaStream_t stream) {
@@ -344,8 +351,9 @@ void getDiagonalInverseMatrix(m_t *in, int len, cudaStream_t stream) {
 /**
  * @brief Get the L2/F-norm of a matrix/vector
  * @param in: input matrix/vector with totally size elements
- * @param len: size of the matrix/vector
+ * @param size: size of the matrix/vector
  * @param cublasH cublas handle
+ * @param stream: cuda stream
  */
 template <typename m_t>
 m_t getL2Norm(m_t *in, int size, cublasHandle_t cublasH, cudaStream_t stream) {
