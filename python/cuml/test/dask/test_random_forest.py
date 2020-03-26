@@ -200,7 +200,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster):
 
         acc_score = r2_score(cu_rf_mg_predict, y_test)
 
-        assert acc_score < 0
+        assert acc_score >= 0.67
 
     finally:
         c.close()
