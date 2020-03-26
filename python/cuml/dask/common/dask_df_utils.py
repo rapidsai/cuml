@@ -145,8 +145,9 @@ def to_dask_df(dask_cudf, client=None):
         key="%s-%s" % (key, idx)) for idx, f in enumerate(gpu_futures)]
 
     meta = c.submit(get_meta, dfs[0])
-    # Inserting this wait to stop race-condition in scheduler
-    # Ref: https://github.com/dask/dask/issues/6027
-    wait(meta)
 
-    return dd.from_delayed(dfs, meta=meta.result())
+    # Using new variabe for local result to stop race-condition in scheduler
+    # Ref: https://github.com/dask/dask/issues/6027
+    meta_local = meta.result()
+
+    return dd.from_delayed(dfs, meta=meta_local)

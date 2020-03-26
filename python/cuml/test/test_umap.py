@@ -301,14 +301,13 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
-    threshold = 1e0
 
+    mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
+    print("mean diff: %s" % mean_diff)
     if random_state is not None:
-        assert array_equal(cuml_embedding1, cuml_embedding2,
-                           threshold, with_sign=True)
+        assert mean_diff < 1.0
     else:
-        assert not array_equal(cuml_embedding1, cuml_embedding2,
-                               threshold, with_sign=True)
+        assert mean_diff > 1.0
 
 
 @pytest.mark.parametrize('n_components', [2, 25])
@@ -348,14 +347,12 @@ def test_umap_transform_reproducibility(n_components, random_state):
 
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
-    threshold = 1e0
-
+    mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
+    print("mean diff: %s" % mean_diff)
     if random_state is not None:
-        assert array_equal(cuml_embedding1, cuml_embedding2,
-                           threshold, with_sign=True)
+        assert mean_diff < 1.0
     else:
-        assert not array_equal(cuml_embedding1, cuml_embedding2,
-                               threshold, with_sign=True)
+        assert mean_diff > 1.0
 
 
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
@@ -382,6 +379,25 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     assert trust >= 0.92
 
 
+def test_exp_decay_params():
+    def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
+        cuml_model = cuUMAP(a=a, b=b, min_dist=min_dist, spread=spread)
+        state = cuml_model.__getstate__()
+        cuml_a, cuml_b = state['a'], state['b']
+        skl_model = umap.UMAP(a=a, b=b, min_dist=min_dist, spread=spread)
+        skl_model.fit(np.zeros((1, 1)))
+        sklearn_a, sklearn_b = skl_model._a, skl_model._b
+
+        assert abs(cuml_a) - abs(sklearn_a) < 1e-6
+        assert abs(cuml_b) - abs(sklearn_b) < 1e-6
+
+    compare_exp_decay_params(min_dist=0.1, spread=1.0)
+    compare_exp_decay_params(a=0.5, b=2.0)
+    compare_exp_decay_params(a=0.5)
+    compare_exp_decay_params(b=0.5)
+    compare_exp_decay_params(min_dist=0.1, spread=10.0)
+
+
 @pytest.mark.parametrize('n_neighbors', [5, 15])
 def test_umap_knn_parameters(n_neighbors):
     data, labels = datasets.make_blobs(
@@ -406,7 +422,9 @@ def test_umap_knn_parameters(n_neighbors):
         assert trust >= 0.92
 
     def test_equality(e1, e2):
-        assert array_equal(e1, e2, 1e-3, with_sign=True)
+        mean_diff = np.mean(np.abs(e1 - e2))
+        print("mean diff: %s" % mean_diff)
+        assert mean_diff < 1.0
 
     neigh = NearestNeighbors(n_neighbors=n_neighbors)
     neigh.fit(data)
