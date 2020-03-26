@@ -31,31 +31,31 @@ namespace MLCommon {
 class deviceAllocator {
  public:
   /**
-     * @brief Asynchronously allocates device memory.
-     * 
-     * An implementation of this need to return a allocation of n bytes properly align bytes
-     * on the configured device. The allocation can optionally be asynchronous in the sense
-     * that it is only save to use after all work submitted to the passed in stream prior to 
-     * the call to allocate has completed. If the allocation is used before, e.g. in another 
-     * stream the behaviour may be undefined.
-     * @todo: Add alignment requirments.
-     * 
-     * @param[in] n         number of bytes to allocate
-     * @param[in] stream    stream to issue the possible asynchronous allocation in
-     * @returns a pointer to a n byte properly aligned device buffer on the configured device.
-     */
+   * @brief Asynchronously allocates device memory.
+   * 
+   * An implementation of this need to return a allocation of n bytes properly align bytes
+   * on the configured device. The allocation can optionally be asynchronous in the sense
+   * that it is only save to use after all work submitted to the passed in stream prior to 
+   * the call to allocate has completed. If the allocation is used before, e.g. in another 
+   * stream the behaviour may be undefined.
+   * @todo: Add alignment requirments.
+   * 
+   * @param[in] n         number of bytes to allocate
+   * @param[in] stream    stream to issue the possible asynchronous allocation in
+   */
   virtual void* allocate(std::size_t n, cudaStream_t stream) = 0;
+
   /**
-     * @brief Asynchronously deallocates device memory
-     * 
-     * An implementation of this need to ensure that the allocation that the passed in pointer
-     * points to remains usable until all work sheduled in stream prior to the call to 
-     * deallocate has completed.
-     *
-     * @param[in|out] p     pointer to the buffer to deallocte
-     * @param[in] n         size of the buffer to deallocte in bytes
-     * @param[in] stream    stream in which the allocation might be still in use
-     */
+   * @brief Asynchronously deallocates device memory
+   * 
+   * An implementation of this need to ensure that the allocation that the passed in pointer
+   * points to remains usable until all work sheduled in stream prior to the call to 
+   * deallocate has completed.
+   *
+   * @param[inout] p      pointer to the buffer to deallocte
+   * @param[in] n         size of the buffer to deallocte in bytes
+   * @param[in] stream    stream in which the allocation might be still in use
+   */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) = 0;
 
   virtual ~deviceAllocator() {}
@@ -71,31 +71,32 @@ class deviceAllocator {
 class hostAllocator {
  public:
   /**
-     * @brief Asynchronously allocates host memory.
-     * 
-     * An implementation of this need to return a allocation of n bytes properly align bytes
-     * on the host. The allocation can optionally be asynchronous in the sense
-     * that it is only save to use after all work submitted to the passed in stream prior to 
-     * the call to allocate has completed. If the allocation is used before, e.g. in another 
-     * stream the behaviour may be undefined.
-     * @todo: Add alignment requirments.
-     * 
-     * @param[in] n         number of bytes to allocate
-     * @param[in] stream    stream to issue the possible asynchronous allocation in
-     * @returns a pointer to a n byte properly aligned host buffer.
-     */
+   * @brief Asynchronously allocates host memory.
+   * 
+   * An implementation of this need to return a allocation of n bytes properly align bytes
+   * on the host. The allocation can optionally be asynchronous in the sense
+   * that it is only save to use after all work submitted to the passed in stream prior to 
+   * the call to allocate has completed. If the allocation is used before, e.g. in another 
+   * stream the behaviour may be undefined.
+   * @todo: Add alignment requirments.
+   * 
+   * @param[in] n         number of bytes to allocate
+   * @param[in] stream    stream to issue the possible asynchronous allocation in
+   * @returns a pointer to a n byte properly aligned host buffer.
+   */
   virtual void* allocate(std::size_t n, cudaStream_t stream) = 0;
+
   /**
-     * @brief Asynchronously deallocates host memory
-     * 
-     * An implementation of this need to ensure that the allocation that the passed in pointer
-     * points to remains usable until all work sheduled in stream prior to the call to 
-     * deallocate has completed.
-     *
-     * @param[in|out] p     pointer to the buffer to deallocte
-     * @param[in] n         size of the buffer to deallocte in bytes
-     * @param[in] stream    stream in which the allocation might be still in use
-     */
+   * @brief Asynchronously deallocates host memory
+   * 
+   * An implementation of this need to ensure that the allocation that the passed in pointer
+   * points to remains usable until all work sheduled in stream prior to the call to 
+   * deallocate has completed.
+   *
+   * @param[inout] p      pointer to the buffer to deallocte
+   * @param[in] n         size of the buffer to deallocte in bytes
+   * @param[in] stream    stream in which the allocation might be still in use
+   */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) = 0;
 
   virtual ~hostAllocator() {}
@@ -104,12 +105,28 @@ class hostAllocator {
 /** Default cudaMalloc/cudaFree based device allocator */
 class defaultDeviceAllocator : public deviceAllocator {
  public:
-  virtual void* allocate(std::size_t n, cudaStream_t) {
+  /**
+   * @brief asynchronosly allocate n bytes that can be used after all work in
+   *        stream sheduled prior to this call has completetd.
+   *
+   * @param[in] n         size of the allocation in bytes
+   * @param[in] stream    the stream to use for the asynchronous allocations
+   */
+  virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
     CUDA_CHECK(cudaMalloc(&ptr, n));
     return ptr;
   }
-  virtual void deallocate(void* p, std::size_t, cudaStream_t) {
+
+  /**
+   * @brief asynchronosly free an allocation of n bytes that can be reused after
+   *        all work in stream scheduled prior to this call has completed.
+   *
+   * @param[in] p         pointer to n bytes of memory to be deallocated
+   * @param[in] n         size of the allocation to release in bytes
+   * @param[in] stream    the stream to use for the asynchronous free
+   */
+  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
     cudaError_t status = cudaFree(p);
     if (cudaSuccess != status) {
       //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
@@ -123,12 +140,28 @@ class defaultDeviceAllocator : public deviceAllocator {
 /** Default cudaMallocHost/cudaFreeHost based host allocator */
 class defaultHostAllocator : public hostAllocator {
  public:
-  virtual void* allocate(std::size_t n, cudaStream_t) {
+  /**
+   * @brief allocate n bytes that can be used after all work in
+   *        stream sheduled prior to this call has completetd.
+   *
+   * @param[in] n         size of the allocation in bytes
+   * @param[in] stream    the stream to use for the asynchronous allocations
+   */
+  virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
     CUDA_CHECK(cudaMallocHost(&ptr, n));
     return ptr;
   }
-  virtual void deallocate(void* p, std::size_t, cudaStream_t) {
+
+  /**
+   * @brief free an allocation of n bytes that can be reused after
+   *        all work in stream scheduled prior to this call has completed.
+   *
+   * @param[in] p         pointer to n bytes of memory to be deallocated
+   * @param[in] n         size of the allocation to release in bytes
+   * @param[in] stream    the stream to use for the asynchronous free
+   */
+  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
     cudaError_t status = cudaFreeHost(p);
     if (cudaSuccess != status) {
       //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
