@@ -30,6 +30,7 @@ namespace TSNE {
  * @param[in] handle: The GPU handle.
  * @param[out] Y: The final embedding. Will overwrite this internally.
  * @param[in] n: Number of rows in data X.
+ * @param[in] theta: repulsion threshold
  * @param[in] epssq: A tiny jitter to promote numerical stability.
  * @param[in] early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
  * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.

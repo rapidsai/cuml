@@ -32,6 +32,7 @@ namespace TSNE {
  * @param[out] indices: The output indices from KNN.
  * @param[out] distances: The output sorted distances from KNN.
  * @param[in] n_neighbors: The number of nearest neighbors you want.
+ * @param[in] d_alloc: device allocator
  * @param[in] stream: The GPU stream.
  */
 void get_distances(const float *X, const int n, const int p, long *indices,
