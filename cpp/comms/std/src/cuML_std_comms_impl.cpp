@@ -161,9 +161,8 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
   inject_comms(*handle, comm, size, rank, verbose);
 }
 
-void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
-                     void *ucp_worker, void *eps,
-                     int size, int rank, bool verbose) {
+void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
+                     void *eps, int size, int rank, bool verbose) {
 #ifdef WITH_UCX
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
