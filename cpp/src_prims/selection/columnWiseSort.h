@@ -112,8 +112,8 @@ __global__ void __launch_bounds__(1024, 1)
 
   __syncthreads();
 
-  BlockRadixSortType(tmpSmem.tempStorage.sort)
-    .SortBlockedToStriped(threadKeys, threadValues);
+  BlockRadixSortType(tmpSmem.tempStorage.sort).SortBlockedToStriped(
+    threadKeys, threadValues);
 
   // storing index values back (not keys)
   cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, inputVals + blockOffset,
