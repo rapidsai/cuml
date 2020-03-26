@@ -19,8 +19,9 @@
 
 namespace ML {
 namespace GLM {
+
 /**
- * @defgroup Functions fit an ordinary least squares model
+ * @defgroup olsFit fit an ordinary least squares model
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
@@ -41,7 +42,7 @@ void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
 /** @} */
 
 /**
- * @defgroup Functions fit a ridge regression model (l2 regularized least squares)
+ * @defgroup ridgeFit fit a ridge regression model (l2 regularized least squares)
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
@@ -66,7 +67,7 @@ void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
 /** @} */
 
 /**
- * @defgroup Functions to make predictions with a fitted ordinary least squares and ridge regression model
+ * @defgroup glmPredict to make predictions with a fitted ordinary least squares and ridge regression model
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
@@ -88,7 +89,7 @@ void ridgePredict(const cumlHandle &handle, const double *input, int n_rows,
 /** @} */
 
 /**
- * @defgroup functions to fit a GLM using quasi newton methods.
+ * @defgroup qnFit to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension
  * NxD (row- or column major: see X_col_major param)
@@ -137,7 +138,7 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
 /** @} */
 
 /**
- * @defgroup functions to obtain the confidence scores of samples
+ * @defgroup qnDecisionFunction to obtain the confidence scores of samples
  * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
  * @param N                     number of examples
@@ -159,7 +160,7 @@ void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
 /** @} */
 
 /**
- * @defgroup functions to fit a GLM using quasi newton methods.
+ * @defgroup qnPredict to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
  * @param N                     number of examples
