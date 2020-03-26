@@ -235,7 +235,6 @@ void cdPredict(const cumlHandle_impl &handle, const math_t *input, int n_rows,
                         cublas_handle, stream);
 }
 
-/** @} */
 };  // namespace Solver
 };  // namespace ML
 // end namespace ML

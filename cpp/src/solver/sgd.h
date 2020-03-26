@@ -340,7 +340,6 @@ void sgdPredictBinaryClass(const cumlHandle_impl &handle, const math_t *input,
   }
 }
 
-/** @} */
 };  // namespace Solver
 };  // namespace ML
 // end namespace ML
