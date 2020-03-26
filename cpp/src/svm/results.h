@@ -191,7 +191,7 @@ class Results {
    *
    * @param [in] coef dual coefficients, size [n_rows]
    * @param [in] n_support number of support vectors
-   * @param [out] idx indices of the support vectors, size [n_support]
+   * @return indices of the support vectors, size [n_support]
    */
   int *GetSupportVectorIndices(const math_t *coef, int n_support) {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
