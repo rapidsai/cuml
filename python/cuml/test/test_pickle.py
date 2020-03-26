@@ -131,6 +131,49 @@ def make_dataset(datatype, nrows, ncols, n_info):
     return X_train, y_train, X_test
 
 
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('key', rf_models.keys())
+@pytest.mark.parametrize('nrows', [unit_param(500)])
+@pytest.mark.parametrize('ncols', [unit_param(16)])
+@pytest.mark.parametrize('n_info', [unit_param(7)])
+@pytest.mark.parametrize('n_classes', [unit_param(2), unit_param(5)])
+def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
+                              n_classes, key):
+
+    result = {}
+
+    def create_mod():
+        if key == 'RandomForestRegressor':
+            X_train, y_train, X_test = make_dataset(datatype,
+                                                    nrows,
+                                                    ncols,
+                                                    n_info)
+        else:
+            X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                                   nrows,
+                                                                   ncols,
+                                                                   n_info,
+                                                                   n_classes)
+
+        model = rf_models[key]()
+        model.fit(X_train, y_train)
+        result["rf_res"] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+
+        assert array_equal(result["rf_res"], pickled_model.predict(X_test))
+        # Confirm no crash from score
+        pickled_model.score(X_test, np.zeros(X_test.shape[0]),
+                            predict_model="GPU")
+
+    if (n_classes > 2 and key != 'RandomForestRegressor'):
+        with pytest.raises(NotImplementedError):
+            pickle_save_load(tmpdir, create_mod, assert_model)
+    else:
+        pickle_save_load(tmpdir, create_mod, assert_model)
+
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('keys', regression_models.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
