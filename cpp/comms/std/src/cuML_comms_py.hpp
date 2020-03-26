@@ -25,26 +25,21 @@ namespace ML {
 bool ucx_enabled();
 
 /**
-   * @brief This function wraps the inject comms functions in
-   * cpp/comms/std/include/cuML_comms.hpp to decouple the Python
-   * layer from the optional UCX dependency in the C++ build. This
-   * allows the Cython to compile without having to propagate the `WITH_UCX`
-   * directive to that layer.
-   * @param handle the cuml handle to inject a new communicator instance into
-   * @param comm initialized nccl communicator
-   * @param ucp_worker: ucp_worker_h instance for the current initialized ucp context
-   * @param eps an array of ucp_ep_h endpoints to the other ucp workers in the cluster
-   * @param size the size of the cluster (number of elements in eps)
-   * @param rank rank of the current worker
-   * @param verbose print verbose logging
-   */
+ * @brief This function wraps the inject comms functions in
+ * cpp/comms/std/include/cuML_comms.hpp to decouple the Python
+ * layer from the optional UCX dependency in the C++ build. This
+ * allows the Cython to compile without having to propagate the `WITH_UCX`
+ * directive to that layer.
+ * @param handle the cuml handle to inject a new communicator instance into
+ * @param comm initialized nccl communicator
+ * @param ucp_worker: ucp_worker_h instance for the current initialized ucp context
+ * @param eps an array of ucp_ep_h endpoints to the other ucp workers in the cluster
+ * @param size the size of the cluster (number of elements in eps)
+ * @param rank rank of the current worker
+ * @param verbose print verbose logging
+ */
 void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
-
-#ifdef WITH_UCX
                      void *ucp_worker, void *eps,
-#else
-                     void *, void *,
-#endif
                      int size, int rank, bool verbose);
 
 /**
