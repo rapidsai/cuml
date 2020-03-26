@@ -208,7 +208,8 @@ def _to_dask_cudf(futures, client=None, verbose=False):
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
     if verbose:
         print("to_dask_cudf dfs=%s" % str(dfs))
-    meta = c.submit(_get_meta, dfs[0]).result()
+    meta_future = c.submit(_get_meta, dfs[0])
+    meta = meta_future.result()
     return dd.from_delayed(dfs, meta=meta)
 
 
@@ -303,7 +304,8 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
     objs = []
     for i in range(len(futures)):
         if not isinstance(futures[i].type, type(None)):
-            met = meta[i].result()
+            met_future = meta[i]
+            met = met_future.result()
             obj = da.from_delayed(futures[i], shape=met[0],
                                   dtype=met[1])
             objs.append(obj)

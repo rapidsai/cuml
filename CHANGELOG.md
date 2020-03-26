@@ -94,6 +94,7 @@
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
 - PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1876: UMAP exponential decay parameters fix
 - PR #1887: Fix hasattr for missing attributes on base models
 - PR #1877: Remove resetting index in shuffling in train_test_split
 - PR #1893: Updating UCX in comms to match current UCX-py
@@ -101,6 +102,7 @@
 - PR #1899: Fix dask `extract_partitions()`, remove transformation as instance variable in PCA and TSVD and match sklearn APIs
 - PR #1920: Temporarily raising threshold for UMAP reproducibility tests
 - PR #1918: Create memleak fixture to skip memleak tests in CI for now
+- PR #1925: Fix failing dask tests
 
 # cuML 0.12.0 (Date TBD)
 
