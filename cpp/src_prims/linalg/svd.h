@@ -216,14 +216,16 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
 /**
  * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
+ * @param A_d: input matrix
  * @param U: left singular vectors of size n_rows x k
  * @param S_vec: singular values as a vector
- * @param VT: right singular vectors of size n_cols x k
+ * @param V: right singular vectors of size n_cols x k
  * @param n_rows: number rows of output matrix
  * @param n_cols: number columns of output matrix
  * @param k: number of singular values to be computed, 1.0 for normal SVD
  * @param tol: tolerance for the evaluation
  * @param cublasH cublas handle
+ * @param stream cuda stream
  * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
