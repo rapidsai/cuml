@@ -34,9 +34,9 @@ namespace ML {
 
 	/**
 	 * @brief generates a gaussian random matrix
-	 * @input param h: cuML handle
-	 * @output param random_matrix: the random matrix to be allocated and generated
-	 * @input param params: data structure that includes all the parameters of the model
+	 * @param[in] h: cuML handle
+	 * @param[out] random_matrix: the random matrix to be allocated and generated
+	 * @param[in] param params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
 	void gaussian_random_matrix(const cumlHandle& h, rand_mat<math_t> *random_matrix,
@@ -53,9 +53,9 @@ namespace ML {
 
 	/**
 	 * @brief generates a sparse random matrix
-	 * @input param h: cuML handle
-	 * @output param random_matrix: the random matrix to be allocated and generated
-	 * @input param params: data structure that includes all the parameters of the model
+	 * @param[in] h: cuML handle
+	 * @param[out] random_matrix: the random matrix to be allocated and generated
+	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
 	void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t> *random_matrix,
@@ -119,9 +119,9 @@ namespace ML {
 
 	/**
 	 * @brief fits the model by generating appropriate random matrix
-	 * @input param handle: cuML handle
-	 * @output param random_matrix: the random matrix to be allocated and generated
-	 * @input param params: data structure that includes all the parameters of the model
+	 * @param[in] handle: cuML handle
+	 * @param[out] random_matrix: the random matrix to be allocated and generated
+	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
 	void RPROJfit(const cumlHandle& handle, rand_mat<math_t> *random_matrix, paramsRPROJ* params)
@@ -143,11 +143,11 @@ namespace ML {
 
 	/**
 	 * @brief transforms data according to generated random matrix
-	 * @input param handle: cuML handle
-	 * @input param input: unprojected original dataset
-	 * @input param random_matrix: the random matrix to be allocated and generated
-	 * @output param output: projected dataset
-	 * @input param params: data structure that includes all the parameters of the model
+	 * @param[in] handle: cuML handle
+	 * @param[in] input: unprojected original dataset
+	 * @param[in] random_matrix: the random matrix to be allocated and generated
+	 * @param[out] output: projected dataset
+	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
 	void RPROJtransform(const cumlHandle& handle, math_t *input, rand_mat<math_t> *random_matrix,
