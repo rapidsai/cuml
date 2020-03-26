@@ -39,12 +39,12 @@ namespace Score {
 
 /**
  * @brief Compute a the rank of trustworthiness score
- * @input param ind_X: indexes given by pairwise distance and sorting
- * @input param ind_X_embedded: indexes given by KNN
- * @input param n: Number of samples
- * @input param n_neighbors: Number of neighbors considered by trustworthiness score
- * @input param work: Batch to consider (to do it at once use n * n_neighbors)
- * @output param rank: Resulting rank
+ * @param[in] ind_X: indexes given by pairwise distance and sorting
+ * @param[in] ind_X_embedded: indexes given by KNN
+ * @param[in] n: Number of samples
+ * @param[in] n_neighbors: Number of neighbors considered by trustworthiness score
+ * @param[in] work: Batch to consider (to do it at once use n * n_neighbors)
+ * @param[out] rank: Resulting rank
  */
 template <typename math_t, typename knn_index_t>
 __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
