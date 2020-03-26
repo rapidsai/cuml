@@ -338,7 +338,6 @@ inline cusolverStatus_t cusolverDnsyevdx(
  * @defgroup svd cusolver svd operations
  * @{
  */
-
 template <typename T>
 cusolverStatus_t cusolverDngesvd_bufferSize(cusolverDnHandle_t handle, int m,
                                             int n, int *lwork) {
@@ -348,14 +347,12 @@ cusolverStatus_t cusolverDngesvd_bufferSize(cusolverDnHandle_t handle, int m,
     return cusolverDnDgesvd_bufferSize(handle, m, n, lwork);
   }
 }
-
 template <typename T>
 cusolverStatus_t cusolverDngesvd(cusolverDnHandle_t handle, signed char jobu,
                                  signed char jobvt, int m, int n, T *A, int lda,
                                  T *S, T *U, int ldu, T *VT, int ldvt, T *work,
                                  int lwork, T *rwork, int *devInfo,
                                  cudaStream_t stream);
-
 template <>
 inline cusolverStatus_t cusolverDngesvd(
   cusolverDnHandle_t handle, signed char jobu, signed char jobvt, int m, int n,
@@ -365,7 +362,6 @@ inline cusolverStatus_t cusolverDngesvd(
   return cusolverDnSgesvd(handle, jobu, jobvt, m, n, A, lda, S, U, ldu, VT,
                           ldvt, work, lwork, rwork, devInfo);
 }
-
 template <>
 inline cusolverStatus_t cusolverDngesvd(
   cusolverDnHandle_t handle, signed char jobu, signed char jobvt, int m, int n,
@@ -376,19 +372,11 @@ inline cusolverStatus_t cusolverDngesvd(
                           ldvt, work, lwork, rwork, devInfo);
 }
 
-/** @} */
-
-/**
- * @defgroup svd cusolver svd operations with Jacobi method
- * @{
- */
-
 template <typename T>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
   const T *A, int lda, const T *S, const T *U, int ldu, const T *V, int ldv,
   int *lwork, gesvdjInfo_t params);
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
@@ -397,7 +385,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   return cusolverDnSgesvdj_bufferSize(handle, jobz, econ, m, n, A, lda, S, U,
                                       ldu, V, ldv, lwork, params);
 }
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
@@ -406,13 +393,11 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj_bufferSize(
   return cusolverDnDgesvdj_bufferSize(handle, jobz, econ, m, n, A, lda, S, U,
                                       ldu, V, ldv, lwork, params);
 }
-
 template <typename T>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
   T *A, int lda, T *S, T *U, int ldu, T *V, int ldv, T *work, int lwork,
   int *info, gesvdjInfo_t params, cudaStream_t stream);
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
@@ -422,7 +407,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   return cusolverDnSgesvdj(handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv,
                            work, lwork, info, params);
 }
-
 template <>
 inline cusolverStatus_t CUSOLVERAPI
 cusolverDngesvdj(cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ,
@@ -433,7 +417,6 @@ cusolverDngesvdj(cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ,
   return cusolverDnDgesvdj(handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv,
                            work, lwork, info, params);
 }
-
 /** @} */
 
 /**
