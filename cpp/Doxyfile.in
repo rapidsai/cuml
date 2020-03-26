@@ -771,9 +771,10 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/src \
-                         @CMAKE_CURRENT_SOURCE_DIR@/src_prims \
-                         @CMAKE_CURRENT_SOURCE_DIR/include
+INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/comms \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include \
+                         @CMAKE_CURRENT_SOURCE_DIR@/src \
+                         @CMAKE_CURRENT_SOURCE_DIR@/src_prims
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -801,6 +802,7 @@ INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.cpp \
                          *.h \
                          *.hpp \
+                         *.hxx \
                          *.cu \
                          *.cuh
 
@@ -870,7 +872,7 @@ EXAMPLE_RECURSIVE      = NO
 # that contain images that are to be included in the documentation (see the
 # \image command).
 
-IMAGE_PATH             =
+IMAGE_PATH             = @CMAKE_CURRENT_SOURCE_DIR@/doxygen/images
 
 # The INPUT_FILTER tag can be used to specify a program that doxygen should
 # invoke to filter for each input file. Doxygen will invoke the filter program
