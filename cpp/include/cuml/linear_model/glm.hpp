@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,6 @@ void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
               float *labels, float *alpha, int n_alpha, float *coef,
               float *intercept, bool fit_intercept, bool normalize,
               int algo = 0);
-
 void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
               double *labels, double *alpha, int n_alpha, double *coef,
               double *intercept, bool fit_intercept, bool normalize,
@@ -81,10 +80,8 @@ void olsPredict(const cumlHandle &handle, const float *input, int n_rows,
 void olsPredict(const cumlHandle &handle, const double *input, int n_rows,
                 int n_cols, const double *coef, double intercept,
                 double *preds);
-
 void ridgePredict(const cumlHandle &handle, const float *input, int n_rows,
                   int n_cols, const float *coef, float intercept, float *preds);
-
 void ridgePredict(const cumlHandle &handle, const double *input, int n_rows,
                   int n_cols, const double *coef, double intercept,
                   double *preds);
@@ -132,7 +129,6 @@ void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
            float grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
            int loss_type);
-
 void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
            int C, bool fit_intercept, double l1, double l2, int max_iter,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
@@ -152,11 +148,11 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
  * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
  * @param scores                device pointer to confidence scores of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @{
  */
 void qnDecisionFunction(const cumlHandle &cuml_handle, float *X, int N, int D,
                         int C, bool fit_intercept, float *params,
                         bool X_col_major, int loss_type, float *scores);
-
 void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
                         int C, bool fit_intercept, double *params,
                         bool X_col_major, int loss_type, double *scores);
@@ -174,11 +170,11 @@ void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
  * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
  * @param preds                 device pointer to predictions of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @{
  */
 void qnPredict(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
                bool fit_intercept, float *params, bool X_col_major,
                int loss_type, float *preds);
-
 void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
                bool fit_intercept, double *params, bool X_col_major,
                int loss_type, double *preds);
