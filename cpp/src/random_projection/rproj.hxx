@@ -203,6 +203,5 @@ namespace ML {
 		}
 	}
 
-	/** @} */
 };
 // end namespace ML
