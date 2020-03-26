@@ -72,13 +72,13 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
     (preds) of size n; the transformations are defined by output, and include
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
     sigmoid and applying threshold. in case of complement_proba,
-    fills in the converse probability */
+    fills in the complement probability */
 __global__ void transform_k(float* preds, size_t n, output_t output,
                             float inv_num_trees, float threshold,
                             float global_bias, bool complement_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  if (complement_proba && i % 2) return;
+  if (complement_proba && (i % 2) != 0) return;
 
   float result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
@@ -155,10 +155,11 @@ struct forest {
     bool complement_proba = predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
     bool do_transform =
       ot != output_t::RAW || global_bias_ != 0.0f || complement_proba;
-    if (leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba)
+    if (leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba) {
       // moot since choosing best class and all transforms are monotonic
       // also, would break current code
       do_transform = false;
+    }
 
     if (do_transform) {
       size_t num_values_to_transform =
@@ -305,8 +306,7 @@ void check_params(const forest_params_t* params, bool dense) {
          an ignored variable */
       break;
     case leaf_value_t::INT_CLASS_LABEL:
-      ASSERT(params->num_classes != 1, "trees will always predict class 0");
-      ASSERT(params->num_classes > 0,
+      ASSERT(params->num_classes >= 2,
              "num_classes is not ignored for "
              "leaf_payload_type == INT_CLASS_LABEL");
       break;
@@ -406,7 +406,7 @@ If the vector contains a NAN, asserts false */
 int find_class_label_from_one_hot(tl::tl_float* vector, int len) {
   bool found_label = false;
   int out;
-  for (int i = 0; i < len; ++i)
+  for (int i = 0; i < len; ++i) {
     if (vector[i] == 1.0f) {
       ASSERT(!found_label, "label vector contains multiple 1.0f");
       out = i;
@@ -414,6 +414,7 @@ int find_class_label_from_one_hot(tl::tl_float* vector, int len) {
     } else
       ASSERT(vector[i] == 0.0f,
              "label vector contains values other than 0.0 and 1.0");
+  }
   ASSERT(found_label, "did not find 1.0f in vector");
   return out;
 }
