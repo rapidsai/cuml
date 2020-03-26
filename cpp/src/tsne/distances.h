@@ -26,13 +26,13 @@ namespace TSNE {
 
 /**
  * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
- * @input param X: The GPU handle.
- * @input param n: The number of rows in the data X.
- * @input param p: The number of columns in the data X.
- * @output param indices: The output indices from KNN.
- * @output param distances: The output sorted distances from KNN.
- * @input param n_neighbors: The number of nearest neighbors you want.
- * @input param stream: The GPU stream.
+ * @param[in] X: The GPU handle.
+ * @param[in] n: The number of rows in the data X.
+ * @param[in] p: The number of columns in the data X.
+ * @param[out] indices: The output indices from KNN.
+ * @param[out] distances: The output sorted distances from KNN.
+ * @param[in] n_neighbors: The number of nearest neighbors you want.
+ * @param[in] stream: The GPU stream.
  */
 void get_distances(const float *X, const int n, const int p, long *indices,
                    float *distances, const int n_neighbors,
@@ -54,10 +54,10 @@ void get_distances(const float *X, const int n, const int p, long *indices,
 /**
  * @brief   Find the maximum element in the distances matrix, then divide all entries by this.
  *          This promotes exp(distances) to not explode.
- * @input param n: The number of rows in the data X.
- * @input param distances: The output sorted distances from KNN.
- * @input param n_neighbors: The number of nearest neighbors you want.
- * @input param stream: The GPU stream.
+ * @param[in] n: The number of rows in the data X.
+ * @param[in] distances: The output sorted distances from KNN.
+ * @param[in] n_neighbors: The number of nearest neighbors you want.
+ * @param[in] stream: The GPU stream.
  */
 void normalize_distances(const int n, float *distances, const int n_neighbors,
                          cudaStream_t stream) {
@@ -75,15 +75,15 @@ void normalize_distances(const int n, float *distances, const int n_neighbors,
 
 /**
  * @brief Performs P + P.T.
- * @input param P: The perplexity matrix (n, k)
- * @input param indices: The input sorted indices from KNN.
- * @input param n: The number of rows in the data X.
- * @input param k: The number of nearest neighbors you want.
- * @input param P_sum: The sum of P.
- * @input param exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @output param COO_Matrix: The final P + P.T output COO matrix.
- * @input param stream: The GPU stream.
- * @input param handle: The GPU handle.
+ * @param[in] P: The perplexity matrix (n, k)
+ * @param[in] indices: The input sorted indices from KNN.
+ * @param[in] n: The number of rows in the data X.
+ * @param[in] k: The number of nearest neighbors you want.
+ * @param[in] P_sum: The sum of P.
+ * @param[in] exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @param[out] COO_Matrix: The final P + P.T output COO matrix.
+ * @param[in] stream: The GPU stream.
+ * @param[in] handle: The GPU handle.
  */
 template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, const int n, const int k,
