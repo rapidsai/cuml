@@ -38,9 +38,8 @@ bool ucx_enabled();
  * @param rank rank of the current worker
  * @param verbose print verbose logging
  */
-void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
-                     void *ucp_worker, void *eps,
-                     int size, int rank, bool verbose);
+void inject_comms_py(cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
+                     void *eps, int size, int rank, bool verbose);
 
 /**
    * @brief This function follows the design of the wrapper function in
