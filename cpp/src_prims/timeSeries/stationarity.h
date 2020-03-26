@@ -15,12 +15,14 @@
  */
 /**
 * @file stationarity.h
-* @brief Compute the recommended trend parameter for a batched series.
+* @brief Stationarity tests
 * Reference: 'Testing the null hypothesis of stationarity against the
 * alternative of a unit root', Kwiatkowski et al. 1992.
 * See https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
 * for additional details.
 */
+
+#pragma once
 
 #include <math.h>
 #include <thrust/device_ptr.h>
