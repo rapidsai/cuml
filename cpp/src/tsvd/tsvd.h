@@ -156,12 +156,12 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
 
 /**
  * @brief perform fit operation for the tsvd. Generates eigenvectors, explained vars, singular vals, etc.
- * @input param handle: the internal cuml handle object
- * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
- * @output param components: the principal components of the input data. Size n_cols * n_components.
- * @output param singular_vals: singular values of the data. Size n_components * 1
- * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param stream cuda stream
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
+ * @param[out] components: the principal components of the input data. Size n_cols * n_components.
+ * @param[out] singular_vals: singular values of the data. Size n_components * 1
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[in] stream cuda stream
  */
 template <typename math_t>
 void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
@@ -206,15 +206,15 @@ void tsvdFit(const cumlHandle_impl &handle, math_t *input, math_t *components,
 
 /**
  * @brief performs fit and transform operations for the tsvd. Generates transformed data, eigenvectors, explained vars, singular vals, etc.
- * @input param handle: the internal cuml handle object
- * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
- * @output param trans_input: the transformed data. Size n_rows * n_components.
- * @output param components: the principal components of the input data. Size n_cols * n_components.
- * @output param explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
- * @output param explained_var_ratio: the ratio of the explained variance and total variance. Size n_components * 1.
- * @output param singular_vals: singular values of the data. Size n_components * 1
- * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param stream cuda stream
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
+ * @param[out] trans_input: the transformed data. Size n_rows * n_components.
+ * @param[out] components: the principal components of the input data. Size n_cols * n_components.
+ * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
+ * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size n_components * 1.
+ * @param[out] singular_vals: singular values of the data. Size n_components * 1
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[in] stream cuda stream
  */
 template <typename math_t>
 void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
@@ -257,11 +257,11 @@ void tsvdFitTransform(const cumlHandle_impl &handle, math_t *input,
 
 /**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
- * @input param handle the internal cuml handle object
- * @input param input: the data is transformed. Size n_rows x n_components.
- * @input param components: principal components of the input data. Size n_cols * n_components.
- * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param stream cuda stream
+ * @param[in] handle the internal cuml handle object
+ * @param[in] input: the data is transformed. Size n_rows x n_components.
+ * @param[in] components: principal components of the input data. Size n_cols * n_components.
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[in] stream cuda stream
  */
 template <typename math_t>
 void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
@@ -286,12 +286,12 @@ void tsvdTransform(const cumlHandle_impl &handle, math_t *input,
 
 /**
  * @brief performs inverse transform operation for the tsvd. Transforms the transformed data back to original data.
- * @input param handle the internal cuml handle object
- * @input param trans_input: the data is fitted to PCA. Size n_rows x n_components.
- * @input param components: transpose of the principal components of the input data. Size n_components * n_cols.
- * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
- * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param stream cuda stream
+ * @param[in] handle the internal cuml handle object
+ * @param[in] trans_input: the data is fitted to PCA. Size n_rows x n_components.
+ * @param[in] components: transpose of the principal components of the input data. Size n_components * n_cols.
+ * @param[out] input: the data is fitted to PCA. Size n_rows x n_cols.
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[in] stream cuda stream
  */
 template <typename math_t>
 void tsvdInverseTransform(const cumlHandle_impl &handle, math_t *trans_input,
