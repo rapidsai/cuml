@@ -484,7 +484,6 @@ struct Sum {
  * @brief Obtain sign of x
  * @param x input
  * @return +1 if x >= 0 and -1 otherwise
- * @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
  * @{
  */
 template <typename T>
@@ -507,7 +506,6 @@ DI double signPrim(double x) {
  * @param x one item
  * @param y second item
  * @return maximum of two items
- * @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__SINGLE.html#group__CUDA__MATH__SINGLE
  * @{
  */
 template <typename T>
