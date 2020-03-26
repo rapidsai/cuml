@@ -77,15 +77,14 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
     fil_acc = accuracy_score(y_test, fil_preds)
-
     if nrows < 500000:
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
                          min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cuml_acc - 0.02)
 
@@ -147,8 +146,8 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
                          min_samples_split=2, max_features=max_features,
                          random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+        sk_preds = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
         assert fil_r2 >= (sk_r2 - 0.07)
     assert fil_r2 >= (cu_r2 - 0.02)
 
@@ -188,8 +187,8 @@ def test_rf_classification_default(datatype, column_info, nrows):
     if nrows < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cu_acc - 0.02)
 
@@ -235,8 +234,8 @@ def test_rf_regression_default(datatype, column_info, nrows):
     if nrows < 500000:
         sk_model = skrfr(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+        sk_preds = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
         # XXX Accuracy gap exists with default parameters, requires
         # further investigation for next release
         assert fil_r2 >= (sk_r2 - 0.08)
@@ -330,8 +329,8 @@ def test_rf_classification_float64(datatype, column_info,
     if nrows < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert cu_acc >= (sk_acc - 0.07)
 
     # predict using cuML's GPU based prediction
@@ -383,8 +382,8 @@ def test_rf_regression_float64(datatype, column_info,
     if nrows < 500000:
         sk_model = skrfr(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype[0])
+        sk_preds = sk_model.predict(X_test)
+        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype[0])
         assert cu_r2 >= (sk_r2 - 0.09)
 
     # predict using cuML's GPU based prediction
@@ -443,8 +442,8 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
     if nrows < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
-        sk_predict = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_predict)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
         assert cu_acc >= (sk_acc - 0.07)
 
 
@@ -528,8 +527,8 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
                              min_samples_split=2, max_features=max_features,
                              random_state=10)
             sk_model.fit(X_train, y_train)
-            sk_predict = sk_model.predict(X_test)
-            sk_acc = accuracy_score(y_test, sk_predict)
+            sk_preds = sk_model.predict(X_test)
+            sk_acc = accuracy_score(y_test, sk_preds)
             assert fil_acc >= (sk_acc - 0.07)
 
         assert fil_acc >= (cuml_acc - 0.02)
@@ -624,12 +623,13 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                              max_features=max_features,
                              random_state=10)
             sk_model.fit(X_train, y_train)
-            sk_predict = sk_model.predict(X_test)
-            sk_r2 = r2_score(y_test, sk_predict, convert_dtype=datatype)
+            sk_preds = sk_model.predict(X_test)
+            sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
             assert fil_r2 >= (sk_r2 - 0.07)
         assert fil_r2 >= (cu_r2 - 0.02)
 
 
+@pytest.mark.memleak
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
 @pytest.mark.parametrize('column_info', [unit_param([100, 50]),
                          quality_param([200, 100]),
@@ -671,3 +671,140 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
         handle.sync()
         delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
         assert delta_mem == 0
+
+
+@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+@pytest.mark.parametrize('max_depth', [10, 13, 16])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_create_classification_model(max_features,
+                                     max_depth, n_estimators, n_bins):
+
+    # random forest classification model
+    cuml_model = curfc(max_features=max_features,
+                       n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=max_depth)
+    params = cuml_model.get_params()
+    cuml_model2 = curfc()
+    cuml_model2.set_params(**params)
+    verfiy_params = cuml_model2.get_params()
+    assert params['max_features'] == verfiy_params['max_features']
+    assert params['max_depth'] == verfiy_params['max_depth']
+    assert params['n_estimators'] == verfiy_params['n_estimators']
+    assert params['n_bins'] == verfiy_params['n_bins']
+
+
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_multiple_fits_classification(column_info,
+                                      nrows, n_estimators, n_bins):
+    datatype = np.float32
+    ncols, n_info = column_info
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_informative=n_info, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    cuml_model = curfc(n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=10)
+
+    # Calling multiple fits
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    # Check if params are still intact
+    params = cuml_model.get_params()
+    assert params['n_estimators'] == n_estimators
+    assert params['n_bins'] == n_bins
+
+
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('n_estimators', [10, 20, 100])
+@pytest.mark.parametrize('n_bins', [8, 9, 10])
+def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
+    datatype = np.float32
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info,
+                           random_state=123)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    cuml_model = curfr(n_bins=n_bins,
+                       n_estimators=n_estimators,
+                       max_depth=10)
+
+    # Calling multiple fits
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    cuml_model.fit(X, y)
+
+    # Check if params are still intact
+    params = cuml_model.get_params()
+    assert params['n_estimators'] == n_estimators
+    assert params['n_bins'] == n_bins
+
+
+@pytest.mark.parametrize('nrows', [unit_param(500),
+                         stress_param(500000)])
+@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('rows_sample', [unit_param(1.0),
+                         stress_param(0.95)])
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('split_algo', [0, 1])
+@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
+def test_rf_classification_proba(datatype, split_algo, rows_sample, nrows,
+                                 column_info, max_features):
+    use_handle = True
+    ncols, n_info = column_info
+
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=2)
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
+                       n_bins=16, split_algo=split_algo, split_criterion=0,
+                       min_rows_per_node=2, seed=123, n_streams=1,
+                       n_estimators=40, handle=handle, max_leaves=-1,
+                       max_depth=16)
+    cuml_model.fit(X_train, y_train)
+    fil_preds_proba = cuml_model.predict_proba(X_test,
+                                               output_class=True,
+                                               threshold=0.5,
+                                               algo='auto')
+    y_proba = np.zeros(np.shape(fil_preds_proba))
+    y_proba[:, 1] = y_test
+    y_proba[:, 0] = 1.0 - y_test
+    fil_mse = mean_squared_error(y_proba, fil_preds_proba)
+    if nrows < 500000:
+        sk_model = skrfc(n_estimators=40,
+                         max_depth=16,
+                         min_samples_split=2, max_features=max_features,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_preds_proba = sk_model.predict_proba(X_test)
+        sk_mse = mean_squared_error(y_proba, sk_preds_proba)
+        # Max difference of 0.0061 is seen between the mse values of
+        # predict proba function of fil and sklearn
+        assert fil_mse <= (sk_mse + 0.0061)

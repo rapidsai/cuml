@@ -339,8 +339,6 @@ class PCA(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self._trans_input_ = CumlArray.zeros((n_rows, n_components),
-                                             dtype=self.dtype)
         self._components_ = CumlArray.zeros((n_components, n_cols),
                                             dtype=self.dtype)
         self._explained_variance_ = CumlArray.zeros(n_components,
@@ -353,7 +351,7 @@ class PCA(Base):
                                                  dtype=self.dtype)
         self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
-    def fit(self, X, _transform=False):
+    def fit(self, X, y=None):
         """
         Fit the model with X.
 
@@ -364,12 +362,36 @@ class PCA(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        y : ignored
+
         Returns
         -------
         cluster labels
 
         """
 
+        self.fit_transform(X)
+
+        return self
+
+    def fit_transform(self, X, y=None):
+        """
+        Fit the model with X and apply the dimensionality reduction on X.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+          training data (floats or doubles), where n_samples is the number of
+          samples, and n_features is the number of features.
+          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+          ndarray, cuda array interface compliant array like CuPy
+
+        y : ignored
+
+        Returns
+        -------
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
+        """
         self._set_output_type(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -402,7 +424,9 @@ class PCA(Base):
         cdef uintptr_t noise_vars_ptr = \
             self._noise_variance_.ptr
 
-        cdef uintptr_t t_input_ptr = self._trans_input_.ptr
+        _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
+                                        dtype=self.dtype)
+        cdef uintptr_t t_input_ptr = _trans_input_.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
@@ -432,31 +456,8 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        if not _transform:
-            del(self._trans_input_)
-
-        return self
-
-    def fit_transform(self, X, y=None):
-        """
-        Fit the model with X and apply the dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-          training data (floats or doubles), where n_samples is the number of
-          samples, and n_features is the number of features.
-          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-          ndarray, cuda array interface compliant array like CuPy
-
-        y : ignored
-
-        Returns
-        -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-        """
         out_type = self._get_output_type(X)
-        return self.fit(X, _transform=True)._trans_input_.to_output(out_type)
+        return _trans_input_.to_output(out_type)
 
     def inverse_transform(self, X, convert_dtype=False):
         """
