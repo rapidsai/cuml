@@ -66,11 +66,12 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   } while (mask != 0);
   vec<NITEMS, output_type> out;
 #pragma unroll
-  for (int j = 0; j < NITEMS; ++j)
+  for (int j = 0; j < NITEMS; ++j) {
     /** dependent names are not considered templates by default,
         unless it's a member of a current [template] instantiation.
         alternatively, could have used .base_node::output<... */
     out[j] = tree[curr[j]].template output<output_type>();
+  }
   return out;
 }
 
@@ -91,36 +92,57 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   return out;
 }
 
+// the device template should achieve the best performance, using up-to-date
+// CUB defaults
+#define BlockReduceDevice typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>
+/**
+The shared memory requirements for finalization stage may differ based
+on the set of PTX architectures the kernels were compiled for, as well as 
+the CUDA compute capability of the device chosen for computation.
+
+TODO: run a test kernel during forest init to determine the compute capability
+chosen for the inference, for an accurate sizeof(BlockReduce::TempStorage),
+which is used in determining max NITEMS or max input data columns.
+
+600 is the __CUDA_ARCH__ for Pascal (6.0) GPUs, which is not defined in
+host code.
+6.0 is the earliest compute capability supported by FIL and RAPIDS in general.
+See https://rapids.ai/start.html as well as cmake defaults.
+*/
+// values below are defaults as of this change.
+template <int NITEMS>
+struct BlockReduceHost {
+  typedef typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
+                                    cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1,
+                                    600>::TempStorage TempStorage;
+};
+
 template <int NITEMS,
           leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
 struct tree_aggregator_t {
-  /** To compute accurately, would need to know the latest __CUDA_ARCH__
-      for which the code is compiled and which fits the SM being run on.
-      This is an approximation */
-  static const int ptx_arch = 750;
-  typedef cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
-                           cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, ptx_arch>
-    BlockReduce;
-  typedef typename BlockReduce::TempStorage TempStorage;
-
   vec<NITEMS, float> acc;
-  TempStorage* tmp_storage;
+  void* tmp_storage;
 
-  static size_t smem_finalize_footprint(int) { return sizeof(TempStorage); }
+  static size_t smem_finalize_footprint(int) {
+    return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
+  }
+
   static size_t smem_accumulate_footprint(int) { return 0; }
 
   __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace,
                                                size_t)
-    : tmp_storage((TempStorage*)shared_workspace) {}
+    : tmp_storage(shared_workspace) {}
+
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction) {
     acc += single_tree_prediction;
   }
+
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int output_stride) {
     __syncthreads();
-    new (tmp_storage) TempStorage;
-    acc = BlockReduce(*tmp_storage).Sum(acc);
+    acc =
+      BlockReduceDevice(*(BlockReduceDevice::TempStorage*)tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;
@@ -129,6 +151,8 @@ struct tree_aggregator_t {
     }
   }
 };
+
+#undef BlockReduce_
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
@@ -183,11 +207,12 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
     if (item < NITEMS && row < num_rows) {
       int max_votes = 0;
       int best_class = 0;
-      for (int c = 0; c < num_classes; ++c)
+      for (int c = 0; c < num_classes; ++c) {
         if (votes[c * NITEMS + item] > max_votes) {
           max_votes = votes[c * NITEMS + item];
           best_class = c;
         }
+      }
       out[row] = best_class;
     }
   }
@@ -277,12 +302,15 @@ void infer_k_launcher(storage_type forest, predict_params params,
     }
   }
   if (num_items == 0) {
-    int real_num_cols = params.num_cols;
+    int given_num_cols = params.num_cols;
+    // starting with maximum that might fit in shared memory, in case
+    // given_num_cols is a random large int
+    params.num_cols = params.max_shm / sizeof(float);
     // since we're crashing, this will not take too long
     while (get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm)
       --params.num_cols;
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
-           real_num_cols, params.num_cols,
+           given_num_cols, params.num_cols,
            leaf_payload_type == INT_CLASS_LABEL
              ? " (accounting for shared class vote histogram)"
              : "");
@@ -321,7 +349,7 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
       infer_k_launcher<INT_CLASS_LABEL, storage_type>(forest, params, stream);
       break;
     default:
-      ASSERT(false, "unknown leaf_payload_type");
+      ASSERT(false, "internal error: invalid leaf_payload_type");
   }
 }
 

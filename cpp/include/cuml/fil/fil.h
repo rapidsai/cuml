@@ -122,7 +122,7 @@ enum leaf_value_t {
   // to be extended
 };
 
-template <leaf_value_t T>
+template <leaf_value_t leaf_payload_type>
 struct leaf_output_t {};
 template <>
 struct leaf_output_t<FLOAT_SCALAR> {
@@ -172,7 +172,7 @@ struct forest_params_t {
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if (output & OUTPUT_CLASS),
+  // threshold is used to for classification if ((output & OUTPUT_CLASS) != 0),
   // and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions
