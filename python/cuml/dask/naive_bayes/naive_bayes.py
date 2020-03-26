@@ -180,14 +180,16 @@ class MultinomialNB(BaseEstimator,
             MultinomialNB._unique).compute()) \
             if classes is None else classes
 
-        models = [self.client.submit(self._fit, part, classes, self.kwargs)
+        models = [self.client.submit(self._fit, part, classes, self.kwargs,
+                                     pure=False)
                   for w, part in futures.gpu_futures]
 
         self.local_model = reduce(models,
                                   self._merge_counts_to_model,
                                   client=self.client)
         self.local_model = self.client.submit(self._update_log_probs,
-                                              self.local_model)
+                                              self.local_model,
+                                              pure=False)
 
         wait(self.local_model)
 
