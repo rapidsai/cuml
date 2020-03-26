@@ -26,7 +26,12 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup QR decomposition, return the Q matrix
+ * @defgroup QRdecomp QR decomposition
+ * @{
+ */
+
+/**
+ * @brief compute QR decomp and return only Q matrix
  * @param M: input matrix
  * @param Q: Q matrix to be returned (on GPU)
  * @param n_rows: number rows of input matrix
@@ -69,7 +74,7 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
 }
 
 /**
- * @defgroup QR decomposition, return the Q and R matrices
+ * @brief compute QR decomp and return both Q and R matrices
  * @param M: input matrix
  * @param Q: Q matrix to be returned (on GPU)
  * @param R: R matrix to be returned (on GPU)
@@ -78,7 +83,6 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
  * @param cusolverH cusolver handle
  * @param stream cuda stream
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
 template <typename math_t>
 void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
@@ -122,6 +126,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
     cusolverH, Q_nrows, Q_ncols, min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(),
     workspace.data(), Lwork, devInfo.data(), stream));
 }
+/** @} */
 
 };  // end namespace LinAlg
 };  // end namespace MLCommon
