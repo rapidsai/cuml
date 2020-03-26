@@ -168,7 +168,7 @@ class RandomForestClassifier(Base):
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     handle : cuml.Handle
         If it is None, a new one is created just for this class.
-    split_criterion: The criterion used to split nodes.
+    split_criterion : The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY
         2 and 3 not valid for classification
         (default = 0)
@@ -202,11 +202,11 @@ class RandomForestClassifier(Base):
         If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins :  int (default = 8)
+    n_bins : int (default = 8)
         Number of bins used by the split algorithm.
     min_rows_per_node : int or float (default = 2)
         The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows
+        If int then number of sample rows.
         If float the min_rows_per_sample*n_rows
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
@@ -420,7 +420,7 @@ class RandomForestClassifier(Base):
 
         Parameters
         ----------
-        output_class: boolean (default = True)
+        output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
             If true, return a 1 or 0 depending on whether the raw
@@ -431,12 +431,12 @@ class RandomForestClassifier(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -446,15 +446,16 @@ class RandomForestClassifier(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
         fil_model :
-           A Forest Inference model which can be used to perform
-           inferencing on the random forest model.
+            A Forest Inference model which can be used to perform
+            inferencing on the random forest model.
         """
 
         treelite_handle = self._obtain_treelite_handle()
@@ -485,7 +486,7 @@ class RandomForestClassifier(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def concatenate_treelite_handle(self, treelite_handle):
+    def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
@@ -500,7 +501,7 @@ class RandomForestClassifier(Base):
         concat_model_ptr = <size_t> concat_model_handle
         return ctypes.c_void_p(concat_model_ptr).value
 
-    def concatenate_model_bytes(self, concat_model_handle):
+    def _concatenate_model_bytes(self, concat_model_handle):
         cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
         concat_model_bytes = save_model(<ModelHandle> model_ptr)
         self._model_pbuf_bytes = concat_model_bytes
@@ -522,8 +523,9 @@ class RandomForestClassifier(Base):
             These labels should be contiguous integers from 0 to n_classes.
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
+            y to be the same data type as X if they differ. This will increase
+            memory used for the method.
+
         """
         self._set_output_type(X)
 
@@ -736,7 +738,7 @@ class RandomForestClassifier(Base):
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
             used for binary classification problems.
-        output_class: boolean (default = True)
+        output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
             If true, return a 1 or 0 depending on whether the raw
@@ -747,18 +749,18 @@ class RandomForestClassifier(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
             It is applied if output_class == True, else it is ignored
         num_classes : int (default = 2)
-                      number of different classes present in the dataset
+            number of different classes present in the dataset
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -768,10 +770,10 @@ class RandomForestClassifier(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
 
         Returns
         ----------
@@ -966,18 +968,18 @@ class RandomForestClassifier(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         y : NumPy
-           Dense vector (int) of shape (n_samples, 1)
+            Dense vector (int) of shape (n_samples, 1)
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         threshold : float
             threshold is used to for classification
             This is optional and required only while performing the
@@ -996,14 +998,14 @@ class RandomForestClassifier(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
 
         Returns
         -------
-        float
+        accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
         cdef uintptr_t X_ptr, y_ptr
@@ -1102,7 +1104,7 @@ class RandomForestClassifier(Base):
 
     def print_summary(self):
         """
-        prints the summary of the forest used to train and test the model
+        Prints the summary of the forest used to train and test the model
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><size_t> self.rf_forest
@@ -1117,7 +1119,7 @@ class RandomForestClassifier(Base):
 
     def print_detailed(self):
         """
-        prints the detailed information about the forest used to
+        Prints the detailed information about the forest used to
         train and test the Random Forest model
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \

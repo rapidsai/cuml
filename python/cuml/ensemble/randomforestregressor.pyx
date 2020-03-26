@@ -113,7 +113,7 @@ class RandomForestRegressor(Base):
     Random Forest code. It contains a few known limitations:
 
        * GPU-based inference is only supported if the model was trained
-         with 32-bit (float32) datatypes CPU-based inference may be used
+         with 32-bit (float32) datatypes. CPU-based inference may be used
          in this case as a slower fallback.
        * Very deep / very wide models may exhaust available GPU memory.
          Future versions of cuML will provide an alternative algorithm to
@@ -153,7 +153,7 @@ class RandomForestRegressor(Base):
         0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
         tree-building algorithm so GLOBAL_QUANTILE is recommended for most
         cases.
-    split_criterion: int (default = 2)
+    split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
         2 for MSE, or 3 for MAE
@@ -181,10 +181,10 @@ class RandomForestRegressor(Base):
         per node split.
         If int then max_features/n_features.
         If float then max_features is used as a fraction.
-        If 'auto' then max_features=1/sqrt(n_features).
-        If 'sqrt' then max_features=1.0.
+        If 'auto' then max_features=1.0.
+        If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins :  int (default = 8)
+    n_bins : int (default = 8)
         Number of bins used by the split algorithm.
     min_rows_per_node : int or float (default = 2)
         The minimum number of samples (rows) needed to split a node.
@@ -403,7 +403,7 @@ class RandomForestRegressor(Base):
 
         Parameters
         ----------
-        output_class: boolean (default = True)
+        output_class : boolean (default = True)
             This is optional and required only while performing the
             predict operation on the GPU.
             If true, return a 1 or 0 depending on whether the raw
@@ -414,26 +414,28 @@ class RandomForestRegressor(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
         fil_model :
-           A Forest Inference model which can be used to perform
-           inferencing on the random forest model.
+            A Forest Inference model which can be used to perform
+            inferencing on the random forest model.
+
         """
         treelite_handle = self._obtain_treelite_handle()
         return _obtain_fil_model(treelite_handle=treelite_handle,
@@ -460,7 +462,7 @@ class RandomForestRegressor(Base):
 
         return ctypes.c_void_p(mod_handle).value
 
-    def concatenate_treelite_handle(self, treelite_handle):
+    def _concatenate_treelite_handle(self, treelite_handle):
         cdef ModelHandle concat_model_handle = NULL
         cdef vector[ModelHandle] *model_handles \
             = new vector[ModelHandle]()
@@ -475,7 +477,7 @@ class RandomForestRegressor(Base):
         concat_model_ptr = <size_t> concat_model_handle
         return ctypes.c_void_p(concat_model_ptr).value
 
-    def concatenate_model_bytes(self, concat_model_handle):
+    def _concatenate_model_bytes(self, concat_model_handle):
         cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
         concat_model_bytes = save_model(<ModelHandle> model_ptr)
         self.model_pbuf_bytes = concat_model_bytes
@@ -669,6 +671,7 @@ class RandomForestRegressor(Base):
                 fil_sparse_format='auto'):
         """
         Predicts the labels for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -684,12 +687,12 @@ class RandomForestRegressor(Base):
             predict operation on the GPU.
             'naive' - simple inference using shared memory
             'tree_reorg' - similar to naive but trees rearranged to be more
-                           coalescing-friendly
+            coalescing-friendly
             'batch_tree_reorg' - similar to tree_reorg but predicting
-                                 multiple rows per thread block
+            multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -699,14 +702,16 @@ class RandomForestRegressor(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
-        y: NumPy
-           Dense vector (int) of shape (n_samples, 1)
+        y : NumPy
+            Dense vector (int) of shape (n_samples, 1)
+
         """
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
@@ -729,13 +734,14 @@ class RandomForestRegressor(Base):
               fil_sparse_format='auto', predict_model="GPU"):
         """
         Calculates the accuracy metric score of the model for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y: NumPy
+        y : NumPy
             Dense vector (int) of shape (n_samples, 1)
         algo : string (default = 'auto')
             This is optional and required only while performing the
@@ -746,8 +752,8 @@ class RandomForestRegressor(Base):
             'batch_tree_reorg' - similar to tree_reorg but predicting
             multiple rows per thread block
             `auto` - choose the algorithm automatically. Currently
-                     'batch_tree_reorg' is used for dense storage
-                     and 'naive' for sparse storage
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -759,10 +765,11 @@ class RandomForestRegressor(Base):
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
             'auto' - choose the storage type automatically
-                     (currently True is chosen by auto)
-             False - create a dense forest
-             True - create a sparse forest, requires algo='naive'
-                    or algo='auto'
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
         Returns
         ----------
         mean_square_error : float or
@@ -830,6 +837,7 @@ class RandomForestRegressor(Base):
         """
         Returns the value of all parameters
         required to configure this estimator as a dictionary.
+
         Parameters
         -----------
         deep : boolean (default = True)
@@ -848,6 +856,7 @@ class RandomForestRegressor(Base):
         Sets the value of parameters required to
         configure this estimator, it functions similar to
         the sklearn set_params.
+
         Parameters
         -----------
         params : dict of new params
@@ -865,7 +874,7 @@ class RandomForestRegressor(Base):
 
     def print_summary(self):
         """
-        prints the summary of the forest used to train and test the model
+        Prints the summary of the forest used to train and test the model
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
@@ -880,7 +889,7 @@ class RandomForestRegressor(Base):
 
     def print_detailed(self):
         """
-        prints the detailed information about the forest used to
+        Prints the detailed information about the forest used to
         train and test the Random Forest model
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
