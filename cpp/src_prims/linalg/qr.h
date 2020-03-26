@@ -38,7 +38,7 @@ namespace LinAlg {
  * @param n_cols: number columns of input matrix
  * @param cusolverH cusolver handle
  * @param stream cuda stream
- * @param allocate device allocator for temporary buffers during computation
+ * @param allocator device allocator for temporary buffers during computation
  * @{
  */
 template <typename math_t>
