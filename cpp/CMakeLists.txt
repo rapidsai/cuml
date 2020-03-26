@@ -482,6 +482,6 @@ add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
 # - doxygen targets ----------------------------------------------------------
 
 include(cmake/doxygen.cmake)
-add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
+add_doxygen_target(IN_DOXYFILE Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})
