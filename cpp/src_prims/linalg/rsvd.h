@@ -32,7 +32,7 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup randomized singular value decomposition (RSVD) on the column major
+ * @brief randomized singular value decomposition (RSVD) on the column major
  * float type input matrix (Jacobi-based), by specifying no. of PCs and
  * upsamples directly
  * @param M: input matrix
@@ -49,7 +49,6 @@ namespace LinAlg {
  * @param cusolverH cusolver handle
  * @param cublasH cublas handle
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
 template <typename math_t>
 void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
@@ -222,7 +221,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
 }
 
 /**
- * @defgroup randomized singular value decomposition (RSVD) on the column major
+ * @brief randomized singular value decomposition (RSVD) on the column major
  * float type input matrix (Jacobi-based), by specifying the PC and upsampling
  * ratio
  * @param M: input matrix
