@@ -64,12 +64,12 @@ __global__ void devConstructContingencyMatrixSmem(const T *groundTruth,
   }
   __syncthreads();
 
-  int elementId = threadIdx.x + blockDim.x * blockIdx.x;
-  if (elementId < nSamples) {
+  for (int elementId = blockIdx.x * blockDim.x + threadIdx.x;
+       elementId < nSamples; elementId += blockDim.x * gridDim.x) {
     T gt = groundTruth[elementId];
     T pd = predicted[elementId];
 
-    int outputIdx = (gt - outIdxOffset) * outMatWidth + pd - outIdxOffset;
+    int outputIdx = (gt - outIdxOffset) * outMatWidth + (pd - outIdxOffset);
     myAtomicAdd(&sMemMatrix[outputIdx], 1);
   }
   __syncthreads();
