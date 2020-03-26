@@ -127,6 +127,7 @@ void ridgeEig(const cumlHandle_impl &handle, math_t *A, int n_rows, int n_cols,
 
 /**
  * @brief fit a ridge regression model (l2 regularized least squares)
+ * @param handle        cuml handle
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
@@ -137,6 +138,7 @@ void ridgeEig(const cumlHandle_impl &handle, math_t *A, int n_rows, int n_cols,
  * @param intercept     device pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
+ * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
  */
 template <typename math_t>
@@ -193,12 +195,14 @@ void ridgeFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
 
 /**
  * @brief to make predictions with a fitted ordinary least squares and ridge regression model
+ * @param handle        cuml handle
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
  * @param coef          weights of the model
  * @param intercept     bias term of the model
  * @param preds         device pointer to store predictions of size n_rows
+ * @param stream        cuda stream
  */
 template <typename math_t>
 void ridgePredict(const cumlHandle_impl &handle, const math_t *input,
