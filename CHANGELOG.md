@@ -116,7 +116,8 @@
 - PR #1925: Fix failing dask tests
 - PR #1932: Isolating cause of make_blobs failure
 
-# cuML 0.12.0 (Date TBD)
+
+# cuML 0.12.0 (04 Feb 2020)
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
