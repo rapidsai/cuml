@@ -5,6 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
+- PR #1939: Fix syntax error in cuml.common.array
 
 # cuML 0.13.0 (Date TBD)
 
