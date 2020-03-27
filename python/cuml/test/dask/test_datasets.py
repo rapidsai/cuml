@@ -39,7 +39,6 @@ from cuml.test.utils import unit_param, quality_param, stress_param
                                     stress_param(1000)])
 @pytest.mark.parametrize("order", ['F', 'C'])
 @pytest.mark.parametrize("output", ['array', 'dataframe'])
-@pytest.mark.skip(reason="Failing with recent updates to dependent library")
 def test_make_blobs(nrows,
                     ncols,
                     centers,
