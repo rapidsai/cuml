@@ -51,9 +51,9 @@ def test_tree_reduce_futures(n_parts, cluster):
 
         a = [client.submit(s, i) for i in range(n_parts)]
         b = tree_reduce(a)
-        b = client.compute(b, sync=True)
+        c = client.compute(b, sync=True)
 
-        assert(sum(range(n_parts)) == b)
+        assert(sum(range(n_parts)) == c)
     finally:
         client.close()
 
@@ -70,9 +70,9 @@ def test_reduce_futures(n_parts, cluster):
 
         a = [client.submit(s, i) for i in range(n_parts)]
         b = reduce(a, sum)
-        b = client.compute(b, sync=True)
+        c = client.compute(b, sync=True)
 
         # Testing this gets the correct result for now.
-        assert(sum(range(n_parts)) == b)
+        assert(sum(range(n_parts)) == c)
     finally:
         client.close()
