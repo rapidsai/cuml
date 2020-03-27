@@ -24,6 +24,7 @@
 - PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
+- PR #1874: Add predict_proba function to RF classifier
 - PR #1815: Adding KNN parameter to UMAP
 
 ## Improvements
@@ -66,6 +67,7 @@
 - PR #1891: Additional improvements to naive bayes tree reduction
 
 ## Bug Fixes
+- PR #1835 : Fix calling default RF Classification always
 - PT #1904: replace cub sort
 - PR #1833: Fix depth issue in shallow RF regression estimators
 - PR #1770: Warn that KalmanFilter is deprecated
@@ -102,9 +104,17 @@
 - PR #1851: Fix for cuDF behavior change for multidimensional arrays
 - PR #1852: Remove Thrust warnings
 - PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1876: UMAP exponential decay parameters fix
 - PR #1887: Fix hasattr for missing attributes on base models
 - PR #1877: Remove resetting index in shuffling in train_test_split
+- PR #1893: Updating UCX in comms to match current UCX-py
 - PR #1888: Small train_test_split test fix
+- PR #1899: Fix dask `extract_partitions()`, remove transformation as instance variable in PCA and TSVD and match sklearn APIs
+- PR #1920: Temporarily raising threshold for UMAP reproducibility tests
+- PR #1918: Create memleak fixture to skip memleak tests in CI for now
+- PR #1926: Update batch matrix test margins
+- PR #1925: Fix failing dask tests
+- PR #1932: Isolating cause of make_blobs failure
 
 # cuML 0.12.0 (Date TBD)
 
