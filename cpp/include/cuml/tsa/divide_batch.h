@@ -53,5 +53,8 @@ void divide_batch_execute(const cumlHandle& handle, const double* d_in,
                           const bool* d_mask, const int* d_index,
                           double* d_out0, double* d_out1, int batch_size,
                           int n_obs);
+void divide_batch_execute(const cumlHandle& handle, const int* d_in,
+                          const bool* d_mask, const int* d_index, int* d_out0,
+                          int* d_out1, int batch_size, int n_obs);
 
 }  // namespace ML

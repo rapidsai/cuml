@@ -95,8 +95,14 @@ def seas_test(y, s, handle=None):
             "ERROR: Invalid period for the seasonal differencing test: {}"
             .format(s))
 
-    d_y, n_obs, batch_size, dtype = \
-        input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
+    if(isinstance(y, cumlArray)):
+        d_y = y
+        n_obs = d_y.shape[0]
+        batch_size = d_y.shape[1] if len(d_y.shape) > 1 else 1
+        dtype = d_y.dtype
+    else:
+        d_y, n_obs, batch_size, dtype = \
+            input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
 
     h_y = d_y.to_output("numpy")
