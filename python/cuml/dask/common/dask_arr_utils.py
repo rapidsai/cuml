@@ -29,12 +29,19 @@ from tornado import gen
 from dask.distributed import default_client
 from toolz import first
 
-from cuml.dask.common.input_utils import _extract_partitions
+from cuml.dask.common.part_utils import _extract_partitions
 
 from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import wait
 from dask import delayed
+
+
+def validate_dask_array(darray, client=None):
+    if len(darray.chunks) > 2:
+        raise ValueError("Input array cannot have more than two dimensions")
+    elif len(darray.chunks) == 2 and len(darray.chunks[1]) > 1:
+        raise ValueError("Input array cannot be chunked along axis 1")
 
 
 @gen.coroutine
