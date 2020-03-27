@@ -115,11 +115,15 @@ class CumlArray(Buffer):
         if data is None:
             raise TypeError("To create an empty Array, use the class method" +
                             " Array.empty().")
+        elif isinstance(data, memoryview):
+            data = np.asarray(data)
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
                                 " creating an Array from " + type(data) + ".")
+            detailed_construction = True
+        elif dtype is not None and shape is not None and order is not None:
             detailed_construction = True
         else:
             detailed_construction = False
@@ -127,8 +131,6 @@ class CumlArray(Buffer):
         ary_interface = False
 
         # Base class (Buffer) constructor call
-        if isinstance(data, bytearray) or isinstance(data, bytes):
-            data = memoryview(data)
         size, shape = _get_size_from_shape(shape, dtype)
         super(CumlArray, self).__init__(data=data, owner=owner, size=size)
 
@@ -330,9 +332,12 @@ class CumlArray(Buffer):
 
 
 def _check_low_level_type(data):
-    if isinstance(data, (DeviceBuffer, int, bytearray, bytes, memoryview,
-                         Buffer)):
+    if not (
+        hasattr(data, "__array_interface__")
+        or hasattr(data, "__cuda_array_interface__")
+    ):
         return True
-
+    elif isinstance(data, (DeviceBuffer, Buffer)):
+        return True
     else:
         return False
