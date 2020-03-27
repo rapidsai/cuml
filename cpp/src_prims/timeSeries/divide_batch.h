@@ -30,6 +30,8 @@
 #include "cuml/common/cuml_allocator.hpp"
 #include "utils.h"
 
+/// TODO: unit tests!
+
 namespace MLCommon {
 namespace TimeSeries {
 
@@ -120,6 +122,10 @@ __global__ void divide_batch_kernel(const DataT* d_in, const bool* d_mask,
     b_out[i] = b_in[i];
   }
 }
+
+/// TODO: version of the kernel for small series (e.g the index: 1 element)
+
+/// TODO: support division into more than two sub-batches
 
 /**
  * Batch division step 2: create both sub-batches from the mask and index

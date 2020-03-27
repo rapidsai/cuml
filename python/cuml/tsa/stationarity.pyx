@@ -76,8 +76,14 @@ def kpss_test(y, d=1, D=0, s=0, pval_threshold=0.05, handle=None):
     stationarity : List[bool]
         A list of the stationarity test result for each series in the batch
     """
-    d_y, n_obs, batch_size, dtype = \
-        input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
+    if(isinstance(y, cumlArray)):
+        d_y = y
+        n_obs = d_y.shape[0]
+        batch_size = d_y.shape[1] if len(d_y.shape) > 1 else 1
+        dtype = d_y.dtype
+    else:
+        d_y, n_obs, batch_size, dtype = \
+            input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
 
     if handle is None:
