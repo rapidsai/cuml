@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1944: Support for dask_cudf.core.Series in _extract_partitions
 
 ## Bug Fixes
 
