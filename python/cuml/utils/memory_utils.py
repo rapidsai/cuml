@@ -61,7 +61,7 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     # using_allocator was introduced in CuPy 7. Once 7+ is required,
     # this check can be removed alongside the else code path.
     if check_min_cupy_version("7.0"):
-        with cp.cuda.memory.using_allocator(rmm.rmm_cupy_allocator):
+        with cp.cuda.using_allocator(rmm.rmm_cupy_allocator):
             result = cupy_fn(*args, **kwargs)
 
     else:
