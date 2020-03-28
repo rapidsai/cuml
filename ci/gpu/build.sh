@@ -48,7 +48,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "nvstrings=${MINOR_VERSION}" \
-      "libcumlprims=${MINOR_VERSION}" \
+      "libcumlprims=0.13" \
       "lapack" \
       "cmake==3.14.3" \
       "umap-learn" \
@@ -128,7 +128,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak"
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
