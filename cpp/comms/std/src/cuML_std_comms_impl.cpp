@@ -43,7 +43,7 @@ constexpr bool UCX_ENABLED = false;
 #include <cuml/common/logger.hpp>
 
 #include <thread>
-        
+
 #include <cuda_runtime.h>
 
 #include <utils.h>
