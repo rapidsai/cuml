@@ -22,6 +22,8 @@ import cupy as cp
 
 from dask.distributed import Client
 
+from cuml.dask.datasets import make_blobs
+
 from cuml.test.utils import unit_param, quality_param, stress_param
 
 
@@ -49,8 +51,6 @@ def test_make_blobs(nrows,
 
     c = Client(cluster)
     try:
-        from cuml.dask.datasets import make_blobs
-
         X, y = make_blobs(nrows, ncols,
                           centers=centers,
                           cluster_std=cluster_std,
@@ -62,20 +62,21 @@ def test_make_blobs(nrows,
         assert X.npartitions == nparts
         assert y.npartitions == nparts
 
-        X = X.compute()
-        y = y.compute()
+        X_local = X.compute()
+        y_local = y.compute()
 
-        assert X.shape == (nrows, ncols)
-        assert y.shape == (nrows, 1)
+        assert X_local.shape == (nrows, ncols)
 
         if output == 'dataframe':
-            assert len(y[0].unique()) == centers
-            assert X.dtypes.unique() == [dtype]
+            assert len(y_local[0].unique()) == centers
+            assert X_local.dtypes.unique() == [dtype]
+            assert y_local.shape == (nrows, 1)
 
         elif output == 'array':
             import cupy as cp
-            assert len(cp.unique(y)) == centers
-            assert y.dtype == dtype
+            assert len(cp.unique(y_local)) == centers
+            assert y_local.dtype == dtype
+            assert y_local.shape == (nrows, )
 
     finally:
         c.close()

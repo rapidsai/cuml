@@ -247,7 +247,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
       }
       case Schur_op: {
         constexpr T zero_tolerance =
-          std::is_same<T, double>::value ? 1e-8 : 1e-4f;
+          std::is_same<T, double>::value ? 1e-7 : 1e-3f;
 
         int n = params.m;
         Matrix<T> SbM(n, n, params.batch_size, handle, allocator, stream);
@@ -415,10 +415,10 @@ const std::vector<MatrixInputs<double>> inputsd = {
   {DiffA_op, 15, 1, 37, 1, 1, 0, 0, 1e-6},
   {Hessenberg_op, 10, 15, 15, 15, 15, 0, 0, 1e-6},
   {Hessenberg_op, 30, 61, 61, 61, 61, 0, 0, 1e-6},
-  {Schur_op, 7, 12, 12, 12, 12, 0, 0, 1e-4},
-  {Schur_op, 17, 77, 77, 77, 77, 0, 0, 1e-4},
-  {Lyapunov_op, 5, 14, 14, 14, 14, 0, 0, 1e-3},
-  {Lyapunov_op, 13, 100, 100, 100, 100, 0, 0, 1e-3}};
+  {Schur_op, 7, 12, 12, 12, 12, 0, 0, 1e-3},
+  {Schur_op, 17, 77, 77, 77, 77, 0, 0, 1e-3},
+  {Lyapunov_op, 5, 14, 14, 14, 14, 0, 0, 1e-2},
+  {Lyapunov_op, 13, 100, 100, 100, 100, 0, 0, 1e-2}};
 
 // Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)
 const std::vector<MatrixInputs<float>> inputsf = {
