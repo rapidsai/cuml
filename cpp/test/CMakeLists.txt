@@ -273,6 +273,7 @@ if(BUILD_PRIMS_TESTS)
 
     add_dependencies(prims cub)
     add_dependencies(prims cutlass)
+    add_dependencies(prims spdlog)
 
     target_link_libraries(prims
       gtestlib
