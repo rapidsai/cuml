@@ -220,6 +220,17 @@ ML::Logger::get.setPattern(YourFavoriteFormat);
 ```
 One can also use the corresponding `getPattern()` method to know the current format as well.
 
+### Temporarily changing the logging pattern
+Sometimes, we need to temporarily change the log pattern (eg: for reporting decision tree structure). This can be achieved in a RAII-like approach as follows:
+```cpp
+{
+  PatternSetter _(MyNewTempFormat);
+  // new log format is in effect from here onwards
+  doStuff();
+  // once the above temporary object goes out-of-scope, the old format will be restored
+}
+```
+
 ## Documentation
 All external interfaces need to have a complete [doxygen](http://www.doxygen.nl) API documentation. This is also recommended for internal interfaces.
 
