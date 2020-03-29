@@ -1,8 +1,20 @@
+# cuML 0.14.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
+- PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
 - PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
+- PR #1766: Mean absolute error implementation with cupy
+- PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
@@ -10,7 +22,12 @@
 - PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
 - PR #1714: Add `print_env.sh` file to gather important environment details
 - PR #1750: LinearRegression CumlArray for configurable output
+- PR #1767: Single GPU decomposition models configurable output
+- PR #1646: Using FIL to predict in MNMG RF
 - PR #1778: Make cuML Handle picklable
+- PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
+- PR #1874: Add predict_proba function to RF classifier
+- PR #1815: Adding KNN parameter to UMAP
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
@@ -18,6 +35,7 @@
 - PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
 - PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
 - PR #1628: Remove submodules from cuML
+- PR #1755: Expose the build_treelite function for python
 - PR #1649: Add the fil_sparse_format variable option to RF API
 - PR #1647: storage_type=AUTO uses SPARSE for large models
 - PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
@@ -31,10 +49,29 @@
 - PR #1726: Decorator to allocate CuPy arrays with RMM
 - PR #1719: UMAP random seed reproducibility
 - PR #1748: Test serializing `CumlArray` objects
+- PR #1776: Refactoring pca/tsvd distributed
 - PR #1762: Update CuPy requirement to 7
 - PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1790: Add support for multiple seeding in k-means++
+- PR #1805: Adding new Dask cuda serializers to naive bayes + a trivial perf update
+- PR #1812: C++: bench: UMAP benchmark cases added
+- PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
+- PR #1824: C++: improving the performance of UMAP algo
+- PR #1816: Add ARIMA notebook
+- PR #1856: Update docs for 0.13
+- PR #1827: Add HPO demo Notebook
+- PR #1825: `--nvtx` option in `build.sh`
+- PR #1847: Update XGBoost version for CI
+- PR #1837: Simplify cuML Array construction
+- PR #1848: Rely on subclassing for cuML Array serialization
+- PR #1866: Minimizing client memory pressure on Naive Bayes
+- PR #1788: Removing complexity bottleneck in S-ARIMA
+- PR #1891: Additional improvements to naive bayes tree reduction
 
 ## Bug Fixes
+- PR #1835 : Fix calling default RF Classification always
+- PT #1904: replace cub sort
+- PR #1833: Fix depth issue in shallow RF regression estimators
 - PR #1770: Warn that KalmanFilter is deprecated
 - PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
 - PR #1594: Train-test split is now reproducible
@@ -61,7 +98,25 @@
 - PR #1749: bug fix rf classifier/regressor on seg fault in bench
 - PR #1751: Updated RF documentation
 - PR #1765: Update the checks for using RF GPU predict
+- PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
 - PR #1793: Updated fil pyx to solve memory leakage issue
+- PR #1810: Quickfix - chunkage in dask make_regression
+- PR #1842: DistributedDataHandler not properly setting 'multiple'
+- PR #1849: Critical fix in ARIMA initial estimate
+- PR #1851: Fix for cuDF behavior change for multidimensional arrays
+- PR #1852: Remove Thrust warnings
+- PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1876: UMAP exponential decay parameters fix
+- PR #1887: Fix hasattr for missing attributes on base models
+- PR #1877: Remove resetting index in shuffling in train_test_split
+- PR #1893: Updating UCX in comms to match current UCX-py
+- PR #1888: Small train_test_split test fix
+- PR #1899: Fix dask `extract_partitions()`, remove transformation as instance variable in PCA and TSVD and match sklearn APIs
+- PR #1920: Temporarily raising threshold for UMAP reproducibility tests
+- PR #1918: Create memleak fixture to skip memleak tests in CI for now
+- PR #1926: Update batch matrix test margins
+- PR #1925: Fix failing dask tests
+- PR #1932: Isolating cause of make_blobs failure
 
 # cuML 0.12.0 (Date TBD)
 

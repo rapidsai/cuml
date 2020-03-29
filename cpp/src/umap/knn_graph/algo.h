@@ -37,12 +37,12 @@ using namespace ML;
 
 /**
  * void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, long *res_I, float *res_D,
+                     float *search_items, IntType n, int64_t *res_I, float *res_D,
                      IntType k, cudaStream_t s)
  */
 template <typename T>
 void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
-              long *knn_indices, T *knn_dists, int n_neighbors,
+              int64_t *knn_indices, T *knn_dists, int n_neighbors,
               UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
   std::vector<float *> ptrs(1);
