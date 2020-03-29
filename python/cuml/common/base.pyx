@@ -169,7 +169,7 @@ class Base:
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
 
-        self._mirror_input = True if self.output_type is 'input' else False
+        self._mirror_input = True if self.output_type == 'input' else False
 
     def __repr__(self):
         """
@@ -254,6 +254,8 @@ class Base:
                 return self.__dict__[real_name].to_output(self.output_type)
             else:
                 return self.__dict__[real_name]
+        else:
+            raise AttributeError
 
     def _set_output_type(self, input):
         """
@@ -271,7 +273,7 @@ class Base:
         class output type and global output type.
         """
         if self._mirror_input:
-            return _input_type_to_str[type(input)]
+            return _input_to_type(input)
         else:
             return self.output_type
 

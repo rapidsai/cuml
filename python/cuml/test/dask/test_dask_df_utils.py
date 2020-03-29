@@ -33,17 +33,20 @@ def test_to_dask_df(dtype, nparts, cluster):
 
         X, y = make_blobs(1e3, 25, n_parts=nparts, dtype=dtype)
 
-        X_df = to_dask_df(X).compute()
-        y_df = to_dask_df(y).compute()
+        X_df = to_dask_df(X)
+        y_df = to_dask_df(y)
 
-        X = X.compute()
-        y = y.compute()
+        X_df_local = X_df.compute()
+        y_df_local = y_df.compute()
 
-        assert X.shape == X_df.shape
-        assert y.shape == y_df.shape
+        X_local = X.compute()
+        y_local = y.compute()
 
-        assert X.dtypes.unique() == X_df.dtypes.unique()
-        assert y.dtypes.unique() == y_df.dtypes.unique()
+        assert X_local.shape == X_df_local.shape
+        assert y_local.shape == y_df_local.shape
+
+        assert X_local.dtypes.unique() == X_df_local.dtypes.unique()
+        assert y_local.dtypes.unique() == y_df_local.dtypes.unique()
 
     finally:
         c.close()

@@ -92,6 +92,7 @@ if(BUILD_CUML_TESTS)
       sg/ols.cu
       sg/pca_test.cu
       sg/quasi_newton.cu
+      sg/rf_accuracy_test.cu
       sg/rf_test.cu
       sg/rf_treelite_test.cu
       sg/ridge.cu
@@ -202,6 +203,7 @@ if(BUILD_PRIMS_TESTS)
       prims/eltwise2d.cu
       prims/entropy.cu
       prims/epsilon_neighborhood.cu
+      prims/fast_int_div.cu
       prims/fused_l2_nn.cu
       prims/gather.cu
       prims/gemm.cu
