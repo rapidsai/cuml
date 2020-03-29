@@ -182,7 +182,36 @@ To avoid spurious code style violations we specify the exact clang-format versio
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
 
 ## Logging
-Add once https://github.com/rapidsai/cuml/issues/100 is addressed.
+### Introduction
+Anything and everything about logging is defined inside [logger.hpp](../../cpp/include/cuml/common/logger.hpp). It uses [spdlog](https://github.com/gabime/spdlog) underneath, but this information is transparent to all.
+
+### Usage
+```cpp
+#include <cuml/common/logger.hpp>
+
+// Inside your method or function, use any of these macros
+CUML_LOG_TRACE("Hello %s!", "world");
+CUML_LOG_DEBUG("Hello %s!", "world");
+CUML_LOG_INFO("Hello %s!", "world");
+CUML_LOG_WARN("Hello %s!", "world");
+CUML_LOG_ERROR("Hello %s!", "world");
+CUML_LOG_CRITICAL("Hello %s!", "world");
+```
+
+### Setting logging level
+There are 7 logging levels with each successive level becoming quieter:
+1. CUML_LEVEL_TRACE
+2. CUML_LEVEL_DEBUG
+3. CUML_LEVEL_INFO
+4. CUML_LEVEL_WARN
+5. CUML_LEVEL_ERROR
+6. CUML_LEVEL_CRITICAL
+7. CUML_LEVEL_OFF
+Pass one of these as per your needs into the `setLevel()` method as follows:
+```cpp
+ML::Logger::get.setLevel(CUML_LEVEL_WARN);
+// From now onwards, this will print only WARN and above kind of messages
+```
 
 ## Documentation
 All external interfaces need to have a complete [doxygen](http://www.doxygen.nl) API documentation. This is also recommended for internal interfaces.
