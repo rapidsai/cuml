@@ -198,7 +198,7 @@ CUML_LOG_ERROR("Hello %s!", "world");
 CUML_LOG_CRITICAL("Hello %s!", "world");
 ```
 
-### Setting logging level
+### Changing logging level
 There are 7 logging levels with each successive level becoming quieter:
 1. CUML_LEVEL_TRACE
 2. CUML_LEVEL_DEBUG
@@ -212,6 +212,13 @@ Pass one of these as per your needs into the `setLevel()` method as follows:
 ML::Logger::get.setLevel(CUML_LEVEL_WARN);
 // From now onwards, this will print only WARN and above kind of messages
 ```
+
+### Changing logging pattern
+Pass the [format string](https://github.com/gabime/spdlog/wiki/3.-Custom-formatting) as follows in order use a different logging pattern than the default.
+```cpp
+ML::Logger::get.setPattern(YourFavoriteFormat);
+```
+One can also use the corresponding `getPattern()` method to know the current format as well.
 
 ## Documentation
 All external interfaces need to have a complete [doxygen](http://www.doxygen.nl) API documentation. This is also recommended for internal interfaces.
