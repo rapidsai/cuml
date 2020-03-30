@@ -19,10 +19,9 @@ cmake_policy(SET CMP0079 NEW)
 
 project(cuml_test LANGUAGES CXX CUDA)
 
-include_directories(
+set(CUML_TEST_INCLUDE_DIRS
   ${GTEST_DIR}/include
-  ${TREELITE_DIR}/runtime/native/include
-)
+  ${TREELITE_DIR}/runtime/native/include)
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -40,8 +39,8 @@ if(BUILD_CUML_TESTS)
     treelite_runtimelib
     ${CUML_CPP_TARGET}
     ${CUML_C_TARGET}
-    pthread
-    ${ZLIB_LIBRARIES})
+    pthread)
+
   # (please keep the filenames in alphabetical order)
   add_executable(ml
     sg/cd_test.cu
@@ -67,7 +66,9 @@ if(BUILD_CUML_TESTS)
     sg/tsne_test.cu
     sg/tsvd_test.cu
     sg/umap_test.cu)
-  add_dependencies(ml cutlass)
+
+  target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+
   target_link_libraries(ml
     gtestlib
     gtest_mainlib
@@ -88,12 +89,14 @@ if(BUILD_CUML_MG_TESTS)
     ${CUDA_nvgraph_LIBRARY}
     faisslib
     ${CUML_CPP_TARGET}
-    pthread
-    ${ZLIB_LIBRARIES})
+    pthread)
+
   # (please keep the filenames in alphabetical order)
   add_executable(ml_mg
     mg/test_ml_mg_utils.cu)
-  add_dependencies(ml_mg cutlass)
+
+  target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+
   target_link_libraries(ml_mg
     gtestlib
     gtest_mainlib
@@ -111,9 +114,9 @@ if(BUILD_PRIMS_TESTS)
     ${CUDA_cusparse_LIBRARY}
     pthread
     faisslib
-    ${ZLIB_LIBRARIES}
     OpenMP::OpenMP_CXX
     Threads::Threads)
+
   # (please keep the filenames in alphabetical order)
   add_executable(prims
     prims/add.cu
@@ -214,7 +217,11 @@ if(BUILD_PRIMS_TESTS)
     prims/unary_op.cu
     prims/vMeasure.cu
     prims/weighted_mean.cu)
+
+  target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+
   add_dependencies(prims cutlass)
+
   target_link_libraries(prims
     gtestlib
     gtest_mainlib
