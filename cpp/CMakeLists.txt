@@ -134,12 +134,6 @@ set(CMAKE_MODULE_PATH ${cuml_SOURCE_DIR}/cmake)
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
 
-set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING
-  "Path to cub repo")
-
-set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
-  "Path to the cutlass repo")
-
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
@@ -244,33 +238,15 @@ set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
 ##############################################################################
+# - dependencies -------------------------------------------------------------
+
+include(cmake/Dependencies.cmake)
+
+##############################################################################
 # - Cloning header only libraries---------------------------------------------
 
 include(ExternalProject)
 
-ExternalProject_Add(cub
-  GIT_REPOSITORY    https://github.com/NVlabs/cub.git
-  GIT_TAG           v1.8.0
-  PREFIX            ${CUB_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-)
-
-ExternalProject_Add(cutlass
-  GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
-  GIT_TAG           v1.0.1
-  PREFIX            ${CUTLASS_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-)
-
-# dependencies will be added in sequence, so if a new project `project_b` is added
-# after `project_a`, please add the dependency add_dependencies(project_b project_a)
-# This allows the cloning to happen sequentially, enhancing the printing at
-# compile time, helping significantly to troubleshoot build issues.
-add_dependencies(cutlass cub)
 
 ##############################################################################
 # - FAISS Build  -------------------------------------------------------------
