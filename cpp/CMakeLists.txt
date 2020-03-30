@@ -239,7 +239,7 @@ include(cmake/Dependencies.cmake)
 ##############################################################################
 # - include paths ------------------------------------------------------------
 
-include_directories(
+set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
   src
   src_prims
@@ -252,15 +252,23 @@ include_directories(
   ${TREELITE_DIR}/include/fmt
   ${ZLIB_INCLUDE_DIRS$})
 
-set(PRIMS_TEST_UTILS
-    src_prims/cuda_utils.h
-    src_prims/utils.h)
+set(CUML_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
+  ${ZLIB_LIBRARIES}
+  ${Protobuf_LIBRARIES}
+  treelitelib
+  dmlclib
+  faisslib)
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
-
   set(CUML_CPP_TARGET "cuml++")
 
   add_library(${CUML_CPP_TARGET} SHARED
@@ -295,22 +303,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsvd/tsvd.cu
     src/umap/umap.cu
     src/arima/batched_kalman.cu
-    src/arima/batched_arima.cu
-    )
-
-  set(CUML_LINK_LIBRARIES
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_CUDART_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
-    ${ZLIB_LIBRARIES}
-    ${Protobuf_LIBRARIES}
-    treelitelib
-    dmlclib
-    faisslib
-    )
+    src/arima/batched_arima.cu)
 
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
@@ -320,6 +313,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} nvToolsExt)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
+
+  target_include_directories(${CUML_CPP_TARGET}
+    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
   # If we export the libdmlc symbols, they can lead to weird crashes with other
@@ -331,7 +327,6 @@ endif(BUILD_CUML_CPP_LIBRARY)
 # - build libcuml C shared library -------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
-
   set(CUML_C_TARGET "cuml")
 
   add_library(${CUML_C_TARGET} SHARED
@@ -340,6 +335,9 @@ if(BUILD_CUML_C_LIBRARY)
     src/glm/glm_api.cpp
     src/holtwinters/holtwinters_api.cpp
     src/svm/svm_api.cpp)
+
+  target_include_directories(${CUML_C_TARGET}
+    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 
   target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
@@ -359,7 +357,7 @@ if(BUILD_CUML_STD_COMMS)
 endif(BUILD_CUML_STD_COMMS)
 
 if(BUILD_CUML_MPI_COMMS)
-	add_subdirectory(comms/mpi)
+  add_subdirectory(comms/mpi)
 endif(BUILD_CUML_MPI_COMMS)
 
 ###################################################################################################
@@ -376,7 +374,7 @@ install(TARGETS ${CUML_CPP_TARGET}
                 ${CUML_C_TARGET}
         DESTINATION lib)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml DESTINATION include)
+install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
