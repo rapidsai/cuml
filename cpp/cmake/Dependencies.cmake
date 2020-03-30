@@ -24,22 +24,76 @@ ExternalProject_Add(cub
   PREFIX            ${CUB_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-)
+  INSTALL_COMMAND   "")
 
 set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
   "Path to the cutlass repo")
+set(CUTLASS_VERSION v1.0.1 CACHE STRING "cutlass branch version to use")
 ExternalProject_Add(cutlass
   GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
-  GIT_TAG           v1.0.1
+  GIT_TAG           ${CUTLASS_VERSION}
   PREFIX            ${CUTLASS_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-)
+  INSTALL_COMMAND   "")
+
+set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
+  "Path to FAISS source directory")
+set(FAISS_VERSION v1.6.1 CACHE STRING "faiss branch version to use")
+ExternalProject_Add(faiss
+  GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
+  GIT_TAG           ${FAISS_VERSION}
+  CONFIGURE_COMMAND LIBS=-pthread
+                    CPPFLAGS=-w
+                    LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
+                            ${CMAKE_CURRENT_BINARY_DIR}/faiss/src/faiss/configure
+                            --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
+                            --with-blas=${BLAS_LIBRARIES}
+                            --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
+                            --with-cuda-arch=${FAISS_GPU_ARCHS}
+                            -v
+  PREFIX            ${FAISS_DIR}
+  BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM} -j${PARALLEL_LEVEL} VERBOSE=1
+  INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
+  UPDATE_COMMAND    ""
+  BUILD_IN_SOURCE   1)
+ExternalProject_Get_Property(faiss install_dir)
+add_library(faisslib STATIC IMPORTED)
+set_property(TARGET faisslib PROPERTY
+  IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
+
+set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
+  "Path to treelite install directory")
+set(TREELITE_TAG 6fd01e4f1890950bbcf9b124da24e886751bffe6 CACHE STRING
+  "Treelite commit tag to be used")
+ExternalProject_Add(treelite
+    GIT_REPOSITORY    https://github.com/dmlc/treelite.git
+    GIT_TAG           ${TREELITE_TAG}
+    PREFIX            ${TREELITE_DIR}
+    CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
+                      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                      -DENABLE_PROTOBUF=ON
+                      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
+    UPDATE_COMMAND    ""
+    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true)
+add_library(dmlclib STATIC IMPORTED)
+add_library(treelitelib STATIC IMPORTED)
+add_library(treelite_runtimelib SHARED IMPORTED)
+set_property(TARGET dmlclib PROPERTY
+  IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
+set_property(TARGET treelitelib PROPERTY
+  IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
+set_property(TARGET treelite_runtimelib PROPERTY
+  IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
 
 # dependencies will be added in sequence, so if a new project `project_b` is added
 # after `project_a`, please add the dependency add_dependencies(project_b project_a)
 # This allows the cloning to happen sequentially, enhancing the printing at
 # compile time, helping significantly to troubleshoot build issues.
 add_dependencies(cutlass cub)
+add_dependencies(faiss cutlass)
+add_dependencies(faisslib faiss)
+add_dependencies(treelite faiss)
+add_dependencies(dmlclib treelite)
+add_dependencies(treelitelib treelite)
+add_dependencies(treelite_runtimelib treelite)
