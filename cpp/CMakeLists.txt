@@ -363,7 +363,7 @@ endif(BUILD_CUML_MPI_COMMS)
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-if (BUILD_CUML_EXAMPLES)
+if(BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
 endif(BUILD_CUML_EXAMPLES)
 
@@ -379,7 +379,9 @@ install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
 
-add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
+if(BUILD_CUML_BENCH)
+  add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
+endif(BUILD_CUML_BENCH)
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
