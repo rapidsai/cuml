@@ -29,7 +29,6 @@ if(BUILD_CUML_TESTS)
     ${CUDA_cublas_LIBRARY}
     ${CUDA_curand_LIBRARY}
     ${CUDA_cusolver_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
     ${CUDA_CUDART_LIBRARY}
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
