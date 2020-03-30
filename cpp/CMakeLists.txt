@@ -241,9 +241,9 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  src
-  src_prims
-  test/prims
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
+  ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
   ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
@@ -261,8 +261,6 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_nvgraph_LIBRARY}
   ${ZLIB_LIBRARIES}
   ${Protobuf_LIBRARIES}
-  treelitelib
-  dmlclib
   faisslib)
 
 ##############################################################################
@@ -317,7 +315,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_include_directories(${CUML_CPP_TARGET}
     PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 
-  target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
+  target_link_libraries(${CUML_CPP_TARGET}
+    ${CUML_LINK_LIBRARIES}
+    treelitelib
+    dmlclib)
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
