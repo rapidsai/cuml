@@ -129,7 +129,7 @@ endif()
 set(Protobuf_USE_STATIC_LIBS ON)
 find_package(Protobuf REQUIRED)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${cuml_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
@@ -149,7 +149,7 @@ set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
 
-set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
+set(CUML_INCLUDE_DIR ${cuml_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
 
 ##############################################################################
