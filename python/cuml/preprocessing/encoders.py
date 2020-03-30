@@ -86,6 +86,7 @@ class OneHotEncoder:
         self.drop = drop
         self._fitted = False
         self.drop_idx_ = None
+        self._features = None
         self._encoders = None
         if sparse:
             raise ValueError('Sparse matrix are not fully supported by cupy '
@@ -152,6 +153,15 @@ class OneHotEncoder:
                    "'first', None or a dict, got {}")
             raise ValueError(msg.format(type(self.drop)))
 
+    def get_categories_(self):
+        """
+        Returns categories used for the one hot encoding in the correct order.
+
+        This copies the categories to the CPU and should only be used to check
+        the order of the categories.
+        """
+        return [self._encoders[f].classes_.to_array() for f in self._features]
+
     def fit(self, X):
         """
         Fit OneHotEncoder to X.
@@ -165,12 +175,14 @@ class OneHotEncoder:
         """
         self._validate_keywords()
         if type(self.categories) is str and self.categories == 'auto':
+            self._features = X.columns
             self._encoders = {
                 feature: LabelEncoder(handle_unknown=self.handle_unknown).fit(
                     X[feature])
                 for feature in X.columns
             }
         else:
+            self._features = self.categories.columns
             self._encoders = dict()
             for feature in self.categories.columns:
                 le = LabelEncoder(handle_unknown=self.handle_unknown)

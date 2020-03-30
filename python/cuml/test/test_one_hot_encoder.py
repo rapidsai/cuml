@@ -181,3 +181,14 @@ def test_onehot_drop_exceptions(drop, pattern):
 
     with pytest.raises(ValueError, match=pattern):
         OneHotEncoder(sparse=False, drop=drop).fit(X)
+
+
+def test_onehot_get_categories():
+    X = DataFrame({'chars': ['c', 'b', 'd'], 'ints': [2, 1, 0]})
+
+    ref = [np.array(['b', 'c', 'd']), np.array([0, 1, 2])]
+    enc = OneHotEncoder().fit(X)
+    cats = enc.get_categories_()
+
+    for i in range(len(ref)):
+        np.testing.assert_array_equal(ref[i], cats[i])
