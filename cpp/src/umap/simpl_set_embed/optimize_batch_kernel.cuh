@@ -217,7 +217,7 @@ __global__ void optimize_batch_kernel(
   }
   epoch_of_next_negative_sample[row] =
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
-}
+}  // namespace Algo
 
 template <typename T, int TPB_X>
 void call_optimize_batch_kernel(
