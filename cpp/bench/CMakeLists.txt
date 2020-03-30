@@ -1,3 +1,4 @@
+#=============================================================================
 # Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,36 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+#=============================================================================
 
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
 ###################################################################################################
 # - build cuml bench executable -------------------------------------------------------------------
-
-set(GBENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark)
-set(GBENCH_BINARY_DIR ${PROJECT_BINARY_DIR}/benchmark)
-set(GBENCH_INSTALL_DIR ${GBENCH_BINARY_DIR}/install)
-set(GBENCH_LIB ${GBENCH_INSTALL_DIR}/lib/libbenchmark.a)
-
-include(ExternalProject)
-ExternalProject_Add(benchmark
-  GIT_REPOSITORY    https://github.com/google/benchmark.git
-  GIT_TAG           bf4f2ea0bd1180b34718ac26eb79b170a4f6290e
-  PREFIX            ${GBENCH_DIR}
-  CMAKE_ARGS        -DBENCHMARK_ENABLE_GTEST_TESTS=OFF
-                    -DBENCHMARK_ENABLE_TESTING=OFF
-                    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                    -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib
-  UPDATE_COMMAND    ""
-)
-
-add_library(benchmarklib STATIC IMPORTED)
-add_dependencies(benchmarklib benchmark)
-set_property(TARGET benchmarklib PROPERTY
-  IMPORTED_LOCATION ${GBENCH_DIR}/lib/libbenchmark.a)
 
 if(BUILD_CUML_BENCH)
   set(CUML_SG_BENCH_TARGET "sg_benchmark")
