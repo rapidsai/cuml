@@ -47,7 +47,6 @@ add_dependencies(gtest_mainlib googletest)
 set_property(TARGET gtestlib PROPERTY IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
 set_property(TARGET gtest_mainlib PROPERTY IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
 
-set(CUML_SG_BENCH_TARGET "sg_benchmark")
 set(ML_BENCH_LINK_LIBRARIES
   gtestlib
   ${CUML_CPP_TARGET}
