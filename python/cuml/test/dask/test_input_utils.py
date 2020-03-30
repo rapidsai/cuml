@@ -17,14 +17,14 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
     client = Client(cluster)
 
     try:
+        adj_input_type = 'dataframe' if input_type == 'series' else input_type
+
+        X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
+                          output=adj_input_type)
+
         if input_type == "series":
-            X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
-                              output='dataframe')
             X = X[X.columns[0]]
             y = y[y.columns[0]]
-        else:
-            X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
-                              output=input_type)
 
         if colocated:
             gpu_futures = client.sync(_extract_partitions, (X, y), client)
@@ -48,17 +48,16 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
     client = Client(cluster)
 
     try:
+        adj_input_type = 'dataframe' if input_type == 'series' else input_type
+
+        X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
+                          output=adj_input_type)
+
         if input_type == "series":
-            input_type = 'dataframe'
-            X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
-                              output=input_type)
             X = X[X.columns[0]]
             y = y[y.columns[0]]
-        else:
-            X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
-                              output=input_type)
 
-        if input_type == "dataframe":
+        if input_type == "dataframe" or input_type == "series":
             X_len_parts = X.map_partitions(len).compute()
             y_len_parts = y.map_partitions(len).compute()
         elif input_type == "array":
