@@ -147,8 +147,8 @@ def test_umap_transform_on_digits():
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
-    trust = trustworthiness(new_data, embedding, 10)
-    assert trust >= 0.96
+    trust = trustworthiness(new_data, embedding, 15)
+    assert trust >= 0.935
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -311,8 +311,6 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     else:
         assert mean_diff > 1.0
 
-    assert False
-
 
 @pytest.mark.parametrize('n_components', [2, 25])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
@@ -360,8 +358,6 @@ def test_umap_transform_reproducibility(n_components, random_state):
         assert mean_diff < 1.0
     else:
         assert mean_diff > 1.0
-
-    assert False
 
 
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():

@@ -88,10 +88,10 @@ __global__ void apply_optimization_kernel(T *embedding,
 
 template <typename T>
 inline void optimization_iteration_finalization(UMAPParams *params,
-                                                T *head_embedding, T &alpha,
+                                                T *tail_embedding, T &alpha,
                                                 int n, int n_epochs,
                                                 uint64_t &seed) {
-  if (params->callback) params->callback->on_epoch_end(head_embedding);
+  if (params->callback) params->callback->on_epoch_end(tail_embedding);
   alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
   seed += 1;
 }
@@ -142,41 +142,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   bool use_shared_mem = requiredSize < MLCommon::getSharedMemPerBlock();
   MLCommon::FastIntDiv tail_n_fast(tail_n);
 
-  std::cout << "params->n_neighbors: " << params->n_neighbors << std::endl;
-  std::cout << "params->n_components: " << params->n_components << std::endl;
-  std::cout << "params->n_epochs: " << params->n_epochs << std::endl;
-  std::cout << "params->learning_rate: " << params->learning_rate << std::endl;
-  std::cout << "params->min_dist: " << params->min_dist << std::endl;
-  std::cout << "params->spread: " << params->spread << std::endl;
-  std::cout << "params->set_op_mix_ratio: " << params->set_op_mix_ratio
-            << std::endl;
-  std::cout << "params->local_connectivity: " << params->local_connectivity
-            << std::endl;
-  std::cout << "params->repulsion_strength: " << params->repulsion_strength
-            << std::endl;
-  std::cout << "params->negative_sample_rate: " << params->negative_sample_rate
-            << std::endl;
-  std::cout << "params->transform_queue_size: " << params->transform_queue_size
-            << std::endl;
-  std::cout << "params->verbose: " << params->verbose << std::endl;
-  std::cout << "params->a: " << params->a << std::endl;
-  std::cout << "params->b: " << params->b << std::endl;
-  std::cout << "params->initial_alpha: " << params->initial_alpha << std::endl;
-  std::cout << "params->init: " << params->init << std::endl;
-  std::cout << "params->target_n_neighbors: " << params->target_n_neighbors
-            << std::endl;
-  std::cout << "params->target_metric: " << params->target_metric << std::endl;
-  std::cout << "params->target_weights: " << params->target_weights
-            << std::endl;
-  std::cout << "params->random_state: " << params->random_state << std::endl;
-  std::cout << "params->multicore_implem: " << params->multicore_implem
-            << std::endl;
-  std::cout << "params->callback: " << (void *)params->callback << std::endl;
-  std::cout << "multicore_implem: " << multicore_implem << std::endl;
-  std::cout << "use_shared_mem: " << use_shared_mem << std::endl;
-  std::cout << "requiredSize: " << requiredSize << std::endl;
-  std::cout << "TPB_X: " << TPB_X << std::endl;
-
   if (multicore_implem) {
     for (int n = 0; n < n_epochs; n++) {
       call_optimize_batch_kernel<T, TPB_X>(
@@ -185,18 +150,18 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
         epoch_of_next_sample.data(), alpha, n, gamma, seed, nullptr, move_other,
         use_shared_mem, params, n, grid, blk, requiredSize, stream);
       CUDA_CHECK(cudaGetLastError());
-      optimization_iteration_finalization(params, head_embedding, alpha, n,
+      optimization_iteration_finalization(params, tail_embedding, alpha, n,
                                           n_epochs, seed);
     }
   } else {
     MLCommon::device_buffer<double> embedding_updates_buf(
-      d_alloc, stream, n_vertices * params->n_components);
+      d_alloc, stream, tail_n * params->n_components);
     double *embedding_updates = embedding_updates_buf.data();
-    dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X));
+    dim3 grid2(MLCommon::ceildiv(tail_n * params->n_components, TPB_X));
     for (int n = 0; n < n_epochs; n++) {
-      CUDA_CHECK(cudaMemsetAsync(
-        embedding_updates, 0,
-        n_vertices * params->n_components * sizeof(double), stream));
+      CUDA_CHECK(cudaMemsetAsync(embedding_updates, 0,
+                                 tail_n * params->n_components * sizeof(double),
+                                 stream));
       call_optimize_batch_kernel<T, TPB_X>(
         head_embedding, head_n, tail_embedding, tail_n_fast, head, tail, nnz,
         epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
@@ -204,9 +169,9 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
         move_other, use_shared_mem, params, n, grid, blk, requiredSize, stream);
       CUDA_CHECK(cudaGetLastError());
       apply_optimization_kernel<T, TPB_X><<<grid2, blk, 0, stream>>>(
-        head_embedding, embedding_updates, n_vertices * params->n_components);
+        tail_embedding, embedding_updates, tail_n * params->n_components);
       CUDA_CHECK(cudaGetLastError());
-      optimization_iteration_finalization(params, head_embedding, alpha, n,
+      optimization_iteration_finalization(params, tail_embedding, alpha, n,
                                           n_epochs, seed);
     }
   }
