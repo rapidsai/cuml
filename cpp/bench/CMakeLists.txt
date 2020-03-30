@@ -17,8 +17,8 @@
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-###################################################################################################
-# - build cuml bench executable -------------------------------------------------------------------
+##############################################################################
+# - build cuml bench executable ----------------------------------------------
 
 if(BUILD_CUML_BENCH)
   set(CUML_SG_BENCH_TARGET "sg_benchmark")
@@ -39,6 +39,9 @@ if(BUILD_CUML_BENCH)
   target_include_directories(${CUML_SG_BENCH_TARGET}
     PRIVATE ${GBENCH_DIR}/include)
 endif(BUILD_CUML_BENCH)
+
+##############################################################################
+# - build prims bench executable ----------------------------------------------
 
 if(BUILD_CUML_PRIMS_BENCH)
   set(CUML_PRIMS_BENCH_TARGET "prims_benchmark")
