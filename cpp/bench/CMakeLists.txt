@@ -20,13 +20,8 @@ cmake_policy(SET CMP0079 NEW)
 # - build cuml bench executable ----------------------------------------------
 
 if(BUILD_CUML_BENCH)
-  set(CUML_SG_BENCH_TARGET "sg_benchmark")
-  set(ML_BENCH_LINK_LIBRARIES
-    ${CUML_CPP_TARGET}
-    benchmarklib
-    )
   # (please keep the filenames in alphabetical order)
-  add_executable(${CUML_SG_BENCH_TARGET}
+  add_executable(sg_benchmark
     sg/dbscan.cu
     sg/kmeans.cu
     sg/main.cpp
@@ -34,8 +29,12 @@ if(BUILD_CUML_BENCH)
     sg/rf_regressor.cu
     sg/umap.cu
     )
-  target_link_libraries(${CUML_SG_BENCH_TARGET} ${ML_BENCH_LINK_LIBRARIES})
-  target_include_directories(${CUML_SG_BENCH_TARGET}
+
+  target_link_libraries(sg_benchmark
+    ${CUML_CPP_TARGET}
+    benchmarklib)
+
+  target_include_directories(sg_benchmark
     PRIVATE ${GBENCH_DIR}/include)
 endif(BUILD_CUML_BENCH)
 
@@ -43,9 +42,8 @@ endif(BUILD_CUML_BENCH)
 # - build prims bench executable ----------------------------------------------
 
 if(BUILD_CUML_PRIMS_BENCH)
-  set(CUML_PRIMS_BENCH_TARGET "prims_benchmark")
   # (please keep the filenames in alphabetical order)
-  add_executable(${CUML_PRIMS_BENCH_TARGET}
+  add_executable(prims_benchmark
     prims/add.cu
     prims/distance_cosine.cu
     prims/distance_exp_l2.cu
@@ -57,12 +55,13 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/permute.cu
     prims/reduce.cu
     prims/rng.cu
-    prims/main.cpp
-    )
-  add_dependencies(${CUML_PRIMS_BENCH_TARGET} cub)
-  add_dependencies(${CUML_PRIMS_BENCH_TARGET} cutlass)
-  target_link_libraries(${CUML_PRIMS_BENCH_TARGET} benchmarklib)
-  target_include_directories(${CUML_PRIMS_BENCH_TARGET}
+    prims/main.cpp)
+
+  add_dependencies(prims_benchmark cutlass)
+
+  target_link_libraries(prims_benchmark benchmarklib)
+
+  target_include_directories(prims_benchmark
     PRIVATE ${GBENCH_DIR}/include
     src_prims)
 endif(BUILD_CUML_PRIMS_BENCH)
