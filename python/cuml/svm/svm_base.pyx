@@ -198,6 +198,10 @@ class SVMBase(Base):
         self.epsilon = epsilon
         self.svmType = None  # Child class should set self.svmType
 
+        # Parameter to indicate if model has been correctly fitted
+        # fit_status == -1 indicates that the model is not yet fitted
+        self.fit_status_ = -1
+
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
         self.support_ = None
@@ -537,21 +541,27 @@ class SVMBase(Base):
         state = self.__dict__.copy()
         del state['handle']
         del state['_model']
-        state['dual_coef_'] = cudf.DataFrame.from_gpu_matrix(self.dual_coef_)
-        state['support_'] = cudf.Series(self.support_)
-        state['support_vectors_'] = \
-            cudf.DataFrame.from_gpu_matrix(self.support_vectors_)
-        state['_unique_labels'] = cudf.Series(self._unique_labels)
 
+        # Only when the model is fit once we need to store these parameters
+        if self.fit_status_ == 0:
+            state['dual_coef_'] = \
+                cudf.DataFrame.from_gpu_matrix(self.dual_coef_)
+            state['support_'] = cudf.Series(self.support_)
+            state['support_vectors_'] = \
+                cudf.DataFrame.from_gpu_matrix(self.support_vectors_)
+            state['_unique_labels'] = cudf.Series(self._unique_labels)
         return state
 
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None, verbose=state['verbose'])
 
-        state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
-        state['support_'] = state['support_'].to_gpu_array()
-        state['support_vectors_'] = state['support_vectors_'].as_gpu_matrix()
-        state['_unique_labels'] = state['_unique_labels'].to_gpu_array()
+        # Only if model was fit, these parameters would be written
+        if state["fit_status_"] == 0:
+            state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
+            state['support_'] = state['support_'].to_gpu_array()
+            state['support_vectors_'] = state['support_vectors_'] \
+                .as_gpu_matrix()
+            state['_unique_labels'] = state['_unique_labels'].to_gpu_array()
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False

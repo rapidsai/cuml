@@ -1,0 +1,32 @@
+name: cuml_dev
+channels:
+- rapidsai
+- nvidia
+- rapidsai-nightly
+- conda-forge
+dependencies:
+- cudatoolkit=10.2
+- libclang=8.0.0
+- cmake=3.14.5
+- numba>=0.46
+- cupy>=7,<8.0.0a0
+- cudf=0.13*
+- rmm=0.13*
+- cython>=0.29,<0.30
+- pytest>=4.6
+- scikit-learn>=0.21
+- umap-learn>=0.3.9
+- scikit-learn>=0.21
+- dask>=2.12.0
+- distributed>=2.12.0
+- dask-cuda=0.13*
+- dask-cudf=0.13*
+- ucx-py=0.13*
+- nccl>=2.5
+- libcumlprims=0.13*
+- statsmodels
+- protobuf >=3.4.1,<4.0.0
+- pip
+- pip:
+    - git+https://github.com/dask/dask.git
+    - git+https://github.com/dask/distributed.git

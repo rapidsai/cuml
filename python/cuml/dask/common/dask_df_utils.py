@@ -17,7 +17,6 @@ from tornado import gen
 from dask.distributed import default_client
 from dask import delayed
 from toolz import first
-from uuid import uuid1
 import dask.dataframe as dd
 import numpy as np
 from collections import defaultdict
@@ -26,7 +25,7 @@ from dask.distributed import wait
 
 
 @gen.coroutine
-def extract_ddf_partitions(ddf, client=None, agg=True):
+def extract_ddf_partitions(ddf, client=None):
     """
     Given a Dask cuDF, return an OrderedDict mapping
     'worker -> [list of futures]' for each partition in ddf.
@@ -81,7 +80,7 @@ def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
         assert label_parts.ndim == 1 or label_parts.shape[1] == 1
         label_parts = label_parts.flatten().tolist()
 
-    parts = list(map(delayed, zip(data_parts, label_parts)))
+    parts = [delayed(x, pure=False) for x in zip(data_parts, label_parts)]
     parts = client.compute(parts)
     yield wait(parts)
 
@@ -107,7 +106,7 @@ def get_meta(df):
     return ret
 
 
-def to_dask_cudf(futures, client=None):
+def to_dask_cudf(futures, client=None, verbose=False):
     """
     Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
     :param futures: list[cudf.Dataframe] list of futures containing dataframes
@@ -117,8 +116,11 @@ def to_dask_cudf(futures, client=None):
     c = default_client() if client is None else client
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
-    meta = c.submit(get_meta, dfs[0]).result()
-    return dd.from_delayed(dfs, meta=meta)
+    if verbose:
+        print("to_dask_cudf dfs=%s" % str(dfs))
+    meta = c.submit(get_meta, dfs[0])
+    meta_local = meta.result()
+    return dd.from_delayed(dfs, meta=meta_local)
 
 
 def to_dask_df(dask_cudf, client=None):
@@ -136,12 +138,15 @@ def to_dask_df(dask_cudf, client=None):
     delayed_ddf = dask_cudf.to_delayed()
     gpu_futures = c.compute(delayed_ddf)
 
-    key = uuid1()
     dfs = [c.submit(
         to_pandas,
         f,
-        key="%s-%s" % (key, idx)) for idx, f in enumerate(gpu_futures)]
+        pure=False) for idx, f in enumerate(gpu_futures)]
 
-    meta = c.submit(get_meta, dfs[0]).result()
+    meta = c.submit(get_meta, dfs[0])
 
-    return dd.from_delayed(dfs, meta=meta)
+    # Using new variabe for local result to stop race-condition in scheduler
+    # Ref: https://github.com/dask/dask/issues/6027
+    meta_local = meta.result()
+
+    return dd.from_delayed(dfs, meta=meta_local)

@@ -5,6 +5,8 @@ into three categories:
 1. You want to report a bug, feature request, or documentation issue
     - File an [issue](https://github.com/rapidsai/cuml/issues/new/choose)
     describing what you encountered or what you want to see changed.
+    - Please run and paste the output of the `cuml/print_env.sh` script while
+    reporting a bug to gather and report relevant environment details.
     - The RAPIDS team will evaluate the issues and triage them, scheduling
     them for a release. If you believe the issue needs priority attention
     comment on the issue to notify the team.
@@ -29,6 +31,7 @@ into three categories:
 3. Comment on the issue saying you are going to work on it.
 4. Get familar with the developer guide relevant for you:
     * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
+    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is availabe as well.
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.

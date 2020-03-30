@@ -18,11 +18,11 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-
+from cuml.common.base import Base
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor:
+class MBSGDRegressor(Base):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
@@ -53,8 +53,11 @@ class MBSGDRegressor:
         print(" cuML intercept : ", cu_mbsgd_regressor.intercept_)
         print(" cuML coef : ", cu_mbsgd_regressor.coef_)
         print("cuML predictions : ", cu_pred)
+
     Output:
-    .. code-block:: python
+
+    .. code-block::
+
         cuML intercept :  0.7150013446807861
         cuML coef :  0    0.27320495
                     1     0.1875956
@@ -75,7 +78,7 @@ class MBSGDRegressor:
        'elasticnet' performs Elastic Net regularization which is a weighted
        average of L1 and L2 norms
     alpha: float (default = 0.0001)
-        The constant value which decides the degree of regularization
+       The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
@@ -91,10 +94,13 @@ class MBSGDRegressor:
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
-                    'adaptive' (default = 'constant')
+    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'}
+        (default = 'constant')
+
         `optimal` option will be supported in a future version
+
         `constant` keeps the learning rate constant
+
         `adaptive` changes the learning rate if the training loss or the
         validation accuracy does not improve for `n_iter_no_change` epochs.
         The old learning rate is generally divided by 5
@@ -110,8 +116,9 @@ class MBSGDRegressor:
     def __init__(self, loss='squared_loss', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
-                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
-
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
+                 verbose=False):
+        super(MBSGDRegressor, self).__init__(handle=handle, verbose=verbose)
         if loss in ['squared_loss']:
             self.loss = loss
         else:
@@ -130,7 +137,6 @@ class MBSGDRegressor:
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.handle = handle
         self.cu_mbsgd_classifier = SGD(**self.get_params())
 
     def fit(self, X, y, convert_dtype=False):

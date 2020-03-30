@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 
     # fit and predict cuml linear regression model
     cuols.fit(X_train, y_train)
-    cuols_predict = cuols.predict(X_test).to_array()
+    cuols_predict = cuols.predict(X_test)
 
     if nrows < 500000:
         # sklearn linear regression model initialization, fit and predict
@@ -100,7 +100,7 @@ def test_linear_regression_model_default(datatype):
 
     # fit and predict cuml linear regression model
     cuols.fit(X_train, y_train)
-    cuols_predict = cuols.predict(X_test).to_array()
+    cuols_predict = cuols.predict(X_test)
 
     # sklearn linear regression model initialization and fit
     skols = skLinearRegression()
@@ -121,7 +121,7 @@ def test_ridge_regression_model_default(datatype):
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test).to_array()
+    curidge_predict = curidge.predict(X_test)
 
     # sklearn ridge regression model initialization, fit and predict
     skridge = skRidge()
@@ -154,7 +154,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test).to_array()
+    curidge_predict = curidge.predict(X_test)
 
     if nrows < 500000:
         # sklearn ridge regression model initialization, fit and predict
@@ -215,8 +215,10 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
 
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
+    cu_preds = np.array(culog.predict(X_test))
 
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.06
+    assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
@@ -232,3 +234,79 @@ def test_logistic_regression_model_default(dtype):
     sklog.fit(X_train, y_train)
 
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [10, 100])
+@pytest.mark.parametrize('column_info', [(20, 10)])
+@pytest.mark.parametrize('num_classes', [2, 10])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_logistic_regression_decision_function(dtype, nrows, column_info,
+                                               num_classes, fit_intercept):
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = \
+        make_classification_dataset(datatype=dtype, nrows=nrows,
+                                    ncols=ncols, n_info=n_info,
+                                    num_classes=num_classes)
+
+    y_train = y_train.astype(dtype)
+    y_test = y_test.astype(dtype)
+
+    culog = cuLog(fit_intercept=fit_intercept)
+    culog.fit(X_train, y_train)
+
+    sklog = skLog(fit_intercept=fit_intercept)
+    sklog.coef_ = culog.coef_.copy_to_host().T
+    if fit_intercept:
+        sklog.intercept_ = culog.intercept_.copy_to_host()
+    else:
+        skLog.intercept_ = 0
+    sklog.classes_ = np.arange(num_classes)
+
+    cu_dec_func = culog.decision_function(X_test).copy_to_host()
+    if num_classes > 2:
+        cu_dec_func = cu_dec_func.T
+    sk_dec_func = sklog.decision_function(X_test)
+
+    assert array_equal(cu_dec_func, sk_dec_func)
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [10, 100])
+@pytest.mark.parametrize('column_info', [(20, 10)])
+@pytest.mark.parametrize('num_classes', [2, 10])
+@pytest.mark.parametrize('fit_intercept', [True, False])
+def test_logistic_regression_predict_proba(dtype, nrows, column_info,
+                                           num_classes, fit_intercept):
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = \
+        make_classification_dataset(datatype=dtype, nrows=nrows,
+                                    ncols=ncols, n_info=n_info,
+                                    num_classes=num_classes)
+
+    y_train = y_train.astype(dtype)
+    y_test = y_test.astype(dtype)
+
+    culog = cuLog(fit_intercept=fit_intercept)
+    culog.fit(X_train, y_train)
+
+    if num_classes > 2:
+        sklog = skLog(fit_intercept=fit_intercept, solver="lbfgs",
+                      multi_class="multinomial")
+    else:
+        sklog = skLog(fit_intercept=fit_intercept)
+    sklog.coef_ = culog.coef_.copy_to_host().T
+    if fit_intercept:
+        sklog.intercept_ = culog.intercept_.copy_to_host()
+    else:
+        skLog.intercept_ = 0
+    sklog.classes_ = np.arange(num_classes)
+
+    cu_proba = culog.predict_proba(X_test).get()
+    sk_proba = sklog.predict_proba(X_test)
+
+    cu_log_proba = culog.predict_log_proba(X_test).get()
+    sk_log_proba = sklog.predict_log_proba(X_test)
+
+    assert array_equal(cu_proba, sk_proba)
+    assert array_equal(cu_log_proba, sk_log_proba)

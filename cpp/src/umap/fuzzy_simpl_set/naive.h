@@ -181,8 +181,8 @@ __global__ void smooth_knn_dist_kernel(
  * @param rhos: array of size n representing distance to the first nearest neighbor
  *
  * @return vals: T array of size n*k
- *         rows: long array of size n
- *         cols: long array of size k
+ *         rows: int64_t array of size n
+ *         cols: int64_t array of size k
  *
  * @param n Number of samples (rows in knn indices/distances)
  * @param n_neighbors number of columns in knn indices/distances
@@ -191,7 +191,7 @@ __global__ void smooth_knn_dist_kernel(
  */
 template <int TPB_X, typename T>
 __global__ void compute_membership_strength_kernel(
-  const long *knn_indices,
+  const int64_t *knn_indices,
   const float *knn_dists,          // nn outputs
   const T *sigmas, const T *rhos,  // continuous dists to nearest neighbors
   T *vals, int *rows, int *cols,   // result coo
@@ -208,7 +208,7 @@ __global__ void compute_membership_strength_kernel(
     for (int j = 0; j < n_neighbors; j++) {
       int idx = i + j;
 
-      long cur_knn_ind = knn_indices[idx];
+      int64_t cur_knn_ind = knn_indices[idx];
       T cur_knn_dist = knn_dists[idx];
 
       if (cur_knn_ind == -1) continue;
@@ -236,7 +236,7 @@ __global__ void compute_membership_strength_kernel(
  * Sets up and runs the knn dist smoothing
  */
 template <int TPB_X, typename T>
-void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
+void smooth_knn_dist(int n, const int64_t *knn_indices, const float *knn_dists,
                      T *rhos, T *sigmas, UMAPParams *params, int n_neighbors,
                      float local_connectivity,
                      std::shared_ptr<deviceAllocator> d_alloc,
@@ -294,7 +294,7 @@ void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
  * @param stream cuda stream to use for device operations
  */
 template <int TPB_X, typename T>
-void launcher(int n, const long *knn_indices, const float *knn_dists,
+void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
               int n_neighbors, MLCommon::Sparse::COO<T> *out,
               UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
@@ -323,16 +323,17 @@ void launcher(int n, const long *knn_indices, const float *knn_dists,
 
   if (params->verbose) {
     std::cout << "Smooth kNN Distances" << std::endl;
-    std::cout << MLCommon::arr2Str(sigmas.data(), n, "sigmas", stream)
+    std::cout << MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream)
               << std::endl;
-    std::cout << MLCommon::arr2Str(rhos.data(), n, "rhos", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(rhos.data(), 25, "rhos", stream)
+              << std::endl;
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
 
   /**
-                 * Compute graph of membership strengths
-                 */
+   * Compute graph of membership strengths
+   */
   compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(
     knn_indices, knn_dists, sigmas.data(), rhos.data(), in.vals(), in.rows(),
     in.cols(), in.n_rows, n_neighbors);

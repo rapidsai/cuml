@@ -128,7 +128,7 @@ class Rng {
   void uniform(Type *ptr, LenType len, Type start, Type end,
                cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
-                  "Type for 'uniform' can only be floating point type!");
+                  "Type for 'uniform' can only be floating point!");
     randImpl(
       offset, ptr, len,
       [=] __device__(Type val, LenType idx) {
@@ -140,7 +140,7 @@ class Rng {
   void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
                   cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
-                  "Type for 'uniformInt' can only be integer type!");
+                  "Type for 'uniformInt' can only be integer!");
     randImpl(
       offset, ptr, len,
       [=] __device__(IntType val, LenType idx) {
@@ -165,7 +165,7 @@ class Rng {
   void normal(Type *ptr, LenType len, Type mu, Type sigma,
               cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
-                  "Type for 'normal' can only be floating point type!");
+                  "Type for 'normal' can only be floating point!");
     rand2Impl(
       offset, ptr, len,
       [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
@@ -184,7 +184,7 @@ class Rng {
   void normalInt(IntType *ptr, LenType len, IntType mu, IntType sigma,
                  cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
-                  "Type for 'normalInt' can only be integer type!");
+                  "Type for 'normalInt' can only be integer!");
     rand2Impl<IntType, double>(
       offset, ptr, len,
       [=] __device__(double &val1, double &val2, LenType idx1, LenType idx2) {
@@ -263,16 +263,19 @@ class Rng {
 
   /**
    * @brief Generate bernoulli distributed boolean array
-   * @tparam Type data type in which to compute the probabilities
+   *
+   * @tparam Type    data type in which to compute the probabilities
+   * @tparam OutType output data type
    * @tparam LenType data type used to represent length of the arrays
-   * @param ptr the output array
-   * @param len the number of elements in the output
-   * @param prob coin-toss probability for heads
-   * @param stream stream where to launch the kernel
+   *
+   * @param[out] ptr    the output array
+   * @param[in]  len    the number of elements in the output
+   * @param[in]  prob   coin-toss probability for heads
+   * @param[in]  stream stream where to launch the kernel
    */
-  template <typename Type, typename LenType = int>
-  void bernoulli(bool *ptr, LenType len, Type prob, cudaStream_t stream) {
-    randImpl<bool, Type>(
+  template <typename Type, typename OutType = bool, typename LenType = int>
+  void bernoulli(OutType *ptr, LenType len, Type prob, cudaStream_t stream) {
+    randImpl<OutType, Type>(
       offset, ptr, len,
       [=] __device__(Type val, LenType idx) { return val > prob; }, NumThreads,
       nBlocks, type, stream);
@@ -292,7 +295,7 @@ class Rng {
   void scaled_bernoulli(Type *ptr, LenType len, Type prob, Type scale,
                         cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
-                  "Type for 'uniform' can only be floating point type!");
+                  "Type for 'scaled_bernoulli' can only be floating point!");
     randImpl(
       offset, ptr, len,
       [=] __device__(Type val, LenType idx) {

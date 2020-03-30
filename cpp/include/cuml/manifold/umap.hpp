@@ -22,20 +22,25 @@
 
 namespace ML {
 
-void transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
+void transform(const cumlHandle &handle, float *X, int n, int d,
+               int64_t *knn_indices, float *knn_dists, float *orig_X,
                int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed);
+
+void find_ab(const cumlHandle &handle, UMAPParams *params);
 
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          float *y,  // labels
-         int n, int d, UMAPParams *params, float *embeddings);
+         int n, int d, int64_t *knn_indices, float *knn_dists,
+         UMAPParams *params, float *embeddings);
 
 void fit(const cumlHandle &handle,
          float *X,  // input matrix
          int n,     // rows
          int d,     // cols
-         UMAPParams *params, float *embeddings);
+         int64_t *knn_indices, float *knn_dists, UMAPParams *params,
+         float *embeddings);
 
 class UMAP_API {
   float *orig_X;
@@ -55,10 +60,15 @@ class UMAP_API {
    *        n_samples in X
    * @param d
    *        d_features in X
+   * @param knn_indices
+   *        an array containing the n_neighbors nearest neighors indices for each sample
+   * @param knn_dists
+   *        an array containing the n_neighbors nearest neighors distances for each sample
    * @param embeddings
    *        an array to return the output embeddings of size (n_samples, n_components)
    */
-  void fit(float *X, int n, int d, float *embeddings);
+  void fit(float *X, int n, int d, int64_t *knn_indices, float *knn_dists,
+           float *embeddings);
 
   /**
    * Fits a supervised UMAP model
@@ -70,10 +80,15 @@ class UMAP_API {
    *        n_samples in X
    * @param d
    *        d_features in X
+   * @param knn_indices
+   *        an array containing the n_neighbors nearest neighors indices for each sample
+   * @param knn_dists
+   *        an array containing the n_neighbors nearest neighors distances for each sample
    * @param embeddings
    *        an array to return the output embeddings of size (n_samples, n_components)
    */
-  void fit(float *X, float *y, int n, int d, float *embeddings);
+  void fit(float *X, float *y, int n, int d, int64_t *knn_indices,
+           float *knn_dists, float *embeddings);
 
   /**
    * Project a set of X vectors into the embedding space.
@@ -83,6 +98,10 @@ class UMAP_API {
    *        n_samples in X
    * @param d
    *        d_features in X
+   * @param knn_indices
+   *        an array containing the n_neighbors nearest neighors indices for each sample
+   * @param knn_dists
+   *        an array containing the n_neighbors nearest neighors distances for each sample
    * @param embedding
    *        pointer to embedding array of size (embedding_n, n_components) that has been created with fit()
    * @param embedding_n
@@ -90,8 +109,8 @@ class UMAP_API {
    * @param out
    *        pointer to array for storing output embeddings (n, n_components)
    */
-  void transform(float *X, int n, int d, float *embedding, int embedding_n,
-                 float *out);
+  void transform(float *X, int n, int d, int64_t *knn_indices, float *knn_dists,
+                 float *embedding, int embedding_n, float *out);
 
   /**
    * Get the UMAPParams instance

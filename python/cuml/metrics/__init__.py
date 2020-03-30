@@ -16,5 +16,9 @@
 
 from cuml.metrics.trustworthiness import trustworthiness
 from cuml.metrics.regression import r2_score
+from cuml.metrics.regression import mean_squared_error
+from cuml.metrics.regression import mean_squared_log_error
+from cuml.metrics.regression import mean_absolute_error
 from cuml.metrics.accuracy import accuracy_score
 from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.cluster.entropy import cython_entropy as entropy

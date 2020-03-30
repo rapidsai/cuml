@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,32 +22,33 @@
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename Type>
-__global__ void naiveAddElemKernel(Type *out, const Type *in1, const Type *in2,
+template <typename InT, typename OutT = InT>
+__global__ void naiveAddElemKernel(OutT *out, const InT *in1, const InT *in2,
                                    int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    out[idx] = in1[idx] + in2[idx];
+    out[idx] = OutT(in1[idx] + in2[idx]);
   }
 }
 
-template <typename Type>
-void naiveAddElem(Type *out, const Type *in1, const Type *in2, int len) {
+template <typename InT, typename OutT = InT>
+void naiveAddElem(OutT *out, const InT *in1, const InT *in2, int len) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveAddElemKernel<Type><<<nblks, TPB>>>(out, in1, in2, len);
+  naiveAddElemKernel<InT, OutT><<<nblks, TPB>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
+template <typename InT, typename OutT = InT>
 struct AddInputs {
-  T tolerance;
+  OutT tolerance;
   int len;
   unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const AddInputs<T> &dims) {
+template <typename InT, typename OutT = InT>
+::std::ostream &operator<<(::std::ostream &os,
+                           const AddInputs<InT, OutT> &dims) {
   return os;
 }
 
