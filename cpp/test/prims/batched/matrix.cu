@@ -418,7 +418,8 @@ const std::vector<MatrixInputs<double>> inputsd = {
   // {Schur_op, 7, 12, 12, 12, 12, 0, 0, 1e-3},
   // {Schur_op, 17, 77, 77, 77, 77, 0, 0, 1e-3},
   // {Lyapunov_op, 5, 14, 14, 14, 14, 0, 0, 1e-2},
-  // {Lyapunov_op, 13, 100, 100, 100, 100, 0, 0, 1e-2}};
+  // {Lyapunov_op, 13, 100, 100, 100, 100, 0, 0, 1e-2}
+};
 
 // Note: Schur and Lyapunov tests have had stability issues on CI so
 // they are disabled temporarily. See issue:
