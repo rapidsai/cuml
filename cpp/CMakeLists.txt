@@ -129,7 +129,7 @@ endif()
 set(Protobuf_USE_STATIC_LIBS ON)
 find_package(Protobuf REQUIRED)
 
-set(CMAKE_MODULE_PATH ${cuml_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
@@ -137,13 +137,7 @@ set(CMAKE_MODULE_PATH ${cuml_SOURCE_DIR}/cmake)
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
-set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
-  "Path to FAISS source directory")
-
-set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
-  "Path to treelite install directory")
-
-set(CUML_INCLUDE_DIR ${cuml_SOURCE_DIR}/include CACHE STRING
+set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
 
 ##############################################################################
@@ -241,73 +235,6 @@ set(CMAKE_CUDA_FLAGS
 # - dependencies -------------------------------------------------------------
 
 include(cmake/Dependencies.cmake)
-
-##############################################################################
-# - Cloning header only libraries---------------------------------------------
-
-include(ExternalProject)
-
-
-##############################################################################
-# - FAISS Build  -------------------------------------------------------------
-
-ExternalProject_Add(faiss
-  GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           v1.6.1
-  CONFIGURE_COMMAND LIBS=-pthread
-                    CPPFLAGS=-w
-                    LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
-                            ${CMAKE_CURRENT_BINARY_DIR}/faiss/src/faiss/configure
-                            --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
-                            --with-blas=${BLAS_LIBRARIES}
-                            --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
-                            --with-cuda-arch=${FAISS_GPU_ARCHS}
-                            -v
-  PREFIX            ${FAISS_DIR}
-  BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM} -j${PARALLEL_LEVEL} VERBOSE=1
-  INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
-  UPDATE_COMMAND    ""
-  BUILD_IN_SOURCE   1
-)
-
-add_dependencies(faiss cutlass)
-
-ExternalProject_Get_Property(faiss install_dir)
-
-add_library(faisslib STATIC IMPORTED)
-
-add_dependencies(faisslib faiss)
-
-set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
-
-##############################################################################
-# - treelite build -----------------------------------------------------------
-
-ExternalProject_Add(treelite
-    GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           6fd01e4f1890950bbcf9b124da24e886751bffe6
-    PREFIX            ${TREELITE_DIR}
-    CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
-                      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                      -DENABLE_PROTOBUF=ON
-                      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
-    UPDATE_COMMAND    ""
-    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true
-)
-
-add_dependencies(treelite faiss)
-
-add_library(dmlclib STATIC IMPORTED)
-add_library(treelitelib STATIC IMPORTED)
-add_library(treelite_runtimelib SHARED IMPORTED)
-
-add_dependencies(dmlclib treelite)
-add_dependencies(treelitelib treelite)
-add_dependencies(treelite_runtimelib treelite)
-
-set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
-set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
-set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
@@ -449,8 +376,7 @@ install(TARGETS ${CUML_CPP_TARGET}
                 ${CUML_C_TARGET}
         DESTINATION lib)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
-        DESTINATION include)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml DESTINATION include)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
