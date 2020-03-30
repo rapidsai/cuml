@@ -17,8 +17,6 @@
 # Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
 cmake_policy(SET CMP0079 NEW)
 
-project(cuml_test LANGUAGES CXX CUDA)
-
 set(CUML_TEST_INCLUDE_DIRS
   ${GTEST_DIR}/include
   ${TREELITE_DIR}/runtime/native/include)
