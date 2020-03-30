@@ -118,7 +118,9 @@
 - PR #1926: Update batch matrix test margins
 - PR #1925: Fix failing dask tests
 - PR #1932: Isolating cause of make_blobs failure
+- PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
+
 
 # cuML 0.12.0 (Date TBD)
 
