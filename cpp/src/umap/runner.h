@@ -435,7 +435,8 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   }
 
   if (params->callback) {
-    params->callback->setup<T>(embedding_n, params->n_components);
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(transformed);
   }
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
