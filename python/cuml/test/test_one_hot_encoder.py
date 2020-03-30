@@ -122,7 +122,7 @@ def test_onehot_inverse_transform_handle_unknown():
 
 
 @pytest.mark.parametrize('drop', [None, 'first'])
-@pytest.mark.parametrize('sparse', [True, False])
+@pytest.mark.parametrize('sparse', [True, False], ids=['sparse', 'dense'])
 @pytest.mark.parametrize("n_samples", [10, 10000, 50000, stress_param(250000)])
 def test_onehot_random_inputs(drop, sparse, n_samples):
     if sparse:
