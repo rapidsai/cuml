@@ -16,6 +16,9 @@
 
 include(ExternalProject)
 
+##############################################################################
+# - cub - (header only) ------------------------------------------------------
+
 set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING "Path to cub repo")
 set(CUB_VERSION v1.8.0 CACHE STRING "cub branch version to use")
 ExternalProject_Add(cub
@@ -25,6 +28,9 @@ ExternalProject_Add(cub
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
   INSTALL_COMMAND   "")
+
+##############################################################################
+# - cutlass - (header only) --------------------------------------------------
 
 set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
   "Path to the cutlass repo")
@@ -36,6 +42,9 @@ ExternalProject_Add(cutlass
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
   INSTALL_COMMAND   "")
+
+##############################################################################
+# - faiss --------------------------------------------------------------------
 
 set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
   "Path to FAISS source directory")
@@ -61,6 +70,9 @@ ExternalProject_Get_Property(faiss install_dir)
 add_library(faisslib STATIC IMPORTED)
 set_property(TARGET faisslib PROPERTY
   IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
+
+##############################################################################
+# - google benchmark ---------------------------------------------------------
 
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
@@ -88,6 +100,9 @@ set_property(TARGET treelite_runtimelib PROPERTY
 add_dependencies(dmlclib treelite)
 add_dependencies(treelitelib treelite)
 add_dependencies(treelite_runtimelib treelite)
+
+##############################################################################
+# - googletest ---------------------------------------------------------------
 
 set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest CACHE STRING
   "Path to googletest repo")
