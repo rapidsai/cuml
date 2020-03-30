@@ -7,6 +7,8 @@
 
 ## Bug Fixes
 
+- PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
