@@ -76,7 +76,6 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float learning_rate,
         float min_dist,
         float spread,
-        int init,
         float set_op_mix_ratio,
         float local_connectivity,
         float repulsion_strength,
@@ -85,9 +84,11 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         bool verbose,
         float a,
         float b,
+        float initial_alpha,
+        int init,
         int target_n_neighbors,
-        float target_weights,
         MetricType target_metric,
+        float target_weights,
         uint64_t random_state,
         bool multicore_implem,
         GraphBasedDimRedCallback * callback
@@ -331,7 +332,7 @@ class UMAP(Base):
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
 
-        umap_params.multicore_implem = random_state is None
+        umap_params.multicore_implem = <bool> random_state is None
         if isinstance(random_state, np.random.RandomState):
             rs = random_state
         else:
