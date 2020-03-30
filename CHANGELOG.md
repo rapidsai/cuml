@@ -4,6 +4,8 @@
 
 ## Improvements
 
+- PR #1931: C++: enabled doxygen docs for all of the C++ codebase
+
 ## Bug Fixes
 
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
