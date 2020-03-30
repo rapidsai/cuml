@@ -299,18 +299,19 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     cuml_embedding2 = get_embedding(n_components, random_state)
 
-    # Reproducibility threshold raised until intermittent failure is fixed
-    # Ref: https://github.com/rapidsai/cuml/issues/1903
-
     assert not np.isnan(cuml_embedding1).any()
     assert not np.isnan(cuml_embedding2).any()
 
+    # Reproducibility threshold raised until intermittent failure is fixed
+    # Ref: https://github.com/rapidsai/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
     print("mean diff: %s" % mean_diff)
     if random_state is not None:
         assert mean_diff < 1.0
     else:
         assert mean_diff > 1.0
+
+    assert False
 
 
 @pytest.mark.parametrize('n_components', [2, 25])
@@ -348,6 +349,9 @@ def test_umap_transform_reproducibility(n_components, random_state):
 
     cuml_embedding2 = get_embedding(n_components, random_state)
 
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
+
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
@@ -356,6 +360,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
         assert mean_diff < 1.0
     else:
         assert mean_diff > 1.0
+
+    assert False
 
 
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
