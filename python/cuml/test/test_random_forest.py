@@ -34,7 +34,7 @@ from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
-"""
+
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
@@ -87,7 +87,7 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cuml_acc - 0.02)
-"""
+
 
 @pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
                          stress_param('stress')])
@@ -149,12 +149,6 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
         sk_preds = sk_model.predict(X_test)
         sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
         assert fil_r2 >= (sk_r2 - 0.07)
-        from sklearn.metrics import mean_squared_error
-        mse_score = mean_squared_error(y_test, fil_preds)
-        print(mse_score, " : cu_rf_mg_predict mswe score ")
-        mse_score_skl = mean_squared_error(y_test, sk_preds)
-        print(mse_score_skl, " : skl mswe score ")
-        
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
