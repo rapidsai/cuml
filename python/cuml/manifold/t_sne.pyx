@@ -31,7 +31,7 @@ import warnings
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
-from cuml.utils import input_to_dev_array as to_cuda
+from cuml.utils import input_to_dev_array
 import rmm
 
 from libcpp cimport bool
@@ -142,8 +142,6 @@ class TSNE(Base):
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
-    should_downcast : bool (default True)
-        Whether to reduce to dataset to float32 or not.
     handle : (cuML Handle, default None)
         You can pass in a past handle that was initialized, or we will create
         one for you anew!
@@ -203,7 +201,6 @@ class TSNE(Base):
                  int exaggeration_iter=250,
                  float pre_momentum=0.5,
                  float post_momentum=0.8,
-                 bool should_downcast=True,
                  handle=None):
 
         super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
@@ -302,10 +299,15 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
-        self._should_downcast = should_downcast
-        return
+    @property
+    def Y(self):
+        warnings.warn("Attribute Y is deprecated and will be dropped in "
+                      "version 0.14, access the embeddings using the "
+                      "attribute ‘embedding_’ instead.",
+                      DeprecationWarning)
+        return self.embedding_
 
-    def fit(self, X):
+    def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
 
         Parameters
@@ -314,10 +316,9 @@ class TSNE(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
-        y : array-like (device or host) shape = (n_samples, 1)
-            y contains a label per row.
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit method will automatically
+            convert the inputs to np.float32.
         """
         cdef int n, p
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -328,12 +329,10 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
-        if self._should_downcast:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                             convert_to_dtype=np.float32)
-        else:
-            _X, X_ptr, n, p, dtype = to_cuda(X, order='C',
-                                             check_dtype=np.float32)
+        _X, X_ptr, n, p, dtype = \
+            input_to_dev_array(X, order='C', check_dtype=np.float32,
+                               convert_to_dtype=(np.float32 if convert_dtype
+                                                 else None))
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
@@ -410,15 +409,15 @@ class TSNE(Base):
 
         # Clean up memory
         del _X
-        self.Y = Y
+        self.embedding_ = Y
         return self
 
     def __del__(self):
-        if "Y" in self.__dict__:
-            del self.Y
-            self.Y = None
+        if hasattr(self, 'embedding_'):
+            del self.embedding_
+            self.embedding_ = None
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, convert_dtype=True):
         """Fit X into an embedded space and return that transformed output.
 
         Parameters
@@ -427,30 +426,34 @@ class TSNE(Base):
             X contains a sample per row.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+        convert_dtype : bool, optional (default = True)
+            When set to True, the fit_transform method will automatically
+            convert the inputs to np.float32.
 
         Returns
         --------
         X_new : array, shape (n_samples, n_components)
                 Embedding of the training data in low-dimensional space.
         """
-        self.fit(X)
+        self.fit(X, convert_dtype=convert_dtype)
 
         if isinstance(X, cudf.DataFrame):
-            if isinstance(self.Y, cudf.DataFrame):
-                return self.Y
+            if isinstance(self.embedding_, cudf.DataFrame):
+                return self.embedding_
             else:
-                return cudf.DataFrame.from_gpu_matrix(self.Y)
+                return cudf.DataFrame.from_gpu_matrix(self.embedding_)
         elif isinstance(X, np.ndarray):
-            data = self.Y.copy_to_host()
-            del self.Y
+            data = self.embedding_.copy_to_host()
+            del self.embedding_
             return data
         return None  # is this even possible?
 
     def __getstate__(self):
         state = self.__dict__.copy()
 
-        if "Y" in state:
-            state["Y"] = cudf.DataFrame.from_gpu_matrix(state["Y"])
+        if "embedding_" in state:
+            state["embedding_"] = cudf.DataFrame.from_gpu_matrix(
+                state["embedding_"])
 
         if "handle" in state:
             del state["handle"]

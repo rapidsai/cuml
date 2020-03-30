@@ -18,6 +18,7 @@
 
 #include <cuda_utils.h>
 #include <cusolverDn.h>
+#include <cusolverSp.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -607,6 +608,10 @@ inline cusolverStatus_t cusolverDnorgqr_bufferSize(cusolverDnHandle_t handle,
 }
 /** @} */
 
+/**
+ * @defgroup ormqr cusolver ormqr operations
+ * @{
+ */
 template <typename T>
 cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
                                  cublasSideMode_t side, cublasOperation_t trans,
@@ -658,6 +663,71 @@ inline cusolverStatus_t cusolverDnormqr_bufferSize(
   const double *C, int ldc, int *lwork) {
   return cusolverDnDormqr_bufferSize(handle, side, trans, m, n, k, A, lda, tau,
                                      C, ldc, lwork);
+}
+/** @} */
+
+/**
+ * @defgroup csrqrBatched cusolver batched
+ * @{
+ */
+template <typename T>
+cusolverStatus_t cusolverSpcsrqrBufferInfoBatched(
+  cusolverSpHandle_t handle, int m, int n, int nnzA,
+  const cusparseMatDescr_t descrA, const T *csrValA, const int *csrRowPtrA,
+  const int *csrColIndA, int batchSize, csrqrInfo_t info,
+  size_t *internalDataInBytes, size_t *workspaceInBytes);
+
+template <>
+inline cusolverStatus_t cusolverSpcsrqrBufferInfoBatched(
+  cusolverSpHandle_t handle, int m, int n, int nnzA,
+  const cusparseMatDescr_t descrA, const float *csrValA, const int *csrRowPtrA,
+  const int *csrColIndA, int batchSize, csrqrInfo_t info,
+  size_t *internalDataInBytes, size_t *workspaceInBytes) {
+  return cusolverSpScsrqrBufferInfoBatched(
+    handle, m, n, nnzA, descrA, csrValA, csrRowPtrA, csrColIndA, batchSize,
+    info, internalDataInBytes, workspaceInBytes);
+}
+
+template <>
+inline cusolverStatus_t cusolverSpcsrqrBufferInfoBatched(
+  cusolverSpHandle_t handle, int m, int n, int nnzA,
+  const cusparseMatDescr_t descrA, const double *csrValA, const int *csrRowPtrA,
+  const int *csrColIndA, int batchSize, csrqrInfo_t info,
+  size_t *internalDataInBytes, size_t *workspaceInBytes) {
+  return cusolverSpDcsrqrBufferInfoBatched(
+    handle, m, n, nnzA, descrA, csrValA, csrRowPtrA, csrColIndA, batchSize,
+    info, internalDataInBytes, workspaceInBytes);
+}
+
+template <typename T>
+cusolverStatus_t cusolverSpcsrqrsvBatched(
+  cusolverSpHandle_t handle, int m, int n, int nnzA,
+  const cusparseMatDescr_t descrA, const T *csrValA, const int *csrRowPtrA,
+  const int *csrColIndA, const T *b, T *x, int batchSize, csrqrInfo_t info,
+  void *pBuffer, cudaStream_t stream);
+
+template <>
+inline cusolverStatus_t cusolverSpcsrqrsvBatched(
+  cusolverSpHandle_t handle, int m, int n, int nnzA,
+  const cusparseMatDescr_t descrA, const float *csrValA, const int *csrRowPtrA,
+  const int *csrColIndA, const float *b, float *x, int batchSize,
+  csrqrInfo_t info, void *pBuffer, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverSpSetStream(handle, stream));
+  return cusolverSpScsrqrsvBatched(handle, m, n, nnzA, descrA, csrValA,
+                                   csrRowPtrA, csrColIndA, b, x, batchSize,
+                                   info, pBuffer);
+}
+
+template <>
+inline cusolverStatus_t cusolverSpcsrqrsvBatched(
+  cusolverSpHandle_t handle, int m, int n, int nnzA,
+  const cusparseMatDescr_t descrA, const double *csrValA, const int *csrRowPtrA,
+  const int *csrColIndA, const double *b, double *x, int batchSize,
+  csrqrInfo_t info, void *pBuffer, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverSpSetStream(handle, stream));
+  return cusolverSpDcsrqrsvBatched(handle, m, n, nnzA, descrA, csrValA,
+                                   csrRowPtrA, csrColIndA, b, x, batchSize,
+                                   info, pBuffer);
 }
 /** @} */
 

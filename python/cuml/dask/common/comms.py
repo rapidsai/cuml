@@ -147,13 +147,13 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
                   elapsed)
             print("Building handle")
 
-        _func_build_handle_p2p(sessionId, streams_per_handle)
+        _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
 
         if verbose:
             print("Done building handle.")
 
     else:
-        _func_build_handle(sessionId, streams_per_handle)
+        _func_build_handle(sessionId, streams_per_handle, verbose)
 
 
 def _func_init_nccl(sessionId, uniqueId):
@@ -187,7 +187,7 @@ class ListenerThread(threading.Thread):
         if self.verbose:
             print("Running listener thread")
         while not self.listener.closed():
-            time.sleep(1)
+            time.sleep(0.001)
 
     def close(self):
         if self.verbose:
@@ -204,6 +204,7 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
     :param sessionId: uuid Unique id for current instance
     :param r: float a random number to stop the function from being cached
     """
+
     if "ucp_listener" in worker_state(sessionId):
         print("Listener already started for sessionId=" +
               str(sessionId))
@@ -231,7 +232,7 @@ async def _func_ucp_stop_listener(sessionId):
         print("Listener not found with sessionId=" + str(sessionId))
 
 
-def _func_build_handle_p2p(sessionId, streams_per_handle):
+def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -250,12 +251,12 @@ def _func_build_handle_p2p(sessionId, streams_per_handle):
     workerId = session_state["wid"]
 
     inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
-                           nWorkers, workerId)
+                           nWorkers, workerId, verbose)
 
     worker_state(sessionId)["handle"] = handle
 
 
-def _func_build_handle(sessionId, streams_per_handle):
+def _func_build_handle(sessionId, streams_per_handle, verbose):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -271,7 +272,8 @@ def _func_build_handle(sessionId, streams_per_handle):
     nWorkers = session_state["nworkers"]
 
     nccl_comm = session_state["nccl"]
-    inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers, workerId)
+    inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers,
+                                     workerId, verbose)
     session_state["handle"] = handle
 
 
@@ -309,7 +311,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     worker_state(sessionId)["ucp_eps"] = eps
 
 
-async def _func_destroy_all(sessionId, comms_p2p):
+async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
     worker_state(sessionId)["nccl"].destroy()
     del worker_state(sessionId)["nccl"]
 
@@ -371,6 +373,9 @@ class CommsContext:
             warnings.warn("ucx-py not found. UCP Integration will "
                           "be disabled.")
             self.comms_p2p = False
+
+        if verbose:
+            print("Initializing comms!")
 
     def __del__(self):
         if self.nccl_initialized or self.ucx_initialized:
@@ -465,8 +470,12 @@ class CommsContext:
         self.client.run(_func_destroy_all,
                         self.sessionId,
                         self.comms_p2p,
+                        self.verbose,
                         wait=True,
                         workers=self.worker_addresses)
+
+        if self.verbose:
+            print("Destroying comms.")
 
         if self.comms_p2p:
             self.stop_ucp_listeners()
