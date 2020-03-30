@@ -272,11 +272,13 @@ if(BUILD_CUML_CPP_LIBRARY)
   set(CUML_CPP_TARGET "cuml++")
 
   add_library(${CUML_CPP_TARGET} SHARED
+    src/arima/batched_kalman.cu
+    src/arima/batched_arima.cu
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
-    src/comms/cuML_comms_test.cpp
     src/common/nvtx.cu
+    src/comms/cuML_comms_test.cpp
     src/datasets/make_blobs.cu
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
@@ -301,9 +303,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu
-    src/arima/batched_kalman.cu
-    src/arima/batched_arima.cu)
+    src/umap/umap.cu)
 
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
