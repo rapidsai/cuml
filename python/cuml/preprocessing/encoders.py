@@ -119,8 +119,7 @@ class OneHotEncoder:
         if self.drop is None:
             return None
         elif isinstance(self.drop, str) and self.drop == 'first':
-            return {feature: cp.array([0])
-                    for feature in self._encoders.keys()}
+            return {feature: 0 for feature in self._encoders.keys()}
         elif isinstance(self.drop, dict):
             if len(self.drop.keys()) != len(self._encoders):
                 msg = ("`drop` should have as many columns as the number "
