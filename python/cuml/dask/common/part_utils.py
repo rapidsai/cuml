@@ -128,7 +128,7 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # dask.dataframe or dask.array
+    # dask_cudf.dataframe or dask_cudf.series or dask.array
     if (isinstance(dask_obj, dcDataFrame) or
             isinstance(dask_obj, daskArray) or
             isinstance(dask_obj, dcSeries)):
