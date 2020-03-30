@@ -36,7 +36,6 @@ if(BUILD_CUML_TESTS)
     faisslib
     treelite_runtimelib
     ${CUML_CPP_TARGET}
-    ${CUML_C_TARGET}
     pthread)
 
   # (please keep the filenames in alphabetical order)
