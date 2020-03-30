@@ -18,24 +18,22 @@
 cmake_policy(SET CMP0079 NEW)
 
 set(CUML_TEST_INCLUDE_DIRS
+  ${CUML_INCLUDE_DIRECTORIES}
   ${GTEST_DIR}/include
   ${TREELITE_DIR}/runtime/native/include)
+
+set(CUML_TEST_LINK_LIBRARIES
+  ${CUML_LINK_LIBRARIES}
+  treelite_runtimelib
+  ${CUML_CPP_TARGET}
+  pthread
+  gtestlib
+  gtest_mainlib)
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
 
 if(BUILD_CUML_TESTS)
-  set(ML_TEST_LINK_LIBRARIES
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_CUDART_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
-    faisslib
-    treelite_runtimelib
-    ${CUML_CPP_TARGET}
-    pthread)
 
   # (please keep the filenames in alphabetical order)
   add_executable(ml
@@ -65,54 +63,26 @@ if(BUILD_CUML_TESTS)
 
   target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
-  target_link_libraries(ml
-    gtestlib
-    gtest_mainlib
-    ${ML_TEST_LINK_LIBRARIES})
+  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
 endif(BUILD_CUML_TESTS)
 
 ##############################################################################
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  set(ML_MG_TEST_LINK_LIBRARIES
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_CUDART_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
-    faisslib
-    ${CUML_CPP_TARGET}
-    pthread)
-
   # (please keep the filenames in alphabetical order)
   add_executable(ml_mg
     mg/test_ml_mg_utils.cu)
 
   target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
-  target_link_libraries(ml_mg
-    gtestlib
-    gtest_mainlib
-    ${ML_MG_TEST_LINK_LIBRARIES})
+  target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
 endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################
 # - build prims_test executable ----------------------------------------------
 
 if(BUILD_PRIMS_TESTS)
-  set(PRIMS_LINK_LIBRARIES
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    pthread
-    faisslib
-    OpenMP::OpenMP_CXX
-    Threads::Threads)
-
   # (please keep the filenames in alphabetical order)
   add_executable(prims
     prims/add.cu
@@ -218,8 +188,5 @@ if(BUILD_PRIMS_TESTS)
 
   add_dependencies(prims cutlass)
 
-  target_link_libraries(prims
-    gtestlib
-    gtest_mainlib
-    ${PRIMS_LINK_LIBRARIES})
+  target_link_libraries(prims ${CUML_TEST_LINK_LIBRARIES})
 endif(BUILD_PRIMS_TESTS)
