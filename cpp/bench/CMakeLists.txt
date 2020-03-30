@@ -19,8 +19,6 @@ cmake_policy(SET CMP0079 NEW)
 ###################################################################################################
 # - build cuml bench executable -------------------------------------------------------------------
 
-# TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite
-
 set(GBENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark)
 set(GBENCH_BINARY_DIR ${PROJECT_BINARY_DIR}/benchmark)
 set(GBENCH_INSTALL_DIR ${GBENCH_BINARY_DIR}/install)
