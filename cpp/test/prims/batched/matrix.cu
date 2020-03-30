@@ -421,7 +421,8 @@ const std::vector<MatrixInputs<double>> inputsd = {
   // {Lyapunov_op, 13, 100, 100, 100, 100, 0, 0, 1e-2}};
 
 // Note: Schur and Lyapunov tests have had stability issues on CI so
-// they are disabled temporarily
+// they are disabled temporarily. See issue:
+// https://github.com/rapidsai/cuml/issues/1949
 
 // Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)
 const std::vector<MatrixInputs<float>> inputsf = {
