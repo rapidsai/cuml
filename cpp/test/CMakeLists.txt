@@ -14,38 +14,10 @@
 # limitations under the License.
 #=============================================================================
 
+# Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
 cmake_policy(SET CMP0079 NEW)
 
 project(cuml_test LANGUAGES CXX CUDA)
-
-# Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
-
-set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest)
-set(GTEST_BINARY_DIR ${PROJECT_BINARY_DIR}/googletest)
-set(GTEST_INSTALL_DIR ${GTEST_BINARY_DIR}/install)
-set(GTEST_LIB ${GTEST_INSTALL_DIR}/lib/libgtest_main.a)
-
-include(ExternalProject)
-ExternalProject_Add(googletest
-  GIT_REPOSITORY    https://github.com/google/googletest.git
-  GIT_TAG           6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb
-  PREFIX            ${GTEST_DIR}
-  CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                    -DBUILD_SHARED_LIBS=OFF
-                    -DCMAKE_INSTALL_LIBDIR=lib
-  UPDATE_COMMAND    ""
-)
-
-add_dependencies(googletest ${CUML_CPP_TARGET})
-
-add_library(gtestlib STATIC IMPORTED)
-add_library(gtest_mainlib STATIC IMPORTED)
-
-add_dependencies(gtestlib googletest)
-add_dependencies(gtest_mainlib googletest)
-
-set_property(TARGET gtestlib PROPERTY IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
-set_property(TARGET gtest_mainlib PROPERTY IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
 
 include_directories(
   ${GTEST_DIR}/include

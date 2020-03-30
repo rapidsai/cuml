@@ -85,6 +85,34 @@ set_property(TARGET treelitelib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
 set_property(TARGET treelite_runtimelib PROPERTY
   IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+add_dependencies(dmlclib treelite)
+add_dependencies(treelitelib treelite)
+add_dependencies(treelite_runtimelib treelite)
+
+set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest CACHE STRING
+  "Path to googletest repo")
+set(GTEST_TAG 6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb CACHE STRING
+  "Googletest commit tag to be used")
+set(GTEST_BINARY_DIR ${PROJECT_BINARY_DIR}/googletest)
+set(GTEST_INSTALL_DIR ${GTEST_BINARY_DIR}/install)
+set(GTEST_LIB ${GTEST_INSTALL_DIR}/lib/libgtest_main.a)
+include(ExternalProject)
+ExternalProject_Add(googletest
+  GIT_REPOSITORY    https://github.com/google/googletest.git
+  GIT_TAG           ${GTEST_TAG}
+  PREFIX            ${GTEST_DIR}
+  CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                    -DBUILD_SHARED_LIBS=OFF
+                    -DCMAKE_INSTALL_LIBDIR=lib
+  UPDATE_COMMAND    "")
+add_library(gtestlib STATIC IMPORTED)
+add_library(gtest_mainlib STATIC IMPORTED)
+set_property(TARGET gtestlib PROPERTY
+  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
+set_property(TARGET gtest_mainlib PROPERTY
+  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
+add_dependencies(gtestlib googletest)
+add_dependencies(gtest_mainlib googletest)
 
 set(GBENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark CACHE STRING
   "Path to google benchmark repo")
@@ -117,6 +145,5 @@ add_dependencies(cutlass cub)
 add_dependencies(faiss cutlass)
 add_dependencies(faisslib faiss)
 add_dependencies(treelite faiss)
-add_dependencies(dmlclib treelite)
-add_dependencies(treelitelib treelite)
-add_dependencies(treelite_runtimelib treelite)
+add_dependencies(googletest treelite)
+add_dependencies(benchmark googletest)
