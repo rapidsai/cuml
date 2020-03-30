@@ -4,6 +4,8 @@
 
 ## Improvements
 
+- PR #1946: Removed zlib dependency from cmake
+
 ## Bug Fixes
 
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
