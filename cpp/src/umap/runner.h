@@ -434,6 +434,10 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     std::cout << "Performing optimization" << std::endl;
   }
 
+  if (params->callback) {
+    params->callback->setup<T>(embedding_n, params->n_components);
+  }
+
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
