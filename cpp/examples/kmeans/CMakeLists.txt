@@ -14,6 +14,6 @@
 # limitations under the License.
 #
 
-include_directories(${CUDA_INCLUDE_DIRS})
 add_executable(kmeans_example kmeans_example.cpp)
+target_include_directories(kmeans_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 target_link_libraries(kmeans_example cuml++)
