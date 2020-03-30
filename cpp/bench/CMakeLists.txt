@@ -35,7 +35,8 @@ if(BUILD_CUML_BENCH)
     benchmarklib)
 
   target_include_directories(sg_benchmark
-    PRIVATE ${GBENCH_DIR}/include)
+    PRIVATE ${GBENCH_DIR}/include
+    ${CUML_INCLUDE_DIRECTORIES})
 endif(BUILD_CUML_BENCH)
 
 ##############################################################################
@@ -63,5 +64,5 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   target_include_directories(prims_benchmark
     PRIVATE ${GBENCH_DIR}/include
-    src_prims)
+    ${CUML_INCLUDE_DIRECTORIES})
 endif(BUILD_CUML_PRIMS_BENCH)
