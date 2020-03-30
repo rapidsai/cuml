@@ -14,6 +14,7 @@
 #
 import numpy as np
 import cupy as cp
+from sklearn.exceptions import NotFittedError
 
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
@@ -39,12 +40,12 @@ class OneHotEncoder:
 
     Parameters
     ----------
-    categories : 'auto' or a cuml.DataFrame, default='auto'
+    categories : 'auto' or a cudf.DataFrame, default='auto'
         Categories (unique values) per feature:
         - 'auto' : Determine categories automatically from the training data.
         - DataFrame : ``categories[col]`` holds the categories expected in the
           feature col.
-    drop : 'first' or a cuml.DataFrame, default=None
+    drop : 'first' or a cudf.DataFrame, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
         features cause problems, such as when feeding the resulting data
@@ -109,7 +110,9 @@ class OneHotEncoder:
 
     def _check_is_fitted(self):
         if not self._fitted:
-            raise RuntimeError("Model must first be .fit()")
+            msg = ("This OneHotEncoder instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)
 
     def _compute_drop_idx(self):
         if self.drop is None:
@@ -125,7 +128,6 @@ class OneHotEncoder:
                                             len(self.drop.keys())))
             drop_idx = dict()
             for feature in self.drop.keys():
-                cats = self._encoders[feature].classes_
                 self.drop[feature] = Series(self.drop[feature])
                 if len(self.drop[feature]) != 1:
                     msg = ("Trying to drop multiple values for feature {}, "
@@ -135,6 +137,7 @@ class OneHotEncoder:
                     # where present before one hot encoding if multiples
                     # categories where dropped.
                     raise ValueError(msg)
+                cats = self._encoders[feature].classes_
                 if not self.drop[feature].isin(cats).all():
                     msg = ("Some categories for feature {} were supposed "
                            "to be dropped, but were not found in the encoder "
@@ -202,8 +205,8 @@ class OneHotEncoder:
     def _one_hot_encoding(self, feature, X):
         encoder = self._encoders[feature]
 
-        col_idx = encoder.transform(X).to_gpu_array(fillna="pandas")
-        col_idx = cp.asarray(col_idx)
+        col_idx = encoder.transform(X)
+        col_idx = cp.asarray(col_idx.to_gpu_array(fillna="pandas"))
 
         ohe = cp.zeros((len(X), len(encoder.classes_)), dtype=self.dtype)
         # Filter out rows with null values
