@@ -115,6 +115,10 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   // Are we doing a fit or a transform?
   bool move_other = head_embedding == tail_embedding;
 
+  if (params->optim_batch_size <= 0) {
+    params->optim_batch_size = 100000 / params->n_components;
+  }
+
   T alpha = params->initial_alpha;
 
   MLCommon::device_buffer<T> epoch_of_next_negative_sample(d_alloc, stream,

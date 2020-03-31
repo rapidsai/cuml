@@ -230,7 +230,6 @@ class UMAP(Base):
         The optimization step will be processed with at most optim_batch_size
         edges at once preventing inconsistencies. A lower batch size will yield
         more consistently repeatable embeddings at the cost of speed.
-        (trade off between consistency and speed)
     callback: An instance of GraphBasedDimRedCallback class to intercept
               the internal state of embeddings while they are being trained.
               Example of callback usage:
@@ -299,7 +298,7 @@ class UMAP(Base):
                  handle=None,
                  hash_input=False,
                  random_state=None,
-                 optim_batch_size=None,
+                 optim_batch_size=0,
                  callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
@@ -357,10 +356,7 @@ class UMAP(Base):
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
 
-        if optim_batch_size is None:
-            umap_params.optim_batch_size = <int> 100000 / n_components
-        else:
-            umap_params.optim_batch_size = <int> optim_batch_size
+        umap_params.optim_batch_size = <int> optim_batch_size
 
         cdef uintptr_t callback_ptr = 0
         if callback:
