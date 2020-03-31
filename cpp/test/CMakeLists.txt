@@ -75,9 +75,7 @@ if(BUILD_CUML_TESTS)
         treelite_runtimelib
         ${CUML_CPP_TARGET}
         ${CUML_C_TARGET}
-        pthread
-        ${ZLIB_LIBRARIES}
-    )
+        pthread)
 
     # (please keep the filenames in alphabetical order)
     add_executable(ml
@@ -131,9 +129,7 @@ if(BUILD_CUML_MG_TESTS)
         ${CUDA_nvgraph_LIBRARY}
         faisslib
         ${CUML_CPP_TARGET}
-        pthread
-        ${ZLIB_LIBRARIES}
-    )
+        pthread)
 
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
@@ -162,10 +158,8 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusparse_LIBRARY}
         pthread
         faisslib
-        ${ZLIB_LIBRARIES}
         OpenMP::OpenMP_CXX
-        Threads::Threads
-    )
+        Threads::Threads)
 
     # (please keep the filenames in alphabetical order)
     add_executable(prims
