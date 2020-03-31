@@ -24,6 +24,7 @@ set(CUML_TEST_INCLUDE_DIRS
 
 set(CUML_TEST_LINK_LIBRARIES
   treelite_runtimelib
+  ${CUML_LINK_LIBRARIES}
   ${CUML_CPP_TARGET}
   gtestlib
   gtest_mainlib)
@@ -188,5 +189,6 @@ if(BUILD_PRIMS_TESTS)
   target_link_libraries(prims
     gtestlib
     gtest_mainlib
-    ${CUML_LINK_LIBRARIES})
+    ${CUML_LINK_LIBRARIES}
+    faisslib)
 endif(BUILD_PRIMS_TESTS)

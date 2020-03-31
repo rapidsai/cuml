@@ -250,9 +250,7 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
-  ${Protobuf_LIBRARIES}
-  faisslib)
+  ${CUDA_nvgraph_LIBRARY})
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -307,9 +305,13 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 
   target_link_libraries(${CUML_CPP_TARGET}
-    ${CUML_LINK_LIBRARIES}
-    treelitelib
-    dmlclib)
+    PUBLIC
+      ${CUML_LINK_LIBRARIES}
+    PRIVATE
+      ${Protobuf_LIBRARIES}
+      faisslib
+      treelitelib
+      dmlclib)
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
@@ -333,7 +335,7 @@ if(BUILD_CUML_C_LIBRARY)
   target_include_directories(${CUML_C_TARGET}
     PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 
-  target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
+  target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################
