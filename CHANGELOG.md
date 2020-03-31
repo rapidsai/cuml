@@ -5,7 +5,10 @@
 ## Improvements
 - PR #1944: Support for dask_cudf.core.Series in _extract_partitions
 
+- PR #1946: Removed zlib dependency from cmake
+
 ## Bug Fixes
+- PR #1939: Fix syntax error in cuml.common.array
 
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
 
@@ -117,7 +120,12 @@
 - PR #1918: Create memleak fixture to skip memleak tests in CI for now
 - PR #1926: Update batch matrix test margins
 - PR #1925: Fix failing dask tests
+- PR #1936: Update DaskRF regression test to xfail
 - PR #1932: Isolating cause of make_blobs failure
+- PR #1951: Dask Random forest regression CPU predict bug fix
+- PR #1948: Adjust BatchedMargin margin and disable tests temporarily
+- PR #1950: Fix UMAP test failure
+
 
 
 # cuML 0.12.0 (04 Feb 2020)
