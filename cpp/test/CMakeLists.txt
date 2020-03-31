@@ -23,10 +23,8 @@ set(CUML_TEST_INCLUDE_DIRS
   ${TREELITE_DIR}/runtime/native/include)
 
 set(CUML_TEST_LINK_LIBRARIES
-  ${CUML_LINK_LIBRARIES}
   treelite_runtimelib
   ${CUML_CPP_TARGET}
-  pthread
   gtestlib
   gtest_mainlib)
 
@@ -187,5 +185,8 @@ if(BUILD_PRIMS_TESTS)
 
   add_dependencies(prims cutlass)
 
-  target_link_libraries(prims ${CUML_TEST_LINK_LIBRARIES})
+  target_link_libraries(prims
+    gtestlib
+    gtest_mainlib
+    ${CUML_LINK_LIBRARIES})
 endif(BUILD_PRIMS_TESTS)
