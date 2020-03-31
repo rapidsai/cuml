@@ -4,6 +4,8 @@
 
 ## Improvements
 
+- PR #1946: Removed zlib dependency from cmake
+
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
 
