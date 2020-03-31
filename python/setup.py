@@ -20,6 +20,11 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from setuputils import get_submodule_dependencies
 
+try:
+    from Cython.Distutils.build_ext import new_build_ext as build_ext
+except ImportError:
+    from setuptools.command.build_ext import build_ext
+
 import os
 import subprocess
 import sys
@@ -136,6 +141,10 @@ else:
     sys_include = os.path.dirname(sysconfig.get_path("include"))
     include_dirs.append("%s/cumlprims" % sys_include)
 
+cmdclass = dict()
+cmdclass.update(versioneer.get_cmdclass())
+cmdclass["build_ext"] = build_ext
+
 extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
@@ -168,6 +177,6 @@ setup(name='cuml',
       packages=find_packages(include=['cuml', 'cuml.*']),
       install_requires=install_requires,
       license="Apache",
-      cmdclass=versioneer.get_cmdclass(),
+      cmdclass=cmdclass,
       zip_safe=False
       )
