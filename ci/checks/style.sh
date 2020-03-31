@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #####################
 # cuML Style Tester #
 #####################
@@ -80,23 +80,6 @@ if [ "$FORMAT_RETVAL" != "0" ]; then
   echo -e "\n\n>>>> FAILED: clang format check; end output\n\n"
 else
   echo -e "\n\n>>>> PASSED: clang format check\n\n"
-fi
-
-# Check for a good doxygen comments in the c++ base
-DOXY_DIR=doxygen_check
-DOXYGEN=`(mkdir -p $DOXY_DIR && cd $DOXY_DIR && cmake ../cpp && make doc && rm -rf $DOXY_DIR) 2>&1`
-DOXYGEN_RETVAL=$?
-if [ "$RETVAL" = "0" ]; then
-  RETVAL=$DOXYGEN_RETVAL
-fi
-
-# Output results if failure otherwise show pass
-if [ "$DOXYGEN_RETVAL" != "0" ]; then
-  echo -e "\n\n>>>> FAILED: doxygen check; begin output\n\n"
-  echo -e "$DOXYGEN"
-  echo -e "\n\n>>>> FAILED: doxygen check; end output\n\n"
-else
-  echo -e "\n\n>>>> PASSED: doxygen check\n\n"
 fi
 
 exit $RETVAL
