@@ -113,13 +113,6 @@ if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   endif(OPENMP_FOUND)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
-find_package(ZLIB REQUIRED)
-if(ZLIB_FOUND)
-  message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
-else()
-  message(FATAL_ERROR "ZLib not found, please check your settings.")
-endif(ZLIB_FOUND)
-
 if(NOT DEFINED BLAS_LIBRARIES)
   find_package( BLAS REQUIRED )
 else()
@@ -346,8 +339,7 @@ include_directories(
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt
-  ${ZLIB_INCLUDE_DIRS$})
+  ${TREELITE_DIR}/include/fmt)
 
 set(PRIMS_TEST_UTILS
     src_prims/cuda_utils.h
@@ -402,7 +394,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     ${CUDA_CUDART_LIBRARY}
     ${CUDA_cusparse_LIBRARY}
     ${CUDA_nvgraph_LIBRARY}
-    ${ZLIB_LIBRARIES}
     ${Protobuf_LIBRARIES}
     treelitelib
     dmlclib
