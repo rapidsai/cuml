@@ -154,6 +154,8 @@ class UMAPParams {
 
   bool multicore_implem = false;
 
+  int optim_batch_size = 0;
+
   GraphBasedDimRedCallback* callback = nullptr;
 };
 
