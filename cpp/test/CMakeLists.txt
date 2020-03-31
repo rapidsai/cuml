@@ -34,7 +34,6 @@ set(CUML_TEST_LINK_LIBRARIES
 # - build ml_test executable -------------------------------------------------
 
 if(BUILD_CUML_TESTS)
-
   # (please keep the filenames in alphabetical order)
   add_executable(ml
     sg/cd_test.cu
