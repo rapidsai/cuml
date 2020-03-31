@@ -251,7 +251,6 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_CUDART_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
-  ${ZLIB_LIBRARIES}
   ${Protobuf_LIBRARIES}
   faisslib)
 
