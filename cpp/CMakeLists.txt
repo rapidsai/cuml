@@ -113,13 +113,6 @@ if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   endif(OPENMP_FOUND)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
-find_package(ZLIB REQUIRED)
-if(ZLIB_FOUND)
-  message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
-else()
-  message(FATAL_ERROR "ZLib not found, please check your settings.")
-endif(ZLIB_FOUND)
-
 if(NOT DEFINED BLAS_LIBRARIES)
   find_package( BLAS REQUIRED )
 else()
@@ -249,8 +242,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt
-  ${ZLIB_INCLUDE_DIRS$})
+  ${TREELITE_DIR}/include/fmt)
 
 set(CUML_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
