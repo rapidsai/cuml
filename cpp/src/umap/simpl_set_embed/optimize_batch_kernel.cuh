@@ -76,9 +76,10 @@ __global__ void optimize_batch_kernel(
   const MLCommon::FastIntDiv tail_n, const int *head, const int *tail, int nnz,
   T *epochs_per_sample, int n_vertices, T *epoch_of_next_negative_sample,
   T *epoch_of_next_sample, T2 alpha, int epoch, T2 gamma, uint64_t seed,
-  double *embedding_updates, bool move_other, UMAPParams params, T nsr_inv) {
+  double *embedding_updates, bool move_other, UMAPParams params, T nsr_inv,
+  int offset = 0) {
   extern __shared__ T embedding_shared_mem_updates[];
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  int row = (blockIdx.x * TPB_X) + threadIdx.x + offset;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -227,7 +228,7 @@ void call_optimize_batch_kernel(
   T *epoch_of_next_sample, T alpha, int epoch, T gamma, uint64_t seed,
   double *embedding_updates, bool move_other, bool use_shared_mem,
   UMAPParams *params, int n, dim3 &grid, dim3 &blk, size_t requiredSize,
-  cudaStream_t &stream) {
+  cudaStream_t &stream, int offset = 0) {
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   if (embedding_updates) {
     if (use_shared_mem) {
@@ -237,7 +238,7 @@ void call_optimize_batch_kernel(
           head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
           epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
           epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
-          move_other, *params, nsr_inv);
+          move_other, *params, nsr_inv, offset);
     } else {
       // synchronized implementation without shared memory
       optimize_batch_kernel<T, double, TPB_X, false, false>
@@ -245,7 +246,7 @@ void call_optimize_batch_kernel(
           head_embedding, head_n, tail_embedding, tail_n, head, tail, nnz,
           epochs_per_sample, n_vertices, epoch_of_next_negative_sample,
           epoch_of_next_sample, alpha, n, gamma, seed, embedding_updates,
-          move_other, *params, nsr_inv);
+          move_other, *params, nsr_inv, offset);
     }
   } else {
     if (use_shared_mem) {
