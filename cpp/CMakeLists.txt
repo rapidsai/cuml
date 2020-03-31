@@ -322,6 +322,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
+  # same as above, but for protobuf library
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
