@@ -117,6 +117,7 @@
 - PR #1918: Create memleak fixture to skip memleak tests in CI for now
 - PR #1926: Update batch matrix test margins
 - PR #1925: Fix failing dask tests
+- PR #1936: Update DaskRF regression test to xfail
 - PR #1932: Isolating cause of make_blobs failure
 - PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
