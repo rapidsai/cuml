@@ -158,7 +158,6 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
       d_alloc, stream, n_vertices * params->n_components);
     double *embedding_updates = embedding_updates_buf.data();
     dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X));
-    int batchSize = 100000 / params->n_components;
 
     for (int n = 0; n < n_epochs; n++) {
       CUDA_CHECK(cudaMemsetAsync(
@@ -168,7 +167,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
       int toDo = nnz;
       int offset = 0;
       while (toDo > 0) {
-        int curBatchSize = min(toDo, batchSize);
+        int curBatchSize = min(toDo, params->optim_batch_size);
         call_optimize_batch_kernel<T, TPB_X>(
           head_embedding, head_n, tail_embedding, tail_n_fast, head, tail,
           offset + curBatchSize, epochs_per_sample, n_vertices,
