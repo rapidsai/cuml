@@ -72,7 +72,7 @@ set_property(TARGET faisslib PROPERTY
   IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
 
 ##############################################################################
-# - google benchmark ---------------------------------------------------------
+# - treelite build -----------------------------------------------------------
 
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
