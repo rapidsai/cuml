@@ -143,7 +143,8 @@ def test_send_recv(n_trials, cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
-@pytest.mark.skip
+@pytest.mark.skip(reason="Should be enabled once this feature is fixed: "
+                         "https://github.com/rapidsai/cuml/issues/1975")
 def test_recv_any_rank(n_trials, cluster):
 
     client = Client(cluster)
