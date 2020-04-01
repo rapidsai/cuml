@@ -27,45 +27,47 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
     client = Client(cluster)
 
-    from cuml.dask.decomposition import PCA as daskPCA
-    from sklearn.decomposition import PCA
-
-    from cuml.dask.datasets import make_blobs
-
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=0.5, verbose=False,
-                           random_state=10, dtype=np.float32)
-
-    wait(X_cudf)
-
-    print(str(X_cudf.head(3)))
-
     try:
 
-        cupca = daskPCA(n_components=5, whiten=True)
-        cupca.fit(X_cudf)
-    except Exception as e:
-        print(str(e))
+        from cuml.dask.decomposition import PCA as daskPCA
+        from sklearn.decomposition import PCA
 
-    X = X_cudf.compute().to_pandas().values
+        from cuml.dask.datasets import make_blobs
 
-    skpca = PCA(n_components=5, whiten=True, svd_solver="full")
-    skpca.fit(X)
+        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+                               cluster_std=0.5, verbose=False,
+                               random_state=10, dtype=np.float32)
 
-    from cuml.test.utils import array_equal
+        wait(X_cudf)
 
-    all_attr = ['singular_values_', 'components_',
-                'explained_variance_', 'explained_variance_ratio_']
+        print(str(X_cudf.head(3)))
 
-    client.close()
+        try:
 
-    for attr in all_attr:
-        with_sign = False if attr in ['components_'] else True
-        cuml_res = (getattr(cupca, attr))
-        if type(cuml_res) == np.ndarray:
-            cuml_res = cuml_res.as_matrix()
-        skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+            cupca = daskPCA(n_components=5, whiten=True)
+            cupca.fit(X_cudf)
+        except Exception as e:
+            print(str(e))
+
+        X = X_cudf.compute().to_pandas().values
+
+        skpca = PCA(n_components=5, whiten=True, svd_solver="full")
+        skpca.fit(X)
+
+        from cuml.test.utils import array_equal
+
+        all_attr = ['singular_values_', 'components_',
+                    'explained_variance_', 'explained_variance_ratio_']
+
+        for attr in all_attr:
+            with_sign = False if attr in ['components_'] else True
+            cuml_res = (getattr(cupca, attr))
+            if type(cuml_res) == np.ndarray:
+                cuml_res = cuml_res.as_matrix()
+            skl_res = getattr(skpca, attr)
+            assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+    finally:
+        client.close()
 
 
 @pytest.mark.mg
@@ -76,19 +78,21 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
     client = Client(cluster)
 
-    from cuml.dask.decomposition import PCA as daskPCA
-    from cuml.dask.datasets import make_blobs
+    try:
+        from cuml.dask.decomposition import PCA as daskPCA
+        from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=1.5, verbose=False,
-                           random_state=10, dtype=np.float32)
+        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+                               cluster_std=1.5, verbose=False,
+                               random_state=10, dtype=np.float32)
 
-    wait(X_cudf)
+        wait(X_cudf)
 
-    cupca = daskPCA(n_components=20, whiten=True)
-    cupca.fit_transform(X_cudf)
+        cupca = daskPCA(n_components=20, whiten=True)
+        cupca.fit_transform(X_cudf)
 
-    client.close()
+    finally:
+        client.close()
 
 
 @pytest.mark.mg
@@ -99,16 +103,18 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
 
     client = Client(cluster)
 
-    from cuml.dask.decomposition import PCA as daskPCA
-    from cuml.dask.datasets import make_blobs
+    try:
+        from cuml.dask.decomposition import PCA as daskPCA
+        from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=1.5, verbose=False,
-                           random_state=10, dtype=np.float64)
+        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+                               cluster_std=1.5, verbose=False,
+                               random_state=10, dtype=np.float64)
 
-    wait(X_cudf)
+        wait(X_cudf)
 
-    cupca = daskPCA(n_components=30, whiten=False)
-    cupca.fit_transform(X_cudf)
+        cupca = daskPCA(n_components=30, whiten=False)
+        cupca.fit_transform(X_cudf)
 
-    client.close()
+    finally:
+        client.close()

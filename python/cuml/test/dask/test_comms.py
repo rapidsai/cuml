@@ -104,11 +104,10 @@ def test_allreduce(cluster):
 
         dfs = [client.submit(func_test_allreduce, cb.sessionId,
                              random.random(), workers=[w])
-               for wid, w in zip(range(len(cb.worker_addresses)),
-                                 cb.worker_addresses)]
+               for w in cb.worker_addresses]
         wait(dfs)
 
-        assert all(list(map(lambda x: x.result(), dfs)))
+        assert all([x.result() for x in dfs])
 
     finally:
         cb.destroy()
@@ -117,7 +116,6 @@ def test_allreduce(cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
-@pytest.mark.skip("ucx functionality available in cuML 0.12+")
 def test_send_recv(n_trials, ucx_cluster):
 
     client = Client(ucx_cluster)
@@ -132,8 +130,7 @@ def test_send_recv(n_trials, ucx_cluster):
                              n_trials,
                              random.random(),
                              workers=[w])
-               for wid, w in zip(range(len(cb.worker_addresses)),
-                                 cb.worker_addresses)]
+               for w in cb.worker_addresses]
 
         wait(dfs)
 
@@ -146,7 +143,6 @@ def test_send_recv(n_trials, ucx_cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [5])
-@pytest.mark.skip("ucx functionality available in cuML 0.12+")
 def test_recv_any_rank(n_trials, ucx_cluster):
 
     client = Client(ucx_cluster)
@@ -161,14 +157,13 @@ def test_recv_any_rank(n_trials, ucx_cluster):
                              n_trials,
                              random.random(),
                              workers=[w])
-               for wid, w in zip(range(len(cb.worker_addresses)),
-                                 cb.worker_addresses)]
+               for w in cb.worker_addresses]
 
         wait(dfs)
 
-        result = list(map(lambda x: x.result(), dfs))
+        result = [x.result() for x in dfs]
 
-        assert(result)
+        assert result
 
     finally:
         cb.destroy()

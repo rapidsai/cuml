@@ -178,7 +178,8 @@ class BaseDecompositionMG(object):
         trans_cudf = []
         if _transform:
             for x_i in arr_interfaces_trans:
-                trans_cudf.append(x_i["obj"].to_output(output_type="cudf"))
+                trans_cudf.append(x_i["obj"].to_output(
+                    output_type=self._get_output_type(X)))
 
             if self.dtype == np.float32:
                 self._freeFloatD(trans_data, arr_interfaces_trans)
