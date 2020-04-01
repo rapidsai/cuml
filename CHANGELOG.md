@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #1946: Removed zlib dependency from cmake
+- PR #1968: Update SVC SVR with cuML Array
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
