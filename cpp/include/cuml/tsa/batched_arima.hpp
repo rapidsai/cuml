@@ -108,7 +108,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  params      ARIMA parameters (device)
  * @param[out] ic          Array where to write the information criteria
- *                         Shape: (batch_size) (host)
+ *                         Shape: (batch_size) (device)
  * @param[in]  ic_type     Type of information criterion wanted.
  *                         0: AIC, 1: AICc, 2: BIC
  */

@@ -198,15 +198,13 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
 void information_criterion(cumlHandle& handle, const double* d_y,
                            int batch_size, int n_obs, const ARIMAOrder& order,
-                           const ARIMAParams<double>& params, double* ic,
+                           const ARIMAParams<double>& params, double* d_ic,
                            int ic_type) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   double* d_vs = (double*)allocator->allocate(
     sizeof(double) * (n_obs - order.lost_in_diff()) * batch_size, stream);
-  double* d_ic =
-    (double*)allocator->allocate(sizeof(double) * batch_size, stream);
 
   /* Compute log-likelihood in d_ic */
   batched_loglike(handle, d_y, batch_size, n_obs, order, params, d_ic, d_vs,
@@ -217,12 +215,8 @@ void information_criterion(cumlHandle& handle, const double* d_y,
     d_ic, d_ic, static_cast<MLCommon::Metrics::IC_Type>(ic_type),
     order.complexity(), batch_size, n_obs - order.lost_in_diff(), stream);
 
-  /* Transfer information criterion device -> host */
-  MLCommon::updateHost(ic, d_ic, batch_size, stream);
-
   allocator->deallocate(
     d_vs, sizeof(double) * (n_obs - order.lost_in_diff()) * batch_size, stream);
-  allocator->deallocate(d_ic, sizeof(double) * batch_size, stream);
   ML::POP_RANGE();
 }
 
