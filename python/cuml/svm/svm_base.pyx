@@ -382,7 +382,7 @@ class SVMBase(Base):
                 return
             self._intercept_ = model_f.b
             self._n_support_ = model_f.n_support
- 
+
             self._dual_coef_ = CumlArray(
                 data=<uintptr_t>model_f.dual_coefs,
                 shape=(1, self._n_support_),
@@ -431,7 +431,7 @@ class SVMBase(Base):
 
             self._support_vectors_ = CumlArray(
                 data=<uintptr_t>model_d.x_support,
-                shape=(self._n_support_,self.n_cols),
+                shape=(self._n_support_, self.n_cols),
                 dtype=self.dtype,
                 order='F')
             self._n_classes = model_d.n_classes
@@ -463,16 +463,15 @@ class SVMBase(Base):
         """
 
         self._set_output_type(X)
-        cdef uintptr_t X_ptr, y_ptr
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='F')
 
-        cdef uintptr_t input_ptr = X_m.ptr
-        
+        cdef uintptr_t X_ptr = X_m.ptr
+
         y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
-        
-        cdef uintptr_t output_ptr = y_m.ptr
+
+        cdef uintptr_t y_ptr = y_m.ptr
 
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
@@ -485,14 +484,14 @@ class SVMBase(Base):
 
         if self.dtype == np.float32:
             model_f = new svmModel[float]()
-            svcFit(handle_[0], <float*>input_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>output_ptr, param, _kernel_params,
+            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
+                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
                    model_f[0])
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new svmModel[double]()
-            svcFit(handle_[0], <double*>input_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>output_ptr, param, _kernel_params,
+            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
+                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
                    model_d[0])
             self._model = <uintptr_t>model_d
         else:
@@ -535,9 +534,8 @@ class SVMBase(Base):
 
         X_m, n_rows, n_cols, pred_dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype)
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t input_ptr = X_m.ptr
-        
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -546,13 +544,13 @@ class SVMBase(Base):
 
         if self.dtype == np.float32:
             model_f = <svmModel[float]*><size_t> self._model
-            svcPredict(handle_[0], <float*>input_ptr, <int>n_rows, <int>n_cols,
+            svcPredict(handle_[0], <float*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_f[0],
                        <float*>preds_ptr, <float>self.cache_size,
                        <bool> predict_class)
         else:
             model_d = <svmModel[double]*><size_t> self._model
-            svcPredict(handle_[0], <double*>input_ptr, <int>n_rows, <int>n_cols,
+            svcPredict(handle_[0], <double*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_d[0],
                        <double*>preds_ptr, <double>self.cache_size,
                        <bool> predict_class)
@@ -560,6 +558,7 @@ class SVMBase(Base):
         self.handle.sync()
 
         del(X_m)
+
         return preds.to_output(out_type)
 
     def get_param_names(self):
