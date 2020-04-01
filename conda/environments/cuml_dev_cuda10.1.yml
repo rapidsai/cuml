@@ -23,7 +23,7 @@ dependencies:
 - dask-cudf=0.14*
 - ucx-py=0.14*
 - nccl>=2.5
-- libcumlprims=0.13*
+- libcumlprims=0.14*
 - statsmodels
 - protobuf >=3.4.1,<4.0.0
 - doxygen

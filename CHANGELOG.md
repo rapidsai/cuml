@@ -4,12 +4,14 @@
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
+- PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+- PR #1969: Update libcumlprims to 0.14
 
 # cuML 0.13.0 (Date TBD)
 
@@ -123,6 +125,7 @@
 - PR #1932: Isolating cause of make_blobs failure
 - PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
+- PR #1950: Fix UMAP test failure
 
 
 
