@@ -48,6 +48,9 @@ from libc.stdlib cimport malloc, free
 from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
+from cuml.common.array import CumlArray as cumlArray
+# TODO: remove duplicate after merging cuML array PR
+
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
     ctypedef struct ARIMAOrder:
@@ -261,12 +264,15 @@ class ARIMA(Base):
         self.niter = None  # number of iterations used during fit
 
     def __str__(self):
-        if self.seasonal_order[3]:
-            return "Batched ARIMA{}{}_{}".format(self.order,
-                                                 self.seasonal_order[:3],
-                                                 self.seasonal_order[3])
+        cdef ARIMAOrder order = self.order
+        intercept_str = 'c' if order.k else 'n'
+        if order.s:
+            return "ARIMA({},{},{})({},{},{})_{} ({}) - {} series".format(
+                order.p, order.d, order.q, order.P, order.D, order.Q, order.s,
+                intercept_str, self.batch_size)
         else:
-            return "Batched ARIMA{}".format(self.order)
+            return "ARIMA({},{},{}) ({}) - {} series".format(
+                self.p, self.d, self.q, intercept_str, self.batch_size)
 
     @nvtx_range_wrap
     def _ic(self, ic_type: str):
@@ -309,8 +315,8 @@ class ARIMA(Base):
         cpp_params.sma = <double*> d_sma_ptr
         cpp_params.sigma2 = <double*> d_sigma2_ptr
 
-        cdef vector[double] ic
-        ic.resize(self.batch_size)
+        ic = cumlArray.empty(self.batch_size, self.dtype)
+        cdef uintptr_t d_ic_ptr = ic.ptr
         cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
 
         ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
@@ -323,7 +329,7 @@ class ARIMA(Base):
         information_criterion(handle_[0], <double*> d_y_ptr,
                               <int> self.batch_size, <int> self.n_obs,
                               <ARIMAOrder> order, cpp_params,
-                              <double*> ic.data(), <int> ic_type_id)
+                              <double*> d_ic_ptr, <int> ic_type_id)
 
         return ic
 
