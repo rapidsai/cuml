@@ -3,14 +3,14 @@
 ## New Features
 
 ## Improvements
-
+- PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
 - PR #1968: Update SVC SVR with cuML Array
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
-
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+- PR #1969: Update libcumlprims to 0.14
 
 # cuML 0.13.0 (Date TBD)
 
@@ -126,7 +126,8 @@
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
 
 
-# cuML 0.12.0 (Date TBD)
+
+# cuML 0.12.0 (04 Feb 2020)
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
