@@ -13,11 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.nccl import nccl
-
+import os
+import random
+import threading
+import time
+import warnings
+import uuid
 import weakref
 
-import threading
+from cuml.nccl import nccl
 
 from .comms_utils import inject_comms_on_handle, \
     inject_comms_on_handle_coll_only, is_ucx_enabled
@@ -27,13 +31,6 @@ from cuml.common.handle import Handle
 from dask.distributed import get_worker, default_client
 
 from cuml.utils.import_utils import has_ucp
-import warnings
-
-import time
-
-import random
-import uuid
-
 
 _global_comms = weakref.WeakValueDictionary()
 _global_comms_index = [0]
@@ -117,6 +114,8 @@ def _func_ucp_listener_port(sessionId, r):
 
 async def _func_init_all(sessionId, uniqueId, comms_p2p,
                          worker_info, verbose, streams_per_handle):
+
+    os.environ["UCX_CUDA_IPC_CACHE"] = "n"
 
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
