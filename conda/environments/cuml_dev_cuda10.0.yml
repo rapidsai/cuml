@@ -6,7 +6,8 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=10.0
-- libclang=8.0.0
+- clang=8
+- clang-tools=8
 - cmake=3.14.5
 - numba>=0.46
 - cupy>=7,<8.0.0a0
