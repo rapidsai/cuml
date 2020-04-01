@@ -254,6 +254,8 @@ class Base:
                 return self.__dict__[real_name].to_output(self.output_type)
             else:
                 return self.__dict__[real_name]
+        else:
+            raise AttributeError
 
     def _set_output_type(self, input):
         """
