@@ -4,6 +4,7 @@
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
+- PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
 
 ## Bug Fixes
@@ -124,7 +125,8 @@
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
 
 
-# cuML 0.12.0 (Date TBD)
+
+# cuML 0.12.0 (04 Feb 2020)
 
 ## New Features
 - PR #1483: prims: Fused L2 distance and nearest-neighbor prim
