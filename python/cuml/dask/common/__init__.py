@@ -31,9 +31,3 @@ from cuml.dask.common.part_utils import *
 
 from cuml.dask.common.utils import raise_exception_from_futures  # NOQA
 from cuml.dask.common.utils import raise_mg_import_exception  # NOQA
-
-# TODO: The following will be going away soon
-from cuml.dask.common.dask_arr_utils import extract_arr_partitions
-from cuml.dask.common.dask_df_utils import extract_ddf_partitions
-from cuml.dask.common.dask_df_utils import extract_colocated_ddf_partitions
-

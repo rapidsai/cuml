@@ -23,6 +23,7 @@ from cuml.ensemble import RandomForestRegressor as cuRFR
 from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.part_utils import _extract_partitions
 
 import math
 import random
@@ -475,7 +476,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                            convert_dtype=True, fil_sparse_format='auto',
                            delayed=True):
         self._concat_treelite_models()
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
         kwargs = {"convert_dtype": convert_dtype,

@@ -13,8 +13,6 @@
 # limitations under the License.
 #
 
-from collections.abc import Iterable
-
 import scipy.sparse
 import numpy as np
 import cupy as cp
@@ -25,16 +23,11 @@ import dask
 from cuml.utils.memory_utils import with_cupy_rmm
 
 from cuml.dask.common.dask_df_utils import to_dask_cudf
-from tornado import gen
 from dask.distributed import default_client
-from toolz import first
 
 from cuml.dask.common.part_utils import _extract_partitions
 
 from cuml.utils import rmm_cupy_ary
-
-from dask.distributed import wait
-from dask import delayed
 
 
 def validate_dask_array(darray, client=None):
@@ -42,51 +35,6 @@ def validate_dask_array(darray, client=None):
         raise ValueError("Input array cannot have more than two dimensions")
     elif len(darray.chunks) == 2 and len(darray.chunks[1]) > 1:
         raise ValueError("Input array cannot be chunked along axis 1")
-
-
-@gen.coroutine
-def extract_arr_partitions(darray, client=None):
-
-    # TODO: This will go away once ridge is consolidated to use the mixin
-
-    """
-    Given a Dask Array, return an array of tuples mapping each
-    worker to their list of futures.
-
-    :param darray: Dask.array split array partitions into a list of
-               futures.
-    :param client: dask.distributed.Client Optional client to use
-    """
-    client = default_client() if client is None else client
-
-    if not isinstance(darray, Iterable):
-        dist_arr = darray.to_delayed().ravel()
-        to_map = dist_arr
-    else:
-        parts = [arr.to_delayed().ravel() for arr in darray]
-        to_map = zip(*parts)
-
-    parts = list(map(delayed, to_map))
-    parts = client.compute(parts)
-
-    yield wait(parts)
-
-    who_has = yield client.who_has(parts)
-
-    key_to_part_dict = dict([(str(part.key), part) for part in parts])
-
-    worker_map = {}  # Map from part -> worker
-    for key, workers in who_has.items():
-        worker = first(workers)
-        worker_map[key_to_part_dict[key]] = worker
-
-    worker_to_parts = []
-    for part in parts:
-        worker = worker_map[part]
-        worker_to_parts.append((worker, part))
-
-    yield wait(worker_to_parts)
-    raise gen.Return(worker_to_parts)
 
 
 def _conv_np_to_df(x):

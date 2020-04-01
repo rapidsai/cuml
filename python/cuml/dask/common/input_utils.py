@@ -27,15 +27,12 @@ from collections import OrderedDict
 from cudf.core import DataFrame
 from dask_cudf.core import DataFrame as dcDataFrame
 
-from dask import delayed
-
 from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.part_utils import _extract_partitions
 from dask.distributed import wait
 from dask.distributed import default_client
-from tornado import gen
 from toolz import first
 
 from functools import reduce
@@ -115,16 +112,6 @@ class DistributedDataHandler:
         return DistributedDataHandler(gpu_futures=gpu_futures, workers=workers,
                                       datatype=datatype, multiple=multiple,
                                       client=client)
-
-    # TODO: Remove the following two functions
-    #  (just here to keep from breaking everythign)
-    @classmethod
-    def single(cls, data, client=None):
-        return cls.create(data, client)
-
-    @classmethod
-    def colocated(cls, data, force=False, client=None):
-        return cls.create(data, client)
 
     """ Methods to calculate further attributes """
 
@@ -211,52 +198,6 @@ def _to_dask_cudf(futures, client=None, verbose=False):
 
 
 """ Internal methods, API subject to change """
-
-# TODO: This can go away once all remaining estimators are updated
-#  to use _extract_partitions
-@gen.coroutine
-def _extract_colocated_partitions(data, client=None):
-
-    # TODO: This should go away once Ridge is fully consolidated
-    """
-    Given Dask cuDF input X and y, return an OrderedDict mapping
-    'worker -> [list of futures] of X and y' with the enforced
-     co-locality for each partition in ddf.
-
-    :param X_ddf: Dask.dataframe
-    :param y_ddf: Dask.dataframe
-    :param client: dask.distributed.Client
-    """
-
-    client = default_client() if client is None else client
-
-    X_ddf, y_ddf = data
-
-    if isinstance(X_ddf, dcDataFrame):
-        data_parts = X_ddf.to_delayed()
-        label_parts = y_ddf.to_delayed()
-
-    else:
-        data_arr = X_ddf.to_delayed().ravel()
-        to_map = data_arr
-        data_parts = list(map(delayed, to_map))
-        label_arr = y_ddf.to_delayed().ravel()
-        to_map2 = label_arr
-        label_parts = list(map(delayed, to_map2))
-        # data_parts = X_ddf.to_delayed().ravel()
-        # label_parts = y_ddf.to_delayed().ravel()
-
-    parts = [delayed(x, pure=False) for x in zip(data_parts, label_parts)]
-    parts = client.compute(parts)
-    yield wait(parts)
-
-    key_to_part = [(part.key, part) for part in parts]
-    who_has = yield client.scheduler.who_has(
-        keys=[part.key for part in parts]
-    )
-
-    raise gen.Return([(first(who_has[key]), part)
-                      for key, part in key_to_part])
 
 
 def _workers_to_parts(futures):
