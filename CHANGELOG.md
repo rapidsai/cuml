@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
 
