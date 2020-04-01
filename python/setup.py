@@ -99,8 +99,6 @@ else:
 
 libs = ['cuda',
         'cuml++',
-        'cumlcomms',
-        'nccl',
         'rmm']
 
 include_dirs = ['../cpp/src',
@@ -137,6 +135,8 @@ else:
     libs.append('cumlprims')
     # ucx/ucx-py related functionality available in version 0.12+
     # libs.append("ucp")
+    libs.append('cumlcomms')
+    libs.append('nccl')
 
     sys_include = os.path.dirname(sysconfig.get_path("include"))
     include_dirs.append("%s/cumlprims" % sys_include)
