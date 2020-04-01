@@ -29,12 +29,19 @@ from tornado import gen
 from dask.distributed import default_client
 from toolz import first
 
-from cuml.dask.common.input_utils import _extract_partitions
+from cuml.dask.common.part_utils import _extract_partitions
 
 from cuml.utils import rmm_cupy_ary
 
 from dask.distributed import wait
 from dask import delayed
+
+
+def validate_dask_array(darray, client=None):
+    if len(darray.chunks) > 2:
+        raise ValueError("Input array cannot have more than two dimensions")
+    elif len(darray.chunks) == 2 and len(darray.chunks[1]) > 1:
+        raise ValueError("Input array cannot be chunked along axis 1")
 
 
 @gen.coroutine
@@ -156,6 +163,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
     if isinstance(cudf_or_array, dask.array.Array):
         # At the time of developing this, using map_blocks will not work
         # to convert a Dask.Array to CuPy sparse arrays underneath.
+
         parts = client.sync(_extract_partitions, cudf_or_array)
         cudf_or_array = [client.submit(_conv_np_to_df, part, workers=[w])
                          for w, part in parts]
