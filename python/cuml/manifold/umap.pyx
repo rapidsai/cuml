@@ -76,7 +76,6 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float learning_rate,
         float min_dist,
         float spread,
-        int init,
         float set_op_mix_ratio,
         float local_connectivity,
         float repulsion_strength,
@@ -85,11 +84,14 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         bool verbose,
         float a,
         float b,
+        float initial_alpha,
+        int init,
         int target_n_neighbors,
-        float target_weights,
         MetricType target_metric,
+        float target_weights,
         uint64_t random_state,
         bool multicore_implem,
+        int optim_batch_size,
         GraphBasedDimRedCallback * callback
 
 
@@ -223,6 +225,11 @@ class UMAP(Base):
         consistency of trained embeddings, allowing for reproducible results
         to 3 digits of precision, but will do so at the expense of potentially
         slower training and increased memory usage.
+    optim_batch_size: int (optional, default 100000 / n_components)
+        Used to maintain the consistency of embeddings for large datasets.
+        The optimization step will be processed with at most optim_batch_size
+        edges at once preventing inconsistencies. A lower batch size will yield
+        more consistently repeatable embeddings at the cost of speed.
     callback: An instance of GraphBasedDimRedCallback class to intercept
               the internal state of embeddings while they are being trained.
               Example of callback usage:
@@ -291,6 +298,7 @@ class UMAP(Base):
                  handle=None,
                  hash_input=False,
                  random_state=None,
+                 optim_batch_size=0,
                  callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
@@ -331,7 +339,7 @@ class UMAP(Base):
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
 
-        umap_params.multicore_implem = random_state is None
+        umap_params.multicore_implem = <bool> random_state is None
         if isinstance(random_state, np.random.RandomState):
             rs = random_state
         else:
@@ -347,6 +355,8 @@ class UMAP(Base):
             umap_params.target_metric = MetricType.CATEGORICAL
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
+
+        umap_params.optim_batch_size = <int> optim_batch_size
 
         cdef uintptr_t callback_ptr = 0
         if callback:
