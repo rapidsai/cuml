@@ -262,7 +262,7 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
 ])
 @pytest.mark.parametrize('n_pred', [unit_param(5000), quality_param(100000),
                                     stress_param(1000000)])
-def test_svm_predict(params, n_pred):    
+def test_svm_predict(params, n_pred):
     n_rows = 500
     n_cols = 2
     X, y = make_blobs(n_samples=n_rows + n_pred, n_features=n_cols,
