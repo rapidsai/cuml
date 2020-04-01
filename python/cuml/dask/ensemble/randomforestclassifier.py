@@ -22,7 +22,8 @@ from cuml.ensemble import RandomForestClassifier as cuRFC
 from dask.distributed import default_client, wait
 
 
-from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import DelayedPredictionMixin, \
+    DelayedPredictionProbaMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 import math
@@ -30,7 +31,8 @@ import random
 from uuid import uuid1
 
 
-class RandomForestClassifier(DelayedPredictionMixin):
+class RandomForestClassifier(DelayedPredictionMixin,
+                             DelayedPredictionProbaMixin):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -591,6 +593,21 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
             pred.append(max_class)
         return pred
+
+    def predict_proba(self, X, output_class=True, algo='auto',
+                      threshold=0.5, num_classes=2,
+                      convert_dtype=False,
+                      delayed=True, fil_sparse_format='auto'):
+
+        self._concat_treelite_models()
+        data = DistributedDataHandler.single(X, client=self.client)
+        self.datatype = data.datatype
+
+        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+                  "threshold": threshold,
+                  "num_classes": num_classes, "algo": algo,
+                  "fil_sparse_format": fil_sparse_format}
+        return self._predict_proba(X, delayed, **kwargs)
 
     def get_params(self, deep=True):
         """

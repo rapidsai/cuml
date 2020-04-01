@@ -187,6 +187,13 @@ class DelayedParallelFunc(object):
                 return output if delayed else output.persist()
 
 
+class DelayedPredictionProbaMixin(DelayedParallelFunc):
+
+    def _predict_proba(self, X, delayed=True, **kwargs):
+        return self._run_parallel_func(_predict_proba_func, X, 2, delayed,
+                                       **kwargs)
+
+
 class DelayedPredictionMixin(DelayedParallelFunc):
 
     def _predict(self, X, delayed=True, **kwargs):
@@ -230,6 +237,10 @@ def mnmg_import(func):
 
 def _predict_func(model, data, **kwargs):
     return model.predict(data, **kwargs)
+
+
+def _predict_proba_func(model, data, **kwargs):
+    return model.predict_proba(data, **kwargs)
 
 
 def _transform_func(model, data, **kwargs):

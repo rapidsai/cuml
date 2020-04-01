@@ -46,7 +46,9 @@ from cuml.dask.common import utils as dask_utils
 from dask.array import from_array
 from sklearn.datasets import make_regression, make_classification
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, r2_score
+from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
+from sklearn.ensemble import RandomForestClassifier as skrfc
+
 from dask.distributed import Client
 
 
@@ -139,7 +141,6 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
         cu_rf_mg = cuRFC_mg(**cu_rf_params)
         cu_rf_mg.fit(X_train_df, y_train_df)
         cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
-
         acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
 
         assert acc_score > 0.8
@@ -243,9 +244,22 @@ def test_rf_classification_dask_fil(partitions_per_worker, cluster,
         if not output_class:
             cu_rf_mg_predict = np.round(cu_rf_mg_predict)
 
+        fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
+        fil_preds_proba = cp.asnumpy(fil_preds_proba.to_gpu_matrix())
+        y_proba = np.zeros(np.shape(fil_preds_proba))
+        y_proba[:, 1] = y_test
+        y_proba[:, 0] = 1.0 - y_test
+        fil_mse = mean_squared_error(y_proba, fil_preds_proba)
+        sk_model = skrfc(n_estimators=25,
+                         max_depth=13,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_preds_proba = sk_model.predict_proba(X_test)
+        sk_mse = mean_squared_error(y_proba, sk_preds_proba)
+
         acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
 
-        assert acc_score > 0.8
+        assert acc_score > 0.8 and fil_mse <= (sk_mse + 0.071)
 
     finally:
         c.close()
