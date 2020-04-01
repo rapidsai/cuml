@@ -355,7 +355,7 @@ __device__ int label_binary_search(IdxType *unique_labels, IdxType n_labels,
   return -1;
 }
 
-template <typename OutType = float>
+template <typename OutType = float, bool precomp_lbls = false>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
                                    const int *labels, int *unique_labels,
                                    int n_uniq_labels, size_t n_samples,
@@ -375,8 +375,13 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
   if (row >= n_samples) return;
 
   for (int j = 0; j < n_neighbors; j++) {
-    int64_t neighbor_idx = knn_indices[i + j];
-    int out_label = labels[neighbor_idx];
+    int out_label;
+    if (precomp_lbls) {
+      out_label = labels[i + j];
+    } else {
+      int64_t neighbor_idx = knn_indices[i + j];
+      out_label = labels[neighbor_idx];
+    }
 
     // Trading off warp divergence in the outputs so that we don't
     // need to copy / modify the label memory to do these mappings.
@@ -459,7 +464,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param n_int_stream number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
-template <int TPB_X = 32>
+template <int TPB_X = 32, bool precomp_lbls = false>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_rows, int k,
                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
@@ -483,7 +488,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      * knn_indices and labels
      */
     int smem = sizeof(int) * n_labels;
-    class_probs_kernel<<<grid, blk, smem, stream>>>(
+    class_probs_kernel<float, precomp_lbls><<<grid, blk, smem, stream>>>(
       out[i], knn_indices, y[i], uniq_labels[i], n_labels, n_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
   }
@@ -510,11 +515,11 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param n_int_stream number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
-template <int TPB_X = 32>
+template <int TPB_X = 32, bool precomp_lbls = false>
 void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
                   size_t n_rows, int k, std::vector<int *> &uniq_labels,
                   std::vector<int> &n_unique,
-                  std::shared_ptr<deviceAllocator> &allocator,
+                  std::shared_ptr<deviceAllocator> allocator,
                   cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                   int n_int_streams = 0) {
   std::vector<float *> probs;
@@ -540,8 +545,9 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * Note: Since class_probs will use the same round robin strategy for distributing
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
-  class_probs(probs, knn_indices, y, n_rows, k, uniq_labels, n_unique,
-              allocator, user_stream, int_streams, n_int_streams);
+  class_probs<precomp_lbls>(probs, knn_indices, y, n_rows, k, uniq_labels,
+                            n_unique, allocator, user_stream, int_streams,
+                            n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
