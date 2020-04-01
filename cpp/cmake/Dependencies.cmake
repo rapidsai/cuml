@@ -20,10 +20,9 @@ include(ExternalProject)
 # - cub - (header only) ------------------------------------------------------
 
 set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING "Path to cub repo")
-set(CUB_VERSION v1.8.0 CACHE STRING "cub branch version to use")
 ExternalProject_Add(cub
   GIT_REPOSITORY    https://github.com/NVlabs/cub.git
-  GIT_TAG           ${CUB_VERSION}
+  GIT_TAG           v1.8.0
   PREFIX            ${CUB_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -34,10 +33,9 @@ ExternalProject_Add(cub
 
 set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
   "Path to the cutlass repo")
-set(CUTLASS_VERSION v1.0.1 CACHE STRING "cutlass branch version to use")
 ExternalProject_Add(cutlass
   GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
-  GIT_TAG           ${CUTLASS_VERSION}
+  GIT_TAG           v1.0.1
   PREFIX            ${CUTLASS_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -48,10 +46,9 @@ ExternalProject_Add(cutlass
 
 set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
   "Path to FAISS source directory")
-set(FAISS_VERSION v1.6.1 CACHE STRING "faiss branch version to use")
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           ${FAISS_VERSION}
+  GIT_TAG           v1.6.1
   CONFIGURE_COMMAND LIBS=-pthread
                     CPPFLAGS=-w
                     LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
@@ -76,11 +73,9 @@ set_property(TARGET faisslib PROPERTY
 
 set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
   "Path to treelite install directory")
-set(TREELITE_TAG 6fd01e4f1890950bbcf9b124da24e886751bffe6 CACHE STRING
-  "Treelite commit tag to be used")
 ExternalProject_Add(treelite
     GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           ${TREELITE_TAG}
+    GIT_TAG           6fd01e4f1890950bbcf9b124da24e886751bffe6
     PREFIX            ${TREELITE_DIR}
     CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
@@ -106,15 +101,13 @@ add_dependencies(treelite_runtimelib treelite)
 
 set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest CACHE STRING
   "Path to googletest repo")
-set(GTEST_TAG 6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb CACHE STRING
-  "Googletest commit tag to be used")
 set(GTEST_BINARY_DIR ${PROJECT_BINARY_DIR}/googletest)
 set(GTEST_INSTALL_DIR ${GTEST_BINARY_DIR}/install)
 set(GTEST_LIB ${GTEST_INSTALL_DIR}/lib/libgtest_main.a)
 include(ExternalProject)
 ExternalProject_Add(googletest
   GIT_REPOSITORY    https://github.com/google/googletest.git
-  GIT_TAG           ${GTEST_TAG}
+  GIT_TAG           6ce9b98f541b8bcd84c5c5b3483f29a933c4aefb
   PREFIX            ${GTEST_DIR}
   CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                     -DBUILD_SHARED_LIBS=OFF
@@ -131,15 +124,13 @@ add_dependencies(gtest_mainlib googletest)
 
 set(GBENCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark CACHE STRING
   "Path to google benchmark repo")
-set(GBENCH_TAG bf4f2ea0bd1180b34718ac26eb79b170a4f6290e CACHE STRING
-  "Google benchmark commit tag to be used")
 set(GBENCH_BINARY_DIR ${PROJECT_BINARY_DIR}/benchmark)
 set(GBENCH_INSTALL_DIR ${GBENCH_BINARY_DIR}/install)
 set(GBENCH_LIB ${GBENCH_INSTALL_DIR}/lib/libbenchmark.a)
 include(ExternalProject)
 ExternalProject_Add(benchmark
   GIT_REPOSITORY    https://github.com/google/benchmark.git
-  GIT_TAG           ${GBENCH_TAG}
+  GIT_TAG           bf4f2ea0bd1180b34718ac26eb79b170a4f6290e
   PREFIX            ${GBENCH_DIR}
   CMAKE_ARGS        -DBENCHMARK_ENABLE_GTEST_TESTS=OFF
                     -DBENCHMARK_ENABLE_TESTING=OFF
