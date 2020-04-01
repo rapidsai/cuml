@@ -197,61 +197,61 @@ def get_binary_iris_dataset():
     return X, y
 
 
-# @pytest.mark.parametrize('params', [
-#     {'kernel': 'linear', 'C': 1},
-#     {'kernel': 'linear', 'C': 1, 'tol': 1e-6},
-#     {'kernel': 'linear', 'C': 10},
-#     {'kernel': 'rbf', 'C': 1, 'gamma': 1},
-#     {'kernel': 'rbf', 'C': 1, 'gamma': 'auto'},
-#     {'kernel': 'rbf', 'C': 0.1, 'gamma': 'auto'},
-#     {'kernel': 'rbf', 'C': 10, 'gamma': 'auto'},
-#     {'kernel': 'rbf', 'C': 1, 'gamma': 'scale'},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 1},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 'auto'},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 'scale'},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 'auto', 'degree': 2},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 'auto', 'coef0': 1.37},
-#     {'kernel': 'sigmoid', 'C': 1, 'gamma': 'auto'},
-#     {'kernel': 'sigmoid', 'C': 1, 'gamma': 'scale', 'coef0': 0.42}
-# ])
-# def test_svm_skl_cmp_kernels(params):
-#     # X_train, X_test, y_train, y_test = make_dataset('gaussian', 1000, 4)
-#     X_train, y_train = get_binary_iris_dataset()
-#     cuSVC = cu_svm.SVC(**params)
-#     cuSVC.fit(X_train, y_train)
+@pytest.mark.parametrize('params', [
+    {'kernel': 'linear', 'C': 1},
+    {'kernel': 'linear', 'C': 1, 'tol': 1e-6},
+    {'kernel': 'linear', 'C': 10},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 1},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 'auto'},
+    {'kernel': 'rbf', 'C': 0.1, 'gamma': 'auto'},
+    {'kernel': 'rbf', 'C': 10, 'gamma': 'auto'},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 'scale'},
+    {'kernel': 'poly', 'C': 1, 'gamma': 1},
+    {'kernel': 'poly', 'C': 1, 'gamma': 'auto'},
+    {'kernel': 'poly', 'C': 1, 'gamma': 'scale'},
+    {'kernel': 'poly', 'C': 1, 'gamma': 'auto', 'degree': 2},
+    {'kernel': 'poly', 'C': 1, 'gamma': 'auto', 'coef0': 1.37},
+    {'kernel': 'sigmoid', 'C': 1, 'gamma': 'auto'},
+    {'kernel': 'sigmoid', 'C': 1, 'gamma': 'scale', 'coef0': 0.42}
+])
+def test_svm_skl_cmp_kernels(params):
+    # X_train, X_test, y_train, y_test = make_dataset('gaussian', 1000, 4)
+    X_train, y_train = get_binary_iris_dataset()
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X_train, y_train)
 
-#     sklSVC = svm.SVC(**params)
-#     sklSVC.fit(X_train, y_train)
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X_train, y_train)
 
-#     compare_svm(cuSVC, sklSVC, X_train, y_train, cmp_decision_func=True)
+    compare_svm(cuSVC, sklSVC, X_train, y_train, cmp_decision_func=True)
 
 
-# @pytest.mark.parametrize('params', [
-#     {'kernel': 'linear', 'C': 1},
-#     {'kernel': 'rbf', 'C': 1, 'gamma': 1},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 1},
-# ])
-# @pytest.mark.parametrize('dataset', ['classification2', 'gaussian', 'blobs'])
-# @pytest.mark.parametrize('n_rows', [3, unit_param(100), quality_param(1000),
-#                                     stress_param(5000)])
-# @pytest.mark.parametrize('n_cols', [2, unit_param(100), quality_param(1000),
-#                          stress_param(1000)])
-# def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
-#     if (params['kernel'] == 'linear' and
-#             dataset in ['gaussian', 'classification2'] and
-#             n_rows > 1000 and n_cols >= 1000):
-#         # linear kernel will not fit the gaussian dataset, but takes very long
-#         return
-#     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
+@pytest.mark.parametrize('params', [
+    {'kernel': 'linear', 'C': 1},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 1},
+    {'kernel': 'poly', 'C': 1, 'gamma': 1},
+])
+@pytest.mark.parametrize('dataset', ['classification2', 'gaussian', 'blobs'])
+@pytest.mark.parametrize('n_rows', [3, unit_param(100), quality_param(1000),
+                                    stress_param(5000)])
+@pytest.mark.parametrize('n_cols', [2, unit_param(100), quality_param(1000),
+                         stress_param(1000)])
+def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
+    if (params['kernel'] == 'linear' and
+            dataset in ['gaussian', 'classification2'] and
+            n_rows > 1000 and n_cols >= 1000):
+        # linear kernel will not fit the gaussian dataset, but takes very long
+        return
+    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
 
-#     cuSVC = cu_svm.SVC(**params)
-#     cuSVC.fit(X_train, y_train)
+    cuSVC = cu_svm.SVC(**params)
+    cuSVC.fit(X_train, y_train)
 
-#     sklSVC = svm.SVC(**params)
-#     sklSVC.fit(X_train, y_train)
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X_train, y_train)
 
-#     compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
-#                 coef_tol=1e-5, report_summary=True)
+    compare_svm(cuSVC, sklSVC, X_test, y_test, n_sv_tol=max(2, 0.02*n_rows),
+                coef_tol=1e-5, report_summary=True)
 
 
 @pytest.mark.parametrize('params', [
@@ -470,40 +470,40 @@ def make_regression_dataset(dataset, n_rows, n_cols):
     return X_train, X_test, y_train, y_test
 
 
-# def compare_svr(svr1, svr2, X_test, y_test, tol=1e-3):
-#     if X_test.shape[0] > 1:
-#         score1 = svr1.score(X_test, y_test)
-#         score2 = svr2.score(X_test, y_test)
-#         assert abs(score1-score2) < tol
-#     else:
-#         y_pred1 = svr1.predict(X_test).to_array()
-#         y_pred2 = svr2.predict(X_test)
-#         mse1 = mean_squared_error(y_test, y_pred1)
-#         mse2 = mean_squared_error(y_test, y_pred2)
-#         assert (mse1-mse2)/mse2 < tol
+def compare_svr(svr1, svr2, X_test, y_test, tol=1e-3):
+    if X_test.shape[0] > 1:
+        score1 = svr1.score(X_test, y_test)
+        score2 = svr2.score(X_test, y_test)
+        assert abs(score1-score2) < tol
+    else:
+        y_pred1 = svr1.predict(X_test)
+        y_pred2 = svr2.predict(X_test)
+        mse1 = mean_squared_error(y_test, y_pred1)
+        mse2 = mean_squared_error(y_test, y_pred2)
+        assert (mse1-mse2)/mse2 < tol
 
 
-# @pytest.mark.parametrize('params', [
-#     {'kernel': 'linear', 'C': 1, 'gamma': 1},
-#     {'kernel': 'rbf', 'C': 1, 'gamma': 1},
-#     {'kernel': 'poly', 'C': 1, 'gamma': 1},
-# ])
-# @pytest.mark.parametrize('dataset', ['reg1', 'reg2', 'Friedman'])
-# @pytest.mark.parametrize('n_rows', [unit_param(3), unit_param(100),
-#                                     quality_param(1000), stress_param(5000)])
-# @pytest.mark.parametrize('n_cols', [unit_param(5), unit_param(100),
-#                                     quality_param(1000), stress_param(1000)])
-# def test_svr_skl_cmp(params, dataset, n_rows, n_cols):
-#     """ Compare to Sklearn SVR """
-#     if (dataset == 'Friedman' and n_cols < 5):
-#         # We need at least 5 feature columns for the Friedman dataset
-#         return
-#     X_train, X_test, y_train, y_test = make_regression_dataset(dataset, n_rows,
-#                                                                n_cols)
-#     cuSVR = cu_svm.SVR(**params)
-#     cuSVR.fit(X_train, y_train)
+@pytest.mark.parametrize('params', [
+    {'kernel': 'linear', 'C': 1, 'gamma': 1},
+    {'kernel': 'rbf', 'C': 1, 'gamma': 1},
+    {'kernel': 'poly', 'C': 1, 'gamma': 1},
+])
+@pytest.mark.parametrize('dataset', ['reg1', 'reg2', 'Friedman'])
+@pytest.mark.parametrize('n_rows', [unit_param(3), unit_param(100),
+                                    quality_param(1000), stress_param(5000)])
+@pytest.mark.parametrize('n_cols', [unit_param(5), unit_param(100),
+                                    quality_param(1000), stress_param(1000)])
+def test_svr_skl_cmp(params, dataset, n_rows, n_cols):
+    """ Compare to Sklearn SVR """
+    if (dataset == 'Friedman' and n_cols < 5):
+        # We need at least 5 feature columns for the Friedman dataset
+        return
+    X_train, X_test, y_train, y_test = make_regression_dataset(dataset, n_rows,
+                                                               n_cols)
+    cuSVR = cu_svm.SVR(**params)
+    cuSVR.fit(X_train, y_train)
 
-#     sklSVR = svm.SVR(**params)
-#     sklSVR.fit(X_train, y_train)
+    sklSVR = svm.SVR(**params)
+    sklSVR.fit(X_train, y_train)
 
-#     compare_svr(cuSVR, sklSVR, X_test, y_test)
+    compare_svr(cuSVR, sklSVR, X_test, y_test)
