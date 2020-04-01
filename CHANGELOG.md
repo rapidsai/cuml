@@ -5,6 +5,7 @@
 ## Improvements
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
