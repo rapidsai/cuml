@@ -143,7 +143,7 @@ def _extract_partitions(dask_obj, client=None):
         parts = client.compute([p for p in zip(*parts)])
 
     else:
-        raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
+        raise TypeError("Unsupported dask_obj type: " + str(type(dask_obj)))
 
     yield wait(parts)
 
