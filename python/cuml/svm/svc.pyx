@@ -207,7 +207,8 @@ class SVC(SVMBase):
 
         """
         self._set_output_type(X)
-        X_m, self.n_rows, self.n_cols, self.dtype = input_to_cuml_array(X, order='F')
+        X_m, self.n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, order='F')
 
         cdef uintptr_t X_ptr = X_m.ptr
         y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
