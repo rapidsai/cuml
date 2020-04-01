@@ -147,13 +147,13 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
                   elapsed)
             print("Building handle")
 
-        _func_build_handle_p2p(sessionId, streams_per_handle)
+        _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
 
         if verbose:
             print("Done building handle.")
 
     else:
-        _func_build_handle(sessionId, streams_per_handle)
+        _func_build_handle(sessionId, streams_per_handle, verbose)
 
 
 def _func_init_nccl(sessionId, uniqueId):
@@ -187,7 +187,7 @@ class ListenerThread(threading.Thread):
         if self.verbose:
             print("Running listener thread")
         while not self.listener.closed():
-            time.sleep(1)
+            time.sleep(0.001)
 
     def close(self):
         if self.verbose:
@@ -204,9 +204,6 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
     :param sessionId: uuid Unique id for current instance
     :param r: float a random number to stop the function from being cached
     """
-
-    import os
-    os.environ["UCX_CUDA_IPC_CACHE"] = "n"
 
     if "ucp_listener" in worker_state(sessionId):
         print("Listener already started for sessionId=" +
@@ -235,7 +232,7 @@ async def _func_ucp_stop_listener(sessionId):
         print("Listener not found with sessionId=" + str(sessionId))
 
 
-def _func_build_handle_p2p(sessionId, streams_per_handle):
+def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -254,12 +251,12 @@ def _func_build_handle_p2p(sessionId, streams_per_handle):
     workerId = session_state["wid"]
 
     inject_comms_on_handle(handle, nccl_comm, ucp_worker, eps,
-                           nWorkers, workerId)
+                           nWorkers, workerId, verbose)
 
     worker_state(sessionId)["handle"] = handle
 
 
-def _func_build_handle(sessionId, streams_per_handle):
+def _func_build_handle(sessionId, streams_per_handle, verbose):
     """
     Builds a cumlHandle on the current worker given the initialized comms
     :param nccl_comm: ncclComm_t Initialized NCCL comm
@@ -275,7 +272,8 @@ def _func_build_handle(sessionId, streams_per_handle):
     nWorkers = session_state["nworkers"]
 
     nccl_comm = session_state["nccl"]
-    inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers, workerId)
+    inject_comms_on_handle_coll_only(handle, nccl_comm, nWorkers,
+                                     workerId, verbose)
     session_state["handle"] = handle
 
 

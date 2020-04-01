@@ -121,7 +121,8 @@ class CumlArray(Buffer):
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
                 raise TypeError("Need to specify dtype, shape and order when" +
-                                " creating an Array from " + type(data) + ".")
+                                " creating an Array from {}."
+                                .format(type(data)))
             detailed_construction = True
         elif dtype is not None and shape is not None and order is not None:
             detailed_construction = True
