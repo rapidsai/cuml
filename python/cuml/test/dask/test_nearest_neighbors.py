@@ -70,9 +70,9 @@ def _prep_training_data(c, X_train, partitions_per_worker):
                                      quality_param(7), stress_param(50)])
 @pytest.mark.parametrize("streams_per_handle", [5, 10])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
-                     streams_per_handle, ucx_cluster):
+                     streams_per_handle, cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     try:
         from cuml.dask.neighbors import NearestNeighbors as daskNN
@@ -88,7 +88,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
         wait(X_cudf)
 
-        cumlModel = daskNN(verbose=True, n_neighbors=n_neighbors,
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
                            streams_per_handle=streams_per_handle)
         cumlModel.fit(X_cudf)
 
@@ -112,9 +112,9 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 @pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
 @pytest.mark.parametrize("batch_size", [unit_param(100), stress_param(1e3)])
 def test_batch_size(nrows, ncols, n_parts,
-                    batch_size, ucx_cluster):
+                    batch_size, cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     n_neighbors = 10
     n_clusters = 5
@@ -152,9 +152,9 @@ def test_batch_size(nrows, ncols, n_parts,
         client.close()
 
 
-def test_return_distance(ucx_cluster):
+def test_return_distance(cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     n_samples = 50
     n_feats = 50
@@ -190,9 +190,9 @@ def test_return_distance(ucx_cluster):
         client.close()
 
 
-def test_default_n_neighbors(ucx_cluster):
+def test_default_n_neighbors(cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     n_samples = 50
     n_feats = 50
