@@ -124,6 +124,7 @@
 - PR #1932: Isolating cause of make_blobs failure
 - PR #1951: Dask Random forest regression CPU predict bug fix
 - PR #1948: Adjust BatchedMargin margin and disable tests temporarily
+- PR #1950: Fix UMAP test failure
 
 
 
