@@ -17,6 +17,7 @@ import cudf
 import numpy as np
 
 import pytest
+from sklearn.exceptions import NotFittedError
 
 
 def _df_to_similarity_mat(df):
@@ -74,7 +75,7 @@ def test_labelencoder_unfitted():
     le = LabelEncoder()
     assert not le._fitted
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(NotFittedError):
         le.transform(df)
 
 
@@ -125,7 +126,7 @@ def test_unfitted_inverse_transform():
     le = LabelEncoder()
     assert(not le._fitted)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(NotFittedError):
         le.transform(df)
 
 
