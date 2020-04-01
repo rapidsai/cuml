@@ -10,6 +10,7 @@
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+- PR #1969: Update libcumlprims to 0.14
 
 # cuML 0.13.0 (Date TBD)
 
