@@ -178,7 +178,7 @@ class SVMBase(Base):
         coef_ : float, shape [1, n_cols]
             Only available for linear kernels. It is the normal of the
             hyperplane.
-            coef_ = sum_k=1.._n_support dual_coef_[k] * support_vectors[k,:]
+            coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
 
         For additional docs, see `scikitlearn's SVC
         <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html>`_.
@@ -559,6 +559,7 @@ class SVMBase(Base):
 
         self.handle.sync()
 
+        del(X_m)
         return preds.to_output(out_type)
 
     def get_param_names(self):
