@@ -19,7 +19,7 @@ The `test` directory has subdirectories that reflect this distinction between th
 2. CUDA (>= 9.2)
 3. gcc (>=5.4.0)
 4. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-5. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
+5. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 6. UCX with CUDA support [optional] (>=1.7) - enables point-to-point messaging in the cuML communicator.
 
 ### Building cuML:
