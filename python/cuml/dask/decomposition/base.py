@@ -62,7 +62,7 @@ class DecompositionSyncFitMixin(object):
 
         """
 
-        X = self.client.persist(X)
+        n_cols = X.shape[1]
 
         data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
@@ -73,7 +73,6 @@ class DecompositionSyncFitMixin(object):
         data.calculate_parts_to_sizes(comms)
 
         total_rows = data.total_rows
-        n_cols = X.shape[1]
 
         models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
             self._create_model,
