@@ -149,7 +149,7 @@ extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
               include_dirs=include_dirs,
-              library_dirs=[get_python_lib()],
+              library_dirs=[get_python_lib(), libcuml_path],
               runtime_library_dirs=[cuda_lib_dir,
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
