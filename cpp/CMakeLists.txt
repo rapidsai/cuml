@@ -122,27 +122,15 @@ endif()
 set(Protobuf_USE_STATIC_LIBS ON)
 find_package(Protobuf REQUIRED)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
 # - External Dependencies-----------------------------------------------------
 
-set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING
-  "Path to cub repo")
-
-set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
-  "Path to the cutlass repo")
-
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
-set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
-  "Path to FAISS source directory")
-
-set(TREELITE_DIR ${CMAKE_CURRENT_BINARY_DIR}/treelite CACHE STRING
-  "Path to treelite install directory")
-
-set(CUML_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE STRING
+set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
   "Path to cuml include directories")
 
 ##############################################################################
@@ -237,103 +225,18 @@ set(CMAKE_CUDA_FLAGS
   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
 ##############################################################################
-# - Cloning header only libraries---------------------------------------------
+# - dependencies -------------------------------------------------------------
 
-include(ExternalProject)
-
-ExternalProject_Add(cub
-  GIT_REPOSITORY    https://github.com/NVlabs/cub.git
-  GIT_TAG           v1.8.0
-  PREFIX            ${CUB_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-)
-
-ExternalProject_Add(cutlass
-  GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
-  GIT_TAG           v1.0.1
-  PREFIX            ${CUTLASS_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   ""
-)
-
-# dependencies will be added in sequence, so if a new project `project_b` is added
-# after `project_a`, please add the dependency add_dependencies(project_b project_a)
-# This allows the cloning to happen sequentially, enhancing the printing at
-# compile time, helping significantly to troubleshoot build issues.
-add_dependencies(cutlass cub)
-
-##############################################################################
-# - FAISS Build  -------------------------------------------------------------
-
-ExternalProject_Add(faiss
-  GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           v1.6.1
-  CONFIGURE_COMMAND LIBS=-pthread
-                    CPPFLAGS=-w
-                    LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
-                            ${CMAKE_CURRENT_BINARY_DIR}/faiss/src/faiss/configure
-                            --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
-                            --with-blas=${BLAS_LIBRARIES}
-                            --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
-                            --with-cuda-arch=${FAISS_GPU_ARCHS}
-                            -v
-  PREFIX            ${FAISS_DIR}
-  BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM} -j${PARALLEL_LEVEL} VERBOSE=1
-  INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
-  UPDATE_COMMAND    ""
-  BUILD_IN_SOURCE   1
-)
-
-add_dependencies(faiss cutlass)
-
-ExternalProject_Get_Property(faiss install_dir)
-
-add_library(faisslib STATIC IMPORTED)
-
-add_dependencies(faisslib faiss)
-
-set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
-
-##############################################################################
-# - treelite build -----------------------------------------------------------
-
-ExternalProject_Add(treelite
-    GIT_REPOSITORY    https://github.com/dmlc/treelite.git
-    GIT_TAG           6fd01e4f1890950bbcf9b124da24e886751bffe6
-    PREFIX            ${TREELITE_DIR}
-    CMAKE_ARGS        -DBUILD_SHARED_LIBS=OFF
-                      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-                      -DENABLE_PROTOBUF=ON
-                      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
-    UPDATE_COMMAND    ""
-    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true
-)
-
-add_dependencies(treelite faiss)
-
-add_library(dmlclib STATIC IMPORTED)
-add_library(treelitelib STATIC IMPORTED)
-add_library(treelite_runtimelib SHARED IMPORTED)
-
-add_dependencies(dmlclib treelite)
-add_dependencies(treelitelib treelite)
-add_dependencies(treelite_runtimelib treelite)
-
-set_property(TARGET dmlclib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libdmlc.a)
-set_property(TARGET treelitelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite.a)
-set_property(TARGET treelite_runtimelib PROPERTY IMPORTED_LOCATION ${TREELITE_DIR}/lib/libtreelite_runtime.so)
+include(cmake/Dependencies.cmake)
 
 ##############################################################################
 # - include paths ------------------------------------------------------------
 
-include_directories(
+set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  src
-  src_prims
-  test/prims
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src_prims
+  ${CMAKE_CURRENT_SOURCE_DIR}/test/prims
   ${FAISS_DIR}/src/
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
@@ -341,23 +244,28 @@ include_directories(
   ${TREELITE_DIR}/include
   ${TREELITE_DIR}/include/fmt)
 
-set(PRIMS_TEST_UTILS
-    src_prims/cuda_utils.h
-    src_prims/utils.h)
+set(CUML_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY})
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
-
   set(CUML_CPP_TARGET "cuml++")
 
   add_library(${CUML_CPP_TARGET} SHARED
+    src/arima/batched_kalman.cu
+    src/arima/batched_arima.cu
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
-    src/comms/cuML_comms_test.cpp
     src/common/nvtx.cu
+    src/comms/cuML_comms_test.cpp
     src/datasets/make_blobs.cu
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
@@ -382,23 +290,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
-    src/umap/umap.cu
-    src/arima/batched_kalman.cu
-    src/arima/batched_arima.cu
-    )
-
-  set(CUML_LINK_LIBRARIES
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_CUDART_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
-    ${Protobuf_LIBRARIES}
-    treelitelib
-    dmlclib
-    faisslib
-    )
+    src/umap/umap.cu)
 
   if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX Threads::Threads)
@@ -409,17 +301,28 @@ if(BUILD_CUML_CPP_LIBRARY)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
   endif(NVTX)
 
-  target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
+  target_include_directories(${CUML_CPP_TARGET}
+    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+
+  target_link_libraries(${CUML_CPP_TARGET}
+    PUBLIC
+      ${CUML_LINK_LIBRARIES}
+    PRIVATE
+      ${Protobuf_LIBRARIES}
+      faisslib
+      treelitelib
+      dmlclib)
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
+  # same as above, but for protobuf library
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
 # - build libcuml C shared library -------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
-
   set(CUML_C_TARGET "cuml")
 
   add_library(${CUML_C_TARGET} SHARED
@@ -429,7 +332,10 @@ if(BUILD_CUML_C_LIBRARY)
     src/holtwinters/holtwinters_api.cpp
     src/svm/svm_api.cpp)
 
-  target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
+  target_include_directories(${CUML_C_TARGET}
+    PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+
+  target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
 endif(BUILD_CUML_C_LIBRARY)
 
 ##############################################################################
@@ -447,13 +353,13 @@ if(BUILD_CUML_STD_COMMS)
 endif(BUILD_CUML_STD_COMMS)
 
 if(BUILD_CUML_MPI_COMMS)
-	add_subdirectory(comms/mpi)
+  add_subdirectory(comms/mpi)
 endif(BUILD_CUML_MPI_COMMS)
 
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-if (BUILD_CUML_EXAMPLES)
+if(BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
 endif(BUILD_CUML_EXAMPLES)
 
@@ -464,13 +370,14 @@ install(TARGETS ${CUML_CPP_TARGET}
                 ${CUML_C_TARGET}
         DESTINATION lib)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml
-        DESTINATION include)
+install(DIRECTORY ${CUML_INCLUDE_DIR}/cuml DESTINATION include)
 
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
 
-add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
+if(BUILD_CUML_BENCH)
+  add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
+endif(BUILD_CUML_BENCH)
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
