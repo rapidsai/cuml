@@ -139,15 +139,16 @@ def get_tidy_args(cmd, exe):
 
 
 def run_clang_tidy_command(tidy_cmd):
-    out = ""
-    try:
-        cmd = " ".join(tidy_cmd)
-        out = subprocess.check_output(cmd, shell=True)
-        out = out.decode("utf-8")
-        out = out.rstrip()
-        return True, out
-    except:
-        return False, out
+    cmd = " ".join(tidy_cmd)
+    result = subprocess.run(cmd, check=False, shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    status = result.returncode == 0
+    if status:
+        out = ""
+    else:
+        out = "CMD: " + cmd
+    out += result.stdout.decode("utf-8").rstrip()
+    return status, out
 
 
 def run_clang_tidy(cmd, args):
