@@ -132,8 +132,8 @@ void writeOnlyUnaryOp(OutType *out, IdxType len, Lambda op,
                       cudaStream_t stream) {
   if (len <= 0) return;  // silently skip in case of 0 length input
   auto nblks = ceildiv<IdxType>(len, TPB);
-  writeOnlyUnaryOpKernel<OutType, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(
-    out, len, op);
+  writeOnlyUnaryOpKernel<OutType, Lambda, IdxType>
+    <<<nblks, TPB, 0, stream>>>(out, len, op);
   CUDA_CHECK(cudaGetLastError());
 }
 

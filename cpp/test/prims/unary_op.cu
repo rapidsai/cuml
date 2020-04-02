@@ -30,7 +30,7 @@ template <typename InType, typename IdxType = int, typename OutType = InType>
 void unaryOpLaunch(OutType *out, const InType *in, InType scalar, IdxType len,
                    cudaStream_t stream) {
   if (in == nullptr) {
-    auto op = [scalar] __device__(OutType *ptr, IdxType idx) {
+    auto op = [scalar] __device__(OutType * ptr, IdxType idx) {
       *ptr = static_cast<OutType>(scalar * idx);
     };
     writeOnlyUnaryOp<OutType, decltype(op), IdxType>(out, len, op, stream);
@@ -88,17 +88,16 @@ class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
   void DoTest() override {
     auto len = this->params.len;
     auto scalar = this->params.scalar;
-    naiveScale(this->out_ref, (OutType*)nullptr, scalar, len, this->stream);
-    unaryOpLaunch(this->out, (OutType*)nullptr, scalar, len, this->stream);
+    naiveScale(this->out_ref, (OutType *)nullptr, scalar, len, this->stream);
+    unaryOpLaunch(this->out, (OutType *)nullptr, scalar, len, this->stream);
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
     ASSERT_TRUE(devArrMatch(this->out_ref, this->out, this->params.len,
                             CompareApprox<OutType>(this->params.tolerance)));
   }
 };
 
-
-#define UNARY_OP_TEST(Name, inputs)                                        \
-  TEST_P(Name, Result) { DoTest(); }                                       \
+#define UNARY_OP_TEST(Name, inputs)  \
+  TEST_P(Name, Result) { DoTest(); } \
   INSTANTIATE_TEST_CASE_P(UnaryOpTests, Name, ::testing::ValuesIn(inputs))
 
 const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {
