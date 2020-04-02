@@ -22,8 +22,8 @@ import cudf
 import cupy as cp
 
 
-from cuml.dask.common.dask_arr_utils import extract_arr_partitions, \
-    validate_dask_array
+from cuml.dask.common.dask_arr_utils import validate_dask_array
+from cuml.dask.common.part_utils import _extract_partitions
 import dask
 from dask.distributed import Client
 
@@ -71,7 +71,7 @@ def test_to_sp_dask_array(input_type, nrows, ncols, cluster):
         # We can't call compute directly on this array yet when it has
         # multiple partitions yet so we will manually concat any
         # potential pieces.
-        parts = c.sync(extract_arr_partitions, arr)
+        parts = c.sync(_extract_partitions, arr)
         local_parts = cp.vstack([part[1].result().todense()
                                  for part in parts]).get()
 
