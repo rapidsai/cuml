@@ -110,6 +110,11 @@ python setup.py install
 
 cd $WORKSPACE
 
+################################################################################
+# CHECK - Run clang-tidy
+################################################################################
+
+python ./cpp/scripts/run-clang-tidy.py -cdb ./cpp/build/compile_commands.json
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
