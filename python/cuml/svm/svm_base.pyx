@@ -529,7 +529,6 @@ class SVMBase(Base):
         """
         out_type = self._get_output_type(X)
 
-#         import pdb;pdb.set_trace()
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
 
@@ -575,9 +574,11 @@ class SVMBase(Base):
         if self._fit_status_ == 0:
             state['_dual_coef_'] = self._dual_coef_.to_output('numpy')
             state['_support_'] = self._support_.to_output('numpy')
-            state['_support_vectors_'] = self._support_vectors_.to_output('numpy')
+            state['_support_vectors_'] = \
+                self._support_vectors_.to_output('numpy')
             if self._n_classes > 0:
-                state['_unique_labels'] = self._unique_labels.to_output('numpy')
+                state['_unique_labels'] = \
+                    self._unique_labels.to_output('numpy')
         return state
 
     def __setstate__(self, state):
@@ -589,12 +590,12 @@ class SVMBase(Base):
                                              dtype=state["_dual_coef_"].dtype,
                                              shape=state["_dual_coef_"].shape,
                                              order="F")
-            
+
             state['_support_'] = CumlArray(data=state['_support_'],
                                            dtype=state["_support_"].dtype,
                                            shape=state["_support_"].shape,
                                            order="F")
-            
+
             state['_support_vectors_'] = \
                 CumlArray(data=state['_support_vectors_'],
                           dtype=state["_support_vectors_"].dtype,
@@ -606,7 +607,7 @@ class SVMBase(Base):
                               dtype=state["_unique_labels"].dtype,
                               shape=state["_unique_labels"].shape,
                               order="F")
-            
+
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
