@@ -23,6 +23,7 @@ import json
 import multiprocessing as mp
 
 
+EXPECTED_VERSION = "8.0.1"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
@@ -52,8 +53,9 @@ def parse_args():
     if version is None:
         raise Exception("Failed to figure out clang-tidy version!")
     version = version.group(1)
-    if version != "8.0.0":
-        raise Exception("clang-tidy exe must be v8.0.0 found '%s'" % version)
+    if version != EXPECTED_VERSION:
+        raise Exception("clang-tidy exe must be v%s found '%s'" % \
+                        (EXPECTED_VERSION, version))
     if not os.path.exists(args.cdb):
         raise Exception("Compilation database '%s' missing" % args.cdb)
     return args
