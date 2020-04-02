@@ -26,9 +26,9 @@ cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
                                         int *season_coef_shift) {
   cumlError_t status;
   try {
-    ML::HoltWinters::buffer_size(
-      n, batch_size, frequency, start_leveltrend_len, start_season_len,
-      components_len, error_len, leveltrend_coef_shift, season_coef_shift);
+    ML::HoltWinters::buffer_size(n, batch_size, frequency, start_leveltrend_len,
+                                 start_season_len, components_len, error_len,
+                                 leveltrend_coef_shift, season_coef_shift);
     status = CUML_SUCCESS;
   } catch (...) {
     status = CUML_ERROR_UNKNOWN;
