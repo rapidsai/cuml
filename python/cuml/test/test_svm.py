@@ -133,20 +133,20 @@ def compare_svm(svm1, svm2, X, y, n_sv_tol=None, b_tol=None, coef_tol=None,
         assert cs > 1 - coef_tol
 
     if cmp_sv or (dcoef_tol is not None):
-        sidx1 = np.argsort((svm1.support_).copy_to_host())
-        sidx2 = np.argsort((svm2.support_).copy_to_host())
+        sidx1 = np.argsort((svm1.support_))
+        sidx2 = np.argsort((svm2.support_))
 
     if cmp_sv:
-        support_idx1 = ((svm1.support_).copy_to_host())[sidx1]
-        support_idx2 = ((svm2.support_).copy_to_host())[sidx2]
+        support_idx1 = ((svm1.support_))[sidx1]
+        support_idx2 = ((svm2.support_))[sidx2]
         assert np.all(support_idx1-support_idx2) == 0
-        sv1 = ((svm1.support_vectors_).copy_to_host())[sidx1, :]
-        sv2 = ((svm2.support_vectors_).copy_to_host())[sidx2, :]
+        sv1 = ((svm1.support_vectors_))[sidx1, :]
+        sv2 = ((svm2.support_vectors_))[sidx2, :]
         assert np.all(sv1-sv2 == 0)
 
     if dcoef_tol is not None:
-        dcoef1 = ((svm1.dual_coef_).copy_to_host())[0, sidx1]
-        dcoef2 = ((svm2.dual_coef_).copy_to_host())[0, sidx2]
+        dcoef1 = ((svm1.dual_coef_))[0, sidx1]
+        dcoef2 = ((svm2.dual_coef_))[0, sidx2]
         assert np.all(np.abs(dcoef1-dcoef2) <= dcoef_tol)
 
     if cmp_decision_func:
