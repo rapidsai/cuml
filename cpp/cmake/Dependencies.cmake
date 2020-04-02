@@ -59,8 +59,9 @@ ExternalProject_Add(faiss
                             --with-cuda-arch=${FAISS_GPU_ARCHS}
                             -v
   PREFIX            ${FAISS_DIR}
-  BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM} -j${PARALLEL_LEVEL} VERBOSE=1
-  INSTALL_COMMAND   ${CMAKE_MAKE_PROGRAM} -s install > /dev/null
+  BUILD_COMMAND     make -j${PARALLEL_LEVEL} VERBOSE=1
+  BUILD_BYPRODUCTS  ${FAISS_DIR}/lib/libfaiss.a
+  INSTALL_COMMAND   make -s install > /dev/null
   UPDATE_COMMAND    ""
   BUILD_IN_SOURCE   1)
 ExternalProject_Get_Property(faiss install_dir)
@@ -81,6 +82,9 @@ ExternalProject_Add(treelite
                       -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                       -DENABLE_PROTOBUF=ON
                       -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
+    BUILD_BYPRODUCTS  ${TREELITE_DIR}/lib/libtreelite.a
+                      ${TREELITE_DIR}/lib/libdmlc.a
+                      ${TREELITE_DIR}/lib/libtreelite_runtime.so
     UPDATE_COMMAND    ""
     PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/treelite_protobuf.patch || true)
 add_library(dmlclib STATIC IMPORTED)
@@ -112,6 +116,8 @@ ExternalProject_Add(googletest
   CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                     -DBUILD_SHARED_LIBS=OFF
                     -DCMAKE_INSTALL_LIBDIR=lib
+  BUILD_BYPRODUCTS  ${GTEST_DIR}/lib/libgtest.a
+                    ${GTEST_DIR}/lib/libgtest_main.a
   UPDATE_COMMAND    "")
 add_library(gtestlib STATIC IMPORTED)
 add_library(gtest_mainlib STATIC IMPORTED)
@@ -137,6 +143,7 @@ ExternalProject_Add(benchmark
                     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib
+  BUILD_BYPRODUCTS  ${GBENCH_DIR}/lib/libbenchmark.a
   UPDATE_COMMAND    "")
 add_library(benchmarklib STATIC IMPORTED)
 add_dependencies(benchmarklib benchmark)
