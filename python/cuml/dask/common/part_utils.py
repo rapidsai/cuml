@@ -23,6 +23,7 @@ from toolz import first
 
 from dask.array.core import Array as daskArray
 from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as dcSeries
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -127,9 +128,10 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # dask.dataframe or dask.array
-    if isinstance(dask_obj, dcDataFrame) or \
-            isinstance(dask_obj, daskArray):
+    # dask_cudf.dataframe or dask_cudf.series or dask.array
+    if (isinstance(dask_obj, dcDataFrame) or
+            isinstance(dask_obj, daskArray) or
+            isinstance(dask_obj, dcSeries)):
         parts = futures_of(client.persist(dask_obj))
 
     # iterable of dask collections (need to colocate them)
