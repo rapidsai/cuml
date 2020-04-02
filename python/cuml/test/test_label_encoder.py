@@ -107,11 +107,6 @@ def test_inverse_transform(orig_label, ord_label,
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)
     assert(len(reverted) == len(expected_reverted))
-
-    print(reverted)
-    print(expected_reverted)
-    print(le.dtype)
-
     assert(len(reverted)
            == len(reverted[reverted == expected_reverted]))
     # test if correctly raies ValueError
