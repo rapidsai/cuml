@@ -294,8 +294,8 @@ class RandomForestRegressor(DelayedPredictionMixin):
         model.print_summary()
 
     @staticmethod
-    def _predict_cpu(model, X, predict_model):
-        return model._predict_model_on_cpu(X, predict_model=predict_model)
+    def _predict_cpu(model, X, convert_dtype):
+        return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
     def print_summary(self):
         """
@@ -460,7 +460,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
         """
         if predict_model == "CPU":
-            preds = self._predict_using_cpu(X, predict_model=predict_model)
+            preds = self._predict_using_cpu(X, convert_dtype=convert_dtype)
 
         else:
             preds = \
@@ -487,7 +487,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
     TODO : Update function names used for CPU predict.
            Cuml issue #1854 has been created to track this.
     """
-    def _predict_using_cpu(self, X, predict_model):
+    def _predict_using_cpu(self, X, convert_dtype):
         workers = self.workers
 
         X_Scattered = self.client.scatter(X)
@@ -499,7 +499,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                     RandomForestRegressor._predict_cpu,
                     self.rfs[w],
                     X_Scattered,
-                    predict_model,
+                    convert_dtype,
                     workers=[w],
                 )
             )
