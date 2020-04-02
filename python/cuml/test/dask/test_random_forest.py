@@ -259,7 +259,8 @@ def test_rf_classification_dask_fil(partitions_per_worker, cluster,
 
         acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
 
-        assert acc_score > 0.8 and fil_mse <= (sk_mse + 0.071)
+        assert acc_score > 0.8
+        assert fil_mse <= (sk_mse + 0.012)
 
     finally:
         c.close()

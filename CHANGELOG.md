@@ -32,6 +32,7 @@
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 - PR #1874: Add predict_proba function to RF classifier
 - PR #1815: Adding KNN parameter to UMAP
+- PR #1978: Adding `predict_proba` function to dask RF
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
