@@ -141,7 +141,7 @@ def get_tidy_args(cmd, exe):
 def run_clang_tidy_command(tidy_cmd):
     out = ""
     try:
-        cmd = " ".join(tidy_cmd) + " 2>&1"
+        cmd = " ".join(tidy_cmd)
         out = subprocess.check_output(cmd, shell=True)
         out = out.decode("utf-8")
         out = out.rstrip()
@@ -185,29 +185,45 @@ def collect_result(result):
     results.append(result)
 
 
+def print_result(passed, stdout, file):
+    status_str = "PASSED" if passed else "FAILED"
+    print("%s File:%s %s %s" % (SEPARATOR, file, status_str, SEPARATOR))
+    if stdout:
+        print(stdout)
+        print("%s File:%s ENDS %s" % (SEPARATOR, file, SEPARATOR))
+
+
 def print_results():
     global results
     status = True
     for passed, stdout, file in results:
-        status_str = "PASSED" if passed else "FAILED"
+        print_result(passed, stdout, file)
         if not passed:
             status = False
-        print("%s File:%s %s %s" % (SEPARATOR, file, status_str, SEPARATOR))
-        if stdout:
-            print(stdout)
-            print("%s File:%s ENDS %s" % (SEPARATOR, file, SEPARATOR))
-    if not status:
-        raise Exception("clang-tidy failed! Refer to the errors above.")
+    return status
 
 
-def main():
-    args = parse_args()
-    # Attempt to making sure that we run this script from root of repo always
-    if not os.path.exists(".git"):
-        raise Exception("This needs to always be run from the root of repo")
-    all_files = list_all_cmds(args.cdb)
+# mostly used for debugging purposes
+def run_sequential(args, all_files):
+    status = True
+    # actual tidy checker
+    for cmd in all_files:
+        # skip files that we don't want to look at
+        if args.ignore_compiled is not None and \
+           re.search(args.ignore_compiled, cmd["file"]) is not None:
+            continue
+        if args.select_compiled is not None and \
+           re.search(args.select_compiled, cmd["file"]) is None:
+            continue
+        passed, stdout, file = run_clang_tidy(cmd, args)
+        print_result(passed, stdout, file)
+        if not passed:
+            status = False
+    return status
+
+
+def run_parallel(args, all_files):
     pool = mp.Pool(args.j)
-    results = []
     # actual tidy checker
     for cmd in all_files:
         # skip files that we don't want to look at
@@ -221,7 +237,21 @@ def main():
                          callback=collect_result)
     pool.close()
     pool.join()
-    print_results()
+    return print_results()
+
+
+def main():
+    args = parse_args()
+    # Attempt to making sure that we run this script from root of repo always
+    if not os.path.exists(".git"):
+        raise Exception("This needs to always be run from the root of repo")
+    all_files = list_all_cmds(args.cdb)
+    if args.j == 1:
+        status = run_sequential(args, all_files)
+    else:
+        status = run_parallel(args, all_files)
+    if not status:
+        raise Exception("clang-tidy failed! Refer to the errors above.")
 
 
 if __name__ == "__main__":
