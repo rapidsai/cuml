@@ -45,7 +45,7 @@ class OneHotEncoder:
         - 'auto' : Determine categories automatically from the training data.
         - DataFrame : ``categories[col]`` holds the categories expected in the
           feature col.
-    drop : 'first' or a cudf.DataFrame, default=None
+    drop : 'first', None or a dict, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
         features cause problems, such as when feeding the resulting data
