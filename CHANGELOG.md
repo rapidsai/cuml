@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1980: prim: added a new write-only unary op prim
 
 ## Improvements
 - PR #1944: Support for dask_cudf.core.Series in _extract_partitions
