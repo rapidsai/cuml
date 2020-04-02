@@ -151,7 +151,7 @@ def test_recv_any_rank(n_trials, cluster):
 
     try:
 
-        cb = CommsContext(comms_p2p=True, verbose=True)
+        cb = CommsContext(comms_p2p=True)
         cb.init()
 
         dfs = [client.submit(func_test_recv_any_rank,

@@ -16,8 +16,8 @@
 
 import cudf
 
-from cuml.dask.common import workers_to_parts, \
-    raise_exception_from_futures
+from cuml.dask.common import workers_to_parts
+from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
