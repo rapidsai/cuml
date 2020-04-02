@@ -338,9 +338,9 @@ class UMAP(Base):
         else:
             rs = np.random.RandomState(random_state)
         self.random_state = <uint64_t> rs.randint(low=0,
-                                                         high=np.iinfo(
-                                                             np.uint64).max,
-                                                         dtype=np.uint64)
+                                                  high=np.iinfo(
+                                                      np.uint64).max,
+                                                  dtype=np.uint64)
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
