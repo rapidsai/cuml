@@ -21,10 +21,11 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+from cuml.common.array import CumlArray
+from cuml.utils import input_to_cuml_array
 
 import numpy as np
+import cupy as cp
 
 from cuml.metrics import accuracy_score
 
@@ -151,21 +152,14 @@ class KNeighborsClassifier(NearestNeighbors):
 
         # Only need to store index if fit() was called
         if self.n_indices == 1:
-            state['y'] = cudf.Series(self.y)
-            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+            state['y'] = self.y
+            state['X_m'] = self.X_m
         return state
 
     def __setstate__(self, state):
         super(NearestNeighbors, self).__init__(handle=None,
                                                verbose=state['verbose'])
 
-        cdef uintptr_t x_ctype
-
-        # Only need to recover state if model had been previously fit
-        if state["n_indices"] == 1:
-
-            state['y'] = state['y'].to_gpu_array()
-            state['X_m'] = state['X_m'].as_gpu_matrix()
         self.__dict__.update(state)
 
     def fit(self, X, y, convert_dtype=True):
@@ -189,8 +183,8 @@ class KNeighborsClassifier(NearestNeighbors):
             convert the inputs to np.float32.
         """
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
-        self.y, _, _, _, _ = \
-            input_to_dev_array(y, order='F', check_dtype=np.int32,
+        self.y, _, _, _ = \
+            input_to_cuml_array(y, order='F', check_dtype=np.int32,
                                convert_to_dtype=(np.int32
                                                  if convert_dtype
                                                  else None))
@@ -212,24 +206,26 @@ class KNeighborsClassifier(NearestNeighbors):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+
+        out_type = self._get_output_type(X)
+
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
-        cdef uintptr_t inds_ctype
-
-        inds, inds_ctype, n_rows, _, _ = \
-            input_to_dev_array(knn_indices, order='C', check_dtype=np.int64,
+        inds, n_rows, _, _ = \
+            input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
                                convert_to_dtype=(np.int64
                                                  if convert_dtype
                                                  else None))
+        cdef uintptr_t inds_ctype = inds.ptr
 
         out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
-        classes = rmm.to_device(zeros(out_shape,
+        classes = CumlArray.zeros(out_shape,
                                       dtype=np.int32,
-                                      order="C"))
+                                      order="C")
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -238,10 +234,10 @@ class KNeighborsClassifier(NearestNeighbors):
         cdef uintptr_t y_ptr
         for i in range(out_cols):
             col = self.y[:, i] if out_cols > 1 else self.y
-            y_ptr = get_dev_array_ptr(col)
+            y_ptr = col.ptr
             y_vec.push_back(<int*>y_ptr)
 
-        cdef uintptr_t classes_ptr = get_dev_array_ptr(classes)
+        cdef uintptr_t classes_ptr = classes.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -255,14 +251,8 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-        if isinstance(X, np.ndarray):
-            return np.array(classes, dtype=np.int32)
-        elif isinstance(X, cudf.DataFrame):
-            if classes.ndim == 1:
-                classes = classes.reshape(classes.shape[0], 1)
-            return cudf.DataFrame.from_gpu_matrix(classes)
-        else:
-            return classes
+        
+        return classes.to_output(out_type)
 
     def predict_proba(self, X, convert_dtype=True):
         """
@@ -279,17 +269,19 @@ class KNeighborsClassifier(NearestNeighbors):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+
+        out_type = self._get_output_type(X)
+
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
-        cdef uintptr_t inds_ctype
-
-        inds, inds_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(knn_indices, order='C',
+        inds, n_rows, n_cols, dtype = \
+            input_to_cuml_array(knn_indices, order='C',
                                check_dtype=np.int64,
                                convert_to_dtype=(np.int64
                                                  if convert_dtype
                                                  else None))
+        cdef uintptr_t inds_ctype = inds.ptr
 
         out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
 
@@ -301,15 +293,15 @@ class KNeighborsClassifier(NearestNeighbors):
         cdef uintptr_t y_ptr
         for out_col in range(out_cols):
             col = self.y[:, out_col] if out_cols > 1 else self.y
-            classes = rmm.to_device(zeros((n_rows,
-                                           len(np.unique(np.asarray(col)))),
+            classes = CumlArray.zeros((n_rows,
+                                           len(cp.unique(cp.asarray(col)))),
                                           dtype=np.float32,
-                                          order="C"))
+                                          order="C")
             out_classes.append(classes)
-            classes_ptr = get_dev_array_ptr(classes)
+            classes_ptr = classes.ptr
             out_vec.push_back(<float*>classes_ptr)
 
-            y_ptr = get_dev_array_ptr(col)
+            y_ptr = col.ptr
             y_vec.push_back(<int*>y_ptr)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -327,13 +319,7 @@ class KNeighborsClassifier(NearestNeighbors):
 
         final_classes = []
         for out_class in out_classes:
-            if isinstance(X, np.ndarray):
-                final_class = np.array(out_class, dtype=np.int32)
-            elif isinstance(X, cudf.DataFrame):
-                final_class = cudf.DataFrame.from_gpu_matrix(out_class)
-            else:
-                final_class = out_class
-            final_classes.append(final_class)
+            final_classes.append(out_class.to_output(out_type))
 
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)
