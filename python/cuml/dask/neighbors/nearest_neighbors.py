@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
+from cuml.dask.common import extract_ddf_partitions, \
     workers_to_parts, parts_to_ranks, raise_exception_from_futures, \
     flatten_grouped_results, raise_mg_import_exception
 
@@ -266,9 +266,10 @@ class NearestNeighbors(object):
             ret = nn_fit, out_i_futures if not return_distance else \
                 (nn_fit, out_d_futures, out_i_futures)
         else:
-            # TODO: Remove hard-coded dtypes once DataDistributedHandler is used
+            # TODO: Remove hard-code once DataDistributedHandler is used
             ret = to_output(out_i_futures, 'float32') \
-                if not return_distance else (to_output(out_d_futures, 'float32'),
-                                             to_output(out_i_futures, 'float32'))
+                if not return_distance else (to_output(out_d_futures,
+                                             'float32'), to_output(
+                                                 out_i_futures, 'float32'))
 
         return ret
