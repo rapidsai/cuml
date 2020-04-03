@@ -37,15 +37,10 @@ class Fixture : public MLCommon::Bench::Fixture {
     d_alloc = handle->getDeviceAllocator();
     MLCommon::Bench::Fixture::SetUp(state);
     handle->setStream(stream);
-    allocateBuffers(state);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    deallocateBuffers(state);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    MLCommon::Bench::Fixture::TearDown(state);
     handle.reset();
   }
 
