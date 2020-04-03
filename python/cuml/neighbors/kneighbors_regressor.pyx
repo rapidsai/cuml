@@ -191,9 +191,9 @@ class KNeighborsRegressor(NearestNeighbors):
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None))
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
 
         self.handle.sync()
 
@@ -221,15 +221,15 @@ class KNeighborsRegressor(NearestNeighbors):
 
         inds, n_rows, n_cols, dtype = \
             input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
-                               convert_to_dtype=(np.int64
-                                                 if convert_dtype
-                                                 else None))
+                                convert_to_dtype=(np.int64
+                                                  if convert_dtype
+                                                  else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
         res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
         results = CumlArray.zeros(res_shape, dtype=np.float32,
-                                      order="C")
+                                  order="C")
 
         cdef uintptr_t results_ptr = results.ptr
         cdef uintptr_t y_ptr
@@ -252,7 +252,10 @@ class KNeighborsRegressor(NearestNeighbors):
         )
 
         self.handle.sync()
-        
+
+        del knn_indices
+        del inds
+
         return results.to_output(out_type)
 
     def score(self, X, y, convert_dtype=True):

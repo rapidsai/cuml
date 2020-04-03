@@ -223,9 +223,9 @@ class NearestNeighbors(Base):
 
         self.X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None))
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
 
         self.n_indices = 1
 
@@ -287,13 +287,14 @@ class NearestNeighbors(Base):
 
         X_m, N, _, dtype = \
             input_to_cuml_array(X, order='F', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
-                                                 else False))
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else False))
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
         I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
-        D_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.float32, order="C")
+        D_ndarr = CumlArray.zeros((N, n_neighbors),
+                                  dtype=np.float32, order="C")
 
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr
@@ -329,4 +330,4 @@ class NearestNeighbors(Base):
         del sizes
 
         return (D_ndarr.to_output(out_type), I_ndarr.to_output(out_type)) \
-         if return_distance else I_ndarr.to_output(out_type)
+            if return_distance else I_ndarr.to_output(out_type)
