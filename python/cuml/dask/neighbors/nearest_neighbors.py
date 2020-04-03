@@ -81,7 +81,6 @@ class NearestNeighbors(object):
                          local_query_parts, query_m, query_parts_to_ranks,
                          rank, k):
 
-        print(local_query_parts)
         return model.kneighbors(
             local_idx_parts, idx_m, n, idx_parts_to_ranks,
             local_query_parts, query_m, query_parts_to_ranks,
@@ -155,7 +154,6 @@ class NearestNeighbors(object):
 
         index_worker_to_parts = workers_to_parts(index_futures)
         query_worker_to_parts = workers_to_parts(query_futures)
-        print(query_worker_to_parts)
 
         """
         Build inputs and outputs
@@ -168,7 +166,6 @@ class NearestNeighbors(object):
                                                        worker_info,
                                                        query_futures)
 
-        print(query_parts_to_ranks)
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
