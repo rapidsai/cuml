@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include <random/permute.h>
 #include <random/rng.h>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -30,21 +30,23 @@ struct Params {
 template <typename T>
 struct Permute : public Fixture {
   Permute(const std::string& name, const Params& p)
-    : Fixture(name), params(p) {}
+    : Fixture(name,
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
     auto matLen = params.rows * params.cols;
     auto vecLen = params.rows;
     if (params.needPerms) {
-      allocate(perms, vecLen);
+      alloc(perms, vecLen);
     } else {
       perms = nullptr;
     }
     MLCommon::Random::Rng r(123456ULL);
     if (params.needShuffle) {
-      allocate(out, matLen);
-      allocate(in, matLen);
+      alloc(out, matLen);
+      alloc(in, matLen);
       r.uniform(in, vecLen, T(-1.0), T(1.0), stream);
     } else {
       out = in = nullptr;
@@ -52,19 +54,21 @@ struct Permute : public Fixture {
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
+    auto matLen = params.rows * params.cols;
+    auto vecLen = params.rows;
     if (params.needShuffle) {
-      CUDA_CHECK(cudaFree(out));
-      CUDA_CHECK(cudaFree(in));
+      dealloc(out, matLen);
+      dealloc(in, matLen);
     }
     if (params.needPerms) {
-      CUDA_CHECK(cudaFree(perms));
+      dealloc(perms, vecLen);
     }
   }
 
   void runBenchmark(::benchmark::State& state) override {
     MLCommon::Random::Rng r(123456ULL);
     for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
       MLCommon::Random::permute(perms, out, in, params.cols, params.rows,
                                 params.rowMajor, stream);
     }
@@ -94,8 +98,8 @@ static std::vector<Params> getInputs() {
   };
 }
 
-PRIMS_BENCH_REGISTER(Params, Permute<float>, "permute", getInputs());
-PRIMS_BENCH_REGISTER(Params, Permute<double>, "permute", getInputs());
+ML_BENCH_REGISTER(Params, Permute<float>, "", getInputs());
+ML_BENCH_REGISTER(Params, Permute<double>, "", getInputs());
 
 }  // namespace Random
 }  // namespace Bench
