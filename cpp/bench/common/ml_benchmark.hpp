@@ -170,6 +170,7 @@ struct Registrar {
  * This is the entry point macro for all ml benchmarks. This needs to be called
  * for the set of benchmarks to be registered so that the main harness inside
  * google bench can find these benchmarks and run them.
+ *
  * @param ParamsClass a struct which contains all the parameters needed to
  *                    generate inputs and run the underlying prim on it.
  *                    Ideally, one such struct is needed for every ml-prim.
