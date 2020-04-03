@@ -48,26 +48,26 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
 class UmapBase : public BlobsFixture<float, int> {
  public:
   UmapBase(const std::string& name, const Params& p)
-    : BlobsFixture<float, int>(p.data, p.blobs), uParams(p.umap) {
-    this->SetName(name.c_str());
+    : BlobsFixture<float, int>(name, p.data, p.blobs), uParams(p.umap) {
   }
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) {
       state.SkipWithError("Umap only supports row-major inputs");
     }
     auto& handle = *this->handle;
     auto stream = handle.getStream();
     for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, stream);
       coreBenchmarkMethod();
     }
   }
 
   virtual void coreBenchmarkMethod() = 0;
 
-  void allocateBuffers(const ::benchmark::State& state) {
+  void allocateTempBuffers(const ::benchmark::State& state) override {
     auto& handle = *this->handle;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
@@ -78,7 +78,7 @@ class UmapBase : public BlobsFixture<float, int> {
     cast<float, int>(yFloat, this->data.y, this->params.nrows, stream);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) {
+  void deallocateTempBuffers(const ::benchmark::State& state) override {
     auto& handle = *this->handle;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
