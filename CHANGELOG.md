@@ -8,6 +8,7 @@
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
 - PR #1979: Removing unused dask extract partitions and algorithms to use `cuml.dask.common.part_utils._extract_partitions`
+- PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
 
 ## Bug Fixes
