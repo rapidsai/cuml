@@ -34,13 +34,13 @@ struct AddBench : public Fixture {
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(ptr0, params.len, true);
-    allocate(ptr1, params.len, true);
+    alloc(ptr0, params.len, true);
+    alloc(ptr1, params.len, true);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(ptr0));
-    CUDA_CHECK(cudaFree(ptr1));
+    dealloc(ptr0, params.len);
+    dealloc(ptr1, params.len);
   }
 
   void runBenchmark(::benchmark::State& state) override {

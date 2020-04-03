@@ -85,6 +85,20 @@ class Fixture : public ::benchmark::Fixture {
     generateMetrics(state);
   }
 
+  template <typename T>
+  void alloc(T *&ptr, size_t len, bool init) {
+    auto nBytes = len * sizeof(T);
+    ptr = (T *)d_alloc->allocate(nBytes, stream);
+    if (init) {
+      CUDA_CHECK(cudaMemsetAsync(ptr, 0, nBytes, stream));
+    }
+  }
+
+  template <typename T>
+  void dealloc(T *ptr, size_t len) {
+    d_alloc->deallocate(ptr, len * sizeof(T), stream);
+  }
+
   std::shared_ptr<deviceAllocator> d_alloc;
   cudaStream_t stream;
   int l2CacheSize;
