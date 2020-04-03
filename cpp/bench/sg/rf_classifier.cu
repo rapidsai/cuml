@@ -57,10 +57,9 @@ class RFClassifier : public BlobsFixture<D> {
       state.SkipWithError("RFClassifier only supports col-major inputs");
     }
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
     auto* mPtr = &model.model;
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
       mPtr->trees = nullptr;
       fit(handle, mPtr, this->data.X, this->params.nrows, this->params.ncols,
           this->data.y, this->params.nclasses, rfParams);
