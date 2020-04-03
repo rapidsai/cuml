@@ -43,9 +43,8 @@ class KMeans : public BlobsFixture<D> {
       state.SkipWithError("KMeans only supports row-major inputs");
     }
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
       ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
                               this->params.ncols, centroids, this->data.y,
                               inertia, nIter);
@@ -53,18 +52,11 @@ class KMeans : public BlobsFixture<D> {
   }
 
   void allocateTempBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    centroids = (D*)allocator->allocate(
-      this->params.nclasses * this->params.ncols * sizeof(D), stream);
+    alloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    allocator->deallocate(
-      centroids, this->params.nclasses * this->params.ncols * sizeof(D),
-      stream);
+    dealloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
  private:
