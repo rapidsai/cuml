@@ -20,6 +20,7 @@ from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
+from cuml.dask.common.input_utils import to_output
 
 from uuid import uuid1
 
@@ -80,6 +81,7 @@ class NearestNeighbors(object):
                          local_query_parts, query_m, query_parts_to_ranks,
                          rank, k):
 
+        print(local_query_parts)
         return model.kneighbors(
             local_idx_parts, idx_m, n, idx_parts_to_ranks,
             local_query_parts, query_m, query_parts_to_ranks,
@@ -153,6 +155,7 @@ class NearestNeighbors(object):
 
         index_worker_to_parts = workers_to_parts(index_futures)
         query_worker_to_parts = workers_to_parts(query_futures)
+        print(query_worker_to_parts)
 
         """
         Build inputs and outputs
@@ -165,6 +168,7 @@ class NearestNeighbors(object):
                                                        worker_info,
                                                        query_futures)
 
+        print(query_parts_to_ranks)
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
@@ -262,8 +266,9 @@ class NearestNeighbors(object):
             ret = nn_fit, out_i_futures if not return_distance else \
                 (nn_fit, out_d_futures, out_i_futures)
         else:
-            ret = to_dask_cudf(out_i_futures) \
-                if not return_distance else (to_dask_cudf(out_d_futures),
-                                             to_dask_cudf(out_i_futures))
+            # TODO: Remove hard-coded dtypes once DataDistributedHandler is used
+            ret = to_output(out_i_futures, 'float32') \
+                if not return_distance else (to_output(out_d_futures, 'float32'),
+                                             to_output(out_i_futures, 'float32'))
 
         return ret

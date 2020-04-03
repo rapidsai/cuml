@@ -29,8 +29,8 @@ import cuml
 import warnings
 
 from cuml.common.base import Base
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+from cuml.common.array import CumlArray
+from cuml.utils import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
@@ -192,12 +192,13 @@ def _build_part_inputs(cuda_arr_ifaces,
 
     arr_ints = []
     for arr in cuda_arr_ifaces:
-        X_m, input_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(arr, order="F",
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None),
-                               check_dtype=[np.float32])
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(arr, order="F",
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32])
+        input_ptr = X_m.ptr
         arr_ints.append({"obj": X_m,
                          "data": input_ptr,
                          "shape": (n_rows, n_cols)})
@@ -267,6 +268,8 @@ class NearestNeighborsMG(NearestNeighbors):
         output indices, output distances
         """
 
+        out_type = self._get_output_type(queries[0])
+
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
         self.n_dims = n
@@ -295,18 +298,18 @@ class NearestNeighborsMG(NearestNeighbors):
         for query_part in q_cai:
 
             n_rows = query_part["shape"][0]
-            i_ary = rmm.to_device(zeros((n_rows, n_neighbors),
-                                        order="C",
-                                        dtype=np.int64))
-            d_ary = rmm.to_device(zeros((n_rows, n_neighbors),
-                                        order="C",
-                                        dtype=np.float32))
+            i_ary = CumlArray.zeros((n_rows, n_neighbors),
+                                    order="C",
+                                    dtype=np.int64)
+            d_ary = CumlArray.zeros((n_rows, n_neighbors),
+                                    order="C",
+                                    dtype=np.float32)
 
             output_i_arrs.append(i_ary)
             output_d_arrs.append(d_ary)
 
-            i_ptr = get_dev_array_ptr(i_ary)
-            d_ptr = get_dev_array_ptr(d_ary)
+            i_ptr = i_ary.ptr
+            d_ptr = d_ary.ptr
 
             out_i_vec.push_back(new int64Data_t(
                 <int64_t*>i_ptr, n_rows * n_neighbors))
@@ -331,9 +334,9 @@ class NearestNeighborsMG(NearestNeighbors):
 
         self.handle.sync()
 
-        output_i = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
+        output_i = list(map(lambda x: x.to_output(out_type),
                             output_i_arrs))
-        output_d = list(map(lambda x: cudf.DataFrame.from_gpu_matrix(x),
+        output_d = list(map(lambda x: x.to_output(out_type),
                             output_d_arrs))
 
         _free_mem(<size_t>idx_rsp,
