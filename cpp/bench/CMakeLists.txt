@@ -26,7 +26,7 @@ if(BUILD_CUML_BENCH)
     sg/kmeans.cu
     sg/main.cpp
     sg/rf_classifier.cu
-    # sg/rf_regressor.cu
+    sg/rf_regressor.cu
     sg/umap.cu
     )
 
