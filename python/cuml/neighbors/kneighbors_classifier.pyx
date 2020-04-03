@@ -185,9 +185,9 @@ class KNeighborsClassifier(NearestNeighbors):
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
-                               convert_to_dtype=(np.int32
-                                                 if convert_dtype
-                                                 else None))
+                                convert_to_dtype=(np.int32
+                                                  if convert_dtype
+                                                  else None))
 
         self.handle.sync()
 
@@ -214,18 +214,16 @@ class KNeighborsClassifier(NearestNeighbors):
 
         inds, n_rows, _, _ = \
             input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
-                               convert_to_dtype=(np.int64
-                                                 if convert_dtype
-                                                 else None))
+                                convert_to_dtype=(np.int64
+                                                  if convert_dtype
+                                                  else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
         out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
-        classes = CumlArray.zeros(out_shape,
-                                      dtype=np.int32,
-                                      order="C")
+        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C")
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -251,7 +249,10 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-        
+
+        del knn_indices
+        del inds
+
         return classes.to_output(out_type)
 
     def predict_proba(self, X, convert_dtype=True):
@@ -277,10 +278,10 @@ class KNeighborsClassifier(NearestNeighbors):
 
         inds, n_rows, n_cols, dtype = \
             input_to_cuml_array(knn_indices, order='C',
-                               check_dtype=np.int64,
-                               convert_to_dtype=(np.int64
-                                                 if convert_dtype
-                                                 else None))
+                                check_dtype=np.int64,
+                                convert_to_dtype=(np.int64
+                                                  if convert_dtype
+                                                  else None))
         cdef uintptr_t inds_ctype = inds.ptr
 
         out_cols = self.y.shape[1] if len(self.y.shape) == 2 else 1
@@ -294,9 +295,9 @@ class KNeighborsClassifier(NearestNeighbors):
         for out_col in range(out_cols):
             col = self.y[:, out_col] if out_cols > 1 else self.y
             classes = CumlArray.zeros((n_rows,
-                                           len(cp.unique(cp.asarray(col)))),
-                                          dtype=np.float32,
-                                          order="C")
+                                       len(cp.unique(cp.asarray(col)))),
+                                      dtype=np.float32,
+                                      order="C")
             out_classes.append(classes)
             classes_ptr = classes.ptr
             out_vec.push_back(<float*>classes_ptr)
@@ -316,6 +317,9 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
+
+        del knn_indices
+        del inds
 
         final_classes = []
         for out_class in out_classes:
