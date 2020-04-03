@@ -70,6 +70,31 @@ bool has_nan(T* data, size_t len, std::shared_ptr<deviceAllocator> alloc,
   return h_answer;
 }
 
+template <typename T>
+__global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
+                                 bool* answer) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= len) return;
+  if (embedding1[tid] != embedding2[tid]) {
+    *answer = false;
+  }
+}
+
+template <typename T>
+bool are_equal(T* embedding1, T* embedding2, size_t len,
+               std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
+  dim3 blk(256);
+  dim3 grid(MLCommon::ceildiv(len, (size_t)blk.x));
+  bool h_answer = true;
+  device_buffer<bool> d_answer(alloc, stream, 1);
+  updateDevice(d_answer.data(), &h_answer, 1, stream);
+  are_equal_kernel<<<grid, blk, 0, stream>>>(embedding1, embedding2, len,
+                                             d_answer.data());
+  updateHost(&h_answer, d_answer.data(), 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  return h_answer;
+}
+
 class UMAPParametrizableTest : public ::testing::Test {
  protected:
   struct TestParams {
@@ -81,6 +106,102 @@ class UMAPParametrizableTest : public ::testing::Test {
     int n_clusters;
     double min_trustworthiness;
   };
+
+  void get_embedding(cumlHandle& handle, float* X, float* y,
+                     float* embedding_ptr, TestParams& test_params,
+                     UMAPParams& umap_params) {
+    cudaStream_t stream = handle.getStream();
+    auto alloc = handle.getDeviceAllocator();
+    int& n_samples = test_params.n_samples;
+    int& n_features = test_params.n_features;
+
+    device_buffer<int64_t>* knn_indices_b;
+    device_buffer<float>* knn_dists_b;
+    int64_t* knn_indices = nullptr;
+    float* knn_dists = nullptr;
+    if (test_params.knn_params) {
+      knn_indices_b = new device_buffer<int64_t>(
+        alloc, stream, n_samples * umap_params.n_neighbors);
+      knn_dists_b = new device_buffer<float>(
+        alloc, stream, n_samples * umap_params.n_neighbors);
+      knn_indices = knn_indices_b->data();
+      knn_dists = knn_dists_b->data();
+
+      std::vector<float*> ptrs(1);
+      std::vector<int> sizes(1);
+      ptrs[0] = X;
+      sizes[0] = n_samples;
+
+      MLCommon::Selection::brute_force_knn(
+        ptrs, sizes, n_features, X, n_samples, knn_indices, knn_dists,
+        umap_params.n_neighbors, alloc, stream);
+
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
+
+    float* model_embedding = nullptr;
+    device_buffer<float>* model_embedding_b;
+    if (test_params.fit_transform) {
+      model_embedding = embedding_ptr;
+    } else {
+      model_embedding_b = new device_buffer<float>(
+        alloc, stream, n_samples * umap_params.n_components);
+      model_embedding = model_embedding_b->data();
+    }
+
+    CUDA_CHECK(cudaMemsetAsync(
+      model_embedding, 0, n_samples * umap_params.n_components * sizeof(float),
+      stream));
+
+    if (test_params.supervised) {
+      UMAPAlgo::_fit<float, 256>(handle, X, y, n_samples, n_features,
+                                 knn_indices, knn_dists, &umap_params,
+                                 model_embedding);
+    } else {
+      UMAPAlgo::_fit<float, 256>(handle, X, n_samples, n_features, knn_indices,
+                                 knn_dists, &umap_params, model_embedding);
+    }
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    if (!test_params.fit_transform) {
+      CUDA_CHECK(cudaMemsetAsync(
+        embedding_ptr, 0, n_samples * umap_params.n_components * sizeof(float),
+        stream));
+
+      UMAPAlgo::_transform<float, 256>(
+        handle, X, n_samples, umap_params.n_components, knn_indices, knn_dists,
+        X, n_samples, model_embedding, n_samples, &umap_params, embedding_ptr);
+
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+
+      delete model_embedding_b;
+    }
+
+    if (test_params.knn_params) {
+      delete knn_indices_b;
+      delete knn_dists_b;
+    }
+  }
+
+  void assertions(cumlHandle& handle, float* X, float* embedding_ptr,
+                  TestParams& test_params, UMAPParams& umap_params) {
+    cudaStream_t stream = handle.getStream();
+    auto alloc = handle.getDeviceAllocator();
+    int& n_samples = test_params.n_samples;
+    int& n_features = test_params.n_features;
+
+    ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components,
+                         alloc, stream));
+
+    double trustworthiness = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      handle, X, embedding_ptr, n_samples, n_features, umap_params.n_components,
+      umap_params.n_neighbors);
+
+    std::cout << "min. expected trustworthiness: "
+              << test_params.min_trustworthiness << std::endl;
+    std::cout << "trustworthiness: " << trustworthiness << std::endl;
+    ASSERT_TRUE(trustworthiness > test_params.min_trustworthiness);
+  }
 
   void test(TestParams& test_params, UMAPParams& umap_params) {
     std::cout << "\numap_params : [" << std::boolalpha
@@ -97,8 +218,8 @@ class UMAPParametrizableTest : public ::testing::Test {
     cumlHandle handle;
     cudaStream_t stream = handle.getStream();
     auto alloc = handle.getDeviceAllocator();
-    int n_samples = test_params.n_samples;
-    int n_features = test_params.n_features;
+    int& n_samples = test_params.n_samples;
+    int& n_features = test_params.n_features;
 
     UMAPAlgo::find_ab(&umap_params, alloc, stream);
 
@@ -116,88 +237,27 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    device_buffer<int64_t>* knn_indices_b;
-    device_buffer<float>* knn_dists_b;
-    int64_t* knn_indices = nullptr;
-    float* knn_dists = nullptr;
-    if (test_params.knn_params) {
-      knn_indices_b = new device_buffer<int64_t>(
-        alloc, stream, n_samples * umap_params.n_neighbors);
-      knn_dists_b = new device_buffer<float>(
-        alloc, stream, n_samples * umap_params.n_neighbors);
-      knn_indices = knn_indices_b->data();
-      knn_dists = knn_dists_b->data();
+    device_buffer<float> embeddings1(alloc, stream,
+                                     n_samples * umap_params.n_components);
+    float* e1 = embeddings1.data();
 
-      std::vector<float*> ptrs(1);
-      std::vector<int> sizes(1);
-      ptrs[0] = X_d.data();
-      sizes[0] = n_samples;
+    get_embedding(handle, X_d.data(), (float*)y_d.data(), e1, test_params,
+                  umap_params);
 
-      MLCommon::Selection::brute_force_knn(
-        ptrs, sizes, n_features, X_d.data(), n_samples, knn_indices, knn_dists,
-        umap_params.n_neighbors, alloc, stream);
+    assertions(handle, X_d.data(), e1, test_params, umap_params);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+    if (!umap_params.multicore_implem) {
+      device_buffer<float> embeddings2(alloc, stream,
+                                       n_samples * umap_params.n_components);
+      float* e2 = embeddings2.data();
+      get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params,
+                    umap_params);
+
+      ASSERT_TRUE(
+        are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream));
+
+      std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
     }
-
-    device_buffer<float> embeddings(alloc, stream,
-                                    n_samples * umap_params.n_components);
-
-    CUDA_CHECK(cudaMemsetAsync(embeddings.data(), 0,
-                               embeddings.size() * sizeof(float), stream));
-
-    if (test_params.supervised) {
-      UMAPAlgo::_fit<float, 256>(handle, X_d.data(), (float*)y_d.data(),
-                                 n_samples, n_features, knn_indices, knn_dists,
-                                 &umap_params, embeddings.data());
-    } else {
-      UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
-                                 knn_indices, knn_dists, &umap_params,
-                                 embeddings.data());
-    }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    device_buffer<float>* xformed;
-
-    float* embedding_ptr = nullptr;
-    if (test_params.fit_transform) {
-      embedding_ptr = embeddings.data();
-    } else {
-      xformed = new device_buffer<float>(alloc, stream,
-                                         n_samples * umap_params.n_components);
-      embedding_ptr = xformed->data();
-
-      CUDA_CHECK(cudaMemsetAsync(xformed->data(), 0,
-                                 xformed->size() * sizeof(float), stream));
-
-      UMAPAlgo::_transform<float, 256>(
-        handle, X_d.data(), n_samples, umap_params.n_components, knn_indices,
-        knn_dists, X_d.data(), n_samples, embeddings.data(), n_samples,
-        &umap_params, embedding_ptr);
-
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-    }
-
-    if (test_params.knn_params) {
-      delete knn_indices_b;
-      delete knn_dists_b;
-    }
-
-    ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components,
-                         alloc, stream));
-
-    double trustworthiness = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
-      handle, X_d.data(), embedding_ptr, n_samples, n_features,
-      umap_params.n_components, umap_params.n_neighbors);
-
-    if (!test_params.fit_transform) {
-      delete xformed;
-    }
-
-    std::cout << "min. expected trustworthiness: "
-              << test_params.min_trustworthiness << std::endl;
-    std::cout << "trustworthiness: " << trustworthiness << std::endl;
-    ASSERT_TRUE(trustworthiness > test_params.min_trustworthiness);
   }
 
   void SetUp() override {
