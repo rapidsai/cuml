@@ -7,6 +7,7 @@
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1984: Enable Ninja build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
