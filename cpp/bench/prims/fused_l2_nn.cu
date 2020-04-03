@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include <linalg/norm.h>
 #include <random/rng.h>
 #include <limits>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -31,16 +31,18 @@ struct FLNParams {
 template <typename T>
 struct FusedL2NN : public Fixture {
   FusedL2NN(const std::string& name, const FLNParams& p)
-    : Fixture(name), params(p) {}
+    : Fixture(name,
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(x, params.m * params.k);
-    allocate(y, params.n * params.k);
-    allocate(xn, params.m);
-    allocate(yn, params.n);
-    allocate(out, params.m);
-    allocate(workspace, params.m);
+    alloc(x, params.m * params.k);
+    alloc(y, params.n * params.k);
+    alloc(xn, params.m);
+    alloc(yn, params.n);
+    alloc(out, params.m);
+    alloc(workspace, params.m);
     MLCommon::Random::Rng r(123456ULL);
     r.uniform(x, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(y, params.n * params.k, T(-1.0), T(1.0), stream);
@@ -55,17 +57,17 @@ struct FusedL2NN : public Fixture {
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(xn));
-    CUDA_CHECK(cudaFree(yn));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(workspace));
+    dealloc(x, params.m * params.k);
+    dealloc(y, params.n * params.k);
+    dealloc(xn, params.m);
+    dealloc(yn, params.n);
+    dealloc(out, params.m);
+    dealloc(workspace, params.m);
   }
 
   void runBenchmark(::benchmark::State& state) override {
     for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
       // it is enough to only benchmark the L2-squared metric
       MLCommon::Distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(
         out, x, y, xn, yn, params.m, params.n, params.k, (void*)workspace, op,
@@ -93,8 +95,8 @@ static std::vector<FLNParams> getInputs() {
   };
 }
 
-PRIMS_BENCH_REGISTER(FLNParams, FusedL2NN<float>, "fusedL2NN", getInputs());
-PRIMS_BENCH_REGISTER(FLNParams, FusedL2NN<double>, "fusedL2NN", getInputs());
+ML_BENCH_REGISTER(FLNParams, FusedL2NN<float>, "", getInputs());
+ML_BENCH_REGISTER(FLNParams, FusedL2NN<double>, "", getInputs());
 
 }  // namespace Distance
 }  // namespace Bench
