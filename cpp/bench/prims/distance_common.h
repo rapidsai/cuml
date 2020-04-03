@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <distance/distance.h>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -28,7 +28,9 @@ struct Params {
 template <typename T, MLCommon::Distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
-    : Fixture(name), params(p) {}
+    : Fixture(name,
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
@@ -53,7 +55,7 @@ struct Distance : public Fixture {
   void runBenchmark(::benchmark::State& state) override {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
       MLCommon::Distance::distance<DType, T, T, T, OutputTile_t>(
         x, y, out, params.m, params.n, params.k, (void*)workspace, worksize,
         stream);
@@ -81,9 +83,9 @@ static std::vector<Params> getInputs() {
 
 #define DIST_BENCH_REGISTER(Name, Metric)                         \
   using Name##F = Distance<float, Metric>;                        \
-  PRIMS_BENCH_REGISTER(Params, Name##F, "distance", getInputs()); \
+  ML_BENCH_REGISTER(Params, Name##F, "", getInputs());            \
   using Name##D = Distance<double, Metric>;                       \
-  PRIMS_BENCH_REGISTER(Params, Name##D, "distance", getInputs())
+  ML_BENCH_REGISTER(Params, Name##D, "", getInputs())
 
 }  // namespace Distance
 }  // namespace Bench
