@@ -12,8 +12,10 @@
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+- PR #1971: python: Correctly honor --singlegpu option and CUML_BUILD_PATH env variable
 - PR #1969: Update libcumlprims to 0.14
 - PR #1976: Explicitly setting CUDA_IPC_CACHE in comms
+- PR #1973: Add missing mg files for setup.py --singlegpu flag
 
 # cuML 0.13.0 (Date TBD)
 
