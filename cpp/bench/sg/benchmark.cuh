@@ -74,8 +74,8 @@ class Fixture : public MLCommon::Bench::Fixture {
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override{
-    deallocateData(state);
     deallocateTempBuffers(state);
+    deallocateData(state);
   }
 
   void BenchmarkCase(::benchmark::State& state) {
