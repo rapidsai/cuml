@@ -59,11 +59,11 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
     if datatype == "dataframe":
         assert isinstance(predictions, cudf.Series)
         assert array_equal(predictions.to_frame().astype(np.int32),
-                    y.astype(np.int32))
+                           y.astype(np.int32))
     else:
         assert isinstance(predictions, np.ndarray)
         assert array_equal(predictions.astype(np.int32),
-                    y.astype(np.int32))
+                           y.astype(np.int32))
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
