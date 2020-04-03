@@ -34,22 +34,22 @@ struct Distance : public Fixture {
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(x, params.m * params.k, true);
-    allocate(y, params.n * params.k, true);
-    allocate(out, params.m * params.n, true);
+    alloc(x, params.m * params.k, true);
+    alloc(y, params.n * params.k, true);
+    alloc(out, params.m * params.n, true);
     workspace = nullptr;
     worksize = MLCommon::Distance::getWorkspaceSize<DType, T, T, T>(
       x, y, params.m, params.n, params.k);
     if (worksize != 0) {
-      allocate(workspace, worksize);
+      alloc(workspace, worksize, false);
     }
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(workspace));
+    dealloc(x, params.m * params.k);
+    dealloc(y, params.n * params.k);
+    dealloc(out, params.m * params.n);
+    dealloc(workspace, worksize);
   }
 
   void runBenchmark(::benchmark::State& state) override {
