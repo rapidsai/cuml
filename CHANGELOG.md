@@ -8,6 +8,7 @@
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
 - PR #1968: Update SVC SVR with cuML Array
+- PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
 
 ## Bug Fixes

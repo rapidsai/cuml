@@ -281,8 +281,8 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        return cupy.dot(self._dual_coef_.to_output('cupy'),
-                        self._support_vectors_.to_output('cupy'))
+        return np.dot(self._dual_coef_.to_output('numpy'),
+                        self._support_vectors_.to_output('numpy'))
 
     @property
     def coef_(self):
@@ -569,7 +569,6 @@ class SVMBase(Base):
         state = self.__dict__.copy()
         del state['handle']
         del state['_model']
-
         # Only when the model is fit once we need to store these parameters
         if self._fit_status_ == 0:
             state['_dual_coef_'] = self._dual_coef_.to_output('dataframe')
