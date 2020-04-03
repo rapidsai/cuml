@@ -147,7 +147,7 @@ def test_umap_transform_on_digits():
     fitter.fit(data, convert_dtype=True)
     new_data = digits.data[~digits_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
-    trust = trustworthiness(new_data, embedding, 10)
+    trust = trustworthiness(new_data, embedding, 15)
     assert trust >= 0.96
 
 
@@ -299,9 +299,11 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     cuml_embedding2 = get_embedding(n_components, random_state)
 
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
+
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
-
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
     print("mean diff: %s" % mean_diff)
     if random_state is not None:
@@ -344,6 +346,9 @@ def test_umap_transform_reproducibility(n_components, random_state):
         random_state.set_state(state)
 
     cuml_embedding2 = get_embedding(n_components, random_state)
+
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
 
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
