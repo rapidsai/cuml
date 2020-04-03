@@ -18,13 +18,9 @@ from collections import OrderedDict
 from functools import reduce
 from tornado import gen
 from collections.abc import Sequence
-from dask.distributed import futures_of, default_client, wait
+from dask.distributed import default_client, wait
 from toolz import first
 import numpy as np
-
-from dask.array.core import Array as daskArray
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as dcSeries
 
 from cuml.dask.common.utils import parse_host_port
 
