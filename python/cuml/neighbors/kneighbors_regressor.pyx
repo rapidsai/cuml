@@ -21,8 +21,8 @@
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+from cuml.common.array import CumlArray
+from cuml.utils import input_to_cuml_array
 
 from cuml.metrics import r2_score
 
@@ -158,21 +158,14 @@ class KNeighborsRegressor(NearestNeighbors):
 
         # Only need to store index if fit() was called
         if self.n_indices == 1:
-            state['y'] = cudf.Series(self.y)
-            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
+            state['y'] = self.y
+            state['X_m'] = self.X_m
         return state
 
     def __setstate__(self, state):
         super(NearestNeighbors, self).__init__(handle=None,
                                                verbose=state['verbose'])
 
-        cdef uintptr_t x_ctype
-
-        # Only need to recover state if model had been previously fit
-        if state["n_indices"] == 1:
-
-            state['y'] = state['y'].to_gpu_array()
-            state['X_m'] = state['X_m'].as_gpu_matrix()
         self.__dict__.update(state)
 
     def fit(self, X, y, convert_dtype=True):
@@ -196,8 +189,8 @@ class KNeighborsRegressor(NearestNeighbors):
             convert the inputs to np.float32.
         """
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
-        self.y, _, _, _, _ = \
-            input_to_dev_array(y, order='F', check_dtype=np.float32,
+        self.y, _, _, _ = \
+            input_to_cuml_array(y, order='F', check_dtype=np.float32,
                                convert_to_dtype=(np.float32
                                                  if convert_dtype
                                                  else None))
@@ -220,29 +213,31 @@ class KNeighborsRegressor(NearestNeighbors):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+
+        out_type = self._get_output_type(X)
+
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
-        cdef uintptr_t inds_ctype
-
-        inds, inds_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(knn_indices, order='C', check_dtype=np.int64,
+        inds, n_rows, n_cols, dtype = \
+            input_to_cuml_array(knn_indices, order='C', check_dtype=np.int64,
                                convert_to_dtype=(np.int64
                                                  if convert_dtype
                                                  else None))
+        cdef uintptr_t inds_ctype = inds.ptr
 
         res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
-        results = rmm.to_device(zeros(res_shape, dtype=np.float32,
-                                      order="C"))
+        results = CumlArray.zeros(res_shape, dtype=np.float32,
+                                      order="C")
 
-        cdef uintptr_t results_ptr = get_dev_array_ptr(results)
+        cdef uintptr_t results_ptr = results.ptr
         cdef uintptr_t y_ptr
         cdef vector[float*] *y_vec = new vector[float*]()
 
         for col_num in range(res_cols):
             col = self.y if res_cols == 1 else self.y[:, col_num]
-            y_ptr = get_dev_array_ptr(col)
+            y_ptr = col.ptr
             y_vec.push_back(<float*>y_ptr)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -257,14 +252,8 @@ class KNeighborsRegressor(NearestNeighbors):
         )
 
         self.handle.sync()
-        if isinstance(X, np.ndarray):
-            return np.array(results)
-        elif isinstance(X, cudf.DataFrame):
-            if results.ndim == 1:
-                results = results.reshape(results.shape[0], 1)
-            return cudf.DataFrame.from_gpu_matrix(results)
-        else:
-            return results
+        
+        return results.to_output(out_type)
 
     def score(self, X, y, convert_dtype=True):
         """

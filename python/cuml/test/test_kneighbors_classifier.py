@@ -57,11 +57,13 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
     predictions = knn_cu.predict(X)
 
     if datatype == "dataframe":
-        assert isinstance(predictions, cudf.DataFrame)
+        assert isinstance(predictions, cudf.Series)
+        assert array_equal(predictions.to_frame().astype(np.int32),
+                    y.astype(np.int32))
     else:
         assert isinstance(predictions, np.ndarray)
-
-    assert array_equal(predictions.astype(np.int32), y.astype(np.int32))
+        assert array_equal(predictions.astype(np.int32),
+                    y.astype(np.int32))
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -154,7 +156,7 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
     cuml_result = knn_cuml.predict(X_device_test)
 
     assert np.array_equal(
-        np.asarray(cuml_result.as_gpu_matrix())[:, 0], sk_result)
+        np.asarray(cuml_result.to_gpu_array()), sk_result)
 
 
 def test_nonmonotonic_labels():
