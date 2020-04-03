@@ -131,7 +131,7 @@ class UmapSupervised : public UmapBase {
         this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
 };
-CUML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
 
 class UmapUnsupervised : public UmapBase {
  public:
@@ -144,7 +144,7 @@ class UmapUnsupervised : public UmapBase {
         nullptr, nullptr, &uParams, embeddings);
   }
 };
-CUML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
 
 class UmapTransform : public UmapBase {
  public:
@@ -179,7 +179,7 @@ class UmapTransform : public UmapBase {
  private:
   float* transformed;
 };
-CUML_BENCH_REGISTER(Params, UmapTransform, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, UmapTransform, "blobs", getInputs());
 
 }  // end namespace umap
 }  // end namespace Bench
