@@ -46,7 +46,6 @@ class Fixture : public MLCommon::Bench::Fixture {
     deallocateBuffers(state);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaDeviceSynchronize());  // to be safe!
     handle.reset();
   }
 
