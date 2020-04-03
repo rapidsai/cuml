@@ -28,10 +28,10 @@ struct Params {
 
 template <typename T>
 struct Reduce : public Fixture {
-  Reduce(const std::string& name, const Params& p) :
-    Fixture(name,
-            std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
-    params(p) {}
+  Reduce(const std::string& name, const Params& p)
+    : Fixture(name,
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {

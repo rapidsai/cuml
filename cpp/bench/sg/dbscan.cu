@@ -39,8 +39,7 @@ template <typename D>
 class Dbscan : public BlobsFixture<D, long> {
  public:
   Dbscan(const std::string& name, const Params& p)
-    : BlobsFixture<D, long>(name, p.data, p.blobs), dParams(p.dbscan) {
-  }
+    : BlobsFixture<D, long>(name, p.data, p.blobs), dParams(p.dbscan) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
@@ -50,7 +49,8 @@ class Dbscan : public BlobsFixture<D, long> {
     }
     auto& handle = *this->handle;
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
+                           this->stream);
       dbscanFit(handle, this->data.X, this->params.nrows, this->params.ncols,
                 D(dParams.eps), dParams.min_pts, this->data.y,
                 dParams.max_bytes_per_batch);

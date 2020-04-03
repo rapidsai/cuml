@@ -47,8 +47,7 @@ template <typename D>
 class RFClassifier : public BlobsFixture<D> {
  public:
   RFClassifier(const std::string& name, const Params& p)
-    : BlobsFixture<D>(name, p.data, p.blobs), rfParams(p.rf) {
-  }
+    : BlobsFixture<D>(name, p.data, p.blobs), rfParams(p.rf) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
@@ -59,7 +58,8 @@ class RFClassifier : public BlobsFixture<D> {
     auto& handle = *this->handle;
     auto* mPtr = &model.model;
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
+                           this->stream);
       mPtr->trees = nullptr;
       fit(handle, mPtr, this->data.X, this->params.nrows, this->params.ncols,
           this->data.y, this->params.nclasses, rfParams);

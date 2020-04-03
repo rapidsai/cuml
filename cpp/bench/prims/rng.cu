@@ -45,7 +45,7 @@ template <typename T>
 struct RngBench : public Fixture {
   RngBench(const std::string& name, const Params<T>& p)
     : Fixture(name,
-            std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
       params(p) {}
 
  protected:

@@ -47,8 +47,7 @@ template <typename D>
 class RFRegressor : public RegressionFixture<D> {
  public:
   RFRegressor(const std::string& name, const RegParams& p)
-    : RegressionFixture<D>(name, p.data, p.regression), rfParams(p.rf) {
-  }
+    : RegressionFixture<D>(name, p.data, p.regression), rfParams(p.rf) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
@@ -59,7 +58,8 @@ class RFRegressor : public RegressionFixture<D> {
     auto& handle = *this->handle;
     auto* mPtr = &model.model;
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
+                           this->stream);
       mPtr->trees = nullptr;
       fit(handle, mPtr, this->data.X, this->params.nrows, this->params.ncols,
           this->data.y, rfParams);
