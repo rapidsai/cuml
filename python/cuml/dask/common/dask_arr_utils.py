@@ -155,7 +155,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
         # This is a temporary workaround for scatter to avoid
         # on-going dask race-condition issues
         workers = list(client.scheduler_info()['workers'].keys())
-        rows_per_worker = int(shape[0] / len(workers))
+        rows_per_worker = int(shape[0] / len(workers)) + 1
         da_cudf_or_array = [client.submit(lambda d: d,
                                           cudf_or_array[i * rows_per_worker:
                                                         (i + 1) *

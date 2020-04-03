@@ -20,6 +20,7 @@ from tornado import gen
 from collections.abc import Sequence
 from dask.distributed import futures_of, default_client, wait
 from toolz import first
+import numpy as np
 
 from dask.array.core import Array as daskArray
 from dask_cudf.core import DataFrame as dcDataFrame
@@ -128,24 +129,15 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # dask_cudf.dataframe or dask_cudf.series or dask.array
-    if (isinstance(dask_obj, dcDataFrame) or
-            isinstance(dask_obj, daskArray) or
-            isinstance(dask_obj, dcSeries)):
-        parts = futures_of(client.persist(dask_obj))
-
-    # iterable of dask collections (need to colocate them)
-    elif isinstance(dask_obj, Sequence):
-        # NOTE: We colocate (X, y) here by zipping delayed
-        # n partitions of them as (X1, y1), (X2, y2)...
-        # and asking client to compute a single future for
-        # each tuple in the list
-        parts = [d.to_delayed().ravel() if isinstance(d, daskArray)
-                 else d.to_delayed() for d in dask_obj]
-        parts = client.compute([p for p in zip(*parts)])
-
-    else:
-        raise TypeError("Unsupported dask_obj type: %s" % type(dask_obj))
+    # NOTE: We colocate (X, y) here by zipping delayed
+    # n partitions of them as (X1, y1), (X2, y2)...
+    # and asking client to compute a single future for
+    # each tuple in the list
+    is_sequence = isinstance(dask_obj, Sequence)
+    dask_obj = dask_obj if is_sequence else [dask_obj]
+    parts = [np.ravel(d.to_delayed()) for d in dask_obj]
+    parts = zip(*parts) if is_sequence else parts[0]
+    parts = client.compute([p for p in parts])
 
     yield wait(parts)
 
