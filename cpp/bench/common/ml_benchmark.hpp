@@ -86,7 +86,7 @@ class Fixture : public ::benchmark::Fixture {
   }
 
   template <typename T>
-  void alloc(T *&ptr, size_t len, bool init) {
+  void alloc(T *&ptr, size_t len, bool init = false) {
     auto nBytes = len * sizeof(T);
     ptr = (T *)d_alloc->allocate(nBytes, stream);
     if (init) {
