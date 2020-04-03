@@ -39,19 +39,19 @@ template <typename D>
 class Dbscan : public BlobsFixture<D, long> {
  public:
   Dbscan(const std::string& name, const Params& p)
-    : BlobsFixture<D, long>(p.data, p.blobs), dParams(p.dbscan) {
-    this->SetName(name.c_str());
+    : BlobsFixture<D, long>(name, p.data, p.blobs), dParams(p.dbscan) {
   }
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) {
       state.SkipWithError("Dbscan only supports row-major inputs");
     }
     auto& handle = *this->handle;
     auto stream = handle.getStream();
     for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, stream);
       dbscanFit(handle, this->data.X, this->params.nrows, this->params.ncols,
                 D(dParams.eps), dParams.min_pts, this->data.y,
                 dParams.max_bytes_per_batch);
@@ -92,8 +92,8 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, Dbscan<float>, "blobs", getInputs());
-CUML_BENCH_REGISTER(Params, Dbscan<double>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, Dbscan<float>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, Dbscan<double>, "blobs", getInputs());
 
 }  // end namespace dbscan
 }  // end namespace Bench
