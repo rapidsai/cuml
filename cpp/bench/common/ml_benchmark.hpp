@@ -46,7 +46,7 @@ class Fixture : public ::benchmark::Fixture {
     CUDA_CHECK(
       cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
     if (l2CacheSize > 0) {
-      scratchBuffer = (char *)d_alloc->allocate(l2CacheSize, stream);
+      alloc(scratchBuffer,l2CacheSize, false);
     } else {
       scratchBuffer = nullptr;
     }
@@ -56,7 +56,7 @@ class Fixture : public ::benchmark::Fixture {
   void TearDown(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     if (l2CacheSize > 0) {
-      d_alloc->deallocate(scratchBuffer, l2CacheSize, stream);
+      dealloc(scratchBuffer, l2CacheSize);
     }
     deallocateBuffers(state);
     CUDA_CHECK(cudaStreamSynchronize(stream));
