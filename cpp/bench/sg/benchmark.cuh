@@ -44,6 +44,16 @@ class Fixture : public MLCommon::Bench::Fixture {
     handle.reset();
   }
 
+  // to keep compiler happy
+  void SetUp(::benchmark::State& st) override {
+    SetUp(const_cast<const ::benchmark::State&>(st));
+  }
+
+  // to keep compiler happy
+  void TearDown(::benchmark::State& st) override {
+    TearDown(const_cast<const ::benchmark::State&>(st));
+  }
+
  protected:
   // every benchmark should be overriding this
   virtual void runBenchmark(::benchmark::State& state) = 0;
