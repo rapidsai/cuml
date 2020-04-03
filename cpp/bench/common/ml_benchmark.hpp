@@ -54,13 +54,12 @@ class Fixture : public ::benchmark::Fixture {
 
   void TearDown(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    deallocateBuffers(state);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaDeviceSynchronize());  // to be safe!
     if (l2CacheSize > 0) {
       d_alloc->deallocate(scratchBuffer, l2CacheSize, stream);
     }
+    deallocateBuffers(state);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   // to keep compiler happy
