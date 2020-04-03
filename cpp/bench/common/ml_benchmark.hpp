@@ -201,8 +201,8 @@ struct Registrar {
  *                    calling a function
  */
 #define ML_BENCH_REGISTER(ParamsClass, TestClass, TestName, params)     \
-  static internal::Registrar<ParamsClass, TestClass> BENCHMARK_PRIVATE_NAME( \
-    registrar)(params, #TestClass, TestName)
+  static MLCommon::Bench::internal::Registrar<ParamsClass, TestClass>   \
+    BENCHMARK_PRIVATE_NAME(registrar)(params, #TestClass, TestName)
 
 }  // end namespace Bench
 }  // end namespace MLCommon
