@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1994: Support for distributed OneHotEncoder
 
 ## Improvements
 - PR #1944: Support for dask_cudf.core.Series in _extract_partitions
