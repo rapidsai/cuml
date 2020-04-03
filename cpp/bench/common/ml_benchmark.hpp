@@ -46,6 +46,8 @@ class Fixture : public ::benchmark::Fixture {
       cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
     if (l2CacheSize > 0) {
       scratchBuffer = (char *)d_alloc->allocate(l2CacheSize, stream);
+    } else {
+      scratchBuffer = nullptr;
     }
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
