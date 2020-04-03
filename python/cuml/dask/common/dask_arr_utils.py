@@ -152,5 +152,5 @@ def to_sp_dask_array(cudf_or_array, client=None):
         # Push to worker
         cudf_or_array = client.scatter(cudf_or_array)
 
-    return dask.array.from_delayed(cudf_or_array, shape=shape,
+    return dask.array.from_delayed(dask.delayed(cudf_or_array), shape=shape,
                                    meta=meta)
