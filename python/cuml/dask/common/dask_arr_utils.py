@@ -157,19 +157,19 @@ def to_sp_dask_array(cudf_or_array, client=None):
         workers = list(client.scheduler_info()['workers'].keys())
         rows_per_worker = int(shape[0] / len(workers))
         da_cudf_or_array = [client.submit(lambda d: d,
-                                          cudf_or_array[i * rows_per_worker :
-                                          (i + 1) * rows_per_worker],
+                                          cudf_or_array[i * rows_per_worker:
+                                                        (i + 1) *
+                                                        rows_per_worker],
                                           workers=workers[i],
                                           pure=False)
-                                          for i in range(len(workers))]
-        
+                            for i in range(len(workers))]
+
         return dask.array.concatenate([dask.array.from_delayed(
                                                     dask.delayed(d),
                                                     shape=(np.nan, shape[1]),
                                                     dtype=dtype)
-                                                    for d in 
-                                                    da_cudf_or_array],
-                                                    axis=0, 
+                                       for d in da_cudf_or_array],
+                                      axis=0,
                                       allow_unknown_chunksizes=True)
 
     return dask.array.from_delayed(dask.delayed(cudf_or_array), shape=shape,
