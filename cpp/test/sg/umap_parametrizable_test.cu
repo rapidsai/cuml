@@ -255,8 +255,6 @@ class UMAPParametrizableTest : public ::testing::Test {
 
       ASSERT_TRUE(
         are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream));
-
-      std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
     }
   }
 
@@ -268,7 +266,7 @@ class UMAPParametrizableTest : public ::testing::Test {
       {false, false, false, 10000, 200, 42, 0.45},
       {true, false, true, 10000, 200, 42, 0.45}};
 
-    std::vector<UMAPParams> umap_params_vec(4);
+    std::vector<UMAPParams> umap_params_vec(8);
     umap_params_vec[0].n_components = 2;
     umap_params_vec[0].n_epochs = 500;
     umap_params_vec[0].random_state = 42;
@@ -288,6 +286,22 @@ class UMAPParametrizableTest : public ::testing::Test {
     umap_params_vec[3].n_epochs = 500;
     umap_params_vec[3].random_state = 42;
     umap_params_vec[3].multicore_implem = false;
+
+    umap_params_vec[4].n_components = 2;
+    umap_params_vec[4].n_epochs = 500;
+    umap_params_vec[4].multicore_implem = true;
+
+    umap_params_vec[5].n_components = 10;
+    umap_params_vec[5].n_epochs = 500;
+    umap_params_vec[5].multicore_implem = true;
+
+    umap_params_vec[6].n_components = 21;
+    umap_params_vec[6].n_epochs = 500;
+    umap_params_vec[6].multicore_implem = true;
+
+    umap_params_vec[7].n_components = 25;
+    umap_params_vec[7].n_epochs = 500;
+    umap_params_vec[7].multicore_implem = true;
 
     for (auto& umap_params : umap_params_vec) {
       for (auto& test_params : test_params_vec) {
