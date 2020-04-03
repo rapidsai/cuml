@@ -52,11 +52,11 @@ class KMeans : public BlobsFixture<D> {
   }
 
   void allocateTempBuffers(const ::benchmark::State& state) override {
-    alloc(centroids, this->params.nclasses * this->params.ncols);
+    this->alloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override {
-    dealloc(centroids, this->params.nclasses * this->params.ncols);
+    this->dealloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
  private:
