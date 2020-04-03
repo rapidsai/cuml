@@ -281,8 +281,8 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        return np.dot(self._dual_coef_.to_output('numpy'),
-                      self._support_vectors_.to_output('numpy'))
+        return cupy.dot(self._dual_coef_.to_output('cupy'),
+                      self._support_vectors_.to_output('cupy'))
 
     @property
     def coef_(self):
@@ -572,13 +572,13 @@ class SVMBase(Base):
 
         # Only when the model is fit once we need to store these parameters
         if self._fit_status_ == 0:
-            state['_dual_coef_'] = self._dual_coef_.to_output('numpy')
-            state['_support_'] = self._support_.to_output('numpy')
+            state['_dual_coef_'] = self._dual_coef_.to_output('dataframe')
+            state['_support_'] = self._support_.to_output('series')
             state['_support_vectors_'] = \
-                self._support_vectors_.to_output('numpy')
+                self._support_vectors_.to_output('dataframe')
             if self._n_classes > 0:
                 state['_unique_labels'] = \
-                    self._unique_labels.to_output('numpy')
+                    self._unique_labels.to_output('series')
         return state
 
     def __setstate__(self, state):
@@ -586,25 +586,24 @@ class SVMBase(Base):
 
 #         Only if model was fit, these parameters would be written
         if state["_fit_status_"] == 0:
-            state['_dual_coef_'] = CumlArray(data=state['_dual_coef_'],
-                                             dtype=state["_dual_coef_"].dtype,
+            state['_dual_coef_'] = CumlArray(data=state['_dual_coef_'].values[0],
+                                             dtype=state["_dual_coef_"][0].dtype,
                                              shape=state["_dual_coef_"].shape,
                                              order="F")
-
-            state['_support_'] = CumlArray(data=state['_support_'],
-                                           dtype=state["_support_"].dtype,
+            state['_support_'] = CumlArray(data=state['_support_'].values[0],
+                                           dtype=state["_support_"][0].dtype,
                                            shape=state["_support_"].shape,
                                            order="F")
 
             state['_support_vectors_'] = \
-                CumlArray(data=state['_support_vectors_'],
-                          dtype=state["_support_vectors_"].dtype,
+                CumlArray(data=state['_support_vectors_'].values[0],
+                          dtype=state["_support_vectors_"][0].dtype,
                           shape=state["_support_vectors_"].shape,
                           order="F")
             if state['_n_classes'] > 0:
                 state['_unique_labels'] = \
-                    CumlArray(data=state['_unique_labels'],
-                              dtype=state["_unique_labels"].dtype,
+                    CumlArray(data=state['_unique_labels'].values[0],
+                              dtype=state["_unique_labels"][0].dtype,
                               shape=state["_unique_labels"].shape,
                               order="F")
 
