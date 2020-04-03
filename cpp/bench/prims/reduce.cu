@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <linalg/reduce.h>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -28,22 +28,25 @@ struct Params {
 
 template <typename T>
 struct Reduce : public Fixture {
-  Reduce(const std::string& name, const Params& p) : Fixture(name), params(p) {}
+  Reduce(const std::string& name, const Params& p) :
+    Fixture(name,
+            std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(data, params.rows * params.cols, true);
-    allocate(dots, params.rows, true);
+    alloc(data, params.rows * params.cols, true);
+    alloc(dots, params.rows, true);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(dots));
+    dealloc(data, params.rows * params.cols);
+    dealloc(dots, params.rows);
   }
 
   void runBenchmark(::benchmark::State& state) override {
     for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
       MLCommon::LinAlg::reduce(dots, data, params.cols, params.rows, T(0.f),
                                true, params.alongRows, stream);
     }
@@ -66,8 +69,8 @@ static std::vector<Params> getInputs() {
   };
 }
 
-PRIMS_BENCH_REGISTER(Params, Reduce<float>, "reduce", getInputs());
-PRIMS_BENCH_REGISTER(Params, Reduce<double>, "reduce", getInputs());
+ML_BENCH_REGISTER(Params, Reduce<float>, "", getInputs());
+ML_BENCH_REGISTER(Params, Reduce<double>, "", getInputs());
 
 }  // namespace LinAlg
 }  // namespace Bench
