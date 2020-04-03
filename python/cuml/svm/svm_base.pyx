@@ -282,7 +282,7 @@ class SVMBase(Base):
 
     def _calc_coef(self):
         return cupy.dot(self._dual_coef_.to_output('cupy'),
-                      self._support_vectors_.to_output('cupy'))
+                        self._support_vectors_.to_output('cupy'))
 
     @property
     def coef_(self):
@@ -586,10 +586,11 @@ class SVMBase(Base):
 
 #         Only if model was fit, these parameters would be written
         if state["_fit_status_"] == 0:
-            state['_dual_coef_'] = CumlArray(data=state['_dual_coef_'].values[0],
-                                             dtype=state["_dual_coef_"][0].dtype,
-                                             shape=state["_dual_coef_"].shape,
-                                             order="F")
+            state['_dual_coef_'] = \
+                CumlArray(data=state['_dual_coef_'].values[0],
+                          dtype=state["_dual_coef_"][0].dtype,
+                          shape=state["_dual_coef_"].shape,
+                          order="F")
             state['_support_'] = CumlArray(data=state['_support_'].values[0],
                                            dtype=state["_support_"][0].dtype,
                                            shape=state["_support_"].shape,
