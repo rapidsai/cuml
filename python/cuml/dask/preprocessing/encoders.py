@@ -22,7 +22,6 @@ from cuml.dask.common.part_utils import _extract_partitions
 from cuml.utils import with_cupy_rmm
 from distributed import default_client
 from toolz import first
-from dask.distributed.client import Future
 
 
 class OneHotEncoder:
@@ -118,7 +117,8 @@ class OneHotEncoder:
         if self.drop is None:
             return None
         elif isinstance(self.drop, str) and self.drop == 'first':
-            return {feature: 0 for feature in self._encoders.keys()}
+            return {feature: cp.array([0])
+                    for feature in self._encoders.keys()}
         elif isinstance(self.drop, dict):
             if len(self.drop.keys()) != len(self._encoders):
                 msg = ("`drop` should have as many columns as the number "
@@ -338,7 +338,8 @@ class OneHotEncoder:
             return self.client_.submit(self._func_inv_xform, self._encoders,
                                        x, self.drop_idx_, self.handle_unknown)
 
-        if isinstance(X, list) and isinstance(first(X), Future):
+        if isinstance(X, list) and isinstance(first(X),
+                                              dask.distributed.client.Future):
             futures = [submit_call(p) for p in X]
         elif isinstance(X, dask.array.Array):
             parts = self.client_.sync(_extract_partitions, X)
