@@ -57,10 +57,8 @@ class UmapBase : public BlobsFixture<float, int> {
     if (!this->params.rowMajor) {
       state.SkipWithError("Umap only supports row-major inputs");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
       coreBenchmarkMethod();
     }
   }
@@ -68,24 +66,14 @@ class UmapBase : public BlobsFixture<float, int> {
   virtual void coreBenchmarkMethod() = 0;
 
   void allocateTempBuffers(const ::benchmark::State& state) override {
-    auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
-    yFloat =
-      (float*)allocator->allocate(this->params.nrows * sizeof(float), stream);
-    embeddings = (float*)allocator->allocate(
-      this->params.nrows * uParams.n_components * sizeof(float), stream);
-    cast<float, int>(yFloat, this->data.y, this->params.nrows, stream);
+    alloc(yFloat, this->params.nrows);
+    alloc(embeddings, this->params.nrows * uParams.n_components);
+    cast<float, int>(yFloat, this->data.y, this->params.nrows, this->stream);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override {
-    auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
-    allocator->deallocate(yFloat, this->params.nrows * sizeof(float), stream);
-    allocator->deallocate(
-      embeddings, this->params.nrows * uParams.n_components * sizeof(float),
-      stream);
+    dealloc(yFloat, this->params.nrows);
+    dealloc(embeddings, this->params.nrows * uParams.n_components);
   }
 
   UMAPParams uParams;
@@ -160,19 +148,12 @@ class UmapTransform : public UmapBase {
   void allocateBuffers(const ::benchmark::State& state) {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    transformed = (float*)allocator->allocate(
-      this->params.nrows * uParams.n_components * sizeof(float),
-      handle.getStream());
+    alloc(transformed, this->params.nrows * uParams.n_components);
     fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
         nullptr, nullptr, &uParams, embeddings);
   }
   void deallocateBuffers(const ::benchmark::State& state) {
-    auto& handle = *this->handle;
-    auto allocator = handle.getDeviceAllocator();
-    allocator->deallocate(
-      transformed, this->params.nrows * uParams.n_components * sizeof(float),
-      handle.getStream());
+    dealloc(transformed, this->params.nrows * uParams.n_components);
     UmapBase::deallocateBuffers(state);
   }
 
