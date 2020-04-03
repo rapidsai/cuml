@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <random/rng.h>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -44,21 +44,23 @@ struct Params {
 template <typename T>
 struct RngBench : public Fixture {
   RngBench(const std::string& name, const Params<T>& p)
-    : Fixture(name), params(p) {}
+    : Fixture(name,
+            std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(ptr, params.len);
+    alloc(ptr, params.len);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(ptr));
+    dealloc(ptr, params.len);
   }
 
   void runBenchmark(::benchmark::State& state) override {
     MLCommon::Random::Rng r(123456ULL, params.gtype);
     for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
       switch (params.type) {
         case RNG_Normal:
           r.normal(ptr, params.len, params.start, params.end, stream);
@@ -142,9 +144,8 @@ static std::vector<Params<T>> getInputs() {
   };
 }
 
-PRIMS_BENCH_REGISTER(Params<float>, RngBench<float>, "rng", getInputs<float>());
-PRIMS_BENCH_REGISTER(Params<double>, RngBench<double>, "rng",
-                     getInputs<double>());
+ML_BENCH_REGISTER(Params<float>, RngBench<float>, "", getInputs<float>());
+ML_BENCH_REGISTER(Params<double>, RngBench<double>, "", getInputs<double>());
 
 }  // namespace Random
 }  // namespace Bench
