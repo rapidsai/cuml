@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,12 +47,12 @@ template <typename D>
 class RFClassifier : public BlobsFixture<D> {
  public:
   RFClassifier(const std::string& name, const Params& p)
-    : BlobsFixture<D>(p.data, p.blobs), rfParams(p.rf) {
-    this->SetName(name.c_str());
+    : BlobsFixture<D>(name, p.data, p.blobs), rfParams(p.rf) {
   }
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (this->params.rowMajor) {
       state.SkipWithError("RFClassifier only supports col-major inputs");
     }
@@ -60,7 +60,7 @@ class RFClassifier : public BlobsFixture<D> {
     auto stream = handle.getStream();
     auto* mPtr = &model.model;
     for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, stream);
       mPtr->trees = nullptr;
       fit(handle, mPtr, this->data.X, this->params.nrows, this->params.ncols,
           this->data.y, this->params.nclasses, rfParams);
@@ -118,8 +118,8 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, RFClassifier<float>, "blobs", getInputs<float>());
-CUML_BENCH_REGISTER(Params, RFClassifier<double>, "blobs", getInputs<double>());
+ML_BENCH_REGISTER(Params, RFClassifier<float>, "blobs", getInputs<float>());
+ML_BENCH_REGISTER(Params, RFClassifier<double>, "blobs", getInputs<double>());
 
 }  // end namespace rf
 }  // end namespace Bench
