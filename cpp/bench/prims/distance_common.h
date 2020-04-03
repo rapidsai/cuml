@@ -81,10 +81,10 @@ static std::vector<Params> getInputs() {
   };
 }
 
-#define DIST_BENCH_REGISTER(Name, Metric)                         \
-  using Name##F = Distance<float, Metric>;                        \
-  ML_BENCH_REGISTER(Params, Name##F, "", getInputs());            \
-  using Name##D = Distance<double, Metric>;                       \
+#define DIST_BENCH_REGISTER(Name, Metric)              \
+  using Name##F = Distance<float, Metric>;             \
+  ML_BENCH_REGISTER(Params, Name##F, "", getInputs()); \
+  using Name##D = Distance<double, Metric>;            \
   ML_BENCH_REGISTER(Params, Name##D, "", getInputs())
 
 }  // namespace Distance

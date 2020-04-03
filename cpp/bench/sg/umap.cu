@@ -48,8 +48,7 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
 class UmapBase : public BlobsFixture<float, int> {
  public:
   UmapBase(const std::string& name, const Params& p)
-    : BlobsFixture<float, int>(name, p.data, p.blobs), uParams(p.umap) {
-  }
+    : BlobsFixture<float, int>(name, p.data, p.blobs), uParams(p.umap) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
@@ -58,7 +57,8 @@ class UmapBase : public BlobsFixture<float, int> {
       state.SkipWithError("Umap only supports row-major inputs");
     }
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
+                           this->stream);
       coreBenchmarkMethod();
     }
   }

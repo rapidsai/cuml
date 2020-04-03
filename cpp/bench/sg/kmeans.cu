@@ -33,8 +33,7 @@ template <typename D>
 class KMeans : public BlobsFixture<D> {
  public:
   KMeans(const std::string& name, const Params& p)
-    : BlobsFixture<D>(name, p.data, p.blobs), kParams(p.kmeans) {
-  }
+    : BlobsFixture<D>(name, p.data, p.blobs), kParams(p.kmeans) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
@@ -44,7 +43,8 @@ class KMeans : public BlobsFixture<D> {
     }
     auto& handle = *this->handle;
     for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, this->stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
+                           this->stream);
       ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
                               this->params.ncols, centroids, this->data.y,
                               inertia, nIter);

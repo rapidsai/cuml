@@ -18,12 +18,12 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
-#include <cuml/common/utils.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/utils.hpp>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <memory>
 
 namespace MLCommon {
 namespace Bench {
@@ -31,8 +31,8 @@ namespace Bench {
 /** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
 class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const std::string& name, std::shared_ptr<deviceAllocator> _alloc) :
-    ::benchmark::Fixture(), d_alloc(_alloc) {
+  Fixture(const std::string& name, std::shared_ptr<deviceAllocator> _alloc)
+    : ::benchmark::Fixture(), d_alloc(_alloc) {
     SetName(name.c_str());
   }
   Fixture() = delete;
@@ -46,7 +46,7 @@ class Fixture : public ::benchmark::Fixture {
     CUDA_CHECK(
       cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
     if (l2CacheSize > 0) {
-      alloc(scratchBuffer,l2CacheSize, false);
+      alloc(scratchBuffer, l2CacheSize, false);
     } else {
       scratchBuffer = nullptr;
     }
@@ -86,23 +86,23 @@ class Fixture : public ::benchmark::Fixture {
   }
 
   template <typename T>
-  void alloc(T *&ptr, size_t len, bool init = false) {
+  void alloc(T*& ptr, size_t len, bool init = false) {
     auto nBytes = len * sizeof(T);
-    ptr = (T *)d_alloc->allocate(nBytes, stream);
+    ptr = (T*)d_alloc->allocate(nBytes, stream);
     if (init) {
       CUDA_CHECK(cudaMemsetAsync(ptr, 0, nBytes, stream));
     }
   }
 
   template <typename T>
-  void dealloc(T *ptr, size_t len) {
+  void dealloc(T* ptr, size_t len) {
     d_alloc->deallocate(ptr, len * sizeof(T), stream);
   }
 
   std::shared_ptr<deviceAllocator> d_alloc;
   cudaStream_t stream;
   int l2CacheSize;
-  char *scratchBuffer;
+  char* scratchBuffer;
 };  // class Fixture
 
 /**
@@ -124,7 +124,8 @@ struct CudaEventTimer {
    * @param s           CUDA stream we are measuring time on.
    */
   CudaEventTimer(::benchmark::State& st, char* ptr, int l2CacheSize,
-                 cudaStream_t s) : state(&st), stream(s) {
+                 cudaStream_t s)
+    : state(&st), stream(s) {
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
     // flush L2?
@@ -200,8 +201,8 @@ struct Registrar {
  *                    a statically populated vector or from the result of
  *                    calling a function
  */
-#define ML_BENCH_REGISTER(ParamsClass, TestClass, TestName, params)     \
-  static MLCommon::Bench::internal::Registrar<ParamsClass, TestClass>   \
+#define ML_BENCH_REGISTER(ParamsClass, TestClass, TestName, params)   \
+  static MLCommon::Bench::internal::Registrar<ParamsClass, TestClass> \
     BENCHMARK_PRIVATE_NAME(registrar)(params, #TestClass, TestName)
 
 }  // end namespace Bench

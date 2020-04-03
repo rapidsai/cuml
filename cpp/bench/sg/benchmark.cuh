@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "../common/ml_benchmark.hpp"
 #include <cuml/cuml.hpp>
+#include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
 
 namespace ML {
@@ -26,10 +26,10 @@ namespace Bench {
 /** Main fixture to be inherited and used by all algos in cuML benchmark */
 class Fixture : public MLCommon::Bench::Fixture {
  public:
-  Fixture(const std::string& name, const DatasetParams &p) :
-    MLCommon::Bench::Fixture(
-      name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
-    params(p) {}
+  Fixture(const std::string& name, const DatasetParams& p)
+    : MLCommon::Bench::Fixture(
+        name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override {
@@ -68,7 +68,7 @@ class Fixture : public MLCommon::Bench::Fixture {
     allocateTempBuffers(state);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override{
+  void deallocateBuffers(const ::benchmark::State& state) override {
     deallocateTempBuffers(state);
     deallocateData(state);
   }
@@ -94,8 +94,9 @@ class Fixture : public MLCommon::Bench::Fixture {
 template <typename D, typename L = int>
 class BlobsFixture : public Fixture {
  public:
-  BlobsFixture(const std::string& name, const DatasetParams &p,
-               const BlobsParams &b) : Fixture(name, p), bParams(b) {}
+  BlobsFixture(const std::string& name, const DatasetParams& p,
+               const BlobsParams& b)
+    : Fixture(name, p), bParams(b) {}
   BlobsFixture() = delete;
 
  protected:
@@ -120,8 +121,9 @@ class BlobsFixture : public Fixture {
 template <typename D>
 class RegressionFixture : public Fixture {
  public:
-  RegressionFixture(const std::string& name, const DatasetParams &p,
-                    const RegressionParams &r) : Fixture(name, p), rParams(r) {}
+  RegressionFixture(const std::string& name, const DatasetParams& p,
+                    const RegressionParams& r)
+    : Fixture(name, p), rParams(r) {}
   RegressionFixture() = delete;
 
  protected:
