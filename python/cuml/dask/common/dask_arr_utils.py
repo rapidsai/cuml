@@ -150,7 +150,27 @@ def to_sp_dask_array(cudf_or_array, client=None):
             raise ValueError("Unexpected input type %s" % type(cudf_or_array))
 
         # Push to worker
-        cudf_or_array = client.scatter(cudf_or_array)
+        # cudf_or_array = client.scatter(cudf_or_array)
+
+        # This is a temporary workaround for scatter to avoid
+        # on-going dask race-condition issues
+        workers = list(client.scheduler_info()['workers'].keys())
+        rows_per_worker = int(shape[0] / len(workers))
+        da_cudf_or_array = [client.submit(lambda d: d,
+                                          cudf_or_array[i * rows_per_worker :
+                                          (i + 1) * rows_per_worker],
+                                          workers=workers[i],
+                                          pure=False)
+                                          for i in range(len(workers))]
+        
+        return dask.array.concatenate([dask.array.from_delayed(
+                                                    dask.delayed(d),
+                                                    shape=(np.nan, shape[1]),
+                                                    dtype=dtype)
+                                                    for d in 
+                                                    da_cudf_or_array],
+                                                    axis=0, 
+                                      allow_unknown_chunksizes=True)
 
     return dask.array.from_delayed(dask.delayed(cudf_or_array), shape=shape,
                                    meta=meta)
