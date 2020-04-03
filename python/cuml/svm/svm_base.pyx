@@ -31,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_cuml_array, device_array_from_ptr
+from cuml.utils import input_to_cuml_array
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
