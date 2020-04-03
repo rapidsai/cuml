@@ -23,7 +23,7 @@ if(BUILD_CUML_BENCH)
   # (please keep the filenames in alphabetical order)
   add_executable(sg_benchmark
     sg/dbscan.cu
-    # sg/kmeans.cu
+    sg/kmeans.cu
     sg/main.cpp
     # sg/rf_classifier.cu
     # sg/rf_regressor.cu

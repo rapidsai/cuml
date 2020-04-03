@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,33 +33,33 @@ template <typename D>
 class KMeans : public BlobsFixture<D> {
  public:
   KMeans(const std::string& name, const Params& p)
-    : BlobsFixture<D>(p.data, p.blobs), kParams(p.kmeans) {
-    this->SetName(name.c_str());
+    : BlobsFixture<D>(name, p.data, p.blobs), kParams(p.kmeans) {
   }
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) {
       state.SkipWithError("KMeans only supports row-major inputs");
     }
     auto& handle = *this->handle;
     auto stream = handle.getStream();
     for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
+      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize, stream);
       ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
                               this->params.ncols, centroids, this->data.y,
                               inertia, nIter);
     }
   }
 
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateTempBuffers(const ::benchmark::State& state) override {
     auto allocator = this->handle->getDeviceAllocator();
     auto stream = this->handle->getStream();
     centroids = (D*)allocator->allocate(
       this->params.nclasses * this->params.ncols * sizeof(D), stream);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateTempBuffers(const ::benchmark::State& state) override {
     auto allocator = this->handle->getDeviceAllocator();
     auto stream = this->handle->getStream();
     allocator->deallocate(
@@ -108,8 +108,8 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, KMeans<float>, "blobs", getInputs());
-CUML_BENCH_REGISTER(Params, KMeans<double>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, KMeans<float>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, KMeans<double>, "blobs", getInputs());
 
 }  // end namespace kmeans
 }  // end namespace Bench
