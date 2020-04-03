@@ -7,6 +7,7 @@
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1984: Enable Ninja build
 - PR #1985: C++ UMAP parametrizable tests
 
 ## Bug Fixes
