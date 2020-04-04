@@ -133,13 +133,14 @@ def _extract_partitions(dask_obj, client=None):
     is_sequence = isinstance(dask_obj, Sequence)
     dask_obj = dask_obj if is_sequence else [dask_obj]
     parts = [np.ravel(d.to_delayed()) for d in dask_obj]
-    parts = zip(*parts) if is_sequence else parts[0]
-    parts = client.compute([delayed(p) for p in parts])
+    to_map = zip(*parts) if is_sequence else parts[0]
+    dela = list(map(delayed, to_map))
+    futures = client.compute(dela)
 
-    yield wait(parts)
+    yield wait(futures)
 
-    key_to_part = [(str(part.key), part) for part in parts]
-    who_has = yield client.who_has(parts)
+    key_to_part = [(str(future.key), future) for future in futures]
+    who_has = yield client.who_has(futures)
 
     raise gen.Return([(first(who_has[key]), part)
                       for key, part in key_to_part])
