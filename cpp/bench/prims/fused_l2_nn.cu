@@ -66,13 +66,12 @@ struct FusedL2NN : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
+    loopOnState(state, [this]() {
       // it is enough to only benchmark the L2-squared metric
       MLCommon::Distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(
         out, x, y, xn, yn, params.m, params.n, params.k, (void*)workspace, op,
         false, false, stream);
-    }
+    });
   }
 
  private:
