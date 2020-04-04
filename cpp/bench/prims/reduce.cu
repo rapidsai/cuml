@@ -45,11 +45,11 @@ struct Reduce : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    for (auto _ : state) {
+    loopOnState(state, [this]() {
       CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
       MLCommon::LinAlg::reduce(dots, data, params.cols, params.rows, T(0.f),
                                true, params.alongRows, stream);
-    }
+    });
   }
 
  private:
