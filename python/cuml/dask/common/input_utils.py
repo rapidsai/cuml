@@ -113,20 +113,20 @@ class DistributedDataHandler:
         from cuml.dask.common import extract_colocated_ddf_partitions
         from cuml.dask.common import extract_arr_partitions
 
-        if datatype == "cudf" and not multiple:
-            print(str("Using extract_ddf_partitions"))
-            func = extract_ddf_partitions
-            gpu_futures = client.sync(func, data, client)
-        elif datatype == "cudf" and multiple:
-            func = extract_colocated_ddf_partitions
-            gpu_futures = client.sync(func, data[0], data[1], client)
-
-        elif datatype == "cupy":
-            func = extract_arr_partitions
-            gpu_futures = client.sync(func, data, client)
-        else:
-            func = _extract_partitions
-            gpu_futures = client.sync(func, data, client)
+        # if datatype == "cudf" and not multiple:
+        #     print(str("Using extract_ddf_partitions"))
+        #     func = extract_ddf_partitions
+        #     gpu_futures = client.sync(func, data, client)
+        # elif datatype == "cudf" and multiple:
+        #     func = extract_colocated_ddf_partitions
+        #     gpu_futures = client.sync(func, data[0], data[1], client)
+        #
+        # elif datatype == "cupy":
+        #     func = extract_arr_partitions
+        #     gpu_futures = client.sync(func, data, client)
+        # else:
+        func = _extract_partitions
+        gpu_futures = client.sync(func, data, client)
 
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
