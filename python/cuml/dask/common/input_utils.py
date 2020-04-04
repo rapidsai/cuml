@@ -72,7 +72,6 @@ class DistributedDataHandler:
         self.total_rows = None
         self.ranks = None
         self.parts_to_sizes = None
-        self.total_rows = None
 
     @classmethod
     def get_client(cls, client=None):
