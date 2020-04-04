@@ -67,11 +67,10 @@ struct Permute : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     MLCommon::Random::Rng r(123456ULL);
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
+    loopOnState(state, [this, &r]() {
       MLCommon::Random::permute(perms, out, in, params.cols, params.rows,
                                 params.rowMajor, stream);
-    }
+    });
   }
 
  private:
