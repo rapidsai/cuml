@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from collections.abc import Iterable
+from collections.abc import Sequence
 
 import scipy.sparse
 import numpy as np
@@ -59,11 +59,13 @@ def extract_arr_partitions(darray, client=None):
     """
     client = default_client() if client is None else client
 
-    if not isinstance(darray, Iterable):
-        dist_arr = darray.to_delayed().ravel()
-        to_map = dist_arr
+    if not isinstance(darray, Sequence):
+        dist_arr = darray.to_delayed()
+        to_map = dist_arr.ravel()
     else:
-        parts = [arr.to_delayed().ravel() for arr in darray]
+        feature_parts = darray[0].to_delayed()
+        label_parts = darray[1].to_delayed()
+        parts = [feature_parts.ravel(), label_parts.ravel()]
         to_map = zip(*parts)
 
     parts = list(map(delayed, to_map))

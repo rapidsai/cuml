@@ -142,6 +142,7 @@ def test_send_recv(n_trials, ucx_cluster):
 
 
 @pytest.mark.ucx
+@pytest.mark.skip
 @pytest.mark.parametrize("n_trials", [5])
 def test_recv_any_rank(n_trials, ucx_cluster):
 

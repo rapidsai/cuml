@@ -89,9 +89,9 @@ def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
         keys=[part.key for part in parts]
     )
 
-    worker_map = defaultdict(list)
+    worker_map = []
     for key, workers in who_has.items():
-        worker_map[first(workers)].append(key_to_part_dict[key])
+        worker_map.append((first(workers), key_to_part_dict[key]))
 
     return worker_map
 
