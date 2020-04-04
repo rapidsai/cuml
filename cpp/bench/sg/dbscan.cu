@@ -47,14 +47,11 @@ class Dbscan : public BlobsFixture<D, long> {
     if (!this->params.rowMajor) {
       state.SkipWithError("Dbscan only supports row-major inputs");
     }
-    auto& handle = *this->handle;
-    for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
-                           this->stream);
-      dbscanFit(handle, this->data.X, this->params.nrows, this->params.ncols,
-                D(dParams.eps), dParams.min_pts, this->data.y,
-                dParams.max_bytes_per_batch);
-    }
+    loopOnState(state, [this]() {
+      dbscanFit(*this->handle, this->data.X, this->params.nrows,
+                this->params.ncols, D(dParams.eps), dParams.min_pts,
+                this->data.y, dParams.max_bytes_per_batch);
+    });
   }
 
  private:
