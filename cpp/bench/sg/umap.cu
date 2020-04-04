@@ -56,11 +56,7 @@ class UmapBase : public BlobsFixture<float, int> {
     if (!this->params.rowMajor) {
       state.SkipWithError("Umap only supports row-major inputs");
     }
-    for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
-                           this->stream);
-      coreBenchmarkMethod();
-    }
+    this->loopOnState(state, [this]() { coreBenchmarkMethod(); });
   }
 
   virtual void coreBenchmarkMethod() = 0;
