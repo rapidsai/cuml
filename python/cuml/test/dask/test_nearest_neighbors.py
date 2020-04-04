@@ -70,9 +70,9 @@ def _prep_training_data(c, X_train, partitions_per_worker):
                                      quality_param(7), stress_param(50)])
 @pytest.mark.parametrize("streams_per_handle", [5, 10])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
-                     streams_per_handle, ucx_cluster):
+                     streams_per_handle, cluster):
 
-    client = Client(ucx_cluster)
+    client = Client(cluster)
 
     try:
         from cuml.dask.neighbors import NearestNeighbors as daskNN
