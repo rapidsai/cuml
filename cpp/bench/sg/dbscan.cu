@@ -47,7 +47,7 @@ class Dbscan : public BlobsFixture<D, long> {
     if (!this->params.rowMajor) {
       state.SkipWithError("Dbscan only supports row-major inputs");
     }
-    loopOnState(state, [this]() {
+    this->loopOnState(state, [this]() {
       dbscanFit(*this->handle, this->data.X, this->params.nrows,
                 this->params.ncols, D(dParams.eps), dParams.min_pts,
                 this->data.y, dParams.max_bytes_per_batch);
