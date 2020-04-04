@@ -59,8 +59,7 @@ struct RngBench : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     MLCommon::Random::Rng r(123456ULL, params.gtype);
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
+    loopOnState(state, [this]() {
       switch (params.type) {
         case RNG_Normal:
           r.normal(ptr, params.len, params.start, params.end, stream);
@@ -90,7 +89,7 @@ struct RngBench : public Fixture {
           r.fill(ptr, params.len, params.start, stream);
           break;
       };
-    }
+    });
   }
 
  private:
