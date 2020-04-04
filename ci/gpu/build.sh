@@ -61,8 +61,7 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "ucx-py=${MINOR_VERSION}" \
       "statsmodels" \
       "xgboost====1.0.2dev.rapidsai0.13" \
-      "lightgbm" \
-      "doxygen"
+      "lightgbm"
 
 
 # Install the master version of dask, distributed, and dask-ml
@@ -89,10 +88,6 @@ export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 
 logger "Build libcuml, cuml, prims and bench targets..."
 $WORKSPACE/build.sh clean libcuml cuml prims bench -v
-
-logger "Building doxygen docs..."
-cd $WORKSPACE/cpp/build
-make doc
 
 logger "Resetting LD_LIBRARY_PATH..."
 
