@@ -159,6 +159,12 @@ extensions = [
               extra_compile_args=['-std=c++11'])
 ]
 
+for e in extensions:
+    e.exclude = exc_list
+    e.cython_directives = dict(
+        profile=False, language_level=3, embedsignature=True
+    )
+
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
@@ -174,8 +180,7 @@ setup(name='cuml',
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
-      ext_modules=cythonize(extensions,
-                            exclude=exc_list),
+      ext_modules=extensions,
       packages=find_packages(include=['cuml', 'cuml.*']),
       install_requires=install_requires,
       license="Apache",
