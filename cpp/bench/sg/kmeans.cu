@@ -41,14 +41,11 @@ class KMeans : public BlobsFixture<D> {
     if (!this->params.rowMajor) {
       state.SkipWithError("KMeans only supports row-major inputs");
     }
-    auto& handle = *this->handle;
-    for (auto _ : state) {
-      CudaEventTimer timer(state, this->scratchBuffer, this->l2CacheSize,
-                           this->stream);
-      ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
+    this->loopOnState(state, [this]() {
+      ML::kmeans::fit_predict(*this->handle, kParams, this->data.X, this->params.nrows,
                               this->params.ncols, centroids, this->data.y,
                               inertia, nIter);
-    }
+    });
   }
 
   void allocateTempBuffers(const ::benchmark::State& state) override {
