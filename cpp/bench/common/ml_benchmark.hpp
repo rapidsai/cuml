@@ -28,6 +28,60 @@
 namespace MLCommon {
 namespace Bench {
 
+/**
+ * RAII way of timing cuda calls. This has been shamelessly copied from the
+ * cudf codebase. So, credits for this class goes to cudf developers.
+ */
+struct CudaEventTimer {
+ public:
+  /**
+   * @brief This ctor clears the L2 cache by cudaMemset'ing a buffer of the size
+   *        of L2 and then starts the timer.
+   * @param st the benchmark::State whose timer we are going to update.
+   * @param ptr         flush the L2 cache by writing to this buffer before
+   *                    every iteration. It is the responsibility of the caller
+   *                    to manage this buffer. Pass a `nullptr` if L2 flush is
+   *                    not needed.
+   * @param l2CacheSize L2 Cache size (in B). Passing this as 0 also disables
+   *                    the L2 cache flush.
+   * @param s           CUDA stream we are measuring time on.
+   */
+  CudaEventTimer(::benchmark::State& st, char* ptr, int l2CacheSize,
+                 cudaStream_t s)
+    : state(&st), stream(s) {
+    CUDA_CHECK(cudaEventCreate(&start));
+    CUDA_CHECK(cudaEventCreate(&stop));
+    // flush L2?
+    if (ptr != nullptr && l2CacheSize > 0) {
+      CUDA_CHECK(cudaMemsetAsync(ptr, sizeof(char) * l2CacheSize, 0, s));
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+    }
+    CUDA_CHECK(cudaEventRecord(start, stream));
+  }
+  CudaEventTimer() = delete;
+
+  /** 
+   * @brief The dtor stops the timer and performs a synchroniazation. Time of
+   *       the benchmark::State object provided to the ctor will be set to the
+   *       value given by `cudaEventElapsedTime()`.
+   */
+  ~CudaEventTimer() {
+    CUDA_CHECK(cudaEventRecord(stop, stream));
+    CUDA_CHECK(cudaEventSynchronize(stop));
+    float milliseconds = 0.0f;
+    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
+    state->SetIterationTime(milliseconds / 1000.f);
+    CUDA_CHECK(cudaEventDestroy(start));
+    CUDA_CHECK(cudaEventDestroy(stop));
+  }
+
+ private:
+  ::benchmark::State* state;
+  cudaStream_t stream;
+  cudaEvent_t start;
+  cudaEvent_t stop;
+};  // end struct CudaEventTimer
+
 /** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
 class Fixture : public ::benchmark::Fixture {
  public:
@@ -85,6 +139,24 @@ class Fixture : public ::benchmark::Fixture {
     generateMetrics(state);
   }
 
+  template <typename Lambda>
+  void loopOnState(::benchmark::State& state, Lambda benchmarkFunc,
+                   bool flushL2 = true) {
+    char* buff;
+    int size;
+    if (flushL2) {
+      buff = scratchBuffer;
+      size = l2CacheSize;
+    } else {
+      buff = nullptr;
+      size = 0;
+    }
+    for (auto _ : state) {
+      CudaEventTimer timer(state, buff, size, stream);
+      benchmarkFunc();
+    }
+  }
+
   template <typename T>
   void alloc(T*& ptr, size_t len, bool init = false) {
     auto nBytes = len * sizeof(T);
@@ -104,60 +176,6 @@ class Fixture : public ::benchmark::Fixture {
   int l2CacheSize;
   char* scratchBuffer;
 };  // class Fixture
-
-/**
- * RAII way of timing cuda calls. This has been shamelessly copied from the
- * cudf codebase. So, credits for this class goes to cudf developers.
- */
-struct CudaEventTimer {
- public:
-  /**
-   * @brief This ctor clears the L2 cache by cudaMemset'ing a buffer of the size
-   *        of L2 and then starts the timer.
-   * @param st the benchmark::State whose timer we are going to update.
-   * @param ptr         flush the L2 cache by writing to this buffer before
-   *                    every iteration. It is the responsibility of the caller
-   *                    to manage this buffer. Pass a `nullptr` if L2 flush is
-   *                    not needed.
-   * @param l2CacheSize L2 Cache size (in B). Passing this as 0 also disables
-   *                    the L2 cache flush.
-   * @param s           CUDA stream we are measuring time on.
-   */
-  CudaEventTimer(::benchmark::State& st, char* ptr, int l2CacheSize,
-                 cudaStream_t s)
-    : state(&st), stream(s) {
-    CUDA_CHECK(cudaEventCreate(&start));
-    CUDA_CHECK(cudaEventCreate(&stop));
-    // flush L2?
-    if (ptr != nullptr && l2CacheSize > 0) {
-      CUDA_CHECK(cudaMemsetAsync(ptr, sizeof(char) * l2CacheSize, 0, s));
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-    }
-    CUDA_CHECK(cudaEventRecord(start, stream));
-  }
-  CudaEventTimer() = delete;
-
-  /** 
-   * @brief The dtor stops the timer and performs a synchroniazation. Time of
-   *       the benchmark::State object provided to the ctor will be set to the
-   *       value given by `cudaEventElapsedTime()`.
-   */
-  ~CudaEventTimer() {
-    CUDA_CHECK(cudaEventRecord(stop, stream));
-    CUDA_CHECK(cudaEventSynchronize(stop));
-    float milliseconds = 0.0f;
-    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
-    state->SetIterationTime(milliseconds / 1000.f);
-    CUDA_CHECK(cudaEventDestroy(start));
-    CUDA_CHECK(cudaEventDestroy(stop));
-  }
-
- private:
-  ::benchmark::State* state;
-  cudaStream_t stream;
-  cudaEvent_t start;
-  cudaEvent_t stop;
-};  // end struct CudaEventTimer
 
 namespace internal {
 template <typename Params, typename Class>
