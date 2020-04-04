@@ -59,7 +59,7 @@ struct RngBench : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     MLCommon::Random::Rng r(123456ULL, params.gtype);
-    loopOnState(state, [this]() {
+    loopOnState(state, [this, &r]() {
       switch (params.type) {
         case RNG_Normal:
           r.normal(ptr, params.len, params.start, params.end, stream);
