@@ -54,12 +54,11 @@ struct Distance : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
+    loopOnState(state, [this]() {
       MLCommon::Distance::distance<DType, T, T, T, OutputTile_t>(
         x, y, out, params.m, params.n, params.k, (void*)workspace, worksize,
         stream);
-    }
+    });
   }
 
  private:
