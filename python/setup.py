@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-from Cython.Build import cythonize
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
