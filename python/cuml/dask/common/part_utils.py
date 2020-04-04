@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 from collections import OrderedDict
 
 from functools import reduce
@@ -23,6 +24,7 @@ from toolz import first
 
 from dask.array.core import Array as daskArray
 from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as daskSeries
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -128,8 +130,7 @@ def _extract_partitions(dask_obj, client=None):
     client = default_client() if client is None else client
 
     # dask.dataframe or dask.array
-    if isinstance(dask_obj, dcDataFrame) or \
-            isinstance(dask_obj, daskArray):
+    if isinstance(dask_obj, (dcDataFrame, daskArray, daskSeries)):
         persisted = client.persist(dask_obj)
         parts = futures_of(persisted)
 
@@ -139,12 +140,12 @@ def _extract_partitions(dask_obj, client=None):
         # n partitions of them as (X1, y1), (X2, y2)...
         # and asking client to compute a single future for
         # each tuple in the list
-        dela = [d.to_delayed() for d in dask_obj]
-        raveled = [d.ravel() if isinstance(d, daskArray)
-                   else d for d in dela]
+        dela = [np.asarray(d.to_delayed()) for d in dask_obj]
+
+        # TODO: ravel() is causing strange behavior w/ delayed Arrays which are
+        # not yet backed by futures. Need to investigate this behavior.
+        raveled = [d.flatten() for d in dela]
         parts = client.compute([p for p in zip(*raveled)])
-    else:
-        raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
 
     yield wait(parts)
 

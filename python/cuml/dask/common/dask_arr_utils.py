@@ -59,13 +59,15 @@ def extract_arr_partitions(darray, client=None):
     """
     client = default_client() if client is None else client
 
+    X = client.persist(darray)
+
     if not isinstance(darray, Sequence):
-        dist_arr = darray.to_delayed()
-        to_map = dist_arr.ravel()
+        dist_arr = X.to_delayed()
+        to_map = dist_arr.flatten()
     else:
-        feature_parts = darray[0].to_delayed()
-        label_parts = darray[1].to_delayed()
-        parts = [feature_parts.ravel(), label_parts.ravel()]
+        feature_parts = X[0].to_delayed()
+        label_parts = X[1].to_delayed()
+        parts = [feature_parts.flatten(), label_parts.flatten()]
         to_map = zip(*parts)
 
     parts = list(map(delayed, to_map))
@@ -169,7 +171,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
         # to convert a Dask.Array to CuPy sparse arrays underneath.
 
         parts = client.sync(_extract_partitions, ret)
-        futures = [client.submit(_conv_np_to_df, part, workers=[w])
+        futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
                          for w, part in parts]
 
         ret = to_dask_cudf(futures)
