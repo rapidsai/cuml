@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,8 +99,6 @@ else:
 
 libs = ['cuda',
         'cuml++',
-        'cumlcomms',
-        'nccl',
         'rmm']
 
 include_dirs = ['../cpp/src',
@@ -126,17 +124,21 @@ if "--multigpu" in sys.argv:
     sys.argv.remove('--multigpu')
 
 if "--singlegpu" in sys.argv:
+    exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    exc_list.append('cuml/decomposition/base_mg.pyx')
+    exc_list.append('cuml/decomposition/pca_mg.pyx')
+    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    exc_list.append('cuml/linear_model/base_mg.pyx')
     exc_list.append('cuml/linear_model/ridge_mg.pyx')
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
-    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
-    exc_list.append('cuml/cluster/kmeans_mg.pyx')
-    exc_list.append('cuml/decomposition/pca_mg.pyx')
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
     # ucx/ucx-py related functionality available in version 0.12+
     # libs.append("ucp")
+    libs.append('cumlcomms')
+    libs.append('nccl')
 
     sys_include = os.path.dirname(sysconfig.get_path("include"))
     include_dirs.append("%s/cumlprims" % sys_include)
@@ -149,7 +151,7 @@ extensions = [
     Extension("*",
               sources=["cuml/**/**/*.pyx"],
               include_dirs=include_dirs,
-              library_dirs=[get_python_lib()],
+              library_dirs=[get_python_lib(), libcuml_path],
               runtime_library_dirs=[cuda_lib_dir,
                                     os.path.join(os.sys.prefix, "lib")],
               libraries=libs,

@@ -127,8 +127,6 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    from dask import delayed
-
     # dask.dataframe or dask.array
     if isinstance(dask_obj, dcDataFrame) or \
             isinstance(dask_obj, daskArray):
@@ -143,9 +141,8 @@ def _extract_partitions(dask_obj, client=None):
         # each tuple in the list
         dela = [d.to_delayed() for d in dask_obj]
         raveled = [d.ravel() if isinstance(d, daskArray)
-                 else d for d in dela]
+                   else d for d in dela]
         parts = client.compute([p for p in zip(*raveled)])
-
     else:
         raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
 
