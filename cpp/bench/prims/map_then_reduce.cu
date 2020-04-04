@@ -49,11 +49,10 @@ struct MapThenReduce : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
+    loopOnState(state, [this]() {
       MLCommon::LinAlg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
                                          in);
-    }
+    });
   }
 
  private:

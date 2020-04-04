@@ -49,12 +49,11 @@ struct MatVecOp : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, l2CacheSize, stream);
+    loopOnState(state, [this]() {
       MLCommon::LinAlg::matrixVectorOp(out, in, vec, params.cols, params.rows,
                                        params.rowMajor, params.bcastAlongRows,
                                        Sum<T>(), stream);
-    }
+    });
   }
 
  private:
