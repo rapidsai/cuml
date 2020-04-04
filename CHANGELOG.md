@@ -3,13 +3,19 @@
 ## New Features
 
 ## Improvements
+- PR #1944: Support for dask_cudf.core.Series in _extract_partitions
+- PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1974: Reduce ARIMA testing time
+- PR #1984: Enable Ninja build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+- PR #1971: python: Correctly honor --singlegpu option and CUML_BUILD_PATH env variable
 - PR #1969: Update libcumlprims to 0.14
+- PR #1973: Add missing mg files for setup.py --singlegpu flag
 
 # cuML 0.13.0 (Date TBD)
 

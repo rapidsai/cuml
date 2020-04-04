@@ -72,8 +72,9 @@ def get_repo_cmake_info(names, file_path):
             the names of the cmake git clone instruction
             `ExternalProject_Add(name`
         file_path : String
-            Relative path of the location of the CMakeLists.txt to extract the
-            information.
+            Relative path of the location of the CMakeLists.txt (or the cmake
+            module which contains ExternalProject_Add definitions) to extract
+            the information.
 
     Returns
         -------
@@ -103,7 +104,7 @@ def get_repo_cmake_info(names, file_path):
 
 
 def get_submodule_dependencies(repos,
-                               file_path='../cpp/CMakeLists.txt',
+                               file_path='../cpp/cmake/Dependencies.cmake',
                                libcuml_path='../cpp/build/'):
 
     """
@@ -118,8 +119,9 @@ def get_submodule_dependencies(repos,
             the names of the cmake git clone instruction
             `ExternalProject_Add(name`
         file_path : String
-            Relative path of the location of the CMakeLists.txt to extract the
-            information. By deafault it will look in the standard location
+            Relative path of the location of the CMakeLists.txt (or the cmake
+            module which contains ExternalProject_Add definitions) to extract
+            the information. By default it will look in the standard location
             `cuml_repo_root/cpp`
         libcuml_path : String
             Relative location of the build folder to look if repositories

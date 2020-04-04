@@ -19,7 +19,6 @@ from dask import delayed
 from toolz import first
 import dask.dataframe as dd
 import numpy as np
-from collections import defaultdict
 
 from dask.distributed import wait
 

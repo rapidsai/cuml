@@ -1,3 +1,19 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import pytest
 from cuml.dask.datasets.blobs import make_blobs
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -10,15 +26,21 @@ import cupy as cp
 @pytest.mark.parametrize("nrows", [1e4])
 @pytest.mark.parametrize("ncols", [10])
 @pytest.mark.parametrize("n_parts", [2, 23])
-@pytest.mark.parametrize("input_type", ["dataframe", "array"])
+@pytest.mark.parametrize("input_type", ["dataframe", "array", "series"])
 @pytest.mark.parametrize("colocated", [True, False])
 def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
                                         colocated, cluster):
     client = Client(cluster)
 
     try:
+        adj_input_type = 'dataframe' if input_type == 'series' else input_type
+
         X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
-                          output=input_type)
+                          output=adj_input_type)
+
+        if input_type == "series":
+            X = X[X.columns[0]]
+            y = y[y.columns[0]]
 
         if colocated:
             ddh = DistributedDataHandler.create((X, y), client)
@@ -35,16 +57,23 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
 @pytest.mark.parametrize("nrows", [24])
 @pytest.mark.parametrize("ncols", [2])
 @pytest.mark.parametrize("n_parts", [2, 23])
-@pytest.mark.parametrize("input_type", ["dataframe", "array"])
+@pytest.mark.parametrize("input_type", ["dataframe", "array", "series"])
 @pytest.mark.parametrize("colocated", [True, False])
 def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
                                   colocated, cluster):
     client = Client(cluster)
 
     try:
+        adj_input_type = 'dataframe' if input_type == 'series' else input_type
+
         X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
-                          output=input_type)
-        if input_type == "dataframe":
+                          output=adj_input_type)
+
+        if input_type == "series":
+            X = X[X.columns[0]]
+            y = y[y.columns[0]]
+
+        if input_type == "dataframe" or input_type == "series":
             X_len_parts = X.map_partitions(len).compute()
             y_len_parts = y.map_partitions(len).compute()
         elif input_type == "array":
@@ -61,7 +90,7 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
             ddh = DistributedDataHandler.create(X, client)
             parts = [part.result() for worker, part in ddh.gpu_futures]
             for i in range(len(parts)):
-                assert (parts[i].shape[0] == X_len_parts[i]
+                assert (parts[i].shape[0] == X_len_parts[i])
 
     finally:
         client.close()
