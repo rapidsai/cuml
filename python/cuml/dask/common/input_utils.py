@@ -26,6 +26,7 @@ from cuml.utils.memory_utils import with_cupy_rmm
 from collections import OrderedDict
 from cudf.core import DataFrame
 from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as daskSeries
 
 from dask import delayed
 
@@ -100,7 +101,7 @@ class DistributedDataHandler:
         multiple = isinstance(data, Sequence)
 
         datatype = 'cudf' if isinstance(first(data) if multiple else data,
-                                        dcDataFrame) else 'cupy'
+                                        (dcDataFrame, daskSeries)) else 'cupy'
 
         if datatype == 'cupy':
             if multiple:
@@ -112,7 +113,7 @@ class DistributedDataHandler:
         from cuml.dask.common import extract_ddf_partitions
         from cuml.dask.common import extract_colocated_ddf_partitions
         from cuml.dask.common import extract_arr_partitions
-
+        #
         # if datatype == "cudf" and not multiple:
         #     print(str("Using extract_ddf_partitions"))
         #     func = extract_ddf_partitions
