@@ -16,11 +16,13 @@
 from cuml.dask.common import extract_ddf_partitions, \
     workers_to_parts, parts_to_ranks, raise_exception_from_futures, \
     flatten_grouped_results, raise_mg_import_exception
+from cuml.dask.common.base import BaseEstimator
 
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 from cuml.dask.common.input_utils import to_output
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 from uuid import uuid1
 
@@ -35,19 +37,17 @@ def _func_get_i(f, idx):
     return i[idx]
 
 
-class NearestNeighbors(object):
+class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
     """
     def __init__(self, client=None, streams_per_handle=0, verbose=False,
                  **kwargs):
-        self.client = default_client() if client is None else client
-        self.model_args = kwargs
-        self.X = None
-        self.Y = None
-        self.n_cols = 0
+        super(NearestNeighbors, self).__init__(client=client,
+                                               verbose=verbose,
+                                               **kwargs)
+
         self.streams_per_handle = streams_per_handle
-        self.verbose = verbose
 
     def fit(self, X):
         """
@@ -61,7 +61,8 @@ class NearestNeighbors(object):
         -------
         self: NearestNeighbors model
         """
-        self.X = self.client.sync(extract_ddf_partitions, X)
+        self.X_handler = DistributedDataHandler.create(data=X, client=self.client)
+        self.datatype = self.X_handler.datatype
         self.n_cols = X.shape[1]
         return self
 
@@ -88,12 +89,12 @@ class NearestNeighbors(object):
         )
 
     @staticmethod
-    def _build_comms(index_futures, query_futures, streams_per_handle,
+    def _build_comms(index_handler, query_handler, streams_per_handle,
                      verbose):
         # Communicator clique needs to include the union of workers hosting
         # query and index partitions
-        workers = set(map(lambda x: x[0], index_futures))
-        workers.update(list(map(lambda x: x[0], query_futures)))
+        workers = set(index_handler.workers)
+        workers.update(query_handler.workers)
 
         comms = CommsContext(comms_p2p=True,
                              streams_per_handle=streams_per_handle,
@@ -117,9 +118,9 @@ class NearestNeighbors(object):
             Default n_neighbors if parameter n_neighbors is none
         """
         if n_neighbors is None:
-            if "n_neighbors" in self.model_args \
-                    and self.model_args["n_neighbors"] is not None:
-                n_neighbors = self.model_args["n_neighbors"]
+            if "n_neighbors" in self.kwargs \
+                    and self.kwargs["n_neighbors"] is not None:
+                n_neighbors = self.kwargs["n_neighbors"]
             else:
                 try:
                     from cuml.neighbors.nearest_neighbors_mg import \
@@ -139,7 +140,7 @@ class NearestNeighbors(object):
         nn_models = dict([(worker, self.client.submit(
             NearestNeighbors._func_create_model,
             comms.sessionId,
-            **self.model_args,
+            **self.kwargs,
             workers=[worker],
             key="%s-%s" % (key, idx)))
             for idx, worker in enumerate(comms.worker_addresses)])
@@ -148,23 +149,23 @@ class NearestNeighbors(object):
 
     def _query_models(self, n_neighbors,
                       comms, nn_models,
-                      index_futures, query_futures):
+                      index_handler, query_handler):
 
         worker_info = comms.worker_info(comms.worker_addresses)
-
-        index_worker_to_parts = workers_to_parts(index_futures)
-        query_worker_to_parts = workers_to_parts(query_futures)
 
         """
         Build inputs and outputs
         """
+        index_handler.calculate_parts_to_sizes(comms=comms)
+        query_handler.calculate_parts_to_sizes(comms=comms)
+
         idx_parts_to_ranks, idx_M = parts_to_ranks(self.client,
-                                                   worker_info,
-                                                   index_futures)
+                                            worker_info,
+                                            index_handler.gpu_futures)
 
         query_parts_to_ranks, query_M = parts_to_ranks(self.client,
                                                        worker_info,
-                                                       query_futures)
+                                                       query_handler.gpu_futures)
 
         """
         Invoke kneighbors on Dask workers to perform distributed query
@@ -174,14 +175,14 @@ class NearestNeighbors(object):
         nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
-                        index_worker_to_parts[worker] if
-                        worker in index_worker_to_parts else [],
-                        idx_M,
+                        index_handler.worker_to_parts[worker] if
+                        worker in index_handler.workers else [],
+                        index_handler.total_rows,
                         self.n_cols,
                         idx_parts_to_ranks,
-                        query_worker_to_parts[worker] if
-                        worker in query_worker_to_parts else [],
-                        query_M,
+                        query_handler.worker_to_parts[worker] if
+                        worker in query_handler.workers else [],
+                        query_handler.total_rows,
                         query_parts_to_ranks,
                         worker_info[worker]["r"],
                         n_neighbors,
@@ -231,8 +232,8 @@ class NearestNeighbors(object):
         """
         n_neighbors = self.get_neighbors(n_neighbors)
 
-        query_futures = self.X if X is None else \
-            self.client.sync(extract_ddf_partitions, X)
+        query_handler = self.X_handler if X is None else \
+            DistributedDataHandler.create(data=X, client=self.client)
 
         if X is None:
             raise ValueError("Model needs to be trained using fit() "
@@ -241,7 +242,7 @@ class NearestNeighbors(object):
         """
         Create communicator clique
         """
-        comms = NearestNeighbors._build_comms(self.X, query_futures,
+        comms = NearestNeighbors._build_comms(self.X_handler, query_handler,
                                               self.streams_per_handle,
                                               self.verbose)
 
@@ -255,7 +256,7 @@ class NearestNeighbors(object):
         """
         nn_fit, out_d_futures, out_i_futures = \
             self._query_models(n_neighbors, comms, nn_models,
-                               self.X, query_futures)
+                               self.X_handler, query_handler)
 
         comms.destroy()
 
