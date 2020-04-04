@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from dask.distributed import default_client, wait
 from toolz import first
 import numpy as np
+from dask import delayed
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -133,7 +134,7 @@ def _extract_partitions(dask_obj, client=None):
     dask_obj = dask_obj if is_sequence else [dask_obj]
     parts = [np.ravel(d.to_delayed()) for d in dask_obj]
     parts = zip(*parts) if is_sequence else parts[0]
-    parts = client.compute([p for p in parts])
+    parts = client.compute([delayed(p) for p in parts])
 
     yield wait(parts)
 
