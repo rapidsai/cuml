@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 from collections import OrderedDict
 
 from functools import reduce
@@ -20,8 +21,15 @@ from tornado import gen
 from collections.abc import Sequence
 from dask.distributed import default_client, wait
 from toolz import first
+<<<<<<< HEAD
 import numpy as np
 from dask import delayed
+=======
+
+from dask.array.core import Array as daskArray
+from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as daskSeries
+>>>>>>> fbc50e89b61e59d7e0f92d69235166681a696885
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -126,21 +134,28 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # NOTE: We colocate (X, y) here by zipping delayed
-    # n partitions of them as (X1, y1), (X2, y2)...
-    # and asking client to compute a single future for
-    # each tuple in the list
-    is_sequence = isinstance(dask_obj, Sequence)
-    dask_obj = dask_obj if is_sequence else [dask_obj]
-    parts = [np.ravel(d.to_delayed()) for d in dask_obj]
-    to_map = zip(*parts) if is_sequence else parts[0]
-    dela = list(map(delayed, to_map))
-    futures = client.compute(dela)
+    # dask.dataframe or dask.array
+    if isinstance(dask_obj, (dcDataFrame, daskArray, daskSeries)):
+        persisted = client.persist(dask_obj)
+        parts = futures_of(persisted)
 
-    yield wait(futures)
+    # iterable of dask collections (need to colocate them)
+    elif isinstance(dask_obj, Sequence):
+        # NOTE: We colocate (X, y) here by zipping delayed
+        # n partitions of them as (X1, y1), (X2, y2)...
+        # and asking client to compute a single future for
+        # each tuple in the list
+        dela = [np.asarray(d.to_delayed()) for d in dask_obj]
 
-    key_to_part = [(str(future.key), future) for future in futures]
-    who_has = yield client.who_has(futures)
+        # TODO: ravel() is causing strange behavior w/ delayed Arrays which are
+        # not yet backed by futures. Need to investigate this behavior.
+        raveled = [d.flatten() for d in dela]
+        parts = client.compute([p for p in zip(*raveled)])
+
+    yield wait(parts)
+
+    key_to_part = [(str(part.key), part) for part in parts]
+    who_has = yield client.who_has(parts)
 
     raise gen.Return([(first(who_has[key]), part)
                       for key, part in key_to_part])

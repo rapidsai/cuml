@@ -26,6 +26,7 @@ from cuml.utils.memory_utils import with_cupy_rmm
 from collections import OrderedDict
 from cudf.core import DataFrame
 from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as daskSeries
 
 from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
@@ -97,7 +98,7 @@ class DistributedDataHandler:
         multiple = isinstance(data, Sequence)
 
         datatype = 'cudf' if isinstance(first(data) if multiple else data,
-                                        dcDataFrame) else 'cupy'
+                                        (dcDataFrame, daskSeries)) else 'cupy'
 
         if datatype == 'cupy':
             if multiple:
@@ -106,7 +107,9 @@ class DistributedDataHandler:
             else:
                 validate_dask_array(data)
 
-        gpu_futures = client.sync(_extract_partitions, data, client)
+        func = _extract_partitions
+        gpu_futures = client.sync(func, data, client)
+
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
         return DistributedDataHandler(gpu_futures=gpu_futures, workers=workers,
