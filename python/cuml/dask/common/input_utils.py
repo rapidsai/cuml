@@ -28,6 +28,8 @@ from cudf.core import DataFrame
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as daskSeries
 
+from dask import delayed
+
 from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.dask_arr_utils import validate_dask_array
