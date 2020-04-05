@@ -142,6 +142,7 @@ def test_send_recv(n_trials, cluster):
 
 
 @pytest.mark.ucx
+@pytest.mark.skip
 @pytest.mark.parametrize("n_trials", [5])
 @pytest.mark.skip(reason="Should be enabled once this feature is fixed: "
                          "https://github.com/rapidsai/cuml/issues/1975")

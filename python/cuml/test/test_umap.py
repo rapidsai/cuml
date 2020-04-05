@@ -314,7 +314,7 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
 @pytest.mark.parametrize('n_components', [2, 25])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-@pytest.mark.skip(reason='CI Failure')
+@pytest.mark.skip
 def test_umap_transform_reproducibility(n_components, random_state):
 
     # Skipping this test until a reasonable fix is obtained

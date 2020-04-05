@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+from collections.abc import Sequence
+
 import scipy.sparse
 import numpy as np
 import cupy as cp
@@ -29,12 +31,63 @@ from cuml.dask.common.part_utils import _extract_partitions
 
 from cuml.utils import rmm_cupy_ary
 
+from tornado import gen
+
 
 def validate_dask_array(darray, client=None):
     if len(darray.chunks) > 2:
         raise ValueError("Input array cannot have more than two dimensions")
     elif len(darray.chunks) == 2 and len(darray.chunks[1]) > 1:
         raise ValueError("Input array cannot be chunked along axis 1")
+
+
+@gen.coroutine
+def extract_arr_partitions(darray, client=None):
+
+    # TODO: This will go away once ridge is consolidated to use the mixin
+
+    """
+    Given a Dask Array, return an array of tuples mapping each
+    worker to their list of futures.
+
+    :param darray: Dask.array split array partitions into a list of
+               futures.
+    :param client: dask.distributed.Client Optional client to use
+    """
+    client = default_client() if client is None else client
+
+    X = client.persist(darray)
+
+    if not isinstance(darray, Sequence):
+        dist_arr = X.to_delayed()
+        to_map = dist_arr.flatten()
+    else:
+        feature_parts = X[0].to_delayed()
+        label_parts = X[1].to_delayed()
+        parts = [feature_parts.flatten(), label_parts.flatten()]
+        to_map = zip(*parts)
+
+    parts = list(map(delayed, to_map))
+    parts = client.compute(parts)
+
+    yield wait(parts)
+
+    who_has = yield client.who_has(parts)
+
+    key_to_part_dict = dict([(str(part.key), part) for part in parts])
+
+    worker_map = {}  # Map from part -> worker
+    for key, workers in who_has.items():
+        worker = first(workers)
+        worker_map[key_to_part_dict[key]] = worker
+
+    worker_to_parts = []
+    for part in parts:
+        worker = worker_map[part]
+        worker_to_parts.append((worker, part))
+
+    yield wait(worker_to_parts)
+    raise gen.Return(worker_to_parts)
 
 
 def _conv_np_to_df(x):
@@ -108,69 +161,51 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
     meta = cupyx.scipy.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
 
-    if isinstance(cudf_or_array, dask.array.Array):
+    ret = cudf_or_array
+
+    if isinstance(ret, dask.array.Array):
         # At the time of developing this, using map_blocks will not work
         # to convert a Dask.Array to CuPy sparse arrays underneath.
 
-        parts = client.sync(_extract_partitions, cudf_or_array)
-        cudf_or_array = [client.submit(_conv_np_to_df, part, workers=[w],
-                                       pure=False) for w, part in parts]
+        parts = client.sync(_extract_partitions, ret)
+        futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
+                         for w, part in parts]
 
-        cudf_or_array = to_dask_cudf(cudf_or_array)
+        ret = to_dask_cudf(futures)
 
-    if isinstance(cudf_or_array, dask.dataframe.DataFrame):
+    if isinstance(ret, dask.dataframe.DataFrame):
         """
         Dask.Dataframe needs special attention since it has multiple dtypes.
         Just use the first (and assume all the rest are the same)
         """
-        cudf_or_array = cudf_or_array.map_partitions(
+        ret = ret.map_partitions(
             _conv_df_to_sp, meta=dask.array.from_array(meta))
 
         # This will also handle the input of dask.array.Array
-        return cudf_or_array
+        return ret
 
     else:
-        if scipy.sparse.isspmatrix(cudf_or_array):
-            cudf_or_array = \
-                cupyx.scipy.sparse.csr_matrix(cudf_or_array.tocsr())
-        elif cupyx.scipy.sparse.isspmatrix(cudf_or_array):
+        if scipy.sparse.isspmatrix(ret):
+            ret = \
+                cupyx.scipy.sparse.csr_matrix(ret.tocsr())
+        elif cupyx.scipy.sparse.isspmatrix(ret):
             pass
-        elif isinstance(cudf_or_array, cudf.DataFrame):
-            cupy_ary = cp.asarray(cudf_or_array.as_gpu_matrix(), dtype)
-            cudf_or_array = cupyx.scipy.sparse.csr_matrix(cupy_ary)
-        elif isinstance(cudf_or_array, np.ndarray):
+        elif isinstance(ret, cudf.DataFrame):
+            cupy_ary = cp.asarray(ret.as_gpu_matrix(), dtype)
+            ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
+        elif isinstance(ret, np.ndarray):
             cupy_ary = rmm_cupy_ary(cp.asarray,
-                                    cudf_or_array,
-                                    dtype=cudf_or_array.dtype)
-            cudf_or_array = cupyx.scipy.sparse.csr_matrix(cupy_ary)
+                                    ret,
+                                    dtype=ret.dtype)
+            ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
-        elif isinstance(cudf_or_array, cp.core.core.ndarray):
-            cudf_or_array = cupyx.scipy.sparse.csr_matrix(cudf_or_array)
+        elif isinstance(ret, cp.core.core.ndarray):
+            ret = cupyx.scipy.sparse.csr_matrix(ret)
         else:
-            raise ValueError("Unexpected input type %s" % type(cudf_or_array))
+            raise ValueError("Unexpected input type %s" % type(ret))
 
         # Push to worker
-        # cudf_or_array = client.scatter(cudf_or_array)
+        final_result = client.scatter(ret)
 
-        # This is a temporary workaround for scatter to avoid
-        # on-going dask race-condition issues
-        workers = list(client.scheduler_info()['workers'].keys())
-        rows_per_worker = int(shape[0] / len(workers)) + 1
-        da_cudf_or_array = [client.submit(lambda d: d,
-                                          cudf_or_array[i * rows_per_worker:
-                                                        (i + 1) *
-                                                        rows_per_worker],
-                                          workers=workers[i],
-                                          pure=False)
-                            for i in range(len(workers))]
-
-        return dask.array.concatenate([dask.array.from_delayed(
-                                                    dask.delayed(d),
-                                                    shape=(np.nan, shape[1]),
-                                                    dtype=dtype)
-                                       for d in da_cudf_or_array],
-                                      axis=0,
-                                      allow_unknown_chunksizes=True)
-
-    return dask.array.from_delayed(dask.delayed(cudf_or_array), shape=shape,
+    return dask.array.from_delayed(final_result, shape=shape,
                                    meta=meta)

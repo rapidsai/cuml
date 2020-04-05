@@ -14,7 +14,84 @@
 #
 
 import dask.dataframe as dd
-from dask.distributed import default_client
+import numpy as np
+
+from dask.distributed import wait, default_client
+
+from tornado import gen
+from toolz import first
+
+
+@gen.coroutine
+def extract_ddf_partitions(ddf, client=None):
+    """
+    Given a Dask cuDF, return an OrderedDict mapping
+    'worker -> [list of futures]' for each partition in ddf.
+
+    :param ddf: Dask.dataframe split dataframe partitions into a list of
+               futures.
+    :param client: dask.distributed.Client Optional client to use
+    """
+    client = default_client() if client is None else client
+
+    delayed_ddf = ddf.to_delayed()
+    parts = client.compute(delayed_ddf)
+    yield wait(parts)
+
+    key_to_part_dict = dict([(str(part.key), part) for part in parts])
+    who_has = yield client.who_has(parts)
+
+    worker_map = {}  # Map from part -> worker
+    for key, workers in who_has.items():
+        worker = first(workers)
+        worker_map[key_to_part_dict[key]] = worker
+
+    worker_to_parts = []
+    for part in parts:
+        worker = worker_map[part]
+        worker_to_parts.append((worker, part))
+
+    yield wait(worker_to_parts)
+    raise gen.Return(worker_to_parts)
+
+
+@gen.coroutine
+def extract_colocated_ddf_partitions(X_ddf, y_ddf, client=None):
+    """
+    Given Dask cuDF input X and y, return an OrderedDict mapping
+    'worker -> [list of futures] of X and y' with the enforced
+     co-locality for each partition in ddf.
+
+    :param X_ddf: Dask.dataframe
+    :param y_ddf: Dask.dataframe
+    :param client: dask.distributed.Client
+    """
+    client = default_client() if client is None else client
+    data_parts = X_ddf.to_delayed()
+    label_parts = y_ddf.to_delayed()
+
+    if isinstance(data_parts, np.ndarray):
+        assert data_parts.shape[1] == 1
+        data_parts = data_parts.flatten().tolist()
+
+    if isinstance(label_parts, np.ndarray):
+        assert label_parts.ndim == 1 or label_parts.shape[1] == 1
+        label_parts = label_parts.flatten().tolist()
+
+    parts = [delayed(x, pure=False) for x in zip(data_parts, label_parts)]
+    parts = client.compute(parts)
+    yield wait(parts)
+
+    key_to_part_dict = dict([(part.key, part) for part in parts])
+    who_has = yield client.scheduler.who_has(
+        keys=[part.key for part in parts]
+    )
+
+    worker_map = []
+    for key, workers in who_has.items():
+        worker_map.append((first(workers), key_to_part_dict[key]))
+
+    return worker_map
 
 
 def get_meta(df):

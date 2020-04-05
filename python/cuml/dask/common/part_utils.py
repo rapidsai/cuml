@@ -13,15 +13,18 @@
 # limitations under the License.
 #
 
+import numpy as np
 from collections import OrderedDict
 
 from functools import reduce
 from tornado import gen
 from collections.abc import Sequence
-from dask.distributed import default_client, wait
+from dask.distributed import default_client, wait, futures_of
 from toolz import first
-import numpy as np
-from dask import delayed
+
+from dask.array.core import Array as daskArray
+from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as daskSeries
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -126,15 +129,23 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # NOTE: We colocate (X, y) here by zipping delayed
-    # n partitions of them as (X1, y1), (X2, y2)...
-    # and asking client to compute a single future for
-    # each tuple in the list
-    is_sequence = isinstance(dask_obj, Sequence)
-    dask_obj = dask_obj if is_sequence else [dask_obj]
-    parts = [np.ravel(d.to_delayed()) for d in dask_obj]
-    parts = zip(*parts) if is_sequence else parts[0]
-    parts = client.compute([delayed(p) for p in parts])
+    # dask.dataframe or dask.array
+    if isinstance(dask_obj, (dcDataFrame, daskArray, daskSeries)):
+        persisted = client.persist(dask_obj)
+        parts = futures_of(persisted)
+
+    # iterable of dask collections (need to colocate them)
+    elif isinstance(dask_obj, Sequence):
+        # NOTE: We colocate (X, y) here by zipping delayed
+        # n partitions of them as (X1, y1), (X2, y2)...
+        # and asking client to compute a single future for
+        # each tuple in the list
+        dela = [np.asarray(d.to_delayed()) for d in dask_obj]
+
+        # TODO: ravel() is causing strange behavior w/ delayed Arrays which are
+        # not yet backed by futures. Need to investigate this behavior.
+        raveled = [d.flatten() for d in dela]
+        parts = client.compute([p for p in zip(*raveled)])
 
     yield wait(parts)
 
