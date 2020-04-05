@@ -115,8 +115,8 @@ def to_sp_dask_array(cudf_or_array, client=None):
         # to convert a Dask.Array to CuPy sparse arrays underneath.
 
         parts = client.sync(_extract_partitions, ret)
-        futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
-                   for w, part in parts]
+        futures = [client.submit(_conv_np_to_df, part, workers=[w],
+                                       pure=False) for w, part in parts]
 
         ret = to_dask_cudf(futures)
 
