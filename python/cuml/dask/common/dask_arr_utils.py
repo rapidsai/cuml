@@ -13,11 +13,6 @@
 # limitations under the License.
 #
 
-<<<<<<< HEAD
-=======
-from collections.abc import Sequence
-
->>>>>>> fbc50e89b61e59d7e0f92d69235166681a696885
 import scipy.sparse
 import numpy as np
 import cupy as cp
@@ -121,7 +116,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
         parts = client.sync(_extract_partitions, ret)
         futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
-                         for w, part in parts]
+                   for w, part in parts]
 
         ret = to_dask_cudf(futures)
 
