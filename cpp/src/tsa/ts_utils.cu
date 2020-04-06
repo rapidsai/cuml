@@ -133,4 +133,30 @@ void build_division_map(const cumlHandle& handle, const int* const* hd_id,
                                      batch_size, n_sub, allocator, stream);
 }
 
+template <typename DataT>
+inline void merge_series_helper(const cumlHandle& handle,
+                                const DataT* const* hd_in,
+                                const int* d_id_to_pos, const int* d_id_to_sub,
+                                DataT* d_out, int batch_size, int n_sub,
+                                int n_obs) {
+  cudaStream_t stream = handle.getStream();
+  auto allocator = handle.getDeviceAllocator();
+  ML::TimeSeries::merge_series(hd_in, d_id_to_pos, d_id_to_sub, d_out,
+                               batch_size, n_sub, n_obs, allocator, stream);
+}
+
+void merge_series(const cumlHandle& handle, const float* const* hd_in,
+                  const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,
+                  int batch_size, int n_sub, int n_obs) {
+  merge_series_helper(handle, hd_in, d_id_to_pos, d_id_to_sub, d_out,
+                      batch_size, n_sub, n_obs);
+}
+
+void merge_series(const cumlHandle& handle, const double* const* hd_in,
+                  const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
+                  int batch_size, int n_sub, int n_obs) {
+  merge_series_helper(handle, hd_in, d_id_to_pos, d_id_to_sub, d_out,
+                      batch_size, n_sub, n_obs);
+}
+
 }  // namespace ML

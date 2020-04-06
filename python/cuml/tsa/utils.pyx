@@ -74,6 +74,15 @@ cdef extern from "cuml/tsa/ts_utils.h" namespace "ML":
         const cumlHandle& handle, const int* const* hd_id, const int* h_size,
         int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub)
 
+    void cpp_merge_series "ML::merge_series" (
+        const cumlHandle& handle, const float* const* hd_in,
+        const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,
+        int batch_size, int n_sub, int n_obs)
+    void cpp_merge_series "ML::merge_series" (
+        const cumlHandle& handle, const double* const* hd_in,
+        const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
+        int batch_size, int n_sub, int n_obs)
+
 # TODO: tests?
 
 
@@ -321,4 +330,49 @@ def build_division_map(id_tracker, batch_size, handle=None):
                            <int> batch_size,
                            <int> n_sub)
 
-    return id_to_pos, id_to_model
+    return id_to_model, id_to_pos
+
+
+def merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
+    """TODO: docs
+    """
+    dtype = data_in[0].dtype
+    n_obs = data_in[0].shape[0]
+    n_sub = len(data_in)
+
+    if handle is None:
+        handle = cuml.common.handle.Handle()
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    cdef vector[uintptr_t] in_ptr
+    in_ptr.resize(n_sub)
+    for i in range(n_sub):
+        in_ptr[i] = data_in[i].ptr
+
+    data_out = cumlArray.empty((n_obs, batch_size), dtype)
+
+    cdef uintptr_t hd_in = <uintptr_t> in_ptr.data()
+    cdef uintptr_t d_id_to_pos = id_to_pos.ptr
+    cdef uintptr_t d_id_to_sub = id_to_sub.ptr
+    cdef uintptr_t d_out = data_out.ptr
+
+    if dtype == np.float32:
+        cpp_merge_series(handle_[0],
+                         <const float**> hd_in,
+                         <int*> d_id_to_pos,
+                         <int*> d_id_to_sub,
+                         <float*> d_out,
+                         <int> batch_size,
+                         <int> n_sub,
+                         <int> n_obs)
+    else:
+        cpp_merge_series(handle_[0],
+                         <const double**> hd_in,
+                         <int*> d_id_to_pos,
+                         <int*> d_id_to_sub,
+                         <double*> d_out,
+                         <int> batch_size,
+                         <int> n_sub,
+                         <int> n_obs)
+
+    return data_out

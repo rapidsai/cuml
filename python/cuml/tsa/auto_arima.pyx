@@ -33,7 +33,8 @@ from cuml.common.handle cimport cumlHandle
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
-from cuml.tsa.utils import divide_by_mask, divide_by_min, build_division_map
+from cuml.tsa.utils import divide_by_mask, divide_by_min, \
+    build_division_map, merge_series
 from cuml.utils.input_utils import input_to_cuml_array
 
 tests_map = {
@@ -179,6 +180,8 @@ class AutoARIMA(Base):
         #
         if verbose:
             print("Deciding p, q, P, Q, k...")
+        # TODO: try nice progress bar when using verbose for grid search
+        #       (can use different levels of verbose)
         self.models = []
         id_tracker = []
         for (d_, D_) in data_dD:
@@ -242,5 +245,28 @@ class AutoARIMA(Base):
         # sub-batch
         if verbose:
             print("Finalizing...")
-        self.id_to_pos, self.id_to_model = build_division_map(id_tracker,
+        self.id_to_model, self.id_to_pos = build_division_map(id_tracker,
                                                               self.batch_size)
+
+    def predict(self, start=0, end=None):
+        """TODO: docs
+        """
+        # Compute predictions for each model
+        predictions = []
+        for model in self.models:
+            pred, *_ = input_to_cuml_array(model.predict(start, end))
+            # TODO: no need for cast after cuML array PR is merged
+            predictions.append(pred)
+        
+        # Put all the predictions together
+        return merge_series(predictions, self.id_to_model, self.id_to_pos,
+                            self.batch_size)
+
+    
+    def forecast(self, nsteps):
+        """TODO: docs
+        """
+        return self.predict(self.n_obs, self.n_obs + nsteps)
+
+# TODO: Illegal mem access? (in end of fit or forecast?)
+#       -> can't reproduce...

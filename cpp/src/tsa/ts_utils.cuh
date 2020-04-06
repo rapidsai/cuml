@@ -312,5 +312,42 @@ inline void build_division_map(const int* const* hd_id, const int* h_size,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
+/**
+ * @todo: docs
+ */
+template <typename DataT>
+__global__ void merge_series_kernel(const DataT* const* d_in,
+                                    const int* d_id_to_pos,
+                                    const int* d_id_to_sub, DataT* d_out,
+                                    int n_obs) {
+  const DataT* b_in =
+    d_in[d_id_to_sub[blockIdx.x]] + n_obs * d_id_to_pos[blockIdx.x];
+  DataT* b_out = d_out + n_obs * blockIdx.x;
+
+  for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
+    b_out[i] = b_in[i];
+  }
+}
+
+/**
+ * @todo: docs
+ */
+template <typename DataT>
+inline void merge_series(const DataT* const* hd_in, const int* d_id_to_pos,
+                         const int* d_id_to_sub, DataT* d_out, int batch_size,
+                         int n_sub, int n_obs,
+                         std::shared_ptr<deviceAllocator> allocator,
+                         cudaStream_t stream) {
+  // Copy the pointers to each sub-batch to the device
+  MLCommon::device_buffer<DataT*> in_buffer(allocator, stream, n_sub);
+  const DataT** d_in = const_cast<const DataT**>(in_buffer.data());
+  MLCommon::updateDevice(d_in, hd_in, n_sub, stream);
+
+  int TPB = std::min(64, n_obs);
+  merge_series_kernel<<<batch_size, TPB, 0, stream>>>(
+    d_in, d_id_to_pos, d_id_to_sub, d_out, n_obs);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
 }  // namespace TimeSeries
 }  // namespace ML
