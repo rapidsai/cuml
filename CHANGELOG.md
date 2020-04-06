@@ -10,6 +10,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
