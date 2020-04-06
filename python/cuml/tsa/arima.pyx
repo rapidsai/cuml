@@ -272,7 +272,7 @@ class ARIMA(Base):
                 intercept_str, self.batch_size)
         else:
             return "ARIMA({},{},{}) ({}) - {} series".format(
-                self.p, self.d, self.q, intercept_str, self.batch_size)
+                order.p, order.d, order.q, intercept_str, self.batch_size)
 
     @nvtx_range_wrap
     def _ic(self, ic_type: str):

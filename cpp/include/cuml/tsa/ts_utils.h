@@ -111,4 +111,14 @@ void build_division_map(const cumlHandle& handle, const int* const* hd_id,
                         const int* h_size, int* d_id_to_pos, int* d_id_to_model,
                         int batch_size, int n_sub);
 
+/**
+ * @todo docs
+ */
+void merge_series(const cumlHandle& handle, const float* const* hd_in,
+                  const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,
+                  int batch_size, int n_sub, int n_obs);
+void merge_series(const cumlHandle& handle, const double* const* hd_in,
+                  const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
+                  int batch_size, int n_sub, int n_obs);
+
 }  // namespace ML
