@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "smo_sets.h"
+#include "smo_sets.cuh"
 
 namespace ML {
 namespace SVM {

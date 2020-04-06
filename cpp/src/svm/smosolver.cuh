@@ -25,20 +25,20 @@
 
 #include <cuml/matrix/kernelparams.h>
 #include "common/cumlHandle.hpp"
-#include "kernelcache.h"
+#include "kernelcache.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/gemv.h"
 #include "linalg/unary_op.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
-#include "smo_sets.h"
-#include "smoblocksolve.h"
+#include "smo_sets.cuh"
+#include "smoblocksolve.cuh"
 #include "utils.h"
-#include "workingset.h"
-#include "ws_util.h"
+#include "workingset.cuh"
+#include "ws_util.cuh"
 
 #include "common/device_buffer.hpp"
-#include "results.h"
+#include "results.cuh"
 
 namespace ML {
 namespace SVM {
