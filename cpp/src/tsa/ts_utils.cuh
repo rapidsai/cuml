@@ -260,7 +260,7 @@ inline void divide_by_min_execute(const DataT* d_in, const int* d_batch,
                                   int batch_size, int n_sub, int n_obs,
                                   std::shared_ptr<deviceAllocator> allocator,
                                   cudaStream_t stream) {
-  // Create a device array of pointers
+  // Create a device array of pointers to each sub-batch
   MLCommon::device_buffer<DataT*> out_buffer(allocator, stream, n_sub);
   DataT** d_out = out_buffer.data();
   MLCommon::updateDevice(d_out, hd_out, n_sub, stream);
@@ -268,6 +268,47 @@ inline void divide_by_min_execute(const DataT* d_in, const int* d_batch,
   int TPB = std::min(64, n_obs);
   divide_by_min_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_batch, d_index,
                                                        d_out, n_obs);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+ * @todo: docs
+ */
+__global__ void build_division_map_kernel(const int* const* d_id,
+                                          const int* d_size, int* d_id_to_pos,
+                                          int* d_id_to_model) {
+  const int* b_id = d_id[blockIdx.x];
+  int b_size = d_size[blockIdx.x];
+
+  for (int i = threadIdx.x; i < b_size; i += blockDim.x) {
+    int original_id = b_id[i];
+    d_id_to_pos[original_id] = i;
+    d_id_to_model[original_id] = blockIdx.x;
+  }
+}
+
+/**
+ * @todo: docs
+ */
+inline void build_division_map(const int* const* hd_id, const int* h_size,
+                               int* d_id_to_pos, int* d_id_to_model,
+                               int batch_size, int n_sub,
+                               std::shared_ptr<deviceAllocator> allocator,
+                               cudaStream_t stream) {
+  // Copy the pointers to the id trackers of each sub-batch to the device
+  MLCommon::device_buffer<int*> id_ptr_buffer(allocator, stream, n_sub);
+  const int** d_id = const_cast<const int**>(id_ptr_buffer.data());
+  MLCommon::updateDevice(d_id, hd_id, n_sub, stream);
+
+  // Copy the size of each sub-batch to the device
+  MLCommon::device_buffer<int> size_buffer(allocator, stream, n_sub);
+  int* d_size = size_buffer.data();
+  MLCommon::updateDevice(d_size, h_size, n_sub, stream);
+
+  int avg_size = batch_size / n_sub;
+  int TPB = avg_size > 128 ? 256 : (avg_size > 64 ? 128 : 64);
+  build_division_map_kernel<<<n_sub, TPB, 0, stream>>>(
+    d_id, d_size, d_id_to_pos, d_id_to_model);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

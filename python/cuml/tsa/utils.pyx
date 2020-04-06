@@ -70,6 +70,10 @@ cdef extern from "cuml/tsa/ts_utils.h" namespace "ML":
                                int** hd_out, int batch_size, int n_sub,
                                int n_obs)
 
+    void cpp_build_division_map "ML::build_division_map" (
+        const cumlHandle& handle, const int* const* hd_id, const int* h_size,
+        int* d_id_to_pos, int* d_id_to_model, int batch_size, int n_sub)
+
 # TODO: tests?
 
 
@@ -282,3 +286,39 @@ def divide_by_min(original, metrics, batch_id=None, handle=None):
         return sub_batches, sub_id
     else:
         return sub_batches
+
+
+def build_division_map(id_tracker, batch_size, handle=None):
+    """TODO: docs
+    """
+    if handle is None:
+        handle = cuml.common.handle.Handle()
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    n_sub = len(id_tracker)
+
+    id_to_pos = cumlArray.empty(batch_size, np.int32)
+    id_to_model = cumlArray.empty(batch_size, np.int32)
+
+    cdef vector[uintptr_t] id_ptr
+    cdef vector[int] size_vec
+    id_ptr.resize(n_sub)
+    size_vec.resize(n_sub)
+    for i in range(n_sub):
+        id_ptr[i] = id_tracker[i].ptr
+        size_vec[i] = len(id_tracker[i])
+
+    cdef uintptr_t hd_id = <uintptr_t> id_ptr.data()
+    cdef uintptr_t h_size = <uintptr_t> size_vec.data()
+    cdef uintptr_t d_id_to_pos = id_to_pos.ptr
+    cdef uintptr_t d_id_to_model = id_to_model.ptr
+    
+    cpp_build_division_map(handle_[0],
+                           <const int**> hd_id,
+                           <int*> h_size,
+                           <int*> d_id_to_pos,
+                           <int*> d_id_to_model,
+                           <int> batch_size,
+                           <int> n_sub)
+
+    return id_to_pos, id_to_model

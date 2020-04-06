@@ -124,4 +124,13 @@ void divide_by_min_execute(const cumlHandle& handle, const int* d_in,
                                batch_size, n_sub, n_obs);
 }
 
+void build_division_map(const cumlHandle& handle, const int* const* hd_id,
+                        const int* h_size, int* d_id_to_pos, int* d_id_to_model,
+                        int batch_size, int n_sub) {
+  cudaStream_t stream = handle.getStream();
+  auto allocator = handle.getDeviceAllocator();
+  ML::TimeSeries::build_division_map(hd_id, h_size, d_id_to_pos, d_id_to_model,
+                                     batch_size, n_sub, allocator, stream);
+}
+
 }  // namespace ML

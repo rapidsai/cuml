@@ -33,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
-from cuml.tsa.utils import divide_by_mask, divide_by_min
+from cuml.tsa.utils import divide_by_mask, divide_by_min, build_division_map
 from cuml.utils.input_utils import input_to_cuml_array
 
 tests_map = {
@@ -177,7 +177,10 @@ class AutoARIMA(Base):
         #
         # Choose the hyper-parameters p, q, P, Q, k
         #
-        data_complete = {}
+        if verbose:
+            print("Deciding p, q, P, Q, k...")
+        self.models = []
+        id_tracker = []
         for (d_, D_) in data_dD:
             data_temp, id_temp = data_dD[(d_, D_)]
             batch_size = data_temp.shape[1] if len(data_temp.shape) > 1 else 1
@@ -200,7 +203,7 @@ class AutoARIMA(Base):
                                           fit_intercept=k_,
                                           handle=self.handle)
                             if verbose:
-                                print("Fitting {}".format(model))
+                                print(" - {}".format(model))
                             model.fit()  # TODO: support approximation
                             all_ic.append(model._ic(ic))
                             all_orders.append((p_, q_, P_, Q_, s_, k_))
@@ -217,15 +220,27 @@ class AutoARIMA(Base):
                 if sub_batches[i] is None:
                     continue
                 p_, q_, P_, Q_, s_, k_ = all_orders[i]
-                data_complete[(p_, d_, q_, P_, D_, Q_, s_, k_)] \
-                    = (sub_batches[i], sub_id[i])
+                self.models.append(ARIMA(cp.asarray(sub_batches[i]),
+                                         order=(p_, d_, q_),
+                                         seasonal_order=(P_, D_, Q_, s_),
+                                         fit_intercept=k_,
+                                         handle=self.handle))
+                id_tracker.append(sub_id[i])
 
             del model, all_ic, all_orders, ic_matrix, sub_batches, sub_id
 
         # TODO: try different k_ on the best model?
 
-        # TODO: build map
-        self.id_to_pos = None
-        self.id_to_model = None
+        if verbose:
+            print("Fitting final models...")
+        for model in self.models:
+            if verbose:
+                print(" - {}".format(model))
+            model.fit()
 
-        return data_complete
+        # Build a map to match each series to its model and position in the
+        # sub-batch
+        if verbose:
+            print("Finalizing...")
+        self.id_to_pos, self.id_to_model = build_division_map(id_tracker,
+                                                              self.batch_size)
