@@ -114,10 +114,13 @@ if (( ${CLEAN} == 1 )); then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-  if [ -d ${bd} ]; then
-      find ${bd} -mindepth 1 -delete
-      rmdir ${bd} || true
-  fi
+      if [ -d ${bd} ]; then
+          find ${bd} -mindepth 1 -delete
+          rmdir ${bd} || true
+      fi
+      cd ${REPODIR}/python
+      python setup.py clean --all
+      cd ${REPODIR}
     done
 fi
 
