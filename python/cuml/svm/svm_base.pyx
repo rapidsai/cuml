@@ -282,7 +282,7 @@ class SVMBase(Base):
 
     def _calc_coef(self):
         return np.dot(self._dual_coef_.to_output('numpy'),
-                        self._support_vectors_.to_output('numpy'))
+                      self._support_vectors_.to_output('numpy'))
 
     @property
     def coef_(self):
