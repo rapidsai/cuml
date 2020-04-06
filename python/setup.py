@@ -16,7 +16,8 @@
 
 from Cython.Build import cythonize
 from distutils.sysconfig import get_python_lib
-from setuptools import setup, find_packages
+from setuptools import find_packages
+from setuptools import setup
 from setuptools.extension import Extension
 from setuputils import get_submodule_dependencies
 
@@ -25,13 +26,15 @@ try:
 except ImportError:
     from setuptools.command.build_ext import build_ext
 
+import glob
+import numpy
 import os
-import subprocess
+import shutil
 import sys
 import sysconfig
 import versioneer
 import warnings
-import numpy
+
 
 install_requires = [
     'numba',
@@ -94,11 +97,6 @@ else:
     cub_path = ""
     cutlass_path = ""
     libcuml_path = ""
-
-    import shutil
-    import glob
-    import os
-    import sys
 
     try:
         shutil.rmtree('external_repositories', ignore_errors=True)
