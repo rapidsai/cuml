@@ -22,8 +22,7 @@ import cudf
 import cupy as cp
 
 
-from cuml.dask.common.dask_arr_utils import extract_arr_partitions, \
-    validate_dask_array
+from cuml.dask.common.dask_arr_utils import validate_dask_array
 import dask
 from dask.distributed import Client
 from cuml.dask.common.part_utils import _extract_partitions

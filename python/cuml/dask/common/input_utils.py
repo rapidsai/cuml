@@ -110,8 +110,7 @@ class DistributedDataHandler:
             else:
                 validate_dask_array(data)
 
-        func = _extract_partitions
-        gpu_futures = client.sync(func, data, client)
+        gpu_futures = client.sync(_extract_partitions, data, client)
 
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
