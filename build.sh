@@ -178,14 +178,14 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
 fi
 
 
-#  # Build and (optionally) install the cuml Python package
-#  if (( ${NUMARGS} == 0 )) || hasArg cuml; then
-#  
-#      cd ${REPODIR}/python
-#      if [[ ${INSTALL_TARGET} != "" ]]; then
-#          python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
-#          python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
-#      else
-#          python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
-#      fi
-#  fi
+# Build and (optionally) install the cuml Python package
+if (( ${NUMARGS} == 0 )) || hasArg cuml; then
+
+    cd ${REPODIR}/python
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
+        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
+    else
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+    fi
+fi
