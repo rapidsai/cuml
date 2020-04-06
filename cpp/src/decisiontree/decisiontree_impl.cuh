@@ -216,19 +216,20 @@ void DecisionTreeBase<T, L>::plant(
   const int nrows, const L *labels, unsigned int *rowids,
   const int n_sampled_rows, int unique_labels, const int treeid,
   DecisionTreeParams &tree_params) {
-  split_algo =  tree_params.split_algo;
+  split_algo = tree_params.split_algo;
   dinfo.NLocalrows = nrows;
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
   nbins = tree_params.n_bins;
   treedepth = tree_params.max_depth;
-  maxleaves =  tree_params.max_leaves;
+  maxleaves = tree_params.max_leaves;
   n_unique_labels = unique_labels;
-  min_rows_per_node =  tree_params.min_rows_per_node;
+  min_rows_per_node = tree_params.min_rows_per_node;
   bootstrap_features = tree_params.bootstrap_features;
   split_criterion = tree_params.split_criterion;
 
-  if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE && tree_params.quantile_per_tree) {
+  if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
+      tree_params.quantile_per_tree) {
     preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
                         tree_params.n_bins, tempmem);
   }
