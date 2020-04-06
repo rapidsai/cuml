@@ -23,6 +23,7 @@ from cuml.dask.preprocessing import OneHotEncoder
 from cuml.test.utils import stress_param
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 from dask.distributed import Client
+from pandas.util.testing import assert_frame_equal
 
 
 def _from_df_to_array(df):
@@ -72,8 +73,7 @@ def test_onehot_inverse_transform(cluster, drop):
     enc = OneHotEncoder(drop=drop)
     ohe = enc.fit_transform(X, as_futures=True)
     inv = enc.inverse_transform(ohe)
-
-    assert df.equals(inv)
+    assert_frame_equal(inv.to_pandas(), df.to_pandas())
     client.close()
 
 
@@ -147,7 +147,7 @@ def test_onehot_inverse_transform_handle_unknown(cluster):
     enc = enc.fit(X)
     df = enc.inverse_transform(Y_ohe)
     ref = DataFrame({'chars': [None, 'b'], 'int': [0, 2]})
-    assert df.equals(ref)
+    assert_frame_equal(df.to_pandas(), ref.to_pandas())
     client.close()
 
 
@@ -170,7 +170,7 @@ def test_onehot_random_inputs(cluster, drop, sparse, n_samples):
     cp.testing.assert_array_equal(ohe, ref)
 
     inv_ohe = enc.inverse_transform(da.from_array(ohe))
-    assert inv_ohe.equals(df)
+    assert_frame_equal(inv_ohe.to_pandas(), df.to_pandas())
     client.close()
 
 
@@ -187,7 +187,8 @@ def test_onehot_drop_idx_first(cluster):
     ohe = enc.fit_transform(ddf)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
-    assert X.equals(enc.inverse_transform(da.from_array(ohe)))
+    inv = enc.inverse_transform(da.from_array(ohe))
+    assert_frame_equal(inv.to_pandas(), X.to_pandas())
     client.close()
 
 
@@ -201,7 +202,8 @@ def test_onehot_drop_one_of_each(cluster):
     ohe = enc.fit_transform(ddf)
     ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
     cp.testing.assert_array_equal(ohe, ref)
-    assert X.equals(enc.inverse_transform(da.from_array(ohe)))
+    inv = enc.inverse_transform(da.from_array(ohe))
+    assert_frame_equal(inv.to_pandas(), X.to_pandas())
     client.close()
 
 
