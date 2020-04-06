@@ -115,6 +115,10 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   // Are we doing a fit or a transform?
   bool move_other = head_embedding == tail_embedding;
 
+  if (params->optim_batch_size <= 0) {
+    params->optim_batch_size = 100000 / params->n_components;
+  }
+
   T alpha = params->initial_alpha;
 
   MLCommon::device_buffer<T> epoch_of_next_negative_sample(d_alloc, stream,
@@ -158,16 +162,28 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
       d_alloc, stream, n_vertices * params->n_components);
     double *embedding_updates = embedding_updates_buf.data();
     dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X));
+
     for (int n = 0; n < n_epochs; n++) {
       CUDA_CHECK(cudaMemsetAsync(
         embedding_updates, 0,
         n_vertices * params->n_components * sizeof(double), stream));
-      call_optimize_batch_kernel<T, TPB_X>(
-        head_embedding, head_n, tail_embedding, tail_n_fast, head, tail, nnz,
-        epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
-        epoch_of_next_sample.data(), alpha, n, gamma, seed, embedding_updates,
-        move_other, use_shared_mem, params, n, grid, blk, requiredSize, stream);
-      CUDA_CHECK(cudaGetLastError());
+
+      int toDo = nnz;
+      int offset = 0;
+      while (toDo > 0) {
+        int curBatchSize = min(toDo, params->optim_batch_size);
+        call_optimize_batch_kernel<T, TPB_X>(
+          head_embedding, head_n, tail_embedding, tail_n_fast, head, tail,
+          offset + curBatchSize, epochs_per_sample, n_vertices,
+          epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
+          alpha, n, gamma, seed, embedding_updates, move_other, use_shared_mem,
+          params, n, grid, blk, requiredSize, stream, offset);
+        CUDA_CHECK(cudaGetLastError());
+
+        toDo -= curBatchSize;
+        offset += curBatchSize;
+      }
+
       apply_optimization_kernel<T, TPB_X><<<grid2, blk, 0, stream>>>(
         head_embedding, embedding_updates, n_vertices * params->n_components);
       CUDA_CHECK(cudaGetLastError());
