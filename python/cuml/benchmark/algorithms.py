@@ -232,6 +232,14 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
+            sklearn.random_projection.SparseRandomProjection,
+            cuml.random_projection.SparseRandomProjection,
+            shared_args=dict(n_components="auto"),
+            name="SparseRandomProjection",
+            bench_func=fit_transform,
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
             shared_args=dict(n_neighbors=1024),
@@ -322,6 +330,42 @@ def all_algorithms():
             name="MBSGDClassifier",
             accepts_labels=True,
             accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.SVC,
+            cuml.svm.SVC,
+            shared_args={},
+            cuml_args={},
+            name="SVC",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.SVR,
+            cuml.svm.SVR,
+            shared_args={},
+            cuml_args={},
+            name="SVR",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.neighbors.KNeighborsClassifier,
+            cuml.neighbors.KNeighborsClassifier,
+            shared_args={},
+            cuml_args={},
+            name="KNeighborsClassifier",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score
+        ),
+        AlgorithmPair(
+            sklearn.neighbors.KNeighborsRegressor,
+            cuml.neighbors.KNeighborsRegressor,
+            shared_args={},
+            cuml_args={},
+            name="KNeighborsRegressor",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.r2_score
         ),
         AlgorithmPair(
             treelite if has_treelite() else None,
