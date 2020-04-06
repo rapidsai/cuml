@@ -88,10 +88,7 @@ class DecisionTreeBase {
   void plant(std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
              const int ncols, const int nrows, const L *labels,
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-             const int treeid, int maxdepth, int max_leaf_nodes,
-             const float colper, int n_bins, int split_algo_flag,
-             int cfg_min_rows_per_node, bool cfg_bootstrap_features,
-             CRITERION cfg_split_criterion, bool cfg_quantile_per_tree);
+             const int treeid, DecisionTreeParams &tree_params);
 
   virtual void grow_deep_tree(
     const T *data, const L *labels, unsigned int *rowids,
