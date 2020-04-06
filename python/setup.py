@@ -88,11 +88,34 @@ if "clean" not in sys.argv:
         cutlass_path = 'external_repositories/cutlass'
 
 else:
-    subprocess.check_call(['rm', '-rf', 'external_repositories'])
+
     treelite_path = ""
     faiss_path = ""
     cub_path = ""
     cutlass_path = ""
+    libcuml_path = ""
+
+    import shutil
+    import glob
+    import os
+    import sys
+
+    try:
+        shutil.rmtree('external_repositories', ignore_errors=True)
+        shutil.rmtree('cuml.egg-info', ignore_errors=True)
+        shutil.rmtree('__pycache__', ignore_errors=True)
+
+        sg_folders = glob.glob('cuml/*')
+        for folder in sg_folders:
+            cython_exts = glob.glob(folder + '/*.cpp')
+            cython_exts.extend(glob.glob(folder + '/*.cpython*'))
+            for file in cython_exts:
+                os.remove(file)
+
+        sys.exit(0)
+
+    except IOError:
+        pass
 
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
