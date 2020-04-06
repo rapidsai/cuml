@@ -9,6 +9,7 @@
 - PR #1946: Removed zlib dependency from cmake
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2005: Adding missing algorithms to cuml benchmarks and notebook
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
