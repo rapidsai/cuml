@@ -104,4 +104,11 @@ void divide_by_min_execute(const cumlHandle& handle, const int* d_in,
                            const int* d_batch, const int* d_index, int** hd_out,
                            int batch_size, int n_sub, int n_obs);
 
+/**
+ * @todo docs
+ */
+void build_division_map(const cumlHandle& handle, const int* const* hd_id,
+                        const int* h_size, int* d_id_to_pos, int* d_id_to_model,
+                        int batch_size, int n_sub);
+
 }  // namespace ML
