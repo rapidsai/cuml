@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
+VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help --deep"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -33,6 +33,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g               - build for debug
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
+   --deep           - Use to make clean target remove all cythonized cpp files and artifacts
    --singlegpu      - Build cuml without multigpu support (multigpu requires libcumlprims)
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
@@ -53,6 +54,7 @@ BUILD_ALL_GPU_ARCH=0
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
+DEEPCLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 
 # Set defaults for vars that may not have been defined externally
@@ -106,6 +108,9 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
+if hasArg --deep; then
+    DEEPCLEAN=1
+fi
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -118,9 +123,11 @@ if (( ${CLEAN} == 1 )); then
           find ${bd} -mindepth 1 -delete
           rmdir ${bd} || true
       fi
-      cd ${REPODIR}/python
-      python setup.py clean --all
-      cd ${REPODIR}
+      if (( ${DEEPCLEAN} == 1 )); then
+          cd ${REPODIR}/python
+          python setup.py clean --all
+          cd ${REPODIR}
+      fi
     done
 fi
 
