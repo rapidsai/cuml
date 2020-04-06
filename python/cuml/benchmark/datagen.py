@@ -40,13 +40,9 @@ import functools
 import numpy as np
 import os
 import pandas as pd
-import scipy
 
 import sklearn.datasets
 import sklearn.model_selection
-
-from sklearn.datasets import fetch_20newsgroups
-from sklearn.feature_extraction.text import HashingVectorizer
 
 from urllib.request import urlretrieve
 from cuml.utils import input_utils
@@ -126,17 +122,6 @@ def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
             % (X_df.shape[0], n_samples)
         )
     return X_df.iloc[:n_samples, :n_features], y_df.iloc[:n_samples]
-
-
-def _gen_data_20newsgroups(n_samples=None, n_features=None, random_state=42):
-    twenty_train = fetch_20newsgroups(subset='train',
-                                      shuffle=True, random_state=42)
-
-    count_vect = HashingVectorizer(n_features=n_features)
-    X = count_vect.fit_transform(twenty_train.data)[:n_samples]
-    Y = twenty_train.target[:n_samples]
-
-    return X, Y
 
 
 def _download_and_cache(url, compressed_filepath, decompressed_filepath):
@@ -233,20 +218,6 @@ def _convert_to_gpuarray(data, order='F'):
         return input_utils.input_to_dev_array(data, order=order)[0]
 
 
-def _convert_to_csr(data, order='F'):
-    if data is None:
-        return None
-
-    elif isinstance(data, tuple):
-        return tuple([_convert_to_csr(d, order=order) for d in data])
-    elif isinstance(data, (pd.DataFrame, pd.Series)):
-        a = _convert_to_numpy(cudf.DataFrame.from_pandas(data),
-                              order=order)
-        return scipy.sparse.csr_matrix(a)
-    else:
-        return scipy.sparse.csr_matrix(data)
-
-
 def _convert_to_gpuarray_c(data):
     return _convert_to_gpuarray(data, order='C')
 
@@ -257,7 +228,6 @@ _data_generators = {
     'classification': _gen_data_classification,
     'regression': _gen_data_regression,
     'higgs': _gen_data_higgs,
-    '20newsgroups': _gen_data_20newsgroups
 }
 _data_converters = {
     'numpy': _convert_to_numpy,
