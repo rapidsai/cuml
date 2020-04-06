@@ -23,8 +23,7 @@ class BaseLinearModelSyncFitMixin(object):
 
     def _fit(self, model_func, data, **kwargs):
 
-        for d in data:
-            d = self.client.persist(data)
+        n_cols = data[0].shape[1]
 
         data = DistributedDataHandler.create(data=data, client=self.client)
         self.datatype = data.datatype
@@ -34,8 +33,6 @@ class BaseLinearModelSyncFitMixin(object):
 
         data.calculate_parts_to_sizes(comms)
         self.ranks = data.ranks
-
-        n_cols = d[0].shape[1]
 
         lin_models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
             model_func,
