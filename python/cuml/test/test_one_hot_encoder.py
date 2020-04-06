@@ -22,6 +22,7 @@ import numpy as np
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
 from cuml.test.utils import stress_param
+from pandas.util.testing import assert_frame_equal
 
 
 def _from_df_to_array(df):
@@ -65,7 +66,7 @@ def test_onehot_inverse_transform(drop):
     ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
 
-    assert X.equals(inv)
+    assert_frame_equal(inv.to_pandas(), X.to_pandas())
 
 
 def test_onehot_categories():
@@ -118,7 +119,7 @@ def test_onehot_inverse_transform_handle_unknown():
     enc = enc.fit(X)
     df = enc.inverse_transform(Y_ohe)
     ref = DataFrame({'chars': [None, 'b'], 'int': [0, 2]})
-    assert df.equals(ref)
+    assert_frame_equal(df.to_pandas(), ref.to_pandas())
 
 
 @pytest.mark.parametrize('drop', [None, 'first'])
@@ -141,7 +142,7 @@ def test_onehot_random_inputs(drop, sparse, n_samples):
 
     inv_ohe = enc.inverse_transform(ohe)
 
-    assert inv_ohe.equals(df)
+    assert_frame_equal(inv_ohe.to_pandas(), df.to_pandas())
 
 
 def test_onehot_drop_idx_first():
@@ -154,7 +155,8 @@ def test_onehot_drop_idx_first():
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
-    assert X.equals(enc.inverse_transform(ohe))
+    inv = enc.inverse_transform(ohe)
+    assert_frame_equal(inv.to_pandas(), X.to_pandas())
 
 
 def test_onehot_drop_one_of_each():
@@ -164,7 +166,8 @@ def test_onehot_drop_one_of_each():
     ohe = enc.fit_transform(X)
     ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
     cp.testing.assert_array_equal(ohe, ref)
-    assert X.equals(enc.inverse_transform(ohe))
+    inv = enc.inverse_transform(ohe)
+    assert_frame_equal(inv.to_pandas(), X.to_pandas())
 
 
 @pytest.mark.parametrize("drop, pattern",
