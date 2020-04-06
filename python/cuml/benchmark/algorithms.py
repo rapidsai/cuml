@@ -20,9 +20,11 @@ import sklearn.cluster
 import sklearn.neighbors
 import sklearn.ensemble
 import sklearn.random_projection
+import sklearn.naive_bayes
 from sklearn import metrics
 import cuml.metrics
 import cuml.decomposition
+import cuml.naive_bayes
 from cuml.utils.import_utils import has_umap
 import numpy as np
 import tempfile
@@ -204,7 +206,9 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.cluster.KMeans,
             cuml.cluster.KMeans,
-            shared_args=dict(init="random", n_clusters=8, max_iter=300),
+            shared_args=dict(init="kmeans++", n_clusters=8,
+                             max_iter=300, n_init=10),
+            cuml_args=dict(oversampling_factor=0),
             name="KMeans",
             accepts_labels=False,
             accuracy_function=metrics.homogeneity_score,
@@ -226,7 +230,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.random_projection.GaussianRandomProjection,
             cuml.random_projection.GaussianRandomProjection,
-            shared_args=dict(n_components="auto"),
+            shared_args=dict(n_components=10),
             name="GaussianRandomProjection",
             bench_func=fit_transform,
             accepts_labels=False,
@@ -234,7 +238,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.random_projection.SparseRandomProjection,
             cuml.random_projection.SparseRandomProjection,
-            shared_args=dict(n_components="auto"),
+            shared_args=dict(n_components=10),
             name="SparseRandomProjection",
             bench_func=fit_transform,
             accepts_labels=False,
@@ -366,6 +370,15 @@ def all_algorithms():
             name="KNeighborsRegressor",
             accepts_labels=True,
             accuracy_function=cuml.metrics.r2_score
+        ),
+        AlgorithmPair(
+            sklearn.naive_bayes.MultinomialNB,
+            cuml.naive_bayes.MultinomialNB,
+            shared_args={},
+            cuml_args={},
+            name="MultinomialNB",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score
         ),
         AlgorithmPair(
             treelite if has_treelite() else None,
