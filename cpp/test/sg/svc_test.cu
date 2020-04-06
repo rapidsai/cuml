@@ -37,9 +37,9 @@
 #include "matrix/kernelmatrices.h"
 #include "random/make_blobs.h"
 #include "random/rng.h"
-#include "svm/smoblocksolve.h"
-#include "svm/smosolver.h"
-#include "svm/workingset.h"
+#include "svm/smoblocksolve.cuh"
+#include "svm/smosolver.cuh"
+#include "svm/workingset.cuh"
 #include "test_utils.h"
 
 namespace ML {
