@@ -31,15 +31,24 @@ namespace Matrix {
 using namespace std;
 
 /**
- * @brief copy operation for matrices.
- * @param in: input matrix
- * @param out: output matrix
- * @param n_rows: number of rows of output matrix
- * @param n_cols: number of columns of output matrix
+ * @brief Copy selected rows of the input matrix into contiguous space.
+ *
+ * On exit out[i + k*n_rows] = in[indices[i] + k*n_rows],
+ * where i = 0..n_rows_indices-1, and k = 0..n_cols-1.
+ *
+ * @param in input matrix
+ * @param n_rows number of rows of output matrix
+ * @param n_cols number of columns of output matrix
+ * @param out output matrix
+ * @param indices of the rows to be copied
+ * @param n_rows_indices number of rows to copy
+ * @param stream cuda stream
+ * @param rowMajor, whether the matrix has row major layout
  */
 template <typename m_t>
-void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out, int *indices,
-              int n_rows_indices, cudaStream_t stream, bool rowMajor = false) {
+void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out,
+              const int *indices, int n_rows_indices, cudaStream_t stream,
+              bool rowMajor = false) {
   if (rowMajor) {
     ASSERT(false, "matrix.h: row major is not supported yet!");
   }
@@ -169,16 +178,17 @@ void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
  * @{
  */
 template <typename m_t>
-void print(m_t *in, int n_rows, int n_cols) {
-  // couldn't find a way to pass stream to constructor below
-  thrust::host_vector<m_t> h_matrix(
-    thrust::device_ptr<m_t>(in), thrust::device_ptr<m_t>(in + n_cols * n_rows));
+void print(const m_t *in, int n_rows, int n_cols, char h_separator = ' ',
+           char v_separator = '\n') {
+  std::vector<m_t> h_matrix = std::vector<m_t>(n_cols * n_rows);
+  CUDA_CHECK(cudaMemcpy(h_matrix.data(), in, n_cols * n_rows * sizeof(m_t),
+                        cudaMemcpyDeviceToHost));
 
   for (auto i = 0; i < n_rows; i++) {
     for (auto j = 0; j < n_cols; j++) {
-      printf("%1.4f ", h_matrix[j * n_rows + i]);
+      printf("%1.4f%c", h_matrix[j * n_rows + i],
+             j < n_cols - 1 ? h_separator : v_separator);
     }
-    printf("\n");
   }
 }
 /** @} */
@@ -191,7 +201,7 @@ void print(m_t *in, int n_rows, int n_cols) {
  * @{
  */
 template <typename m_t>
-void printHost(m_t *in, int n_rows, int n_cols) {
+void printHost(const m_t *in, int n_rows, int n_cols) {
   for (auto i = 0; i < n_rows; i++) {
     for (auto j = 0; j < n_cols; j++) {
       printf("%1.4f ", in[j * n_rows + i]);

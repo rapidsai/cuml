@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <cuml/manifold/umapparams.h>
 #include "naive.h"
-#include "umap/umapparams.h"
 
 #include "sparse/coo.h"
 
@@ -37,13 +37,14 @@ using namespace ML;
 	 * @param algorithm: the algorithm to use (allows easy comparisons)
 	 */
 template <int TPB_X, typename T>
-void run(int n, const long *knn_indices, const T *knn_dists, int n_neighbors,
-         MLCommon::Sparse::COO<T> *coo, UMAPParams *params, cudaStream_t stream,
+void run(int n, const int64_t *knn_indices, const T *knn_dists, int n_neighbors,
+         MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
+         std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
          int algorithm = 0) {
   switch (algorithm) {
     case 0:
       Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists, n_neighbors, coo,
-                                params, stream);
+                                params, alloc, stream);
       break;
   }
 }

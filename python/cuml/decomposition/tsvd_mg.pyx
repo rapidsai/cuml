@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
@@ -23,570 +22,175 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
+import rmm
+
+from libc.stdlib cimport malloc, free
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint32_t, uint64_t
+from cython.operator cimport dereference as deref
 
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-from cuml.utils import zeros
-
-cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
-
-    cdef void tsvdFitSPMG(float *h_input,
-                          float *h_components,
-                          float *h_singular_vals,
-                          paramsTSVD prms,
-                          int *gpu_ids,
-                          int n_gpus)
-
-    cdef void tsvdFitSPMG(double *h_input,
-                          double *h_components,
-                          double *h_singular_vals,
-                          paramsTSVD prms,
-                          int *gpu_ids,
-                          int n_gpus)
-
-    cdef void tsvdFitTransformSPMG(float *h_input,
-                                   float *h_trans_input,
-                                   float *h_components,
-                                   float *h_explained_var,
-                                   float *h_explained_var_ratio,
-                                   float *h_singular_vals,
-                                   paramsTSVD prms,
-                                   int *gpu_ids,
-                                   int n_gpus)
-
-    cdef void tsvdFitTransformSPMG(double *h_input,
-                                   double *h_trans_input,
-                                   double *h_components,
-                                   double *h_explained_var,
-                                   double *h_explained_var_ratio,
-                                   double *h_singular_vals,
-                                   paramsTSVD prms,
-                                   int *gpu_ids,
-                                   int n_gpus)
-
-    cdef void tsvdInverseTransformSPMG(float *h_trans_input,
-                                       float *h_components,
-                                       bool trans_comp,
-                                       float *input,
-                                       paramsTSVD prms,
-                                       int *gpu_ids,
-                                       int n_gpus)
-
-    cdef void tsvdInverseTransformSPMG(double *h_trans_input,
-                                       double *h_components,
-                                       bool trans_comp,
-                                       double *input,
-                                       paramsTSVD prms,
-                                       int *gpu_ids,
-                                       int n_gpus)
-
-    cdef void tsvdTransformSPMG(float *h_input,
-                                float *h_components,
-                                bool trans_comp,
-                                float *h_trans_input,
-                                paramsTSVD prms,
-                                int *gpu_ids,
-                                int n_gpus)
-
-    cdef void tsvdTransformSPMG(double *h_input,
-                                double *h_components,
-                                bool trans_comp,
-                                double *h_trans_input,
-                                paramsTSVD prms,
-                                int *gpu_ids,
-                                int n_gpus)
-
-
-class TSVDparams:
-    def __init__(self, n_components, tol, iterated_power, random_state,
-                 svd_solver):
-        self.n_components = n_components
-        self.svd_solver = svd_solver
-        self.tol = tol
-        self.iterated_power = iterated_power
-        self.random_state = random_state
-        self.n_cols = None
-        self.n_rows = None
-
-
-class TruncatedSVDSPMG:
-    """
-    Create a DataFrame, fill it with data, and compute Truncated Singular Value
-    Decomposition:
-
-    .. code-block:: python
-
-            from cuml import TruncatedSVD
-            import cudf
-            import numpy as np
-
-            gdf_float = cudf.DataFrame()
-            gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
-            gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
-            gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
-
-            tsvd_float = TruncatedSVD(n_components = 2, algorithm="jacobi",
-                                      n_iter=20, tol=1e-9)
-            tsvd_float.fit(gdf_float)
-
-            print(f'components: {tsvd_float.components_}')
-            print(f'explained variance: {tsvd_float.explained_variance_}')
-            exp_var = tsvd_float.explained_variance_ratio_
-            print(f'explained variance ratio: {exp_var}')
-            print(f'singular values: {tsvd_float.singular_values_}')
 
-            trans_gdf_float = tsvd_float.transform(gdf_float)
-            print(f'Transformed matrix: {trans_gdf_float}')
+from cuml.decomposition import TruncatedSVD
+from cuml.decomposition.base_mg import BaseDecompositionMG
+
+cdef extern from "cumlprims/opg/matrix/data.hpp" \
+                 namespace "MLCommon::Matrix":
+
+    cdef cppclass floatData_t:
+        floatData_t(float *ptr, size_t totalSize)
+        float *ptr
+        size_t totalSize
+
+    cdef cppclass doubleData_t:
+        doubleData_t(double *ptr, size_t totalSize)
+        double *ptr
+        size_t totalSize
+
+cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
+                 namespace "MLCommon::Matrix":
+
+    cdef cppclass RankSizePair:
+        int rank
+        size_t size
+
+cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
+
+    cdef void fit_transform(cumlHandle& handle,
+                            RankSizePair **rank_sizes,
+                            size_t n_parts,
+                            floatData_t **input,
+                            floatData_t **trans_input,
+                            float *components,
+                            float *explained_var,
+                            float *explained_var_ratio,
+                            float *singular_vals,
+                            paramsTSVD &prms,
+                            bool verbose) except +
+
+    cdef void fit_transform(cumlHandle& handle,
+                            RankSizePair **rank_sizes,
+                            size_t n_parts,
+                            doubleData_t **input,
+                            doubleData_t **trans_input,
+                            double *components,
+                            double *explained_var,
+                            double *explained_var_ratio,
+                            double *singular_vals,
+                            paramsTSVD &prms,
+                            bool verbose) except +
+
+    cdef void transform(cumlHandle& handle,
+                        RankSizePair **rank_sizes,
+                        size_t n_parts,
+                        floatData_t **input,
+                        float *components,
+                        floatData_t **trans_input,
+                        paramsTSVD &prms,
+                        bool verbose) except +
+
+    cdef void transform(cumlHandle& handle,
+                        RankSizePair **rank_sizes,
+                        size_t n_parts,
+                        doubleData_t **input,
+                        double *components,
+                        doubleData_t **trans_input,
+                        paramsTSVD &prms,
+                        bool verbose) except +
+
+    cdef void inverse_transform(cumlHandle& handle,
+                                RankSizePair **rank_sizes,
+                                size_t n_parts,
+                                floatData_t **trans_input,
+                                float *components,
+                                floatData_t **input,
+                                paramsTSVD &prms,
+                                bool verbose) except +
+
+    cdef void inverse_transform(cumlHandle& handle,
+                                RankSizePair **rank_sizes,
+                                size_t n_parts,
+                                doubleData_t **trans_input,
+                                double *components,
+                                doubleData_t **input,
+                                paramsTSVD &prms,
+                                bool verbose) except +
+
+
+class TSVDMG(TruncatedSVD, BaseDecompositionMG):
+
+    def __init__(self, **kwargs):
+        super(TSVDMG, self).__init__(**kwargs)
+
+    def _call_fit(self, arr_interfaces, p2r, rank, arg_rank_size_pair,
+                  n_total_parts, arg_params):
+
+        cdef uintptr_t comp_ptr = self._components_.ptr
+        cdef uintptr_t explained_var_ptr = self._explained_variance_.ptr
+        cdef uintptr_t explained_var_ratio_ptr = \
+            self._explained_variance_ratio_.ptr
+        cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-            input_gdf_float = tsvd_float.inverse_transform(trans_gdf_float)
-            print(f'Input matrix: {input_gdf_float}')
+        cdef uintptr_t data
+        cdef uintptr_t trans_data
 
-    Output:
-
-    .. code-block:: python
-
-            components:            0           1          2
-            0 0.58725953  0.57233137  0.5723314
-            1 0.80939883 -0.41525528 -0.4152552
-            explained variance:
-            0  55.33908
-            1 16.660923
-
-            explained variance ratio:
-            0  0.7685983
-            1 0.23140171
-
-            singular values:
-            0  7.439024
-            1 4.0817795
-
-            Transformed matrix:           0            1
-            0 5.1659107    -2.512643
-            1 3.4638448 -0.042223275
-            2 4.0809603    3.2164836
-
-            Input matrix:           0         1         2
-            0       1.0  4.000001  4.000001
-            1 2.0000005 2.0000005 2.0000007
-            2  5.000001 0.9999999 1.0000004
-
-    For additional examples, see the Truncated SVD  notebook
-    <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_.
-    For additional documentation, see `scikitlearn's TruncatedSVD docs
-    <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
-
-    """
-
-    def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,
-                 algorithm='full'):
-        if algorithm in ['full', 'auto', 'jacobi']:
-            c_algorithm = self._get_algorithm_c_name(algorithm)
-        else:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(algorithm))
-        self.params = TSVDparams(n_components, tol, n_iter, random_state,
-                                 c_algorithm)
-        self.components_ = None
-        self.explained_variance_ = None
-        self.explained_variance_ratio_ = None
-        self.singular_values_ = None
-        self.components_ptr = None
-        self.explained_variance_ptr = None
-        self.explained_variance_ratio_ptr = None
-        self.singular_values_ptr = None
-
-        self.algo_dict = {'full': COV_EIG_DQ,
-                          'auto': COV_EIG_DQ,
-                          'jacobi': COV_EIG_JACOBI}
-
-    def _get_algorithm_c_name(self, algorithm):
-        return self.algo_dict[algorithm]
-
-    def _initialize_arrays(self, n_components, n_rows, n_cols):
-
-        self.trans_input_ = zeros(n_rows*n_components, self.dtype)
-
-        self.components_ = zeros(n_cols*n_components, self.dtype)
-
-        self.explained_variance_ = \
-            cudf.Series(zeros(n_components, self.dtype))
-
-        self.explained_variance_ratio_ = \
-            cudf.Series(zeros(n_components, self.dtype))
-
-        self.mean_ = cudf.Series(zeros(n_cols, self.dtype))
-
-        self.singular_values_ = \
-            cudf.Series(zeros(n_components, self.dtype))
-
-        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
-
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        return self._get_ctype_ptr(gdf.as_gpu_matrix())
-
-    def _fit_spmg(self, X, _transform=True, gpu_ids=[]):
-
-        if (not isinstance(X, np.ndarray)):
-            msg = "X matrix must be a Numpy ndarray. Dask will be supported" \
-                  + " in the next version."
-            raise TypeError(msg)
-
-        n_gpus = len(gpu_ids)
-
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-        self.params.n_rows = n_rows
-        self.params.n_cols = n_cols
-
-        if (n_rows < 2):
-            msg = "X must have at least two rows."
-            raise TypeError(msg)
-
-        if (n_cols < 2):
-            msg = "X must have at least two columns."
-            raise TypeError(msg)
-
-        if (not np.isfortran(X)):
-            X = np.array(X, order='F', dtype=X.dtype)
-
-        cpdef paramsTSVD params
-        params.n_components = self.params.n_components
-        params.n_rows = n_rows
-        params.n_cols = n_cols
-        params.n_iterations = self.params.iterated_power
-        params.tol = self.params.tol
-        params.algorithm = self.params.svd_solver
-
-        cdef uintptr_t X_ptr, components_ptr, explained_variance_ptr
-        cdef uintptr_t explained_variance_ratio_ptr, singular_values_ptr,
-        cdef uintptr_t trans_input_ptr, gpu_ids_ptr
-
-        self.dtype = X.dtype
-
-        self.components_ = zeros((n_cols, self.params.n_components),
-                                 dtype=X.dtype, order='F')
-        self.explained_variance_ = zeros(self.params.n_components,
-                                         dtype=X.dtype, order='F')
-        self.explained_variance_ratio_ = zeros(self.params.n_components,
-                                               dtype=X.dtype, order='F')
-        self.singular_values_ = zeros(self.params.n_components,
-                                      dtype=X.dtype, order='F')
-        self.trans_input_ = zeros((n_rows, self.params.n_components),
-                                  dtype=X.dtype, order='F')
-
-        X_ptr = X.ctypes.data
-        components_ptr = self.components_.ctypes.data
-        explained_variance_ptr = self.explained_variance_ratio_.ctypes.data
-        exp_vr = self.explained_variance_ratio_
-        explained_variance_ratio_ptr = exp_vr.ctypes.data
-        singular_values_ptr = self.singular_values_.ctypes.data
-        trans_input_ptr = self.trans_input_.ctypes.data
-        gpu_ids_32 = np.array(gpu_ids, dtype=np.int32)
-        gpu_ids_ptr = gpu_ids_32.ctypes.data
-
-        if not _transform:
-            if self.dtype == np.float32:
-                tsvdFitSPMG(<float*>X_ptr,
-                            <float*>components_ptr,
-                            <float*>singular_values_ptr,
-                            params,
-                            <int*>gpu_ids_ptr,
-                            <int>n_gpus)
-
-            else:
-                tsvdFitSPMG(<float*>X_ptr,
-                            <float*>components_ptr,
-                            <float*>singular_values_ptr,
-                            params,
-                            <int*>gpu_ids_ptr,
-                            <int>n_gpus)
-        else:
-            if self.dtype == np.float32:
-                tsvdFitTransformSPMG(<float*>X_ptr,
-                                     <float*>trans_input_ptr,
-                                     <float*>components_ptr,
-                                     <float*>explained_variance_ptr,
-                                     <float*>explained_variance_ratio_ptr,
-                                     <float*>singular_values_ptr,
-                                     params,
-                                     <int*>gpu_ids_ptr,
-                                     <int>n_gpus)
-
-            else:
-                tsvdFitTransformSPMG(<double*>X_ptr,
-                                     <double*>trans_input_ptr,
-                                     <double*>components_ptr,
-                                     <double*>explained_variance_ptr,
-                                     <double*>explained_variance_ratio_ptr,
-                                     <double*>singular_values_ptr,
-                                     params,
-                                     <int*>gpu_ids_ptr,
-                                     <int>n_gpus)
-
-        self.components_ = np.transpose(self.components_)
-
-        return self
-
-    def _fit_transform_spmg(self, X, gpu_ids):
-        self._fit_spmg(X, True, gpu_ids)
-        return self.trans_input_
-
-    def _inverse_transform_spmg(self, X, gpu_ids=[]):
-        n_gpus = len(gpu_ids)
-
-        if (not np.isfortran(X)):
-            X = np.array(X, order='F')
-
-        if (not np.isfortran(self.components_)):
-            self.components_ = np.array(self.components_, order='F',
-                                        dtype=X.dtype)
-
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
-        if (n_rows < 2):
-            msg = "X must have at least two rows."
-            raise TypeError(msg)
-
-        if (n_cols < 2):
-            msg = "X must have at least two columns."
-            raise TypeError(msg)
-
-        cpdef paramsTSVD params
-        params.n_components = self.params.n_components
-        params.n_rows = n_rows
-        params.n_cols = self.params.n_cols
-
-        original_X = zeros((n_rows, self.params.n_cols), dtype=X.dtype,
-                           order='F')
-
-        cdef uintptr_t X_ptr, original_X_ptr, gpu_ids_ptr, components_ptr
-
-        self.dtype = X.dtype
-
-        X_ptr = X.ctypes.data
-        original_X_ptr = original_X.ctypes.data
-        gpu_ids_32 = np.array(gpu_ids, dtype=np.int32)
-        gpu_ids_ptr = gpu_ids_32.ctypes.data
-        components_ptr = self.components_.ctypes.data
+        cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params
 
         if self.dtype == np.float32:
-            tsvdInverseTransformSPMG(<float*>X_ptr,
-                                     <float*>components_ptr,
-                                     <bool>False,
-                                     <float*>original_X_ptr,
-                                     params,
-                                     <int*>gpu_ids_ptr,
-                                     <int>n_gpus)
+            data = self._build_dataFloat(arr_interfaces)
+            arr_interfaces_trans = self._build_transData(p2r,
+                                                         rank,
+                                                         self.n_components,
+                                                         np.float32)
+            trans_data = self._build_dataFloat(arr_interfaces_trans)
 
+            fit_transform(handle_[0],
+                          <RankSizePair**><size_t>arg_rank_size_pair,
+                          <size_t> n_total_parts,
+                          <floatData_t**> data,
+                          <floatData_t**> trans_data,
+                          <float*> comp_ptr,
+                          <float*> explained_var_ptr,
+                          <float*> explained_var_ratio_ptr,
+                          <float*> singular_vals_ptr,
+                          deref(params),
+                          False)
         else:
-            tsvdInverseTransformSPMG(<double*>X_ptr,
-                                     <double*>components_ptr,
-                                     <bool>False,
-                                     <double*>original_X_ptr,
-                                     params,
-                                     <int*>gpu_ids_ptr,
-                                     <int>n_gpus)
+            data = self._build_dataDouble(arr_interfaces)
+            arr_interfaces_trans = self._build_transData(p2r,
+                                                         rank,
+                                                         self.n_components,
+                                                         np.float64)
+            trans_data = self._build_dataDouble(arr_interfaces_trans)
 
-        return original_X
+            fit_transform(handle_[0],
+                          <RankSizePair**><size_t>arg_rank_size_pair,
+                          <size_t> n_total_parts,
+                          <doubleData_t**> data,
+                          <doubleData_t**> trans_data,
+                          <double*> comp_ptr,
+                          <double*> explained_var_ptr,
+                          <double*> explained_var_ratio_ptr,
+                          <double*> singular_vals_ptr,
+                          deref(params),
+                          False)
 
-    def _transform_spmg(self, X, gpu_ids=[]):
-        n_gpus = len(gpu_ids)
+        self.handle.sync()
 
-        if (not np.isfortran(X)):
-            X = np.array(X, order='F')
+        return arr_interfaces_trans, data, trans_data
 
-        if (not np.isfortran(self.components_)):
-            self.components_ = np.array(self.components_, order='F',
-                                        dtype=X.dtype)
-
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
-        if (n_rows < 2):
-            msg = "X must have at least two rows."
-            raise TypeError(msg)
-
-        if (n_cols < 2):
-            msg = "X must have at least two columns."
-            raise TypeError(msg)
-
-        cpdef paramsTSVD params
-        params.n_components = self.params.n_components
-        params.n_rows = n_rows
-        params.n_cols = self.params.n_cols
-
-        trans_X = zeros((n_rows, self.params.n_components), dtype=X.dtype,
-                        order='F')
-
-        cdef uintptr_t X_ptr, trans_X_ptr, gpu_ids_ptr, components_ptr
-
-        self.dtype = X.dtype
-
-        X_ptr = X.ctypes.data
-        trans_X_ptr = trans_X.ctypes.data
-        gpu_ids_32 = np.array(gpu_ids, dtype=np.int32)
-        gpu_ids_ptr = gpu_ids_32.ctypes.data
-        components_ptr = self.components_.ctypes.data
-
-        if self.dtype == np.float32:
-            tsvdTransformSPMG(<float*>X_ptr,
-                              <float*>components_ptr,
-                              <bool>True,
-                              <float*>trans_X_ptr,
-                              params,
-                              <int*>gpu_ids_ptr,
-                              <int>n_gpus)
-
-        else:
-            tsvdTransformSPMG(<double*>X_ptr,
-                              <double*>components_ptr,
-                              <bool>True,
-                              <double*>trans_X_ptr,
-                              params,
-                              <int*>gpu_ids_ptr,
-                              <int>n_gpus)
-
-        return trans_X
-
-    def fit(self, X, n_gpus=1, gpu_ids=[]):
+    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
         """
-        Fit LSI model on training cudf DataFrame X.
-
-        Parameters
-        ----------
-        X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-            Training data (floats or doubles)
-
-        n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter
-                 has more than element, this parameter is ignored.
-
-        gpu_ids: int array
-                 GPU ids to be used for prediction.
-
+        Fit function for TSVD MG. This not meant to be used as
+        part of the public API.
+        :param X: array of local dataframes / array partitions
+        :param M: total number of rows
+        :param N: total number of cols
+        :param partsToRanks: array of tuples in the format: [(rank,size)]
+        :return: self
         """
-
-        if (len(gpu_ids) > 1):
-            return self._fit_spmg(X, True, gpu_ids)
-        elif (n_gpus > 1):
-            for i in range(0, n_gpus):
-                gpu_ids.append(i)
-            return self._fit_spmg(X, True, gpu_ids)
-        else:
-            raise ValueError('Number of GPUS should be 2 or more'
-                             'For single GPU, use the normal TruncatedSVD')
-
-    def fit_transform(self, X, n_gpus=1, gpu_ids=[]):
-        """
-        Fit LSI model to X and perform dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X GDF : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-                Training data (floats or doubles)
-
-        n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter
-                 has more than element, this parameter is ignored.
-
-        gpu_ids: int array
-                 GPU ids to be used for prediction.
-
-        Returns
-        ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X. This will always be a dense cuDF
-                DataFrame
-
-        """
-
-        if (len(gpu_ids) > 1):
-            return self._fit_transform_spmg(X, gpu_ids)
-        elif (n_gpus > 1):
-            for i in range(0, n_gpus):
-                gpu_ids.append(i)
-            return self._fit_transform_spmg(X, gpu_ids)
-        else:
-            raise ValueError('Number of GPUS should be 2 or more'
-                             'For single GPU, use the normal TruncatedSVD')
-
-    def inverse_transform(self, X, n_gpus=1, gpu_ids=[]):
-        """
-        Transform X back to its original space.
-
-        Returns a cuDF DataFrame X_original whose transform would be X.
-
-        Parameters
-        ----------
-        X : cuDF DataFrame, shape (n_samples, n_components)
-            New data.
-
-        n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter
-                 has more than element, this parameter is ignored.
-
-        gpu_ids: int array
-                 GPU ids to be used for prediction.
-
-        Returns
-        ----------
-        X_original : cuDF DataFrame, shape (n_samples, n_features)
-                     Note that this is always a dense cuDF DataFrame.
-
-        """
-
-        if (len(gpu_ids) > 1):
-            return self._inverse_transform_spmg(X, gpu_ids)
-        elif (n_gpus > 1):
-            for i in range(0, n_gpus):
-                gpu_ids.append(i)
-            return self._inverse_transform_spmg(X, gpu_ids)
-        else:
-            raise ValueError('Number of GPUS should be 2 or more'
-                             'For single GPU, use the normal TruncatedSVD')
-
-    def transform(self, X, n_gpus=1, gpu_ids=[]):
-        """
-        Perform dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-            New data.
-
-        n_gpus : int
-                 Number of gpus to be used for prediction. If gpu_ids parameter
-                 has more than element, this parameter is ignored.
-
-        gpu_ids: int array
-                 GPU ids to be used for prediction.
-
-        Returns
-        ----------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-            Reduced version of X. This will always be a dense DataFrame.
-
-        """
-
-        if (len(gpu_ids) > 1):
-            return self._transform_spmg(X, gpu_ids)
-        elif (n_gpus > 1):
-            for i in range(0, n_gpus):
-                gpu_ids.append(i)
-            return self._transform_spmg(X, gpu_ids)
-        else:
-            raise ValueError('Number of GPUS should be 2 or more'
-                             'For single GPU, use the normal TruncatedSVD')
+        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)

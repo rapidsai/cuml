@@ -16,18 +16,26 @@
 
 import cudf
 import nvcategory
-
-from librmm_cffi import librmm
+import rmm
 import numpy as np
 
 
 def _enforce_str(y: cudf.Series) -> cudf.Series:
-    """
-    Ensure that nvcategory is being given strings
-    """
+    ''' Ensure that nvcategory is being given strings
+    '''
     if y.dtype != "object":
         return y.astype("str")
     return y
+
+
+def _enforce_npint32(y: cudf.Series) -> cudf.Series:
+    if y.dtype != np.int32:
+        return y.astype(np.int32)
+    return y
+
+
+def _get_nvstring_from_series(y: cudf.Series):
+    return y._data[list(y._data.keys())[0]].nvstrings
 
 
 class LabelEncoder(object):
@@ -39,6 +47,7 @@ class LabelEncoder(object):
     Converting a categorical implementation to a numerical one
 
     .. code-block:: python
+
         from cudf import DataFrame, Series
 
         data = DataFrame({'category': ['a', 'b', 'c', 'd']})
@@ -65,9 +74,17 @@ class LabelEncoder(object):
         encoded = le.transform(test_data)
         print(encoded)
 
+        # After train, ordinal label can be inverse_transform() back to
+        # string labels
+        ord_label = cudf.Series([0, 0, 1, 2, 1])
+        ord_label = dask_cudf.from_cudf(data, npartitions=2)
+        str_label = le.inverse_transform(ord_label)
+        print(str_label)
+
     Output:
 
     .. code-block:: python
+
         0    0
         1    1
         2    2
@@ -89,23 +106,31 @@ class LabelEncoder(object):
         0    2
         1    0
         dtype: int64
+
+        0    a
+        1    a
+        2    b
+        3    c
+        4    b
+        dtype: object
+
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
         self._fitted: bool = False
 
     def _check_is_fitted(self):
         if not self._fitted:
-            raise TypeError("Model must first be .fit()")
+            raise RuntimeError("Model must first be .fit()")
 
     def fit(self, y: cudf.Series) -> "LabelEncoder":
         """
         Fit a LabelEncoder (nvcategory) instance to a set of categories
 
         Parameters
-        ---------
+        ----------
         y : cudf.Series
             Series containing the categories to be encoded. It's elements
             may or may not be unique
@@ -119,7 +144,13 @@ class LabelEncoder(object):
 
         y = _enforce_str(y)
 
-        self._cats = nvcategory.from_strings(y.data)
+        nvs = _get_nvstring_from_series(y)
+
+        if nvs is not None:
+            self._cats = nvcategory.from_strings(nvs)
+        else:
+            self._cats = {}
+
         self._fitted = True
         return self
 
@@ -138,7 +169,7 @@ class LabelEncoder(object):
             categories given to `fit`
 
         Returns
-        ------
+        -------
         encoded : cudf.Series
             The ordinally encoded input series
 
@@ -150,11 +181,12 @@ class LabelEncoder(object):
         self._check_is_fitted()
         y = _enforce_str(y)
         encoded = cudf.Series(
-            nvcategory.from_strings(y.data)
+            nvcategory.from_strings(_get_nvstring_from_series(y))
             .set_keys(self._cats.keys())
             .values()
         )
-        if -1 in encoded:
+
+        if encoded.isin([-1]).any():
             raise KeyError("Attempted to encode unseen key")
         return encoded
 
@@ -171,14 +203,56 @@ class LabelEncoder(object):
         y = _enforce_str(y)
 
         # Bottleneck is here, despite everything being done on the device
-        self._cats = nvcategory.from_strings(y.data)
+
+        nvs = _get_nvstring_from_series(y)
+
+        if nvs is not None:
+            self._cats = nvcategory.from_strings(nvs)
+        else:
+            self._cats = {}
 
         self._fitted = True
-        arr: librmm.device_array = librmm.device_array(
-            y.data.size(), dtype=np.int32
+        arr: rmm.device_array = rmm.device_array(
+            len(y), dtype=np.int32
         )
-        self._cats.values(devptr=arr.device_ctypes_pointer.value)
+
+        if nvs is not None:
+            self._cats.values(devptr=arr.device_ctypes_pointer.value)
         return cudf.Series(arr)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
-        raise NotImplementedError
+        """
+        Revert ordinal label to original label
+
+        Parameters
+        ----------
+        y : cudf.Series, dtype=int32
+            Ordinal labels to be reverted
+
+        Returns
+        -------
+        reverted : cudf.Series
+            Reverted labels
+        """
+        # check LabelEncoder is fitted
+        self._check_is_fitted()
+        # check input type is cudf.Series
+        if not isinstance(y, cudf.Series):
+            raise TypeError(
+                'Input of type {} is not cudf.Series'.format(type(y)))
+
+        # check if y's dtype is np.int32, otherwise convert it
+        y = _enforce_npint32(y)
+
+        # check if ord_label out of bound
+        ord_label = y.unique()
+        category_num = len(self._cats.keys())
+        for ordi in ord_label:
+            if ordi < 0 or ordi >= category_num:
+                raise ValueError(
+                    'y contains previously unseen label {}'.format(ordi))
+        # convert ordinal label to string label
+        reverted = cudf.Series(self._cats.gather_strings(
+            y.data.ptr, len(y)))
+
+        return reverted

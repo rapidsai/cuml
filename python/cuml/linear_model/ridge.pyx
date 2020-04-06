@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import cudf
 import numpy as np
 from collections import defaultdict
 from numba import cuda
+import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -31,11 +32,11 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
+from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
-cdef extern from "glm/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     cdef void ridgeFit(cumlHandle& handle,
                        float *input,
@@ -48,7 +49,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                        float *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo)
+                       int algo) except +
 
     cdef void ridgeFit(cumlHandle& handle,
                        double *input,
@@ -61,7 +62,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                        double *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo)
+                       int algo) except +
 
     cdef void ridgePredict(cumlHandle& handle,
                            const float *input,
@@ -69,7 +70,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                            int n_cols,
                            const float *coef,
                            float intercept,
-                           float *preds)
+                           float *preds) except +
 
     cdef void ridgePredict(cumlHandle& handle,
                            const double *input,
@@ -77,7 +78,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                            int n_cols,
                            const double *coef,
                            double intercept,
-                           double *preds)
+                           double *preds) except +
 
 
 class Ridge(Base, RegressorMixin):
@@ -88,10 +89,14 @@ class Ridge(Base, RegressorMixin):
     predictors in X. It can reduce the variance of the predictors, and improves
     the conditioning of the problem.
 
-    cuML's Ridge an array-like object or cuDF DataFrame, and provides 3
-    algorithms: SVD, Eig and CD to fit a linear model. SVD is more stable,
-    but Eig (default) is much faster. CD uses Coordinate Descent and can be
-    faster when data is large.
+    cuML's Ridge can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects. It provides 3
+    algorithms: SVD, Eig and CD to fit a linear model. In general SVD uses
+    significantly more memory and is slower than Eig. If using CUDA 10.1,
+    the memory difference is even bigger than in the other supported CUDA
+    versions. However, SVD is more stable than Eig (default). CD uses
+    Coordinate Descent and can be faster when data is large.
 
     Examples
     ---------
@@ -105,7 +110,7 @@ class Ridge(Base, RegressorMixin):
         from cuml import Ridge
         from cuml.linear_model import Ridge
 
-        alpha = np.array([1.0])
+        alpha = np.array([1e-5])
         ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False,
                       solver = "eig")
 
@@ -115,10 +120,10 @@ class Ridge(Base, RegressorMixin):
 
         y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
 
-        result_ridge = ridge.fit(X_cudf, y_cudf)
+        result_ridge = ridge.fit(X, y)
         print("Coefficients:")
         print(result_ridge.coef_)
-        print("intercept:")
+        print("Intercept:")
         print(result_ridge.intercept_)
 
         X_new = cudf.DataFrame()
@@ -126,6 +131,7 @@ class Ridge(Base, RegressorMixin):
         X_new['col2'] = np.array([5,5], dtype = np.float32)
         preds = result_ridge.predict(X_new)
 
+        print("Predictions:")
         print(preds)
 
     Output:
@@ -175,23 +181,22 @@ class Ridge(Base, RegressorMixin):
     ------
     Ridge provides L2 regularization. This means that the coefficients can
     shrink to become very small, but not zero. This can cause issues of
-    interpretabiliy on the coefficients.
+    interpretability on the coefficients.
     Consider using Lasso, or thresholding small coefficients to zero.
 
     **Applications of Ridge**
 
-        Ridge Regression is used in the same way as LinearRegression, but is
-        used frequently as it does not suffer from multicollinearity issues.
-        Ridge is used in insurance premium prediction, stock market analysis
-        and much more.
+        Ridge Regression is used in the same way as LinearRegression, but does
+        not suffer from multicollinearity issues.  Ridge is used in insurance
+        premium prediction, stock market analysis and much more.
 
 
-    For additional docs, see `scikitlearn's Ridge
+    For additional docs, see `Scikit-learn's Ridge Regression
     <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb>`_.
     """
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
-                 normalize=False, handle=None):
+                 normalize=False, handle=None, output_type=None):
 
         """
         Initializes the linear ridge regression class.
@@ -207,10 +212,14 @@ class Ridge(Base, RegressorMixin):
 
         """
         self._check_alpha(alpha)
-        super(Ridge, self).__init__(handle=handle, verbose=False)
+        super(Ridge, self).__init__(handle=handle, verbose=False,
+                                    output_type=output_type)
+
+        # internal array attributes
+        self._coef_ = None  # accessed via estimator.coef_
+        self._intercept_ = None  # accessed via estimator.intercept_
+
         self.alpha = alpha
-        self.coef_ = None
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
 
@@ -234,7 +243,7 @@ class Ridge(Base, RegressorMixin):
             'cd': 2
         }[algorithm]
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
@@ -250,13 +259,25 @@ class Ridge(Base, RegressorMixin):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        """
-        cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
 
-        y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y)
+        """
+        self._set_output_type(X)
+
+        cdef uintptr_t X_ptr, y_ptr
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        X_ptr = X_m.ptr
+
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+        y_ptr = y_m.ptr
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -266,16 +287,16 @@ class Ridge(Base, RegressorMixin):
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1:
-            # TODO: Throw algorithm when this changes algorithm from the user's
-            # choice. Github issue #602
+        if self.n_cols == 1 and self.algo != 0:
+            warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' " +
+                          "solvers do not support training data with 1 " +
+                          "column currently.", UserWarning)
             self.algo = 0
 
         self.n_alpha = 1
 
-        self.coef_ = cudf.Series(zeros(self.n_cols,
-                                       dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -324,7 +345,7 @@ class Ridge(Base, RegressorMixin):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
@@ -335,19 +356,32 @@ class Ridge(Base, RegressorMixin):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+        out_type = self._get_output_type(X)
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(zeros(n_rows, dtype=dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        cdef uintptr_t X_ptr
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+        X_ptr = X_m.ptr
+
+        cdef uintptr_t coef_ptr = self._coef_.ptr
+
+        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
@@ -371,39 +405,7 @@ class Ridge(Base, RegressorMixin):
 
         del(X_m)
 
-        return preds
+        return preds.to_output(out_type)
 
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-        if 'solver' in params.keys():
-            self.algo = self._get_algorithm_int(self.solver)
-        return self
+    def get_param_names(self):
+        return ['solver', 'fit_intercept', 'normalize', 'alpha']

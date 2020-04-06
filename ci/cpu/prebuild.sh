@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-export BUILD_ABI=1
 export BUILD_CUML=1
 
 if [[ "$PYTHON" == "3.6" ]]; then

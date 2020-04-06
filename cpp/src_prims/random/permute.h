@@ -141,8 +141,8 @@ struct permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, 1> {
 template <typename Type, typename IntType = int, typename IdxType = int,
           int TPB = 256>
 void permute(IntType* perms, Type* out, const Type* in, IntType D, IntType N,
-             bool rowMajor, cudaStream_t stream = 0) {
-  auto nblks = ceildiv(N, TPB);
+             bool rowMajor, cudaStream_t stream) {
+  auto nblks = ceildiv(N, (IntType)TPB);
 
   // always keep 'a' to be coprime to N
   IdxType a = rand() % N;

@@ -22,129 +22,108 @@
 import ctypes
 import cudf
 import numpy as np
+import rmm
 import warnings
 
-from numba import cuda
-
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, numba_utils
+from cuml.utils import input_to_cuml_array
 
-cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
-
+cdef extern from "cuml/cluster/kmeans.hpp" namespace \
+        "ML::kmeans::KMeansParams":
     enum InitMethod:
         KMeansPlusPlus, Random, Array
 
+cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
+
+    cdef struct KMeansParams:
+        int n_clusters,
+        InitMethod init
+        int max_iter,
+        double tol,
+        int verbose,
+        int seed,
+        int metric,
+        int n_init,
+        double oversampling_factor,
+        int batch_samples,
+        int batch_centroids,
+        bool inertia_check
+
     cdef void fit_predict(cumlHandle& handle,
-                          int n_clusters,
-                          int metric,
-                          InitMethod init,
-                          int max_iter,
-                          double tol,
-                          int seed,
+                          KMeansParams& params,
                           const float *X,
                           int n_samples,
                           int n_features,
                           float *centroids,
                           int *labels,
-                          int verbose)
+                          float &inertia,
+                          int &n_iter) except +
 
     cdef void fit_predict(cumlHandle& handle,
-                          int n_clusters,
-                          int metric,
-                          InitMethod init,
-                          int max_iter,
-                          double tol,
-                          int seed,
+                          KMeansParams& params,
                           const double *X,
                           int n_samples,
                           int n_features,
                           double *centroids,
                           int *labels,
-                          int verbose)
-
-    cdef void fit(cumlHandle& handle,
-                  int n_clusters,
-                  int metric,
-                  InitMethod init,
-                  int max_iter,
-                  double tol,
-                  int seed,
-                  const float *X,
-                  int n_samples,
-                  int n_features,
-                  float *centroids,
-                  int verbose)
-
-    cdef void fit(cumlHandle& handle,
-                  int n_clusters,
-                  int metric,
-                  InitMethod init,
-                  int max_iter,
-                  double tol,
-                  int seed,
-                  const double *X, int n_samples, int n_features,
-                  double *centroids,
-                  int verbose)
+                          double &inertia,
+                          int &n_iter) except +
 
     cdef void predict(cumlHandle& handle,
-                      float *centroids,
-                      int n_clusters,
+                      KMeansParams& params,
+                      const float *centroids,
                       const float *X,
                       int n_samples,
                       int n_features,
-                      int metric,
                       int *labels,
-                      int verbose)
+                      float &inertia) except +
 
     cdef void predict(cumlHandle& handle,
+                      KMeansParams& params,
                       double *centroids,
-                      int n_clusters,
                       const double *X,
                       int n_samples,
                       int n_features,
-                      int metric,
                       int *labels,
-                      int verbose)
+                      double &inertia) except +
 
     cdef void transform(cumlHandle& handle,
+                        KMeansParams& params,
                         const float *centroids,
-                        int n_clusters,
                         const float *X,
                         int n_samples,
                         int n_features,
                         int metric,
-                        float *X_new,
-                        int verbose)
+                        float *X_new) except +
 
     cdef void transform(cumlHandle& handle,
+                        KMeansParams& params,
                         const double *centroids,
-                        int n_clusters,
                         const double *X,
                         int n_samples,
                         int n_features,
                         int metric,
-                        double *X_new,
-                        int verbose)
+                        double *X_new) except +
 
 
 class KMeans(Base):
 
     """
     KMeans is a basic but powerful clustering method which is optimized via
-    Expectation Maximization. It randomnly selects K data points in X, and
+    Expectation Maximization. It randomly selects K data points in X, and
     computes which samples are close to these points.
     For every cluster of points, a mean is computed (hence the name), and this
     becomes the new centroid.
 
     cuML's KMeans expects an array-like object or cuDF DataFrame, and supports
-    the scalable KMeans++ intialization method. This method is more stable
-    than randomnly selecting K points.
+    the scalable KMeans++ initialization method. This method is more stable
+    than randomly selecting K points.
 
     Examples
     --------
@@ -219,31 +198,42 @@ class KMeans(Base):
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
-    tol : float (default = 1e-4)
+    tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : boolean (default = 0)
-        If True, prints diagnositc information.
+        If True, prints diagnostic information.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
-    precompute_distances : boolean (default = 'auto')
-        Not supported yet.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
-           (default = 'scalable-k-means++')
+    init : 'scalable-kmeans++', 'k-means||' , 'random' or an ndarray (default = 'scalable-k-means++')  # noqa
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ intialization.
+        kmeans++ initialization.
         'random': Choose 'n_cluster' observations (rows) at random from data
         for the initial centroids. If an ndarray is passed, it should be of
         shape (n_clusters, n_features) and gives the initial centers.
-    n_init : int (default = 1)
-        Number of times intialization is run. More is slower,
-        but can be better.
-    algorithm : "auto"
-        Currently uses full EM, but will support others later.
-    n_gpu : int (default = 1)
-        Number of GPUs to use. Currently uses single GPU, but will support
-        multiple GPUs later.
-
+    n_init: int (default = 1)
+        Number of instances the k-means algorithm will be called with different seeds.
+        The final results will be from the instance that produces lowest inertia out
+        of n_init instances.
+    oversampling_factor : float64
+        scalable k-means|| oversampling factor
+    max_samples_per_batch : int (default=1<<15)
+        maximum number of samples to use for each batch
+        of the pairwise distance computation.
+    oversampling_factor : int (default = 2)
+        The amount of points to sample
+        in scalable k-means++ initialization for potential centroids.
+        Increasing this value can lead to better initial centroids at the
+        cost of memory. The total number of centroids sampled in scalable
+        k-means++ is oversampling_factor * n_clusters * 8.
+    max_samples_per_batch : int (default = 32768)
+        The number of data
+        samples to use for batches of the pairwise distance computation.
+        This computation is done throughout both fit predict. The default
+        should suit most cases. The total number of elements in the batched
+        pairwise distance computation is max_samples_per_batch * n_clusters.
+        It might become necessary to lower this number when n_clusters
+        becomes prohibitively large.
 
     Attributes
     ----------
@@ -275,24 +265,58 @@ class KMeans(Base):
     """
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=0, random_state=1, precompute_distances='auto',
-                 init='scalable-k-means++', n_init=1, algorithm='auto',
-                 n_gpu=1):
-        super(KMeans, self).__init__(handle, verbose)
+                 verbose=0, random_state=1, init='scalable-k-means++',
+                 n_init=1, oversampling_factor=2.0,
+                 max_samples_per_batch=1<<15, output_type=None):
+        super(KMeans, self).__init__(handle, verbose, output_type)
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
-        self.precompute_distances = precompute_distances
-        self.init = init
-        self.n_init = n_init
-        self.copy_x = None
-        self.n_jobs = None
-        self.algorithm = algorithm
         self.max_iter = max_iter
         self.tol = tol
-        self.labels_ = None
-        self.cluster_centers_ = None
-        self.n_gpu = n_gpu
+        self.n_init = n_init
+        self.inertia_ = 0
+        self.n_iter_ = 0
+        self.oversampling_factor=oversampling_factor
+        self.max_samples_per_batch=int(max_samples_per_batch)
+
+        # internal array attributes
+        self._labels_ = None  # accessed via estimator.labels_
+        self._cluster_centers_ = None  # accessed via estimator.cluster_centers_  # noqa
+
+        cdef KMeansParams params
+        params.n_clusters = <int>self.n_clusters
+
+        # K-means++ is the constrained case of k-means||
+        # w/ oversampling factor = 0
+        if (init == 'k-means++'):
+            init = 'k-means||'
+            self.oversampling_factor = 0
+
+        if (init in ['scalable-k-means++', 'k-means||']):
+            self.init = init
+            params.init = KMeansPlusPlus
+
+        elif (init == 'random'):
+            self.init = init
+            params.init = Random
+
+        else:
+            self.init = 'preset'
+            params.init = Array
+            self._cluster_centers_, n_rows, self.n_cols, self.dtype = \
+                input_to_cuml_array(init, order='C',
+                                    check_dtype=[np.float32, np.float64])
+
+        params.max_iter = <int>self.max_iter
+        params.tol = <double>self.tol
+        params.verbose = <int>self.verbose
+        params.seed = <int>self.random_state
+        params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+        params.batch_samples=<int>self.max_samples_per_batch
+        params.oversampling_factor=<double>self.oversampling_factor
+        params.n_init = <int>self.n_init
+        self._params = params
 
     def fit(self, X):
         """
@@ -307,96 +331,74 @@ class KMeans(Base):
 
         """
 
-        cdef uintptr_t input_ptr
+        self._set_output_type(X)
 
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+        if self.init == 'preset':
+            check_cols = self.n_cols
+            check_dtype = self.dtype
+        else:
+            check_cols = False
+            check_dtype = [np.float32, np.float64]
+
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, order='C',
+                                check_cols=check_cols,
+                                check_dtype=check_dtype)
+
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
+        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
+        cdef uintptr_t labels_ptr = self._labels_.ptr
 
-        if (isinstance(self.init, cudf.DataFrame)):
-            if(len(self.init) != self.n_clusters):
-                raise ValueError('The shape of the initial centers (%s) '
-                                 'does not match the number of clusters %i'
-                                 % (self.init.shape, self.n_clusters))
-            init_value = Array
-            dim_cc = self.n_clusters * self.n_cols
-            self.cluster_centers_ = cuda.device_array(dim_cc,
-                                                      dtype=self.dtype)
-            si = self.init
-            self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
+        if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
+            self._cluster_centers_ = \
+                CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
+                                dtype=self.dtype, order='C')
 
-        elif (isinstance(self.init, np.ndarray)):
-            if(self.init.shape[0] != self.n_clusters):
-                raise ValueError('The shape of the initial centers (%s) '
-                                 'does not match the number of clusters %i'
-                                 % (self.init.shape, self.n_clusters))
-            init_value = Array
-            self.cluster_centers_ = cuda.to_device(self.init.flatten())
+        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        elif (self.init in ['scalable-k-means++', 'k-means||']):
-            init_value = KMeansPlusPlus
-            clust_cent = zeros(self.n_clusters * self.n_cols,
-                               dtype=self.dtype)
-            self.cluster_centers_ = cuda.to_device(clust_cent)
+        cdef float inertiaf = 0
+        cdef double inertiad = 0
 
-        elif (self.init == 'random'):
-            init_value = Random
-            clust_cent = zeros(self.n_clusters * self.n_cols,
-                               dtype=self.dtype)
-            self.cluster_centers_ = cuda.to_device(clust_cent)
-
-        else:
-            raise TypeError('initialization method not supported')
-
-        c_c = self.cluster_centers_
-        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
+        cdef KMeansParams params = self._params
+        cdef int n_iter = 0
 
         if self.dtype == np.float32:
             fit_predict(
                 handle_[0],
-                <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
-                <InitMethod> init_value,       # init method
-                <int> self.max_iter,           # max_iterations
-                <double> self.tol,             # threshold
-                <int> self.random_state,       # seed
-                <float*> input_ptr,            # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
-                <float*> cluster_centers_ptr,  # pred_centroids);
-                <int*> labels_ptr,             # pred_labels
-                <int> self.verbose)
+                <KMeansParams> params,
+                <const float*> input_ptr,
+                <size_t> n_rows,
+                <size_t> self.n_cols,
+                <float*> cluster_centers_ptr,
+                <int*> labels_ptr,
+                inertiaf,
+                n_iter)
+            self.handle.sync()
+            self.inertia_ = inertiaf
+            self.n_iter_ = n_iter
         elif self.dtype == np.float64:
             fit_predict(
                 handle_[0],
-                <int> self.n_clusters,          # n_clusters
-                <int> 0,                        # distance metric as squared L2: @todo - support other metrics # noqa: E501
-                <InitMethod> init_value,        # init method
-                <int> self.max_iter,            # max_iterations
-                <double> self.tol,              # threshold
-                <int> self.random_state,        # seed
-                <double*> input_ptr,            # srcdata
-                <size_t> self.n_rows,           # n_samples (rows)
-                <size_t> self.n_cols,           # n_features (cols)
-                <double*> cluster_centers_ptr,  # pred_centroids);
-                <int*> labels_ptr,              # pred_labels
-                <int> self.verbose)
+                <KMeansParams> params,
+                <const double*> input_ptr,
+                <size_t> n_rows,
+                <size_t> self.n_cols,
+                <double*> cluster_centers_ptr,
+                <int*> labels_ptr,
+                inertiad,
+                n_iter)
+            self.handle.sync()
+            self.inertia_ = inertiad
+            self.n_iter_ = n_iter
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
                             'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
-        cc_df = cudf.DataFrame()
-        for i in range(0, self.n_cols):
-            n_c = self.n_clusters
-            n_cols = self.n_cols
-            cc_df[str(i)] = self.cluster_centers_[i:n_c*n_cols:n_cols]
-        self.cluster_centers_ = cc_df
 
         del(X_m)
 
@@ -416,7 +418,7 @@ class KMeans(Base):
         """
         return self.fit(X).labels_
 
-    def predict(self, X):
+    def _predict_labels_inertia(self, X, convert_dtype=False):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -427,41 +429,65 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
+        Returns
+        -------
+        labels : array
+        Which cluster each datapoint belongs to.
+
+        inertia : float/double
+        Sum of squared distances of samples to their closest cluster center.
         """
 
-        cdef uintptr_t input_ptr
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+        out_type = self._get_output_type(X)
+
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
+        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
+
+        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
+        cdef uintptr_t labels_ptr = self._labels_.ptr
+
+        # Sum of squared distances of samples to their closest cluster center.
+        cdef float inertiaf = 0
+        cdef double inertiad = 0
 
         if self.dtype == np.float32:
             predict(
                 handle_[0],
-                <float*> cluster_centers_ptr,  # pred_centroids
-                <int> self.n_clusters,         # n_clusters
-                <float*> input_ptr,            # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
-                <int*> labels_ptr,             # pred_labels
-                <int> self.verbose)
+                <KMeansParams> self._params,
+                <float*> cluster_centers_ptr,
+                <float*> input_ptr,
+                <size_t> n_rows,
+                <size_t> self.n_cols,
+                <int*> labels_ptr,
+                inertiaf)
+            self.handle.sync()
+            inertia = inertiaf
         elif self.dtype == np.float64:
             predict(
                 handle_[0],
-                <double*> cluster_centers_ptr,  # pred_centroids
-                <int> self.n_clusters,         # n_clusters
-                <double*> input_ptr,           # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
-                <int*> labels_ptr,             # pred_labels
-                <int> self.verbose)
+                <KMeansParams> self._params,
+                <double*> cluster_centers_ptr,
+                <double*> input_ptr,
+                <size_t> n_rows,
+                <size_t> self.n_cols,
+                <int*> labels_ptr,
+                inertiad)
+            self.handle.sync()
+            inertia = inertiad
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
                             'but input type ' + str(self.dtype) +
@@ -469,10 +495,31 @@ class KMeans(Base):
 
         self.handle.sync()
         del(X_m)
-        del(clust_mat)
-        return self.labels_
 
-    def transform(self, X):
+        return self._labels_.to_output(out_type), inertia
+
+    def predict(self, X, convert_dtype=False):
+        """
+        Predict the closest cluster each sample in X belongs to.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        labels : array
+        Which cluster each datapoint belongs to.
+        """
+
+        labels, _ = self._predict_labels_inertia(X,
+                                                 convert_dtype=convert_dtype)
+        return labels
+
+    def transform(self, X, convert_dtype=False):
         """
         Transform X to a cluster-distance space.
 
@@ -483,58 +530,87 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will, when necessary,
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
+
         """
 
-        cdef uintptr_t input_ptr
-        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C', check_dtype=self.dtype)
+        out_type = self._get_output_type(X)
+
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
+
+        cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = cuda.to_device(zeros(self.n_clusters*self.n_rows,
-                                    dtype=self.dtype))
+        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
+        preds = CumlArray.zeros(shape=(n_rows, self.n_clusters),
+                                dtype=self.dtype,
+                                order='C')
+
+        cdef uintptr_t preds_ptr = preds.ptr
+
+        # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
+        distance_metric = 1
 
         if self.dtype == np.float32:
             transform(
                 handle_[0],
-                <float*> cluster_centers_ptr,  # centroids
-                <int> self.n_clusters,         # n_clusters
-                <float*> input_ptr,            # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
-                <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
-                <float*> preds_ptr,            # transformed output
-                <int> self.verbose)
+                <KMeansParams> self._params,
+                <float*> cluster_centers_ptr,
+                <float*> input_ptr,
+                <size_t> n_rows,
+                <size_t> self.n_cols,
+                <int> distance_metric,
+                <float*> preds_ptr)
         elif self.dtype == np.float64:
             transform(
                 handle_[0],
-                <double*> cluster_centers_ptr,  # centroids
-                <int> self.n_clusters,          # n_clusters
-                <double*> input_ptr,            # srcdata
-                <size_t> self.n_rows,           # n_samples (rows)
-                <size_t> self.n_cols,           # n_features (cols)
-                <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
-                <double*> preds_ptr,            # transformed output
-                <int> self.verbose)
+                <KMeansParams> self._params,
+                <double*> cluster_centers_ptr,
+                <double*> input_ptr,
+                <size_t> n_rows,
+                <size_t> self.n_cols,
+                <int> distance_metric,
+                <double*> preds_ptr)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
                             'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
-        preds_gdf = cudf.DataFrame()
-        for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
 
         del(X_m)
-        del(clust_mat)
-        return preds_gdf
+        return preds.to_output(out_type)
 
-    def fit_transform(self, X):
+    def score(self, X):
+        """
+        Opposite of the value of X on the K-means objective.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        Returns
+        -------
+        score: float
+                 Opposite of the value of X on the K-means objective.
+        """
+
+        return -1 * self._predict_labels_inertia(X)[1]
+
+    def fit_transform(self, X, convert_dtype=False):
         """
         Compute clustering and transform X to cluster-distance space.
 
@@ -545,52 +621,15 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        """
-        return self.fit(X).transform(X)
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit_transform method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
 
-    def get_params(self, deep=True):
         """
-        Scikit-learn style return parameter state
+        return self.fit(X).transform(X, convert_dtype=convert_dtype)
 
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['algorithm', 'copy_x', 'init', 'max_iter', 'n_clusters',
-                     'n_init', 'n_jobs', 'precompute_distances',
-                     'random_state', 'tol', 'verbose']
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
-
-    def set_params(self, **params):
-        """
-        Scikit-learn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        current_params = {"algorithm": self.algorithm,
-                          "copy_x": self.copy_x,
-                          "init": self.init,
-                          "max_iter": self.max_iter,
-                          "n_clusters": self.n_clusters,
-                          "n_init": self.n_init,
-                          "n_jobs": self.n_jobs,
-                          "precompute_distances": self.precompute_distances,
-                          "random_state": self.random_state,
-                          "tol": self.tol,
-                          "verbose": self.verbose
-                          }
-        for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-                current_params[key] = value
-        return self
+    def get_param_names(self):
+        return ['n_init', 'oversampling_factor', 'max_samples_per_batch',
+                'init', 'max_iter', 'n_clusters', 'random_state',
+                'tol', 'verbose']

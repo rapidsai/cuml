@@ -16,11 +16,18 @@
 
 #include <gtest/gtest.h>
 
-#include "cuML.hpp"
+#include "distance/distance.h"
 
-#include "knn/knn.hpp"
+#include "datasets/digits.h"
+
+#include <cuml/manifold/umapparams.h>
+#include <metrics/trustworthiness.h>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/neighbors/knn.hpp>
+
+#include "common/device_buffer.hpp"
 #include "umap/runner.h"
-#include "umap/umapparams.h"
 
 #include <cuda_utils.h>
 
@@ -28,82 +35,217 @@
 #include <vector>
 
 using namespace ML;
+using namespace ML::Metrics;
+
 using namespace std;
 
-/**
- * For now, this is mostly to test the c++ algorithm is able to be built.
- * Comprehensive comparisons of resulting embeddings are being done in the
- * Python test suite. Next to come will be a CUDA implementation of t-SNE's
- * trustworthiness score, which will allow us to gtest embedding algorithms.
- */
+using namespace MLCommon;
+using namespace MLCommon::Distance;
+using namespace MLCommon::Datasets::Digits;
+
 class UMAPTest : public ::testing::Test {
  protected:
-  void basicTest() {
+  void xformTest() {
     cumlHandle handle;
 
-    umap_params = new UMAPParams();
-    umap_params->n_neighbors = k;
-    umap_params->verbose = true;
-    umap_params->target_metric = UMAPParams::MetricType::CATEGORICAL;
+    cudaStream_t stream = handle.getStream();
 
-    kNN *knn = new kNN(handle, d);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    UMAPAlgo::find_ab(umap_params, stream);
+    UMAPParams *umap_params = new UMAPParams();
+    umap_params->n_neighbors = 10;
+    umap_params->init = 1;
+    umap_params->verbose = false;
 
-    std::vector<float> X = {1.0,  1.0, 34.0, 76.0, 2.0, 29.0,
-                            34.0, 3.0, 13.0, 23.0, 7.0, 80.0};
+    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
-    std::vector<float> Y = {-1, 1, 1, 0};
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n_samples * n_features);
 
-    float *X_d, *Y_d;
-    MLCommon::allocate(Y_d, n);
-    MLCommon::allocate(X_d, n * d);
-    MLCommon::updateDevice(X_d, X.data(), n * d, stream);
-    MLCommon::updateDevice(Y_d, Y.data(), n, stream);
+    MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
+                           handle.getStream());
 
-    MLCommon::allocate(embeddings, n * umap_params->n_components);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    std::cout << "Performing fit()" << std::endl;
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
 
-    UMAPAlgo::_fit<float, 256>(handle, X_d, n, d, knn, umap_params, embeddings,
-                               stream);
+    UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
+                               nullptr, nullptr, umap_params,
+                               embeddings.data());
 
-    std::cout << "done." << std::endl;
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    std::cout << "Performing transform" << std::endl;
+    device_buffer<float> xformed(handle.getDeviceAllocator(),
+                                 handle.getStream(),
+                                 n_samples * umap_params->n_components);
 
-    float *xformed;
-    MLCommon::allocate(xformed, n * umap_params->n_components);
+    UMAPAlgo::_transform<float, 256>(
+      handle, X_d.data(), n_samples, n_features, nullptr, nullptr, X_d.data(),
+      n_samples, embeddings.data(), n_samples, umap_params, xformed.data());
 
-    UMAPAlgo::_transform<float, 32>(handle, X_d, n, d, embeddings, n, knn,
-                                    umap_params, xformed, stream);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    std::cout << "Done." << std::endl;
-
-    std::cout << "Performing supervised fit" << std::endl;
-
-    UMAPAlgo::_fit<float, 32>(handle, X_d, Y_d, n, d, knn, umap_params,
-                              embeddings, stream);
-
-    std::cout << "Done." << std::endl;
-
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      handle, X_d.data(), xformed.data(), n_samples, n_features,
+      umap_params->n_components, umap_params->n_neighbors);
   }
 
-  void SetUp() override { basicTest(); }
+  void fitTest() {
+    cumlHandle handle;
+
+    cudaStream_t stream = handle.getStream();
+
+    UMAPParams *umap_params = new UMAPParams();
+    umap_params->n_neighbors = 10;
+    umap_params->init = 1;
+    umap_params->verbose = false;
+
+    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
+
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n_samples * n_features);
+
+    MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
+                           handle.getStream());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
+
+    UMAPAlgo::_fit<float, 256>(handle, X_d.data(), n_samples, n_features,
+                               nullptr, nullptr, umap_params,
+                               embeddings.data());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    fit_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      handle, X_d.data(), embeddings.data(), n_samples, n_features,
+      umap_params->n_components, umap_params->n_neighbors);
+  }
+
+  void supervisedTest() {
+    cumlHandle handle;
+
+    cudaStream_t stream = handle.getStream();
+
+    UMAPParams *umap_params = new UMAPParams();
+    umap_params->n_neighbors = 10;
+    umap_params->init = 1;
+    umap_params->verbose = false;
+
+    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
+
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n_samples * n_features);
+    device_buffer<float> Y_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n_samples * 2);
+
+    MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
+                           handle.getStream());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
+
+    UMAPAlgo::_fit<float, 256>(handle, X_d.data(), Y_d.data(), n_samples,
+                               n_features, nullptr, nullptr, umap_params,
+                               embeddings.data());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    supervised_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      handle, X_d.data(), embeddings.data(), n_samples, n_features,
+      umap_params->n_components, umap_params->n_neighbors);
+  }
+
+  void fitWithKNNTest() {
+    cumlHandle handle;
+
+    UMAPParams *umap_params = new UMAPParams();
+    umap_params->n_neighbors = 10;
+    umap_params->init = 1;
+    umap_params->verbose = false;
+
+    UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(),
+                      handle.getStream());
+
+    device_buffer<float> X_d(handle.getDeviceAllocator(), handle.getStream(),
+                             n_samples * n_features);
+
+    MLCommon::updateDevice(X_d.data(), digits.data(), n_samples * n_features,
+                           handle.getStream());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    device_buffer<float> embeddings(handle.getDeviceAllocator(),
+                                    handle.getStream(),
+                                    n_samples * umap_params->n_components);
+
+    MLCommon::device_buffer<int64_t> knn_indices(
+      handle.getDeviceAllocator(), handle.getStream(),
+      n_samples * umap_params->n_components);
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    MLCommon::device_buffer<float> knn_dists(
+      handle.getDeviceAllocator(), handle.getStream(),
+      n_samples * umap_params->n_components);
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    std::vector<float *> ptrs(1);
+    std::vector<int> sizes(1);
+    ptrs[0] = X_d.data();
+    sizes[0] = n_samples;
+
+    MLCommon::Selection::brute_force_knn(
+      ptrs, sizes, n_features, X_d.data(), n_samples, knn_indices.data(),
+      knn_dists.data(), umap_params->n_neighbors, handle.getDeviceAllocator(),
+      handle.getStream());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    UMAPAlgo::_fit<float, 256>(
+      handle, X_d.data(), n_samples, n_features,
+      //knn_indices.data(), knn_dists.data(), umap_params,
+      nullptr, nullptr, umap_params, embeddings.data());
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    fit_with_knn_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+      handle, X_d.data(), embeddings.data(), n_samples, n_features,
+      umap_params->n_components, umap_params->n_neighbors);
+  }
+
+  void SetUp() override {
+    fitTest();
+    xformTest();
+    supervisedTest();
+    fitWithKNNTest();
+
+    std::cout << "fit_score=" << fit_score << std::endl;
+    std::cout << "xform_score=" << xformed_score << std::endl;
+    std::cout << "supervised_score=" << supervised_score << std::endl;
+    std::cout << "fit_with_knn_score=" << fit_with_knn_score << std::endl;
+  }
 
   void TearDown() override {}
 
  protected:
-  UMAPParams *umap_params;
-
-  int d = 3;
-  int n = 4;
-  int k = 2;
-
-  float *embeddings;
+  double fit_score;
+  double xformed_score;
+  double supervised_score;
+  double fit_with_knn_score;
 };
 
 typedef UMAPTest UMAPTestF;
-TEST_F(UMAPTestF, Result) {}
+TEST_F(UMAPTestF, Result) {
+  ASSERT_TRUE(fit_score > 0.98);
+  ASSERT_TRUE(xformed_score > 0.80);
+  ASSERT_TRUE(supervised_score > 0.98);
+  ASSERT_TRUE(fit_with_knn_score > 0.96);
+}

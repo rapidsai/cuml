@@ -22,7 +22,7 @@
 import cudf
 import numpy as np
 
-from numba import cuda
+import rmm
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -32,7 +32,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
 
-cdef extern from "random_projection/rproj_c.h" namespace "ML":
+cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure holding random projection hyperparameters
     cdef struct paramsRPROJ:
@@ -56,16 +56,17 @@ cdef extern from "random_projection/rproj_c.h" namespace "ML":
 
     # Function used to fit the model
     cdef void RPROJfit[T](const cumlHandle& handle, rand_mat[T] *random_matrix,
-                          paramsRPROJ* params)
+                          paramsRPROJ* params) except +
 
     # Function used to apply data transformation
     cdef void RPROJtransform[T](const cumlHandle& handle, T *input,
                                 rand_mat[T] *random_matrix, T *output,
-                                paramsRPROJ* params)
+                                paramsRPROJ* params) except +
 
     # Function used to compute the Johnson Lindenstrauss minimal distance
     cdef size_t c_johnson_lindenstrauss_min_dim \
-        "ML::johnson_lindenstrauss_min_dim" (size_t n_samples, double eps)
+        "ML::johnson_lindenstrauss_min_dim" (size_t n_samples,
+                                             double eps) except +
 
 
 def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
@@ -191,7 +192,7 @@ cdef class BaseRandomProjection():
         """
 
         _, _, n_samples, n_features, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
@@ -206,7 +207,7 @@ cdef class BaseRandomProjection():
 
         return self
 
-    def transform(self, X):
+    def transform(self, X, convert_dtype=False):
         """
         Apply transformation on provided data. This function outputs
         a multiplication between the input matrix and the generated random
@@ -230,11 +231,13 @@ cdef class BaseRandomProjection():
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, n_samples, n_features, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None))
 
-        X_new = cuda.device_array((n_samples, self.params.n_components),
-                                  dtype=self.dtype,
-                                  order='F')
+        X_new = rmm.device_array((n_samples, self.params.n_components),
+                                 dtype=self.dtype,
+                                 order='F')
 
         cdef uintptr_t output_ptr = get_dev_array_ptr(X_new)
 
@@ -274,7 +277,8 @@ cdef class BaseRandomProjection():
         else:
             return X_new
 
-        del X_m
+    def fit_transform(self, X, convert_dtype=False):
+        return self.fit(X).transform(X, convert_dtype)
 
 
 class GaussianRandomProjection(Base, BaseRandomProjection):
@@ -353,7 +357,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired by Scikit-learn's implementation :
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """
@@ -464,7 +468,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     Notes
     ------
-        Inspired from sklearn's implementation :
+        Inspired by Scikit-learn's implementation :
         https://scikit-learn.org/stable/modules/random_projection.html
 
     """

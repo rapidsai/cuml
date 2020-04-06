@@ -13,6 +13,10 @@
 # limitations under the License.
 #
 
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -29,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "solver/solver.hpp" namespace "ML::Solver":
+cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
     cdef void sgdFit(cumlHandle& handle,
                      float *input,
@@ -123,7 +127,9 @@ class SGD(Base):
 
     Examples
     ---------
+
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.solvers import SGD as cumlSGD
@@ -142,7 +148,9 @@ class SGD(Base):
         print(" cuML intercept : ", cu_sgd.intercept_)
         print(" cuML coef : ", cu_sgd.coef_)
         print("cuML predictions : ", cu_pred)
+
     Output:
+
     .. code-block:: python
 
         cuML intercept :  0.004561662673950195
@@ -179,7 +187,7 @@ class SGD(Base):
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
-    eta0 : float (default = 0.0)
+    eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
@@ -192,6 +200,7 @@ class SGD(Base):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
+
     Notes
     ------
     For additional docs, see `scikitlearn's OLS
@@ -200,8 +209,8 @@ class SGD(Base):
 
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5,
-                 batch_size=32, n_iter_no_change=5, handle=None):
+                 shuffle=True, learning_rate='constant', eta0=0.001,
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
 
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
@@ -281,9 +290,10 @@ class SGD(Base):
             'elasticnet': 3
         }[penalty]
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -295,14 +305,22 @@ class SGD(Base):
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_rows=n_rows, check_cols=1)
 
         self.n_alpha = 1
 
@@ -368,15 +386,21 @@ class SGD(Base):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
@@ -385,7 +409,10 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
@@ -418,24 +445,34 @@ class SGD(Base):
 
         return preds
 
-    def predictClass(self, X):
+    def predictClass(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predictClass method will automatically
+            convert the input to the data type which was used to train the
+            model. This will increase memory used for the method.
+
         Returns
         ----------
-        y: cuDF DataFrame
+        y : cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=dtype))

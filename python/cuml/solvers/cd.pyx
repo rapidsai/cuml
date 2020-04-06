@@ -13,6 +13,10 @@
 # limitations under the License.
 #
 
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -29,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
 
-cdef extern from "solver/solver.hpp" namespace "ML::Solver":
+cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
     cdef void cdFit(cumlHandle& handle,
                     float *input,
@@ -94,26 +98,38 @@ class CD(Base):
     Examples
     ---------
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.solvers import CD as cumlCD
+
         cd = cumlCD(alpha=0.0)
+
         X = cudf.DataFrame()
         X['col1'] = np.array([1,1,2,2], dtype = np.float32)
         X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+
         y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
+
         reg = cd.fit(X,y)
+
         print("Coefficients:")
         print(reg.coef_)
         print("intercept:")
         print(reg.intercept_)
+
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([3,2], dtype = np.float32)
         X_new['col2'] = np.array([5,5], dtype = np.float32)
+
         preds = cd.predict(X_new)
+
         print(preds)
+
     Output:
+
     .. code-block:: python
+
         Coefficients:
                     0 1.0019531
                     1 1.9980469
@@ -186,7 +202,7 @@ class CD(Base):
             'squared_loss': 0,
         }[loss]
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
         Parameters
@@ -200,14 +216,22 @@ class CD(Base):
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X)
+            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
 
         y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_rows=n_rows, check_cols=1)
 
         self.n_alpha = 1
 
@@ -260,7 +284,7 @@ class CD(Base):
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
         Parameters
@@ -269,6 +293,11 @@ class CD(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
@@ -277,7 +306,10 @@ class CD(Base):
 
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=self.dtype))

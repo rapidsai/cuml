@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,64 +14,154 @@
 # limitations under the License.
 #
 
+from Cython.Build import cythonize
+from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-from Cython.Build import cythonize
+from setuputils import get_submodule_dependencies
+
+try:
+    from Cython.Distutils.build_ext import new_build_ext as build_ext
+except ImportError:
+    from setuptools.command.build_ext import build_ext
+
 import os
-import versioneer
-from distutils.sysconfig import get_python_lib
+import subprocess
 import sys
+import sysconfig
+import versioneer
+import warnings
+import numpy
 
 install_requires = [
-    'numpy',
+    'numba',
     'cython'
 ]
 
-cuda_include_dir = '/usr/local/cuda/include'
-cuda_lib_dir = "/usr/local/cuda/lib"
 
-if os.environ.get('CUDA_HOME', False):
-    cuda_lib_dir = os.path.join(os.environ.get('CUDA_HOME'), 'lib64')
-    cuda_include_dir = os.path.join(os.environ.get('CUDA_HOME'), 'include')
+##############################################################################
+# - Dependencies include and lib folder setup --------------------------------
+
+CUDA_HOME = os.environ.get("CUDA_HOME", False)
+if not CUDA_HOME:
+    CUDA_HOME = (
+        os.popen('echo "$(dirname $(dirname $(which nvcc)))"').read().strip()
+    )
+cuda_include_dir = os.path.join(CUDA_HOME, "include")
+cuda_lib_dir = os.path.join(CUDA_HOME, "lib64")
 
 
-rmm_include_dir = '/include'
-rmm_lib_dir = '/lib'
+##############################################################################
+# - Subrepo checking and cloning ---------------------------------------------
 
-if os.environ.get('CONDA_PREFIX', None):
-    conda_prefix = os.environ.get('CONDA_PREFIX')
-    rmm_include_dir = conda_prefix + rmm_include_dir
-    rmm_lib_dir = conda_prefix + rmm_lib_dir
+subrepos = [
+    'cub',
+    'cutlass',
+    'faiss',
+    'treelite'
+]
 
-exc_list = []
+# We check if there is a libcuml++ build folder, by default in cpp/build
+# or in CUML_BUILD_PATH env variable. Otherwise setup.py will clone the
+# dependencies defined in cpp/CMakeListst.txt
+if "clean" not in sys.argv:
+    if os.environ.get('CUML_BUILD_PATH', False):
+        libcuml_path = '../' + os.environ.get('CUML_BUILD_PATH')
+    else:
+        libcuml_path = '../cpp/build/'
 
-libs = ['cuda', 'cuml++', 'rmm']
+    found_cmake_repos = get_submodule_dependencies(subrepos,
+                                                   libcuml_path=libcuml_path)
 
-if "--multigpu" not in sys.argv:
-    exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
-    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    if found_cmake_repos:
+        treelite_path = os.path.join(libcuml_path,
+                                     'treelite/src/treelite/include')
+        faiss_path = os.path.join(libcuml_path, 'faiss/src/')
+        cub_path = os.path.join(libcuml_path, 'cub/src/cub')
+        cutlass_path = os.path.join(libcuml_path, 'cutlass/src/cutlass')
+    else:
+        # faiss requires the include to be to the parent of the root of
+        # their repo instead of the full path like the others
+        faiss_path = 'external_repositories/'
+        treelite_path = 'external_repositories/treelite/include'
+        cub_path = 'external_repositories/cub'
+        cutlass_path = 'external_repositories/cutlass'
+
 else:
-    libs.append('cumlMG')
-    sys.argv.remove("--multigpu")
+    subprocess.check_call(['rm', '-rf', 'external_repositories'])
+    treelite_path = ""
+    faiss_path = ""
+    cub_path = ""
+    cutlass_path = ""
 
+##############################################################################
+# - Cython extensions build and parameters -----------------------------------
+
+libs = ['cuda',
+        'cuml++',
+        'rmm']
+
+include_dirs = ['../cpp/src',
+                '../cpp/include',
+                '../cpp/external',
+                '../cpp/src_prims',
+                cutlass_path,
+                cub_path,
+                faiss_path,
+                treelite_path,
+                '../cpp/comms/std/src',
+                '../cpp/comms/std/include',
+                cuda_include_dir,
+                numpy.get_include(),
+                os.path.dirname(sysconfig.get_path("include"))]
+
+# Exclude multigpu components that use libcumlprims if --singlegpu is used
+exc_list = []
+if "--multigpu" in sys.argv:
+    warnings.warn("Flag --multigpu is deprecated. By default cuML is"
+                  "built with multi GPU support. To disable it use the flag"
+                  "--singlegpu")
+    sys.argv.remove('--multigpu')
+
+if "--singlegpu" in sys.argv:
+    exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    exc_list.append('cuml/decomposition/base_mg.pyx')
+    exc_list.append('cuml/decomposition/pca_mg.pyx')
+    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    exc_list.append('cuml/linear_model/base_mg.pyx')
+    exc_list.append('cuml/linear_model/ridge_mg.pyx')
+    exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
+    exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
+    sys.argv.remove('--singlegpu')
+else:
+    libs.append('cumlprims')
+    # ucx/ucx-py related functionality available in version 0.12+
+    # libs.append("ucp")
+    libs.append('cumlcomms')
+    libs.append('nccl')
+
+    sys_include = os.path.dirname(sysconfig.get_path("include"))
+    include_dirs.append("%s/cumlprims" % sys_include)
+
+cmdclass = dict()
+cmdclass.update(versioneer.get_cmdclass())
+cmdclass["build_ext"] = build_ext
 
 extensions = [
     Extension("*",
-              sources=['cuml/*/*.pyx'],
-              include_dirs=['../cpp/src',
-                            '../cpp/external',
-                            '../cpp/src_prims',
-                            '../thirdparty/cutlass',
-                            '../thirdparty/cub',
-                            cuda_include_dir,
-                            rmm_include_dir],
-              library_dirs=[get_python_lib()],
+              sources=["cuml/**/**/*.pyx"],
+              include_dirs=include_dirs,
+              library_dirs=[get_python_lib(), libcuml_path],
               runtime_library_dirs=[cuda_lib_dir,
-                                    rmm_lib_dir],
+                                    os.path.join(os.sys.prefix, "lib")],
               libraries=libs,
               language='c++',
               extra_compile_args=['-std=c++11'])
 ]
+
+
+##############################################################################
+# - Python package generation ------------------------------------------------
 
 setup(name='cuml',
       description="cuML - RAPIDS ML Algorithms",
@@ -89,6 +179,6 @@ setup(name='cuml',
       packages=find_packages(include=['cuml', 'cuml.*']),
       install_requires=install_requires,
       license="Apache",
-      cmdclass=versioneer.get_cmdclass(),
+      cmdclass=cmdclass,
       zip_safe=False
       )

@@ -106,16 +106,15 @@ std::string arr2Str(const T *arr, int size, std::string name,
   return ss.str();
 }
 
-template<typename T>
+template <typename T>
 void ASSERT_DEVICE_MEM(T *ptr, std::string name) {
-      cudaPointerAttributes s_att;
-      cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
+  cudaPointerAttributes s_att;
+  cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
 
-      if(s_err != 0 || s_att.device == -1)
-          std::cout << "Invalid device pointer encountered in " << name <<
-                    ". device=" << s_att.device << ", err=" << s_err << std::endl;
+  if (s_err != 0 || s_att.device == -1)
+    std::cout << "Invalid device pointer encountered in " << name
+              << ". device=" << s_att.device << ", err=" << s_err << std::endl;
 };
-
 
 /** number of threads per warp */
 static const int WarpSize = 32;
@@ -423,6 +422,38 @@ HDI double myPow(double x, double power) {
 /** @} */
 
 /**
+ * @defgroup myTanh tanh function
+ * @{
+ */
+template <typename T>
+HDI T myTanh(T x);
+template <>
+HDI float myTanh(float x) {
+  return tanhf(x);
+}
+template <>
+HDI double myTanh(double x) {
+  return tanh(x);
+}
+/** @} */
+
+/**
+ * @defgroup myATanh arctanh function
+ * @{
+ */
+template <typename T>
+HDI T myATanh(T x);
+template <>
+HDI float myATanh(float x) {
+  return atanhf(x);
+}
+template <>
+HDI double myATanh(double x) {
+  return atanh(x);
+}
+/** @} */
+
+/**
  * @defgroup LambdaOps Lambda operations in reduction kernels
  * @{
  */
@@ -583,6 +614,49 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
 #else
   return __shfl_xor(val, laneMask, width);
 #endif
+}
+
+/**
+ * @brief Warp-level sum reduction
+ * @param val input value
+ * @return only the lane0 will contain valid reduced result
+ * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
+ *       number of warps in a block. All threads in the warp must enter this
+ *       function together
+ * @todo Expand this to support arbitrary reduction ops
+ */
+template <typename T>
+DI T warpReduce(T val) {
+#pragma unroll
+  for (int i = WarpSize / 2; i > 0; i >>= 1) {
+    T tmp = shfl(val, laneId() + i);
+    val += tmp;
+  }
+  return val;
+}
+
+/**
+ * @brief 1-D block-level sum reduction
+ * @param val input value
+ * @param smem shared memory region needed for storing intermediate results. It
+ *             must alteast be of size: `sizeof(T) * nWarps`
+ * @return only the thread0 will contain valid reduced result
+ * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
+ *       number of warps in a block. All threads in the block must enter this
+ *       function together
+ * @todo Expand this to support arbitrary reduction ops
+ */
+template <typename T>
+DI T blockReduce(T val, char *smem) {
+  auto *sTemp = reinterpret_cast<T *>(smem);
+  int nWarps = (blockDim.x + WarpSize - 1) / WarpSize;
+  int lid = laneId();
+  int wid = threadIdx.x / WarpSize;
+  val = warpReduce(val);
+  if (lid == 0) sTemp[wid] = val;
+  __syncthreads();
+  val = lid < nWarps ? sTemp[lid] : T(0);
+  return warpReduce(val);
 }
 
 }  // namespace MLCommon

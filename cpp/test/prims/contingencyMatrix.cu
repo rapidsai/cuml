@@ -90,7 +90,7 @@ class ContingencyMatrixTestImpl
     MLCommon::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
     MLCommon::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
 
-    size_t workspaceSz = MLCommon::Metrics::getCMatrixWorkspaceSize(
+    size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
       numElements, dY, stream, lowerLabelRange, upperLabelRange);
 
     if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);

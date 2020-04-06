@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
@@ -56,6 +56,15 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
            bool gen_right_vec, cusolverDnHandle_t cusolverH,
            cublasHandle_t cublasH, std::shared_ptr<deviceAllocator> allocator,
            cudaStream_t stream) {
+#if CUDART_VERSION >= 10010
+  // 46340: sqrt of max int value
+  ASSERT(n_rows <= 46340,
+         "svd solver is not supported for the data that has more than 46340 "
+         "samples (rows) "
+         "if you are using CUDA version 10.1. Please use other solvers such as "
+         "eig if it is available.");
+#endif
+
   const int m = n_rows;
   const int n = n_cols;
 

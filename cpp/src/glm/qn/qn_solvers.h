@@ -165,7 +165,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * g
     end = lbfgs_search_dir(param, *k, end, S, Y, grad, svec, yvec, drt, ys,
-                           alpha, dev_scalar, stream);
+                           alpha, dev_scalar, stream, verbosity);
 
     // step = 1.0 as initial guess
     step = T(1.0);
@@ -308,7 +308,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * -> pseudo grad <-
     end = lbfgs_search_dir(param, *k, end, S, Y, pseudo, svec, yvec, drt, ys,
-                           alpha, dev_scalar, stream);
+                           alpha, dev_scalar, stream, verbosity);
 
     // Project drt onto orthant of -pseudog
     drt.assign_binary(drt, pseudo, project_neg, stream);

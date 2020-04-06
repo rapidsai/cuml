@@ -171,7 +171,7 @@ class ColWeightedMeanTest
 
 ////// Parameter sets and test instantiation
 static const float tolF = 128 * std::numeric_limits<float>::epsilon();
-static const double tolD = 128 * std::numeric_limits<double>::epsilon();
+static const double tolD = 256 * std::numeric_limits<double>::epsilon();
 
 const std::vector<WeightedMeanInputs<float>> inputsf = {
   {tolF, 4, 4, 1234},      {tolF, 1024, 32, 1234},  {tolF, 1024, 64, 1234},
