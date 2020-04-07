@@ -33,23 +33,25 @@ class UCX:
 
     _instance = None
 
-    def __init__(self):
+    def __init__(self, listener_callback):
         UCX._instance = self
+
+        self.listener_callback = listener_callback
 
         self._create_listener()
         self._endpoints = {}
 
     @staticmethod
-    def get():
+    def get(listener_callback=_connection_func):
         if UCX._instance is None:
-            UCX()
+            UCX(listener_callback)
         return UCX._instance
 
     def get_worker(self):
         return ucp.get_ucp_worker()
 
     def _create_listener(self):
-        self._listener = ucp.create_listener(_connection_func)
+        self._listener = ucp.create_listener(self.listener_callback)
 
     def listener_port(self):
         return self._listener.port
