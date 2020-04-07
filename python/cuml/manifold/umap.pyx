@@ -355,7 +355,6 @@ class UMAP(Base):
 
     def __getstate__(self):
         state = {}
-        state["hash_input"] = self.hash_input
         state["n_neighbors"] = self.n_neighbors
         state["n_components"] = self.n_components
         state["n_epochs"] = self.n_epochs
@@ -370,7 +369,6 @@ class UMAP(Base):
         state["verbose"] = self.verbose
         state["a"] = self.a
         state["b"] = self.b
-        state["initial_alpha"] = self.initial_alpha
         state["init"] = self.init
         state["target_n_neighbors"] = self.target_n_neighbors
         state["target_metric"] = self.target_metric
@@ -379,6 +377,13 @@ class UMAP(Base):
         state["multicore_implem"] = self.multicore_implem
         state["optim_batch_size"] = self.optim_batch_size
         state["callback"] = self.callback
+
+        state["hash_input"] = self.hash_input
+        if hasattr(self, "X_m") and self.X_m is not None:
+            state['X_m'] = self.X_m
+            state['n_rows'] = self.n_rows
+            state['n_dims'] = self.n_dims
+            state['embedding_'] = self.embedding_
         return state
 
     def __setstate__(self, state):
@@ -391,7 +396,6 @@ class UMAP(Base):
         umap_params.n_neighbors = <int> cls.n_neighbors
         umap_params.n_components = <int> cls.n_components
         umap_params.n_epochs = <int> cls.n_epochs
-        umap_params.verbose = <bool> cls.verbose
         umap_params.learning_rate = <float> cls.learning_rate
         umap_params.min_dist = <float> cls.min_dist
         umap_params.spread = <float> cls.spread
@@ -400,18 +404,19 @@ class UMAP(Base):
         umap_params.repulsion_strength = <float> cls.repulsion_strength
         umap_params.negative_sample_rate = <int> cls.negative_sample_rate
         umap_params.transform_queue_size = <int> cls.transform_queue_size
+        umap_params.verbose = <bool> cls.verbose
+        umap_params.a = <float> cls.a
+        umap_params.b = <float> cls.b
         if cls.init == "spectral":
             umap_params.init = <int> 1
         else:  # self.init == "random"
             umap_params.init = <int> 0
-        umap_params.a = <float> cls.a
-        umap_params.b = <float> cls.b
         umap_params.target_n_neighbors = <int> cls.target_n_neighbors
-        umap_params.target_weights = <float> cls.target_weights
         if cls.target_metric == "euclidean":
             umap_params.target_metric = MetricType.EUCLIDEAN
         else:  # self.target_metric == "categorical"
             umap_params.target_metric = MetricType.CATEGORICAL
+        umap_params.target_weights = <float> cls.target_weights
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.multicore_implem = <bool> cls.multicore_implem
         umap_params.optim_batch_size = <int> cls.optim_batch_size
