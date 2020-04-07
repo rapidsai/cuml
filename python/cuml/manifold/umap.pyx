@@ -299,9 +299,11 @@ class UMAP(Base):
                  hash_input=False,
                  random_state=None,
                  optim_batch_size=0,
-                 callback=None):
+                 callback=None,
+                 output_type=None):
 
-        super(UMAP, self).__init__(handle, verbose)
+        super(UMAP, self).__init__(handle=handle, verbose=verbose,
+                                   output_type=output_type)
 
         self.hash_input = hash_input
 
@@ -353,43 +355,6 @@ class UMAP(Base):
         self.X_m = None
         self.embedding_ = None
 
-    def __getstate__(self):
-        state = {}
-        state["n_neighbors"] = self.n_neighbors
-        state["n_components"] = self.n_components
-        state["n_epochs"] = self.n_epochs
-        state["learning_rate"] = self.learning_rate
-        state["min_dist"] = self.min_dist
-        state["spread"] = self.spread
-        state["set_op_mix_ratio"] = self.set_op_mix_ratio
-        state["local_connectivity"] = self.local_connectivity
-        state["repulsion_strength"] = self.repulsion_strength
-        state["negative_sample_rate"] = self.negative_sample_rate
-        state["transform_queue_size"] = self.transform_queue_size
-        state["verbose"] = self.verbose
-        state["a"] = self.a
-        state["b"] = self.b
-        state["init"] = self.init
-        state["target_n_neighbors"] = self.target_n_neighbors
-        state["target_metric"] = self.target_metric
-        state["target_weights"] = self.target_weights
-        state["random_state"] = self.random_state
-        state["multicore_implem"] = self.multicore_implem
-        state["optim_batch_size"] = self.optim_batch_size
-        state["callback"] = self.callback
-
-        state["hash_input"] = self.hash_input
-        if hasattr(self, "X_m") and self.X_m is not None:
-            state['X_m'] = self.X_m
-            state['n_rows'] = self.n_rows
-            state['n_dims'] = self.n_dims
-            state['embedding_'] = self.embedding_
-        return state
-
-    def __setstate__(self, state):
-        super(UMAP, self).__init__(handle=None, verbose=state['verbose'])
-        self.__dict__.update(state)
-
     @staticmethod
     def _build_umap_params(cls):
         cdef UMAPParams* umap_params = new UMAPParams()
@@ -432,17 +397,6 @@ class UMAP(Base):
     def _destroy_umap_params(ptr):
         cdef UMAPParams* umap_params = <UMAPParams*> <size_t> ptr
         free(umap_params)
-
-    @staticmethod
-    def _prep_output(X, embedding):
-        if isinstance(X, cudf.DataFrame):
-            return embedding.to_output('dataframe')
-        elif isinstance(X, np.ndarray):
-            return embedding.to_output('numpy')
-        elif isinstance(X, cupy.ndarray):
-            return embedding.to_output('cupy')
-        elif cuda.is_cuda_array(X):
-            return embedding.to_output('numba')
 
     @staticmethod
     def find_ab_params(spread, min_dist):
@@ -558,6 +512,8 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
+        self._set_output_type(X)
+
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
             self._extract_knn_graph(knn_graph, convert_dtype)
 
@@ -661,7 +617,8 @@ class UMAP(Base):
         """
         self.fit(X, y, convert_dtype=convert_dtype,
                  knn_graph=knn_graph)
-        return UMAP._prep_output(X, self.embedding_)
+        out_type = self._get_output_type(X)
+        return self.embedding_.to_output(out_type)
 
     @with_cupy_rmm
     def transform(self, X, convert_dtype=True,
@@ -725,9 +682,11 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
+        out_type = self._get_output_type(X)
+
         if self.hash_input and joblib.hash(X_m.to_output('numpy')) == \
                 self.input_hash:
-            ret = UMAP._prep_output(X, self.embedding_)
+            ret = self.embedding_.to_output(out_type)
             del X_m
             return ret
 
@@ -767,6 +726,6 @@ class UMAP(Base):
 
         UMAP._destroy_umap_params(<size_t>umap_params)
 
-        ret = UMAP._prep_output(X, embedding)
+        ret = embedding.to_output(out_type)
         del X_m
         return ret

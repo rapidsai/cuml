@@ -289,8 +289,6 @@ def test_umap_pickle(tmpdir, datatype, keys):
         n_neighbors = pickled_model.n_neighbors
         assert array_equal(result["umap_embedding"], cu_after_embed)
 
-        print(type(X_train))
-
         cu_trust_after = trustworthiness(X_train,
                                          pickled_model.transform(X_train),
                                          n_neighbors)
