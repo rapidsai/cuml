@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from Cython.Build import cythonize
 from distutils.sysconfig import get_python_lib
 from setuptools import find_packages
 from setuptools import setup
@@ -144,7 +145,6 @@ if "--singlegpu" in sys.argv:
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
 
-    sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
 
@@ -168,11 +168,19 @@ extensions = [
 ]
 
 for e in extensions:
-    e.exclude = exc_list
+    # TODO: this exclude is not working, need to research way to properly
+    # exclude files for parallel build
+    # e.exclude = exc_list
     e.cython_directives = dict(
         profile=False, language_level=3, embedsignature=True
     )
 
+if "--singlegpu" in sys.argv:
+    print("Full cythonization in parallel is not supported for singlegpu " +
+          "target for now.")
+    extensions = cythonize(extensions,
+                           exclude=exc_list)
+    sys.argv.remove('--singlegpu')
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
