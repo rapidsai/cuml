@@ -36,6 +36,7 @@ bool ucx_enabled();
    * @param eps an array of ucp_ep_h endpoints to the other ucp workers in the cluster
    * @param size the size of the cluster (number of elements in eps)
    * @param rank rank of the current worker
+   * @param verbose print verbose logging
    */
 void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
 
@@ -44,7 +45,7 @@ void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
 #else
                      void *, void *,
 #endif
-                     int size, int rank);
+                     int size, int rank, bool verbose);
 
 /**
    * @brief This function follows the design of the wrapper function in
@@ -54,10 +55,11 @@ void inject_comms_py(cumlHandle *handle, ncclComm_t comm,
    * @param comm initialized nccl communicator
    * @param size the size of the cluster (number of elements in eps)
    * @param rank rank of the current worker
+   * @param verbose print verbose logging
    */
 
 void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
-                          int rank);
+                          int rank, bool verbose);
 
 /**
    * @brief Stores the given character array on the given ncclUniqueId struct.

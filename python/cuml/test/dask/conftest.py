@@ -10,7 +10,8 @@ enable_infiniband = False
 
 @pytest.fixture(scope="module")
 def cluster():
-    cluster = LocalCUDACluster(protocol="tcp")
+
+    cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
     yield cluster
     cluster.close()
 
