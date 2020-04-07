@@ -14,18 +14,13 @@
 # limitations under the License.
 #
 
-from Cython.Build import cythonize
 from distutils.sysconfig import get_python_lib
+from pathlib import Path
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
 from setuputils import clean_folder
 from setuputils import get_submodule_dependencies
-
-try:
-    from Cython.Distutils.build_ext import new_build_ext as build_ext
-except ImportError:
-    from setuptools.command.build_ext import build_ext
 
 import numpy
 import os
@@ -35,6 +30,13 @@ import sysconfig
 import versioneer
 import warnings
 
+try:
+    if "--singlegpu" in sys.argv:
+        from Cython.Build import cythonize
+    else:
+        from Cython.Distutils.build_ext import new_build_ext as build_ext
+except ImportError:
+    from setuptools.command.build_ext import build_ext
 
 install_requires = [
     'numba',
@@ -62,13 +64,15 @@ if "clean" in sys.argv:
     libcuml_path = ""
 
     try:
-        shutil.rmtree('build')
-        shutil.rmtree('.pytest_cache', ignore_errors=True)
-        shutil.rmtree('external_repositories', ignore_errors=True)
-        shutil.rmtree('cuml.egg-info', ignore_errors=True)
-        shutil.rmtree('__pycache__', ignore_errors=True)
+        setup_file_path = str(Path(__file__).parent.absolute())
+        shutil.rmtree(setup_file_path + '/build')
+        shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/external_repositories',
+                      ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
 
-        clean_folder('cuml')
+        clean_folder(setup_file_path + '/cuml')
 
     except IOError:
         pass
