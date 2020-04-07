@@ -15,6 +15,7 @@
 
 from cuml.nccl import nccl
 
+import os
 import weakref
 
 import threading
@@ -112,7 +113,7 @@ def default_comms(comms_p2p=False, client=None):
 
 
 def _func_ucp_listener_port(sessionId, r):
-    return worker_state(sessionId)["ucp_listener"].port
+    return worker_state("ucp")["ucp_listener"].port
 
 
 async def _func_init_all(sessionId, uniqueId, comms_p2p,
@@ -205,15 +206,12 @@ async def _func_ucp_create_listener(sessionId, verbose, r):
     :param r: float a random number to stop the function from being cached
     """
 
-    if "ucp_listener" in worker_state(sessionId):
-        print("Listener already started for sessionId=" +
-              str(sessionId))
-    else:
+    if "ucp_listener" not in worker_state("ucp"):
 
         listener_thread = ListenerThread(verbose)
         listener_thread.start()
 
-        worker_state(sessionId)["ucp_listener"] = listener_thread
+        worker_state("ucp")["ucp_listener"] = listener_thread
 
 
 async def _func_ucp_stop_listener(sessionId):
@@ -222,14 +220,14 @@ async def _func_ucp_stop_listener(sessionId):
     :param sessionId: uuid Unique id for current instance
     :param r: float a random number to stop the function from being cached
     """
-    if "ucp_listener" in worker_state(sessionId):
-        listener = worker_state(sessionId)["ucp_listener"]
-        listener.close()
-        listener.join()
-
-        del worker_state(sessionId)["ucp_listener"]
-    else:
-        print("Listener not found with sessionId=" + str(sessionId))
+    # if "ucp_listener" in worker_state(sessionId):
+    #     listener = worker_state("ucp")["ucp_listener"]
+    #     listener.close()
+    #     listener.join()
+    #
+    #     del worker_state("ucp")["ucp_listener"]
+    # else:
+    #     print("Listener not found with sessionId=" + str("ucp"))
 
 
 def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
@@ -246,7 +244,7 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
 
     handle = Handle(streams_per_handle)
     nccl_comm = session_state["nccl"]
-    eps = session_state["ucp_eps"]
+    eps = worker_state("ucp")["ucp_eps"]
     nWorkers = session_state["nworkers"]
     workerId = session_state["wid"]
 
@@ -297,32 +295,34 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
     eps = [None] * len(worker_info)
     count = 1
 
-    for k in worker_info:
-        if str(k) != str(local_address):
+    if "ucp_eps" not in worker_state("ucp"):
 
-            ip, port = parse_host_port(k)
+        for k in worker_info:
+            if str(k) != str(local_address):
 
-            ep = await ucp.create_endpoint(ip,
-                                           worker_info[k]["p"])
+                ip, port = parse_host_port(k)
 
-            eps[worker_info[k]["r"]] = ep
-            count += 1
+                ep = await ucp.create_endpoint(ip,
+                                               worker_info[k]["p"])
 
-    worker_state(sessionId)["ucp_eps"] = eps
+                eps[worker_info[k]["r"]] = ep
+                count += 1
+
+        worker_state("ucp")["ucp_eps"] = eps
 
 
 async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
     worker_state(sessionId)["nccl"].destroy()
     del worker_state(sessionId)["nccl"]
 
-    if comms_p2p:
-        for ep in worker_state(sessionId)["ucp_eps"]:
-            if ep is not None:
-                if not ep.closed():
-                    ep.abort()
-                del ep
-        del worker_state(sessionId)["ucp_eps"]
-        del worker_state(sessionId)["handle"]
+    # if comms_p2p:
+        # for ep in worker_state("ucp")["ucp_eps"]:
+        #     if ep is not None:
+        #         if not ep.closed():
+        #             ep.abort()
+        #         del ep
+        # del worker_state("ucp")["ucp_eps"]
+    del worker_state(sessionId)["handle"]
 
 
 def _func_ucp_ports(sessionId, client, workers):
@@ -369,10 +369,10 @@ class CommsContext:
 
         self.verbose = verbose
 
-        if comms_p2p and (not is_ucx_enabled() or not has_ucp()):
-            warnings.warn("ucx-py not found. UCP Integration will "
-                          "be disabled.")
-            self.comms_p2p = False
+        # if comms_p2p and (not is_ucx_enabled() or not has_ucp()):
+        #     warnings.warn("ucx-py not found. UCP Integration will "
+        #                   "be disabled.")
+        #     self.comms_p2p = False
 
         if verbose:
             print("Initializing comms!")

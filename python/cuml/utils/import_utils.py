@@ -40,6 +40,8 @@ def has_cupy():
 
 def has_ucp():
     try:
+        import os
+        os.environ["UCX_CUDA_IPC_CACHE"] = "n"
         import ucp  # NOQA
         return True
     except ImportError:
