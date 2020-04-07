@@ -21,6 +21,7 @@
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
+- PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 
 # cuML 0.13.0 (Date TBD)
 
