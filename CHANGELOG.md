@@ -8,6 +8,9 @@
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
 - PR #1988: C++: cpp bench refactor
+- PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
+- PR #1974: Reduce ARIMA testing time
+- PR #1984: Enable Ninja build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -15,6 +18,7 @@
 - PR #1971: python: Correctly honor --singlegpu option and CUML_BUILD_PATH env variable
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
+- PR #1993: Set `umap_transform_reproducibility` tests to xfail
 
 # cuML 0.13.0 (Date TBD)
 
