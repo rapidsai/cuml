@@ -169,7 +169,8 @@ extensions = [
 
 for e in extensions:
     # TODO: this exclude is not working, need to research way to properly
-    # exclude files for parallel build
+    # exclude files for parallel build. See issue
+    # https://github.com/rapidsai/cuml/issues/2037
     # e.exclude = exc_list
     e.cython_directives = dict(
         profile=False, language_level=3, embedsignature=True
