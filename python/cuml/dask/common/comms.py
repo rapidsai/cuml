@@ -112,7 +112,7 @@ def default_comms(comms_p2p=False, client=None):
         return _get_global_comms()
 
 
-def _func_ucp_listener_port(sessionId, r):
+def _func_ucp_listener_port():
     return get_ucx().listener_port()
 
 
@@ -261,10 +261,8 @@ async def _func_destroy_all(sessionId, comms_p2p, verbose=False):
     del worker_state(sessionId)["handle"]
 
 
-def _func_ucp_ports(sessionId, client, workers):
+def _func_ucp_ports(client, workers):
     return client.run(_func_ucp_listener_port,
-                      sessionId,
-                      random.random(),
                       workers=workers)
 
 
@@ -323,7 +321,7 @@ class CommsContext:
                                 (worker_rank, worker_port ) }
         """
         ranks = _func_worker_ranks(workers)
-        ports = _func_ucp_ports(self.sessionId, self.client, workers) \
+        ports = _func_ucp_ports(self.client, workers) \
             if self.comms_p2p else None
 
         output = {}
@@ -332,16 +330,6 @@ class CommsContext:
             if self.comms_p2p:
                 output[k]["port"] = ports[k]
         return output
-
-    def create_ucp_listeners(self):
-        """
-        Build a UCP listener on each worker. Since this async
-        function is long-running, the listener is
-        placed in the worker's `_cuml_comm_state` dict.
-        """
-        self.client.run(get_ucx,
-                        workers=self.worker_addresses,
-                        wait=True)
 
     def init(self, workers=None):
         """
@@ -352,17 +340,9 @@ class CommsContext:
         self.worker_addresses = list(set((self.client.has_what().keys()
                                           if workers is None else workers)))
 
-        if self.ucx_initialized or self.nccl_initialized:
+        if self.nccl_initialized:
             warnings.warn("CommsContext has already been initialized.")
             return
-
-        if self.comms_p2p:
-            if self.verbose:
-                print("Initializing UCX Listener")
-            self.create_ucp_listeners()
-
-            if self.verbose:
-                print("Done initializing UCX Listener.")
 
         worker_info = self.worker_info(self.worker_addresses)
         worker_info = {w: worker_info[w] for w in self.worker_addresses}

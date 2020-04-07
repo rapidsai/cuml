@@ -37,7 +37,7 @@ class BaseLinearModelSyncFitMixin(object):
 
         n_cols = d[0].shape[1]
 
-        lin_models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
+        lin_models = dict([(data.worker_info[wf[0]]["rank"], self.client.submit(
             model_func,
             comms.sessionId,
             self.datatype,
@@ -48,12 +48,12 @@ class BaseLinearModelSyncFitMixin(object):
 
         lin_fit = dict([(wf[0], self.client.submit(
             _func_fit,
-            lin_models[data.worker_info[wf[0]]["r"]],
+            lin_models[data.worker_info[wf[0]]["rank"]],
             wf[1],
             data.total_rows,
             n_cols,
-            data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
-            data.worker_info[wf[0]]["r"],
+            data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
+            data.worker_info[wf[0]]["rank"],
             pure=False,
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
