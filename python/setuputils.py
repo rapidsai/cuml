@@ -25,7 +25,7 @@ import warnings
 def clean_folder(path):
     """
     Function to clean all Cython and Python artifacts and cache folders. It
-    clean the folder as well as its direct children (NOT recursively).
+    clean the folder as well as its direct children recursively.
 
     Parameters
     ----------
@@ -34,7 +34,7 @@ def clean_folder(path):
     """
     shutil.rmtree(path + '/__pycache__', ignore_errors=True)
 
-    folders = glob.glob(path + '/*')
+    folders = glob.glob(path + '/*/')
     for folder in folders:
         shutil.rmtree(folder + '/__pycache__', ignore_errors=True)
 
