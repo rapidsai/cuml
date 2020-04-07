@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -34,7 +34,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
    --deep           - Use to make clean target remove all cythonized cpp files and artifacts
-   --singlegpu      - Build cuml without multigpu support (multigpu requires libcumlprims)
+   --singlegpu      - Build cuml without libcumlprims based multigpu algorithms.
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
