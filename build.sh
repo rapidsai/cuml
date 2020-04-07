@@ -33,7 +33,6 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g               - build for debug
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
-   --deep           - Use to make clean target remove all cythonized cpp files and artifacts
    --singlegpu      - Build cuml without libcumlprims based multigpu algorithms.
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
@@ -108,9 +107,6 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
-if hasArg --deep; then
-    DEEPCLEAN=1
-fi
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -123,11 +119,11 @@ if (( ${CLEAN} == 1 )); then
           find ${bd} -mindepth 1 -delete
           rmdir ${bd} || true
       fi
-      if (( ${DEEPCLEAN} == 1 )); then
-          cd ${REPODIR}/python
-          python setup.py clean --all
-          cd ${REPODIR}
-      fi
+
+      cd ${REPODIR}/python
+      python setup.py clean --all
+      cd ${REPODIR}
+
     done
 fi
 
