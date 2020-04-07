@@ -11,6 +11,7 @@
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
 - PR #1996: Cythonize in parallel
+- PR #2032: Decrease tests size for MBSGD classifier to improve CI running time
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
