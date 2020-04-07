@@ -53,10 +53,6 @@ def _del_global_comms(c):
             pass
 
 
-if is_ucx_enabled() and has_ucp():
-    import ucp
-
-
 def worker_state(sessionId=None):
     """
     Retrieves cuML comms state on local worker for the given
