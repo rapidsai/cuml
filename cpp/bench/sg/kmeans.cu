@@ -42,9 +42,9 @@ class KMeans : public BlobsFixture<D> {
       state.SkipWithError("KMeans only supports row-major inputs");
     }
     this->loopOnState(state, [this]() {
-      ML::kmeans::fit_predict(*this->handle, kParams, this->data.X, this->params.nrows,
-                              this->params.ncols, centroids, this->data.y,
-                              inertia, nIter);
+      ML::kmeans::fit_predict(*this->handle, kParams, this->data.X,
+                              this->params.nrows, this->params.ncols, centroids,
+                              this->data.y, inertia, nIter);
     });
   }
 
