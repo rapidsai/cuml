@@ -20,7 +20,7 @@
 #include <common/cumlHandle.hpp>
 #include <cuml/cuml.hpp>
 
-#include "random/rng.h"
+#include <random/rng.h>
 
 namespace ML {
 namespace Bench {
