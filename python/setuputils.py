@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,36 @@
 # limitations under the License.
 #
 
+import glob
 import os
 import re
+import shutil
 import subprocess
 import warnings
+
+
+def clean_folder(path):
+    """
+    Function to clean all Cython and Python artifacts and cache folders. It
+    clean the folder as well as its direct children (NOT recursively).
+
+    Parameters
+    ----------
+    path : String
+        Path to the folder to be cleaned.
+    """
+    shutil.rmtree(path + '/__pycache__', ignore_errors=True)
+
+    folders = glob.glob(path + '/*')
+    for folder in folders:
+        shutil.rmtree(folder + '/__pycache__', ignore_errors=True)
+
+        clean_folder(folder)
+
+        cython_exts = glob.glob(folder + '/*.cpp')
+        cython_exts.extend(glob.glob(folder + '/*.cpython*'))
+        for file in cython_exts:
+            os.remove(file)
 
 
 def clone_repo(name, GIT_REPOSITORY, GIT_TAG, force_clone=False):
@@ -27,17 +53,17 @@ def clone_repo(name, GIT_REPOSITORY, GIT_TAG, force_clone=False):
     in spite of not being very pythonic.
 
     Parameters
-        ----------
-        name : String
-            Name of the repo to be cloned
-        GIT_REPOSITORY : String
-            URL of the repo to be cloned
-        GIT_TAG : String
-            commit hash or git hash to be cloned. Accepts anything that
-            `git checkout` accepts
-        force_clone : Boolean
-            Set to True to ignore already cloned repositories in
-            external_repositories and clone
+    ----------
+    name : String
+        Name of the repo to be cloned
+    GIT_REPOSITORY : String
+        URL of the repo to be cloned
+    GIT_TAG : String
+        commit hash or git hash to be cloned. Accepts anything that
+        `git checkout` accepts
+    force_clone : Boolean
+        Set to True to ignore already cloned repositories in
+        external_repositories and clone
 
     """
 
@@ -66,23 +92,23 @@ def get_repo_cmake_info(names, file_path):
     Function to find information about submodules from cpp/CMakeLists file
 
     Parameters
-        ----------
-        name : List of Strings
-            List containing the names of the repos to be cloned. Must match
-            the names of the cmake git clone instruction
-            `ExternalProject_Add(name`
-        file_path : String
-            Relative path of the location of the CMakeLists.txt (or the cmake
-            module which contains ExternalProject_Add definitions) to extract
-            the information.
+    ----------
+    name : List of Strings
+        List containing the names of the repos to be cloned. Must match
+        the names of the cmake git clone instruction
+        `ExternalProject_Add(name`
+    file_path : String
+        Relative path of the location of the CMakeLists.txt (or the cmake
+        module which contains ExternalProject_Add definitions) to extract
+        the information.
 
     Returns
-        -------
-        results : dictionary
-            Dictionary where results[name] contains an array,
-            where results[name][0] is the url of the repo and
-            repo_info[repo][1] is the tag/commit hash to be cloned as
-            specified by cmake.
+    -------
+    results : dictionary
+        Dictionary where results[name] contains an array,
+        where results[name][0] is the url of the repo and
+        repo_info[repo][1] is the tag/commit hash to be cloned as
+        specified by cmake.
 
     """
     with open(file_path) as f:
@@ -113,25 +139,25 @@ def get_submodule_dependencies(repos,
     repos needed to build the cuML Python package.
 
     Parameters
-        ----------
-        repos : List of Strings
-            List containing the names of the repos to be cloned. Must match
-            the names of the cmake git clone instruction
-            `ExternalProject_Add(name`
-        file_path : String
-            Relative path of the location of the CMakeLists.txt (or the cmake
-            module which contains ExternalProject_Add definitions) to extract
-            the information. By default it will look in the standard location
-            `cuml_repo_root/cpp`
-        libcuml_path : String
-            Relative location of the build folder to look if repositories
-            already exist
+    ----------
+    repos : List of Strings
+        List containing the names of the repos to be cloned. Must match
+        the names of the cmake git clone instruction
+        `ExternalProject_Add(name`
+    file_path : String
+        Relative path of the location of the CMakeLists.txt (or the cmake
+        module which contains ExternalProject_Add definitions) to extract
+        the information. By default it will look in the standard location
+        `cuml_repo_root/cpp`
+    libcuml_path : String
+        Relative location of the build folder to look if repositories
+        already exist
 
     Returns
-        -------
-        result : boolean
-            True if repos were found in libcuml cpp build folder, False
-            if they were not found.
+    -------
+    result : boolean
+        True if repos were found in libcuml cpp build folder, False
+        if they were not found.
     """
 
     repo_info = get_repo_cmake_info(repos, file_path)

@@ -19,6 +19,7 @@ from distutils.sysconfig import get_python_lib
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.extension import Extension
+from setuputils import clean_folder
 from setuputils import get_submodule_dependencies
 
 try:
@@ -26,7 +27,6 @@ try:
 except ImportError:
     from setuptools.command.build_ext import build_ext
 
-import glob
 import numpy
 import os
 import shutil
@@ -41,7 +41,6 @@ install_requires = [
     'cython'
 ]
 
-
 ##############################################################################
 # - Dependencies include and lib folder setup --------------------------------
 
@@ -53,82 +52,74 @@ if not CUDA_HOME:
 cuda_include_dir = os.path.join(CUDA_HOME, "include")
 cuda_lib_dir = os.path.join(CUDA_HOME, "lib64")
 
+##############################################################################
+# - Clean target -------------------------------------------------------------
+
+if "clean" in sys.argv:
+    print("Cleaning all Python and Cython build artifacts...")
+
+    treelite_path = ""
+    libcuml_path = ""
+
+    try:
+        shutil.rmtree('build')
+        shutil.rmtree('.pytest_cache', ignore_errors=True)
+        shutil.rmtree('external_repositories', ignore_errors=True)
+        shutil.rmtree('cuml.egg-info', ignore_errors=True)
+        shutil.rmtree('__pycache__', ignore_errors=True)
+
+        clean_folder('cuml')
+
+    except IOError:
+        pass
+
+    # need to terminate script so cythonizing doesn't get triggered after
+    # cleanup unintendedly
+    sys.argv.remove("clean")
+    sys.argv.remove("--all")
+
+    if len(sys.argv) == 1:
+        sys.exit(0)
 
 ##############################################################################
-# - Subrepo checking and cloning ---------------------------------------------
+# - Cloning dependencies if needed -------------------------------------------
 
 subrepos = [
-    'cub',
-    'cutlass',
-    'faiss',
     'treelite'
 ]
 
 # We check if there is a libcuml++ build folder, by default in cpp/build
 # or in CUML_BUILD_PATH env variable. Otherwise setup.py will clone the
-# dependencies defined in cpp/CMakeListst.txt
-if "clean" not in sys.argv:
-    if os.environ.get('CUML_BUILD_PATH', False):
-        libcuml_path = '../' + os.environ.get('CUML_BUILD_PATH')
-    else:
-        libcuml_path = '../cpp/build/'
-
-    found_cmake_repos = get_submodule_dependencies(subrepos,
-                                                   libcuml_path=libcuml_path)
-
-    if found_cmake_repos:
-        treelite_path = os.path.join(libcuml_path,
-                                     'treelite/src/treelite/include')
-        faiss_path = os.path.join(libcuml_path, 'faiss/src/')
-        cub_path = os.path.join(libcuml_path, 'cub/src/cub')
-        cutlass_path = os.path.join(libcuml_path, 'cutlass/src/cutlass')
-    else:
-        # faiss requires the include to be to the parent of the root of
-        # their repo instead of the full path like the others
-        faiss_path = 'external_repositories/'
-        treelite_path = 'external_repositories/treelite/include'
-        cub_path = 'external_repositories/cub'
-        cutlass_path = 'external_repositories/cutlass'
-
+# dependencies defined in cpp/cmake/Dependencies.cmake
+if os.environ.get('CUML_BUILD_PATH', False):
+    libcuml_path = '../' + os.environ.get('CUML_BUILD_PATH')
 else:
+    libcuml_path = '../cpp/build/'
 
-    treelite_path = ""
-    faiss_path = ""
-    cub_path = ""
-    cutlass_path = ""
-    libcuml_path = ""
+found_cmake_repos = get_submodule_dependencies(subrepos,
+                                               libcuml_path=libcuml_path)
 
-    try:
-        shutil.rmtree('external_repositories', ignore_errors=True)
-        shutil.rmtree('cuml.egg-info', ignore_errors=True)
-        shutil.rmtree('__pycache__', ignore_errors=True)
+if found_cmake_repos:
+    treelite_path = os.path.join(libcuml_path,
+                                 'treelite/src/treelite/include')
+else:
+    treelite_path = 'external_repositories/treelite/include'
 
-        sg_folders = glob.glob('cuml/*')
-        for folder in sg_folders:
-            cython_exts = glob.glob(folder + '/*.cpp')
-            cython_exts.extend(glob.glob(folder + '/*.cpython*'))
-            for file in cython_exts:
-                os.remove(file)
-
-        sys.exit(0)
-
-    except IOError:
-        pass
 
 ##############################################################################
 # - Cython extensions build and parameters -----------------------------------
 
+# cumlcomms and nccl are still needed for multigpu algos not based
+# on libcumlprims
 libs = ['cuda',
         'cuml++',
+        'cumlcomms',
+        'nccl',
         'rmm']
 
 include_dirs = ['../cpp/src',
                 '../cpp/include',
-                '../cpp/external',
                 '../cpp/src_prims',
-                cutlass_path,
-                cub_path,
-                faiss_path,
                 treelite_path,
                 '../cpp/comms/std/src',
                 '../cpp/comms/std/include',
@@ -153,13 +144,10 @@ if "--singlegpu" in sys.argv:
     exc_list.append('cuml/linear_model/ridge_mg.pyx')
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
     exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
+
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
-    # ucx/ucx-py related functionality available in version 0.12+
-    # libs.append("ucp")
-    libs.append('cumlcomms')
-    libs.append('nccl')
 
     sys_include = os.path.dirname(sysconfig.get_path("include"))
     include_dirs.append("%s/cumlprims" % sys_include)
