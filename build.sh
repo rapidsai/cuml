@@ -183,9 +183,9 @@ if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-  python setup.py build_ext --inplace ${SINGLEGPU}
-  python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPU}
+        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
     else
-  python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
     fi
 fi
