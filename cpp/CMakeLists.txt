@@ -268,7 +268,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/logger.cpp
     src/common/nvtx.cu
     src/comms/cuML_comms_test.cpp
-    src/comms/cuML_comms_test.cpp
     src/datasets/make_blobs.cu
     src/datasets/make_regression.cu
     src/dbscan/dbscan.cu
