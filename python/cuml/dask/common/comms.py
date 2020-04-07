@@ -198,7 +198,7 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
 
     handle = Handle(streams_per_handle)
     nccl_comm = session_state["nccl"]
-    eps = worker_state(sessionId)["ucp_eps"]
+    eps = session_state["ucp_eps"]
     nWorkers = session_state["nworkers"]
     workerId = session_state["wid"]
 
