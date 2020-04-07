@@ -487,6 +487,7 @@ class UMAP(Base):
             knn_dists = knn_graph.data
             knn_indices_m, _, _, _ = \
                 input_to_cuml_array(knn_indices, order='C',
+                                    deepcopy=True,
                                     check_dtype=np.int64,
                                     convert_to_dtype=(np.int64
                                                       if convert_dtype
@@ -494,6 +495,7 @@ class UMAP(Base):
 
             knn_dists_m, _, _, _ = \
                 input_to_cuml_array(knn_dists, order='C',
+                                    deepcopy=True,
                                     check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
