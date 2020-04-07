@@ -1,4 +1,5 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +14,4 @@
 # limitations under the License.
 #
 
-# Finds clang-tidy exe based on the PATH env variable
-string(REPLACE ":" ";" EnvPath $ENV{PATH})
-find_program(ClangTidy_EXE
-  NAMES clang-tidy
-  PATHS EnvPath
-  DOC "path to clang-tidy exe")
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(ClangTidy DEFAULT_MSG
-  ClangTidy_EXE)
-
-# TODO: add a clang_tidy dependency on the existing targets
+from cuml.experimental.hyperopt_utils import plotting_utils
