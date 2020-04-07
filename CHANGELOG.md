@@ -17,6 +17,8 @@
 - PR #1971: python: Correctly honor --singlegpu option and CUML_BUILD_PATH env variable
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
+- PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2017: Fixing memory issue in weak CC prim
 
 # cuML 0.13.0 (Date TBD)
 
