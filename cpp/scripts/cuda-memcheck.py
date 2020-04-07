@@ -18,6 +18,7 @@ import re
 import os
 import subprocess
 import argparse
+import time
 
 
 def parse_args():
@@ -62,6 +63,7 @@ def get_testlist(exe, workdir):
 
 
 def run_tests(args, testlist):
+    start = time.time()
     idx = 1
     failed = 0
     total = len(testlist)
@@ -80,6 +82,8 @@ def run_tests(args, testlist):
         print("FAIL: %d failed tests out of %d" % (failed, total))
     else:
         print("PASS")
+    diff = time.time() - start
+    print("Total time taken: %d s" % diff)
     return failed == 0
 
 
