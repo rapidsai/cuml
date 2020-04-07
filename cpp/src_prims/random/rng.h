@@ -484,7 +484,7 @@ class Rng {
     device_buffer<WeightsT> expWts(allocator, stream, len);
     device_buffer<WeightsT> sortedWts(allocator, stream, len);
     device_buffer<IdxT> inIdx(allocator, stream, len);
-    device_buffer<IdxT> outIdxBuff(allocator, stream);
+    device_buffer<IdxT> outIdxBuff(allocator, stream, len);
     auto *inIdxPtr = inIdx.data();
     // generate modified weights
     randImpl(
@@ -501,16 +501,14 @@ class Rng {
       NumThreads, nBlocks, type, stream);
     ///@todo: use a more efficient partitioning scheme instead of full sort
     // sort the array and pick the top sampledLen items
-    IdxT *outIdxPtr;
-    if (outIdx == nullptr) {
-      outIdxBuff.resize(len, stream);
-      outIdxPtr = outIdxBuff.data();
-    } else {
-      outIdxPtr = outIdx;
-    }
+    IdxT *outIdxPtr = outIdxBuff.data();
     device_buffer<char> workspace(allocator, stream);
     sortPairs(workspace, expWts.data(), sortedWts.data(), inIdxPtr, outIdxPtr,
               (int)len, stream);
+    if (outIdx != nullptr) {
+      CUDA_CHECK(cudaMemcpyAsync(outIdx, outIdxPtr, sizeof(IdxT) * sampledLen,
+                                 cudaMemcpyDeviceToDevice, stream));
+    }
     scatter<DataT, IdxT>(out, in, outIdxPtr, sampledLen, stream);
   }
 
