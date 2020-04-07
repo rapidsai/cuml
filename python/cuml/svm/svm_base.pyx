@@ -569,15 +569,6 @@ class SVMBase(Base):
         state = self.__dict__.copy()
         del state['handle']
         del state['_model']
-        # Only when the model is fit once we need to store these parameters
-        if self._fit_status_ == 0:
-            state['_dual_coef_'] = self._dual_coef_
-            state['_support_'] = self._support_
-            state['_support_vectors_'] = \
-                self._support_vectors_
-            if self._n_classes > 0:
-                state['_unique_labels'] = \
-                    self._unique_labels
         return state
 
     def __setstate__(self, state):

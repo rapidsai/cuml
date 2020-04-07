@@ -11,6 +11,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #1996: Cythonize in parallel
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -19,6 +20,7 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 
 # cuML 0.13.0 (Date TBD)
 
