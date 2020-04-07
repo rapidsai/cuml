@@ -29,8 +29,6 @@ from cuml.utils.import_utils import has_ucp
 import warnings
 
 import time
-
-import random
 import uuid
 
 
