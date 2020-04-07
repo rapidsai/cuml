@@ -801,7 +801,6 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 
   int n_iters = 0;
   do {
-
     CUDA_CHECK(cudaMemsetAsync(state->m, false, sizeof(bool), stream));
 
     weak_cc_label_device<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
