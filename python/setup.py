@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-from Cython.Build import cythonize
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
@@ -124,12 +123,14 @@ if "--multigpu" in sys.argv:
     sys.argv.remove('--multigpu')
 
 if "--singlegpu" in sys.argv:
+    exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    exc_list.append('cuml/decomposition/base_mg.pyx')
+    exc_list.append('cuml/decomposition/pca_mg.pyx')
+    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    exc_list.append('cuml/linear_model/base_mg.pyx')
     exc_list.append('cuml/linear_model/ridge_mg.pyx')
     exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
-    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
     exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
-    exc_list.append('cuml/cluster/kmeans_mg.pyx')
-    exc_list.append('cuml/decomposition/pca_mg.pyx')
     sys.argv.remove('--singlegpu')
 else:
     libs.append('cumlprims')
@@ -157,6 +158,12 @@ extensions = [
               extra_compile_args=['-std=c++11'])
 ]
 
+for e in extensions:
+    e.exclude = exc_list
+    e.cython_directives = dict(
+        profile=False, language_level=3, embedsignature=True
+    )
+
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
@@ -172,8 +179,7 @@ setup(name='cuml',
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
-      ext_modules=cythonize(extensions,
-                            exclude=exc_list),
+      ext_modules=extensions,
       packages=find_packages(include=['cuml', 'cuml.*']),
       install_requires=install_requires,
       license="Apache",
