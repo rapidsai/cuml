@@ -34,12 +34,15 @@ class UCX:
     _instance = None
 
     def __init__(self, listener_callback):
-        UCX._instance = self
 
         self.listener_callback = listener_callback
 
         self._create_listener()
         self._endpoints = {}
+
+        assert UCX.__instance is None
+
+        UCX.__instance = self
 
     @staticmethod
     def get(listener_callback=_connection_func):
