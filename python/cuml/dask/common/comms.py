@@ -75,6 +75,10 @@ def worker_state(sessionId=None):
 
 
 def get_ucx():
+    """
+    A simple convenience wrapper to make sure UCP listener and
+    endpoints are only ever assigned once per worker.
+    """
     if "ucx" not in worker_state("ucp"):
         worker_state("ucp")["ucx"] = UCX.get()
     return worker_state("ucp")["ucx"]
@@ -117,7 +121,7 @@ async def _func_init_all(sessionId, uniqueId, comms_p2p,
 
     session_state = worker_state(sessionId)
     session_state["nccl_uid"] = uniqueId
-    session_state["wid"] = worker_info[get_worker().address]["r"]
+    session_state["wid"] = worker_info[get_worker().address]["rank"]
     session_state["nworkers"] = len(worker_info)
 
     if verbose:
@@ -171,17 +175,6 @@ def _func_init_nccl(sessionId, uniqueId):
         worker_state(sessionId)["nccl"] = n
     except Exception:
         print("An error occurred initializing NCCL!")
-
-
-async def _func_ucp_create_listener(sessionId, verbose, r):
-    """
-    Creates a UCP listener for incoming endpoint connections.
-    This function runs in a loop asynchronously in the background
-    on the worker
-    :param sessionId: uuid Unique id for current instance
-    :param r: float a random number to stop the function from being cached
-    """
-    get_ucx()  # This will implicitly start a listener
 
 
 def _func_build_handle_p2p(sessionId, streams_per_handle, verbose):
@@ -254,9 +247,9 @@ async def _func_ucp_create_endpoints(sessionId, worker_info):
 
             ip, port = parse_host_port(k)
 
-            ep = await get_ucx().get_endpoint(ip, worker_info[k]["p"])
+            ep = await get_ucx().get_endpoint(ip, worker_info[k]["port"])
 
-            eps[worker_info[k]["r"]] = ep
+            eps[worker_info[k]["rank"]] = ep
             count += 1
 
     worker_state(sessionId)["ucp_eps"] = eps
@@ -335,9 +328,9 @@ class CommsContext:
 
         output = {}
         for k in ranks.keys():
-            output[k] = {"r": ranks[k]}
+            output[k] = {"rank": ranks[k]}
             if self.comms_p2p:
-                output[k]["p"] = ports[k]
+                output[k]["port"] = ports[k]
         return output
 
     def create_ucp_listeners(self):
@@ -346,10 +339,7 @@ class CommsContext:
         function is long-running, the listener is
         placed in the worker's `_cuml_comm_state` dict.
         """
-        self.client.run(_func_ucp_create_listener,
-                        self.sessionId,
-                        self.verbose,
-                        random.random(),
+        self.client.run(get_ucx,
                         workers=self.worker_addresses,
                         wait=True)
 
