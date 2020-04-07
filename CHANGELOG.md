@@ -11,6 +11,7 @@
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
 - PR #1996: Cythonize in parallel
+- PR #2031: Encapsulating UCX-py interactions in singleton
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
