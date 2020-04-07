@@ -42,7 +42,7 @@ using namespace ML;
    */
 template <typename T>
 void launcher(const cumlHandle &handle, const T *X, int n, int d,
-              const long *knn_indices, const T *knn_dists,
+              const int64_t *knn_indices, const T *knn_dists,
               MLCommon::Sparse::COO<float> *coo, UMAPParams *params,
               T *embedding) {
   cudaStream_t stream = handle.getStream();
@@ -69,9 +69,7 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
   T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr,
                                 d_ptr + (n * params->n_components)));
 
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+  uint64_t seed = params->random_state;
 
   MLCommon::Random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);

@@ -2,6 +2,14 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
+Datatype Configuration
+======================
+
+Output Type
+-----------
+
+ .. automethod:: cuml.utils.memory_utils.set_global_output_type
+ .. automethod:: cuml.utils.memory_utils.using_output_type
 
 
 Preprocessing, Metrics, and Utilities
@@ -18,6 +26,14 @@ Label Encoding
  .. autoclass:: cuml.preprocessing.LabelEncoder
     :members:
 
+ .. autoclass:: cuml.preprocessing.LabelBinarizer
+    :members:
+
+ .. autoclass:: cuml.dask.preprocessing.LabelBinarizer
+    :members:
+
+ .. automethod:: cuml.preprocessing.label_binarize
+
 Dataset Generation (Single-GPU)
 -------------------------------
 
@@ -28,6 +44,9 @@ Dataset Generation (Single-GPU)
 Dataset Generation (Dask-based Multi-GPU)
 -----------------------------------------
   .. automodule:: cuml.dask.datasets.blobs
+     :members:
+
+  .. automodule:: cuml.dask.datasets.regression
      :members:
 
 
@@ -45,6 +64,10 @@ Metrics
 
   .. automodule:: cuml.metrics.cluster.adjustedrandindex
     :members:
+
+  .. automodule:: cuml.metrics.cluster.entropy
+    :members:
+
 
 Benchmarking
 -------------
@@ -204,7 +227,7 @@ Random Projections
     :members:
 
 .. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
-    :members:
+
 
 TSNE
 -------------
@@ -242,16 +265,10 @@ HoltWinters
 .. autoclass:: cuml.ExponentialSmoothing
     :members:
 
-Kalman Filter
--------------
-
-.. autoclass:: cuml.KalmanFilter
-    :members:
-
 ARIMA
 -----
 
-.. autoclass:: cuml.tsa.ARIMAModel
+.. autoclass:: cuml.tsa.ARIMA
     :members:
 
 Multi-Node, Multi-GPU Algorithms
@@ -288,3 +305,29 @@ Truncated SVD
 
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
+
+Linear Models
+-------------
+
+.. autoclass:: cuml.dask.linear_model.LinearRegression
+    :members:
+
+.. autoclass:: cuml.dask.linear_model.Ridge
+    :members:
+
+Dask Base Classes and Mixins
+----------------------------
+.. autoclass:: cuml.dask.common.base.BaseEstimator
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedParallelFunc
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedPredictionMixin
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedTransformMixin
+   :members:
+
+.. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
+   :members:

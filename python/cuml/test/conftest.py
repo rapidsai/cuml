@@ -6,6 +6,10 @@ from sklearn.feature_extraction.text import CountVectorizer
 import cupy as cp
 
 
+def pytest_configure(config):
+    cp.cuda.set_allocator(None)
+
+
 @pytest.fixture(scope="module")
 def nlp_20news():
     twenty_train = fetch_20newsgroups(subset='train',

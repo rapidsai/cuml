@@ -75,7 +75,8 @@ def test_linear_kalman_filter_base(precision):
 @pytest.mark.parametrize('dim_z', [1, 2, 10, 25])
 @pytest.mark.parametrize('precision', ['single', 'double'])
 def test_linear_kalman_filter(precision, dim_x, dim_z):
-    f = KalmanFilter(dim_x=dim_x, dim_z=dim_z, precision=precision)
+    f = KalmanFilter(dim_x=dim_x, dim_z=dim_z, precision=precision,
+                     solver='short_implicit')
 
     if precision == 'single':
         dt = np.float32
@@ -89,7 +90,7 @@ def test_linear_kalman_filter(precision, dim_x, dim_z):
     f.F = np_to_dataframe(tmp)
 
     h = np.zeros((dim_x, dim_z), dtype=dt, order='F')
-    h[0] = 1
+    h[0] = 2.0
 
     f.H = np_to_dataframe(h)
     f.P = np_to_dataframe(np.eye(dim_x, dtype=dt, order='F')*1000)
@@ -98,14 +99,15 @@ def test_linear_kalman_filter(precision, dim_x, dim_z):
     rmse_x = 0
     rmse_v = 0
 
-    n = 10
+    n = 25
 
     for i in range(n):
         f.predict()
 
-        z = i*np.ones(dim_z, dtype=dt)
+        z = cuda.to_device(np.full(dim_z, i*2, dtype=dt))
 
-        f.update(cuda.to_device(np.array(z, dtype=dt)))
+        f.update(z)
+
         x = f.x.copy_to_host()
         rmse_x = rmse_x + ((x[0] - i)**2)
         rmse_v = rmse_v + ((x[1] - 1)**2)

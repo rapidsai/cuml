@@ -23,7 +23,7 @@ import scipy.sparse
 
 import cupy.prof
 
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import with_cupy_rmm
 
 import warnings
 
@@ -118,6 +118,9 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 class MultinomialNB(object):
 
+    # TODO: Make this extend cuml.Base:
+    # https://github.com/rapidsai/cuml/issues/1834
+
     """
     Naive Bayes classifier for multinomial models
 
@@ -178,7 +181,11 @@ class MultinomialNB(object):
     0.9244298934936523
 
     """
-    def __init__(self, alpha=1.0, fit_prior=True, class_prior=None):
+    @with_cupy_rmm
+    def __init__(self,
+                 alpha=1.0,
+                 fit_prior=True,
+                 class_prior=None):
 
         """
         Create new multinomial Naive Bayes instance
@@ -199,8 +206,7 @@ class MultinomialNB(object):
         self.fit_prior = fit_prior
 
         if class_prior is not None:
-            class_prior = rmm_cupy_ary(cp.asarray, class_prior,
-                                       dtype=class_prior.dtype)
+            class_prior = cp.asarray(class_prior, dtype=class_prior.dtype)
 
         self.class_prior = class_prior
 
@@ -211,7 +217,11 @@ class MultinomialNB(object):
 
         self.n_features_ = None
 
+        # Needed until Base no longer assumed cumlHandle
+        self.handle = None
+
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @with_cupy_rmm
     def fit(self, X, y, sample_weight=None):
         """
         Fit Naive Bayes classifier according to X, y
@@ -229,19 +239,20 @@ class MultinomialNB(object):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = rmm_cupy_ary(cp.asarray, X, X.dtype)
+            X = cp.asarray(X, X.dtype)
         elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
-            rows = rmm_cupy_ary(cp.asarray, X.row, dtype=X.row.dtype)
-            cols = rmm_cupy_ary(cp.asarray, X.col, dtype=X.col.dtype)
-            data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
+            rows = cp.asarray(X.row, dtype=X.row.dtype)
+            cols = cp.asarray(X.col, dtype=X.col.dtype)
+            data = cp.asarray(X.data, dtype=X.data.dtype)
             X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
 
         if isinstance(y, np.ndarray) or isinstance(y, cp.ndarray):
-            y = rmm_cupy_ary(cp.asarray, y, y.dtype)
+            y = cp.asarray(y, y.dtype)
 
         Y, label_classes = make_monotonic(y, copy=True)
 
@@ -267,6 +278,7 @@ class MultinomialNB(object):
 
         return self
 
+    @with_cupy_rmm
     def update_log_probs(self):
         """
         Updates the log probabilities. This enables lazy update for
@@ -277,6 +289,7 @@ class MultinomialNB(object):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
+    @with_cupy_rmm
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples.
@@ -318,6 +331,7 @@ class MultinomialNB(object):
                                  _classes=classes)
 
     @cp.prof.TimeRangeDecorator(message="predict()", color_id=1)
+    @with_cupy_rmm
     def predict(self, X):
 
         """
@@ -336,21 +350,21 @@ class MultinomialNB(object):
         """
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = rmm_cupy_ary(cp.asarray, X, X.dtype)
+            X = cp.asarray(X, X.dtype)
         elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
-            rows = rmm_cupy_ary(cp.asarray, X.row, dtype=X.row.dtype)
-            cols = rmm_cupy_ary(cp.asarray, X.col, dtype=X.col.dtype)
-            data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
+            rows = cp.asarray(X.row, dtype=X.row.dtype)
+            cols = cp.asarray(X.col, dtype=X.col.dtype)
+            data = cp.asarray(X.data, dtype=X.data.dtype)
             X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
 
         jll = self._joint_log_likelihood(X)
-        indices = rmm_cupy_ary(cp.argmax, jll, axis=1)\
-            .astype(self.classes_.dtype)
+        indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
         return y_hat
 
+    @with_cupy_rmm
     def predict_log_proba(self, X):
 
         """
@@ -372,12 +386,12 @@ class MultinomialNB(object):
         """
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
-            X = rmm_cupy_ary(cp.asarray, X, X.dtype)
+            X = cp.asarray(X, X.dtype)
         elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
-            rows = rmm_cupy_ary(cp.asarray, X.row, dtype=X.row.dtype)
-            cols = rmm_cupy_ary(cp.asarray, X.col, dtype=X.col.dtype)
-            data = rmm_cupy_ary(cp.asarray, X.data, dtype=X.data.dtype)
+            rows = cp.asarray(X.row, dtype=X.row.dtype)
+            cols = cp.asarray(X.col, dtype=X.col.dtype)
+            data = cp.asarray(X.data, dtype=X.data.dtype)
             X = cp.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
 
         jll = self._joint_log_likelihood(X)
@@ -387,12 +401,12 @@ class MultinomialNB(object):
         # Compute log(sum(exp()))
 
         # Subtract max in exp to prevent inf
-        a_max = rmm_cupy_ary(cp.amax, jll, axis=1, keepdims=True)
+        a_max = cp.amax(jll, axis=1, keepdims=True)
 
-        exp = rmm_cupy_ary(cp.exp, jll - a_max)
-        logsumexp = rmm_cupy_ary(cp.log, rmm_cupy_ary(cp.sum, exp, axis=1))
+        exp = cp.exp(jll - a_max)
+        logsumexp = cp.log(cp.sum(exp, axis=1))
 
-        a_max = rmm_cupy_ary(cp.squeeze, a_max, axis=1)
+        a_max = cp.squeeze(a_max, axis=1)
 
         log_prob_x = a_max + logsumexp
 
@@ -400,6 +414,7 @@ class MultinomialNB(object):
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         return jll - log_prob_x.T
 
+    @with_cupy_rmm
     def predict_proba(self, X):
         """
         Return probability estimates for the test vector X.
@@ -417,8 +432,9 @@ class MultinomialNB(object):
             The columns correspond to the classes in sorted order, as they
             appear in the attribute classes_.
         """
-        return rmm_cupy_ary(cp.exp, self.predict_log_proba(X))
+        return cp.exp(self.predict_log_proba(X))
 
+    @with_cupy_rmm
     def score(self, X, y, sample_weight=None):
         """
         Return the mean accuracy on the given test data and labels.
@@ -444,15 +460,13 @@ class MultinomialNB(object):
         score : float Mean accuracy of self.predict(X) with respect to y.
         """
         y_hat = self.predict(X)
-        return accuracy_score(y_hat, rmm_cupy_ary(cp.asarray, y,
-                                                  dtype=y.dtype))
+        return accuracy_score(y_hat, cp.asarray(y, dtype=y.dtype))
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
-        self.class_count_ = rmm_cupy_ary(cp.zeros, n_effective_classes,
-                                         order="F", dtype=dtype)
-        self.feature_count_ = rmm_cupy_ary(cp.zeros,
-                                           (n_effective_classes, n_features),
-                                           order="F", dtype=dtype)
+        self.class_count_ = cp.zeros(n_effective_classes,
+                                     order="F", dtype=dtype)
+        self.feature_count_ = cp.zeros((n_effective_classes, n_features),
+                                       order="F", dtype=dtype)
 
     def _count(self, X, Y):
         """
@@ -472,11 +486,10 @@ class MultinomialNB(object):
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
 
-        counts = rmm_cupy_ary(cp.zeros, (self.n_classes_, self.n_features_),
-                              order="F", dtype=X.dtype)
+        counts = cp.zeros((self.n_classes_, self.n_features_), order="F",
+                          dtype=X.dtype)
 
-        class_c = rmm_cupy_ary(cp.zeros, self.n_classes_, order="F",
-                               dtype=X.dtype)
+        class_c = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]
@@ -530,15 +543,15 @@ class MultinomialNB(object):
                 raise ValueError("Number of classes must match "
                                  "number of priors")
 
-            self.class_log_prior_ = rmm_cupy_ary(cp.log, class_prior)
+            self.class_log_prior_ = cp.log(class_prior)
 
         elif self.fit_prior:
-            log_class_count = rmm_cupy_ary(cp.log, self.class_count_)
+            log_class_count = cp.log(self.class_count_)
             self.class_log_prior_ = log_class_count - \
-                rmm_cupy_ary(cp.log, self.class_count_.sum())
+                cp.log(self.class_count_.sum())
         else:
-            self.class_log_prior_ = rmm_cupy_ary(cp.full, self.n_classes_,
-                                                 -math.log(self.n_classes_))
+            self.class_log_prior_ = cp.full(self.n_classes_,
+                                            -math.log(self.n_classes_))
 
     def _update_feature_log_prob(self, alpha):
 
@@ -553,9 +566,8 @@ class MultinomialNB(object):
         """
         smoothed_fc = self.feature_count_ + alpha
         smoothed_cc = smoothed_fc.sum(axis=1).reshape(-1, 1)
-        self.feature_log_prob_ = (rmm_cupy_ary(cp.log, smoothed_fc) -
-                                  rmm_cupy_ary(cp.log,
-                                               smoothed_cc.reshape(-1, 1)))
+        self.feature_log_prob_ = (cp.log(smoothed_fc) -
+                                  cp.log(smoothed_cc.reshape(-1, 1)))
 
     def _joint_log_likelihood(self, X):
         """

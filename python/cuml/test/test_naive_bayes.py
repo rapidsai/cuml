@@ -81,8 +81,8 @@ def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
     X = scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
-    X = X.tocsr()[0:5000].todense()
-    y = y[:5000]
+    X = X.tocsr()[0:500].todense()
+    y = y[:500]
 
     model = MultinomialNB()
     model.fit(np.ascontiguousarray(cp.asnumpy(X)), y)
