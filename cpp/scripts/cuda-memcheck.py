@@ -28,6 +28,10 @@ def parse_args():
                            help="The googletest executable to be run")
     argparser.add_argument("-pwd", type=str, default=None,
                            help="Current directory for running the exe")
+    argparser.add_argument("-tool", type=str, default="memcheck",
+                           choices=["memcheck", "initcheck", "racecheck",
+                                    "synccheck"],
+                           help="memcheck tool to be used")
     argparser.add_argument("-v", dest="verbose", action="store_true",
                            help="Print verbose messages")
     args = argparser.parse_args()
@@ -68,7 +72,8 @@ def run_tests(args, testlist):
     failed = 0
     total = len(testlist)
     for test in testlist:
-        cmd = "cuda-memcheck %s --gtest_filter=%s" % (args.exe, test)
+        cmd = "cuda-memcheck --tool %s %s --gtest_filter=%s" % \
+            (args.tool, args.exe, test)
         print("[%d/%d Failed:%d] Checking %s ... " % \
               (idx, total, failed, test), end="")
         retcode, out = run_cmd(cmd, args.pwd)
