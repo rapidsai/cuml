@@ -105,7 +105,7 @@ def test_allreduce(cluster):
         dfs = [client.submit(func_test_allreduce, cb.sessionId,
                              random.random(), workers=[w])
                for w in cb.worker_addresses]
-        wait(dfs)
+        wait(dfs, timeout=5)
 
         assert all([x.result() for x in dfs])
 
@@ -132,7 +132,7 @@ def test_send_recv(n_trials, ucx_cluster):
                              workers=[w])
                for w in cb.worker_addresses]
 
-        wait(dfs)
+        wait(dfs, timeout=5)
 
         assert(list(map(lambda x: x.result(), dfs)))
 
@@ -161,7 +161,7 @@ def test_recv_any_rank(n_trials, ucx_cluster):
                              workers=[w])
                for w in cb.worker_addresses]
 
-        wait(dfs)
+        wait(dfs, timeout=5)
 
         result = [x.result() for x in dfs]
 
