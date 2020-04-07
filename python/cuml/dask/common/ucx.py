@@ -45,7 +45,6 @@ class UCX:
             UCX()
         return UCX._instance
 
-    @staticmethod
     def get_worker(self):
         return ucp.get_ucp_worker()
 
