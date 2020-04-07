@@ -20,6 +20,7 @@
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
 - PR #2017: Fixing memory issue in weak CC prim
 
+
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
