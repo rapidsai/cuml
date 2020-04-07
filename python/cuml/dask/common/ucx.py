@@ -31,7 +31,7 @@ class UCX:
     created by cuML on a single process.
     """
 
-    _instance = None
+    __instance = None
 
     def __init__(self, listener_callback):
 
@@ -46,9 +46,9 @@ class UCX:
 
     @staticmethod
     def get(listener_callback=_connection_func):
-        if UCX._instance is None:
+        if UCX.__instance is None:
             UCX(listener_callback)
-        return UCX._instance
+        return UCX.__instance
 
     def get_worker(self):
         return ucp.get_ucp_worker()
