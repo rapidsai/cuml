@@ -159,14 +159,6 @@ class NearestNeighbors(BaseEstimator):
         index_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
-        idx_parts_to_ranks, idx_M = parts_to_ranks(self.client,
-                                            worker_info,
-                                            index_handler.gpu_futures)
-
-        query_parts_to_ranks, query_M = parts_to_ranks(self.client,
-                                                       worker_info,
-                                                       query_handler.gpu_futures)
-
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
@@ -179,11 +171,11 @@ class NearestNeighbors(BaseEstimator):
                         worker in index_handler.workers else [],
                         index_handler.total_rows,
                         self.n_cols,
-                        idx_parts_to_ranks,
+                        index_handler.parts_to_sizes,
                         query_handler.worker_to_parts[worker] if
                         worker in query_handler.workers else [],
                         query_handler.total_rows,
-                        query_parts_to_ranks,
+                        query_handler.parts_to_sizes,
                         worker_info[worker]["r"],
                         n_neighbors,
                         key="%s-%s" % (key, idx),
