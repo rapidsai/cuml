@@ -102,13 +102,13 @@ class SmoSolver {
    * @param [in] n_rows number of rows (training vectors)
    * @param [in] n_cols number of columns (features)
    * @param [in] y labels (values +/-1), size [n_rows]
-   * @param [out] dual_coefs, size [n_support] on exit
+   * @param [out] dual_coefs size [n_support] on exit
    * @param [out] n_support number of support vectors
    * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
    * @param [out] b scalar constant for the decision function
-   * @param [in] max_out_iter maximum number of outer iteration (default 100 * n_rows)
-   * @param [in] xm_inner_iter maximum number of inner iterations (default 10000)
+   * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
+   * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
   void Solve(math_t *x, int n_rows, int n_cols, math_t *y, math_t **dual_coefs,
              int *n_support, math_t **x_support, int **idx, math_t *b,
@@ -181,7 +181,6 @@ class SmoSolver {
    * @param n_ws
    * @param cacheTile kernel function evaluated for the following set K[X,x_ws],
    *   size [n_rows, n_ws]
-   * @param cublas_handle
    */
   void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
                const math_t *cacheTile) {
@@ -213,10 +212,10 @@ class SmoSolver {
    * Additionally, we zero init the dual coefficients (alpha), and initialize
    * class labels for SVR.
    *
-   * @parameter [inout] y on entry class labels or target values,
+   * @param[inout] y on entry class labels or target values,
    *    on exit device pointer to class labels
-   * @parameter [in] n_rows
-   * @parameter [in] n_cols
+   * @param[in] n_rows
+   * @param[in] n_cols
    */
   void Initialize(math_t **y, int n_rows, int n_cols) {
     this->n_rows = n_rows;

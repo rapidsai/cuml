@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1931: C++: enabled doxygen docs for all of the C++ codebase
 - PR #1944: Support for dask_cudf.core.Series in _extract_partitions
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
