@@ -172,20 +172,20 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *
- * @tparam        DataT       Scalar type
- * @param[in|out] d_fc        Forecast. Shape (num_steps, batch_size) (device)
- * @param[in]     d_in        Original data. Shape (n_in, batch_size) (device)
- * @param[in]     num_steps   Number of steps forecasted
- * @param[in]     batch_size  Number of series per batch
- * @param[in]     in_ld       Leading dimension of d_in
- * @param[in]     n_in        Number of observations/predictions in d_in
- * @param[in]     d           Order of simple differences (0, 1 or 2)
- * @param[in]     D           Order of seasonal differences (0, 1 or 2)
- * @param[in]     s           Seasonal period if D > 0
- * @param[in]     stream      CUDA stream
- * @param[in]     intercept   Whether the model fits an intercept
- * @param[in]     d_mu        Mu array if intercept > 0
- *                            Shape (batch_size,) (device)
+ * @tparam       DataT       Scalar type
+ * @param[inout] d_fc        Forecast. Shape (num_steps, batch_size) (device)
+ * @param[in]    d_in        Original data. Shape (n_in, batch_size) (device)
+ * @param[in]    num_steps   Number of steps forecasted
+ * @param[in]    batch_size  Number of series per batch
+ * @param[in]    in_ld       Leading dimension of d_in
+ * @param[in]    n_in        Number of observations/predictions in d_in
+ * @param[in]    d           Order of simple differences (0, 1 or 2)
+ * @param[in]    D           Order of seasonal differences (0, 1 or 2)
+ * @param[in]    s           Seasonal period if D > 0
+ * @param[in]    stream      CUDA stream
+ * @param[in]    intercept   Whether the model fits an intercept
+ * @param[in]    d_mu        Mu array if intercept > 0
+ *                           Shape (batch_size,) (device)
  */
 template <typename DataT>
 void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,

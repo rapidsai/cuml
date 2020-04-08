@@ -563,12 +563,12 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
     def assert_model(pickled_model, X):
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == -1
+        assert state["_fit_status_"] == -1
 
         pickled_model.fit(X[0], X[1])
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == 0
+        assert state["_fit_status_"] == 0
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -590,11 +590,11 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
     def assert_model(pickled_model, X):
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == -1
+        assert state["_fit_status_"] == -1
 
         pickled_model.fit(X[0], X[1])
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == 0
+        assert state["_fit_status_"] == 0
 
     pickle_save_load(tmpdir, create_mod, assert_model)
