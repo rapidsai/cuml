@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,8 +96,7 @@ class DecisionTreeBase {
     const int nrows, const L *labels, unsigned int *rowids,
     const int n_sampled_rows, int unique_labels,
     std::vector<SparseTreeNode<T, L>> &sparsetree, const int treeid,
-    bool is_classifier,
-    std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
+    bool is_classifier, std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
   // Printing utility for high level tree info.
