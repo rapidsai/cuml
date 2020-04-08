@@ -19,6 +19,7 @@
 #include <cuml/cuml.hpp>
 #include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
+#include "dataset_ts.cuh"
 
 namespace ML {
 namespace Bench {
@@ -26,7 +27,7 @@ namespace Bench {
 /** Main fixture to be inherited and used by all algos in cuML benchmark */
 class Fixture : public MLCommon::Bench::Fixture {
  public:
-  Fixture(const std::string& name, const DatasetParams& p)
+  Fixture(const std::string& name)
     : MLCommon::Bench::Fixture(
         name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
       params(p) {}
@@ -78,7 +79,6 @@ class Fixture : public MLCommon::Bench::Fixture {
     generateMetrics(state);
   }
 
-  DatasetParams params;
   std::unique_ptr<cumlHandle> handle;
 
   ///@todo: ideally, this should be determined at runtime based on the inputs
@@ -94,9 +94,8 @@ class Fixture : public MLCommon::Bench::Fixture {
 template <typename D, typename L = int>
 class BlobsFixture : public Fixture {
  public:
-  BlobsFixture(const std::string& name, const DatasetParams& p,
-               const BlobsParams& b)
-    : Fixture(name, p), bParams(b) {}
+  BlobsFixture(const std::string& name, const DatasetParams p, const BlobsParams b)
+    : Fixture(name), params(p), bParams(b) {}
   BlobsFixture() = delete;
 
  protected:
@@ -109,6 +108,7 @@ class BlobsFixture : public Fixture {
     data.deallocate(*handle, params);
   }
 
+  DatasetParams params;
   /** parameters passed to `make_blobs` */
   BlobsParams bParams;
   Dataset<D, L> data;
@@ -121,9 +121,8 @@ class BlobsFixture : public Fixture {
 template <typename D>
 class RegressionFixture : public Fixture {
  public:
-  RegressionFixture(const std::string& name, const DatasetParams& p,
-                    const RegressionParams& r)
-    : Fixture(name, p), rParams(r) {}
+  RegressionFixture(const std::string& name, const DatasetParams p, const RegressionParams r)
+    : Fixture(name), params(p), rParams(r) {}
   RegressionFixture() = delete;
 
  protected:
@@ -136,10 +135,36 @@ class RegressionFixture : public Fixture {
     data.deallocate(*handle, params);
   }
 
+  DatasetParams params;
   /** parameters passed to `make_regression` */
   RegressionParams rParams;
   Dataset<D, D> data;
 };  // end class RegressionFixture
+
+/**
+ * Fixture to be used for benchmarking time series algorithms when
+ * the input suffices to be generated with a normal distribution.
+ */
+template <typename D>
+class TsFixtureRandom : public Fixture {
+ public:
+  TsFixtureRandom(const std::string &name, const TimeSeriesParams p) :
+    Fixture(name), params(p) {}
+  TsFixtureRandom() = delete;
+
+ protected:
+  void allocateData(const ::benchmark::State& state) override {
+    data.allocate(*handle, params);
+    data.random(*handle, params);
+  }
+
+  void deallocateData(const ::benchmark::State& state) override {
+    data.deallocate(*handle, params);
+  }
+
+  TimeSeriesParams params;
+  TimeSeriesDataset<D> data;
+};  // end class TsFixtureRandom
 
 }  // end namespace Bench
 }  // end namespace ML

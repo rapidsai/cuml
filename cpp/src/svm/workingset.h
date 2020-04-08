@@ -61,9 +61,11 @@ class WorkingSet {
    * @brief Manage a working set.
    *
    * @param handle cuml handle implementation
-   * @stream cuda stream for working set operations
-   * @param n_train number of training vectors
+   * @param stream cuda stream for working set operations
+   * @param n_rows number of training vectors
    * @param n_ws number of elements in the working set (default 1024)
+   * @param svmType classification or regression
+   * @param verbose print debug messages
    */
   WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
              int n_ws = 0, SvmType svmType = C_SVC, bool verbose = false)

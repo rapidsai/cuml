@@ -456,7 +456,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param allocator device allocator to use for temporary workspace
  * @param user_stream main stream to use for queuing isolated CUDA events
  * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_stream number of elements in int_streams array. If this is less than 1,
+ * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32>
@@ -507,7 +507,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param allocator device allocator to use for temporary workspace
  * @param user_stream main stream to use for queuing isolated CUDA events
  * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_stream number of elements in int_streams array. If this is less than 1,
+ * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32>
@@ -578,7 +578,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * @param k number of neighbors in knn_indices
  * @param user_stream main stream to use for queuing isolated CUDA events
  * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_stream number of elements in int_streams array. If this is less than 1,
+ * @param n_int_streams number of elements in int_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 

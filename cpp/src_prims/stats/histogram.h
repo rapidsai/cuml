@@ -485,7 +485,7 @@ HistType selectBestHistAlgo(IdxT nbins) {
  * @param nrows data array length in each column (or batch)
  * @param ncols number of columsn (or batch size)
  * @param stream cuda stream
- * @param op the operation that computes the bin index of the input data
+ * @param binner the operation that computes the bin index of the input data
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
  */
