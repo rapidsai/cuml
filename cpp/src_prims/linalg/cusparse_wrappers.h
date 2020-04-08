@@ -76,7 +76,5 @@ cusparseStatus_t cusparsegemmi(cusparseHandle_t handle, int m, int n, int k,
                         cscColPtrB, cscRowIndB, beta, C, ldc);
 }
 
-/** @} */
-
 };  // namespace LinAlg
 };  // namespace MLCommon
