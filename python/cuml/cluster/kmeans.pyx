@@ -60,6 +60,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           const float *X,
                           int n_samples,
                           int n_features,
+                          const float *sample_weight,
                           float *centroids,
                           int *labels,
                           float &inertia,
@@ -70,6 +71,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           const double *X,
                           int n_samples,
                           int n_features,
+                          const double *sample_weight,
                           double *centroids,
                           int *labels,
                           double &inertia,
@@ -81,6 +83,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       const float *X,
                       int n_samples,
                       int n_features,
+                      const float *sample_weight,
                       int *labels,
                       float &inertia) except +
 
@@ -90,6 +93,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       const double *X,
                       int n_samples,
                       int n_features,
+                      const double *sample_weight,
                       int *labels,
                       double &inertia) except +
 
@@ -318,7 +322,7 @@ class KMeans(Base):
         params.n_init = <int>self.n_init
         self._params = params
 
-    def fit(self, X):
+    def fit(self, X, sample_weight=None):
         """
         Compute k-means clustering with X.
 
@@ -328,6 +332,10 @@ class KMeans(Base):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
 
         """
 
@@ -344,14 +352,25 @@ class KMeans(Base):
             input_to_cuml_array(X, order='C',
                                 check_cols=check_cols,
                                 check_dtype=check_dtype)
-
+        
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
+        if sample_weight is None:
+            sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
+        else:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, order='C',
+                                    check_dtype=self.dtype,
+                                    check_rows=n_rows)
+
+        cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
+        
         self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
+        
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self._cluster_centers_ = \
                 CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
@@ -372,6 +391,7 @@ class KMeans(Base):
                 <const float*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <const float *>sample_weight_ptr,
                 <float*> cluster_centers_ptr,
                 <int*> labels_ptr,
                 inertiaf,
@@ -386,6 +406,7 @@ class KMeans(Base):
                 <const double*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <const double *>sample_weight_ptr,
                 <double*> cluster_centers_ptr,
                 <int*> labels_ptr,
                 inertiad,
@@ -399,12 +420,12 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
-
+        print(self.inertia_)
         del(X_m)
-
+        del(sample_weight_m)
         return self
 
-    def fit_predict(self, X):
+    def fit_predict(self, X, sample_weight=None):
         """
         Compute cluster centers and predict cluster index for each sample.
 
@@ -415,10 +436,14 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        """
-        return self.fit(X).labels_
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
 
-    def _predict_labels_inertia(self, X, convert_dtype=False):
+        """
+        return self.fit(X, sample_weight=sample_weight).labels_
+
+    def _predict_labels_inertia(self, X, convert_dtype=False, sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -433,6 +458,10 @@ class KMeans(Base):
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
 
         Returns
         -------
@@ -453,11 +482,21 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr = X_m.ptr
 
+        if sample_weight is None:
+            sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
+        else:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, order='C',
+                                    check_dtype=self.dtype,
+                                    check_rows=n_rows)
+            
+        cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
+        
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
+        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32) 
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.
@@ -472,6 +511,7 @@ class KMeans(Base):
                 <float*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <float *>sample_weight_ptr,
                 <int*> labels_ptr,
                 inertiaf)
             self.handle.sync()
@@ -484,6 +524,7 @@ class KMeans(Base):
                 <double*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
+                <double *>sample_weight_ptr,
                 <int*> labels_ptr,
                 inertiad)
             self.handle.sync()
@@ -495,10 +536,10 @@ class KMeans(Base):
 
         self.handle.sync()
         del(X_m)
-
+        del(sample_weight_m)
         return self._labels_.to_output(out_type), inertia
 
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=False, sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
