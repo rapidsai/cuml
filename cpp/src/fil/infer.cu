@@ -53,7 +53,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   do {
 #pragma unroll
     for (int j = 0; j < NITEMS; ++j) {
-      if ((mask >> j) & 1 == 0) continue;
+      //if ((mask & (1 << j)) == 0) continue;
       auto n = tree[curr[j]];
       if (n.is_leaf()) {
         mask &= ~(1 << j);
@@ -218,11 +218,12 @@ struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs) {
-    if (num_outputs > 1)
+    if (num_outputs > 1) {
       // only supporting num_outputs == num_classes
       finalize_multiple_outputs(out, num_rows);
-    else
+    } else {
       finalize_class_label(out, num_rows);
+    }
   }
 };
 
@@ -307,8 +308,9 @@ void infer_k_launcher(storage_type forest, predict_params params,
     // given_num_cols is a random large int
     params.num_cols = params.max_shm / sizeof(float);
     // since we're crashing, this will not take too long
-    while (get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm)
+    while (get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm) {
       --params.num_cols;
+    }
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
            given_num_cols, params.num_cols,
            leaf_payload_type == INT_CLASS_LABEL

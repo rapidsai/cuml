@@ -125,11 +125,11 @@ enum leaf_value_t {
 template <leaf_value_t leaf_payload_type>
 struct leaf_output_t {};
 template <>
-struct leaf_output_t<FLOAT_SCALAR> {
+struct leaf_output_t<leaf_value_t::FLOAT_SCALAR> {
   typedef float T;
 };
 template <>
-struct leaf_output_t<INT_CLASS_LABEL> {
+struct leaf_output_t<leaf_value_t::INT_CLASS_LABEL> {
   typedef int T;
 };
 

@@ -85,8 +85,9 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
   // will not be done on INT_CLASS_LABEL because the whole kernel will not run
-  if ((output & output_t::CLASS) != 0)
+  if ((output & output_t::CLASS) != 0) {
     result = result > threshold ? 1.0f : 0.0f;
+  }
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
   if (complement_proba) {
@@ -134,28 +135,34 @@ struct forest {
     params.num_rows = num_rows;
     params.max_shm = max_shm_;
     params.num_classes = num_classes_;
+    params.leaf_payload_type = leaf_payload_type_;
+
+    output_t ot = output_;
+    if (predict_proba) {
+      ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+    }
+    bool complement_proba = ((ot & output_t::CLASS) == 0) &&
+                            (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR);
     /** FLOAT_SCALAR means inference produces 1 class score/component and
         transform_k might complement to 2 for classification,
         if class probabilities are being requested.
         assuming predict(..., predict_proba=true) will not get called
         for regression, hence predict_params::num_outputs == 2 */
     params.num_outputs =
-      predict_proba ? (leaf_payload_type_ == INT_CLASS_LABEL ? num_classes_ : 2)
-                    : 1;
-    params.leaf_payload_type = leaf_payload_type_;
+      ((ot & output_t::CLASS) != 0)
+        ? 1
+        : (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL ? num_classes_
+                                                               : 2);
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
 
     // Transform the output if necessary.
-    output_t ot = output_;
-    if (predict_proba)
-      ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
-    bool complement_proba = predict_proba && leaf_payload_type_ == FLOAT_SCALAR;
     bool do_transform =
       ot != output_t::RAW || global_bias_ != 0.0f || complement_proba;
-    if (leaf_payload_type_ == INT_CLASS_LABEL && !predict_proba) {
+    if ((leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) &&
+        ((ot & output_t::CLASS) != 0)) {
       // moot since choosing best class and all transforms are monotonic
       // also, would break current code
       do_transform = false;
@@ -183,7 +190,7 @@ struct forest {
   output_t output_ = output_t::RAW;
   float threshold_ = 0.5;
   float global_bias_ = 0;
-  leaf_value_t leaf_payload_type_ = FLOAT_SCALAR;
+  leaf_value_t leaf_payload_type_ = leaf_value_t::FLOAT_SCALAR;
   int num_classes_ = 0;
 };
 
@@ -322,8 +329,8 @@ void check_params(const forest_params_t* params, bool dense) {
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
   ASSERT(
-    params->output & output_t::CLASS || params->num_classes < 2 ||
-      params->leaf_payload_type == INT_CLASS_LABEL,
+    (params->output & output_t::CLASS || params->num_classes < 2 ||
+     params->leaf_payload_type) == leaf_value_t::INT_CLASS_LABEL,
     "cannot do two-component regression using FLOAT_SCALAR leaf_payload_type");
 }
 
@@ -411,9 +418,10 @@ int find_class_label_from_one_hot(tl::tl_float* vector, int len) {
       ASSERT(!found_label, "label vector contains multiple 1.0f");
       out = i;
       found_label = true;
-    } else
+    } else {
       ASSERT(vector[i] == 0.0f,
              "label vector contains values other than 0.0 and 1.0");
+    }
   }
   ASSERT(found_label, "did not find 1.0f in vector");
   return out;
@@ -424,18 +432,18 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, const tl::Tree::Node& tl_node,
                          const forest_params_t& forest_params) {
   auto vec = tl_node.leaf_vector();
   switch (forest_params.leaf_payload_type) {
-    case INT_CLASS_LABEL:
+    case leaf_value_t::INT_CLASS_LABEL:
       ASSERT(vec.size() == forest_params.num_classes,
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
       break;
-    case FLOAT_SCALAR:
+    case leaf_value_t::FLOAT_SCALAR:
       fil_node->val.f = tl_node.leaf_value();
       ASSERT(tl_node.leaf_vector().size() == 0,
              "some but not all treelite leaves have leaf_vector()");
       break;
     default:
-      ASSERT(false, "unknown leaf_payload_type");
+      ASSERT(false, "internal error: invalid leaf_payload_type");
   };
 }
 
@@ -519,6 +527,7 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree,
 
 size_t tl_leaf_vector_size(const tl::Model& model) {
   const tl::Tree& tree = model.trees[0];
+  int _ = max_depth(tree);  // just checking for cycles
   int node_key;
   for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
        node_key = tl_node_at(tree, node_key).cright())
@@ -542,9 +551,9 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     ASSERT(leaf_vec_size == model.num_output_group,
            "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
-    params->leaf_payload_type = INT_CLASS_LABEL;
+    params->leaf_payload_type = leaf_value_t::INT_CLASS_LABEL;
   } else {
-    params->leaf_payload_type = FLOAT_SCALAR;
+    params->leaf_payload_type = leaf_value_t::FLOAT_SCALAR;
     params->num_classes = 0;  // ignored
   }
 
