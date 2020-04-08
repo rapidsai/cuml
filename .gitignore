@@ -19,7 +19,6 @@ cuml.egg-info/
 dist/
 python/cuml/**/*.cpp
 python/external_repositories
-python/record.txt
 log
 .ipynb_checkpoints
 .DS_Store
