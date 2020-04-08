@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@
 
 namespace ML {
 namespace GLM {
+
 /**
- * @defgroup Functions fit an ordinary least squares model
+ * @defgroup olsFit fit an ordinary least squares model
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
@@ -41,7 +42,7 @@ void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
 /** @} */
 
 /**
- * @defgroup Functions fit a ridge regression model (l2 regularized least squares)
+ * @defgroup ridgeFit fit a ridge regression model (l2 regularized least squares)
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
@@ -59,7 +60,6 @@ void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols,
               float *labels, float *alpha, int n_alpha, float *coef,
               float *intercept, bool fit_intercept, bool normalize,
               int algo = 0);
-
 void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
               double *labels, double *alpha, int n_alpha, double *coef,
               double *intercept, bool fit_intercept, bool normalize,
@@ -67,7 +67,7 @@ void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols,
 /** @} */
 
 /**
- * @defgroup Functions to make predictions with a fitted ordinary least squares and ridge regression model
+ * @defgroup glmPredict to make predictions with a fitted ordinary least squares and ridge regression model
  * @param input         device pointer to feature matrix n_rows x n_cols
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
@@ -81,17 +81,15 @@ void olsPredict(const cumlHandle &handle, const float *input, int n_rows,
 void olsPredict(const cumlHandle &handle, const double *input, int n_rows,
                 int n_cols, const double *coef, double intercept,
                 double *preds);
-
 void ridgePredict(const cumlHandle &handle, const float *input, int n_rows,
                   int n_cols, const float *coef, float intercept, float *preds);
-
 void ridgePredict(const cumlHandle &handle, const double *input, int n_rows,
                   int n_cols, const double *coef, double intercept,
                   double *preds);
 /** @} */
 
 /**
- * @defgroup functions to fit a GLM using quasi newton methods.
+ * @defgroup qnFit to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension
  * NxD (row- or column major: see X_col_major param)
@@ -132,7 +130,6 @@ void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
            float grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
            int loss_type);
-
 void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
            int C, bool fit_intercept, double l1, double l2, int max_iter,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
@@ -141,7 +138,7 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
 /** @} */
 
 /**
- * @defgroup functions to obtain the confidence scores of samples
+ * @defgroup qnDecisionFunction to obtain the confidence scores of samples
  * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
  * @param N                     number of examples
@@ -152,18 +149,18 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
  * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
  * @param scores                device pointer to confidence scores of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @{
  */
 void qnDecisionFunction(const cumlHandle &cuml_handle, float *X, int N, int D,
                         int C, bool fit_intercept, float *params,
                         bool X_col_major, int loss_type, float *scores);
-
 void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
                         int C, bool fit_intercept, double *params,
                         bool X_col_major, int loss_type, double *scores);
 /** @} */
 
 /**
- * @defgroup functions to fit a GLM using quasi newton methods.
+ * @defgroup qnPredict to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
  * @param N                     number of examples
@@ -174,11 +171,11 @@ void qnDecisionFunction(const cumlHandle &cuml_handle, double *X, int N, int D,
  * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
  * @param preds                 device pointer to predictions of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @{
  */
 void qnPredict(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
                bool fit_intercept, float *params, bool X_col_major,
                int loss_type, float *preds);
-
 void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
                bool fit_intercept, double *params, bool X_col_major,
                int loss_type, double *preds);

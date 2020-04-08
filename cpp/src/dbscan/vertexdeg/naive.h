@@ -33,10 +33,9 @@ static const int TPB_Y = 8;
 
 /**
  * @brief Naive distance matrix evaluation and epsilon neighborhood construction
- * @param adj eps-neighborhood (aka adjacent matrix)
- * @param x the input buffer
- * @param N number of rows
- * @param D number of columns
+ * @param data input struct containing vertex degree computation params
+ * @param startVertexId which vertex to begin the computations from
+ * @param batchSize number of vertices in this batch
  */
 template <typename Type, typename Index_ = int>
 __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
