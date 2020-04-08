@@ -20,6 +20,8 @@
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
+- PR #1981: CumlArray and DistributedDataHandler refactor in NearestNeighbors
+- PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -28,10 +30,13 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+<<<<<<< HEAD
 - PR #2017: Fixing memory issue in weak cc prim
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+=======
+>>>>>>> 6d9c861... using DDH parts_to_sizes
 
 # cuML 0.13.0 (Date TBD)
 
