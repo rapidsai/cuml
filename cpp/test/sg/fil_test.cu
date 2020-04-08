@@ -64,7 +64,11 @@ struct FilTestParams {
   // it's used in treelite ModelBuilder initialization
   int num_classes;
 
-  size_t max_outputs_per_row() { return std::max(num_classes, 2); }
+  size_t num_proba_outputs() { return num_rows * std::max(num_classes, 2); }
+  size_t num_preds_outputs() {
+    return ((output & fil::output_t::CLASS) != 0) ? num_rows
+                                                  : num_proba_outputs();
+  }
 };
 
 std::string output2str(fil::output_t output) {
@@ -140,12 +144,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate on-GPU random data
     Random::Rng r(ps.seed);
-    if (ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR)
+    if (ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR) {
       r.uniform(weights_d, num_nodes, -1.0f, 1.0f, stream);
-    else
+    } else {
       r.uniform(weights_d, num_nodes, 0.0f,
                 // [0..num_classes)
                 std::nextafterf(ps.num_classes, 0.0f), stream);
+    }
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
@@ -225,19 +230,26 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void transform(float f, float& proba, float& output) {
-    if ((ps.output & fil::output_t::AVG) != 0) f *= (1.0f / ps.num_trees);
+    if ((ps.output & fil::output_t::AVG) != 0) {
+      f *= (1.0f / ps.num_trees);
+    }
     f += ps.global_bias;
-    if ((ps.output & fil::output_t::SIGMOID) != 0) f = sigmoid(f);
+    if ((ps.output & fil::output_t::SIGMOID) != 0) {
+      f = sigmoid(f);
+    }
     proba = f;
-    if ((ps.output & fil::output_t::CLASS) != 0)
+    if ((ps.output & fil::output_t::CLASS) != 0) {
       f = f > ps.threshold ? 1.0f : 0.0f;
+    }
     output = f;
   }
 
+  void complement(float* proba) { proba[0] = 1.0f - proba[1]; }
+
   void predict_on_cpu() {
     // predict on host
-    std::vector<float> want_preds_h(ps.num_rows);
-    std::vector<float> want_proba_h(ps.num_rows * ps.max_outputs_per_row());
+    std::vector<float> want_preds_h(ps.num_preds_outputs());
+    std::vector<float> want_proba_h(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
     switch (ps.leaf_payload_type) {
       case fil::leaf_value_t::FLOAT_SCALAR:
@@ -247,8 +259,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             pred +=
               infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols]).f;
           }
-          transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
-          want_proba_h[i * 2] = 1.0f - want_proba_h[i * 2 + 1];
+          if ((ps.output & fil::output_t::CLASS) != 0) {
+            transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
+          } else {
+            transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i * 2 + 1]);
+            complement(&(want_preds_h[i * 2]));
+          }
+          complement(&(want_proba_h[i * 2]));
         }
         break;
       case fil::leaf_value_t::INT_CLASS_LABEL:
@@ -269,20 +286,28 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
               most_votes = pred;
               best_class = c;
             }
-            float _;
-            transform(pred, want_proba_h[r * ps.num_classes + c], _);
+            if ((ps.output & fil::output_t::CLASS) != 0) {
+              float _;
+              transform(pred, want_proba_h[r * ps.num_classes + c], _);
+            } else {
+              transform(pred, want_proba_h[r * ps.num_classes + c],
+                        want_preds_h[r * ps.num_classes + c]);
+            }
           }
-          want_preds_h[r] = best_class;
+          if ((ps.output & fil::output_t::CLASS) != 0) {
+            want_preds_h[r] = best_class;
+          }
         }
         break;
     }
 
     // copy to GPU
-    allocate(want_preds_d, ps.num_rows);
-    updateDevice(want_preds_d, want_preds_h.data(), ps.num_rows, stream);
-    allocate(want_proba_d, ps.num_rows * ps.max_outputs_per_row());
-    updateDevice(want_proba_d, want_proba_h.data(),
-                 ps.num_rows * ps.max_outputs_per_row(), stream);
+    allocate(want_preds_d, ps.num_preds_outputs());
+    allocate(want_proba_d, ps.num_proba_outputs());
+    updateDevice(want_preds_d, want_preds_h.data(), ps.num_preds_outputs(),
+                 stream);
+    updateDevice(want_proba_d, want_proba_h.data(), ps.num_proba_outputs(),
+                 stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -293,9 +318,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     init_forest(&forest);
 
     // predict
-    allocate(preds_d, ps.num_rows);
+    allocate(preds_d, ps.num_preds_outputs());
+    allocate(proba_d, ps.num_proba_outputs());
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
-    allocate(proba_d, ps.num_rows * ps.max_outputs_per_row());
     fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -304,8 +329,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
-    ASSERT_TRUE(devArrMatch(want_proba_d, proba_d,
-                            ps.num_rows * ps.max_outputs_per_row(),
+    ASSERT_TRUE(devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
                             CompareApprox<float>(ps.tolerance), stream));
     float tolerance = ps.leaf_payload_type == fil::leaf_value_t::FLOAT_SCALAR
                         ? ps.tolerance
