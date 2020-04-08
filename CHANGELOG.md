@@ -24,6 +24,7 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2017: Fixing memory issue in weak cc prim
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 
