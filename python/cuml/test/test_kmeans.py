@@ -185,6 +185,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 
     cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'],
                               random_state=12,
+                              n_init=10,
                               output_type='numpy')
 
     X, y = pat[0]
