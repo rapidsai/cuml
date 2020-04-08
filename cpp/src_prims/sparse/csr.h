@@ -713,9 +713,11 @@ template <typename Index_, int TPB_X = 32>
 __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
                                      const Index_ *row_ind_ptr, Index_ nnz,
                                      bool *fa, bool *xa, bool *m,
-                                     Index_ startVertexId, Index_ batchSize) {
+                                     Index_ startVertexId, Index_ batchSize,
+                                     Index_ N) {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
-  if (tid < batchSize) {
+
+  if (tid < batchSize && tid + startVertexId < N) {
     if (fa[tid + startVertexId]) {
       fa[tid + startVertexId] = false;
       Index_ row_ind_val = row_ind[tid];
@@ -805,7 +807,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 
     weak_cc_label_device<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, row_ind, row_ind_ptr, nnz, state->fa, state->xa, state->m,
-      startVertexId, batchSize);
+      startVertexId, batchSize, N);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -861,7 +863,6 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
   dim3 threads(TPB_X);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-
   if (startVertexId == 0) {
     weak_cc_init_all_kernel<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, state->fa, state->xa, N, MAX_LABEL);
