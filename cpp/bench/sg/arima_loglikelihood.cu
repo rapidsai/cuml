@@ -137,8 +137,8 @@ std::vector<ArimaParams> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(ArimaParams, ArimaLoglikelihood<double>, "arima",
-                    getInputs());
+ML_BENCH_REGISTER(ArimaParams, ArimaLoglikelihood<double>, "arima",
+                  getInputs());
 
 }  // namespace Arima
 }  // namespace Bench
