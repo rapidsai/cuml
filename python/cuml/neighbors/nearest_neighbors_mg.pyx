@@ -203,13 +203,13 @@ def _build_part_inputs(cuda_arr_ifaces,
                          "data": input_ptr,
                          "shape": (n_rows, n_cols)})
 
-    for rankSize in parts_to_ranks:
-        rank, size = rankSize
-        rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
-        rsp.rank = <int>rank
-        rsp.size = <size_t>size
+    for rank in parts_to_ranks:
+        for size in parts_to_ranks[rank]:
+            rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
+            rsp.rank = <int>rank
+            rsp.size = <size_t>size
 
-        vec.push_back(rsp)
+            vec.push_back(rsp)
 
     cdef vector[floatData_t*] *local_parts \
         = <vector[floatData_t*]*><size_t> _build_float_d(arr_ints)
