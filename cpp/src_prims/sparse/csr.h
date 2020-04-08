@@ -65,7 +65,7 @@ class CSR {
 
   /**
     * @brief default constructor
-    * @param alloc device allocator
+    * @param d_alloc device allocator
     * @param stream cuda stream
     */
   CSR(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream)
@@ -106,7 +106,7 @@ class CSR {
 
   /**
      * @brief Allocate a CSR given its size
-    * @param alloc: device allocator for temporary buffers
+    * @param d_alloc: device allocator for temporary buffers
     * @param stream: CUDA stream to use
     * @param nnz: size of the rows/cols/vals arrays
     * @param n_rows: number of rows in the dense matrix
@@ -529,7 +529,7 @@ __global__ void csr_add_kernel(const int *a_ind, const int *a_indptr,
  * @param nnz2: size of right hand index_ptr and val arrays
  * @param m: size of output array (number of rows in final matrix)
  * @param out_ind: output row_ind array
- * @param alloc: deviceAllocator to use for temp memory
+ * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream: cuda stream to use
  */
 template <typename T, int TPB_X = 32>
@@ -613,10 +613,10 @@ __global__ void csr_row_op_kernel(const T *row_ind, T n_rows, T nnz,
  * @tparam TPB_X number of threads per block to use for underlying kernel
  * @tparam Lambda type of custom operation function
  * @param row_ind the CSR row_ind array to perform parallel operations over
- * @param total_rows total number vertices in graph
- * @param batchSize size of row_ind
+ * @param n_rows total number vertices in graph
+ * @param nnz number of non-zeros
  * @param op custom row operation functor accepting the row and beginning index.
- * @param stream cuda stream 121to use
+ * @param stream cuda stream to use
  */
 template <typename Index_, int TPB_X = 32,
           typename Lambda = auto(Index_, Index_, Index_)->void>
@@ -638,6 +638,7 @@ void csr_row_op(const Index_ *row_ind, Index_ n_rows, Index_ nnz, Lambda op,
  * @tparam Lambda function for fused operation in the adj_graph construction
  * @param row_ind the input CSR row_ind array
  * @param total_rows number of vertices in graph
+ * @param nnz number of non-zeros
  * @param batchSize number of vertices in current batch
  * @param adj an adjacency array (size batchSize x total_rows)
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
@@ -683,7 +684,8 @@ void csr_adj_graph_batched(const Index_ *row_ind, Index_ total_rows, Index_ nnz,
  * @tparam T the numeric type of the index arrays
  * @tparam TPB_X the number of threads to use per block for kernels
  * @param row_ind the input CSR row_ind array
- * @param n_rows number of total vertices in graph
+ * @param total_rows number of total vertices in graph
+ * @param nnz number of non-zeros
  * @param adj an adjacency array
  * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
  * @param stream cuda stream to use
@@ -924,7 +926,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param alloc: deviceAllocator to use for temp memory
+ * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling.
@@ -962,7 +964,7 @@ void weak_cc(Index_ *labels, const Index_ *row_ind, const Index_ *row_ind_ptr,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
- * @param alloc: deviceAllocator to use for temp memory
+ * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  */
 template <typename Index_, int TPB_X = 32>

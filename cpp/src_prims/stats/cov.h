@@ -41,6 +41,7 @@ namespace Stats {
  * @param rowMajor whether the input data is row or col major
  * @param stable whether to run the slower-but-numerically-stable version or not
  * @param handle cublas handle
+ * @param stream cuda stream
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
