@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvements
+- PR #1931: C++: enabled doxygen docs for all of the C++ codebase
 - PR #1944: Support for dask_cudf.core.Series in _extract_partitions
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
@@ -11,6 +12,7 @@
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
 - PR #1996: Cythonize in parallel
+- PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
 
 ## Bug Fixes
@@ -20,6 +22,8 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
+- PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 
 # cuML 0.13.0 (Date TBD)
 
