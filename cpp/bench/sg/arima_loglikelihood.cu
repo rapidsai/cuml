@@ -44,6 +44,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
 
   // Note: public function because of the __device__ lambda
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
+
     auto& handle = *this->handle;
     auto stream = handle.getStream();
     auto counting = thrust::make_counting_iterator(0);
@@ -62,13 +64,12 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Benchmark loop
-    for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
+    this->loopOnState(state, [this]() {
       // Evaluate log-likelihood
-      batched_loglike(handle, this->data.X, this->params.batch_size,
+      batched_loglike(*this->handle, this->data.X, this->params.batch_size,
                       this->params.n_obs, order, param, loglike, residual, true,
                       false);
-    }
+    });
   }
 
   void allocateBuffers(const ::benchmark::State& state) {
