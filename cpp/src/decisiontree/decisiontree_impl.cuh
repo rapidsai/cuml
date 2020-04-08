@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -213,7 +213,7 @@ void DecisionTreeBase<T, L>::plant(
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
   n_unique_labels = unique_labels;
-   
+
   if (tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
       tree_params.quantile_per_tree) {
     preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
@@ -400,11 +400,10 @@ void DecisionTreeRegressor<T>::fit(
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
   std::shared_ptr<TemporaryMemory<T, T>> in_tempmem) {
   this->tree_params = tree_parameters;
-  this->base_fit(handle.getImpl().getDeviceAllocator(),
-                 handle.getImpl().getHostAllocator(),
-                 handle.getImpl().getStream(), data, ncols, nrows, labels,
-                 rowids, n_sampled_rows, 1, tree->sparsetree, tree->treeid,
-                 false, in_tempmem);
+  this->base_fit(
+    handle.getImpl().getDeviceAllocator(), handle.getImpl().getHostAllocator(),
+    handle.getImpl().getStream(), data, ncols, nrows, labels, rowids,
+    n_sampled_rows, 1, tree->sparsetree, tree->treeid, false, in_tempmem);
   this->set_metadata(tree);
 }
 
@@ -433,11 +432,11 @@ void DecisionTreeClassifier<T>::grow_deep_tree(
   int depth_cnt = 0;
   grow_deep_tree_classification(
     data, labels, rowids, ncols, colper, n_sampled_rows, nrows,
-    this->n_unique_labels, this->tree_params.n_bins, this->tree_params.max_depth, 
-    this->tree_params.max_leaves,
-    this->tree_params.min_rows_per_node, this->tree_params.split_criterion, this->tree_params.split_algo,
-    this->tree_params.min_impurity_decrease, depth_cnt, leaf_cnt, sparsetree, treeid,
-    tempmem);
+    this->n_unique_labels, this->tree_params.n_bins,
+    this->tree_params.max_depth, this->tree_params.max_leaves,
+    this->tree_params.min_rows_per_node, this->tree_params.split_criterion,
+    this->tree_params.split_algo, this->tree_params.min_impurity_decrease,
+    depth_cnt, leaf_cnt, sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }
@@ -451,10 +450,12 @@ void DecisionTreeRegressor<T>::grow_deep_tree(
   int leaf_cnt = 0;
   int depth_cnt = 0;
   grow_deep_tree_regression(
-    data, labels, rowids, ncols, colper, n_sampled_rows, nrows, this->tree_params.n_bins,
-    this->tree_params.max_depth, this->tree_params.max_leaves, this->tree_params.min_rows_per_node,
-    this->tree_params.split_criterion, this->tree_params.split_algo, this->tree_params.min_impurity_decrease,
-    depth_cnt, leaf_cnt, sparsetree, treeid, tempmem);
+    data, labels, rowids, ncols, colper, n_sampled_rows, nrows,
+    this->tree_params.n_bins, this->tree_params.max_depth,
+    this->tree_params.max_leaves, this->tree_params.min_rows_per_node,
+    this->tree_params.split_criterion, this->tree_params.split_algo,
+    this->tree_params.min_impurity_decrease, depth_cnt, leaf_cnt, sparsetree,
+    treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }
