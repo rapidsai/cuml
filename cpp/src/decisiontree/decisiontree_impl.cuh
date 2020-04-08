@@ -347,9 +347,7 @@ void DecisionTreeBase<T, L>::base_fit(
   } else {
     tempmem = std::make_shared<TemporaryMemory<T, L>>(
       device_allocator_in, host_allocator_in, stream_in, nrows, ncols,
-      tree_params.max_features, unique_labels, tree_params.n_bins,
-      tree_params.split_algo, tree_params.max_depth,
-      tree_params.shuffle_features);
+      unique_labels, tree_params);
     tree_params.quantile_per_tree = true;
   }
 
@@ -430,13 +428,10 @@ void DecisionTreeClassifier<T>::grow_deep_tree(
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
-  grow_deep_tree_classification(
-    data, labels, rowids, ncols, colper, n_sampled_rows, nrows,
-    this->n_unique_labels, this->tree_params.n_bins,
-    this->tree_params.max_depth, this->tree_params.max_leaves,
-    this->tree_params.min_rows_per_node, this->tree_params.split_criterion,
-    this->tree_params.split_algo, this->tree_params.min_impurity_decrease,
-    depth_cnt, leaf_cnt, sparsetree, treeid, tempmem);
+  grow_deep_tree_classification(data, labels, rowids, ncols, colper,
+                                n_sampled_rows, nrows, this->n_unique_labels,
+                                this->tree_params, depth_cnt, leaf_cnt,
+                                sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }
@@ -449,13 +444,9 @@ void DecisionTreeRegressor<T>::grow_deep_tree(
   const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
   int leaf_cnt = 0;
   int depth_cnt = 0;
-  grow_deep_tree_regression(
-    data, labels, rowids, ncols, colper, n_sampled_rows, nrows,
-    this->tree_params.n_bins, this->tree_params.max_depth,
-    this->tree_params.max_leaves, this->tree_params.min_rows_per_node,
-    this->tree_params.split_criterion, this->tree_params.split_algo,
-    this->tree_params.min_impurity_decrease, depth_cnt, leaf_cnt, sparsetree,
-    treeid, tempmem);
+  grow_deep_tree_regression(data, labels, rowids, ncols, colper, n_sampled_rows,
+                            nrows, this->tree_params, depth_cnt, leaf_cnt,
+                            sparsetree, treeid, tempmem);
   this->depth_counter = depth_cnt;
   this->leaf_counter = leaf_cnt;
 }
