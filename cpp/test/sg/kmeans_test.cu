@@ -19,13 +19,13 @@
 #include <test_utils.h>
 #include <vector>
 
+#include <thrust/fill.h>
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
-
 #include "common/device_buffer.hpp"
 
 namespace ML {
@@ -70,6 +70,10 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     allocate(d_labels, n_samples);
     allocate(d_labels_ref, n_samples);
     allocate(d_centroids, params.n_clusters * n_features);
+    allocate(d_sample_weight, n_samples);
+
+    thrust::fill(thrust::cuda::par.on(handle.getStream()), d_sample_weight,
+                 d_sample_weight + n_samples, 1);
 
     MLCommon::copy(d_labels_ref, labels.data(), n_samples, handle.getStream());
 
@@ -78,7 +82,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     T inertia = 0;
     int n_iter = 0;
     kmeans::fit_predict(handle, params, X.data(), n_samples, n_features,
-                        d_centroids, d_labels, inertia, n_iter);
+                        d_sample_weight, d_centroids, d_labels, inertia,
+                        n_iter);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -103,12 +108,13 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     CUDA_CHECK(cudaFree(d_labels));
     CUDA_CHECK(cudaFree(d_centroids));
     CUDA_CHECK(cudaFree(d_labels_ref));
+    CUDA_CHECK(cudaFree(d_sample_weight));
   }
 
  protected:
   KmeansInputs<T> testparams;
   int *d_labels, *d_labels_ref;
-  T *d_centroids;
+  T *d_centroids, *d_sample_weight;
   double score;
   ML::kmeans::KMeansParams params;
 };
