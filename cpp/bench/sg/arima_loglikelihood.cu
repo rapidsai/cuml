@@ -39,8 +39,7 @@ template <typename DataT>
 class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
  public:
   ArimaLoglikelihood(const std::string& name, const ArimaParams& p)
-    : TsFixtureRandom<DataT>(name, p.data), order(p.order) {
-  }
+    : TsFixtureRandom<DataT>(name, p.data), order(p.order) {}
 
   // Note: public function because of the __device__ lambda
   void runBenchmark(::benchmark::State& state) override {

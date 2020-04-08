@@ -29,8 +29,7 @@ class Fixture : public MLCommon::Bench::Fixture {
  public:
   Fixture(const std::string& name)
     : MLCommon::Bench::Fixture(
-      name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)) {
-  }
+        name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)) {}
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override {
@@ -94,7 +93,8 @@ class Fixture : public MLCommon::Bench::Fixture {
 template <typename D, typename L = int>
 class BlobsFixture : public Fixture {
  public:
-  BlobsFixture(const std::string& name, const DatasetParams p, const BlobsParams b)
+  BlobsFixture(const std::string& name, const DatasetParams p,
+               const BlobsParams b)
     : Fixture(name), params(p), bParams(b) {}
   BlobsFixture() = delete;
 
@@ -121,7 +121,8 @@ class BlobsFixture : public Fixture {
 template <typename D>
 class RegressionFixture : public Fixture {
  public:
-  RegressionFixture(const std::string& name, const DatasetParams p, const RegressionParams r)
+  RegressionFixture(const std::string& name, const DatasetParams p,
+                    const RegressionParams r)
     : Fixture(name), params(p), rParams(r) {}
   RegressionFixture() = delete;
 
@@ -148,8 +149,8 @@ class RegressionFixture : public Fixture {
 template <typename D>
 class TsFixtureRandom : public Fixture {
  public:
-  TsFixtureRandom(const std::string &name, const TimeSeriesParams p) :
-    Fixture(name), params(p) {}
+  TsFixtureRandom(const std::string& name, const TimeSeriesParams p)
+    : Fixture(name), params(p) {}
   TsFixtureRandom() = delete;
 
  protected:
