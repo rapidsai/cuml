@@ -68,12 +68,12 @@ def _func_get_rows(df):
 def parts_to_ranks(client, worker_info, part_futures):
     """
     Builds a list of (rank, size) tuples of partitions
-    :param worker_info: dict of {worker, {"r": rank }}. Note: \
+    :param worker_info: dict of {worker, {"rank": rank }}. Note: \
         This usually comes from the underlying communicator
     :param part_futures: list of (worker, future) tuples
     :return: [(part, size)] in the same order of part_futures
     """
-    futures = [(worker_info[wf[0]]["r"],
+    futures = [(worker_info[wf[0]]["rank"],
                 client.submit(_func_get_rows,
                               wf[1],
                               workers=[wf[0]],
