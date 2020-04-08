@@ -35,11 +35,11 @@ struct ArimaParams {
   ARIMAOrder order;
 };
 
-template <typename D>
-class ArimaLoglikelihood : public TsFixtureRandom<D> {
+template <typename DataT>
+class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
  public:
   ArimaLoglikelihood(const std::string& name, const ArimaParams& p)
-    : TsFixtureRandom<D>(p.data), order(p.order) {
+    : TsFixtureRandom<DataT>(p.data), order(p.order) {
     this->SetName(name.c_str());
   }
 
@@ -47,28 +47,18 @@ class ArimaLoglikelihood : public TsFixtureRandom<D> {
   void runBenchmark(::benchmark::State& state) override {
     auto& handle = *this->handle;
     auto stream = handle.getStream();
-    auto allocator = handle.getDeviceAllocator();
     auto counting = thrust::make_counting_iterator(0);
 
     // Generate random parameters
     int N = order.complexity();
-    D* x =
-      (D*)allocator->allocate(N * this->params.batch_size * sizeof(D), stream);
     MLCommon::Random::Rng gpu_gen(this->params.seed,
                                   MLCommon::Random::GenPhilox);
-    gpu_gen.uniform(x, N * this->params.batch_size, -1.0, 1.0, stream);
+    gpu_gen.uniform(param, N * this->params.batch_size, -1.0, 1.0, stream);
     // Set sigma2 parameters to 1.0
+    DataT* x = param;  // copy the object attribute for thrust
     thrust::for_each(thrust::cuda::par.on(stream), counting,
                      counting + this->params.batch_size,
                      [=] __device__(int bid) { x[(bid + 1) * N - 1] = 1.0; });
-
-    // Create arrays for log-likelihood and residual
-    D* loglike =
-      (D*)allocator->allocate(this->params.batch_size * sizeof(D), stream);
-    D* residual = (D*)allocator->allocate(
-      this->params.batch_size * (this->params.n_obs - order.lost_in_diff()) *
-        sizeof(D),
-      stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -77,27 +67,53 @@ class ArimaLoglikelihood : public TsFixtureRandom<D> {
       CudaEventTimer timer(handle, state, true, stream);
       // Evaluate log-likelihood
       batched_loglike(handle, this->data.X, this->params.batch_size,
-                      this->params.n_obs, order, x, loglike, residual, true,
+                      this->params.n_obs, order, param, loglike, residual, true,
                       false);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
     }
+  }
 
-    // Clear memory
+  void allocateBuffers(const ::benchmark::State& state) {
+    auto& handle = *this->handle;
+    auto stream = handle.getStream();
+    auto allocator = handle.getDeviceAllocator();
+
+    // Buffer for the model parameters
+    param = (DataT*)allocator->allocate(
+      order.complexity() * this->params.batch_size * sizeof(DataT), stream);
+
+    // Buffers for the log-likelihood and residuals
+    loglike = (DataT*)allocator->allocate(
+      this->params.batch_size * sizeof(DataT), stream);
+    residual = (DataT*)allocator->allocate(
+      this->params.batch_size * (this->params.n_obs - order.lost_in_diff()) *
+        sizeof(DataT),
+      stream);
+  }
+
+  void deallocateBuffers(const ::benchmark::State& state) {
+    auto& handle = *this->handle;
+    auto stream = handle.getStream();
+    auto allocator = handle.getDeviceAllocator();
+
     allocator->deallocate(
-      x, order.complexity() * this->params.batch_size * sizeof(D), stream);
-    allocator->deallocate(loglike, this->params.batch_size * sizeof(D), stream);
+      param, order.complexity() * this->params.batch_size * sizeof(DataT),
+      stream);
+    allocator->deallocate(loglike, this->params.batch_size * sizeof(DataT),
+                          stream);
     allocator->deallocate(residual,
                           this->params.batch_size *
                             (this->params.n_obs - order.lost_in_diff()) *
-                            sizeof(D),
+                            sizeof(DataT),
                           stream);
   }
 
  protected:
   ARIMAOrder order;
+  DataT* param;
+  DataT* loglike;
+  DataT* residual;
 };
 
-template <typename D>
 std::vector<ArimaParams> getInputs() {
   struct std::vector<ArimaParams> out;
   ArimaParams p;
@@ -123,7 +139,7 @@ std::vector<ArimaParams> getInputs() {
 }
 
 CUML_BENCH_REGISTER(ArimaParams, ArimaLoglikelihood<double>, "arima",
-                    getInputs<double>());
+                    getInputs());
 
 }  // namespace Arima
 }  // namespace Bench
