@@ -203,8 +203,8 @@ def _build_part_inputs(cuda_arr_ifaces,
                          "data": input_ptr,
                          "shape": (n_rows, n_cols)})
 
-    for rankSize in parts_to_ranks:
-        rank, size = rankSize
+    for idx, rankToSize in enumerate(parts_to_ranks):
+        rank, size = rankToSize
         rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
         rsp.rank = <int>rank
         rsp.size = <size_t>size
