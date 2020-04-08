@@ -101,6 +101,11 @@ $ ./bench/prims_benchmark  # ml-prims benchmarks
 ```
 Refer to `--help` option to know more on its uage
 
+To build doxygen docs for all C/C++ source files
+```bash
+$ make doc
+```
+
 5. Build the `cuml` python package:
 
 ```bash
