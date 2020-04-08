@@ -226,7 +226,7 @@ struct IOType<double, 2> {
  *
  * Example demonstrating the use of load operations, performing math on such
  * loaded data and finally storing it back.
- * <pre>
+ * @code{.cu}
  * TxN_t<uint8_t,8> mydata1, mydata2;
  * int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * mydata1.Ratio;
  * mydata1.load(ptr1, idx);
@@ -236,7 +236,7 @@ struct IOType<double, 2> {
  *     mydata1.val.data[i] += mydata2.val.data[i];
  * }
  * mydata1.store(ptr1, idx);
- * </pre>
+ * @endcode
  *
  * By doing as above, the interesting thing is that the code effectively remains
  * almost the same, in case one wants to upgrade to TxN_t<uint16_t,16> type.

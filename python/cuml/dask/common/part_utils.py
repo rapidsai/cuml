@@ -23,6 +23,7 @@ from toolz import first
 
 from dask.array.core import Array as daskArray
 from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as dcSeries
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -66,12 +67,12 @@ def _func_get_rows(df):
 def parts_to_ranks(client, worker_info, part_futures):
     """
     Builds a list of (rank, size) tuples of partitions
-    :param worker_info: dict of {worker, {"r": rank }}. Note: \
+    :param worker_info: dict of {worker, {"rank": rank }}. Note: \
         This usually comes from the underlying communicator
     :param part_futures: list of (worker, future) tuples
     :return: [(part, size)] in the same order of part_futures
     """
-    futures = [(worker_info[wf[0]]["r"],
+    futures = [(worker_info[wf[0]]["rank"],
                 client.submit(_func_get_rows,
                               wf[1],
                               workers=[wf[0]],
@@ -127,9 +128,10 @@ def _extract_partitions(dask_obj, client=None):
 
     client = default_client() if client is None else client
 
-    # dask.dataframe or dask.array
-    if isinstance(dask_obj, dcDataFrame) or \
-            isinstance(dask_obj, daskArray):
+    # dask_cudf.dataframe or dask_cudf.series or dask.array
+    if (isinstance(dask_obj, dcDataFrame) or
+            isinstance(dask_obj, daskArray) or
+            isinstance(dask_obj, dcSeries)):
         parts = futures_of(client.persist(dask_obj))
 
     # iterable of dask collections (need to colocate them)
