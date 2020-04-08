@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help --deep"
+VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -33,7 +33,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g               - build for debug
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
-   --singlegpu      - Build cuml without libcumlprims based multigpu algorithms.
+   --singlegpu      - Build cuml without multigpu support (multigpu requires libcumlprims)
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -53,7 +53,6 @@ BUILD_ALL_GPU_ARCH=0
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
-DEEPCLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 
 # Set defaults for vars that may not have been defined externally
@@ -115,15 +114,10 @@ if (( ${CLEAN} == 1 )); then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-      if [ -d ${bd} ]; then
-          find ${bd} -mindepth 1 -delete
-          rmdir ${bd} || true
-      fi
-
-      cd ${REPODIR}/python
-      python setup.py clean --all
-      cd ${REPODIR}
-
+  if [ -d ${bd} ]; then
+      find ${bd} -mindepth 1 -delete
+      rmdir ${bd} || true
+  fi
     done
 fi
 
