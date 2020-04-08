@@ -29,8 +29,8 @@ class Fixture : public MLCommon::Bench::Fixture {
  public:
   Fixture(const std::string& name)
     : MLCommon::Bench::Fixture(
-        name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
-      params(p) {}
+      name, std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)) {
+  }
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override {
