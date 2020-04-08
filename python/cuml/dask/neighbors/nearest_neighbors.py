@@ -13,8 +13,9 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import to_dask_cudf, workers_to_parts, parts_to_ranks, raise_exception_from_futures, \
-    flatten_grouped_results, raise_mg_import_exception
+from cuml.dask.common import to_dask_cudf, workers_to_parts, parts_to_ranks, \
+    raise_exception_from_futures, flatten_grouped_results, \
+    raise_mg_import_exception
 
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
