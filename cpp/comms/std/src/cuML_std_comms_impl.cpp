@@ -161,14 +161,8 @@ void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
   inject_comms(*handle, comm, size, rank, verbose);
 }
 
-void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
-#ifdef WITH_UCX
-                     void *ucp_worker, void *eps,
-#else
-                     void *, void *,
-#endif
-                     int size, int rank, bool verbose) {
-
+void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
+                     void *eps, int size, int rank, bool verbose) {
 #ifdef WITH_UCX
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
@@ -198,15 +192,6 @@ void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
   memcpy(id->internal, uniqueId, size);
 }
 
-/**
- * @brief Returns a NCCL unique ID as a character array. PyTorch
- * uses this same approach, so that it can be more easily
- * converted to a native Python string by Cython and further
- * serialized to be sent across process & node boundaries.
- *
- * @returns the generated NCCL unique ID for establishing a
- * new clique.
- */
 void get_unique_id(char *uid, int size) {
   ncclUniqueId id;
   ncclGetUniqueId(&id);
