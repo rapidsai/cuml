@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2019, NVIDIA CORPORATION.
  *
@@ -54,7 +52,6 @@ namespace Metrics {
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
 * @param size: the size of the data points of type int
-* @param numUniqueClasses: number of Unique classes used for clustering
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>

@@ -41,3 +41,6 @@ dask-worker-space/
 *.qdrep.cache
 *.qdstrm
 *.nvprof
+
+## doxygen build check inside ci/checks/style.sh
+doxygen_check/
