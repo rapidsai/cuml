@@ -47,8 +47,8 @@ class KMeans : public BlobsFixture<D> {
     for (auto _ : state) {
       CudaEventTimer timer(handle, state, true, stream);
       ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
-                              this->params.ncols, centroids, this->data.y,
-                              inertia, nIter);
+                              this->params.ncols, nullptr, centroids,
+                              this->data.y, inertia, nIter);
     }
   }
 
