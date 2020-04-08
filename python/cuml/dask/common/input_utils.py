@@ -133,7 +133,7 @@ class DistributedDataHandler:
         self.ranks = dict()
 
         for w, futures in self.worker_to_parts.items():
-            self.ranks[w] = self.worker_info[w]["r"]
+            self.ranks[w] = self.worker_info[w]["rank"]
 
     def calculate_parts_to_sizes(self, comms=None, ranks=None):
 
@@ -156,7 +156,7 @@ class DistributedDataHandler:
 
         for w, sizes_parts in sizes:
             sizes, total = sizes_parts
-            self.parts_to_sizes[self.worker_info[w]["r"]] = \
+            self.parts_to_sizes[self.worker_info[w]["rank"]] = \
                 sizes
 
             self.total_rows += total

@@ -172,7 +172,7 @@ class NearestNeighbors(BaseEstimator):
         """
 
         key = uuid1()
-        nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
+        nn_fit = dict([(worker_info[worker]["rank"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
                         index_handler.worker_to_parts[worker] if
@@ -184,7 +184,7 @@ class NearestNeighbors(BaseEstimator):
                         worker in query_handler.workers else [],
                         query_handler.total_rows,
                         query_parts_to_ranks,
-                        worker_info[worker]["r"],
+                        worker_info[worker]["rank"],
                         n_neighbors,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))

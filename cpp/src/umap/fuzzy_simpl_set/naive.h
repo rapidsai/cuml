@@ -58,8 +58,8 @@ static const float MIN_K_DIST_SCALE = 1e-3;
  * @param mean_dist: The mean distance
  * @param sigmas: An array of size n representing the distance to the kth nearest neighbor,
  *                as suitably approximated.
- * @parasm rhos:  An array of size n representing the distance to the 1st nearest neighbor
- *                for each point.
+ * @param rhos:  An array of size n representing the distance to the 1st nearest neighbor
+ *               for each point.
  * @param n_neighbors: The number of neighbors
  *
  * @param local_connectivity: The local connectivity required -- i.e. the number of nearest
@@ -179,11 +179,9 @@ __global__ void smooth_knn_dist_kernel(
  * @param knn_dists: the knn distance matrix of size (n, k)
  * @param sigmas: array of size n representing distance to kth nearest neighbor
  * @param rhos: array of size n representing distance to the first nearest neighbor
- *
- * @return vals: T array of size n*k
- *         rows: int64_t array of size n
- *         cols: int64_t array of size k
- *
+ * @param vals: T array of size n*k
+ * @param rows: int64_t array of size n
+ * @param cols: int64_t array of size k
  * @param n Number of samples (rows in knn indices/distances)
  * @param n_neighbors number of columns in knn indices/distances
  *
