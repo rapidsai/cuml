@@ -92,10 +92,10 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     if (score < 1.0) {
       auto str = arr2Str(labels_ref, 25, "labels_ref", handle.getStream());
-      CUML_DEBUG_INFO("y: %s", str.c_str());
+      CUML_LOG_DEBUG("y: %s", str.c_str());
       str = arr2Str(labels, 25, "labels", handle.getStream());
-      CUML_DEBUG_INFO("y_hat: %s", str.c_str());
-      CUML_DEBUG_INFO("Score = %lf", score);
+      CUML_LOG_DEBUG("y_hat: %s", str.c_str());
+      CUML_LOG_DEBUG("Score = %lf", score);
     }
   }
 
