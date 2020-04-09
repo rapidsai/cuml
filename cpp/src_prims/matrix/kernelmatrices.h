@@ -29,6 +29,7 @@ using namespace MLCommon;
 /** Epiloge function for polynomial kernel without padding.
  * Calculates output = (gain*in + offset)^exponent
  * @param inout device vector in column major format, size [len]
+ * @param len array length
  * @param exponent
  * @param gain
  * @param offset
