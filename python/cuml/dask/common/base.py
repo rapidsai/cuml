@@ -190,34 +190,35 @@ class DelayedParallelFunc(object):
 class DelayedPredictionProbaMixin(DelayedParallelFunc):
 
     def _predict_proba(self, X, delayed=True, **kwargs):
-        return self._run_parallel_func(_predict_proba_func, X, 2, delayed,
-                                       **kwargs)
+        return self._run_parallel_func(func=_predict_proba_func, X=X,
+                                       n_dims=2, delayed=delayed, **kwargs)
 
 
 class DelayedPredictionMixin(DelayedParallelFunc):
 
     def _predict(self, X, delayed=True, **kwargs):
-        return self._run_parallel_func(_predict_func, X, 1, delayed,
+        return self._run_parallel_func(func=_predict_func, X=X,
+                                       n_dims=1, delayed=delayed,
                                        **kwargs)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
     def _transform(self, X, n_dims=1, delayed=True, **kwargs):
-        return self._run_parallel_func(_transform_func,
-                                       X,
-                                       n_dims,
-                                       delayed,
+        return self._run_parallel_func(func=_transform_func,
+                                       X=X,
+                                       n_dims=n_dims,
+                                       delayed=delayed,
                                        **kwargs)
 
 
 class DelayedInverseTransformMixin(DelayedParallelFunc):
 
     def _inverse_transform(self, X, n_dims=1, delayed=True, **kwargs):
-        return self._run_parallel_func(_inverse_transform_func,
-                                       X,
-                                       n_dims,
-                                       delayed,
+        return self._run_parallel_func(func=_inverse_transform_func,
+                                       X=X,
+                                       n_dims=n_dims,
+                                       delayed=delayed,
                                        **kwargs)
 
 
