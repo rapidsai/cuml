@@ -23,7 +23,7 @@ from dask.distributed import futures_of, default_client, wait
 from toolz import first
 
 from dask.array.core import Array as daskArray
-from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import DataFrame as daskDataFrame
 from dask_cudf.core import Series as daskSeries
 
 from cuml.dask.common.utils import parse_host_port
@@ -130,7 +130,7 @@ def _extract_partitions(dask_obj, client=None):
     client = default_client() if client is None else client
 
     # dask.dataframe or dask.array
-    if isinstance(dask_obj, (dcDataFrame, daskArray, daskSeries)):
+    if isinstance(dask_obj, (daskDataFrame, daskArray, daskSeries)):
         persisted = client.persist(dask_obj)
         parts = futures_of(persisted)
 
@@ -144,6 +144,7 @@ def _extract_partitions(dask_obj, client=None):
 
         # TODO: ravel() is causing strange behavior w/ delayed Arrays which are
         # not yet backed by futures. Need to investigate this behavior.
+        # ref: https://github.com/rapidsai/cuml/issues/2045
         raveled = [d.flatten() for d in dela]
         parts = client.compute([p for p in zip(*raveled)])
 
