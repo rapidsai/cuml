@@ -247,7 +247,7 @@ def test_rf_regression_default(datatype, column_info, nrows):
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(250), quality_param(5000),
                          stress_param(500000)])
 def test_rf_classification_seed(datatype, column_info, nrows):
 
@@ -259,7 +259,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
-    for i in range(20):
+    for i in range(8):
         seed = random.randint(100, 1e5)
         # Initialize, fit and predict using cuML's
         # random forest classification model
@@ -352,12 +352,9 @@ def test_rf_classification_float64(datatype, column_info,
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(5000), quality_param(25000),
+@pytest.mark.parametrize('nrows', [unit_param(3000), quality_param(25000),
                          stress_param(500000)])
-@pytest.mark.parametrize('convert_dtype', [True, False])
-def test_rf_regression_float64(datatype, column_info,
-                               nrows, convert_dtype):
-
+def test_rf_regression_float64(datatype, column_info, nrows):
     ncols, n_info = column_info
     X, y = make_regression(n_samples=nrows, n_features=ncols,
                            n_informative=n_info,
@@ -387,17 +384,17 @@ def test_rf_regression_float64(datatype, column_info,
         assert cu_r2 >= (sk_r2 - 0.09)
 
     # predict using cuML's GPU based prediction
-    if datatype[0] == np.float32 and convert_dtype:
+    if datatype[0] == np.float32:
         fil_preds = cuml_model.predict(X_test, predict_model="GPU",
-                                       convert_dtype=convert_dtype)
+                                       convert_dtype=True)
         fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
-
         fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
         assert fil_r2 >= (cu_r2 - 0.02)
-    else:
-        with pytest.raises(TypeError):
-            fil_preds = cuml_model.predict(X_test, predict_model="GPU",
-                                           convert_dtype=convert_dtype)
+
+    #  because datatype[0] != np.float32 or datatype[0] != datatype[1]
+    with pytest.raises(TypeError):
+        fil_preds = cuml_model.predict(X_test, predict_model="GPU",
+                                       convert_dtype=False)
 
 
 @pytest.mark.parametrize('datatype', [(np.float32, np.float32)])
@@ -551,6 +548,9 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                               max_features, rows_sample,
                               fil_sparse_format, algo):
+    coverage = 0.3
+    if random.random() > coverage:
+        pytest.skip('Randomly skipping the test')
 
     ncols, n_info = column_info
     use_handle = True
@@ -560,7 +560,6 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
         X, y = make_regression(n_samples=500, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
-
     elif mode == 'quality':
         X, y = fetch_california_housing(return_X_y=True)
 
@@ -631,13 +630,13 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
 
 @pytest.mark.memleak
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
-@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+@pytest.mark.parametrize('column_info', [unit_param([80, 40]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(1000), quality_param(50000),
+@pytest.mark.parametrize('nrows', [unit_param(800), quality_param(50000),
                          stress_param(500000)])
 def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
-    n_iter = 30
+    n_iter = 3
     datatype = np.float32
     use_handle = True
     ncols, n_info = column_info
@@ -656,21 +655,27 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
     # before the first call to get_memory_info.
     base_model = curfc(handle=handle)
     base_model.fit(X_train, y_train)
+    handle.sync()  # just to be sure
     free_mem = cuda.current_context().get_memory_info()[0]
 
-    rfc_model = curfc(handle=handle)
-    rfc_model.fit(X_train, y_train)
-
-    # Calculate the memory free after fitting the cuML RF model
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    cuml_mods = curfc(handle=handle)
-    cuml_mods.fit(X_train, y_train)
-
-    for i in range(n_iter):
-        cuml_mods.predict(X_train, predict_model="GPU")
-        handle.sync()
+    def test_for_memory_leak():
+        cuml_mods = curfc(handle=handle)
+        cuml_mods.fit(X_train, y_train)
+        handle.sync()  # just to be sure
+        # Calculate the memory free after fitting the cuML model
         delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
         assert delta_mem == 0
+
+        for i in range(3):
+            cuml_mods.predict(X_test, predict_model="GPU",
+                              fil_sparse_format=fil_sparse_format)
+            handle.sync()  # just to be sure
+            # Calculate the memory free after predicting the cuML model
+            delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
+            assert delta_mem == 0
+
+    for i in range(n_iter):
+        test_for_memory_leak()
 
 
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
