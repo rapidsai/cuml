@@ -155,7 +155,8 @@ TEST_P(ARI_il, Result) {
               params.tolerance);
 }
 INSTANTIATE_TEST_CASE_P(AdjustedRandIndex, ARI_il, ::testing::ValuesIn(inputs));
-INSTANTIATE_TEST_CASE_P(AdjustedRandIndexLarge, ARI_il, ::testing::ValuesIn(large_inputs));
+INSTANTIATE_TEST_CASE_P(AdjustedRandIndexLarge, ARI_il,
+                        ::testing::ValuesIn(large_inputs));
 
 }  //end namespace Metrics
 }  //end namespace MLCommon
