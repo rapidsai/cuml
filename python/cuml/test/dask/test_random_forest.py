@@ -388,7 +388,6 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
         fil_mse = mean_squared_error(y_proba, fil_preds_proba)
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
-                         min_samples_split=2,
                          random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds_proba = sk_model.predict_proba(X_test)
