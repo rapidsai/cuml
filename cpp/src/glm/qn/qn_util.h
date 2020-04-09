@@ -146,7 +146,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
 /*
  * Multiplies a vector g with the inverse hessian approximation, i.e.
  * drt = - H * g,
- * e.g. to compute the new search direction for g = abla f(x)
+ * e.g. to compute the new search direction for g = \nabla f(x)
  */
 template <typename T>
 inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
