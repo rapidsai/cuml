@@ -137,6 +137,11 @@ const std::vector<AdjustedRandIndexParam> inputs = {
   {100, 1, 20, true, 0.000001},   {10, 1, 10, true, 0.000001},
   {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
 
+const std::vector<AdjustedRandIndexParam> large_inputs = {
+  {2000000, 1, 1000, false, 0.000001},
+  {2000000, 1, 1000, true, 0.000001},
+};
+
 typedef AdjustedRandIndexTest<int, int> ARI_ii;
 TEST_P(ARI_ii, Result) {
   ASSERT_NEAR(computedAdjustedRandIndex, truthAdjustedRandIndex,
@@ -150,6 +155,7 @@ TEST_P(ARI_il, Result) {
               params.tolerance);
 }
 INSTANTIATE_TEST_CASE_P(AdjustedRandIndex, ARI_il, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AdjustedRandIndexLarge, ARI_il, ::testing::ValuesIn(large_inputs));
 
 }  //end namespace Metrics
 }  //end namespace MLCommon
