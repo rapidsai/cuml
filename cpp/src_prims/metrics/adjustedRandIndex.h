@@ -41,7 +41,9 @@ namespace Metrics {
  */
 template <typename Type>
 struct nCTwo {
-  HDI Type operator()(Type in, int i = 0) { return (in * (in - 1)) / 2; }
+  HDI Type operator()(Type in, int i = 0) {
+    return in % 2 ? ((in - 1) >> 1) * in : (in >> 1) * (in - 1);
+  }
 };
 
 /**
