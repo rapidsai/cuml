@@ -394,11 +394,11 @@ void cumlStdCommunicator_impl::waitall(int count,
       // is complete, we can go ahead and clean it up.
       if (!req->needs_release || req->req->completed == 1) {
         restart = true;
-        CUML_LOG_DEBUG("%d: request completed. [ptr=%llu, num_left=%lu,"
-                       " other_rank=%d, is_send=%d, completed_immediately=%d]",
-                       getRank(), (unsigned long long)req->req,
-                       requests.size() - 1, req->other_rank,
-                       req->is_send_request, !req->needs_release);
+        CUML_LOG_DEBUG(
+          "%d: request completed. [ptr=%llu, num_left=%lu,"
+          " other_rank=%d, is_send=%d, completed_immediately=%d]",
+          getRank(), (unsigned long long)req->req, requests.size() - 1,
+          req->other_rank, req->is_send_request, !req->needs_release);
 
         // perform cleanup
         free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
