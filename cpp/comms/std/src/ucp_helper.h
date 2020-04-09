@@ -193,7 +193,7 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
 }
 
 /**
- * @bried Asynchronously receive data from given endpoint with the given tag.
+ * @brief Asynchronously receive data from given endpoint with the given tag.
  */
 struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,

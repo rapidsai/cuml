@@ -37,7 +37,6 @@ void softThres(math_t *out, const math_t *in, const math_t thres, const int len,
     stream);
 }
 
-/** @} */
 };  // namespace Functions
 };  // namespace MLCommon
 // end namespace ML
