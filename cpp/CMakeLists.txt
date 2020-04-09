@@ -19,7 +19,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.12.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.13.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -384,7 +384,7 @@ endif(BUILD_CUML_BENCH)
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
 
-# include(cmake/doxygen.cmake)
-# add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
-#   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-#   CWD ${CMAKE_CURRENT_BINARY_DIR})
+include(cmake/doxygen.cmake)
+add_doxygen_target(IN_DOXYFILE Doxyfile.in
+  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_BINARY_DIR})

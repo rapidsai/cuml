@@ -31,8 +31,8 @@ __global__ void set_unavailable(bool *available, int n_rows, const int *idx,
                                 int n_selected);
 
 /** Set availability to true for elements in the upper set, otherwise false.
- * @param [out] available, size [n]
- * @param [in] n number of elements in the working set
+ * @param [out] available size [n]
+ * @param [in] n of elements in the working set
  * @param [in] alpha dual coefficients, size [n]
  * @param [in] y class label, must be +/-1, size [n]
  * @param [in] C penalty factor
@@ -45,8 +45,8 @@ __global__ void set_upper(bool *available, int n, const math_t *alpha,
 }
 
 /** Set availability to true for elements in the lower set, otherwise false.
- * @param [out] available, size [n]
- * @param [in] n number of elements in the working set
+ * @param [out] available size [n]
+ * @param [in] n of elements in the working set
  * @param [in] alpha dual coefficients, size [n]
  * @param [in] y class label, must be +/-1, size [n]
  * @param [in] C penalty factor
