@@ -29,6 +29,7 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include "common/cumlHandle.hpp"
+#include "common/device_buffer.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
 #include "linalg/batched/matrix.h"
@@ -68,9 +69,10 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ARIMAOrder order_after_prep = {order.p, 0,       order.q, order.P,
                                  0,       order.Q, order.s, 0};
   std::vector<double> loglike = std::vector<double>(batch_size);
+  /// TODO: use device loglike to avoid useless copy
   batched_loglike(handle, d_y_prep, batch_size, n_obs - diff_obs,
                   order_after_prep, params, loglike.data(), d_vs, false, true,
-                  num_steps, d_y_fc);
+                  false, num_steps, d_y_fc);
 
   auto counting = thrust::make_counting_iterator(0);
   int predict_ld = end - start;
@@ -127,47 +129,150 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ML::POP_RANGE();
 }
 
+void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
+                                int batch_size, int n_obs,
+                                const ARIMAOrder& order,
+                                const ARIMAParams<double>& Tparams,
+                                double* d_loglike, double* d_vs) {
+  ML::PUSH_RANGE(__func__);
+  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
+  auto counting = thrust::make_counting_iterator(0);
+
+  // Compute phi and theta (AR-SAR and MA-SMA polynomials)
+  int n_phi = order.n_phi();
+  int n_theta = order.n_theta();
+  MLCommon::device_buffer<double> phi(allocator, stream, n_phi * batch_size);
+  MLCommon::device_buffer<double> theta(allocator, stream,
+                                        n_theta * batch_size);
+  double* d_phi = phi.data();
+  double* d_theta = theta.data();
+  thrust::for_each(
+    thrust::cuda::par.on(stream), counting, counting + batch_size,
+    [=] __device__(int bid) {
+      double* b_phi = d_phi + bid * n_phi;
+      double* b_theta = d_theta + bid * n_theta;
+      for (int i = 0; i < n_phi; i++) {
+        b_phi[i] = MLCommon::TimeSeries::reduced_polynomial<true>(
+          bid, Tparams.ar, order.p, Tparams.sar, order.P, order.s, i + 1);
+      }
+      for (int i = 0; i < n_theta; i++) {
+        b_theta[i] = MLCommon::TimeSeries::reduced_polynomial<false>(
+          bid, Tparams.ma, order.q, Tparams.sma, order.Q, order.s, i + 1);
+      }
+    });
+
+  // Set residuals to 0 before the starting point
+  int start = std::max(n_phi, n_theta) + 1;
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     double* b_vs = d_vs + bid * n_obs;
+                     for (int i = 0; i < start; i++) {
+                       b_vs[i] = 0.0;
+                     }
+                   });
+
+  // Compute the sum-of-squares and the log-likelihood
+  /// TODO: versions where threads compute the dot product together for
+  ///       large n_phi or n_theta, phi and theta in shared mem
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     double* b_phi = d_phi + bid * n_phi;
+                     double* b_theta = d_theta + bid * n_theta;
+                     const double* b_y = d_y + bid * n_obs;
+                     double* b_vs = d_vs + bid * n_obs;
+                     double mu = order.k ? Tparams.mu[bid] : 0.0;
+                     double ssq = 0.0;
+                     for (int i = start; i < n_obs; i++) {
+                       double vi = b_y[i] - mu;
+                       for (int j = 0; j < n_phi; j++) {
+                         vi -= b_phi[j] * b_y[i - j - 1];
+                       }
+                       for (int j = 0; j < n_theta; j++) {
+                         vi -= b_theta[j] * b_vs[i - j - 1];
+                       }
+                       b_vs[i] = vi;
+                       ssq += vi * vi;
+                     }
+                     d_loglike[bid] =
+                       -.5 * static_cast<double>(n_obs) *
+                       log(ssq / static_cast<double>(n_obs - start));
+                   });
+
+  ML::POP_RANGE();
+}
+
+/// TODO: will need to add bool approximate param ; call CSS method
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
-                     double* d_vs, bool trans, bool host_loglike, int fc_steps,
-                     double* d_fc) {
+                     double* d_vs, bool trans, bool host_loglike,
+                     bool approximate, int fc_steps, double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
   ARIMAParams<double> Tparams;
 
+  if (approximate && fc_steps) {
+    /// TODO: warning
+    approximate = false;
+  }
+
+  /* Create log-likelihood device array if host pointer is provided */
+  double* d_loglike;
+  MLCommon::device_buffer<double> loglike_buffer(allocator, stream);
+  if (host_loglike) {
+    loglike_buffer.resize(batch_size, stream);
+    d_loglike = loglike_buffer.data();
+  } else {
+    d_loglike = loglike;
+  }
+
   if (trans) {
     Tparams.allocate(order, batch_size, allocator, stream, true);
 
     MLCommon::TimeSeries::batched_jones_transform(
       order, batch_size, false, params, Tparams, allocator, stream);
+
+    // TODO: should remove when merging intercept PR
+    Tparams.mu = params.mu;
   } else {
     // non-transformed case: just use original parameters
     Tparams = params;
   }
 
   if (!order.need_prep()) {
-    batched_kalman_filter(handle, d_y, n_obs, Tparams, order, batch_size,
-                          loglike, d_vs, host_loglike, fc_steps, d_fc);
+    if (approximate) {
+      conditional_sum_of_squares(handle, d_y, batch_size, n_obs, order, Tparams,
+                                 d_loglike, d_vs);
+    } else {
+      batched_kalman_filter(handle, d_y, n_obs, Tparams, order, batch_size,
+                            d_loglike, d_vs, fc_steps, d_fc);
+    }
   } else {
-    double* d_y_prep = (double*)allocator->allocate(
-      batch_size * (n_obs - order.d - order.s * order.D) * sizeof(double),
-      stream);
+    MLCommon::device_buffer<double> y_prep(
+      allocator, stream, batch_size * (n_obs - order.lost_in_diff()));
+    double* d_y_prep = y_prep.data();
 
     MLCommon::TimeSeries::prepare_data(d_y_prep, d_y, batch_size, n_obs,
                                        order.d, order.D, order.s, stream,
                                        order.k, params.mu);
 
-    batched_kalman_filter(handle, d_y_prep, n_obs - order.d - order.s * order.D,
-                          Tparams, order, batch_size, loglike, d_vs,
-                          host_loglike, fc_steps, d_fc);
+    if (approximate) {
+      conditional_sum_of_squares(handle, d_y_prep, batch_size,
+                                 n_obs - order.lost_in_diff(), order, Tparams,
+                                 d_loglike, d_vs);
+    } else {
+      batched_kalman_filter(handle, d_y_prep, n_obs - order.lost_in_diff(),
+                            Tparams, order, batch_size, d_loglike, d_vs,
+                            fc_steps, d_fc);
+    }
+  }
 
-    allocator->deallocate(
-      d_y_prep,
-      sizeof(double) * batch_size * (n_obs - order.d - order.s * order.D),
-      stream);
+  if (host_loglike) {
+    /* Tranfer log-likelihood device -> host */
+    MLCommon::updateHost(loglike, d_loglike, batch_size, stream);
   }
 
   if (trans) {
@@ -179,7 +284,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans,
-                     bool host_loglike, int fc_steps, double* d_fc) {
+                     bool host_loglike, bool approximate, int fc_steps,
+                     double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   // unpack parameters
@@ -190,7 +296,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   params.unpack(order, batch_size, d_params, stream);
 
   batched_loglike(handle, d_y, batch_size, n_obs, order, params, loglike, d_vs,
-                  trans, host_loglike, fc_steps, d_fc);
+                  trans, host_loglike, approximate, fc_steps, d_fc);
 
   params.deallocate(order, batch_size, allocator, stream, false);
   ML::POP_RANGE();

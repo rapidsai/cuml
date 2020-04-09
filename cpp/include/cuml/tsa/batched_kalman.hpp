@@ -32,19 +32,17 @@ namespace ML {
  * @param[in]  params        ARIMA parameters (device)
  * @param[in]  order         ARIMA hyper-parameters
  * @param[in]  batch_size    Number of series making up the batch
- * @param[out] loglike_b     Resulting loglikelihood (for each series)
+ * @param[out] d_loglike     Resulting log-likelihood (per series) (device)
  * @param[out] d_vs          Residual between the prediction and the
  *                           original series.
  *                           shape=(nobs-d-s*D, batch_size) (device)
- * @param[in]  host_loglike  Whether loglike is a host pointer
  * @param[in]  fc_steps      Number of steps to forecast
  * @param[in]  d_fc          Array to store the forecast
  */
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys_b, int nobs,
                            const ARIMAParams<double>& params,
                            const ARIMAOrder& order, int batch_size,
-                           double* loglike, double* d_vs,
-                           bool host_loglike = true, int fc_steps = 0,
+                           double* d_loglike, double* d_vs, int fc_steps = 0,
                            double* d_fc = nullptr);
 
 /**

@@ -42,6 +42,8 @@ struct ARIMAOrder {
   inline int r() const { return std::max(p + s * P, q + s * Q + 1); }
   inline int complexity() const { return p + P + q + Q + k + 1; }
   inline int lost_in_diff() const { return d + s * D; }
+  inline int n_phi() const { return p + s * P; }
+  inline int n_theta() const { return q + s * Q; }
 
   inline bool need_prep() const { return static_cast<bool>(d + D + k); }
 };
