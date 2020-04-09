@@ -45,12 +45,52 @@ def _conv_np_to_df(x):
     return cudf.DataFrame.from_gpu_matrix(cupy_ary)
 
 
+def _extract_dtype(cudf_or_array):
+    if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \
+       isinstance(cudf_or_array, cudf.DataFrame):
+        dtypes = np.unique(cudf_or_array.dtypes)
+
+        if len(dtypes) > 1:
+            raise ValueError("DataFrame should contain only a single dtype")
+
+        dtype = dtypes[0]
+    else:
+        dtype = cudf_or_array.dtype
+
+    return dtype
+
+
 def _conv_df_to_sp(x):
     cupy_ary = rmm_cupy_ary(cp.asarray,
                             x.as_gpu_matrix(),
                             dtype=x.dtypes[0])
 
     return cp.sparse.csr_matrix(cupy_ary)
+
+
+def _conv_to_sparse(arr):
+
+    dtype = _extract_dtype(arr)
+
+    if scipy.sparse.isspmatrix(arr):
+        ret = \
+            cupyx.scipy.sparse.csr_matrix(arr.tocsr())
+    elif cupyx.scipy.sparse.isspmatrix(arr):
+        ret = arr
+    elif isinstance(arr, cudf.DataFrame):
+        cupy_ary = cp.asarray(arr.as_gpu_matrix(), dtype)
+        ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
+    elif isinstance(arr, np.ndarray):
+        cupy_ary = rmm_cupy_ary(cp.asarray,
+                                arr,
+                                dtype=arr.dtype)
+        ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
+
+    elif isinstance(arr, cp.core.core.ndarray):
+        ret = cupyx.scipy.sparse.csr_matrix(arr)
+    else:
+        raise ValueError("Unexpected input type %s" % type(arr))
+    return ret
 
 
 @with_cupy_rmm
@@ -96,21 +136,12 @@ def to_sp_dask_array(cudf_or_array, client=None):
     from cuml.comm import serialize  # NOQA
 
     shape = cudf_or_array.shape
-    if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \
-       isinstance(cudf_or_array, cudf.DataFrame):
-        dtypes = np.unique(cudf_or_array.dtypes)
-
-        if len(dtypes) > 1:
-            raise ValueError("DataFrame should contain only a single dtype")
-
-        dtype = dtypes[0]
-    else:
-        dtype = cudf_or_array.dtype
 
     meta = cupyx.scipy.sparse.csr_matrix(rmm_cupy_ary(cp.zeros, 1))
 
     ret = cudf_or_array
 
+    # If we have a Dask array, convert it to a Dask DataFrame
     if isinstance(ret, dask.array.Array):
         # At the time of developing this, using map_blocks will not work
         # to convert a Dask.Array to CuPy sparse arrays underneath.
@@ -121,11 +152,11 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
         ret = to_dask_cudf(futures)
 
+    # If we have a Dask Dataframe, use `map_partitions` to convert it
+    # to a Sparse Cupy-backed Dask Array. This will also convert the dense Dask
+    # array above to a Sparse Cupy-backed Dask Array, since we cannot use
+    # map_blocks on the array, but we can use `map_partitions` on the Dataframe.
     if isinstance(ret, dask.dataframe.DataFrame):
-        """
-        Dask.Dataframe needs special attention since it has multiple dtypes.
-        Just use the first (and assume all the rest are the same)
-        """
         ret = ret.map_partitions(
             _conv_df_to_sp, meta=dask.array.from_array(meta))
 
@@ -133,27 +164,11 @@ def to_sp_dask_array(cudf_or_array, client=None):
         return ret
 
     else:
-        if scipy.sparse.isspmatrix(ret):
-            ret = \
-                cupyx.scipy.sparse.csr_matrix(ret.tocsr())
-        elif cupyx.scipy.sparse.isspmatrix(ret):
-            pass
-        elif isinstance(ret, cudf.DataFrame):
-            cupy_ary = cp.asarray(ret.as_gpu_matrix(), dtype)
-            ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
-        elif isinstance(ret, np.ndarray):
-            cupy_ary = rmm_cupy_ary(cp.asarray,
-                                    ret,
-                                    dtype=ret.dtype)
-            ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
-        elif isinstance(ret, cp.core.core.ndarray):
-            ret = cupyx.scipy.sparse.csr_matrix(ret)
-        else:
-            raise ValueError("Unexpected input type %s" % type(ret))
+        ret = _conv_to_sparse(ret)
 
         # Push to worker
         final_result = client.scatter(ret)
 
-    return dask.array.from_delayed(final_result, shape=shape,
-                                   meta=meta)
+        return dask.array.from_delayed(final_result, shape=shape,
+                                       meta=meta)
