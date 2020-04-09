@@ -26,6 +26,7 @@
 - PR #2017: Fixing memory issue in weak cc prim
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
+- PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 
 # cuML 0.13.0 (Date TBD)
 
@@ -96,7 +97,6 @@
 - PR #1594: Train-test split is now reproducible
 - PR #1590: Fix destination directory structure for run-clang-format.py
 - PR #1611: Fixing pickling errors for KNN classifier and regressor
-- PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 - PR #1617: Fixing pickling issues for SVC and SVR
 - PR #1634: Fix title in KNN docs
 - PR #1627: Adding a check for multi-class data in RF classification
