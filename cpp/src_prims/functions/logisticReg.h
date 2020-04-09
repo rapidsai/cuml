@@ -139,7 +139,6 @@ void logisticRegLoss(math_t *input, int n_rows, int n_cols, math_t *labels,
   }
 }
 
-/** @} */
 };  // namespace Functions
 };  // namespace MLCommon
 // end namespace ML

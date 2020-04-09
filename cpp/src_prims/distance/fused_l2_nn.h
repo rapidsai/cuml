@@ -333,6 +333,7 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
  * @param[in]  n             gemm n
  * @param[in]  k             gemm k
  * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
+ * @param[in]  redOp         reduction operator in the epilogue
  * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
  * @param[in]  initOutBuffer whether to initialize the output buffer before the
  *                           main kernel launch

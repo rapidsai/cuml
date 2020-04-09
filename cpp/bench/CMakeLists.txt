@@ -22,6 +22,7 @@ cmake_policy(SET CMP0079 NEW)
 if(BUILD_CUML_BENCH)
   # (please keep the filenames in alphabetical order)
   add_executable(sg_benchmark
+    sg/arima_loglikelihood.cu
     sg/dbscan.cu
     sg/kmeans.cu
     sg/main.cpp
