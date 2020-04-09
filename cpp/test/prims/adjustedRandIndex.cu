@@ -91,10 +91,10 @@ class AdjustedRandIndexTest
       sumOfBiCTwo += ((b[i]) * (b[i] - 1)) / 2;
     }
     //calculating the ARI
-    int nCTwo = ((nElements) * (nElements - 1)) / 2;
+    double nCTwo = double(nElements) * double(nElements - 1) / 2.0;
     double expectedIndex =
-      ((double)(sumOfBiCTwo * sumOfAiCTwo)) / ((double)(nCTwo));
-    double maxIndex = ((double)(sumOfAiCTwo + sumOfBiCTwo)) / 2.0;
+      (double(sumOfBiCTwo) * double(sumOfAiCTwo)) / double(nCTwo);
+    double maxIndex = (double(sumOfAiCTwo) + double(sumOfBiCTwo)) / 2.0;
     double index = (double)sumOfNijCTwo;
     if (maxIndex - expectedIndex)
       truthAdjustedRandIndex =

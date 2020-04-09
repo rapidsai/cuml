@@ -116,9 +116,9 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
   updateHost(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);
   updateHost(&h_bCTwoSum, d_bCTwoSum.data(), 1, stream);
   //calculating the ARI
-  auto nChooseTwo = (size * (size - 1)) / 2;
-  auto expectedIndex = double(h_aCTwoSum * h_bCTwoSum) / double(nChooseTwo);
-  auto maxIndex = ((double)(h_bCTwoSum + h_aCTwoSum)) / 2.0;
+  auto nChooseTwo = double(size) * double(size - 1) / 2.0;
+  auto expectedIndex = double(h_aCTwoSum) * double(h_bCTwoSum) / double(nChooseTwo);
+  auto maxIndex = (double(h_bCTwoSum) + double(h_aCTwoSum)) / 2.0;
   auto index = double(h_nChooseTwoSum);
   if (maxIndex - expectedIndex)
     return (index - expectedIndex) / (maxIndex - expectedIndex);
