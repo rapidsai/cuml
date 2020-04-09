@@ -20,7 +20,7 @@ import numpy as np
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [6e5])
+@pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [67])
 def test_pca_fit(nrows, ncols, n_parts, cluster):
@@ -35,7 +35,7 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                               cluster_std=0.5, verbose=False,
+                               cluster_std=1.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -71,8 +71,8 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [4e3, 7e5])
-@pytest.mark.parametrize("ncols", [100, 1000])
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [46])
 def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
@@ -96,8 +96,8 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [7e5])
-@pytest.mark.parametrize("ncols", [200])
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [33])
 def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
 
