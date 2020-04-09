@@ -22,11 +22,11 @@ from cuml.test.utils import array_equal, \
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(6e5),
+@pytest.mark.parametrize("nrows", [unit_param(1000),
                          stress_param(5e6)])
 @pytest.mark.parametrize("ncols", [unit_param(20),
                          stress_param(1000)])
-@pytest.mark.parametrize("n_parts", [unit_param(67)])
+@pytest.mark.parametrize("n_parts", [unit_param(30)])
 def test_pca_fit(nrows, ncols, n_parts, cluster):
 
     client = Client(cluster)
@@ -39,7 +39,7 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                               cluster_std=0.5, verbose=False,
+                               cluster_std=1.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -71,11 +71,9 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(4e3),
-                         unit_param(7e5),
+@pytest.mark.parametrize("nrows", [unit_param(1000),
                          stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(100),
-                         unit_param(1000),
+@pytest.mark.parametrize("ncols", [unit_param(20),
                          stress_param(5000)])
 @pytest.mark.parametrize("n_parts", [46])
 def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
@@ -100,9 +98,9 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(7e5),
+@pytest.mark.parametrize("nrows", [unit_param(1000),
                          stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(200),
+@pytest.mark.parametrize("ncols", [unit_param(20),
                          stress_param(5000)])
 @pytest.mark.parametrize("n_parts", [unit_param(33)])
 def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
