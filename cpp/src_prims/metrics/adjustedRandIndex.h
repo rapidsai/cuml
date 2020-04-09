@@ -74,9 +74,9 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
   char* pWorkspace = nullptr;
   auto workspaceSz = getContingencyMatrixWorkspaceSize<T, MathT>(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
-  if (workspaceSz != 0) allocate(pWorkspace, workspaceSz);
+  device_buffer<char> workspaceBuff(allocator, stream, workspaceSz);
   contingencyMatrix<T, MathT>(firstClusterArray, secondClusterArray, size,
-                              dContingencyMatrix.data(), stream, pWorkspace,
+                              dContingencyMatrix.data(), stream, workspaceBuff.data(),
                               workspaceSz, lowerLabelRange, upperLabelRange);
   device_buffer<MathT> a(allocator, stream, nUniqClasses);
   device_buffer<MathT> b(allocator, stream, nUniqClasses);
@@ -115,7 +115,6 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
   updateHost(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
   updateHost(&h_aCTwoSum, d_aCTwoSum.data(), 1, stream);
   updateHost(&h_bCTwoSum, d_bCTwoSum.data(), 1, stream);
-  if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
   //calculating the ARI
   auto nChooseTwo = (size * (size - 1)) / 2;
   auto expectedIndex = double(h_aCTwoSum * h_bCTwoSum) / double(nChooseTwo);
