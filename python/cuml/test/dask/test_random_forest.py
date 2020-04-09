@@ -393,7 +393,9 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
         sk_preds_proba = sk_model.predict_proba(X_test)
         sk_mse = mean_squared_error(y_proba, sk_preds_proba)
 
-        assert fil_mse <= sk_mse + 0.002
+        # The threshold is required as the test would intermitently
+        # fail with a max difference of 0.003 between the two mse values
+        assert fil_mse <= sk_mse + 0.003
 
     finally:
         c.close()
