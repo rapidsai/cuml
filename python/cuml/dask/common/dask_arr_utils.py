@@ -153,9 +153,10 @@ def to_sp_dask_array(cudf_or_array, client=None):
         ret = to_dask_cudf(futures)
 
     # If we have a Dask Dataframe, use `map_partitions` to convert it
-    # to a Sparse Cupy-backed Dask Array. This will also convert the dense Dask
-    # array above to a Sparse Cupy-backed Dask Array, since we cannot use
-    # map_blocks on the array, but we can use `map_partitions` on the Dataframe.
+    # to a Sparse Cupy-backed Dask Array. This will also convert the dense
+    # Dask array above to a Sparse Cupy-backed Dask Array, since we cannot
+    # use map_blocks on the array, but we can use `map_partitions` on the
+    # Dataframe.
     if isinstance(ret, dask.dataframe.DataFrame):
         ret = ret.map_partitions(
             _conv_df_to_sp, meta=dask.array.from_array(meta))
