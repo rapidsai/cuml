@@ -10,6 +10,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2044: A cuda-memcheck helper wrapper for devs
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
