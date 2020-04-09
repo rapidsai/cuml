@@ -18,6 +18,7 @@
 #include <stdarg.h>
 #include <memory>
 #include <string>
+#include <sstream>
 
 namespace spdlog {
 class logger;
@@ -156,8 +157,10 @@ class PatternSetter {
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_TRACE)
 #define CUML_LOG_TRACE(fmt, ...)                                        \
   do {                                                                  \
-    auto msg = ML::format("%s:%d " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
-    ML::Logger::get().log(CUML_LEVEL_TRACE, msg.c_str());               \
+    std::stringstream ss;                                               \
+    ss << ML::format("%s:%d ", __FILE__, __LINE__);                     \
+    ss << ML::format(fmt, ##__VA_ARGS__);                               \
+    ML::Logger::get().log(CUML_LEVEL_TRACE, ss.str().c_str());          \
   } while (0)
 #else
 #define CUML_LOG_TRACE(fmt, ...) void(0)
@@ -166,8 +169,10 @@ class PatternSetter {
 #if (CUML_ACTIVE_LEVEL <= CUML_LEVEL_DEBUG)
 #define CUML_LOG_DEBUG(fmt, ...)                                        \
   do {                                                                  \
-    auto msg = ML::format("%s:%d " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
-    ML::Logger::get().log(CUML_LEVEL_DEBUG, msg.c_str());               \
+    std::stringstream ss;                                               \
+    ss << ML::format("%s:%d ", __FILE__, __LINE__);                     \
+    ss << ML::format(fmt, ##__VA_ARGS__);                               \
+    ML::Logger::get().log(CUML_LEVEL_DEBUG, ss.str().c_str());          \
   } while (0)
 #else
 #define CUML_LOG_DEBUG(fmt, ...) void(0)
