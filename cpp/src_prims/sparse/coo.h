@@ -69,7 +69,7 @@ class COO {
   Index_Type n_cols;
 
   /**
-    * @param alloc: the device allocator to use for the underlying buffers
+    * @param d_alloc: the device allocator to use for the underlying buffers
     * @param stream: CUDA stream to use
     */
   COO(std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream)
@@ -99,7 +99,7 @@ class COO {
       n_cols(n_cols) {}
 
   /**
-    * @param alloc: the device allocator use
+    * @param d_alloc: the device allocator use
     * @param stream: CUDA stream to use
     * @param nnz: size of the rows/cols/vals arrays
     * @param n_rows: number of rows in the dense matrix
@@ -257,10 +257,11 @@ class COO {
  *
  * @param m number of rows in coo matrix
  * @param n number of cols in coo matrix
+ * @param nnz number of non-zeros
  * @param rows rows array from coo matrix
  * @param cols cols array from coo matrix
  * @param vals vals array from coo matrix
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <typename T>
@@ -299,7 +300,7 @@ void coo_sort(int m, int n, int nnz, int *rows, int *cols, T *vals,
  * @brief Sort the underlying COO arrays by row
  * @tparam T: the type name of the underlying value array
  * @param in: COO to sort by row
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: the cuda stream to use
  */
 template <typename T>
@@ -452,7 +453,6 @@ void coo_row_count_scalar(COO<T> *in, T scalar, int *results,
  * @tparam TPB_X: number of threads to use per block
  * @tparam T: the type name of the underlying value arrays
  * @param rows: Input COO row array
- * @param cols: Input COO col array
  * @param vals: Input COO val arrays
  * @param nnz: size of input COO arrays
  * @param scalar: scalar to match for counting rows
@@ -475,7 +475,6 @@ void coo_row_count_scalar(const int *rows, const T *vals, int nnz, T scalar,
  * @tparam TPB_X: number of threads to use per block
  * @tparam T: the type name of the underlying value arrays
  * @param rows: Input COO row array
- * @param cols: Input COO col array
  * @param vals: Input COO val arrays
  * @param nnz: size of input COO arrays
  * @param results: output row counts
@@ -524,7 +523,7 @@ void coo_row_count_nz(COO<T> *in, int *results, cudaStream_t stream) {
  * @param cur_cnnz array of counts per row
  * @param scalar: scalar to remove from arrays
  * @param n: number of rows in dense matrix
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
@@ -568,7 +567,7 @@ void coo_remove_scalar(const int *rows, const int *cols, const T *vals, int nnz,
  * @param in: input COO matrix
  * @param out: output COO matrix
  * @param scalar: scalar to remove from arrays
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
@@ -610,7 +609,7 @@ void coo_remove_scalar(COO<T> *in, COO<T> *out, T scalar,
  *
  * @param in: input COO matrix
  * @param out: output COO matrix
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T>
@@ -660,7 +659,9 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
  * Converts a knn graph, defined by index and distance matrices,
  * into COO format.
  * @param knn_indices: KNN index array (size m * k)
- * @param knn_dists: KNN dist array (size m* * k)
+ * @param knn_dists: KNN dist array (size m * k)
+ * @param m: number of vertices in graph
+ * @param k: number of nearest neighbors
  * @param out: The output COO graph from the KNN matrices
  * @param stream: CUDA stream to use
  */
@@ -679,7 +680,7 @@ void from_knn(const long *knn_indices, const T *knn_dists, int m, int k,
  * @param nnz: size of COO rows array
  * @param row_ind: output row indices array
  * @param m: number of rows in dense matrix
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <typename T>
@@ -705,7 +706,7 @@ void sorted_coo_to_csr(const T *rows, int nnz, T *row_ind, int m,
  *
  * @param coo: Input COO matrix
  * @param row_ind: output row indices array
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <typename T>
@@ -790,7 +791,7 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
  * @param in: Input COO matrix
  * @param out: Output symmetrized COO matrix
  * @param reduction_op: a custom reduction function
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  * @param stream: cuda stream to use
  */
 template <int TPB_X, typename T, typename Lambda>
@@ -916,7 +917,7 @@ __global__ static void symmetric_sum(int *restrict edges,
  * @param k: Number of n_neighbors
  * @param out: Output COO Matrix class
  * @param stream: Input cuda stream
- * @param alloc device allocator for temporary buffers
+ * @param d_alloc device allocator for temporary buffers
  */
 template <typename math_t, int TPB_X = 32, int TPB_Y = 32>
 void from_knn_symmetrize_matrix(const long *restrict knn_indices,

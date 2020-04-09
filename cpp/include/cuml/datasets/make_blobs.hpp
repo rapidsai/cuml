@@ -22,6 +22,7 @@ namespace ML {
 namespace Datasets {
 
 /**
+ * @defgroup MakeBlobs scikit-learn-esq make_blobs
  * @brief GPU-equivalent of sklearn.datasets.make_blobs as documented here:
  * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html
  * @param out the generated data on device (dim = n_rows x n_cols) in row-major
@@ -29,7 +30,7 @@ namespace Datasets {
  * @param labels labels for the generated data on device (dim = n_rows x 1)
  * @param n_rows number of rows in the generated data
  * @param n_cols number of columns in the generated data
- * @param n_cluster number of clusters (or classes) to generate
+ * @param n_clusters number of clusters (or classes) to generate
  * @param centers centers of each of the cluster, pass a nullptr if you need
  * this also to be generated randomly (dim = n_clusters x n_cols). This is
  * expected to be on device
@@ -44,6 +45,7 @@ namespace Datasets {
  * @param center_box_max max value of the box from which to pick the cluster
  * centers. Useful only if 'centers' is nullptr
  * @param seed seed for the RNG
+ * @{
  */
 void make_blobs(const cumlHandle& handle, float* out, int64_t* labels,
                 int64_t n_rows, int64_t n_cols, int64_t n_clusters,
@@ -52,7 +54,6 @@ void make_blobs(const cumlHandle& handle, float* out, int64_t* labels,
                 const float cluster_std_scalar = 1.f, bool shuffle = true,
                 float center_box_min = 10.f, float center_box_max = 10.f,
                 uint64_t seed = 0ULL);
-
 void make_blobs(const cumlHandle& handle, double* out, int64_t* labels,
                 int64_t n_rows, int64_t n_cols, int64_t n_clusters,
                 const double* centers = nullptr,
@@ -60,18 +61,17 @@ void make_blobs(const cumlHandle& handle, double* out, int64_t* labels,
                 const double cluster_std_scalar = 1.f, bool shuffle = true,
                 double center_box_min = 10.f, double center_box_max = 10.f,
                 uint64_t seed = 0ULL);
-
 void make_blobs(const cumlHandle& handle, float* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const float* centers,
                 const float* cluster_std, const float cluster_std_scalar,
                 bool shuffle, float center_box_min, float center_box_max,
                 uint64_t seed);
-
 void make_blobs(const cumlHandle& handle, double* out, int* labels, int n_rows,
                 int n_cols, int n_clusters, const double* centers,
                 const double* cluster_std, const double cluster_std_scalar,
                 bool shuffle, double center_box_min, double center_box_max,
                 uint64_t seed);
+/** @} */
 
 }  // namespace Datasets
 }  // namespace ML
