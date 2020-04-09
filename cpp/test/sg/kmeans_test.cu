@@ -89,11 +89,11 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
       std::stringstream ss;
       ss << "Expected: "
          << arr2Str(d_labels_ref, 25, "d_labels_ref", handle.getStream());
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
       ss << "Actual: " << arr2Str(d_labels, 25, "d_labels", handle.getStream());
-      CUML_LOG_INFO(ss.str().c_str());
-      CUML_LOG_INFO("Score = %lf", score);
+      CUML_LOG_DEBUG(ss.str().c_str());
+      CUML_LOG_DEBUG("Score = %lf", score);
     }
   }
 
