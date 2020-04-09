@@ -75,8 +75,9 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
   device_buffer<char> workspaceBuff(allocator, stream, workspaceSz);
   contingencyMatrix<T, MathT>(firstClusterArray, secondClusterArray, size,
-                              dContingencyMatrix.data(), stream, workspaceBuff.data(),
-                              workspaceSz, lowerLabelRange, upperLabelRange);
+                              dContingencyMatrix.data(), stream,
+                              workspaceBuff.data(), workspaceSz,
+                              lowerLabelRange, upperLabelRange);
   device_buffer<MathT> a(allocator, stream, nUniqClasses);
   device_buffer<MathT> b(allocator, stream, nUniqClasses);
   device_buffer<MathT> d_aCTwoSum(allocator, stream, 1);
