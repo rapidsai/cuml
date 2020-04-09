@@ -233,7 +233,7 @@ Sometimes, we need to temporarily change the log pattern (eg: for reporting deci
 
 ### Tips
 * Do NOT end your logging messages with a newline! It is automatically added by spdlog.
-* The `CUML_LOG_DEBUG()` and `CUML_LOG_TRACE()` is by default not compiled due to the `CUML_ACTIVE_LEVEL` macro setup, for performance reasons. If you need them to be enabled, change this macro accordingly during compilation time
+* The `CUML_LOG_TRACE()` is by default not compiled due to the `CUML_ACTIVE_LEVEL` macro setup, for performance reasons. If you need it to be enabled, change this macro accordingly during compilation time
 
 ## Documentation
 All external interfaces need to have a complete [doxygen](http://www.doxygen.nl) API documentation. This is also recommended for internal interfaces.
