@@ -97,10 +97,11 @@ class DistributedDataHandler:
 
         multiple = isinstance(data, Sequence)
 
-        datatype = 'cudf' if isinstance(first(data) if multiple else data,
-                                        (dcDataFrame, daskSeries)) else 'cupy'
-
-        if datatype == 'cupy':
+        if isinstance(first(data) if multiple else data,
+                      (dcDataFrame, daskSeries)):
+            datatype = 'cudf'
+        else:
+            datatype = 'cupy'
             if multiple:
                 for d in data:
                     validate_dask_array(d)
