@@ -354,12 +354,11 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
                                                   cluster,
                                                   output_class):
 
-    # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(threads_per_worker=1, n_workers=1)
 
     try:
 
-        X, y = make_classification(n_samples=10000, n_features=30,
+        X, y = make_classification(n_samples=1000, n_features=30,
                                    n_clusters_per_class=1, n_informative=20,
                                    random_state=123, n_classes=2)
 
@@ -367,7 +366,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
         y = y.astype(np.int32)
 
         X_train, X_test, y_train, y_test = \
-            train_test_split(X, y, test_size=1000)
+            train_test_split(X, y, test_size=100)
 
         cu_rf_params = {'n_bins': 16, 'n_streams': 1,
                         'n_estimators': 40, 'max_depth': 16
