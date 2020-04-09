@@ -24,10 +24,11 @@
 namespace ML {
 
 /**
- * @brief Implemententation of ML::deviceAllocator using the RAPIDS Memory Manager (RMM) for allocations.
+ * @brief Implemententation of ML::deviceAllocator using the
+ *        RAPIDS Memory Manager (RMM) for allocations.
  *
- * rmmAllocatorAdapter does not initialize RMM. If RMM is not initialized on construction of rmmAllocatorAdapter
- * allocations fall back to cudaMalloc.
+ * rmmAllocatorAdapter does not initialize RMM. If RMM is not initialized on
+ * construction of rmmAllocatorAdapter allocations fall back to cudaMalloc.
  */
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
@@ -38,13 +39,12 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
   }
 
   /**
-     * @brief asynchronosly allocate n bytes that can be used after all work in stream sheduled prior to this call
-     *        has completetd.
-     *
-     * @param[in] n         size of the allocation in bytes
-     * @param[in] stream    the stream to use for the asynchronous allocations
-     * @returns             a pointer to n byte of device memory
-     */
+   * @brief asynchronosly allocate n bytes that can be used after all work in
+   *        stream sheduled prior to this call has completetd.
+   *
+   * @param[in] n         size of the allocation in bytes
+   * @param[in] stream    the stream to use for the asynchronous allocations
+   */
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
     if (!_rmmInitialized) {
@@ -63,13 +63,13 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
   }
 
   /**
-     * @brief asynchronosly free an allocation of n bytes that can be reused after all work in stream scheduled prior to this
-     *        call has completed.
-     *
-     * @param[in] p         pointer to n bytes of memory to be deallocated
-     * @param[in] n         size of the allocation to release in bytes
-     * @param[in] stream    the stream to use for the asynchronous free
-     */
+   * @brief asynchronosly free an allocation of n bytes that can be reused after
+   *        all work in stream scheduled prior to this call has completed.
+   *
+   * @param[in] p         pointer to n bytes of memory to be deallocated
+   * @param[in] n         size of the allocation to release in bytes
+   * @param[in] stream    the stream to use for the asynchronous free
+   */
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
     if (!_rmmInitialized) {
       CUDA_CHECK_NO_THROW(cudaFree(p));

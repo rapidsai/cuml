@@ -94,7 +94,6 @@ void elasticnetGrad(math_t *grad, const math_t *coef, const int len,
   }
 }
 
-/** @} */
 };  // namespace Functions
 };  // namespace MLCommon
 // end namespace ML
