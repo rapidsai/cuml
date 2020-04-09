@@ -311,11 +311,11 @@ bool cumlHandle_impl::commsInitialized() const {
 
 void cumlHandle_impl::createResources() {
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
   _streams.push_back(stream);
   for (int i = 1; i < _num_streams; ++i) {
     cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     _streams.push_back(stream);
   }
   CUDA_CHECK(cudaEventCreateWithFlags(&_event, cudaEventDisableTiming));
