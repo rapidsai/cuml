@@ -228,10 +228,10 @@ class UMAPTest : public ::testing::Test {
     supervisedTest();
     fitWithKNNTest();
 
-    CUML_LOG_INFO("fit_score=%lf", fit_score);
-    CUML_LOG_INFO("xform_score=%lf", xformed_score);
-    CUML_LOG_INFO("supervised_score=%f", supervised_score);
-    CUML_LOG_INFO("fit_with_knn_score=%lf", fit_with_knn_score);
+    CUML_LOG_DEBUG("fit_score=%lf", fit_score);
+    CUML_LOG_DEBUG("xform_score=%lf", xformed_score);
+    CUML_LOG_DEBUG("supervised_score=%f", supervised_score);
+    CUML_LOG_DEBUG("fit_with_knn_score=%lf", fit_with_knn_score);
   }
 
   void TearDown() override {}
