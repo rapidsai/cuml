@@ -71,7 +71,6 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
   CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0,
                              nUniqClasses * nUniqClasses * sizeof(MathT),
                              stream));
-  char* pWorkspace = nullptr;
   auto workspaceSz = getContingencyMatrixWorkspaceSize<T, MathT>(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
   device_buffer<char> workspaceBuff(allocator, stream, workspaceSz);
