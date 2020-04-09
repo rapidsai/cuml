@@ -99,11 +99,11 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
                                                      partitions_per_worker)
-        cu_rf_mg = cuRFC_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test)
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test)
 
-        acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
         assert acc_score > 0.8
 
     finally:
@@ -138,10 +138,10 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
                                                      partitions_per_worker)
 
         X_test_cudf = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
-        cu_rf_mg = cuRFC_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
-        acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test_cudf)
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
 
         assert acc_score > 0.8
 
@@ -193,13 +193,13 @@ def test_rf_regression_dask_fil(partitions_per_worker, cluster):
         X_train_df, y_train_df = dask_utils.persist_across_workers(
             c, [X_train_df, y_train_df], workers=workers)
 
-        cu_rf_mg = cuRFR_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
+        cuml_mod = cuRFR_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
 
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df).compute()
-        cu_rf_mg_predict = cp.asnumpy(cp.array(cu_rf_mg_predict))
+        cuml_mod_predict = cuml_mod.predict(X_test_df).compute()
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict))
 
-        acc_score = r2_score(cu_rf_mg_predict, y_test)
+        acc_score = r2_score(cuml_mod_predict, y_test)
 
         assert acc_score >= 0.67
 
@@ -237,30 +237,16 @@ def test_rf_classification_dask_fil(partitions_per_worker, cluster,
                                                      partitions_per_worker)
         X_test_df, _ = _prep_training_data(c, X_test, y_test,
                                            partitions_per_worker)
-        cu_rf_mg = cuRFC_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_df, output_class).compute()
-        cu_rf_mg_predict = cp.asnumpy(cp.array(cu_rf_mg_predict))
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test_df, output_class).compute()
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict))
         if not output_class:
-            cu_rf_mg_predict = np.round(cu_rf_mg_predict)
+            cuml_mod_predict = np.round(cuml_mod_predict)
 
-        fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
-        fil_preds_proba = cp.asnumpy(fil_preds_proba.to_gpu_matrix())
-        y_proba = np.zeros(np.shape(fil_preds_proba))
-        y_proba[:, 1] = y_test
-        y_proba[:, 0] = 1.0 - y_test
-        fil_mse = mean_squared_error(y_proba, fil_preds_proba)
-        sk_model = skrfc(n_estimators=25,
-                         max_depth=13,
-                         random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_preds_proba = sk_model.predict_proba(X_test)
-        sk_mse = mean_squared_error(y_proba, sk_preds_proba)
-
-        acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
 
         assert acc_score > 0.8
-        assert fil_mse <= (sk_mse + 0.012)
 
     finally:
         c.close()
@@ -295,14 +281,14 @@ def test_rf_classification_dask_array(partitions_per_worker, cluster,
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
                                                      partitions_per_worker)
         X_test_dask_array = from_array(X_test)
-        cu_rf_mg = cuRFC_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_dask_array,
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
                                             output_class).compute()
         if not output_class:
-            cu_rf_mg_predict = np.round(cu_rf_mg_predict)
+            cuml_mod_predict = np.round(cuml_mod_predict)
 
-        acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
 
         assert acc_score > 0.8
 
@@ -349,14 +335,66 @@ def test_rf_regression_dask_cpu(partitions_per_worker, cluster):
         X_train_df, y_train_df = dask_utils.persist_across_workers(
             c, [X_train_df, y_train_df], workers=workers)
 
-        cu_rf_mg = cuRFR_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
+        cuml_mod = cuRFR_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
 
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test, predict_model='CPU')
+        cuml_mod_predict = cuml_mod.predict(X_test, predict_model='CPU')
 
-        acc_score = r2_score(cu_rf_mg_predict, y_test)
+        acc_score = r2_score(cuml_mod_predict, y_test)
 
         assert acc_score >= 0.67
+
+    finally:
+        c.close()
+
+
+@pytest.mark.parametrize('partitions_per_worker', [1])
+@pytest.mark.parametrize('output_class', [True, False])
+def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
+                                                  cluster,
+                                                  output_class):
+
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
+    c = Client(threads_per_worker=1, n_workers=1)
+
+    try:
+
+        X, y = make_classification(n_samples=10000, n_features=30,
+                                   n_clusters_per_class=1, n_informative=20,
+                                   random_state=123, n_classes=2)
+
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
+
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=1000)
+
+        cu_rf_params = {'n_bins': 16, 'n_streams': 1,
+                        'n_estimators': 40, 'max_depth': 16
+                        }
+
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+                                                     partitions_per_worker)
+        X_test_df, _ = _prep_training_data(c, X_test, y_test,
+                                           partitions_per_worker)
+        cu_rf_mg = cuRFC_mg(**cu_rf_params)
+        cu_rf_mg.fit(X_train_df, y_train_df)
+
+        fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
+        fil_preds_proba = cp.asnumpy(fil_preds_proba.to_gpu_matrix())
+        y_proba = np.zeros(np.shape(fil_preds_proba))
+        y_proba[:, 1] = y_test
+        y_proba[:, 0] = 1.0 - y_test
+        fil_mse = mean_squared_error(y_proba, fil_preds_proba)
+        sk_model = skrfc(n_estimators=40,
+                         max_depth=16,
+                         min_samples_split=2,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_preds_proba = sk_model.predict_proba(X_test)
+        sk_mse = mean_squared_error(y_proba, sk_preds_proba)
+
+        assert fil_mse <= sk_mse + 0.002
 
     finally:
         c.close()
