@@ -58,7 +58,7 @@ std::string format(const char* fmt, ...);
 /** @} */
 
 #if !defined(CUML_ACTIVE_LEVEL)
-#define CUML_ACTIVE_LEVEL CUML_LEVEL_INFO
+#define CUML_ACTIVE_LEVEL CUML_LEVEL_DEBUG
 #endif
 
 /**
