@@ -571,8 +571,8 @@ void init_batched_kalman_matrices(cumlHandle& handle, const double* d_ar,
 void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
                            const ARIMAParams<double>& params,
                            const ARIMAOrder& order, int batch_size,
-                           double* loglike, double* d_vs, bool host_loglike,
-                           int fc_steps, double* d_fc) {
+                           double* d_loglike, double* d_vs, int fc_steps,
+                           double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   const size_t ys_len = nobs;
@@ -602,23 +602,8 @@ void batched_kalman_filter(cumlHandle& handle, const double* d_ys, int nobs,
   double* d_Fs =
     (double*)allocator->allocate(ys_len * batch_size * sizeof(double), stream);
 
-  /* Create log-likelihood device array if host pointer is provided */
-  double* d_loglike;
-  if (host_loglike) {
-    d_loglike =
-      (double*)allocator->allocate(batch_size * sizeof(double), stream);
-  } else {
-    d_loglike = loglike;
-  }
-
   _batched_kalman_filter(handle, d_ys, nobs, Zb, Tb, Rb, T_mask, r, d_vs, d_Fs,
                          d_loglike, params.sigma2, fc_steps, d_fc);
-
-  if (host_loglike) {
-    /* Tranfer log-likelihood device -> host */
-    MLCommon::updateHost(loglike, d_loglike, batch_size, stream);
-    allocator->deallocate(d_loglike, batch_size * sizeof(double), stream);
-  }
 
   allocator->deallocate(d_Fs, ys_len * batch_size * sizeof(double), stream);
 

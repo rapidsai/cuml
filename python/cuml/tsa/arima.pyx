@@ -76,7 +76,7 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
-        double* d_vs, bool trans, bool host_loglike)
+        double* d_vs, bool trans, bool host_loglike, bool approximate)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -585,7 +585,8 @@ class ARIMA(Base):
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
             h: float = 1e-9,
-            maxiter=1000):
+            maxiter=1000,
+            approximate=False):
         """Fit the ARIMA model to each time series.
 
         Parameters
@@ -610,6 +611,8 @@ class ARIMA(Base):
                           2 * h
         maxiter : int
             Maximum number of iterations of L-BFGS-B
+        approximate : bool
+            Approximate the log-likelihood with a conditional sum-of-squares
         """
         if start_params is None:
             self._estimate_x0()
@@ -622,14 +625,14 @@ class ARIMA(Base):
             """The (batched) energy functional returning the negative
             log-likelihood (foreach series)."""
             # Recall: We maximize LL by minimizing -LL
-            n_llf = -self._loglike(x, trans=True)
+            n_llf = -self._loglike(x, True, approximate)
             return n_llf / (self.n_obs - 1)
 
         # Optimized finite differencing gradient for batches
         def gf(x):
             """The gradient of the (batched) energy functional."""
             # Recall: We maximize LL by minimizing -LL
-            n_gllf = -self._loglike_grad(x, h, trans=True)
+            n_gllf = -self._loglike_grad(x, h, True, approximate)
             return n_gllf / (self.n_obs - 1)
 
         x0 = self._batched_transform(self.pack(), True)
@@ -652,7 +655,7 @@ class ARIMA(Base):
         self.niter = niter
 
     @nvtx_range_wrap
-    def _loglike(self, x, trans=True):
+    def _loglike(self, x, trans=True, approximate=False):
         """Compute the batched log-likelihood for the given parameters.
 
         Parameters:
@@ -662,6 +665,8 @@ class ARIMA(Base):
         trans : bool
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
+        approximate : bool
+            Approximate the log-likelihood with a conditional sum-of-squares
 
         Returns:
         --------
@@ -688,12 +693,12 @@ class ARIMA(Base):
         batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
                         <int> self.n_obs, order, <double*> d_x_ptr,
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
-                        <bool> trans, <bool> True)
+                        <bool> trans, <bool> True, <bool> approximate)
 
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_range_wrap
-    def _loglike_grad(self, x, h=1e-8, trans=True):
+    def _loglike_grad(self, x, h=1e-8, trans=True, approximate=False):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
@@ -707,6 +712,8 @@ class ARIMA(Base):
         trans : bool
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
+        approximate : bool
+            Approximate the log-likelihood with a conditional sum-of-squares
 
         Returns:
         --------
@@ -732,8 +739,8 @@ class ARIMA(Base):
             # reset perturbation
             fd[i] = 0.0
 
-            ll_b_ph = self._loglike(x + fdph, trans=trans)
-            ll_b_mh = self._loglike(x - fdph, trans=trans)
+            ll_b_ph = self._loglike(x + fdph, trans, approximate)
+            ll_b_mh = self._loglike(x - fdph, trans, approximate)
 
             # first derivative second order accuracy
             grad_i_b = (ll_b_ph - ll_b_mh) / (2 * h)

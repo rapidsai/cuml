@@ -43,10 +43,14 @@ tests_map = {
 }
 
 # TODO:
+# - change interface to match the new fable package instead of deprecated
+#   forecast package?
 # - stepwise argument? -> if false, complete traversal
 # - approximation argument to choose the model based on conditional sum of
 #   squares?
+# - truncate argument to use last values when approximation is True?
 # - Box-Cox transformations? (parameter lambda)
+# - summary method with recap of the models used
 
 class AutoARIMA(Base):
     r"""TODO: docs
@@ -76,6 +80,7 @@ class AutoARIMA(Base):
             ic="aicc", # TODO: which one to use by default?
             test="kpss",
             seasonal_test="seas",
+            approximation=False,
             verbose=False):
         """TODO: docs
         """
@@ -200,15 +205,10 @@ class AutoARIMA(Base):
                             s_ = s if (P_ + D_ + Q_) else 0
                             # TODO: raise issue that input_to_cuml_array
                             #       should support cuML arrays
-                            model = ARIMA(cp.asarray(data_temp),
-                                          order=(p_, d_, q_),
-                                          seasonal_order=(P_, D_, Q_, s_),
-                                          fit_intercept=k_,
-                                          handle=self.handle)
-                            if verbose:
-                                print(" - {}".format(model))
-                            model.fit()  # TODO: support approximation
-                            all_ic.append(model._ic(ic))
+                            all_ic.append(arima_estimate(
+                                cp.asarray(data_temp), (p_, d_, q_),
+                                (P_, D_, Q_, s_), k_, approximation, ic,
+                                self.handle))
                             all_orders.append((p_, q_, P_, Q_, s_, k_))
 
             # Organize the results into a matrix
@@ -230,7 +230,7 @@ class AutoARIMA(Base):
                                          handle=self.handle))
                 id_tracker.append(sub_id[i])
 
-            del model, all_ic, all_orders, ic_matrix, sub_batches, sub_id
+            del all_ic, all_orders, ic_matrix, sub_batches, sub_id
 
         # TODO: try different k_ on the best model?
 
@@ -262,7 +262,6 @@ class AutoARIMA(Base):
         return merge_series(predictions, self.id_to_model, self.id_to_pos,
                             self.batch_size)
 
-    
     def forecast(self, nsteps):
         """TODO: docs
         """
@@ -270,3 +269,15 @@ class AutoARIMA(Base):
 
 # TODO: Illegal mem access? (in end of fit or forecast?)
 #       -> can't reproduce...
+
+
+def arima_estimate(data, order, seasonal_order, fit_intercept, approximation,
+                   ic, handle):
+    model = ARIMA(data, order=order, seasonal_order=seasonal_order,
+                  fit_intercept=fit_intercept, handle=handle)
+    if approximation:
+        model.fit(approximate=True)
+        return model._ic(ic) # TODO: use approximate ic?
+    else:
+        model.fit()
+        return model._ic(ic)

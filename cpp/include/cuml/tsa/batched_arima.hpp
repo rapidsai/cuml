@@ -38,14 +38,15 @@ namespace ML {
  *                          shape = (nobs-d-s*D, batch_size) (device)
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
+ * @param[in]  approximate  Whether to use an approximation (sum-of-squares)
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
-                     bool host_loglike = true, int fc_steps = 0,
-                     double* d_fc = nullptr);
+                     bool host_loglike = true, bool approximate = false,
+                     int fc_steps = 0, double* d_fc = nullptr);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -66,6 +67,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  *                          shape = (nobs-d-s*D, batch_size) (device)
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
+ * @param[in]  approximate  Whether to use an approximation (sum-of-squares)
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
@@ -73,7 +75,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
-                     int fc_steps = 0, double* d_fc = nullptr);
+                     bool approximate = false, int fc_steps = 0,
+                     double* d_fc = nullptr);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
