@@ -69,7 +69,7 @@ std::string format(const char* fmt, ...);
  * header files in our installation.
  *
  * @todo This currently only supports logging to stdout. Need to add support in
- *       future to add custom loggers as well
+ *       future to add custom loggers as well [Issue #2046]
  */
 class Logger {
  public:
