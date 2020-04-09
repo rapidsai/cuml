@@ -43,7 +43,8 @@ using namespace ML;
  * @param weights: The weights of how much we wish to sample each 1-simplex
  * @param weights_n: the size of the weights array
  * @param n_epochs: the total number of epochs we want to train for
- * @returns an array of number of epochs per sample, one for each 1-simplex
+ * @param result: an array of number of epochs per sample, one for each 1-simplex
+ * @param stream cuda stream
  */
 template <typename T>
 void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,

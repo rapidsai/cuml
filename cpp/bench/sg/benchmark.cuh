@@ -23,6 +23,7 @@
 #include <sstream>
 #include <vector>
 #include "dataset.cuh"
+#include "dataset_ts.cuh"
 
 namespace ML {
 namespace Bench {
@@ -30,8 +31,7 @@ namespace Bench {
 /** Main fixture to be inherited and used by all algos in cuML benchmark */
 class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const DatasetParams p) : ::benchmark::Fixture(), params(p) {}
-  Fixture() = delete;
+  Fixture() : ::benchmark::Fixture() {}
 
   void SetUp(const ::benchmark::State& state) override {
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -76,7 +76,6 @@ class Fixture : public ::benchmark::Fixture {
     generateMetrics(state);
   }
 
-  DatasetParams params;
   std::unique_ptr<cumlHandle> handle;
   cudaStream_t stream;
 
@@ -94,7 +93,7 @@ template <typename D, typename L = int>
 class BlobsFixture : public Fixture {
  public:
   BlobsFixture(const DatasetParams p, const BlobsParams b)
-    : Fixture(p), bParams(b) {}
+    : Fixture(), params(p), bParams(b) {}
   BlobsFixture() = delete;
 
  protected:
@@ -107,6 +106,7 @@ class BlobsFixture : public Fixture {
     data.deallocate(*handle, params);
   }
 
+  DatasetParams params;
   /** parameters passed to `make_blobs` */
   BlobsParams bParams;
   Dataset<D, L> data;
@@ -120,7 +120,7 @@ template <typename D>
 class RegressionFixture : public Fixture {
  public:
   RegressionFixture(const DatasetParams p, const RegressionParams r)
-    : Fixture(p), rParams(r) {}
+    : Fixture(), params(p), rParams(r) {}
   RegressionFixture() = delete;
 
  protected:
@@ -133,10 +133,35 @@ class RegressionFixture : public Fixture {
     data.deallocate(*handle, params);
   }
 
+  DatasetParams params;
   /** parameters passed to `make_regression` */
   RegressionParams rParams;
   Dataset<D, D> data;
 };  // end class RegressionFixture
+
+/**
+ * Fixture to be used for benchmarking time series algorithms when
+ * the input suffices to be generated with a normal distribution.
+ */
+template <typename D>
+class TsFixtureRandom : public Fixture {
+ public:
+  TsFixtureRandom(const TimeSeriesParams p) : Fixture(), params(p) {}
+  TsFixtureRandom() = delete;
+
+ protected:
+  void allocateData(const ::benchmark::State& state) override {
+    data.allocate(*handle, params);
+    data.random(*handle, params);
+  }
+
+  void deallocateData(const ::benchmark::State& state) override {
+    data.deallocate(*handle, params);
+  }
+
+  TimeSeriesParams params;
+  TimeSeriesDataset<D> data;
+};  // end class TsFixtureRandom
 
 /**
  * RAII way of timing cuda calls. This has been shamelessly copied from the
