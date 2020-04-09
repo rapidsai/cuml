@@ -66,6 +66,8 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> newCentroids({n_clusters, n_features},
                                         handle.getDeviceAllocator(), stream);
 
+  // temporary buffer to store weights per cluster, destructor releases the
+  // resource
   Tensor<DataT, 1, IndexT> wtInCluster({n_clusters},
                                        handle.getDeviceAllocator(), stream);
 
