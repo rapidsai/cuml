@@ -100,6 +100,14 @@ class Logger {
   void setPattern(const std::string& pattern);
 
   /**
+   * @brief Tells whether messages will be logged for the given log level
+   *
+   * @param[in] level log level to be checked for
+   * @return true if messages will be logged for this level, else false
+   */
+  bool shouldLogFor(int level) const;
+
+  /**
    * @brief Get the current logging pattern
    * @return the pattern
    */
