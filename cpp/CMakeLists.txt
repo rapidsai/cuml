@@ -241,6 +241,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
+  ${SPDLOG_DIR}/src/spdlog/include
   ${TREELITE_DIR}/include
   ${TREELITE_DIR}/include/fmt)
 
@@ -264,6 +265,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
+    src/common/logger.cpp
     src/common/nvtx.cu
     src/comms/cuML_comms_test.cpp
     src/datasets/make_blobs.cu
