@@ -28,14 +28,17 @@ namespace FuzzySimplSet {
 using namespace ML;
 
 /**
-	 * Calculates a fuzzy simplicial set of the input X and kNN results
-	 * @param n: number of rows in X
-	 * @param knn_indices: matrix of kNN indices size (nxn)
-	 * @param knn_dists: matrix of kNN dists size (nxn)
-	 * @param sigmas: output sigma params
-	 * @param rhos: output rho params
-	 * @param algorithm: the algorithm to use (allows easy comparisons)
-	 */
+ * Calculates a fuzzy simplicial set of the input X and kNN results
+ * @param n: number of rows in X
+ * @param knn_indices: matrix of kNN indices size (nxn)
+ * @param knn_dists: matrix of kNN dists size (nxn)
+ * @param n_neighbors number of neighbors
+ * @param coo input knn-graph
+ * @param params umap parameters
+ * @param alloc device allocator
+ * @param stream cuda stream
+ * @param algorithm algo type to choose
+ */
 template <int TPB_X, typename T>
 void run(int n, const int64_t *knn_indices, const T *knn_dists, int n_neighbors,
          MLCommon::Sparse::COO<T> *coo, UMAPParams *params,

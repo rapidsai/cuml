@@ -66,7 +66,6 @@ math_t calLearningRate(ML::lr_type lr_type, math_t eta, math_t power_t,
   }
 }
 
-/** @} */
 };  // namespace Solver
 };  // namespace ML
 // end namespace ML
