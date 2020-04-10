@@ -42,7 +42,6 @@ namespace TSNE {
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @param[in] verbose: Whether to print error messages or not.
  * @param[in] intialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
