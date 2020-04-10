@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1906: UMAP MNMG
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
