@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
@@ -23,6 +24,7 @@
 #include <thrust/system/cuda/execution_policy.h>
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
+#include <cuml/common/logger.hpp>
 #include <string>
 #include "optimize_batch_kernel.cuh"
 #include "random/rng_impl.h"
@@ -43,7 +45,8 @@ using namespace ML;
  * @param weights: The weights of how much we wish to sample each 1-simplex
  * @param weights_n: the size of the weights array
  * @param n_epochs: the total number of epochs we want to train for
- * @returns an array of number of epochs per sample, one for each 1-simplex
+ * @param result: an array of number of epochs per sample, one for each 1-simplex
+ * @param stream cuda stream
  */
 template <typename T>
 void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
@@ -243,10 +246,12 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
                          epochs_per_sample.data(), stream);
 
-  if (params->verbose)
-    std::cout << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
-                                   "epochs_per_sample", stream)
-              << std::endl;
+  if (params->verbose) {
+    std::stringstream ss;
+    ss << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
+                            "epochs_per_sample", stream);
+    CUML_LOG_INFO(ss.str().c_str());
+  }
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,
