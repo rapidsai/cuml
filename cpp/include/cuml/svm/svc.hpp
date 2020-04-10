@@ -18,6 +18,7 @@
 
 #include <cuml/matrix/kernelparams.h>
 #include <cuml/cuml.hpp>
+#include <cuml/common/logger.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
 
@@ -130,13 +131,13 @@ class SVC {
    * @param cache_size size of kernel cache in device memory (MiB)
    * @param max_iter maximum number of outer iterations in SmoSolver
    * @param nochange_steps number of steps with no change wrt convergence
-   * @param verbose enable verbose output
+   * @param verbosity enable verbose logging messages
    */
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
       MLCommon::Matrix::KernelParams kernel_params =
         MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
       math_t cache_size = 200, int max_iter = -1, int nochange_steps = 1000,
-      bool verbose = false);
+      int verbosity = CUML_LEVEL_INFO);
 
   ~SVC();
 
