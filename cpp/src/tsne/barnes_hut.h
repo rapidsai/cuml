@@ -43,7 +43,6 @@ namespace TSNE {
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @param[in] verbose: Whether to print error messages or not.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n,
@@ -54,7 +53,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float post_learning_rate = 500.0f,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
-                const long long random_state = -1, const bool verbose = true) {
+                const long long random_state = -1) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
