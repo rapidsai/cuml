@@ -1,17 +1,25 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1867: C++: add logging interface support in cuML based spdlog
+- PR #1906: UMAP MNMG
 
 ## Improvements
+- PR #1931: C++: enabled doxygen docs for all of the C++ codebase
 - PR #1944: Support for dask_cudf.core.Series in _extract_partitions
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
+- PR #1968: Update SVC SVR with cuML Array
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2019: Enable doxygen build in our nightly doc build CI script
 - PR #1996: Cythonize in parallel
-- PR #2032: Decrease tests size for MBSGD classifier to improve CI running time
+- PR #2032: Reduce number of tests for MBSGD to improve CI running time
+- PR #2031: Encapsulating UCX-py interactions in singleton
+- PR #2029: Add C++ ARIMA log-likelihood benchmark
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -20,7 +28,10 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2017: Fixing memory issue in weak cc prim
+- PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
+- PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 
 # cuML 0.13.0 (Date TBD)
 
