@@ -18,6 +18,7 @@ import cudf
 import cupy as cp
 
 from cuml.utils.memory_utils import with_cupy_rmm
+from sklearn.exceptions import NotFittedError
 
 
 class LabelEncoder(object):
@@ -112,14 +113,17 @@ class LabelEncoder(object):
         self._fitted: bool = False
         self.handle_unknown = handle_unknown
 
+    def _check_is_fitted(self):
+        if not self._fitted:
+            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)
+
+    def _validate_keywords(self):
         if self.handle_unknown not in ('error', 'ignore'):
             msg = ("handle_unknown should be either 'error' or 'ignore', "
                    "got {0}.".format(self.handle_unknown))
             raise ValueError(msg)
-
-    def _check_is_fitted(self):
-        if not self._fitted:
-            raise RuntimeError("Model must first be .fit()")
 
     @with_cupy_rmm
     def fit(self, y):
@@ -137,12 +141,10 @@ class LabelEncoder(object):
         self : LabelEncoder
             A fitted instance of itself to allow method chaining
         """
+        self._validate_keywords()
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
-        print(self.dtype)
-
-        y = y.astype('category')
-        self.classes_ = y._column.categories
+        self.classes_ = y.unique()  # dedupe and sort
 
         self._fitted = True
         return self
@@ -182,7 +184,7 @@ class LabelEncoder(object):
         if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
 
-        return cudf.Series(encoded)
+        return encoded
 
     def fit_transform(self, y: cudf.Series) -> cudf.Series:
         """
