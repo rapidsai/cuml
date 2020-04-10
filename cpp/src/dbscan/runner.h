@@ -80,8 +80,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
 template <typename Type, typename Type_f, typename Index_ = int>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
-           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream,
-           bool verbose = false) {
+           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;
   size_t batchSize = ceildiv<size_t>(N, nBatches);
 
@@ -117,9 +116,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adjSize + corePtsSize + 2 * xaSize + mSize + vdSize + exScanSize;
     return size;
   }
-
-  // logging level adjustment
-  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
 
   // partition the temporary workspace needed for different stages of dbscan.
 
