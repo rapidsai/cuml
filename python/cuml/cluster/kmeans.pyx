@@ -362,7 +362,7 @@ class KMeans(Base):
         else:
             sample_weight_m, _, _, _ = \
                 input_to_cuml_array(sample_weight, order='C',
-                                    check_dtype=self.dtype,
+                                    convert_to_dtype=self.dtype,
                                     check_rows=n_rows)
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
@@ -487,7 +487,7 @@ class KMeans(Base):
         else:
             sample_weight_m, _, _, _ = \
                 input_to_cuml_array(sample_weight, order='C',
-                                    check_dtype=self.dtype,
+                                    convert_to_dtype=self.dtype,
                                     check_rows=n_rows)
             
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
