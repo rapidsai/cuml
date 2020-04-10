@@ -151,23 +151,6 @@ class KNeighborsRegressor(NearestNeighbors):
             raise ValueError("Only uniform weighting strategy "
                              "is supported currently.")
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
-
-        # Only need to store index if fit() was called
-        if self.n_indices == 1:
-            state['y'] = self.y
-            state['X_m'] = self.X_m
-        return state
-
-    def __setstate__(self, state):
-        super(NearestNeighbors, self).__init__(handle=None,
-                                               verbose=state['verbose'])
-
-        self.__dict__.update(state)
-
     def fit(self, X, y, convert_dtype=True):
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -252,9 +235,6 @@ class KNeighborsRegressor(NearestNeighbors):
         )
 
         self.handle.sync()
-
-        del knn_indices
-        del inds
 
         return results.to_output(out_type)
 
