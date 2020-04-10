@@ -56,6 +56,11 @@ void Logger::setPattern(const std::string& pattern) {
   logger->set_pattern(pattern);
 }
 
+bool Logger::shouldLogFor(int level) const {
+  auto level_e = static_cast<spdlog::level::level_enum>(level);
+  return logger->should_log(level_e);
+}
+
 void Logger::log(int level, const char* fmt, ...) {
   auto level_e = static_cast<spdlog::level::level_enum>(level);
   // explicit check to make sure that we only expand messages when required
