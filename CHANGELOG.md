@@ -10,6 +10,7 @@
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 - PR #1968: Update SVC SVR with cuML Array
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
