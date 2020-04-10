@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
  */
 
 #include <dlfcn.h>
+#include <stdio.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-
-#include <stdio.h>
-
 #include <utils.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 /**
  * An opaque handle for managing `dlopen` state within
@@ -72,10 +72,7 @@ void load_ucp_handle(struct comms_ucp_handle *ucp_handle) {
     dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
   if (!ucp_handle->ucp_handle) {
     ucp_handle->ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NODELETE);
-    if (!ucp_handle->ucp_handle) {
-      printf("Cannot open UCX library: %s\n", dlerror());
-      exit(1);
-    }
+    ASSERT(ucp_handle->ucp_handle, "Cannot open UCX library: %s\n", dlerror());
   }
   dlerror();
 }
@@ -161,7 +158,7 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
                               bool verbose) {
   ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
-  if (verbose) printf("Sending tag: %ld\n", ucp_tag);
+  CUML_LOG_DEBUG("Sending tag: %ld", ucp_tag);
 
   ucs_status_ptr_t send_result = (*(ucp_handle->send_func))(
     ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_handle);
@@ -193,7 +190,7 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
 }
 
 /**
- * @bried Asynchronously receive data from given endpoint with the given tag.
+ * @brief Asynchronously receive data from given endpoint with the given tag.
  */
 struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
@@ -201,7 +198,7 @@ struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               int sender_rank, bool verbose) {
   ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 
-  if (verbose) printf("%d: Receiving tag: %ld\n", ucp_tag);
+  CUML_LOG_DEBUG("%d: Receiving tag: %ld", ucp_tag);
 
   ucs_status_ptr_t recv_result = (*(ucp_handle->recv_func))(
     worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_handle);

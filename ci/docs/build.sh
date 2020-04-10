@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -61,6 +61,14 @@ git submodule update --init --recursive
 
 logger "Build libcuml..."
 $WORKSPACE/build.sh clean libcuml cuml
+
+################################################################################
+# BUILD - Build doxygen docs
+################################################################################
+
+cd $WORKSPACE/cpp/build
+logger "Build doxygen docs..."
+make doc
 
 ################################################################################
 # BUILD - Build docs
