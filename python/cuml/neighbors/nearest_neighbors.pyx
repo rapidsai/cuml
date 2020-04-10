@@ -170,9 +170,11 @@ class NearestNeighbors(Base):
                  verbose=False,
                  handle=None,
                  algorithm="brute",
-                 metric="euclidean"):
+                 metric="euclidean",
+                 output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle, verbose)
+        super(NearestNeighbors, self).__init__(handle=handle, verbose=verbose,
+                                               output_type=output_type)
 
         if metric != "euclidean":
             raise ValueError("Only Euclidean (euclidean) "
@@ -182,23 +184,6 @@ class NearestNeighbors(Base):
         self.n_indices = 0
         self.metric = metric
         self.algorithm = algorithm
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
-
-        # Only need to store index if fit() was called
-        if self.n_indices == 1:
-            state['X_m'] = self.X_m
-
-        return state
-
-    def __setstate__(self, state):
-        super(NearestNeighbors, self).__init__(handle=None,
-                                               verbose=state['verbose'])
-
-        self.__dict__.update(state)
 
     def fit(self, X, convert_dtype=True):
         """
@@ -215,6 +200,8 @@ class NearestNeighbors(Base):
             When set to True, the fit method will automatically
             convert the inputs to np.float32.
         """
+
+        self._set_output_type(X)
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -323,11 +310,6 @@ class NearestNeighbors(Base):
             False,
             False
         )
-
-        del X_m
-
-        del inputs
-        del sizes
 
         return (D_ndarr.to_output(out_type), I_ndarr.to_output(out_type)) \
             if return_distance else I_ndarr.to_output(out_type)

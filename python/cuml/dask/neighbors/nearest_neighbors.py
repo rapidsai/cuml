@@ -13,9 +13,12 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions, \
-    workers_to_parts, parts_to_ranks, raise_exception_from_futures, \
-    flatten_grouped_results, raise_mg_import_exception
+from cuml.dask.common import extract_ddf_partitions
+from cuml.dask.common import workers_to_parts
+from cuml.dask.common import parts_to_ranks
+rfrom cuml.dask.common import aise_exception_from_futures
+from cuml.dask.common import flatten_grouped_results 
+from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
 
 from dask.distributed import default_client
@@ -235,7 +238,7 @@ class NearestNeighbors(BaseEstimator):
         query_handler = self.X_handler if X is None else \
             DistributedDataHandler.create(data=X, client=self.client)
 
-        if X is None:
+        if query_handler is None:
             raise ValueError("Model needs to be trained using fit() "
                              "before calling kneighbors()")
 
@@ -264,10 +267,10 @@ class NearestNeighbors(BaseEstimator):
             ret = nn_fit, out_i_futures if not return_distance else \
                 (nn_fit, out_d_futures, out_i_futures)
         else:
-            # TODO: Remove hard-code once DataDistributedHandler is used
-            ret = to_output(out_i_futures, 'float32') \
+            ret = to_output(out_i_futures, self.datatype) \
                 if not return_distance else (to_output(out_d_futures,
-                                             'float32'), to_output(
-                                                 out_i_futures, 'float32'))
+                                             self.datatype), to_output(
+                                                 out_i_futures,
+                                                 self.datatype))
 
         return ret

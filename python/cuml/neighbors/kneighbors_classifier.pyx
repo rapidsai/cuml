@@ -36,6 +36,7 @@ from cython.operator cimport dereference as deref
 from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
 
+from cuml.utils import with_cupy_rmm
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -145,23 +146,6 @@ class KNeighborsClassifier(NearestNeighbors):
             raise ValueError("Only uniform weighting strategy is "
                              "supported currently.")
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
-
-        # Only need to store index if fit() was called
-        if self.n_indices == 1:
-            state['y'] = self.y
-            state['X_m'] = self.X_m
-        return state
-
-    def __setstate__(self, state):
-        super(NearestNeighbors, self).__init__(handle=None,
-                                               verbose=state['verbose'])
-
-        self.__dict__.update(state)
-
     def fit(self, X, y, convert_dtype=True):
         """
         Fit a GPU index for k-nearest neighbors classifier model.
@@ -250,11 +234,9 @@ class KNeighborsClassifier(NearestNeighbors):
 
         self.handle.sync()
 
-        del knn_indices
-        del inds
-
         return classes.to_output(out_type)
 
+    @with_cupy_rmm
     def predict_proba(self, X, convert_dtype=True):
         """
         Use the trained k-nearest neighbors classifier to
@@ -317,9 +299,6 @@ class KNeighborsClassifier(NearestNeighbors):
         )
 
         self.handle.sync()
-
-        del knn_indices
-        del inds
 
         final_classes = []
         for out_class in out_classes:
