@@ -31,6 +31,8 @@ import numpy as np
 
 from cuml.test.utils import array_equal
 
+import cupy as cp
+
 
 def test_kneighbors_regressor(n_samples=40,
                               n_features=5,
