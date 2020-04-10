@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -333,7 +333,7 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        sample_weight : array-like (device or host) shape = (n_samples,), default=None
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
             The weights for each observation in X. If None, all observations
             are assigned equal weight.
 
@@ -352,7 +352,7 @@ class KMeans(Base):
             input_to_cuml_array(X, order='C',
                                 check_cols=check_cols,
                                 check_dtype=check_dtype)
-        
+
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -366,11 +366,10 @@ class KMeans(Base):
                                     check_rows=n_rows)
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
-        
+
         self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
-        
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self._cluster_centers_ = \
                 CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
@@ -436,14 +435,15 @@ class KMeans(Base):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        sample_weight : array-like (device or host) shape = (n_samples,), default=None
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
             The weights for each observation in X. If None, all observations
             are assigned equal weight.
 
         """
         return self.fit(X, sample_weight=sample_weight).labels_
 
-    def _predict_labels_inertia(self, X, convert_dtype=False, sample_weight=None):
+    def _predict_labels_inertia(self, X, convert_dtype=False,
+                                sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -459,7 +459,7 @@ class KMeans(Base):
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
 
-        sample_weight : array-like (device or host) shape = (n_samples,), default=None
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
             The weights for each observation in X. If None, all observations
             are assigned equal weight.
 
@@ -489,14 +489,14 @@ class KMeans(Base):
                 input_to_cuml_array(sample_weight, order='C',
                                     convert_to_dtype=self.dtype,
                                     check_rows=n_rows)
-            
+
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
-        
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
 
-        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32) 
+        self._labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.
