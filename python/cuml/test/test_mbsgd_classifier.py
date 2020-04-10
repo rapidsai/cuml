@@ -24,18 +24,23 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 
-@pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
+@pytest.mark.parametrize(
+    # Grouped those tests to reduce the total number of individual tests
+    # while still keeping good coverage of the different features of MBSGD
+    ('lrate', 'penalty', 'loss'), [
+        ('constant', 'none', 'hinge'),
+        ('invscaling', 'l1', 'log'),
+        ('adaptive', 'l2', 'squared_loss'),
+        ('constant', 'elasticnet', 'hinge'),
+    ]
+)
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
-@pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('nrows', [unit_param(50), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
-def test_mbsgd_classifier(datatype, lrate, input_type, penalty,
-                          loss, nrows, column_info):
+def test_mbsgd_classifier(lrate, penalty, loss, datatype, nrows, column_info):
     ncols, n_info = column_info
     X, y = make_classification(n_samples=nrows, n_informative=n_info,
                                n_features=ncols, random_state=0)
