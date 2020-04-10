@@ -23,6 +23,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
+#include <cuml/common/logger.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <iostream>
@@ -41,7 +42,6 @@
 #include "svm/smosolver.h"
 #include "svm/workingset.h"
 #include "test_utils.h"
-#include <cuml/common/logger.hpp>
 
 namespace ML {
 namespace SVM {
