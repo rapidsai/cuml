@@ -548,7 +548,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
                               max_features, rows_sample,
                               fil_sparse_format, algo):
-    coverage = 0.3
+    coverage = 0.6
     if random.random() > coverage:
         pytest.skip('Randomly skipping the test')
 
