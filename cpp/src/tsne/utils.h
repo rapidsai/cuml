@@ -75,20 +75,20 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
 // To silence warnings
 
 #define START_TIMER                                                         \
-  if (verbose) {                                                            \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                   \
     gettimeofday(&timecheck, NULL);                                         \
     start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
   }
 
 #define END_TIMER(add_onto)                                               \
-  if (verbose) {                                                          \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                 \
     gettimeofday(&timecheck, NULL);                                       \
     end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
     add_onto += (end - start);                                            \
   }
 
 #define PRINT_TIMES                                                           \
-  if (verbose) {                                                              \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                     \
     double total =                                                            \
       (SymmetrizeTime + DistancesTime + NormalizeTime + PerplexityTime +      \
        BoundingBoxKernel_time + ClearKernel1_time + TreeBuildingKernel_time + \
@@ -96,7 +96,7 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
        RepulsionTime + Reduction_time + attractive_time +                     \
        IntegrationKernel_time) /                                              \
       100.0;                                                                  \
-    CUML_LOG_INFO(                                                            \
+    CUML_LOG_DEBUG(                                                           \
       "SymmetrizeTime = %.lf (%.lf)\n"                                        \
       "DistancesTime = %.lf (%.lf)\n"                                         \
       "NormalizeTime = %.lf (%.lf)\n"                                         \
