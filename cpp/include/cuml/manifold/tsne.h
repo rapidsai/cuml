@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/cuml.hpp>
 
 namespace ML {
 
@@ -82,7 +82,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const float post_learning_rate = 500.0f,
               const int max_iter = 1000, const float min_grad_norm = 1e-7,
               const float pre_momentum = 0.5, const float post_momentum = 0.8,
-              const long long random_state = -1, int verbosity = CUML_LEVEL_INFO,
+              const long long random_state = -1,
+              int verbosity = CUML_LEVEL_INFO,
               const bool intialize_embeddings = true, bool barnes_hut = true);
 
 }  // namespace ML

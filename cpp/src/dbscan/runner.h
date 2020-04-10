@@ -150,7 +150,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     if (nPoints <= 0) continue;
 
     CUML_LOG_DEBUG("- Iteration %d / %ld. Batch size is %ld samples", i + 1,
-                  (unsigned long)nBatches, (unsigned long)nPoints);
+                   (unsigned long)nBatches, (unsigned long)nPoints);
 
     int64_t start_time = curTimeMillis();
 
@@ -165,7 +165,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
     CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
-                  (unsigned long)curradjlen);
+                   (unsigned long)curradjlen);
     start_time = curTimeMillis();
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
