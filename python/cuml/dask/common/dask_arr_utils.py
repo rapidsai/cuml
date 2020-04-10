@@ -38,28 +38,6 @@ def validate_dask_array(darray, client=None):
         raise ValueError("Input array cannot be chunked along axis 1")
 
 
-def _conv_np_to_df(x):
-    cupy_ary = rmm_cupy_ary(cp.asarray,
-                            x,
-                            dtype=x.dtype)
-    return cudf.DataFrame.from_gpu_matrix(cupy_ary)
-
-
-def _extract_dtype(cudf_or_array):
-    if isinstance(cudf_or_array, dask.dataframe.DataFrame) or \
-       isinstance(cudf_or_array, cudf.DataFrame):
-        dtypes = np.unique(cudf_or_array.dtypes)
-
-        if len(dtypes) > 1:
-            raise ValueError("DataFrame should contain only a single dtype")
-
-        dtype = dtypes[0]
-    else:
-        dtype = cudf_or_array.dtype
-
-    return dtype
-
-
 def _conv_df_to_sp(x):
     cupy_ary = rmm_cupy_ary(cp.asarray,
                             x.as_gpu_matrix(),
@@ -68,18 +46,20 @@ def _conv_df_to_sp(x):
     return cp.sparse.csr_matrix(cupy_ary)
 
 
-def _conv_to_sparse(arr):
-
-    dtype = _extract_dtype(arr)
-
+def _conv_array_to_sparse(arr):
+    """
+    Converts an array to a sparse array
+    :param arr: scipy or cupy sparse matrix, cudf DataFrame,
+                dense numpy or cupy array
+    :return: cupy sparse CSR matrix
+    """
     if scipy.sparse.isspmatrix(arr):
         ret = \
             cupyx.scipy.sparse.csr_matrix(arr.tocsr())
     elif cupyx.scipy.sparse.isspmatrix(arr):
         ret = arr
     elif isinstance(arr, cudf.DataFrame):
-        cupy_ary = cp.asarray(arr.as_gpu_matrix(), dtype)
-        ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
+        ret = _conv_df_to_sp(arr)
     elif isinstance(arr, np.ndarray):
         cupy_ary = rmm_cupy_ary(cp.asarray,
                                 arr,
@@ -146,6 +126,12 @@ def to_sp_dask_array(cudf_or_array, client=None):
         # At the time of developing this, using map_blocks will not work
         # to convert a Dask.Array to CuPy sparse arrays underneath.
 
+        def _conv_np_to_df(x):
+            cupy_ary = rmm_cupy_ary(cp.asarray,
+                                    x,
+                                    dtype=x.dtype)
+            return cudf.DataFrame.from_gpu_matrix(cupy_ary)
+
         parts = client.sync(_extract_partitions, ret)
         futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
                    for w, part in parts]
@@ -166,7 +152,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
     else:
 
-        ret = _conv_to_sparse(ret)
+        ret = _conv_array_to_sparse(ret)
 
         # Push to worker
         final_result = client.scatter(ret)
