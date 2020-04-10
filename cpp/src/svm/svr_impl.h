@@ -41,24 +41,6 @@
 namespace ML {
 namespace SVM {
 
-/**
- * @brief Fit a support vector regressor to the training data.
- *
- * Each row of the input data stores a feature vector.
- *
- * The output buffers in the model struct shall be unallocated on entry.
- *
- * @tparam math_t floating point type
- * @param [in] handle the cuML handle
- * @param [in] X device pointer for the input data in column major format.
- *   Size n_rows x n_cols.
- * @param [in] n_rows number of rows
- * @param [in] n_cols number of columns
- * @param [in] y device pointer for the labels. Size n_rows.
- * @param [in] param parameters for training
- * @param [in] kernel_params parameters for the kernel function
- * @param [out] model parameters of the trained model
- */
 template <typename math_t>
 void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,

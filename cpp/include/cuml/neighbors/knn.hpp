@@ -82,6 +82,7 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  * @param handle the cuml handle to use
  * @param out vector of output arrays on device. vector size = n_outputs.
  * Each array should have size(n_samples, n_classes)
+ * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
@@ -105,9 +106,11 @@ class kNN {
 
  public:
   /**
-	     * Build a kNN object for training and querying a k-nearest neighbors model.
-	     * @param D     number of features in each vector
-	     */
+   * Build a kNN object for training and querying a k-nearest neighbors model.
+   * @param handle  cuml handle
+   * @param D       number of features in each vector
+   * @param verbose whether to print debug messages
+   */
   kNN(const cumlHandle &handle, int D, bool verbose = false);
   ~kNN();
 
@@ -115,12 +118,12 @@ class kNN {
 
   /**
      * Search the kNN for the k-nearest neighbors of a set of query vectors
-     * @param search_items set of vectors to query for neighbors
-     * @param n            number of items in search_items
-     * @param res_I        pointer to device memory for returning k nearest indices
-     * @param res_D        pointer to device memory for returning k nearest distances
-     * @param k            number of neighbors to query
-     * @param rowMajor     is the query array in row major layout?
+     * @param search_items      set of vectors to query for neighbors
+     * @param search_items_size number of items in search_items
+     * @param res_I             pointer to device memory for returning k nearest indices
+     * @param res_D             pointer to device memory for returning k nearest distances
+     * @param k                 number of neighbors to query
+     * @param rowMajor          is the query array in row major layout?
      */
   void search(float *search_items, int search_items_size, int64_t *res_I,
               float *res_D, int k, bool rowMajor = false);
@@ -128,8 +131,8 @@ class kNN {
   /**
      * Fit a kNN model by creating separate indices for multiple given
      * instances of kNNParams.
-     * @param input  an array of pointers to data on (possibly different) devices
-     * @param N      number of items in input array.
+     * @param input    an array of pointers to data on (possibly different) devices
+     * @param sizes    number of items in input array.
      * @param rowMajor is the index array in rowMajor layout?
      */
   void fit(std::vector<float *> &input, std::vector<int> &sizes,

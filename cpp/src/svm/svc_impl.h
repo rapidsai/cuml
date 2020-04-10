@@ -41,25 +41,6 @@
 namespace ML {
 namespace SVM {
 
-/**
- * @brief Fit a support vector classifier to the training data.
- *
- * Each row of the input data stores a feature vector.
- * We use the SMO method to fit the SVM.
- *
- * The output device buffers in the model struct shall be unallocated on entry.
- *
- * @tparam math_t floating point type
- * @param [in] handle the cuML handle
- * @param [in] input device pointer for the input data in column major format.
- *   Size n_rows x n_cols.
- * @param [in] n_rows number of rows
- * @param [in] n_cols number of columns
- * @param [in] labels device pointer for the labels. Size n_rows.
- * @param [in] param parameters for training
- * @param [in] kernel_params parameters for the kernel function
- * @param [out] model parameters of the trained model
- */
 template <typename math_t>
 void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
             math_t *labels, const svmParameter &param,
@@ -99,39 +80,6 @@ void svcFit(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
   delete kernel;
 }
 
-/**
- * @brief Predict classes or decision function value for samples in input.
- *
- * We evaluate the decision function f(x_i). Depending on the parameter
- * predict_class, we either return f(x_i) or the label corresponding to
- * sign(f(x_i)).
- *
- * The predictions are calculated according to the following formula:
- * f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
- *
- * pred(x_i) = label[sign(f(x_i))], if predict_class==true, or
- * pred(x_i) = f(x_i),       if predict_class==false
- *
- * We process the input vectors batchwise, and evaluate the full rows of kernel
- * matrix K(x_i, x_j) for a batch (size n_batch * n_support). The maximum size
- * of this buffer (i.e. the maximum batch_size) is controlled by the
- * buffer_size input parameter. For models where n_support is large, increasing
- * buffer_size might improve prediction performance.
- *
- * @tparam math_t floating point type
- * @param handle the cuML handle
- * @param [in] input device pointer for the input data in column major format,
- *   size [n_rows x n_cols].
- * @param [in] n_rows number of rows (input vectors)
- * @param [in] n_cols number of columns (features)
- * @param [in] kernel_params parameters for the kernel function
- * @param [in] model SVM model parameters
- * @param [out] preds device pointer to store the output, size [n_rows].
- *     Should be allocated on entry.
- * @param [in] buffer_size size of temporary buffer in MiB
- * @param [in] predict_class whether to predict class label (true), or just
- *     return the decision function value (false)
- */
 template <typename math_t>
 void svcPredict(const cumlHandle &handle, math_t *input, int n_rows, int n_cols,
                 MLCommon::Matrix::KernelParams &kernel_params,

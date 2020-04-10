@@ -95,7 +95,6 @@ void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
   Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
 }
 
-/** @} */
 };  // namespace GLM
 };  // namespace ML
 // end namespace ML
