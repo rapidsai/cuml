@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from cudf import DataFrame, Series
+from cudf import DataFrame
 from cuml.preprocessing import OneHotEncoder
 
 import cupy as cp
@@ -58,7 +58,7 @@ def test_onehot_vs_skonehot():
 
 @pytest.mark.parametrize('drop', [None,
                                   'first',
-                                  {'g': Series('F'), 'i': Series(3)}])
+                                  {'g': 'F', 'i': 3}])
 def test_onehot_inverse_transform(drop):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2]})
 

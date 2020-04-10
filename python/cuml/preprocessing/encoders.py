@@ -132,10 +132,6 @@ class OneHotEncoder:
                 if len(self.drop[feature]) != 1:
                     msg = ("Trying to drop multiple values for feature {}, "
                            "this is not supported.").format(feature)
-                    # Dropping multiple values actually works except in inverse
-                    # transform where there is no way to know which categories
-                    # where present before one hot encoding if multiples
-                    # categories where dropped.
                     raise ValueError(msg)
                 cats = self._encoders[feature].classes_
                 if not self.drop[feature].isin(cats).all():
@@ -213,28 +209,6 @@ class OneHotEncoder:
         return self.fit(X).transform(X)
 
     @with_cupy_rmm
-    def _one_hot_encoding(self, feature, X):
-        encoder = self._encoders[feature]
-
-        col_idx = encoder.transform(X)
-        col_idx = cp.asarray(col_idx.to_gpu_array(fillna="pandas"))
-
-        ohe = cp.zeros((len(X), len(encoder.classes_)), dtype=self.dtype)
-        # Filter out rows with null values
-        idx_to_keep = col_idx > -1
-        row_idx = cp.arange(len(ohe))[idx_to_keep]
-        col_idx = col_idx[idx_to_keep]
-        ohe[row_idx, col_idx] = 1
-
-        if self.drop_idx_ is not None:
-            drop_idx = self.drop_idx_[feature]
-            mask = cp.ones((ohe.shape[1]), dtype=cp.bool)
-            mask[drop_idx] = False
-            ohe = ohe[:, mask]
-
-        return ohe
-
-    @with_cupy_rmm
     def transform(self, X):
         """
         Transform X using one-hot encoding.
@@ -248,12 +222,38 @@ class OneHotEncoder:
             Transformed input.
         """
         self._check_is_fitted()
-        onehots = [self._one_hot_encoding(feature, X[feature])
-                   for feature in X.columns]
-        onehots = cp.concatenate(onehots, axis=1)
+
+        nb_categories = sum(len(e.classes_) for e in self._encoders.values())
+        ohe = cp.zeros((len(X), nb_categories), dtype=self.dtype)
+
+        j = 0
+        for feature in X.columns:
+            encoder = self._encoders[feature]
+            col_idx = encoder.transform(X[feature])
+            col_idx = cp.asarray(col_idx.to_gpu_array(fillna="pandas"))
+            idx_to_keep = col_idx > -1
+
+            # increase indices to take previous features into account
+            col_idx += j
+
+            # Filter out rows with null values
+            row_idx = cp.arange(len(ohe))[idx_to_keep]
+            col_idx = col_idx[idx_to_keep]
+
+            ohe[row_idx, col_idx] = 1
+
+            if self.drop_idx_ is not None:
+                drop_idx = self.drop_idx_[feature] + j
+                mask = cp.ones(ohe.shape[1], dtype=cp.bool)
+                mask[drop_idx] = False
+                ohe = ohe[:, mask]
+                j -= 1  # account for dropped category in current cats number
+            j += len(encoder.classes_)
+
         if self.sparse:
-            onehots = cp.sparse.csr_matrix(onehots)
-        return onehots
+            ohe = cp.sparse.csr_matrix(ohe)
+
+        return ohe
 
     @with_cupy_rmm
     def inverse_transform(self, X):
