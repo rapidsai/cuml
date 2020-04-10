@@ -20,7 +20,6 @@
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
-- PR #1981: CumlArray and DistributedDataHandler refactor in NearestNeighbors
 - PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 
 ## Bug Fixes
