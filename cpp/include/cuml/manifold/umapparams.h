@@ -17,8 +17,8 @@
 #pragma once
 
 #include <internals/internals.h>
-#include <string>
 #include <cuml/common/logger.hpp>
+#include <string>
 
 namespace ML {
 
