@@ -63,11 +63,10 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const float post_learning_rate, const int max_iter,
               const float min_grad_norm, const float pre_momentum,
               const float post_momentum, const long long random_state,
-              const bool verbose, const bool intialize_embeddings,
-              bool barnes_hut) {
+              int verbosity, const bool intialize_embeddings, bool barnes_hut) {
   ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
-  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(verbosity);
   if (dim > 2 and barnes_hut) {
     barnes_hut = false;
     CUML_LOG_WARN(
