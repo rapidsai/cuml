@@ -97,7 +97,8 @@ class KernelCache {
               int n_cols, int n_ws,
               MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
               float cache_size = 200, SvmType svmType = C_SVC)
-    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows, cache_size),
+    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows,
+            cache_size),
       kernel(kernel),
       x(x),
       n_rows(n_rows),

@@ -18,10 +18,10 @@
 
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
+#include <cuml/common/logger.hpp>
 #include "cache_util.h"
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
-#include <cuml/common/logger.hpp>
 
 namespace MLCommon {
 namespace Cache {
@@ -105,7 +105,6 @@ namespace Cache {
 template <typename math_t, int associativity = 32>
 class Cache {
  public:
-
   /**
    * @brief Construct a Cache object
    *
@@ -151,15 +150,17 @@ class Cache {
                                  cache_time.size() * sizeof(int), stream));
     } else {
       if (cache_size > 0) {
-        CUML_LOG_WARN("Warning: not enough memory to cache a single set of "
-                      "rows, not using cache");
+        CUML_LOG_WARN(
+          "Warning: not enough memory to cache a single set of "
+          "rows, not using cache");
       }
       n_cache_sets = 0;
       cache_size = 0;
     }
-    CUML_LOG_DEBUG("Creating cache with size=%f MiB, to store %d vectors, in "
-                   "%d sets with associativity=%d", cache_size, n_cache_vecs,
-                   n_cache_sets, associativity);
+    CUML_LOG_DEBUG(
+      "Creating cache with size=%f MiB, to store %d vectors, in "
+      "%d sets with associativity=%d",
+      cache_size, n_cache_vecs, n_cache_sets, associativity);
   }
 
   Cache(const Cache &other) = delete;

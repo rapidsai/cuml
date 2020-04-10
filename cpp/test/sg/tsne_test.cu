@@ -83,8 +83,8 @@ class TSNETest : public ::testing::Test {
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, CUML_LEVEL_INFO,
-             false, false);
+             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1,
+             CUML_LEVEL_INFO, false, false);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
                          handle.getStream());
