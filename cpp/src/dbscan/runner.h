@@ -149,12 +149,12 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     Index_ nPoints = min(size_t(N - startVertexId), batchSize);
     if (nPoints <= 0) continue;
 
-    CUML_LOG_INFO("- Iteration %d / %ld. Batch size is %ld samples", i + 1,
+    CUML_LOG_DEBUG("- Iteration %d / %ld. Batch size is %ld samples", i + 1,
                   (unsigned long)nBatches, (unsigned long)nPoints);
 
     int64_t start_time = curTimeMillis();
 
-    CUML_LOG_INFO("--> Computing vertex degrees");
+    CUML_LOG_DEBUG("--> Computing vertex degrees");
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
@@ -162,9 +162,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     int64_t cur_time = curTimeMillis();
-    CUML_LOG_INFO("    |-> Took %ld ms", (cur_time - start_time));
+    CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
-    CUML_LOG_INFO("--> Computing adjacency graph of size %ld samples.",
+    CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
                   (unsigned long)curradjlen);
     start_time = curTimeMillis();
     // Running AdjGraph
@@ -183,9 +183,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
     cur_time = curTimeMillis();
-    CUML_LOG_INFO("    |-> Took %ld ms.", (cur_time - start_time));
+    CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
 
-    CUML_LOG_INFO("--> Computing connected components");
+    CUML_LOG_DEBUG("--> Computing connected components");
 
     start_time = curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
@@ -195,7 +195,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     cur_time = curTimeMillis();
-    CUML_LOG_INFO("    |-> Took %ld ms.", (cur_time - start_time));
+    CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
@@ -205,7 +205,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
 
-  CUML_LOG_INFO("Done.");
+  CUML_LOG_DEBUG("Done.");
   return (size_t)0;
 }
 }  // namespace Dbscan
