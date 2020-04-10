@@ -13,15 +13,12 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import extract_ddf_partitions
-from cuml.dask.common import workers_to_parts
 from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import raise_exception_from_futures
-from cuml.dask.common import flatten_grouped_results 
+from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
 
-from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
 from cuml.dask.common.input_utils import to_output
@@ -64,7 +61,8 @@ class NearestNeighbors(BaseEstimator):
         -------
         self: NearestNeighbors model
         """
-        self.X_handler = DistributedDataHandler.create(data=X, client=self.client)
+        self.X_handler = DistributedDataHandler.create(data=X,
+                                                       client=self.client)
         self.datatype = self.X_handler.datatype
         self.n_cols = X.shape[1]
         return self
@@ -162,13 +160,13 @@ class NearestNeighbors(BaseEstimator):
         index_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
-        idx_parts_to_ranks, idx_M = parts_to_ranks(self.client,
-                                            worker_info,
-                                            index_handler.gpu_futures)
+        idx_parts_to_ranks, _ = parts_to_ranks(self.client,
+                                               worker_info,
+                                               index_handler.gpu_futures)
 
-        query_parts_to_ranks, query_M = parts_to_ranks(self.client,
-                                                       worker_info,
-                                                       query_handler.gpu_futures)
+        query_parts_to_ranks, _ = parts_to_ranks(self.client,
+                                                 worker_info,
+                                                 query_handler.gpu_futures)
 
         """
         Invoke kneighbors on Dask workers to perform distributed query
