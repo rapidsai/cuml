@@ -180,7 +180,9 @@ if(BUILD_PRIMS_TESTS)
     prims/trustworthiness.cu
     prims/unary_op.cu
     prims/vMeasure.cu
-    prims/weighted_mean.cu)
+    prims/weighted_mean.cu
+    ../src/common/logger.cpp  # because prims is header only!
+    )
 
   target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
 
