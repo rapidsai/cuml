@@ -18,6 +18,7 @@
 
 #include <internals/internals.h>
 #include <string>
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 
@@ -110,9 +111,9 @@ class UMAPParams {
   float transform_queue_size = 4.0;
 
   /**
-   * Print debug logging information as algorithm executes
+   * Control logging level during algorithm execution
    */
-  bool verbose = false;
+  int verbosity = CUML_LEVEL_INFO;
 
   /**
    *  More specific parameters controlling the embedding. If None these
