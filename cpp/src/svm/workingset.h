@@ -104,7 +104,7 @@ class WorkingSet {
     }
     n_ws = min(1024, n_ws);
     this->n_ws = n_ws;
-    CUML_LOG_INFO("Creating working set with %d elements", n_ws);
+    CUML_LOG_DEBUG("Creating working set with %d elements", n_ws);
     AllocateBuffers();
   }
 
@@ -160,7 +160,7 @@ class WorkingSet {
       std::stringstream ss;
       MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_train,
                                  ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
@@ -184,7 +184,7 @@ class WorkingSet {
         "Warning: could not fill working set, found only %d"
         " elements",
         n_already_selected);
-      CUML_LOG_INFO("Filling up with unused elements");
+      CUML_LOG_DEBUG("Filling up with unused elements");
       CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_train));
       n_already_selected +=
         GatherAvailable(n_already_selected, n_ws - n_already_selected, true);
@@ -375,7 +375,7 @@ class WorkingSet {
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
       MLCommon::myPrintDevVector("avail", available, n_train, ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
 
     // Map the mask to the sorted indices
@@ -390,7 +390,7 @@ class WorkingSet {
       std::stringstream ss;
       MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
                                  n_train, ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
 
     // Select the available elements
@@ -414,7 +414,7 @@ class WorkingSet {
       std::stringstream ss;
       MLCommon::myPrintDevVector("selected", idx.data(),
                                  n_already_selected + n_copy, ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
     return n_copy;
   }
