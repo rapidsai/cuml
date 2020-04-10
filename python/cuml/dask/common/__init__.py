@@ -21,7 +21,7 @@ from cuml.dask.common.comms_utils import inject_comms_on_handle, \
     perform_test_comms_recv_any_rank, \
     inject_comms_on_handle_coll_only, is_ucx_enabled
 
-from cuml.dask.common.dask_arr_utils import to_sp_dask_array # NOQA
+from cuml.dask.common.dask_arr_utils import to_sparse_dask_array # NOQA
 
 from cuml.dask.common.dask_df_utils import get_meta  # NOQA
 from cuml.dask.common.dask_df_utils import to_dask_cudf  # NOQA

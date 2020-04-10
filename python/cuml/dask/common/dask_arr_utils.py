@@ -38,7 +38,7 @@ def validate_dask_array(darray, client=None):
         raise ValueError("Input array cannot be chunked along axis 1")
 
 
-def _conv_df_to_sp(x):
+def _conv_df_to_sparse(x):
     cupy_ary = rmm_cupy_ary(cp.asarray,
                             x.as_gpu_matrix(),
                             dtype=x.dtypes[0])
@@ -59,7 +59,7 @@ def _conv_array_to_sparse(arr):
     elif cupyx.scipy.sparse.isspmatrix(arr):
         ret = arr
     elif isinstance(arr, cudf.DataFrame):
-        ret = _conv_df_to_sp(arr)
+        ret = _conv_df_to_sparse(arr)
     elif isinstance(arr, np.ndarray):
         cupy_ary = rmm_cupy_ary(cp.asarray,
                                 arr,
@@ -74,7 +74,7 @@ def _conv_array_to_sparse(arr):
 
 
 @with_cupy_rmm
-def to_sp_dask_array(cudf_or_array, client=None):
+def to_sparse_dask_array(cudf_or_array, client=None):
     """
     Converts an array or cuDF to a sparse Dask array backed by sparse CuPy.
     CSR matrices. Unfortunately, due to current limitations in Dask, there is
@@ -145,7 +145,7 @@ def to_sp_dask_array(cudf_or_array, client=None):
     # Dataframe.
     if isinstance(ret, dask.dataframe.DataFrame):
         ret = ret.map_partitions(
-            _conv_df_to_sp, meta=dask.array.from_array(meta))
+            _conv_df_to_sparse, meta=dask.array.from_array(meta))
 
         # This will also handle the input of dask.array.Array
         return ret

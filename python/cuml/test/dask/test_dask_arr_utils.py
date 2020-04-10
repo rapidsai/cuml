@@ -38,13 +38,13 @@ from cuml.dask.common.part_utils import _extract_partitions
                                         ])
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [10])
-def test_to_sp_dask_array(input_type, nrows, ncols, cluster):
+def test_to_sparse_dask_array(input_type, nrows, ncols, cluster):
 
     c = Client(cluster)
 
     try:
 
-        from cuml.dask.common import to_sp_dask_array
+        from cuml.dask.common import to_sparse_dask_array
 
         a = cp.sparse.random(nrows, ncols, format='csr', dtype=cp.float32)
         if input_type == "dask_dataframe":
@@ -63,7 +63,7 @@ def test_to_sp_dask_array(input_type, nrows, ncols, cluster):
         elif input_type == "cupy":
             inp = a.todense()
 
-        arr = to_sp_dask_array(inp, c)
+        arr = to_sparse_dask_array(inp, c)
         arr.compute_chunk_sizes()
 
         assert arr.shape == (nrows, ncols)
