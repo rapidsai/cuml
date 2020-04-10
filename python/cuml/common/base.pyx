@@ -165,6 +165,14 @@ class Base:
         """
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
+        # NOTE:
+        # 1. Expose the CUML_LEVEL_* macros in python and use them instead of
+        #    hard-coded values?
+        # 2. And once all algorithms at C++ level have been updated to accept
+        #    integer logging-level argument, remove `self.verbose` and have all
+        #    algos in python layer accept an integer logging level instead of
+        #    the current boolean param
+        self.logging_level = 1 if verbose else 2
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
