@@ -74,7 +74,7 @@ def test_n_init_cluster_consistency(random_state):
 @pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('random_state', [i for i in range(50)])
 def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
-                                          random_state):
+                                           random_state):
 
     # Using fairly high variance between points in clusters
     cluster_std = 1.0
@@ -102,6 +102,7 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
+
 @pytest.mark.parametrize('nrows', [1000, 10000])
 @pytest.mark.parametrize('ncols', [10, 50])
 @pytest.mark.parametrize('nclusters', [5, 10])
@@ -114,7 +115,7 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
     cluster_std = 1.0
     np.random.seed(random_state)
 
-    #set weight per sample to be from 1 to max_weight
+    # set weight per sample to be from 1 to max_weight
     wt = np.random.randint(1, high=max_weight, size=nrows)
 
     X, y = make_blobs(nrows,
@@ -135,7 +136,7 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
 
     sk_kmeans = cluster.KMeans(random_state=random_state,
                                n_clusters=nclusters)
-    sk_kmeans.fit(X.copy_to_host(),sample_weight=wt)
+    sk_kmeans.fit(X.copy_to_host(), sample_weight=wt)
     sk_score = sk_kmeans.score(X.copy_to_host())
 
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
