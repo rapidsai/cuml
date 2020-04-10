@@ -48,7 +48,7 @@ def _conv_df_to_sp(x):
 
 def _conv_array_to_sparse(arr):
     """
-    Converts an array to a sparse array
+    Converts an array (or cudf.DataFrame) to a sparse array
     :param arr: scipy or cupy sparse matrix, cudf DataFrame,
                 dense numpy or cupy array
     :return: cupy sparse CSR matrix
