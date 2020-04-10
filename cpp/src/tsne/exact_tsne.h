@@ -62,7 +62,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Allocate space
   //---------------------------------------------------
-  CUML_LOG_INFO("Now allocating memory for TSNE.");
+  CUML_LOG_DEBUG("Now allocating memory for TSNE.");
   float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
   float *Z_sum = (float *)d_alloc->allocate(sizeof(float) * 2 * n, stream);
   float *means = (float *)d_alloc->allocate(sizeof(float) * dim, stream);
@@ -87,7 +87,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const float recp_df = 1.0f / degrees_of_freedom;
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
-  CUML_LOG_INFO("Start gradient updates!");
+  CUML_LOG_DEBUG("Start gradient updates!");
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
   bool check_convergence = false;
@@ -120,10 +120,10 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       dim, n, min_gain, gradient, check_convergence, stream);
 
     if (check_convergence) {
-      CUML_LOG_INFO("Z at iter = %d = %f and gradient norm = %f", iter, Z,
+      CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
                     gradient_norm);
       if (gradient_norm < min_grad_norm) {
-        CUML_LOG_INFO(
+        CUML_LOG_DEBUG(
           "Gradient norm = %f <= min_grad_norm = %f. Early stopped at iter = "
           "%d",
           gradient_norm, min_grad_norm, iter);

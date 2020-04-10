@@ -53,7 +53,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
   if (perplexity > n) perplexity = n;
 
-  CUML_LOG_INFO("Data size = (%d, %d) with dim = %d perplexity = %f", n, p, dim,
+  CUML_LOG_DEBUG("Data size = (%d, %d) with dim = %d perplexity = %f", n, p, dim,
                 perplexity);
   if (perplexity < 5 or perplexity > 50)
     CUML_LOG_WARN(
@@ -70,7 +70,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Get distances
-  CUML_LOG_INFO("Getting distances.");
+  CUML_LOG_DEBUG("Getting distances.");
   float *distances =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   long *indices =
@@ -83,7 +83,7 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Normalize distances
-  CUML_LOG_INFO("Now normalizing distances so exp(D) doesn't explode.");
+  CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
   TSNE::normalize_distances(n, distances, n_neighbors, stream);
   //---------------------------------------------------
   END_TIMER(NormalizeTime);
@@ -91,14 +91,14 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
   START_TIMER;
   //---------------------------------------------------
   // Optimal perplexity
-  CUML_LOG_INFO("Searching for optimal perplexity via bisection search.");
+  CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
   float *P =
     (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   const float P_sum =
     TSNE::perplexity_search(distances, P, perplexity, perplexity_max_iter,
                             perplexity_tol, n, n_neighbors, handle);
   d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
-  CUML_LOG_INFO("Perplexity sum = %f", P_sum);
+  CUML_LOG_DEBUG("Perplexity sum = %f", P_sum);
   //---------------------------------------------------
   END_TIMER(PerplexityTime);
 
