@@ -41,6 +41,7 @@
 #include "svm/smosolver.h"
 #include "svm/workingset.h"
 #include "test_utils.h"
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 namespace SVM {
@@ -227,7 +228,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
         params, this->handle.getImpl().getCublasHandle());
     KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                  this->n_rows, this->n_cols, this->n_ws, kernel,
-                                 cache_size, C_SVC, false);
+                                 cache_size, C_SVC);
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
@@ -247,7 +248,7 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest) {
       param, this->handle.getImpl().getCublasHandle());
   KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, C_SVC, false);
+                               cache_size, C_SVC);
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
@@ -270,7 +271,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
       param, this->handle.getImpl().getCublasHandle());
   KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, EPSILON_SVR, false);
+                               cache_size, EPSILON_SVR);
 
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
@@ -371,7 +372,7 @@ svmParameter getDefaultSvmParameter() {
   param.cache_size = 200;
   param.max_iter = -1;
   param.nochange_steps = 1000;
-  param.verbose = false;
+  param.verbosity = CUML_LEVEL_INFO;
   param.epsilon = 0.1;
   param.svmType = C_SVC;
   return param;
@@ -1179,7 +1180,6 @@ class SvrTest : public ::testing::Test {
 
     ws =
       new WorkingSet<math_t>(handle.getImpl(), stream, n_rows, 10, EPSILON_SVR);
-    //ws->verbose = true;
     EXPECT_EQ(ws->GetSize(), 10);
     ws->Select(f, alpha, yc, C);
     int exp_idx2[] = {6, 12, 5, 11, 3, 9, 8, 1, 7, 0};

@@ -131,7 +131,7 @@ class SVC {
    * @param cache_size size of kernel cache in device memory (MiB)
    * @param max_iter maximum number of outer iterations in SmoSolver
    * @param nochange_steps number of steps with no change wrt convergence
-   * @param verbosity enable verbose logging messages
+   * @param verbosity verbosity level for logging messages during execution
    */
   SVC(cumlHandle &handle, math_t C = 1, math_t tol = 1.0e-3,
       MLCommon::Matrix::KernelParams kernel_params =

@@ -92,22 +92,18 @@ class KernelCache {
    * @param kernel pointer to kernel (default linear)
    * @param cache_size (default 200 MiB)
    * @param svmType is this SVR or SVC
-   * @param verbose print more debug messages
    */
   KernelCache(const cumlHandle_impl &handle, const math_t *x, int n_rows,
               int n_cols, int n_ws,
               MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
-              float cache_size = 200, SvmType svmType = C_SVC,
-              bool verbose = false)
-    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows, cache_size,
-            verbose),
+              float cache_size = 200, SvmType svmType = C_SVC)
+    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows, cache_size),
       kernel(kernel),
       x(x),
       n_rows(n_rows),
       n_cols(n_cols),
       n_ws(n_ws),
       svmType(svmType),
-      verbose(verbose),
       cublas_handle(handle.getCublasHandle()),
       d_num_selected_out(handle.getDeviceAllocator(), handle.getStream(), 1),
       d_temp_storage(handle.getDeviceAllocator(), handle.getStream()),
@@ -304,8 +300,6 @@ class KernelCache {
   int n_cols;    //!< number of columns in x
   int n_ws;      //!< number of elements in the working set
   int n_unique;  //!< number of unique x vectors in the working set
-
-  bool verbose;
 
   cublasHandle_t cublas_handle;
 

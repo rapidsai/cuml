@@ -21,6 +21,7 @@
 #include "cache_util.h"
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
+#include <cuml/common/logger.hpp>
 
 namespace MLCommon {
 namespace Cache {
@@ -104,7 +105,6 @@ namespace Cache {
 template <typename math_t, int associativity = 32>
 class Cache {
  public:
-  bool verbose;  //!< Enable verbose output
 
   /**
    * @brief Construct a Cache object
@@ -117,10 +117,9 @@ class Cache {
    * @param n_vec number of elements in a single vector that is stored in a
    *   cache entry
    * @param cache_size in MiB
-   * @param verbose enable verbose output
    */
   Cache(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-        int n_vec, float cache_size = 200, bool verbose = false)
+        int n_vec, float cache_size = 200)
     : allocator(allocator),
       n_vec(n_vec),
       cache_size(cache_size),
@@ -131,8 +130,7 @@ class Cache {
       ws_tmp(allocator, stream),
       idx_tmp(allocator, stream),
       d_num_selected_out(allocator, stream, 1),
-      d_temp_storage(allocator, stream),
-      verbose(verbose) {
+      d_temp_storage(allocator, stream) {
     ASSERT(n_vec > 0, "Parameter n_vec: shall be larger than zero");
     ASSERT(associativity > 0, "Associativity shall be larger than zero");
     ASSERT(cache_size >= 0, "Cache size should not be negative");
@@ -153,18 +151,15 @@ class Cache {
                                  cache_time.size() * sizeof(int), stream));
     } else {
       if (cache_size > 0) {
-        std::cout << "Warning: not enough memory to cache a single set of "
-                     "rows, not using cache\n";
+        CUML_LOG_WARN("Warning: not enough memory to cache a single set of "
+                      "rows, not using cache");
       }
       n_cache_sets = 0;
       cache_size = 0;
     }
-    if (verbose) {
-      std::cout << "Creating cache with size " << cache_size
-                << " MiB, to store " << n_cache_vecs << " vectors, in "
-                << n_cache_sets << " sets with associativity " << associativity
-                << "\n";
-    }
+    CUML_LOG_DEBUG("Creating cache with size=%f MiB, to store %d vectors, in "
+                   "%d sets with associativity=%d", cache_size, n_cache_vecs,
+                   n_cache_sets, associativity);
   }
 
   Cache(const Cache &other) = delete;
