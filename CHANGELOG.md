@@ -19,6 +19,7 @@
 - PR #1996: Cythonize in parallel
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2056: Re-enabling ucx_cluster fixture for nearest neighbors tests
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
