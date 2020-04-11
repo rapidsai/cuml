@@ -1216,7 +1216,7 @@ class SvrTest : public ::testing::Test {
   void TestSvrFitPredict() {
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 10, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 1, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1227,7 +1227,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 10, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 10, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1238,7 +1238,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,             // n_rows
          2,             // n_cols
@@ -1249,7 +1249,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 100, 10, 1e-6, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      //n_cols
