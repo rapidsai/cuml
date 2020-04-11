@@ -664,7 +664,8 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
     handle, params, X, centroids, minClusterDistance, L2NormX,
     L2NormBuf_OR_DistBuf, workspace, metric, stream);
 
-  LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked, n_clusters);
+  LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked,
+      n_clusters);
 
   // <<<< Step-2 >>> : while |C| < k
   while (n_clusters_picked < n_clusters) {
@@ -742,7 +743,8 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
       /// <<< End of Step-4 >>>
     }
 
-    LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked, n_clusters);
+    LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked,
+        n_clusters);
   }  /// <<<< Step-5 >>>
 }
 
