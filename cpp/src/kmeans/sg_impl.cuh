@@ -42,6 +42,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
+  ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.getStream();
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
@@ -84,14 +85,14 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
                               stream);
   }
 
-  LOG(handle, params.verbose,
+  LOG(handle,
       "Calling KMeans.fit with %d samples of input data and the initialized "
       "cluster centers",
       n_samples);
 
   DataT priorClusteringCost = 0;
   for (n_iter = 1; n_iter <= params.max_iter; ++n_iter) {
-    LOG(handle, params.verbose,
+    LOG(handle,
         "KMeans.fit: Iteration-%d: fitting the model using the initialized "
         "cluster centers",
         n_iter);
@@ -231,7 +232,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
-      LOG(handle, params.verbose,
+      LOG(handle,
           "Threshold triggered after %d iterations. Terminating early.",
           n_iter);
       break;
@@ -252,7 +253,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
 
-  LOG(handle, params.verbose,
+  LOG(handle,
       "KMeans.fit: completed after %d iterations with %f inertia ",
       n_iter > params.max_iter ? n_iter - 1 : n_iter, inertia);
 
@@ -385,12 +386,12 @@ void initScalableKMeansPlusPlus(
   // Scalable kmeans++ paper claims 8 rounds is sufficient
   CUDA_CHECK(cudaStreamSynchronize(stream));
   int niter = std::min(8, (int)ceil(log(psi)));
-  LOG(handle, params.verbose, "KMeans||: psi = %g, log(psi) = %g, niter = %d ",
+  LOG(handle, "KMeans||: psi = %g, log(psi) = %g, niter = %d ",
       psi, log(psi), niter);
 
   // <<<< Step-3 >>> : for O( log(psi) ) times do
   for (int iter = 0; iter < niter; ++iter) {
-    LOG(handle, params.verbose,
+    LOG(handle,
         "KMeans|| - Iteration %d: # potential centroids sampled - %d", iter,
         potentialCentroids.getSize(0));
 
@@ -431,7 +432,7 @@ void initScalableKMeansPlusPlus(
     /// <<<< End of Step-5 >>>
   }  /// <<<< Step-6 >>>
 
-  LOG(handle, params.verbose,
+  LOG(handle,
       "KMeans||: total # potential centroids sampled - %d",
       potentialCentroids.getSize(0));
 
@@ -465,7 +466,7 @@ void initScalableKMeansPlusPlus(
     // supplement with random
     auto n_random_clusters = n_clusters - potentialCentroids.getSize(0);
 
-    LOG(handle, true,
+    LOG(handle,
         "[Warning!] KMeans||: found fewer than %d centroids during "
         "initialization (found %d centroids, remaining %d centroids will be "
         "chosen randomly from input samples)",
@@ -496,6 +497,7 @@ template <typename DataT, typename IndexT = int>
 void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
          const DataT *X, const int n_local_samples, const int n_features,
          DataT *centroids, DataT &inertia, int &n_iter) {
+  ML::Logger::get().setLevel(km_params.verbosity);
   cudaStream_t stream = handle.getStream();
 
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
@@ -518,7 +520,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 
   auto n_init = km_params.n_init;
   if (km_params.init == KMeansParams::InitMethod::Array && n_init != 1) {
-    LOG(handle, km_params.verbose,
+    LOG(handle,
         "Explicit initial center position passed: performing only one init in "
         "k-means instead of n_init=%d",
         n_init);
@@ -539,7 +541,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
 
     if (params.init == KMeansParams::InitMethod::Random) {
       // initializing with random samples from input dataset
-      LOG(handle, params.verbose,
+      LOG(handle,
           "\n\nKMeans.fit (Iteration-%d/%d): initialize cluster centers by "
           "randomly choosing from the "
           "input data.",
@@ -547,7 +549,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
       initRandom(handle, params, data, centroidsRawData);
     } else if (params.init == KMeansParams::InitMethod::KMeansPlusPlus) {
       // default method to initialize is kmeans++
-      LOG(handle, params.verbose,
+      LOG(handle,
           "\n\nKMeans.fit (Iteration-%d/%d): initialize cluster centers using "
           "k-means++ algorithm.",
           seed_iter + 1, n_init);
@@ -557,7 +559,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
         initScalableKMeansPlusPlus(handle, params, data, centroidsRawData,
                                    workspace);
     } else if (params.init == KMeansParams::InitMethod::Array) {
-      LOG(handle, params.verbose,
+      LOG(handle,
           "\n\nKMeans.fit (Iteration-%d/%d): initialize cluster centers from "
           "the ndarray array input "
           "passed to init arguement.",
@@ -584,12 +586,12 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
                      params.n_clusters * n_features, stream);
     }
 
-    LOG(handle, km_params.verbose,
+    LOG(handle,
         "KMeans.fit after iteration-%d/%d: inertia - %f, n_iter - %d",
         seed_iter + 1, n_init, inertia, n_iter);
   }
 
-  LOG(handle, km_params.verbose,
+  LOG(handle,
       "KMeans.fit: async call returned (fit could still be running on the "
       "device)");
 }
@@ -598,6 +600,7 @@ template <typename DataT, typename IndexT = int>
 void predict(const ML::cumlHandle_impl &handle, const KMeansParams &params,
              const DataT *cptr, const DataT *Xptr, const int n_samples,
              const int n_features, IndexT *labelsRawPtr, DataT &inertia) {
+  ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.getStream();
   auto n_clusters = params.n_clusters;
 
@@ -686,6 +689,7 @@ template <typename DataT, typename IndexT = int>
 void transform(const ML::cumlHandle_impl &handle, const KMeansParams &params,
                const DataT *cptr, const DataT *Xptr, int n_samples,
                int n_features, int transform_metric, DataT *X_new) {
+  ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.getStream();
   auto n_clusters = params.n_clusters;
   MLCommon::Distance::DistanceType metric =
