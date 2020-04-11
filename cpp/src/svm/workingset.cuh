@@ -61,9 +61,11 @@ class WorkingSet {
    * @brief Manage a working set.
    *
    * @param handle cuml handle implementation
-   * @stream cuda stream for working set operations
-   * @param n_train number of training vectors
+   * @param stream cuda stream for working set operations
+   * @param n_rows number of training vectors
    * @param n_ws number of elements in the working set (default 1024)
+   * @param svmType classification or regression
+   * @param verbose print debug messages
    */
   WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
              int n_ws = 0, SvmType svmType = C_SVC, bool verbose = false)
@@ -106,9 +108,7 @@ class WorkingSet {
     }
     n_ws = min(1024, n_ws);
     this->n_ws = n_ws;
-    if (verbose) {
-      std::cout << "Creating working set with " << n_ws << " elements\n";
-    }
+    CUML_LOG_INFO("Creating working set with %d elements", n_ws);
     AllocateBuffers();
   }
 
@@ -161,8 +161,10 @@ class WorkingSet {
       f_idx_sorted.data(), n_train, 0, (int)8 * sizeof(math_t), stream);
 
     if (verbose && n_train < 20) {
+      std::stringstream ss;
       MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_train,
-                                 std::cout);
+                                 ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
@@ -182,10 +184,11 @@ class WorkingSet {
     // In case we could not find enough elements, then we just fill using the
     // still available elements.
     if (n_already_selected < n_ws) {
-      if (verbose)
-        std::cout << "Warning: could not fill working set, found only "
-                  << n_already_selected << " elements.\n";
-      if (verbose) std::cout << "Filling up with unused elements\n";
+      CUML_LOG_WARN(
+        "Warning: could not fill working set, found only %d"
+        " elements",
+        n_already_selected);
+      CUML_LOG_INFO("Filling up with unused elements");
       CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_train));
       n_already_selected +=
         GatherAvailable(n_already_selected, n_ws - n_already_selected, true);
@@ -374,7 +377,9 @@ class WorkingSet {
       CUDA_CHECK(cudaPeekAtLastError());
     }
     if (verbose && n_train < 20) {
-      MLCommon::myPrintDevVector("avail", available, n_train, std::cout);
+      std::stringstream ss;
+      MLCommon::myPrintDevVector("avail", available, n_train, ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
 
     // Map the mask to the sorted indices
@@ -386,8 +391,10 @@ class WorkingSet {
                  thrust::make_permutation_iterator(av_ptr, idx_ptr + n_train),
                  av_sorted_ptr);
     if (verbose && n_train < 20) {
+      std::stringstream ss;
       MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
-                                 n_train, std::cout);
+                                 n_train, ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
 
     // Select the available elements
@@ -408,8 +415,10 @@ class WorkingSet {
                      idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
     if (verbose && n_train < 20) {
+      std::stringstream ss;
       MLCommon::myPrintDevVector("selected", idx.data(),
-                                 n_already_selected + n_copy, std::cout);
+                                 n_already_selected + n_copy, ss);
+      CUML_LOG_INFO(ss.str().c_str());
     }
     return n_copy;
   }
