@@ -1008,7 +1008,7 @@ TYPED_TEST(SmoSolverTest, BlobPredict) {
                this->handle.getImpl().getCublasHandle(), this->stream,
                centers.data());
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, -1, 50,
-                       false);
+                       CUML_LEVEL_INFO);
     svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
 
     // Create a different dataset for prediction
