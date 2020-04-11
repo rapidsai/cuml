@@ -40,11 +40,11 @@ import os
 import warnings
 
 import pandas as pd
-from scipy.optimize.optimize import _approx_fprime_helper
 import statsmodels.api as sm
 
 import cudf
 import cuml.tsa.arima as arima
+from cuml.utils import has_scipy
 
 
 ###############################################################################
@@ -363,6 +363,11 @@ def test_gradient(test_case, dtype):
     """Test batched gradient implementation against scipy non-batched
     gradient. Note: it doesn't test that the loglikelihood is correct!
     """
+    if has_scipy():
+        from scipy.optimize.optimize import _approx_fprime_helper
+    else:
+        pytest.skip('Skipping test_gradient because Scipy is missing')
+
     key, data = test_case
     order, seasonal_order, intercept = extract_order(key)
     p, _, q = order

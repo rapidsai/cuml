@@ -15,7 +15,6 @@
 
 from collections.abc import Iterable
 
-import scipy.sparse
 import numpy as np
 import cupy as cp
 import cupyx
@@ -31,7 +30,7 @@ from toolz import first
 
 from cuml.dask.common.part_utils import _extract_partitions
 
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary, has_scipy
 
 from dask.distributed import wait
 from dask import delayed
@@ -182,9 +181,11 @@ def to_sp_dask_array(cudf_or_array, client=None):
         return cudf_or_array
 
     else:
-        if scipy.sparse.isspmatrix(cudf_or_array):
-            cudf_or_array = \
-                cupyx.scipy.sparse.csr_matrix(cudf_or_array.tocsr())
+        if has_scipy():
+            import scipy.sparse
+            if scipy.sparse.isspmatrix(cudf_or_array):
+                cudf_or_array = \
+                    cupyx.scipy.sparse.csr_matrix(cudf_or_array.tocsr())
         elif cupyx.scipy.sparse.isspmatrix(cudf_or_array):
             pass
         elif isinstance(cudf_or_array, cudf.DataFrame):
