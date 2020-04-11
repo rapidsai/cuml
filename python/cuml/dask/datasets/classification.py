@@ -14,17 +14,27 @@
 #
 
 from cuml.datasets.classification import _generate_hypercube
-from cuml.datasets.classification import make_classification as sg_make_classification
+from cuml.datasets.classification import make_classification \
+ as sg_make_classification
 from cuml.datasets.utils import _create_rs_generator
 from cuml.utils import with_cupy_rmm
 
-from dask.distributed import default_client, wait
+from dask.distributed import default_client
+import dask.array as da
+import dask.delayed
 
 import cupy as cp
 import numpy as np
 import math
 
-from time import sleep
+
+def get_X(t):
+    return t[0]
+
+
+def get_labels(t):
+    return t[1]
+
 
 def _create_covariance(*args, rs, dtype='float32'):
     return 2 * rs.rand(*args, dtype=dtype) - 1
@@ -36,7 +46,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                         n_clusters_per_class=2, weights=None, flip_y=0.01,
                         class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
                         shuffle=True, random_state=None, order='F',
-                        dtype='float32', n_parts=None):
+                        dtype='float32', n_parts=None, client=None):
     """Generate a random n-class classification problem.
     This initially creates clusters of points normally distributed (std=1)
     about vertices of an ``n_informative``-dimensional hypercube with sides of
@@ -132,7 +142,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            selection benchmark", 2003.
     """
 
-    client = default_client()
+    client = default_client() if client is None else client
 
     rs = _create_rs_generator(random_state)
 
@@ -140,29 +150,31 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
-    print(parts_workers)
     rows_per_part = math.ceil(n_samples / n_parts)
 
     n_clusters = n_classes * n_clusters_per_class
 
     # create centroids
-    centroids = _generate_hypercube(n_clusters, n_informative, rs, dtype)
+    centroids = cp.array(_generate_hypercube(n_clusters, n_informative,
+                                             rs)).astype(dtype, copy=False)
 
     # # create covariance matrices
-    informative_covariance_local = rs.rand(n_clusters, n_informative, n_informative, dtype=dtype)
-    informative_covariance = client.scatter(informative_covariance_local, workers=workers)
+    informative_covariance_local = rs.rand(n_clusters, n_informative,
+                                           n_informative, dtype=dtype)
+    informative_covariance = client.scatter(informative_covariance_local,
+                                            workers=workers)
     del informative_covariance_local
 
-    redundant_covariance_local = rs.rand(n_informative, n_redundant, dtype=dtype)
-    redundant_covariance = client.scatter(redundant_covariance_local, workers=workers)
+    redundant_covariance_local = rs.rand(n_informative, n_redundant,
+                                         dtype=dtype)
+    redundant_covariance = client.scatter(redundant_covariance_local,
+                                          workers=workers)
     del redundant_covariance_local
-
-    wait([informative_covariance, redundant_covariance])
-    print(client.has_what())
 
     # repeated indices
     n = n_informative + n_redundant
-    repeated_indices = ((n - 1) * rs.rand(n_repeated, dtype=dtype) + 0.5).astype(np.intp)
+    repeated_indices = ((n - 1) * rs.rand(n_repeated, dtype=dtype)
+                        + 0.5).astype(np.intp)
 
     # scale and shift
     if shift is None:
@@ -182,15 +194,30 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         else:
             worker_rows.append((int(n_samples) - rows_so_far))
 
-    print(parts_workers)
     parts = [client.submit(sg_make_classification, worker_rows[i], n_features,
-                                   n_informative, n_redundant, n_repeated, n_classes,
-                                   n_clusters_per_class, weights, flip_y,
-                                   class_sep, hypercube, shift, scale,
-                                   shuffle, random_state, order, dtype,
-                                   centroids, informative_covariance, redundant_covariance,
-                                   repeated_indices,
-                                   pure=False,
-                                   workers=[parts_workers[i]]) for i in range(len(parts_workers))]
+                           n_informative, n_redundant, n_repeated, n_classes,
+                           n_clusters_per_class, weights, flip_y, class_sep,
+                           hypercube, shift, scale, shuffle, random_state,
+                           order, dtype, centroids, informative_covariance,
+                           redundant_covariance, repeated_indices,
+                           pure=False, workers=[parts_workers[i]])
+             for i in range(len(parts_workers))]
 
-    wait(parts)
+    X_parts = [client.submit(get_X, f, pure=False)
+               for idx, f in enumerate(parts)]
+    y_parts = [client.submit(get_labels, f, pure=False)
+               for idx, f in enumerate(parts)]
+
+    X_dela = [da.from_delayed(dask.delayed(Xp),
+                              shape=(worker_rows[idx], n_features),
+                              dtype=dtype, meta=cp.zeros(1, dtype=dtype))
+              for idx, Xp in enumerate(X_parts)]
+    y_dela = [da.from_delayed(dask.delayed(yp),
+                              shape=(worker_rows[idx], ), dtype=dtype,
+                              meta=cp.zeros((1)))
+              for idx, yp in enumerate(y_parts)]
+
+    X = da.concatenate([Xd for Xd in X_dela], axis=0)
+    y = da.concatenate([yd for yd in y_dela], axis=0)
+
+    return X, y

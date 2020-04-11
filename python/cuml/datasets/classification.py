@@ -19,16 +19,17 @@ from cuml.utils import with_cupy_rmm
 import cupy as cp
 import numpy as np
 
-def _generate_hypercube(samples, dimensions, rng, dtype):
+
+def _generate_hypercube(samples, dimensions, rng):
     """Returns distinct binary samples of length dimensions
     """
     if dimensions > 30:
         return np.hstack([rng.randint(2, size=(samples, dimensions - 30)),
                           _generate_hypercube(samples, 30, rng)])
     out = np.random.choice(2 ** dimensions, samples,
-                     replace=False).astype(dtype='>u4', copy=False)
+                           replace=False).astype(dtype='>u4', copy=False)
     out = np.unpackbits(out.view('>u1')).reshape((-1, 32))[:, -dimensions:]
-    return cp.array(out).astype(dtype, copy=False)
+    return out
 
 
 @with_cupy_rmm
@@ -39,7 +40,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                         shuffle=True, random_state=None, order='F',
                         dtype='float32', _centroids=None,
                         _informative_covariance=None,
-                        _redundant_covariance=None, _repeated_indices=None):
+                        _redundant_covariance=None,
+                        _repeated_indices=None):
     """Generate a random n-class classification problem.
     This initially creates clusters of points normally distributed (std=1)
     about vertices of an ``n_informative``-dimensional hypercube with sides of
@@ -158,7 +160,6 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     else:
         weights = [1.0 / n_classes] * n_classes
 
-    n_useless = n_features - n_informative - n_redundant - n_repeated
     n_clusters = n_classes * n_clusters_per_class
 
     # Distribute samples among clusters by weight
@@ -177,32 +178,39 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     # Build the polytope whose vertices become cluster centroids
     if _centroids is None:
-        centroids = _generate_hypercube(n_clusters, n_informative,
-                                        generator, dtype)
+        centroids = cp.array(_generate_hypercube(n_clusters, n_informative,
+                             generator)).astype(dtype, copy=False)
     else:
         centroids = _centroids
-
     centroids *= 2 * class_sep
     centroids -= class_sep
     if not hypercube:
-        centroids *= generator.rand(samples, 1, dtype=dtype)
-        centroids *= generator.rand(1, dimensions, dtype=dtype)
+        centroids *= generator.rand(n_clusters, 1, dtype=dtype)
+        centroids *= generator.rand(1, n_informative, dtype=dtype)
+
+    # Initially draw informative features from the standard normal
 
     # Create each cluster; a variant of make_blobs
     if shuffle:
-        proba_samples_per_cluster = np.array(n_samples_per_cluster)  / np.sum(n_samples_per_cluster)
-        shuffled_sample_indices = cp.array(np.random.choice(n_clusters, n_samples, replace=True,
-                                                            p=proba_samples_per_cluster))
+        proba_samples_per_cluster = np.array(n_samples_per_cluster) / np.sum(
+            n_samples_per_cluster)
+        shuffled_sample_indices = cp.array(np.random.choice(
+                                            n_clusters,
+                                            n_samples,
+                                            replace=True,
+                                            p=proba_samples_per_cluster
+                                            ))
         for k, centroid in enumerate(centroids):
             centroid_indices = cp.where(shuffled_sample_indices == k)
             y[centroid_indices[0]] = k % n_classes
-            X_k = X[centroid_indices[0], :n_informative]  # slice a view of the cluster
+            X_k = X[centroid_indices[0], :n_informative]
 
             if _informative_covariance is None:
-                A = 2 * generator.rand(n_informative, n_informative, dtype=dtype) - 1
+                A = 2 * generator.rand(n_informative, n_informative,
+                                       dtype=dtype) - 1
             else:
                 A = _informative_covariance[k]
-            X_k  = cp.dot(X_k, A)  # introduce random covariance
+            X_k[...] = cp.dot(X_k, A)  # introduce random covariance
 
             X_k += centroid  # shift the cluster to a vertex
     else:
@@ -213,7 +221,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
             X_k = X[start:stop, :n_informative]  # slice a view of the cluster
 
             if _informative_covariance is None:
-                A = 2 * generator.rand(n_informative, n_informative, dtype=dtype) - 1
+                A = 2 * generator.rand(n_informative, n_informative,
+                                       dtype=dtype) - 1
             else:
                 A = _informative_covariance[k]
             X_k[...] = cp.dot(X_k, A)  # introduce random covariance
@@ -233,7 +242,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     if n_repeated > 0:
         n = n_informative + n_redundant
         if _repeated_indices is None:
-            indices = ((n - 1) * generator.rand(n_repeated, dtype=dtype) + 0.5).astype(np.intp)
+            indices = ((n - 1) * generator.rand(n_repeated,
+                                                dtype=dtype)
+                       + 0.5).astype(np.intp)
         else:
             indices = _repeated_indices
         X[:, n:n + n_repeated] = X[:, indices]
