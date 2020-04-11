@@ -47,7 +47,7 @@ struct KMeansParams {
   double tol = 1e-4;
 
   // verbosity level.
-  int verbosity = CUML_LOG_INFO;
+  int verbosity = CUML_LEVEL_INFO;
 
   // Seed to the random number generator.
   int seed = 0;
