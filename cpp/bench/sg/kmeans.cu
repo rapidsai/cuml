@@ -15,10 +15,10 @@
  */
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <utility>
 #include "benchmark.cuh"
-#include <cuml/common/logger.hpp>
 
 namespace ML {
 namespace Bench {

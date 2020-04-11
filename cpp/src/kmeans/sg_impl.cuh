@@ -232,8 +232,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
-      LOG(handle,
-          "Threshold triggered after %d iterations. Terminating early.",
+      LOG(handle, "Threshold triggered after %d iterations. Terminating early.",
           n_iter);
       break;
     }
@@ -253,8 +252,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &params,
 
   MLCommon::copy(&inertia, &clusterCostD->value, 1, stream);
 
-  LOG(handle,
-      "KMeans.fit: completed after %d iterations with %f inertia ",
+  LOG(handle, "KMeans.fit: completed after %d iterations with %f inertia ",
       n_iter > params.max_iter ? n_iter - 1 : n_iter, inertia);
 
   handle.getDeviceAllocator()->deallocate(
@@ -386,14 +384,13 @@ void initScalableKMeansPlusPlus(
   // Scalable kmeans++ paper claims 8 rounds is sufficient
   CUDA_CHECK(cudaStreamSynchronize(stream));
   int niter = std::min(8, (int)ceil(log(psi)));
-  LOG(handle, "KMeans||: psi = %g, log(psi) = %g, niter = %d ",
-      psi, log(psi), niter);
+  LOG(handle, "KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi),
+      niter);
 
   // <<<< Step-3 >>> : for O( log(psi) ) times do
   for (int iter = 0; iter < niter; ++iter) {
-    LOG(handle,
-        "KMeans|| - Iteration %d: # potential centroids sampled - %d", iter,
-        potentialCentroids.getSize(0));
+    LOG(handle, "KMeans|| - Iteration %d: # potential centroids sampled - %d",
+        iter, potentialCentroids.getSize(0));
 
     kmeans::detail::minClusterDistance(
       handle, params, X, potentialCentroids, minClusterDistance, L2NormX,
@@ -432,8 +429,7 @@ void initScalableKMeansPlusPlus(
     /// <<<< End of Step-5 >>>
   }  /// <<<< Step-6 >>>
 
-  LOG(handle,
-      "KMeans||: total # potential centroids sampled - %d",
+  LOG(handle, "KMeans||: total # potential centroids sampled - %d",
       potentialCentroids.getSize(0));
 
   if (potentialCentroids.getSize(0) > n_clusters) {
@@ -586,8 +582,7 @@ void fit(const ML::cumlHandle_impl &handle, const KMeansParams &km_params,
                      params.n_clusters * n_features, stream);
     }
 
-    LOG(handle,
-        "KMeans.fit after iteration-%d/%d: inertia - %f, n_iter - %d",
+    LOG(handle, "KMeans.fit after iteration-%d/%d: inertia - %f, n_iter - %d",
         seed_iter + 1, n_init, inertia, n_iter);
   }
 
