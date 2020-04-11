@@ -231,10 +231,10 @@ class Cache {
    * In this case we assign the cache set for keys[k], and cache_idx[k] will
    * store the cache set.
    *
-   * @Note in order to retrieve the cached vector j=cache_idx[k] from the cache,
+   * @note in order to retrieve the cached vector j=cache_idx[k] from the cache,
    *  we have to access cache[i + j*n_vec], where i=0..n_vec-1.
    *
-   * @Note: do not use simultaneous GetCacheIdx and AssignCacheIdx
+   * @note: do not use simultaneous GetCacheIdx and AssignCacheIdx
    *
    * @param [in] keys device array of keys, size [n]
    * @param [in] n number of keys

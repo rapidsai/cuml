@@ -78,10 +78,11 @@ __global__ void subtract_dev_scalar_kernel(math_t *outDev, const math_t *inDev,
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
- * @param out the output buffer
- * @param in the input buffer
+ * @param outDev the output buffer
+ * @param inDev the input buffer
  * @param singleScalarDev pointer to the scalar located in device memory
  * @param len number of elements in the input and output buffer
+ * @param stream cuda stream
  * @remark block size has not been tuned
  */
 template <typename math_t, typename IdxType = int, int TPB = 256>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <utils.h>
+#include <cuml/common/logger.hpp>
 #include <queue>
 #include <random>
 #include <type_traits>
@@ -56,12 +57,13 @@ void print_node(const std::string &prefix,
                 const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx,
                 bool isLeft) {
   const SparseTreeNode<T, L> &node = sparsetree[idx];
-  std::cout << prefix;
-
-  std::cout << (isLeft ? "├" : "└");
+  CUML_LOG_INFO(prefix.c_str());
+  CUML_LOG_INFO(isLeft ? "├" : "└");
 
   // print the value of the node
-  std::cout << node << std::endl;
+  std::stringstream ss;
+  ss << node << std::endl;
+  CUML_LOG_INFO(ss.str().c_str());
 
   if ((node.colid != -1)) {
     // enter the next tree level - left and right branch
@@ -163,18 +165,16 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
  */
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print_tree_summary() const {
-  std::cout << " Decision Tree depth --> " << depth_counter
-            << " and n_leaves --> " << leaf_counter << std::endl;
-  std::cout << " Total temporary memory usage--> "
-            << ((double)total_temp_mem / (1024 * 1024)) << "  MB" << std::endl;
-  std::cout << " Shared memory used --> " << shmem_used << "  bytes "
-            << std::endl;
-  std::cout << " Tree Fitting - Overall time --> " << prepare_time + train_time
-            << " seconds" << std::endl;
-  std::cout << "   - preparing for fit time: " << prepare_time << " seconds"
-            << std::endl;
-  std::cout << "   - tree growing time: " << train_time << " seconds"
-            << std::endl;
+  PatternSetter _("%v");
+  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
+                depth_counter, leaf_counter);
+  CUML_LOG_INFO(" Total temporary memory usage--> %lf MB",
+                ((double)total_temp_mem / (1024 * 1024)));
+  CUML_LOG_INFO(" Shared memory used --> %d B", shmem_used);
+  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
+                prepare_time + train_time);
+  CUML_LOG_INFO("   - preparing for fit time: %lf s", prepare_time);
+  CUML_LOG_INFO("   - tree growing time: %lf s", train_time);
 }
 
 /**
@@ -292,23 +292,18 @@ L DecisionTreeBase<T, L>::predict_one(
   int colid = sparsetree[idx].colid;
   T quesval = sparsetree[idx].quesval;
   int leftchild = sparsetree[idx].left_child_id;
+  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
   if (colid == -1) {
-    if (verbose) {
-      std::cout << "Leaf node. Predicting " << sparsetree[idx].prediction
-                << std::endl;
-    }
+    CUML_LOG_INFO("Leaf node. Predicting %f",
+                  (float)sparsetree[idx].prediction);
     return sparsetree[idx].prediction;
   } else if (row[colid] <= quesval) {
-    if (verbose) {
-      std::cout << "Classifying Left @ node w/ column " << colid
-                << " and value " << quesval << std::endl;
-    }
+    CUML_LOG_INFO("Classifying Left @ node w/ column %d and value %f", colid,
+                  (float)quesval);
     return predict_one(row, sparsetree, leftchild, verbose);
   } else {
-    if (verbose) {
-      std::cout << "Classifying Right @ node w/ column " << colid
-                << " and value " << quesval << std::endl;
-    }
+    CUML_LOG_INFO("Classifying Right @ node w/ column %d and value %f", colid,
+                  (float)quesval);
     return predict_one(row, sparsetree, leftchild + 1, verbose);
   }
 }
@@ -339,8 +334,8 @@ void DecisionTreeBase<T, L>::base_fit(
 
   validity_check(tree_params);
   if (tree_params.n_bins > n_sampled_rows) {
-    std::cout << "Warning! Calling with number of bins > number of rows! ";
-    std::cout << "Resetting n_bins to " << n_sampled_rows << "." << std::endl;
+    CUML_LOG_WARN("Calling with number of bins > number of rows!");
+    CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
     tree_params.n_bins = n_sampled_rows;
   }
 

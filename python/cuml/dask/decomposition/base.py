@@ -75,7 +75,7 @@ class DecompositionSyncFitMixin(object):
         total_rows = data.total_rows
         n_cols = X.shape[1]
 
-        models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
+        models = dict([(data.worker_info[wf[0]]["rank"], self.client.submit(
             self._create_model,
             comms.sessionId,
             self._model_func,
@@ -87,11 +87,11 @@ class DecompositionSyncFitMixin(object):
 
         pca_fit = dict([(wf[0], self.client.submit(
             DecompositionSyncFitMixin._func_fit,
-            models[data.worker_info[wf[0]]["r"]],
+            models[data.worker_info[wf[0]]["rank"]],
             wf[1],
             total_rows, n_cols,
-            data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
-            data.worker_info[wf[0]]["r"],
+            data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
+            data.worker_info[wf[0]]["rank"],
             _transform,
             pure=False,
             workers=[wf[0]]))

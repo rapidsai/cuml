@@ -84,7 +84,7 @@ struct KMeansParams {
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
- * @param[in|out] centroids     [in] When init is InitMethod::Array, use
+ * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  centroids  as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
  kmeans algorithm is stored at the address pointed by 'centroids'.
@@ -114,7 +114,7 @@ void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
- * @param[in|out] centroids     [in] When init is InitMethod::Array, use
+ * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  centroids as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
  kmeans algorithm is stored at the address pointed by 'centroids'.
