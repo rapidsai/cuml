@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/cuml.hpp>
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 
@@ -45,8 +46,8 @@ struct KMeansParams {
   // Relative tolerance with regards to inertia to declare convergence.
   double tol = 1e-4;
 
-  // verbosity mode.
-  int verbose = 0;
+  // verbosity level.
+  int verbosity = CUML_LOG_INFO;
 
   // Seed to the random number generator.
   int seed = 0;
