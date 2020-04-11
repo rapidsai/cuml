@@ -77,7 +77,7 @@ class OneHotEncoder:
         be dropped for each feature. None if all the transformed features will
         be retained.
     """
-    def __init__(self, categories='auto', drop=None, sparse=False,
+    def __init__(self, categories='auto', drop=None, sparse=True,
                  dtype=np.float, handle_unknown='error'):
         self.categories = categories
         self.sparse = sparse
@@ -88,9 +88,6 @@ class OneHotEncoder:
         self.drop_idx_ = None
         self._features = None
         self._encoders = None
-        if sparse:
-            raise ValueError('Sparse matrix are not fully supported by cupy '
-                             'yet, causing incorrect values')
         if sparse and np.dtype(dtype) not in ['f', 'd', 'F', 'D']:
             raise ValueError('Only float32, float64, complex64 and complex128 '
                              'are supported when using sparse')
@@ -223,9 +220,7 @@ class OneHotEncoder:
         """
         self._check_is_fitted()
 
-        nb_categories = sum(len(e.classes_) for e in self._encoders.values())
-        ohe = cp.zeros((len(X), nb_categories), dtype=self.dtype)
-
+        cols, rows = list(), list()
         j = 0
         for feature in X.columns:
             encoder = self._encoders[feature]
@@ -237,21 +232,32 @@ class OneHotEncoder:
             col_idx += j
 
             # Filter out rows with null values
-            row_idx = cp.arange(len(ohe))[idx_to_keep]
+            row_idx = cp.arange(len(X))[idx_to_keep]
             col_idx = col_idx[idx_to_keep]
-
-            ohe[row_idx, col_idx] = 1
 
             if self.drop_idx_ is not None:
                 drop_idx = self.drop_idx_[feature] + j
-                mask = cp.ones(ohe.shape[1], dtype=cp.bool)
-                mask[drop_idx] = False
-                ohe = ohe[:, mask]
-                j -= 1  # account for dropped category in current cats number
+                mask = cp.ones(col_idx.shape, dtype=cp.bool)
+                mask[col_idx == drop_idx] = False
+                col_idx = col_idx[mask]
+                row_idx = row_idx[mask]
+                # account for dropped category in indices
+                col_idx[col_idx > drop_idx] -= 1
+                # account for dropped category in current cats number
+                j -= 1
             j += len(encoder.classes_)
+            cols.append(col_idx)
+            rows.append(row_idx)
 
-        if self.sparse:
-            ohe = cp.sparse.csr_matrix(ohe)
+        cols = cp.concatenate(cols)
+        rows = cp.concatenate(rows)
+        val = cp.ones(rows.shape[0], dtype=self.dtype)
+        ohe = cp.sparse.coo_matrix((val, (rows, cols)),
+                                   shape=(len(X), j),
+                                   dtype=self.dtype)
+
+        if not self.sparse:
+            ohe = ohe.toarray()
 
         return ohe
 
@@ -272,6 +278,10 @@ class OneHotEncoder:
         """
         self._check_is_fitted()
         if cp.sparse.issparse(X):
+            # cupy.sparse 7.x does not support argmax, when we upgrade cupy to
+            # 8.x, we should add a condition in the
+            # if close: `and cp.sparse.issparsecsc(X)`
+            # and change the following line by `X = X.tocsc()`
             X = X.toarray()
         result = DataFrame(columns=self._encoders.keys())
         j = 0
