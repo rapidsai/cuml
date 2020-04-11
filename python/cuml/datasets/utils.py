@@ -15,6 +15,7 @@
 
 import cupy as cp
 
+
 def _create_rs_generator(random_state):
     if hasattr(random_state, '__module__'):
         rs_type = random_state.__module__ + '.' + type(random_state).__name__
