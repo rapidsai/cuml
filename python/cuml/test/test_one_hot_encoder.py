@@ -47,13 +47,13 @@ def test_onehot_vs_skonehot():
     X = DataFrame({'gender': ['Male', 'Female', 'Female'], 'int': [1, 3, 2]})
     skX = _from_df_to_array(X)
 
-    enc = OneHotEncoder(sparse=False)
-    skohe = SkOneHotEncoder(sparse=False)
+    enc = OneHotEncoder(sparse=True)
+    skohe = SkOneHotEncoder(sparse=True)
 
     ohe = enc.fit_transform(X)
     ref = skohe.fit_transform(skX)
 
-    cp.testing.assert_array_equal(ohe, ref)
+    cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())
 
 
 @pytest.mark.parametrize('drop', [None,
@@ -124,11 +124,8 @@ def test_onehot_inverse_transform_handle_unknown():
 
 @pytest.mark.parametrize('drop', [None, 'first'])
 @pytest.mark.parametrize('sparse', [True, False], ids=['sparse', 'dense'])
-@pytest.mark.parametrize("n_samples", [10, 10000, 50000, stress_param(250000)])
+@pytest.mark.parametrize("n_samples", [10, 1000, 20000, stress_param(250000)])
 def test_onehot_random_inputs(drop, sparse, n_samples):
-    if sparse:
-        pytest.xfail("Sparse arrays are not fully supported by cupy.")
-
     df, ary = _generate_inputs_from_categories(n_samples=n_samples)
 
     enc = OneHotEncoder(sparse=sparse, drop=drop)
@@ -195,3 +192,17 @@ def test_onehot_get_categories():
 
     for i in range(len(ref)):
         np.testing.assert_array_equal(ref[i], cats[i])
+
+
+def test_onehot_sparse_drop():
+    X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2], 'l': [5, 5, 6]})
+    drop = {'g': 'F', 'i': 3, 'l': 6}
+
+    ary = _from_df_to_array(X)
+    drop_ary = ['F', 3, 6]
+
+    enc = OneHotEncoder(sparse=True, drop=drop)
+    sk_enc = SkOneHotEncoder(sparse=True, drop=drop_ary)
+    ohe = enc.fit_transform(X)
+    ref = sk_enc.fit_transform(ary)
+    cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())
