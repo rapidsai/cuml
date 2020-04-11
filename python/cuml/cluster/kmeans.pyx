@@ -46,7 +46,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
         InitMethod init
         int max_iter,
         double tol,
-        int verbose,
+        int verbosity,
         int seed,
         int metric,
         int n_init,
@@ -310,7 +310,7 @@ class KMeans(Base):
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
-        params.verbose = <int>self.verbose
+        params.verbosity = <int>self.logging_level
         params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         params.batch_samples=<int>self.max_samples_per_batch
