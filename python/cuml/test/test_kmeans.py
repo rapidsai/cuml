@@ -38,8 +38,8 @@ def test_n_init_cluster_consistency(random_state):
 
     cluster_std = 1.0
 
-    nrows = 100000
-    ncols = 100
+    nrows = 1000
+    ncols = 50
     nclusters = 8
 
     X, y = make_blobs(nrows,
@@ -70,9 +70,9 @@ def test_n_init_cluster_consistency(random_state):
 
 
 @pytest.mark.parametrize('nrows', [1000, 10000])
-@pytest.mark.parametrize('ncols', [10, 50])
+@pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
-@pytest.mark.parametrize('random_state', [i for i in range(50)])
+@pytest.mark.parametrize('random_state', [i for i in range(50, 2)])
 def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
                                           random_state):
 
@@ -104,10 +104,10 @@ def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('nrows', [1000, 10000])
-@pytest.mark.parametrize('ncols', [10, 50])
+@pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
-@pytest.mark.parametrize('random_state', [i for i in range(25)])
+@pytest.mark.parametrize('random_state', [i for i in range(20)])
 def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
                                random_state, cluster_std):
 
