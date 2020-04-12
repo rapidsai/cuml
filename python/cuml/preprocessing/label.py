@@ -228,7 +228,8 @@ class LabelBinarizer(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            scipy_sparse_isspmatrix = lambda x : False
+            def scipy_sparse_isspmatrix(x):
+                return False
 
         # If we are already given multi-class, just return it.
         if cp.sparse.isspmatrix(y):
