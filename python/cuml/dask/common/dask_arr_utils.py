@@ -182,10 +182,13 @@ def to_sp_dask_array(cudf_or_array, client=None):
 
     else:
         if has_scipy():
-            import scipy.sparse
-            if scipy.sparse.isspmatrix(cudf_or_array):
-                cudf_or_array = \
-                    cupyx.scipy.sparse.csr_matrix(cudf_or_array.tocsr())
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            def scipy_sparse_isspmatrix(x):
+                return False
+        if scipy_sparse_isspmatrix(cudf_or_array):
+            cudf_or_array = \
+                cupyx.scipy.sparse.csr_matrix(cudf_or_array.tocsr())
         elif cupyx.scipy.sparse.isspmatrix(cudf_or_array):
             pass
         elif isinstance(cudf_or_array, cudf.DataFrame):
