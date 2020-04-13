@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
-#include <cuml/common/logger.hpp>
 #include <map>
 
 namespace ML {
@@ -95,11 +95,13 @@ void print(const RF_params rf_params);
    Create an old_label to new_label map per random forest.
 */
 void preprocess_labels(int n_rows, std::vector<int>& labels,
-                       std::map<int, int>& labels_map, int verbosity = CUML_LEVEL_INFO);
+                       std::map<int, int>& labels_map,
+                       int verbosity = CUML_LEVEL_INFO);
 
 /* Revert preprocessing effect, if needed. */
 void postprocess_labels(int n_rows, std::vector<int>& labels,
-                        std::map<int, int>& labels_map, int verbosity = CUML_LEVEL_INFO);
+                        std::map<int, int>& labels_map,
+                        int verbosity = CUML_LEVEL_INFO);
 
 template <class T, class L>
 struct RandomForestMetaData {
@@ -139,14 +141,17 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
          RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
 void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
-         int n_unique_labels, RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
+         int n_unique_labels, RF_params rf_params,
+         int verbosity = CUML_LEVEL_INFO);
 
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierF* forest, const float* input,
-             int n_rows, int n_cols, int* predictions, int verbosity = CUML_LEVEL_INFO);
+             int n_rows, int n_cols, int* predictions,
+             int verbosity = CUML_LEVEL_INFO);
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierD* forest, const double* input,
-             int n_rows, int n_cols, int* predictions, int verbosity = CUML_LEVEL_INFO);
+             int n_rows, int n_cols, int* predictions,
+             int verbosity = CUML_LEVEL_INFO);
 
 void predictGetAll(const cumlHandle& user_handle,
                    const RandomForestClassifierF* forest, const float* input,
@@ -159,10 +164,12 @@ void predictGetAll(const cumlHandle& user_handle,
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
-                 int n_rows, const int* predictions, int verbosity = CUML_LEVEL_INFO);
+                 int n_rows, const int* predictions,
+                 int verbosity = CUML_LEVEL_INFO);
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
-                 int n_rows, const int* predictions, int verbosity = CUML_LEVEL_INFO);
+                 int n_rows, const int* predictions,
+                 int verbosity = CUML_LEVEL_INFO);
 
 RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
                            int n_bins, int split_algo, int min_rows_per_node,
@@ -185,15 +192,19 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
 
 void predict(const cumlHandle& user_handle,
              const RandomForestRegressorF* forest, const float* input,
-             int n_rows, int n_cols, float* predictions, int verbosity = CUML_LEVEL_INFO);
+             int n_rows, int n_cols, float* predictions,
+             int verbosity = CUML_LEVEL_INFO);
 void predict(const cumlHandle& user_handle,
              const RandomForestRegressorD* forest, const double* input,
-             int n_rows, int n_cols, double* predictions, int verbosity = CUML_LEVEL_INFO);
+             int n_rows, int n_cols, double* predictions,
+             int verbosity = CUML_LEVEL_INFO);
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,
-                 int n_rows, const float* predictions, int verbosity = CUML_LEVEL_INFO);
+                 int n_rows, const float* predictions,
+                 int verbosity = CUML_LEVEL_INFO);
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorD* forest, const double* ref_labels,
-                 int n_rows, const double* predictions, int verbosity = CUML_LEVEL_INFO);
+                 int n_rows, const double* predictions,
+                 int verbosity = CUML_LEVEL_INFO);
 };  // namespace ML
