@@ -33,6 +33,14 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         bool shouldLogFor(int level) const
         string getPattern() const
 
+cdef extern from "cuml/common/logger.hpp" nogil:
+    void CUML_LOG_TRACE(const char* fmt, ...)
+    void CUML_LOG_DEBUG(const char* fmt, ...)
+    void CUML_LOG_INFO(const char* fmt, ...)
+    void CUML_LOG_WARN(const char* fmt, ...)
+    void CUML_LOG_EEROR(const char* fmt, ...)
+    void CUML_LOG_CRITICAL(const char* fmt, ...)
+
 
 def set_level(level):
     Logger.get().setLevel(<int>level)
@@ -50,3 +58,33 @@ def should_log_for(level):
 def get_pattern():
     cdef string s = Logger.get().getPattern()
     return s.decode("UTF-8")
+
+
+def trace(msg):
+    cdef string s = msg
+    CUML_LOG_TRACE(s.c_str())
+
+
+def debug(msg):
+    cdef string s = msg
+    CUML_LOG_DEBUG(s.c_str())
+
+
+def info(msg):
+    cdef string s = msg
+    CUML_LOG_INFO(s.c_str())
+
+
+def warn(msg):
+    cdef string s = msg
+    CUML_LOG_WARN(s.c_str())
+
+
+def error(msg):
+    cdef string s = msg
+    CUML_LOG_ERROR(s.c_str())
+
+
+def critical(msg):
+    cdef string s = msg
+    CUML_LOG_CRITICAL(s.c_str())
