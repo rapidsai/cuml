@@ -24,6 +24,28 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 
+@pytest.fixture(scope="module", params=[
+    unit_param([500, 20, 10, np.float32]),
+    unit_param([500, 20, 10, np.float64]),
+    quality_param([5000, 100, 50, np.float32]),
+    quality_param([5000, 100, 50, np.float64]),
+    stress_param([500000, 1000, 500, np.float32]),
+    stress_param([500000, 1000, 500, np.float64]),
+], ids=['500-20-10-f32', '500-20-10-f64',
+        '5000-100-50-f32', '5000-100-50-f64',
+        '500000-1000-500-f32', '500000-1000-500-f64'])
+def make_dataset(request):
+    nrows, ncols, n_info, datatype = request.param
+    X, y = make_classification(n_samples=nrows, n_informative=n_info,
+                               n_features=ncols, random_state=0)
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=10)
+
+    return nrows, X_train, X_test, y_train, y_test
+
+
 @pytest.mark.parametrize(
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
@@ -34,20 +56,8 @@ from sklearn.model_selection import train_test_split
         ('constant', 'elasticnet', 'hinge'),
     ]
 )
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-def test_mbsgd_classifier(lrate, penalty, loss, datatype, nrows, column_info):
-    ncols, n_info = column_info
-    X, y = make_classification(n_samples=nrows, n_informative=n_info,
-                               n_features=ncols, random_state=0)
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=10)
+def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
+    nrows, X_train, X_test, y_train, y_test = make_dataset
 
     cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate=lrate, eta0=0.005,
                                              epochs=100, fit_intercept=True,
@@ -70,23 +80,8 @@ def test_mbsgd_classifier(lrate, penalty, loss, datatype, nrows, column_info):
         assert cu_acc >= skl_acc - 0.06
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-def test_mbsgd_classifier_default(datatype, nrows, column_info):
-    ncols, n_info = column_info
-    X, y = make_classification(n_samples=nrows, n_informative=n_info,
-                               n_features=ncols, random_state=0)
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
-
-    y_train = y_train.astype(datatype)
-    y_test = y_test.astype(datatype)
+def test_mbsgd_classifier_default(make_dataset):
+    nrows, X_train, X_test, y_train, y_test = make_dataset
 
     cu_mbsgd_classifier = cumlMBSGClassifier()
 
