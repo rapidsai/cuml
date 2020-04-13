@@ -19,6 +19,7 @@
 #include "cuda_utils.h"
 
 #include "distance/distance.h"
+#include "label/classlabels.h"
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -303,61 +304,9 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     translations);
 }
 
-/**
- * @brief Binary tree recursion for finding a label in the unique_labels array.
- * This provides a good middle-ground between having to create a new
- * labels array just to map non-monotonically increasing labels, or
- * the alternative, which is having to search over O(n) space for the labels
- * array in each thread. This is going to cause warp divergence of log(n)
- * per iteration.
- * @param unique_labels array of unique labels
- * @param n_labels number of unique labels
- * @param target_val the label value to search for in unique_labels
- */
-template <typename IdxType = int>
-__device__ int label_binary_search(IdxType *unique_labels, IdxType n_labels,
-                                   IdxType target_val) {
-  int out_label_idx = -1;
-
-  int level = 1;
-  int cur_break_idx = round(n_labels / (2.0 * level));
-  while (out_label_idx == -1) {
-    int cur_cached_label = unique_labels[cur_break_idx];
-
-    // If we found our label, terminate
-    if (cur_cached_label == target_val) {
-      return cur_break_idx;
-
-      // check left neighbor
-    } else if (cur_break_idx > 0 &&
-               unique_labels[cur_break_idx - 1] == target_val) {
-      return cur_break_idx - 1;
-
-      // check right neighbor
-    } else if (cur_break_idx < n_labels - 1 &&
-               unique_labels[cur_break_idx + 1] == target_val) {
-      return cur_break_idx + 1;
-
-      // traverse
-    } else {
-      level += 1;
-
-      int subtree = round(n_labels / (2.0 * level));
-      if (target_val < cur_cached_label) {
-        // take left subtree
-        cur_break_idx -= subtree;
-      } else {
-        // take right subtree
-        cur_break_idx += subtree;
-      }
-    }
-  }
-  return -1;
-}
-
 template <typename OutType = float>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
-                                   const int *labels, int *unique_labels,
+                                   const int *labels,
                                    int n_uniq_labels, size_t n_samples,
                                    int n_neighbors) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -365,27 +314,12 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
 
   float n_neigh_inv = 1.0f / n_neighbors;
 
-  extern __shared__ int label_cache[];
-  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
-    label_cache[j] = unique_labels[j];
-  }
-
-  __syncthreads();
-
   if (row >= n_samples) return;
 
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
     int out_label = labels[neighbor_idx];
-
-    // Trading off warp divergence in the outputs so that we don't
-    // need to copy / modify the label memory to do these mappings.
-    // Found a middle-ground between between using shared memory
-    // for the mappings.
-    int out_label_idx =
-      label_binary_search(label_cache, n_uniq_labels, out_label);
-
-    int out_idx = row * n_uniq_labels + out_label_idx;
+    int out_idx = row * n_uniq_labels + out_label;
     out[out_idx] += n_neigh_inv;
   }
 }
@@ -401,6 +335,7 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   extern __shared__ int label_cache[];
   for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
     label_cache[j] = unique_labels[j];
+    printf("Label: %d\n", label_cache[j]);
   }
 
   __syncthreads();
@@ -409,9 +344,9 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   float cur_max = -1.0;
   int cur_label = -1;
   for (int j = 0; j < n_uniq_labels; j++) {
-    float cur_count = class_proba[i + j];
-    if (cur_count > cur_max) {
-      cur_max = cur_count;
+    float cur_proba = class_proba[i + j];
+    if (cur_proba > cur_max) {
+      cur_max = cur_proba;
       cur_label = j;
     }
   }
@@ -482,9 +417,11 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      * Build array of class probability arrays from
      * knn_indices and labels
      */
-    int smem = sizeof(int) * n_labels;
-    class_probs_kernel<<<grid, blk, smem, stream>>>(
-      out[i], knn_indices, y[i], uniq_labels[i], n_labels, n_rows, k);
+    device_buffer<int> y_normalized(allocator, stream, n_rows);
+    MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_rows, stream);
+
+    class_probs_kernel<<<grid, blk, 0, stream>>>(
+      out[i], knn_indices, y_normalized.data(), n_labels, n_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
