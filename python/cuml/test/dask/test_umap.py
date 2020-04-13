@@ -36,7 +36,7 @@ def test_umap_mnmg(n_parts, sampling_ratio, supervised, dataset, cluster):
         from cuml.manifold import UMAP
         from cuml.dask.manifold import UMAP as MNMG_UMAP
 
-        n_neighbors = 500
+        n_neighbors = 10
 
         print("Dataset: " + str(dataset))
 
