@@ -40,6 +40,7 @@ struct KmeansInputs {
   int n_col;
   int n_clusters;
   T tol;
+  bool weighted;
 };
 
 template <typename T>
@@ -70,10 +71,14 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     allocate(d_labels, n_samples);
     allocate(d_labels_ref, n_samples);
     allocate(d_centroids, params.n_clusters * n_features);
-    allocate(d_sample_weight, n_samples);
 
-    thrust::fill(thrust::cuda::par.on(handle.getStream()), d_sample_weight,
-                 d_sample_weight + n_samples, 1);
+    if (testparams.weighted) {
+      allocate(d_sample_weight, n_samples);
+      thrust::fill(thrust::cuda::par.on(handle.getStream()), d_sample_weight,
+                   d_sample_weight + n_samples, 1);
+    } else {
+      d_sample_weight = nullptr;
+    }
 
     MLCommon::copy(d_labels_ref, labels.data(), n_samples, handle.getStream());
 
@@ -119,17 +124,19 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   ML::kmeans::KMeansParams params;
 };
 
-const std::vector<KmeansInputs<float>> inputsf2 = {{1000, 32, 5, 0.0001},
-                                                   {1000, 100, 20, 0.0001},
-                                                   {10000, 32, 10, 0.0001},
-                                                   {10000, 100, 50, 0.0001},
-                                                   {10000, 1000, 200, 0.0001}};
+const std::vector<KmeansInputs<float>> inputsf2 = {
+  {1000, 32, 5, 0.0001, true},      {1000, 32, 5, 0.0001, false},
+  {1000, 100, 20, 0.0001, true},    {1000, 100, 20, 0.0001, false},
+  {10000, 32, 10, 0.0001, true},    {10000, 32, 10, 0.0001, false},
+  {10000, 100, 50, 0.0001, true},   {10000, 100, 50, 0.0001, false},
+  {10000, 1000, 200, 0.0001, true}, {10000, 1000, 200, 0.0001, false}};
 
-const std::vector<KmeansInputs<double>> inputsd2 = {{1000, 32, 5, 0.0001},
-                                                    {1000, 100, 20, 0.0001},
-                                                    {10000, 32, 10, 0.0001},
-                                                    {10000, 100, 50, 0.0001},
-                                                    {10000, 1000, 200, 0.0001}};
+const std::vector<KmeansInputs<double>> inputsd2 = {
+  {1000, 32, 5, 0.0001, true},      {1000, 32, 5, 0.0001, false},
+  {1000, 100, 20, 0.0001, true},    {1000, 100, 20, 0.0001, false},
+  {10000, 32, 10, 0.0001, true},    {10000, 32, 10, 0.0001, false},
+  {10000, 100, 50, 0.0001, true},   {10000, 100, 50, 0.0001, false},
+  {10000, 1000, 200, 0.0001, true}, {10000, 1000, 200, 0.0001, false}};
 
 typedef KmeansTest<float> KmeansTestF;
 TEST_P(KmeansTestF, Result) { ASSERT_TRUE(score == 1.0); }
