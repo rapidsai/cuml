@@ -124,7 +124,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
   T gnorm = nrm2(grad, dev_scalar, stream);
 
   CUML_LOG_DEBUG("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)", k,
-                fx, gnorm / std::max(T(1), xnorm), gnorm, xnorm);
+                 fx, gnorm / std::max(T(1), xnorm), gnorm, xnorm);
   // Convergence test -- gradient
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
     CUML_LOG_DEBUG("Converged after %d iterations: f(x)=%.6f", k, fx);
