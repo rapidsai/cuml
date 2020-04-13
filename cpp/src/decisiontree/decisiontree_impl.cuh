@@ -282,14 +282,14 @@ void DecisionTreeBase<T, L>::predict_all(const TreeMetaDataNode<T, L> *tree,
                                          const T *rows, const int n_rows,
                                          const int n_cols, L *preds) const {
   for (int row_id = 0; row_id < n_rows; row_id++) {
-    preds[row_id] =
-      predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
+    preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
   }
 }
 
 template <typename T, typename L>
 L DecisionTreeBase<T, L>::predict_one(
-  const T *row, const std::vector<SparseTreeNode<T, L>> sparsetree, int idx) const {
+  const T *row, const std::vector<SparseTreeNode<T, L>> sparsetree,
+  int idx) const {
   int colid = sparsetree[idx].colid;
   T quesval = sparsetree[idx].quesval;
   int leftchild = sparsetree[idx].left_child_id;
