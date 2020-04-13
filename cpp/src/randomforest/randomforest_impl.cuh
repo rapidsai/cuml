@@ -282,7 +282,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
       ss << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
         ss << h_input[row_id * row_size + i] << ", ";
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
 
     std::map<int, int> prediction_to_cnt;
@@ -347,7 +347,7 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
       ss << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
         ss << h_input[row_id * row_size + i] << ", ";
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
 
     for (int i = 0; i < num_trees; i++) {
@@ -551,7 +551,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
       ss << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
         ss << h_input[row_id * row_size + i] << ", ";
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
 
     T sum_predictions = 0;
