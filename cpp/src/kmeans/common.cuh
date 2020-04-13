@@ -778,11 +778,9 @@ void checkWeights(const cumlHandle_impl &handle,
         n_samples);
 
     DataT scale = n_samples / wt_sum;
-    ML::thrustAllocatorAdapter alloc(handle.getDeviceAllocator(), stream);
-    auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
-    thrust::transform(thrust_exec_policy, weight.begin(), weight.end(),
-                      weight.begin(),
-                      [=] __device__(const DataT &wt) { return wt * scale; });
+    MLCommon::LinAlg::unaryOp(
+      weight.data(), weight.data(), weight.numElements(),
+      [=] __device__(const DataT &wt) { return wt * scale; }, stream);
   }
 }
 };  // namespace detail
