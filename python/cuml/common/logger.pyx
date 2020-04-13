@@ -38,7 +38,7 @@ cdef extern from "cuml/common/logger.hpp" nogil:
     void CUML_LOG_DEBUG(const char* fmt, ...)
     void CUML_LOG_INFO(const char* fmt, ...)
     void CUML_LOG_WARN(const char* fmt, ...)
-    void CUML_LOG_EEROR(const char* fmt, ...)
+    void CUML_LOG_ERROR(const char* fmt, ...)
     void CUML_LOG_CRITICAL(const char* fmt, ...)
 
 
