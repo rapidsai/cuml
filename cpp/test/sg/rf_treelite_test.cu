@@ -151,9 +151,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   void getResultAndCheck() {
     // Predict and compare against known labels
     predict(*handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels_d, false);
+            params.n_cols, predicted_labels_d);
     RF_metrics tmp = score(*handle, forest, labels_d, params.n_inference_rows,
-                           predicted_labels_d, false);
+                           predicted_labels_d);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
