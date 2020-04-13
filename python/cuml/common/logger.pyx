@@ -42,4 +42,5 @@ def should_log_for(level):
 
 
 def get_pattern():
-    return Logger::get().getPattern()
+    cdef string s = Logger::get().getPattern()
+    return s.decode("UTF-8")
