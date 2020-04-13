@@ -21,26 +21,32 @@
 
 
 from libcpp.string cimport string
+from libcpp cimport bool
 
 
 cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
     cdef cppclass Logger:
-        pass
+        @staticmethod
+        Logger& get()
+        void setLevel(int level)
+        void setPattern(const string& pattern)
+        bool shouldLogFor(int level) const
+        string getPattern() const
 
 
 def set_level(level):
-    Logger::get().setLevel(<int>level)
+    Logger.get().setLevel(<int>level)
 
 
 def set_pattern(pattern):
     cdef string s = pattern
-    Logger::get().setPattern(s)
+    Logger.get().setPattern(s)
 
 
 def should_log_for(level):
-    return Logger::get().shouldLogFor(<int>level)
+    return Logger.get().shouldLogFor(<int>level)
 
 
 def get_pattern():
-    cdef string s = Logger::get().getPattern()
+    cdef string s = Logger.get().getPattern()
     return s.decode("UTF-8")
