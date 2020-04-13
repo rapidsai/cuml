@@ -179,29 +179,32 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in,out] predictions: n_rows predicted labels. Current impl. expects a
  *    CPU pointer, user allocated. TODO future API change.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution.
+ *                       A negative value means to not perform an explicit
+ *                       `setLevel()` call, but to continue with the level that
+ *                       the caller itself might have set.
  * @{
  */
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
-                                   bool verbose) {
+                                   int verbosity) {
   std::shared_ptr<DecisionTreeClassifier<float>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<float>>();
   dt_classifier->predict(handle, tree, rows, n_rows, n_cols, predictions,
-                         verbose);
+                         verbosity);
 }
 
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierD *tree,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
-                                   bool verbose) {
+                                   int verbosity) {
   std::shared_ptr<DecisionTreeClassifier<double>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<double>>();
   dt_classifier->predict(handle, tree, rows, n_rows, n_cols, predictions,
-                         verbose);
+                         verbosity);
 }
 /** @} */
 
@@ -261,28 +264,31 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in,out] predictions: n_rows predicted labels. Current impl. expects a CPU
  *   pointer, user allocated. TODO future API change.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution.
+ *                       A negative value means to not perform an explicit
+ *                       `setLevel()` call, but to continue with the level that
+ *                       the caller itself might have set.
  * @{
  */
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
-                                  float *predictions, bool verbose) {
+                                  float *predictions, int verbosity) {
   std::shared_ptr<DecisionTreeRegressor<float>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<float>>();
   dt_regressor->predict(handle, tree, rows, n_rows, n_cols, predictions,
-                        verbose);
+                        verbosity);
 }
 
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorD *tree,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,
-                                  bool verbose) {
+                                  int verbosity) {
   std::shared_ptr<DecisionTreeRegressor<double>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<double>>();
   dt_regressor->predict(handle, tree, rows, n_rows, n_cols, predictions,
-                        verbose);
+                        verbosity);
 }
 /** @} */
 
