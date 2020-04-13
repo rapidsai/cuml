@@ -3,6 +3,7 @@
 ## New Features
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1906: UMAP MNMG
+- PR #2067L python: wrap logging interface in cython
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
