@@ -419,7 +419,6 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
-        print(self.inertia_)
         del(X_m)
         del(sample_weight_m)
         return self
