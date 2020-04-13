@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -56,7 +57,8 @@ namespace ML {
  *                                 phase.
  * @param[in] random_state         Set this to -1 for pure random intializations
  *                                 or >= 0 for reproducible outputs.
- * @param[in] verbose              Whether to print error messages or not.
+ * @param[in] verbosity            verbosity level for logging messages during
+ *                                 execution
  * @param[in] intialize_embeddings Whether to overwrite the current Y vector
  *                                 with random noise.
  * @param[in] barnes_hut           Whether to use the fast Barnes Hut or use the
@@ -80,7 +82,8 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
               const float post_learning_rate = 500.0f,
               const int max_iter = 1000, const float min_grad_norm = 1e-7,
               const float pre_momentum = 0.5, const float post_momentum = 0.8,
-              const long long random_state = -1, const bool verbose = true,
+              const long long random_state = -1,
+              int verbosity = CUML_LEVEL_INFO,
               const bool intialize_embeddings = true, bool barnes_hut = true);
 
 }  // namespace ML

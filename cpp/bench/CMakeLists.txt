@@ -52,14 +52,16 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/distance_l1.cu
     prims/distance_unexp_l2.cu
     prims/fused_l2_nn.cu
+    prims/main.cpp
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/permute.cu
     prims/reduce.cu
     prims/rng.cu
-    prims/main.cpp)
+    ../src/common/logger.cpp  # because prims is header only!
+    )
 
-  add_dependencies(prims_benchmark cutlass)
+  add_dependencies(prims_benchmark spdlog)
 
   target_link_libraries(prims_benchmark benchmarklib)
 

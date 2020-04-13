@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,9 @@ constexpr bool UCX_ENABLED = false;
 #include <cuML_comms.hpp>
 #include <exception>
 #include <memory>
+
+#include <cuml/common/logger.hpp>
+
 #include <thread>
 
 #include <cuda_runtime.h>
@@ -52,16 +55,13 @@ constexpr bool UCX_ENABLED = false;
            ncclGetErrorString(status));                                        \
   } while (0)
 
-//@todo adapt logging infrastructure for NCCL_CHECK_NO_THROW once available:
-//https://github.com/rapidsai/cuml/issues/100
-#define NCCL_CHECK_NO_THROW(call)                                              \
-  do {                                                                         \
-    ncclResult_t status = call;                                                \
-    if (ncclSuccess != status) {                                               \
-      std::fprintf(stderr,                                                     \
-                   "ERROR: NCCL call='%s' at file=%s line=%d failed with %s ", \
-                   #call, __FILE__, __LINE__, ncclGetErrorString(status));     \
-    }                                                                          \
+#define NCCL_CHECK_NO_THROW(call)                                 \
+  do {                                                            \
+    ncclResult_t status = call;                                   \
+    if (status != ncclSuccess) {                                  \
+      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call, \
+                     ncclGetErrorString(status));                 \
+    }                                                             \
   } while (0)
 
 namespace ML {
@@ -296,11 +296,10 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
     ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
               default_tag_mask, getRank(), _verbose);
 
-  if (_verbose) {
-    std::cout << getRank() << ": Created send request [id=" << *request
-              << ", ptr= " << ucp_req->req << ", to=" << dest
-              << ", ep=" << ep_ptr << "]" << std::endl;
-  }
+  CUML_LOG_DEBUG(
+    "%d: Created send request [id=%llu], ptr=%llu, to=%llu, ep=%llu", getRank(),
+    (unsigned long long)*request, (unsigned long long)ucp_req->req,
+    (unsigned long long)dest, (unsigned long long)ep_ptr);
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
@@ -328,11 +327,10 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
     ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
               size, tag, tag_mask, source, _verbose);
 
-  if (_verbose) {
-    std::cout << getRank() << ": Created receive request [id=" << *request
-              << ", ptr=" << ucp_req->req << ", from=" << source
-              << "ep=" << ep_ptr << "]" << std::endl;
-  }
+  CUML_LOG_DEBUG(
+    "%d: Created receive request [id=%llu], ptr=%llu, from=%llu, ep=%llu",
+    getRank(), (unsigned long long)*request, (unsigned long long)ucp_req->req,
+    (unsigned long long)source, (unsigned long long)ep_ptr);
 
   _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
@@ -396,14 +394,11 @@ void cumlStdCommunicator_impl::waitall(int count,
       // is complete, we can go ahead and clean it up.
       if (!req->needs_release || req->req->completed == 1) {
         restart = true;
-        if (_verbose) {
-          std::cout << getRank() << ": request completed. [ptr=" << req->req
-                    << ", num_left= " << requests.size() - 1
-                    << ", other_rank=" << req->other_rank
-                    << ", is_send=" << req->is_send_request
-                    << ", completed_immediately=" << !req->needs_release << "]"
-                    << std::endl;
-        }
+        CUML_LOG_DEBUG(
+          "%d: request completed. [ptr=%llu, num_left=%lu,"
+          " other_rank=%d, is_send=%d, completed_immediately=%d]",
+          getRank(), (unsigned long long)req->req, requests.size() - 1,
+          req->other_rank, req->is_send_request, !req->needs_release);
 
         // perform cleanup
         free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
