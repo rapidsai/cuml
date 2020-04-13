@@ -102,13 +102,13 @@ void print(const RF_metrics rf_metrics) {
  * @param[in] n_rows: number of rows (labels)
  * @param[in,out] labels: 1D labels array to be changed in-place.
  * @param[in,out] labels_map: map of old label values to new ones.
- * @param[in] verbose: debugging flag.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  */
 void preprocess_labels(int n_rows, std::vector<int>& labels,
-                       std::map<int, int>& labels_map, bool verbose) {
+                       std::map<int, int>& labels_map, int verbosity) {
   std::pair<std::map<int, int>::iterator, bool> ret;
   int n_unique_labels = 0;
-  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_DEBUG : CUML_LEVEL_INFO);
+  ML::Logger::get().setLevel(verbosity);
 
   CUML_LOG_DEBUG("Preprocessing labels");
   for (int i = 0; i < n_rows; i++) {
@@ -128,11 +128,11 @@ void preprocess_labels(int n_rows, std::vector<int>& labels,
  * @param[in] n_rows: number of rows (labels)
  * @param[in,out] labels: 1D labels array to be changed in-place.
  * @param[in] labels_map: map of old to new label values used during preprocessing.
- * @param[in] verbose: debugging flag.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  */
 void postprocess_labels(int n_rows, std::vector<int>& labels,
-                        std::map<int, int>& labels_map, bool verbose) {
-  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_DEBUG : CUML_LEVEL_INFO);
+                        std::map<int, int>& labels_map, int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   CUML_LOG_DEBUG("Postrocessing labels");
   std::map<int, int>::iterator it;
   int n_unique_cnt = labels_map.size();
@@ -518,27 +518,27 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierF* forest, const float* input,
-             int n_rows, int n_cols, int* predictions, bool verbose) {
+             int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<float>> rf_classifier =
     std::make_shared<rfClassifier<float>>(forest->rf_params);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
-                         forest, verbose);
+                         forest, verbosity);
 }
 
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierD* forest, const double* input,
-             int n_rows, int n_cols, int* predictions, bool verbose) {
+             int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<double>> rf_classifier =
     std::make_shared<rfClassifier<double>>(forest->rf_params);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
-                         forest, verbose);
+                         forest, verbosity);
 }
 /** @} */
 
@@ -553,27 +553,27 @@ void predict(const cumlHandle& user_handle,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
 void predictGetAll(const cumlHandle& user_handle,
                    const RandomForestClassifierF* forest, const float* input,
-                   int n_rows, int n_cols, int* predictions, bool verbose) {
+                   int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<float>> rf_classifier =
     std::make_shared<rfClassifier<float>>(forest->rf_params);
   rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
-                               forest, verbose);
+                               forest, verbosity);
 }
 
 void predictGetAll(const cumlHandle& user_handle,
                    const RandomForestClassifierD* forest, const double* input,
-                   int n_rows, int n_cols, int* predictions, bool verbose) {
+                   int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfClassifier<double>> rf_classifier =
     std::make_shared<rfClassifier<double>>(forest->rf_params);
   rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
-                               forest, verbose);
+                               forest, verbosity);
 }
 /** @} */
 
@@ -588,23 +588,23 @@ void predictGetAll(const cumlHandle& user_handle,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @return RF_metrics struct with classification score (i.e., accuracy)
  * @{
  */
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
-                 int n_rows, const int* predictions, bool verbose) {
+                 int n_rows, const int* predictions, int verbosity) {
   RF_metrics classification_score = rfClassifier<float>::score(
-    user_handle, ref_labels, n_rows, predictions, verbose);
+    user_handle, ref_labels, n_rows, predictions, verbosity);
   return classification_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
-                 int n_rows, const int* predictions, bool verbose) {
+                 int n_rows, const int* predictions, int verbosity) {
   RF_metrics classification_score = rfClassifier<double>::score(
-    user_handle, ref_labels, n_rows, predictions, verbose);
+    user_handle, ref_labels, n_rows, predictions, verbosity);
   return classification_score;
 }
 
@@ -678,27 +678,27 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
 void predict(const cumlHandle& user_handle,
              const RandomForestRegressorF* forest, const float* input,
-             int n_rows, int n_cols, float* predictions, bool verbose) {
+             int n_rows, int n_cols, float* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfRegressor<float>> rf_regressor =
     std::make_shared<rfRegressor<float>>(forest->rf_params);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
-                        verbose);
+                        verbosity);
 }
 
 void predict(const cumlHandle& user_handle,
              const RandomForestRegressorD* forest, const double* input,
-             int n_rows, int n_cols, double* predictions, bool verbose) {
+             int n_rows, int n_cols, double* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<rfRegressor<double>> rf_regressor =
     std::make_shared<rfRegressor<double>>(forest->rf_params);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
-                        verbose);
+                        verbosity);
 }
 /** @} */
 
@@ -713,25 +713,25 @@ void predict(const cumlHandle& user_handle,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @return RF_metrics struct with regression score (i.e., mean absolute error,
  *   mean squared error, median absolute error)
  * @{
  */
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,
-                 int n_rows, const float* predictions, bool verbose) {
+                 int n_rows, const float* predictions, int verbosity) {
   RF_metrics regression_score = rfRegressor<float>::score(
-    user_handle, ref_labels, n_rows, predictions, verbose);
+    user_handle, ref_labels, n_rows, predictions, verbosity);
 
   return regression_score;
 }
 
 RF_metrics score(const cumlHandle& user_handle,
                  const RandomForestRegressorD* forest, const double* ref_labels,
-                 int n_rows, const double* predictions, bool verbose) {
+                 int n_rows, const double* predictions, int verbosity) {
   RF_metrics regression_score = rfRegressor<double>::score(
-    user_handle, ref_labels, n_rows, predictions, verbose);
+    user_handle, ref_labels, n_rows, predictions, verbosity);
   return regression_score;
 }
 /** @} */

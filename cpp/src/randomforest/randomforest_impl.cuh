@@ -256,13 +256,14 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
 void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
                               int n_rows, int n_cols, int* predictions,
                               const RandomForestMetaData<T, int>* forest,
-                              bool verbose) const {
+                              int verbosity) const {
+  ML::Logger::get().setLevel(verbosity);
   this->error_checking(input, predictions, n_rows, n_cols, true);
   std::vector<int> h_predictions(n_rows);
   const cumlHandle_impl& handle = user_handle.getImpl();
@@ -276,7 +277,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
 
   ML::PatternSetter _("%v");
   for (int row_id = 0; row_id < n_rows; row_id++) {
-    if (verbose) {
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
       std::stringstream ss;
       ss << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
@@ -293,7 +294,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
       int prediction;
       trees[i].predict(user_handle, &forest->trees[i],
                        &h_input[row_id * row_size], 1, n_cols, &prediction,
-                       verbose);
+                       verbosity);
       ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
       if (!(ret.second)) {
         ret.first->second += 1;
@@ -319,14 +320,15 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
 void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
                                     const T* input, int n_rows, int n_cols,
                                     int* predictions,
                                     const RandomForestMetaData<T, int>* forest,
-                                    bool verbose) {
+                                    int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   int num_trees = this->rf_params.n_trees;
   std::vector<int> h_predictions(n_rows * num_trees);
 
@@ -340,7 +342,7 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
   int pred_id = 0;
 
   for (int row_id = 0; row_id < n_rows; row_id++) {
-    if (verbose) {
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
       std::stringstream ss;
       ss << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
@@ -352,7 +354,7 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
       int prediction;
       trees[i].predict(user_handle, &forest->trees[i],
                        &h_input[row_id * row_size], 1, n_cols, &prediction,
-                       verbose);
+                       verbosity);
       h_predictions[pred_id] = prediction;
       pred_id++;
     }
@@ -372,18 +374,19 @@ void rfClassifier<T>::predictGetAll(const cumlHandle& user_handle,
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
 RF_metrics rfClassifier<T>::score(const cumlHandle& user_handle,
                                   const int* ref_labels, int n_rows,
-                                  const int* predictions, bool verbose) {
+                                  const int* predictions, int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
   float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
                                                    n_rows, d_alloc, stream);
   RF_metrics stats = set_rf_metrics_classification(accuracy);
-  if (verbose) print(stats);
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
   /* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
      For non binary classification problems (i.e., one target and  > 2 labels), need avg.
@@ -523,13 +526,13 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] forest: CPU pointer to RandomForestMetaData struct
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
 void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
                              int n_rows, int n_cols, T* predictions,
                              const RandomForestMetaData<T, T>* forest,
-                             bool verbose) const {
+                             int verbosity) const {
   this->error_checking(input, predictions, n_rows, n_cols, true);
 
   std::vector<T> h_predictions(n_rows);
@@ -543,7 +546,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
   int row_size = n_cols;
 
   for (int row_id = 0; row_id < n_rows; row_id++) {
-    if (verbose) {
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
       std::stringstream ss;
       ss << "Predict for sample: ";
       for (int i = 0; i < n_cols; i++)
@@ -557,7 +560,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
       T prediction;
       trees[i].predict(user_handle, &forest->trees[i],
                        &h_input[row_id * row_size], 1, n_cols, &prediction,
-                       verbose);
+                       verbosity);
       sum_predictions += prediction;
     }
     // Random forest's prediction is the arithmetic mean of all its decision tree predictions.
@@ -578,12 +581,13 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T* input,
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] forest: CPU pointer to RandomForestMetaData struct
- * @param[in] verbose: flag for debugging purposes.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  */
 template <typename T>
 RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle,
                                  const T* ref_labels, int n_rows,
-                                 const T* predictions, bool verbose) {
+                                 const T* predictions, int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   cudaStream_t stream = user_handle.getImpl().getStream();
   auto d_alloc = user_handle.getDeviceAllocator();
 
@@ -593,7 +597,7 @@ RF_metrics rfRegressor<T>::score(const cumlHandle& user_handle,
                                       mean_squared_error, median_abs_error);
   RF_metrics stats = set_rf_metrics_regression(
     mean_abs_error, mean_squared_error, median_abs_error);
-  if (verbose) print(stats);
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
   return stats;
 }
