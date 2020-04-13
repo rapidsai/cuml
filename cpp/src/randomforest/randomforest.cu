@@ -236,9 +236,9 @@ void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
     CUML_LOG_DEBUG("Empty forest");
   } else {
     CUML_LOG_DEBUG("Forest has %d trees, max_depth %d, and max_leaves %d",
-                  forest->rf_params.n_trees,
-                  forest->rf_params.tree_params.max_depth,
-                  forest->rf_params.tree_params.max_leaves);
+                   forest->rf_params.n_trees,
+                   forest->rf_params.tree_params.max_depth,
+                   forest->rf_params.tree_params.max_leaves);
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
       CUML_LOG_DEBUG("Tree #%d", i);
       if (summary) {

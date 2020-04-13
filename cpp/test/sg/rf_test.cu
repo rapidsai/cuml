@@ -109,8 +109,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
     // Predict and compare against known labels
-    RF_metrics tmp = score(handle, forest, labels, params.n_inference_rows,
-                           predicted_labels);
+    RF_metrics tmp =
+      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -208,8 +208,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     predict(handle, forest, inference_data_d, params.n_inference_rows,
             params.n_cols, predicted_labels);
     // Predict and compare against known labels
-    RF_metrics tmp = score(handle, forest, labels, params.n_inference_rows,
-                           predicted_labels);
+    RF_metrics tmp =
+      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
