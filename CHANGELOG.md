@@ -16,6 +16,7 @@
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
 - PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
+- PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
 - PR #2019: Enable doxygen build in our nightly doc build CI script
 - PR #1996: Cythonize in parallel
 - PR #2031: Encapsulating UCX-py interactions in singleton
