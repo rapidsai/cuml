@@ -53,7 +53,7 @@ def get_data_consistency_test():
 def test_n_init_cluster_consistency(random_state):
 
     nclusters = 8
-    X, y = get_data()
+    X, y = get_data_consistency_test()
 
     cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
                               n_clusters=nclusters,
