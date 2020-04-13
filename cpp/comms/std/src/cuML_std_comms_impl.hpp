@@ -80,11 +80,9 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
    * @param eps shared pointer to array of ucp endpoints
    * @param size size of the cluster
    * @param rank rank of the current worker
-   * @param verbose print verbose logging
    */
   cumlStdCommunicator_impl(ncclComm_t comm, ucp_worker_h ucp_worker,
-                           std::shared_ptr<ucp_ep_h*> eps, int size, int rank,
-                           bool verbose = false);
+                           std::shared_ptr<ucp_ep_h*> eps, int size, int rank);
 #endif
 
   /**
@@ -92,10 +90,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
    * @param comm initilized nccl communicator
    * @param size size of the cluster
    * @param rank rank of the current worker
-   * @param verbose print verbose logging
    */
-  cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank,
-                           bool verbose = false);
+  cumlStdCommunicator_impl(ncclComm_t comm, int size, int rank);
 
   virtual ~cumlStdCommunicator_impl();
 
@@ -148,8 +144,6 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 
   int _size;
   int _rank;
-
-  bool _verbose;
 
   void initialize();
   void get_request_id(request_t* req) const;
