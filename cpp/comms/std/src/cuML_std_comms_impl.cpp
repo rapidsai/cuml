@@ -237,7 +237,7 @@ cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
   CUDA_CHECK_NO_THROW(cudaFree(_sendbuff));
   CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 
-#ifndef WITH_UCX
+#ifdef WITH_UCX
   close_ucp_handle((struct comms_ucp_handle *)_ucp_handle);
 #endif
 }
