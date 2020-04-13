@@ -122,13 +122,13 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
-                                   bool verbose = false);
+                                   int verbosity = -1);
 
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierD *tree,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
-                                   bool verbose = false);
+                                   int verbosity = -1);
 
 // ----------------------------- Regression ----------------------------------- //
 
@@ -150,13 +150,13 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
-                                  float *predictions, bool verbose = false);
+                                  float *predictions, int verbosity = -1);
 
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorD *tree,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,
-                                  bool verbose = false);
+                                  int verbosity = -1);
 
 }  // End namespace DecisionTree
 }  //End namespace ML
