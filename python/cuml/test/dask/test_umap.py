@@ -36,11 +36,14 @@ def test_umap_mnmg(n_parts, sampling_ratio, supervised, dataset, cluster):
         from cuml.manifold import UMAP
         from cuml.dask.manifold import UMAP as MNMG_UMAP
 
-        n_neighbors = 10
+        n_neighbors = 500
+
+        print("Dataset: " + str(dataset))
 
         if dataset == "make_blobs":
             local_X, local_y = make_blobs(n_samples=10000, n_features=10,
-                                          centers=200, cluster_std=0.1)
+                                          centers=200, cluster_std=0.8,
+                                          shuffle=True, random_state=42)
         else:
             if dataset == "digits":
                 from sklearn.datasets import load_digits
@@ -51,12 +54,14 @@ def test_umap_mnmg(n_parts, sampling_ratio, supervised, dataset, cluster):
 
         def umap_mnmg_trustworthiness():
             n_samples = local_X.shape[0]
-            n_sampling = int(n_samples * sampling_ratio)
             n_samples_per_part = int(n_samples / n_parts)
 
-            local_model = UMAP(n_neighbors=n_neighbors)
+            local_model = UMAP(n_neighbors=n_neighbors,
+                               random_state=42)
 
-            selection = np.random.choice(n_samples, n_sampling)
+            selection = np.random.RandomState(42).choice(
+                [True, False], n_samples, replace=True,
+                p=[sampling_ratio, 1.0-sampling_ratio])
             X_train = local_X[selection]
             X_transform = local_X[~selection]
             X_transform_d = da.from_array(X_transform,
@@ -75,7 +80,8 @@ def test_umap_mnmg(n_parts, sampling_ratio, supervised, dataset, cluster):
             return trustworthiness(X_transform, embedding, n_neighbors)
 
         def local_umap_trustworthiness():
-            local_model = UMAP(n_neighbors=n_neighbors)
+            local_model = UMAP(n_neighbors=n_neighbors,
+                               random_state=42)
             local_model.fit(local_X, local_y)
             embedding = local_model.transform(local_X)
             return trustworthiness(local_X, embedding, n_neighbors)
