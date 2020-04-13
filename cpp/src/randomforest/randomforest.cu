@@ -88,11 +88,11 @@ RF_metrics set_rf_metrics_regression(double mean_abs_error,
  */
 void print(const RF_metrics rf_metrics) {
   if (rf_metrics.rf_type == RF_type::CLASSIFICATION) {
-    CUML_LOG_INFO("Accuracy: %f", rf_metrics.accuracy);
+    CUML_LOG_DEBUG("Accuracy: %f", rf_metrics.accuracy);
   } else if (rf_metrics.rf_type == RF_type::REGRESSION) {
-    CUML_LOG_INFO("Mean Absolute Error: %f", rf_metrics.mean_abs_error);
-    CUML_LOG_INFO("Mean Squared Error: %f", rf_metrics.mean_squared_error);
-    CUML_LOG_INFO("Median Absolute Error: %f", rf_metrics.median_abs_error);
+    CUML_LOG_DEBUG("Mean Absolute Error: %f", rf_metrics.mean_abs_error);
+    CUML_LOG_DEBUG("Mean Squared Error: %f", rf_metrics.mean_squared_error);
+    CUML_LOG_DEBUG("Median Absolute Error: %f", rf_metrics.median_abs_error);
   }
 }
 
@@ -213,10 +213,10 @@ void validity_check(const RF_params rf_params) {
  */
 void print(const RF_params rf_params) {
   ML::PatternSetter _("%v");
-  CUML_LOG_INFO("n_trees: %d", rf_params.n_trees);
-  CUML_LOG_INFO("bootstrap: %d", rf_params.bootstrap);
-  CUML_LOG_INFO("rows_sample: %f", rf_params.rows_sample);
-  CUML_LOG_INFO("n_streams: %d", rf_params.n_streams);
+  CUML_LOG_DEBUG("n_trees: %d", rf_params.n_trees);
+  CUML_LOG_DEBUG("bootstrap: %d", rf_params.bootstrap);
+  CUML_LOG_DEBUG("rows_sample: %f", rf_params.rows_sample);
+  CUML_LOG_DEBUG("n_streams: %d", rf_params.n_streams);
   DecisionTree::print(rf_params.tree_params);
 }
 
@@ -233,14 +233,14 @@ template <class T, class L>
 void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   ML::PatternSetter _("%v");
   if (!forest || !forest->trees) {
-    CUML_LOG_INFO("Empty forest");
+    CUML_LOG_DEBUG("Empty forest");
   } else {
-    CUML_LOG_INFO("Forest has %d trees, max_depth %d, and max_leaves %d",
+    CUML_LOG_DEBUG("Forest has %d trees, max_depth %d, and max_leaves %d",
                   forest->rf_params.n_trees,
                   forest->rf_params.tree_params.max_depth,
                   forest->rf_params.tree_params.max_leaves);
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      CUML_LOG_INFO("Tree #%d", i);
+      CUML_LOG_DEBUG("Tree #%d", i);
       if (summary) {
         DecisionTree::print_tree_summary<T, L>(&(forest->trees[i]));
       } else {
