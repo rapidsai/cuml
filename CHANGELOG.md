@@ -10,6 +10,7 @@
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 - PR #1968: Update SVC SVR with cuML Array
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
@@ -19,6 +20,7 @@
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
+- PR #2058: Use CumlArray in Random Projection
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
