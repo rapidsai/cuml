@@ -335,7 +335,7 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   extern __shared__ int label_cache[];
   for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
     label_cache[j] = unique_labels[j];
-    printf("Label: %d\n", label_cache[j]);
+    printf("Label: %d=%d\n", j, label_cache[j]);
   }
 
   __syncthreads();
@@ -419,7 +419,9 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      */
     device_buffer<int> y_normalized(allocator, stream, n_rows);
     MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_rows, stream);
-
+    MLCommon::LinAlg::unaryOp<int>(
+      y_normalized.data(), y_normalized.data(), n_rows, [] __device__(int input) { return input -1; },
+      stream);
     class_probs_kernel<<<grid, blk, 0, stream>>>(
       out[i], knn_indices, y_normalized.data(), n_labels, n_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
