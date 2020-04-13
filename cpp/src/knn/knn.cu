@@ -60,7 +60,9 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
     MLCommon::Label::getUniqueLabels(y[i], n_samples, &(uniq_labels[i]),
                                      &(n_unique[i]), stream, d_alloc);
 
-    std::cout << MLCommon::arr2Str(uniq_labels[i], n_unique[i], "unique_labels", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(uniq_labels[i], n_unique[i], "unique_labels",
+                                   stream)
+              << std::endl;
   }
 
   MLCommon::Selection::knn_classify(out, knn_indices, y, n_samples, k,

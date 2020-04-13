@@ -306,9 +306,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
 template <typename OutType = float>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
-                                   const int *labels,
-                                   int n_uniq_labels, size_t n_samples,
-                                   int n_neighbors) {
+                                   const int *labels, int n_uniq_labels,
+                                   size_t n_samples, int n_neighbors) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
@@ -420,8 +419,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     device_buffer<int> y_normalized(allocator, stream, n_rows);
     MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_rows, stream);
     MLCommon::LinAlg::unaryOp<int>(
-      y_normalized.data(), y_normalized.data(), n_rows, [] __device__(int input) { return input -1; },
-      stream);
+      y_normalized.data(), y_normalized.data(), n_rows,
+      [] __device__(int input) { return input - 1; }, stream);
     class_probs_kernel<<<grid, blk, 0, stream>>>(
       out[i], knn_indices, y_normalized.data(), n_labels, n_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
