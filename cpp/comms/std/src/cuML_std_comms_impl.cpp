@@ -220,8 +220,13 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
 
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(ncclComm_t comm, int size,
                                                    int rank, bool verbose)
-  : _nccl_comm(comm), _size(size), _rank(rank), _verbose(verbose),
-    _ucp_worker(nullptr), _ucp_handle(nullptr), _ucp_eps(nullptr){
+  : _nccl_comm(comm),
+    _size(size),
+    _rank(rank),
+    _verbose(verbose),
+    _ucp_worker(nullptr),
+    _ucp_handle(nullptr),
+    _ucp_eps(nullptr) {
   initialize();
 }
 
@@ -239,13 +244,11 @@ cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
   CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
 
 #ifdef WITH_UCX
-  if( _ucp_worker != nullptr) {
+  if (_ucp_worker != nullptr) {
     close_ucp_handle((struct comms_ucp_handle *)_ucp_handle);
   }
 #endif
 }
-
-
 
 int cumlStdCommunicator_impl::getSize() const { return _size; }
 
