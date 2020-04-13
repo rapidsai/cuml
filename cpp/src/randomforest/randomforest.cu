@@ -476,11 +476,13 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles) {
  *   needed for current gini impl. in decision tree
  * @param[in] n_unique_labels: #unique label values (known during preprocessing)
  * @param[in] rf_params: Random Forest training hyper parameter struct.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
 void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
-         RF_params rf_params) {
+         RF_params rf_params, int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<float, int>[rf_params.n_trees];
@@ -494,7 +496,8 @@ void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
 
 void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
-         int n_unique_labels, RF_params rf_params) {
+         int n_unique_labels, RF_params rf_params, int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<double, int>[rf_params.n_trees];
@@ -639,11 +642,13 @@ RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
  * @param[in] labels: 1D array of target features (float or double), with one label per
  *   training sample. Device pointer.
  * @param[in] rf_params: Random Forest training hyper parameter struct.
+ * @param[in] verbosity: verbosity level for logging messages during execution
  * @{
  */
 void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
-         RF_params rf_params) {
+         RF_params rf_params, int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<float, float>[rf_params.n_trees];
@@ -656,7 +661,8 @@ void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
 
 void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
-         RF_params rf_params) {
+         RF_params rf_params, int verbosity) {
+  ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
   forest->trees =
     new DecisionTree::TreeMetaDataNode<double, double>[rf_params.n_trees];

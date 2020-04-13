@@ -136,10 +136,10 @@ typedef RandomForestMetaData<double, int> RandomForestClassifierD;
 
 void fit(const cumlHandle& user_handle, RandomForestClassifierF*& forest,
          float* input, int n_rows, int n_cols, int* labels, int n_unique_labels,
-         RF_params rf_params);
+         RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
 void fit(const cumlHandle& user_handle, RandomForestClassifierD*& forest,
          double* input, int n_rows, int n_cols, int* labels,
-         int n_unique_labels, RF_params rf_params);
+         int n_unique_labels, RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
 
 void predict(const cumlHandle& user_handle,
              const RandomForestClassifierF* forest, const float* input,
@@ -178,10 +178,10 @@ typedef RandomForestMetaData<double, double> RandomForestRegressorD;
 
 void fit(const cumlHandle& user_handle, RandomForestRegressorF*& forest,
          float* input, int n_rows, int n_cols, float* labels,
-         RF_params rf_params);
+         RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
 void fit(const cumlHandle& user_handle, RandomForestRegressorD*& forest,
          double* input, int n_rows, int n_cols, double* labels,
-         RF_params rf_params);
+         RF_params rf_params, int verbosity = CUML_LEVEL_INFO);
 
 void predict(const cumlHandle& user_handle,
              const RandomForestRegressorF* forest, const float* input,
