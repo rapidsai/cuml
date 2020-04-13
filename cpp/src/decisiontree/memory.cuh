@@ -70,13 +70,13 @@ void TemporaryMemory<T, L>::print_info(int depth, int nrows, int ncols,
 
   ML::PatternSetter _("%v");
   CUML_LOG_DEBUG("maxnodes --> %lu gather maxnodes--> %lu", maxnodes,
-                gather_max_nodes);
+                 gather_max_nodes);
   CUML_LOG_DEBUG("Parent size --> %lu", parentsz);
   CUML_LOG_DEBUG("Child size  --> %lu", childsz);
   CUML_LOG_DEBUG("Nrows size --> %d", (nrows + 1));
   CUML_LOG_DEBUG("Sparse tree holder size --> %lu", 2 * gather_max_nodes);
   CUML_LOG_DEBUG(" Total temporary memory usage--> %lf MB",
-                ((double)totalmem / (1024 * 1024)));
+                 ((double)totalmem / (1024 * 1024)));
 }
 
 template <class T, class L>

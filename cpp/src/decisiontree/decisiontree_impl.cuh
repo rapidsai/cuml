@@ -167,12 +167,12 @@ template <typename T, typename L>
 void DecisionTreeBase<T, L>::print_tree_summary() const {
   PatternSetter _("%v");
   CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
-                depth_counter, leaf_counter);
+                 depth_counter, leaf_counter);
   CUML_LOG_DEBUG(" Total temporary memory usage--> %lf MB",
-                ((double)total_temp_mem / (1024 * 1024)));
+                 ((double)total_temp_mem / (1024 * 1024)));
   CUML_LOG_DEBUG(" Shared memory used --> %d B", shmem_used);
   CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf s",
-                prepare_time + train_time);
+                 prepare_time + train_time);
   CUML_LOG_DEBUG("   - preparing for fit time: %lf s", prepare_time);
   CUML_LOG_DEBUG("   - tree growing time: %lf s", train_time);
 }
@@ -295,15 +295,15 @@ L DecisionTreeBase<T, L>::predict_one(
   int leftchild = sparsetree[idx].left_child_id;
   if (colid == -1) {
     CUML_LOG_DEBUG("Leaf node. Predicting %f",
-                  (float)sparsetree[idx].prediction);
+                   (float)sparsetree[idx].prediction);
     return sparsetree[idx].prediction;
   } else if (row[colid] <= quesval) {
     CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid,
-                  (float)quesval);
+                   (float)quesval);
     return predict_one(row, sparsetree, leftchild);
   } else {
     CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f", colid,
-                  (float)quesval);
+                   (float)quesval);
     return predict_one(row, sparsetree, leftchild + 1);
   }
 }
