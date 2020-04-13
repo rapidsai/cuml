@@ -20,6 +20,7 @@
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
 - PR #2058: Use CumlArray in Random Projection
+- PR #2064: Speed-up K-Means test
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
