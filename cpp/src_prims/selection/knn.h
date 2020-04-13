@@ -334,7 +334,6 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   extern __shared__ int label_cache[];
   for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
     label_cache[j] = unique_labels[j];
-    printf("Label: %d=%d\n", j, label_cache[j]);
   }
 
   __syncthreads();
