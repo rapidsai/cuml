@@ -31,8 +31,9 @@ dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
 SCORE_EPS = 0.06
 
+
 @pytest.fixture
-def get_data():
+def get_data_consistency_test():
     cluster_std = 1.0
     nrows = 1000
     ncols = 50
@@ -46,10 +47,12 @@ def get_data():
                       random_state=0)
     return X, y
 
+
 @pytest.mark.xfail
 @pytest.mark.parametrize('random_state', [i for i in range(10)])
 def test_n_init_cluster_consistency(random_state):
 
+    nclusters = 8
     X, y = get_data()
 
     cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
