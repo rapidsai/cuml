@@ -28,9 +28,9 @@ from sklearn.model_selection import train_test_split
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
     ('lrate', 'penalty', 'loss'), [
-        ('constant', 'none', 'hinge'),
-        ('invscaling', 'l1', 'log'),
-        ('adaptive', 'l2', 'squared_loss'),
+        ('constant', 'none', 'log'),
+        ('invscaling', 'l2', 'hinge'),
+        ('adaptive', 'l1', 'squared_loss'),
         ('constant', 'elasticnet', 'hinge'),
     ]
 )
