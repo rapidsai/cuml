@@ -57,13 +57,13 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
                           coo->nnz, n, params->n_components,
                           tmp_storage.data());
 
-  MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
-                              params->n_components,
-                              handle.getImpl().getCublasHandle(), stream);
-
   MLCommon::LinAlg::unaryOp<T>(
     tmp_storage.data(), tmp_storage.data(), n * params->n_components,
     [=] __device__(T input) { return fabsf(input); }, stream);
+
+  MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
+                              params->n_components,
+                              handle.getImpl().getCublasHandle(), stream);
 
   thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(tmp_storage.data());
   T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr,
@@ -71,6 +71,7 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
 
   uint64_t seed = params->random_state;
 
+  // Reuse tmp_storage to add random noise
   MLCommon::Random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
 
