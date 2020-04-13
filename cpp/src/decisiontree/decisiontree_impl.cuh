@@ -57,13 +57,13 @@ void print_node(const std::string &prefix,
                 const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx,
                 bool isLeft) {
   const SparseTreeNode<T, L> &node = sparsetree[idx];
-  CUML_LOG_INFO(prefix.c_str());
-  CUML_LOG_INFO(isLeft ? "├" : "└");
+  CUML_LOG_DEBUG(prefix.c_str());
+  CUML_LOG_DEBUG(isLeft ? "├" : "└");
 
   // print the value of the node
   std::stringstream ss;
   ss << node << std::endl;
-  CUML_LOG_INFO(ss.str().c_str());
+  CUML_LOG_DEBUG(ss.str().c_str());
 
   if ((node.colid != -1)) {
     // enter the next tree level - left and right branch
@@ -166,15 +166,15 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print_tree_summary() const {
   PatternSetter _("%v");
-  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
+  CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
                 depth_counter, leaf_counter);
-  CUML_LOG_INFO(" Total temporary memory usage--> %lf MB",
+  CUML_LOG_DEBUG(" Total temporary memory usage--> %lf MB",
                 ((double)total_temp_mem / (1024 * 1024)));
-  CUML_LOG_INFO(" Shared memory used --> %d B", shmem_used);
-  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
+  CUML_LOG_DEBUG(" Shared memory used --> %d B", shmem_used);
+  CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf s",
                 prepare_time + train_time);
-  CUML_LOG_INFO("   - preparing for fit time: %lf s", prepare_time);
-  CUML_LOG_INFO("   - tree growing time: %lf s", train_time);
+  CUML_LOG_DEBUG("   - preparing for fit time: %lf s", prepare_time);
+  CUML_LOG_DEBUG("   - tree growing time: %lf s", train_time);
 }
 
 /**
@@ -294,15 +294,15 @@ L DecisionTreeBase<T, L>::predict_one(
   T quesval = sparsetree[idx].quesval;
   int leftchild = sparsetree[idx].left_child_id;
   if (colid == -1) {
-    CUML_LOG_INFO("Leaf node. Predicting %f",
+    CUML_LOG_DEBUG("Leaf node. Predicting %f",
                   (float)sparsetree[idx].prediction);
     return sparsetree[idx].prediction;
   } else if (row[colid] <= quesval) {
-    CUML_LOG_INFO("Classifying Left @ node w/ column %d and value %f", colid,
+    CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid,
                   (float)quesval);
     return predict_one(row, sparsetree, leftchild);
   } else {
-    CUML_LOG_INFO("Classifying Right @ node w/ column %d and value %f", colid,
+    CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f", colid,
                   (float)quesval);
     return predict_one(row, sparsetree, leftchild + 1);
   }

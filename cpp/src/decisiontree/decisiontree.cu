@@ -80,16 +80,16 @@ void validity_check(const DecisionTreeParams params) {
  * @param[in] params: decision tree hyper-parameters.
  */
 void print(const DecisionTreeParams params) {
-  CUML_LOG_INFO("max_depth: %d", params.max_depth);
-  CUML_LOG_INFO("max_leaves: %d", params.max_leaves);
-  CUML_LOG_INFO("max_features: %f", params.max_features);
-  CUML_LOG_INFO("n_bins: %d", params.n_bins);
-  CUML_LOG_INFO("split_algo: %d", params.split_algo);
-  CUML_LOG_INFO("min_rows_per_node: %d", params.min_rows_per_node);
-  CUML_LOG_INFO("bootstrap_features: %d", params.bootstrap_features);
-  CUML_LOG_INFO("split_criterion: %d", params.split_criterion);
-  CUML_LOG_INFO("quantile_per_tree: %d", params.quantile_per_tree);
-  CUML_LOG_INFO("shuffle_features: %d", params.shuffle_features);
+  CUML_LOG_DEBUG("max_depth: %d", params.max_depth);
+  CUML_LOG_DEBUG("max_leaves: %d", params.max_leaves);
+  CUML_LOG_DEBUG("max_features: %f", params.max_features);
+  CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
+  CUML_LOG_DEBUG("split_algo: %d", params.split_algo);
+  CUML_LOG_DEBUG("min_rows_per_node: %d", params.min_rows_per_node);
+  CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
+  CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
+  CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
+  CUML_LOG_DEBUG("shuffle_features: %d", params.shuffle_features);
 }
 
 /**
@@ -100,12 +100,12 @@ void print(const DecisionTreeParams params) {
  */
 template <class T, class L>
 void print_tree_summary(const TreeMetaDataNode<T, L> *tree) {
-  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
+  CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
                 tree->depth_counter, tree->leaf_counter);
-  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
+  CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf s",
                 tree->prepare_time + tree->train_time);
-  CUML_LOG_INFO("   - preparing for fit time: %lf s", tree->prepare_time);
-  CUML_LOG_INFO("   - tree growing time: %lf s", tree->train_time);
+  CUML_LOG_DEBUG("   - preparing for fit time: %lf s", tree->prepare_time);
+  CUML_LOG_DEBUG("   - tree growing time: %lf s", tree->train_time);
 }
 
 /**
