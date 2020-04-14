@@ -52,7 +52,12 @@ def _conv_array_to_sparse(arr):
                 dense numpy or cupy array
     :return: cupy sparse CSR matrix
     """
-    if scipy.sparse.isspmatrix(arr):
+    if has_scipy():
+        from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+    else:
+        from cuml.utils.import_utils import dummy_function_always_false \
+            as scipy_sparse_isspmatrix
+    if scipy_sparse_isspmatrix(arr):
         ret = \
             cupyx.scipy.sparse.csr_matrix(arr.tocsr())
     elif cupyx.scipy.sparse.isspmatrix(arr):
