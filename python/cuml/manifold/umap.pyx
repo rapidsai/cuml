@@ -424,11 +424,10 @@ class UMAP(Base):
         if has_scipy():
             from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
         else:
-            class Dummy(object):
-                pass
-            csr_matrix = Dummy
-            coo_matrix = Dummy
-            csc_matrix = Dummy
+            from cuml.utils.import_utils import DummyClass
+            csr_matrix = DummyClass
+            coo_matrix = DummyClass
+            csc_matrix = DummyClass
 
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
             knn_graph = cupy.sparse.csr_matrix(knn_graph)
