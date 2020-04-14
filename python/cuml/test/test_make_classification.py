@@ -17,6 +17,7 @@
 import pytest
 from cuml.datasets.classification import make_classification
 
+
 @pytest.mark.parametrize('n_samples', [1000])
 @pytest.mark.parametrize('n_features', [100])
 @pytest.mark.parametrize('n_classes', [2, 4])
@@ -29,16 +30,16 @@ def test_make_classification(n_samples, n_features, n_classes,
                              random_state, order):
 
     X, y = make_classification(n_samples=n_samples, n_features=n_features,
-                                n_classes=n_classes,
-                                n_clusters_per_class=n_clusters_per_class,
-                                n_informative=n_informative,
-                                random_state=random_state, order=order)
+                               n_classes=n_classes,
+                               n_clusters_per_class=n_clusters_per_class,
+                               n_informative=n_informative,
+                               random_state=random_state, order=order)
 
     assert X.shape == (n_samples, n_features)
     import cupy as cp
     assert len(cp.unique(y)) == n_classes
     assert y.shape == (n_samples, )
     if order == 'F':
-        assert X.flags['F_CONTIGUOUS'] == True
+        assert X.flags['F_CONTIGUOUS']
     elif order == 'C':
-        assert X.flags['C_CONTIGUOUS'] == True
+        assert X.flags['C_CONTIGUOUS']
