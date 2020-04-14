@@ -209,12 +209,9 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
     _size(size),
     _rank(rank),
     _next_request_id(0),
-    _ucp_handle(NULL),
     _verbose(verbose) {
   initialize();
-
-  _ucp_handle = (void *)malloc(sizeof(struct comms_ucp_handle));
-  init_comms_ucp_handle((struct comms_ucp_handle *)_ucp_handle);
+  p2p_enabled = true;
 }
 #endif
 
@@ -223,10 +220,7 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(ncclComm_t comm, int size,
   : _nccl_comm(comm),
     _size(size),
     _rank(rank),
-    _verbose(verbose),
-    _ucp_worker(nullptr),
-    _ucp_handle(nullptr),
-    _ucp_eps(nullptr) {
+    _verbose(verbose) {
   initialize();
 }
 
@@ -242,12 +236,6 @@ cumlStdCommunicator_impl::~cumlStdCommunicator_impl() {
 
   CUDA_CHECK_NO_THROW(cudaFree(_sendbuff));
   CUDA_CHECK_NO_THROW(cudaFree(_recvbuff));
-
-#ifdef WITH_UCX
-  if (_ucp_worker != nullptr) {
-    close_ucp_handle((struct comms_ucp_handle *)_ucp_handle);
-  }
-#endif
 }
 
 int cumlStdCommunicator_impl::getSize() const { return _size; }
@@ -292,6 +280,7 @@ void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
 void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
                                      int tag, request_t *request) const {
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+  ASSERT(p2p_enabled, "cuML Comms instance was not initialized for point-to-point");
 
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
@@ -300,8 +289,9 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
   get_request_id(request);
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
-  struct ucp_request *ucp_req =
-    ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
+  ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
+
+  this->_ucp_handler.ucp_isend(ucp_req, ep_ptr, buf, size, tag,
               default_tag_mask, getRank(), _verbose);
 
   CUML_LOG_DEBUG(
@@ -316,6 +306,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
                                      request_t *request) const {
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+  ASSERT(p2p_enabled, "cuML Comms instance was not initialized for point-to-point");
 
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
@@ -331,8 +322,8 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
     tag_mask = any_rank_tag_mask;
   }
 
-  struct ucp_request *ucp_req =
-    ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
+  ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
+  _ucp_handler.ucp_irecv(ucp_req, _ucp_worker, ep_ptr, buf,
               size, tag, tag_mask, source, _verbose);
 
   CUML_LOG_DEBUG(
@@ -347,12 +338,13 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 void cumlStdCommunicator_impl::waitall(int count,
                                        request_t array_of_requests[]) const {
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
+  ASSERT(p2p_enabled, "cuML Comms instance was not initialized for point-to-point");
 
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
-  std::vector<struct ucp_request *> requests;
+  std::vector<ucp_request *> requests;
   requests.reserve(count);
 
   time_t start = time(NULL);
@@ -373,13 +365,12 @@ void cumlStdCommunicator_impl::waitall(int count,
     // in 10 or more seconds.
     ASSERT(now - start < 10, "Timed out waiting for requests.");
 
-    for (std::vector<struct ucp_request *>::iterator it = requests.begin();
+    for (std::vector<ucp_request *>::iterator it = requests.begin();
          it != requests.end();) {
       bool restart = false;  // resets the timeout when any progress was made
 
       // Causes UCP to progress through the send/recv message queue
-      while (ucp_progress((struct comms_ucp_handle *)_ucp_handle,
-                          _ucp_worker) != 0) {
+      while (_ucp_handler.ucp_progress(_ucp_worker) != 0) {
         restart = true;
       }
 
@@ -409,7 +400,7 @@ void cumlStdCommunicator_impl::waitall(int count,
           req->other_rank, req->is_send_request, !req->needs_release);
 
         // perform cleanup
-        free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
+        _ucp_handler.free_ucp_request(req);
 
         // remove from pending requests
         it = requests.erase(it);
