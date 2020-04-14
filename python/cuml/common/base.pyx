@@ -23,6 +23,7 @@ import cuml
 import cuml.common.handle
 import cuml.common.cuda
 import inspect
+import cuml.common.logger as logger
 
 from cudf.core import Series, DataFrame
 from cuml.common.array import CumlArray
@@ -162,8 +163,8 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False,
-                 verbosity=cuml.common.logger.LEVEL_INFO, output_type=None):
+    def __init__(self, handle=None, verbose=False, verbosity=logger.LEVEL_INFO,
+                 output_type=None):
         """
         Constructor. All children must call init method of this base class.
 
