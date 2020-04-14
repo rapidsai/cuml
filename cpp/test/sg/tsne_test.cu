@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "cuda_utils.h"
 
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include "common/device_buffer.hpp"
 
 using namespace MLCommon;
@@ -50,7 +51,8 @@ class TSNETest : public ::testing::Test {
                              n * 2);
 
     // Test Barnes Hut
-    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90);
+    TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
+             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, false);
 
     // Move embeddings to host.
     // This can be used for printing if needed.
@@ -81,7 +83,7 @@ class TSNETest : public ::testing::Test {
 
     // Test Exact TSNE
     TSNE_fit(handle, X_d.data(), Y_d.data(), n, p, 2, 90, 0.5, 0.0025, 50, 100,
-             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, true,
+             1e-5, 12, 250, 0.01, 200, 500, 1000, 1e-7, 0.5, 0.8, -1, false,
              false, false);
 
     MLCommon::updateHost(&embeddings_h[0], Y_d.data(), n * 2,
@@ -123,8 +125,7 @@ class TSNETest : public ::testing::Test {
 
 typedef TSNETest TSNETestF;
 TEST_F(TSNETestF, Result) {
-  if (score_bh < 0.98) printf("BH score = %f\n", score_bh);
-  if (score_exact < 0.98) printf("Exact score = %f\n", score_exact);
-
+  if (score_bh < 0.98) CUML_LOG_DEBUG("BH score = %f", score_bh);
+  if (score_exact < 0.98) CUML_LOG_DEBUG("Exact score = %f", score_exact);
   ASSERT_TRUE(0.98 < score_bh && 0.98 < score_exact);
 }
