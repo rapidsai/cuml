@@ -24,6 +24,7 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
 #include "kernelcache.h"
 #include "linalg/cublas_wrappers.h"
@@ -89,7 +90,9 @@ class SmoSolver {
       alpha(handle.getDeviceAllocator(), stream),
       delta_alpha(handle.getDeviceAllocator(), stream),
       f(handle.getDeviceAllocator(), stream),
-      y_label(handle.getDeviceAllocator(), stream) {}
+      y_label(handle.getDeviceAllocator(), stream) {
+    ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  }
 
 #define SMO_WS_SIZE 1024
   /**
@@ -153,16 +156,15 @@ class SmoSolver {
 
       n_inner_iter += host_return_buff[1];
       n_iter++;
-      if (verbose && n_iter % 500 == 0) {
-        std::cout << "SMO iteration " << n_iter << ", diff " << diff << "\n";
+      if (n_iter % 500 == 0) {
+        CUML_LOG_INFO("SMO iteration %d, diff %lf", n_iter, (double)diff);
       }
     }
 
-    if (verbose) {
-      std::cout << "SMO solver finished after " << n_iter
-                << " outer iterations, " << n_inner_iter
-                << " total inner iterations, and diff " << diff_prev << "\n";
-    }
+    CUML_LOG_INFO(
+      "SMO solver finished after %d outer iterations, total inner"
+      " iterations, and diff %lf",
+      n_iter, n_inner_iter, diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C, svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
@@ -360,22 +362,22 @@ class SmoSolver {
       n_small_diff = 0;
     }
     if (n_small_diff > nochange_steps) {
-      if (verbose) {
-        std::cout << "SMO error: Stopping due to unchanged diff over "
-                  << nochange_steps << " consecutive steps\n";
-      }
+      CUML_LOG_ERROR(
+        "SMO error: Stopping due to unchanged diff over %d"
+        " consecutive steps",
+        nochange_steps);
       keep_going = false;
     }
     if (diff < tol) keep_going = false;
     if (isnan(diff)) {
-      std::string txt = "SMO error: NaN found during fitting.";
+      std::string txt;
       if (std::is_same<float, math_t>::value) {
         txt +=
           " This might be caused by floating point overflow. In such case using"
           " fp64 could help. Alternatively, try gamma='scale' kernel"
           " parameter.";
       }
-      THROW(txt.c_str());
+      THROW("SMO error: NaN found during fitting.%s", txt.c_str());
     }
     return keep_going;
   }
