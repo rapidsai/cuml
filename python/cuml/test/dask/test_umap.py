@@ -38,8 +38,6 @@ def test_umap_mnmg(n_parts, sampling_ratio, supervised, dataset, cluster):
 
         n_neighbors = 10
 
-        print("Dataset: " + str(dataset))
-
         if dataset == "make_blobs":
             local_X, local_y = make_blobs(n_samples=10000, n_features=10,
                                           centers=200, cluster_std=0.8,
