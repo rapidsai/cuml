@@ -20,6 +20,7 @@
 - PR #1996: Cythonize in parallel
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
 
 ## Bug Fixes

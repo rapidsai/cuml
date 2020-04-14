@@ -170,7 +170,7 @@ class CSR {
   friend std::ostream &operator<<(std::ostream &out, const CSR<T> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
-      CUDA_CHECK(cudaStreamCreate(&stream));
+      CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
       out << arr2Str(c.row_ind_arr.data(), c.n_rows + 1, "row_ind", stream)
           << std::endl;
@@ -183,7 +183,7 @@ class CSR {
 
       CUDA_CHECK(cudaStreamDestroy(stream));
     } else {
-      out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
+      out << "Cannot print CSR object: Uninitialized or invalid." << std::endl;
     }
 
     return out;
