@@ -39,7 +39,7 @@ def test_getattr(cluster):
 
     X_cudf, y = make_blobs(n_samples=5,
                            n_features=5,
-                           n_centers=2,
+                           centers=2,
                            n_parts=2,
                            cluster_std=0.01,
                            verbose=False,
