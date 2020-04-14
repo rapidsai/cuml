@@ -31,7 +31,6 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include "common.cuh"
 
-
 namespace ML {
 namespace fil {
 
@@ -344,7 +343,8 @@ inline int max_depth(const tl::Tree& tree) {
       stack.push(pair_t(&tl_node_at(tree, node->cleft()), depth + 1));
       node = &tl_node_at(tree, node->cright());
       depth++;
-      ASSERT(depth < DEPTH_LIMIT, "depth limit reached, might be a cycle in the tree");
+      ASSERT(depth < DEPTH_LIMIT,
+             "depth limit reached, might be a cycle in the tree");
     }
     // only need to update depth for leaves
     max_depth = std::max(max_depth, depth);
@@ -359,7 +359,7 @@ int max_depth(const tl::Model& model) {
 }
 
 inline void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
-                      bool* default_left, const tl::Tree::Node& node) {
+                             bool* default_left, const tl::Tree::Node& node) {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
@@ -382,8 +382,8 @@ inline void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
       std::swap(*tl_left, *tl_right);
       *default_left = !*default_left;
       break;
-  default:
-    ASSERT(false, "only <, >, <= and >= comparisons are supported");
+    default:
+      ASSERT(false, "only <, >, <= and >= comparisons are supported");
   }
 }
 
@@ -414,7 +414,7 @@ void tree2fil_dense(std::vector<dense_node_t>* pnodes, int root,
   node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
 }
 
-int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {  
+int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
   typedef std::pair<const tl::Tree::Node*, int> pair_t;
   std::stack<pair_t> stack;
   int root = pnodes->size();
@@ -425,7 +425,7 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
     const tl::Tree::Node* node = top.first;
     int cur = top.second;
     stack.pop();
-    
+
     while (!node->is_leaf()) {
       // inner node
       ASSERT(node->split_type() == tl::SplitFeatureType::kNumerical,
@@ -455,9 +455,9 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
 
     // leaf node
     sparse_node_init_inline(&(*pnodes)[root + cur], node->leaf_value(), 0, 0,
-                              false, true, 0);
+                            false, true, 0);
   }
-    
+
   return root;
 }
 
