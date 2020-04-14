@@ -26,32 +26,10 @@
 
 #ifdef WITH_UCX
 #include <ucp/api/ucp.h>
-
-/**
- * Standard UCX request object that will be passed
- * around asynchronously. This object is really
- * opaque and the comms layer only cares that it
- * has been completed. Because cuml comms do not
- * initialize the ucx application context, it doesn't
- * own this object and thus it's important not to
- * modify this struct.
- */
-struct ucx_context {
-  int completed;
-};
-
-/**
- * The ucp_request struct is owned by cuml comms. It
- * wraps the `ucx_context` request and adds a few
- * other fields for logging and cleanup.
- */
-struct ucp_request {
-  struct ucx_context* req;
-  bool needs_release = true;
-  int other_rank = -1;
-  bool is_send_request = false;
-};
+#include "ucp_helper.h"
+#include <ucp/api/ucp_def.h>
 #endif
+
 
 namespace ML {
 
@@ -155,7 +133,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   void get_request_id(request_t* req) const;
 
 #ifdef WITH_UCX
-  void* _ucp_handle;
+  bool p2p_enabled = false;
+  comms_ucp_handler _ucp_handler;
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
   mutable request_t _next_request_id;
