@@ -178,7 +178,7 @@ class Base:
         #    integer logging-level argument, remove `self.verbose` and have all
         #    algos in python layer accept an integer logging level instead of
         #    the current boolean param
-        self.logging_level = verbosity
+        self.verbosity = verbosity
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
