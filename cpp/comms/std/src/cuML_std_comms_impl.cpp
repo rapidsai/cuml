@@ -217,10 +217,7 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
 
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(ncclComm_t comm, int size,
                                                    int rank, bool verbose)
-  : _nccl_comm(comm),
-    _size(size),
-    _rank(rank),
-    _verbose(verbose) {
+  : _nccl_comm(comm), _size(size), _rank(rank), _verbose(verbose) {
   initialize();
 }
 
@@ -280,7 +277,8 @@ void cumlStdCommunicator_impl::get_request_id(request_t *req) const {
 void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
                                      int tag, request_t *request) const {
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
-  ASSERT(p2p_enabled, "cuML Comms instance was not initialized for point-to-point");
+  ASSERT(p2p_enabled,
+         "cuML Comms instance was not initialized for point-to-point");
 
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
@@ -292,7 +290,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
   ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
 
   this->_ucp_handler.ucp_isend(ucp_req, ep_ptr, buf, size, tag,
-              default_tag_mask, getRank(), _verbose);
+                               default_tag_mask, getRank(), _verbose);
 
   CUML_LOG_DEBUG(
     "%d: Created send request [id=%llu], ptr=%llu, to=%llu, ep=%llu", getRank(),
@@ -306,7 +304,8 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
                                      request_t *request) const {
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
-  ASSERT(p2p_enabled, "cuML Comms instance was not initialized for point-to-point");
+  ASSERT(p2p_enabled,
+         "cuML Comms instance was not initialized for point-to-point");
 
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
@@ -323,8 +322,8 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
   }
 
   ucp_request *ucp_req = (ucp_request *)malloc(sizeof(ucp_request));
-  _ucp_handler.ucp_irecv(ucp_req, _ucp_worker, ep_ptr, buf,
-              size, tag, tag_mask, source, _verbose);
+  _ucp_handler.ucp_irecv(ucp_req, _ucp_worker, ep_ptr, buf, size, tag, tag_mask,
+                         source, _verbose);
 
   CUML_LOG_DEBUG(
     "%d: Created receive request [id=%llu], ptr=%llu, from=%llu, ep=%llu",
@@ -338,7 +337,8 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 void cumlStdCommunicator_impl::waitall(int count,
                                        request_t array_of_requests[]) const {
   ASSERT(UCX_ENABLED, "cuML Comms not built with UCX support");
-  ASSERT(p2p_enabled, "cuML Comms instance was not initialized for point-to-point");
+  ASSERT(p2p_enabled,
+         "cuML Comms instance was not initialized for point-to-point");
 
 #ifdef WITH_UCX
   ASSERT(_ucp_worker != nullptr,
