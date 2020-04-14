@@ -50,29 +50,114 @@ cdef extern from "cuml/common/logger.hpp" nogil:
     cdef int CUML_LEVEL_OFF
 
 
+"""Enables all log messages upto and including `trace()`"""
 LEVEL_TRACE = CUML_LEVEL_TRACE
+
+"""Enables all log messages upto and including `debug()`"""
 LEVEL_DEBUG = CUML_LEVEL_DEBUG
+
+"""Enables all log messages upto and including `info()`"""
 LEVEL_INFO = CUML_LEVEL_INFO
+
+"""Enables all log messages upto and including `warn()`"""
 LEVEL_WARN = CUML_LEVEL_WARN
+
+"""Enables all log messages upto and include `error()`"""
 LEVEL_ERROR = CUML_LEVEL_ERROR
+
+"""Enables only `critical()` messages"""
 LEVEL_CRITICAL = CUML_LEVEL_CRITICAL
+
+"""Disables all log messages"""
 LEVEL_OFF = CUML_LEVEL_OFF
 
 
 def set_level(level):
+    """
+    Set logging level. This setting will be persistent from here onwards until
+    the end of the process, if left unchanged afterwards.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        # To enable all log messages upto and including `info()`
+        import cuml.common.logger as logger
+        logger.set_level(logger.LEVEL_INFO)
+
+    Parameters
+    ----------
+    level : int
+        Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
+    """
     Logger.get().setLevel(<int>level)
 
 
 def set_pattern(pattern):
+    """
+    Set the logging pattern. This setting will be persistent from here onwards
+    until the end of the process, if left unchanged afterwards.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        logger.set_pattern("--> [%H-%M-%S] %v")
+
+    Parameters
+    ----------
+    pattern : str
+        Logging pattern string. Refer to this wiki page for its syntax:
+        https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
+    """
     cdef string s = pattern
     Logger.get().setPattern(s)
 
 
 def should_log_for(level):
+    """
+    Check if messages at the given logging level will be logged or not. This is
+    a useful check to avoid doing unnecessary logging work.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        if logger.should_log_for(LEVEL_INFO):
+            # which could waste precious CPU cycles
+            my_message = construct_message()
+            logger.info(my_message)
+
+    Parameters
+    ----------
+    level : int
+        Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
+    """
     return Logger.get().shouldLogFor(<int>level)
 
 
 def get_pattern():
+    """
+    Returns the current logging pattern. Useful in case one is temporarily
+    changing the pattern, like in a method.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        def some_func(new_patt):
+            old_patt = logger.get_pattern()
+            logger.set_pattern(new_patt)
+            do_work()
+            logger.set_pattern(old_patt)
+    """
     cdef string s = Logger.get().getPattern()
     return s.decode("UTF-8")
 
