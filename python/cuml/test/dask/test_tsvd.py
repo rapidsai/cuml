@@ -39,7 +39,7 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                               cluster_std=1.5, verbose=False,
+                               cluster_std=0.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
         wait(X_cudf)

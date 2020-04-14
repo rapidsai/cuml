@@ -16,6 +16,7 @@
 - PR #1996: Cythonize in parallel
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2051: Reduce the time required to run dask pca and dask tsvd tests
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
