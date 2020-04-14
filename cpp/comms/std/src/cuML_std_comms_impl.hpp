@@ -26,10 +26,9 @@
 
 #ifdef WITH_UCX
 #include <ucp/api/ucp.h>
-#include "ucp_helper.h"
 #include <ucp/api/ucp_def.h>
+#include "ucp_helper.h"
 #endif
-
 
 namespace ML {
 

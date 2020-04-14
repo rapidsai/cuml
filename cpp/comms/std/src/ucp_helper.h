@@ -24,7 +24,6 @@
 
 #pragma once
 
-
 /**
  * Standard UCX request object that will be passed
  * around asynchronously. This object is really
@@ -43,13 +42,12 @@ struct ucx_context {
  * other fields for trace logging and cleanup.
  */
 class ucp_request {
-  public:
-    struct ucx_context* req;
-    bool needs_release = true;
-    int other_rank = -1;
-    bool is_send_request = false;
+ public:
+  struct ucx_context *req;
+  bool needs_release = true;
+  int other_rank = -1;
+  bool is_send_request = false;
 };
-
 
 // by default, match the whole tag
 static const ucp_tag_t default_tag_mask = -1;
@@ -74,18 +72,17 @@ static void send_callback(void *request, ucs_status_t status) {
  * @brief Asynchronous recv callback sets request to completed
  */
 static void recv_callback(void *request, ucs_status_t status,
-                        ucp_tag_recv_info_t *info) {
+                          ucp_tag_recv_info_t *info) {
   struct ucx_context *context = (struct ucx_context *)request;
   context->completed = 1;
 }
-
 
 /**
  * Helper class for managing `dlopen` state and
  * interacting with ucp.
  */
 class comms_ucp_handler {
-public:
+ public:
   comms_ucp_handler() {
     load_ucp_handle();
     load_send_func();
@@ -95,11 +92,9 @@ public:
     load_worker_progress_func();
   }
 
-  ~comms_ucp_handler() {
-    dlclose(ucp_handle);
-  }
+  ~comms_ucp_handler() { dlclose(ucp_handle); }
 
-private:
+ private:
   void *ucp_handle;
 
   ucs_status_ptr_t (*send_func)(ucp_ep_h, const void *, size_t, ucp_datatype_t,
@@ -111,8 +106,7 @@ private:
   void (*req_free_func)(void *);
   int (*worker_progress_func)(ucp_worker_h);
   void load_ucp_handle() {
-    ucp_handle =
-      dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
+    ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
     if (!ucp_handle) {
       ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NODELETE);
       ASSERT(ucp_handle, "Cannot open UCX library: %s\n", dlerror());
@@ -139,8 +133,8 @@ private:
   }
 
   void load_print_info_func() {
-    print_info_func = (void (*)(ucp_ep_h, FILE *))dlsym(
-      ucp_handle, "ucp_ep_print_info");
+    print_info_func =
+      (void (*)(ucp_ep_h, FILE *))dlsym(ucp_handle, "ucp_ep_print_info");
     assert_dlerror();
   }
 
@@ -162,12 +156,10 @@ private:
     return ((uint32_t)tag << 31) | (uint32_t)rank;
   }
 
-
-public:
+ public:
   int ucp_progress(ucp_worker_h worker) const {
     return (*(worker_progress_func))(worker);
   }
-
 
   /**
    * @brief Frees any memory underlying the given ucp request object
@@ -183,9 +175,8 @@ public:
   /**
    * @brief Asynchronously send data to the given endpoint using the given tag
    */
-  void ucp_isend(ucp_request *req, ucp_ep_h ep_ptr,
-      const void *buf, int size, int tag, ucp_tag_t tag_mask, int rank,
-                                bool verbose) const {
+  void ucp_isend(ucp_request *req, ucp_ep_h ep_ptr, const void *buf, int size,
+                 int tag, ucp_tag_t tag_mask, int rank, bool verbose) const {
     ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
     CUML_LOG_DEBUG("Sending tag: %ld", ucp_tag);
@@ -220,16 +211,16 @@ public:
   /**
    * @brief Asynchronously receive data from given endpoint with the given tag.
    */
-  void ucp_irecv(ucp_request *req,
-      ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
-      int size, int tag, ucp_tag_t tag_mask,
-      int sender_rank, bool verbose) const {
+  void ucp_irecv(ucp_request *req, ucp_worker_h worker, ucp_ep_h ep_ptr,
+                 void *buf, int size, int tag, ucp_tag_t tag_mask,
+                 int sender_rank, bool verbose) const {
     ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 
     CUML_LOG_DEBUG("%d: Receiving tag: %ld", ucp_tag);
 
-    ucs_status_ptr_t recv_result = (*(recv_func))(
-      worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_callback);
+    ucs_status_ptr_t recv_result =
+      (*(recv_func))(worker, buf, size, ucp_dt_make_contig(1), ucp_tag,
+                     tag_mask, recv_callback);
 
     struct ucx_context *ucp_req = (struct ucx_context *)recv_result;
 
