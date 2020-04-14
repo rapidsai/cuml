@@ -172,7 +172,7 @@ class COO {
   friend std::ostream &operator<<(std::ostream &out, const COO<T> &c) {
     if (c.validate_size() && c.validate_mem()) {
       cudaStream_t stream;
-      cudaStreamCreate(&stream);
+      CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
       out << arr2Str(c.rows_arr.data(), c.nnz, "rows", stream) << std::endl;
       out << arr2Str(c.cols_arr.data(), c.nnz, "cols", stream) << std::endl;
@@ -181,7 +181,7 @@ class COO {
       out << "n_rows=" << c.n_rows << std::endl;
       out << "n_cols=" << c.n_cols << std::endl;
 
-      cudaStreamDestroy(stream);
+      CUDA_CHECK(cudaStreamDestroy(stream));
     } else {
       out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
     }
