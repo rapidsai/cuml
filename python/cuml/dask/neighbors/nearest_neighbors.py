@@ -24,8 +24,6 @@ from dask.distributed import wait
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from cuml.dask.common.part_utils import _extract_partitions
-
 from uuid import uuid1
 
 
