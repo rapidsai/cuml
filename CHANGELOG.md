@@ -27,6 +27,7 @@
 - PR #2017: Fixing memory issue in weak cc prim
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
+- PR #2078: Ignore negative cache indices in get_vecs
 
 # cuML 0.13.0 (Date TBD)
 
