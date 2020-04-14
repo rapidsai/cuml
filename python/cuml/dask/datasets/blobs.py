@@ -84,13 +84,16 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         number of rows
     n_features : int
         number of features
-    n_centers : int (default = 8)
-        number of centers to generate
+    centers : int or array of shape [n_centers, n_features],
+        optional (default=None) The number of centers to generate, or the fixed
+        center locations. If n_samples is an int and centers is None, 3 centers
+        are generated. If n_samples is array-like, centers must be either None
+        or an array of length equal to the length of n_samples.
+    cluster_std : float (default = 1.0)
+         standard deviation of points around centroid
     n_parts : int (default = None)
         number of partitions to generate (this can be greater
         than the number of workers)
-    cluster_std : float (default = 1.0)
-         standard deviation of points around centroid
     center_box : tuple (int, int) (default = (-10, 10))
          the bounding box which constrains all the centroids
     random_state : int (default = None)
