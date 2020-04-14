@@ -329,6 +329,8 @@ class NearestNeighbors(Base):
             False
         )
 
+        self.handle.sync()
+
         I_ndarr = I_ndarr.reshape((N, n_neighbors))
         D_ndarr = D_ndarr.reshape((N, n_neighbors))
 
