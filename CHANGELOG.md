@@ -23,6 +23,7 @@
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
+- PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
 
 ## Bug Fixes
