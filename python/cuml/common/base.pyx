@@ -106,7 +106,8 @@ class Base:
         handles in several streams.
         If it is None, a new one is created just for this class.
     verbose : bool
-        Whether to print debug spews.
+        Whether to print debug spews. (This will be deprecated once we have the
+        verbosity flag updated across all algos)
     verbosity : int
         Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
