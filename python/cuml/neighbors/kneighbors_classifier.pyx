@@ -195,8 +195,6 @@ class KNeighborsClassifier(NearestNeighbors):
                                                  if convert_dtype
                                                  else None))
 
-        self.handle.sync()
-
     def predict(self, X, convert_dtype=True):
         """
         Use the trained k-nearest neighbors classifier to
