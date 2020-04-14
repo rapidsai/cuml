@@ -41,6 +41,7 @@ enum Filler : unsigned char {
  * @param eig the array
  * @param epsilon the range
  * @param size length of the array
+ * @param stream cuda stream
  */
 template <typename T>
 void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
@@ -58,8 +59,10 @@ void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
  * @param out the output matrix
  * @param in_m the input matrix
  * @param in_v the input vector
+ * @param scalar scalar multiplier
  * @param rows number of rows in the input matrix
  * @param cols number of cols in the input matrix
+ * @param stream cuda stream
  */
 template <typename T>
 void matVecAdd(T *out, const T *in_m, const T *in_v, T scalar, int rows,

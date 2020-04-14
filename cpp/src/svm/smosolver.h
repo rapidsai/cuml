@@ -24,6 +24,7 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
 #include "kernelcache.h"
 #include "linalg/cublas_wrappers.h"
@@ -89,7 +90,9 @@ class SmoSolver {
       alpha(handle.getDeviceAllocator(), stream),
       delta_alpha(handle.getDeviceAllocator(), stream),
       f(handle.getDeviceAllocator(), stream),
-      y_label(handle.getDeviceAllocator(), stream) {}
+      y_label(handle.getDeviceAllocator(), stream) {
+    ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  }
 
 #define SMO_WS_SIZE 1024
   /**
@@ -102,13 +105,13 @@ class SmoSolver {
    * @param [in] n_rows number of rows (training vectors)
    * @param [in] n_cols number of columns (features)
    * @param [in] y labels (values +/-1), size [n_rows]
-   * @param [out] dual_coefs, size [n_support] on exit
+   * @param [out] dual_coefs size [n_support] on exit
    * @param [out] n_support number of support vectors
    * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
    * @param [out] b scalar constant for the decision function
-   * @param [in] max_out_iter maximum number of outer iteration (default 100 * n_rows)
-   * @param [in] xm_inner_iter maximum number of inner iterations (default 10000)
+   * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
+   * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
   void Solve(math_t *x, int n_rows, int n_cols, math_t *y, math_t **dual_coefs,
              int *n_support, math_t **x_support, int **idx, math_t *b,
@@ -153,16 +156,15 @@ class SmoSolver {
 
       n_inner_iter += host_return_buff[1];
       n_iter++;
-      if (verbose && n_iter % 500 == 0) {
-        std::cout << "SMO iteration " << n_iter << ", diff " << diff << "\n";
+      if (n_iter % 500 == 0) {
+        CUML_LOG_INFO("SMO iteration %d, diff %lf", n_iter, (double)diff);
       }
     }
 
-    if (verbose) {
-      std::cout << "SMO solver finished after " << n_iter
-                << " outer iterations, " << n_inner_iter
-                << " total inner iterations, and diff " << diff_prev << "\n";
-    }
+    CUML_LOG_INFO(
+      "SMO solver finished after %d outer iterations, total inner"
+      " iterations, and diff %lf",
+      n_iter, n_inner_iter, diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C, svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
@@ -181,7 +183,6 @@ class SmoSolver {
    * @param n_ws
    * @param cacheTile kernel function evaluated for the following set K[X,x_ws],
    *   size [n_rows, n_ws]
-   * @param cublas_handle
    */
   void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
                const math_t *cacheTile) {
@@ -213,10 +214,10 @@ class SmoSolver {
    * Additionally, we zero init the dual coefficients (alpha), and initialize
    * class labels for SVR.
    *
-   * @parameter [inout] y on entry class labels or target values,
+   * @param[inout] y on entry class labels or target values,
    *    on exit device pointer to class labels
-   * @parameter [in] n_rows
-   * @parameter [in] n_cols
+   * @param[in] n_rows
+   * @param[in] n_cols
    */
   void Initialize(math_t **y, int n_rows, int n_cols) {
     this->n_rows = n_rows;
@@ -361,22 +362,22 @@ class SmoSolver {
       n_small_diff = 0;
     }
     if (n_small_diff > nochange_steps) {
-      if (verbose) {
-        std::cout << "SMO error: Stopping due to unchanged diff over "
-                  << nochange_steps << " consecutive steps\n";
-      }
+      CUML_LOG_ERROR(
+        "SMO error: Stopping due to unchanged diff over %d"
+        " consecutive steps",
+        nochange_steps);
       keep_going = false;
     }
     if (diff < tol) keep_going = false;
     if (isnan(diff)) {
-      std::string txt = "SMO error: NaN found during fitting.";
+      std::string txt;
       if (std::is_same<float, math_t>::value) {
         txt +=
           " This might be caused by floating point overflow. In such case using"
           " fp64 could help. Alternatively, try gamma='scale' kernel"
           " parameter.";
       }
-      THROW(txt.c_str());
+      THROW("SMO error: NaN found during fitting.%s", txt.c_str());
     }
     return keep_going;
   }

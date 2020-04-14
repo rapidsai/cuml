@@ -28,11 +28,11 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.metrics import r2_score
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
-    device_array_from_ptr, get_dev_array_ptr
+from cuml.utils import input_to_cuml_array
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
 
@@ -212,13 +212,15 @@ class SVR(SVMBase):
 
         """
 
+        self._set_output_type(X)
         cdef uintptr_t X_ptr, y_ptr
 
-        X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F')
+        X_m, self.n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, order='F')
+        X_ptr = X_m.ptr
 
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y,
-                                                 convert_to_dtype=self.dtype)
+        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
+        y_ptr = y_m.ptr
 
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
@@ -245,7 +247,7 @@ class SVR(SVMBase):
             raise TypeError('Input data type should be float32 or float64')
 
         self._unpack_model()
-        self.fit_status_ = 0
+        self._fit_status_ = 0
         self.handle.sync()
 
         del X_m
