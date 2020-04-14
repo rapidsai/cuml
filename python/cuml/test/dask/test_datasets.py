@@ -154,3 +154,39 @@ def test_make_regression(n_samples, n_features, n_informative,
 
     finally:
         c.close()
+
+
+@pytest.mark.parametrize('n_samples', [1000])
+@pytest.mark.parametrize('n_features', [100])
+@pytest.mark.parametrize('n_classes', [2, 4])
+@pytest.mark.parametrize('n_clusters_per_class', [2, 4])
+@pytest.mark.parametrize('n_informative', [7])
+@pytest.mark.parametrize('random_state', [None, 1234])
+@pytest.mark.parametrize('n_parts', [2, 23])
+@pytest.mark.parametrize('order', ['C', 'F'])
+def test_make_classification(n_samples, n_features, n_classes,
+                             n_clusters_per_class, n_informative,
+                             random_state, n_parts, order, cluster):
+    client = Client(cluster)
+    try:
+        from cuml.dask.datasets.classification import make_classification
+
+        X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                                   n_classes=n_classes,
+                                   n_clusters_per_class=n_clusters_per_class,
+                                   n_informative=n_informative,
+                                   random_state=random_state, n_parts=n_parts,
+                                   order=order)
+        assert(len(X.chunks[0])) == n_parts
+        assert(len(X.chunks[1])) == 1
+
+        X_local = X.compute()
+        y_local = y.compute()
+
+        assert X_local.shape == (n_samples, n_features)
+        import cupy as cp
+        assert len(cp.unique(y_local)) == n_classes
+        assert y_local.shape == (n_samples, )
+
+    finally:
+        client.close()
