@@ -109,7 +109,6 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
         X, y = make_regression(n_samples=500, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
-
     elif mode == 'quality':
         X, y = fetch_california_housing(return_X_y=True)
 
@@ -449,17 +448,12 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
-                         stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
                                                'auto', False])
 @pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
-def test_rf_classification_sparse(datatype, split_algo, rows_sample,
-                                  nrows, column_info, max_features,
+def test_rf_classification_sparse(datatype, nrows, column_info,
                                   fil_sparse_format, algo):
     use_handle = True
     ncols, n_info = column_info
@@ -477,8 +471,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=0,
+    cuml_model = curfc(n_bins=16, split_criterion=0,
                        min_rows_per_node=2, seed=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
@@ -521,7 +514,7 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
         if nrows < 500000:
             sk_model = skrfc(n_estimators=50,
                              max_depth=40,
-                             min_samples_split=2, max_features=max_features,
+                             min_samples_split=2,
                              random_state=10)
             sk_model.fit(X_train, y_train)
             sk_preds = sk_model.predict(X_test)
@@ -536,22 +529,13 @@ def test_rf_classification_sparse(datatype, split_algo, rows_sample,
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 50]),
                          stress_param([400, 100])])
-@pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
-                         stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('split_algo', [0, 1])
-@pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
                                                'auto', False])
 @pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
-def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
-                              max_features, rows_sample,
+def test_rf_regression_sparse(datatype, mode, column_info,
                               fil_sparse_format, algo):
-    coverage = 0.6
-    if random.random() > coverage:
-        pytest.skip('Randomly skipping the test')
-
     ncols, n_info = column_info
     use_handle = True
     num_treees = 50
@@ -564,7 +548,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
         X, y = fetch_california_housing(return_X_y=True)
 
     else:
-        X, y = make_regression(n_samples=100000, n_features=ncols,
+        X, y = make_regression(n_samples=3000, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
     X = X.astype(datatype)
@@ -576,8 +560,7 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
     handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize and fit using cuML's random forest regression model
-    cuml_model = curfr(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=2,
+    cuml_model = curfr(n_bins=16, split_criterion=2,
                        min_rows_per_node=2, seed=123, n_streams=1,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
@@ -619,7 +602,6 @@ def test_rf_regression_sparse(datatype, split_algo, mode, column_info,
         if mode != "stress":
             sk_model = skrfr(n_estimators=50, max_depth=40,
                              min_samples_split=2,
-                             max_features=max_features,
                              random_state=10)
             sk_model.fit(X_train, y_train)
             sk_preds = sk_model.predict(X_test)
