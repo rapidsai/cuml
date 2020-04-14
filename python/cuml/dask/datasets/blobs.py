@@ -123,12 +123,14 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     if not isinstance(centers, np.ndarray):
         centers = np.random.uniform(center_box[0], center_box[1],
-                                    size=(centers, n_features)).astype(np.float32)
+                                    size=(centers, n_features))\
+            .astype(np.float32)
 
     if verbose:
         print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
-              (math.ceil(n_samples / len(workers)), n_parts, len(workers), n_samples))
+              (math.ceil(n_samples / len(workers)),
+               n_parts, len(workers), n_samples))
 
     # Create dfs on each worker (gpu)
     parts = []
@@ -141,9 +143,16 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         else:
             worker_rows.append((int(n_samples) - rows_so_far))
 
-        parts.append(client.submit(create_local_data, worker_rows[idx], n_features,
-                                   centers, cluster_std, random_state, dtype,
-                                   output, order, shuffle,
+        parts.append(client.submit(create_local_data,
+                                   worker_rows[idx],
+                                   n_features,
+                                   centers,
+                                   cluster_std,
+                                   random_state,
+                                   dtype,
+                                   output,
+                                   order,
+                                   shuffle,
                                    pure=False,
                                    workers=[worker]))
 
