@@ -51,7 +51,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
         X_cudf, y = make_blobs(n_samples=nrows,
                                n_features=ncols,
-                               n_centers=nclusters,
+                               centers=nclusters,
                                n_parts=n_parts,
                                cluster_std=0.01, verbose=False,
                                random_state=10)
@@ -113,7 +113,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(n_samples=nrows,
                                n_features=ncols,
-                               n_centers=nclusters,
+                               centers=nclusters,
                                n_parts=n_parts,
                                cluster_std=0.01,
                                verbose=False,
@@ -175,7 +175,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         X_cudf, y = make_blobs(n_samples=nrows,
                                n_features=ncols,
-                               n_centers=nclusters,
+                               centers=nclusters,
                                n_parts=n_parts,
                                cluster_std=0.01, verbose=False,
                                shuffle=False,
