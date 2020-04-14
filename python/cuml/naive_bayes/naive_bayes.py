@@ -243,8 +243,8 @@ class MultinomialNB(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            def scipy_sparse_isspmatrix(x):
-                return False
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
@@ -356,8 +356,8 @@ class MultinomialNB(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            def scipy_sparse_isspmatrix(x):
-                return False
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
@@ -398,8 +398,8 @@ class MultinomialNB(object):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            def scipy_sparse_isspmatrix(x):
-                return False
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)

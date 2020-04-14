@@ -27,7 +27,7 @@ from dask.distributed import default_client
 
 from cuml.dask.common.part_utils import _extract_partitions
 
-from cuml.utils import rmm_cupy_ary, has_scipy
+from cuml.utils import rmm_cupy_ary
 
 
 def validate_dask_array(darray, client=None):
