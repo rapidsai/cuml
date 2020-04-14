@@ -270,7 +270,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components', [2, 13])
+@pytest.mark.parametrize('n_components', [2, 10, 21, 23, 25, 27])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
@@ -309,12 +309,11 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     if random_state is not None:
         assert mean_diff < 1.0
     else:
-        assert mean_diff > 1.0
+        assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize('n_components', [2, 10])
+@pytest.mark.parametrize('n_components', [2, 10, 21, 23, 25, 27])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-@pytest.mark.xfail(reason="test intermittently fails")
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -358,7 +357,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
     if random_state is not None:
         assert mean_diff < 1.0
     else:
-        assert mean_diff > 1.0
+        assert mean_diff > 0.5
 
 
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
