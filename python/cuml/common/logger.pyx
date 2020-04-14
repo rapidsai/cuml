@@ -163,30 +163,126 @@ def get_pattern():
 
 
 def trace(msg):
+    """
+    Logs a trace message, if it is enabled.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        logger.trace("Hello world! This is a trace message")
+
+    Parameters
+    ----------
+    msg : str
+        Message to be logged.
+    """
     cdef string s = msg
     CUML_LOG_TRACE(s.c_str())
 
 
 def debug(msg):
+    """
+    Logs a debug message, if it is enabled.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        logger.debug("Hello world! This is a debug message")
+
+    Parameters
+    ----------
+    msg : str
+        Message to be logged.
+    """
     cdef string s = msg
     CUML_LOG_DEBUG(s.c_str())
 
 
 def info(msg):
+    """
+    Logs an info message, if it is enabled.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        logger.info("Hello world! This is a info message")
+
+    Parameters
+    ----------
+    msg : str
+        Message to be logged.
+    """
     cdef string s = msg
     CUML_LOG_INFO(s.c_str())
 
 
 def warn(msg):
+    """
+    Logs a warning message, if it is enabled.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        logger.warn("Hello world! This is a warning message")
+
+    Parameters
+    ----------
+    msg : str
+        Message to be logged.
+    """
     cdef string s = msg
     CUML_LOG_WARN(s.c_str())
 
 
 def error(msg):
+    """
+    Logs an error message, if it is enabled.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        logger.error("Hello world! This is a error message")
+
+    Parameters
+    ----------
+    msg : str
+        Message to be logged.
+    """
     cdef string s = msg
     CUML_LOG_ERROR(s.c_str())
 
 
 def critical(msg):
+    """
+    Logs a critical message, if it is enabled.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml.common.logger as logger
+        logger.critical("Hello world! This is a critical message")
+
+    Parameters
+    ----------
+    msg : str
+        Message to be logged.
+    """
     cdef string s = msg
     CUML_LOG_CRITICAL(s.c_str())
