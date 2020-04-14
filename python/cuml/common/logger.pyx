@@ -41,6 +41,23 @@ cdef extern from "cuml/common/logger.hpp" nogil:
     void CUML_LOG_ERROR(const char* fmt, ...)
     void CUML_LOG_CRITICAL(const char* fmt, ...)
 
+    cdef int CUML_LEVEL_TRACE
+    cdef int CUML_LEVEL_DEBUG
+    cdef int CUML_LEVEL_INFO
+    cdef int CUML_LEVEL_WARN
+    cdef int CUML_LEVEL_ERROR
+    cdef int CUML_LEVEL_CRITICAL
+    cdef int CUML_LEVEL_OFF
+
+
+LEVEL_TRACE = CUML_LEVEL_TRACE
+LEVEL_DEBUG = CUML_LEVEL_DEBUG
+LEVEL_INFO = CUML_LEVEL_INFO
+LEVEL_WARN = CUML_LEVEL_WARN
+LEVEL_ERROR = CUML_LEVEL_ERROR
+LEVEL_CRITICAL = CUML_LEVEL_CRITICAL
+LEVEL_OFF = CUML_LEVEL_OFF
+
 
 def set_level(level):
     Logger.get().setLevel(<int>level)
