@@ -32,6 +32,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
 from cuml.utils import input_to_dev_array
+from cuml.common.array import CumlArray
+from cuml.utils import input_to_cuml_array
 import rmm
 
 from libcpp cimport bool
@@ -329,11 +331,17 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
-        _X, X_ptr, n, p, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32,
+        #_X, X_ptr, n, p, dtype = \
+        #    input_to_dev_array(X, order='C', check_dtype=np.float32,
+        #                       convert_to_dtype=(np.float32 if convert_dtype
+        #                                         else None))
+        
+        X_m, n, p, dtype = \
+            input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
-                                                 else None))
-
+                                                else None))
+        X_ptr = X_m.ptr
+        
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
                              "nearest the neighbors graph")
@@ -345,12 +353,17 @@ class TSNE(Base):
             self.perplexity = n
 
         # Prepare output embeddings
-        Y = rmm.device_array(
+        #Y = rmm.device_array(
+        #    (n, self.n_components),
+        #    order="F",
+        #    dtype=np.float32)
+        
+        Y = CumlArray.zeros(
             (n, self.n_components),
             order="F",
             dtype=np.float32)
 
-        cdef uintptr_t embed_ptr = Y.device_ctypes_pointer.value
+        cdef uintptr_t embed_ptr = Y.ptr
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
@@ -408,7 +421,7 @@ class TSNE(Base):
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        del _X
+        #del _X
         self.embedding_ = Y
         return self
 
@@ -436,6 +449,7 @@ class TSNE(Base):
                 Embedding of the training data in low-dimensional space.
         """
         self.fit(X, convert_dtype=convert_dtype)
+        out_type = self._get_output_type(X)
 
         if isinstance(X, cudf.DataFrame):
             if isinstance(self.embedding_, cudf.DataFrame):
@@ -443,7 +457,8 @@ class TSNE(Base):
             else:
                 return cudf.DataFrame.from_gpu_matrix(self.embedding_)
         elif isinstance(X, np.ndarray):
-            data = self.embedding_.copy_to_host()
+            #data = self.embedding_.copy_to_host()
+            data = self.embedding_.to_output(out_type)
             del self.embedding_
             return data
         return None  # is this even possible?
