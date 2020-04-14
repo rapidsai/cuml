@@ -149,12 +149,12 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
 
     if output == 'dataframe':
 
-        meta_X = client.submit(get_meta, X[0])
+        meta_X = client.submit(get_meta, X[0], pure=False)
         meta_X_local = meta_X.result()
         X_final = from_delayed([dask.delayed(x, pure=False)
                                 for x in X], meta=meta_X_local)
 
-        meta_y = client.submit(get_meta, Y[0])
+        meta_y = client.submit(get_meta, Y[0], pure=False)
         meta_y_local = meta_y.result()
         Y_final = from_delayed([dask.delayed(y, pure=False)
                                 for y in Y], meta=meta_y_local)

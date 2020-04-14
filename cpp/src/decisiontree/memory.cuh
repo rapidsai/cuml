@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <thrust/extrema.h>
 #include <utils.h>
 #include <algorithm>
+#include <cuml/common/logger.hpp>
 #include "cub/cub.cuh"
 #include "memory.h"
 
@@ -67,16 +68,15 @@ void TemporaryMemory<T, L>::print_info(int depth, int nrows, int ncols,
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (size_t)(ncols * colper);
 
-  std::cout << "maxnodes --> " << maxnodes << "  gather maxnodes--> "
-            << gather_max_nodes << std::endl;
-  std::cout << "Parent size --> " << parentsz << std::endl;
-  std::cout << "Child size  --> " << childsz << std::endl;
-  std::cout << "Nrows size --> " << (nrows + 1) << std::endl;
-  std::cout << "Sparse tree holder size --> " << 2 * gather_max_nodes
-            << std::endl;
-
-  std::cout << " Total temporary memory usage--> "
-            << ((double)totalmem / (1024 * 1024)) << "  MB" << std::endl;
+  ML::PatternSetter _("%v");
+  CUML_LOG_INFO("maxnodes --> %lu gather maxnodes--> %lu", maxnodes,
+                gather_max_nodes);
+  CUML_LOG_INFO("Parent size --> %lu", parentsz);
+  CUML_LOG_INFO("Child size  --> %lu", childsz);
+  CUML_LOG_INFO("Nrows size --> %d", (nrows + 1));
+  CUML_LOG_INFO("Sparse tree holder size --> %lu", 2 * gather_max_nodes);
+  CUML_LOG_INFO(" Total temporary memory usage--> %lf MB",
+                ((double)totalmem / (1024 * 1024)));
 }
 
 template <class T, class L>
