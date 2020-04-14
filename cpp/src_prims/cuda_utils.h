@@ -205,6 +205,16 @@ DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
   } while (assumed != old);
 }
 
+template <typename ReduceLambda>
+DI void myAtomicReduce(unsigned long long *address, unsigned long long val,
+                       ReduceLambda op) {
+  unsigned long long old = *address, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address, assumed, op(val, assumed));
+  } while (assumed != old);
+}
+
 /**
  * @brief Provide atomic min operation.
  * @tparam T: data type for input data (float or double).
