@@ -177,6 +177,8 @@ class Cache {
    * out[i + n_vec*k] = cache[i + n_vec * idx[k]]), where i=0..n_vec-1,
    * k = 0..n-1
    *
+   * Idx values less than 0 are ignored. 
+   *
    * @param [in] idx cache indices, size [n]
    * @param [in] n the number of vectors that need to be collected
    * @param [out] out vectors collected from cache, size [n_vec*n]
