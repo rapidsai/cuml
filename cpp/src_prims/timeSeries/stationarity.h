@@ -35,7 +35,7 @@
 #include "linalg/matrix_vector_op.h"
 #include "linalg/reduce.h"
 #include "stats/mean.h"
-#include "utils.h"
+#include "common/cudart_utils.h"
 
 namespace MLCommon {
 
