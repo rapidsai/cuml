@@ -287,6 +287,21 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
            or [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
+
+    Known Performance Limitations:
+        1. When `effective_rank` is set and `use_full_low_rank` is True,
+           we cannot generate order `F` by construction, and an explicit
+           transpose is performed on each part. This may cause memory to spike
+           (other parameters make order `F` by construction)
+        2. When `n_targets > 3` and `order = 'F'` as above, we have to
+           explicity transpose the `y` array. If `coef = True`, then we also
+           explicity transpose the `ground_truth` array
+        3. When `shuffle = True` and `order = F`, there are memory spikes to
+           shuffle the `F` order arrays
+
+    NOTE: If one runs into Out-Of-Memory errors when any of the above
+          known-limitations are breached, try increasing the `n_parts`
+          parameter.
     """
 
     client = default_client() if client is None else client
