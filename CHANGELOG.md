@@ -34,6 +34,7 @@
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+- PR #2078: Ignore negative cache indices in get_vecs
 
 # cuML 0.13.0 (Date TBD)
 
