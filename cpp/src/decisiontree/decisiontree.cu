@@ -110,24 +110,6 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                      unique_labels, tree, tree_params);
 }
 
-/**
- * @defgroup Decision Tree Classifier - Predict function
- * @brief Predict target feature for input data; n-ary classification for
- *   single feature supported. Inference of trees is CPU only for now.
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
- * @param[in] tree: CPU pointer to TreeMetaDataNode.
- * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
- *    Current impl. expects a CPU pointer. TODO future API change.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in,out] predictions: n_rows predicted labels. Current impl. expects a
- *    CPU pointer, user allocated. TODO future API change.
- * @param[in] verbosity: verbosity level for logging messages during execution.
- *                       A negative value means to not perform an explicit
- *                       `setLevel()` call, but to continue with the level that
- *                       the caller itself might have set.
- * @{
- */
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
@@ -149,29 +131,9 @@ void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
   dt_classifier->predict(handle, tree, rows, n_rows, n_cols, predictions,
                          verbosity);
 }
-/** @} */
 
 // ----------------------------- Regression ----------------------------------- //
 
-/**
- * @defgroup Decision Tree Regressor - Fit function
- * @brief Build (i.e., fit, train) Decision Tree regressor for input data.
- * @param[in] handle: cumlHandle
- * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
- * @param[in] data: train data (nrows samples, ncols features) in column major format,
- *   excluding labels. Device pointer.
- * @param[in] ncols: number of features (i.e., columns) excluding target feature.
- * @param[in] nrows: number of training data samples of the whole unsampled dataset.
- * @param[in] labels: 1D array of target features (float or double). One label per
- *    training sample. Device pointer.
- * @param[in,out] rowids: array of n_sampled_rows integers in [0, nrows) range.
- *   Device pointer. The same array is then rearranged when splits are made,
- *   allowing us to construct trees without rearranging the actual dataset.
- * @param[in] n_sampled_rows: number of training samples, after sampling. If using decision
- *   tree directly over the whole dataset: n_sampled_rows = nrows
- * @param[in] tree_params: Decision Tree training hyper parameter struct.
- * @{
- */
 void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
@@ -193,26 +155,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     tree, tree_params);
 }
-/** @} */
 
-/**
- * @defgroup Decision Tree Regressor - Predict function
- * @brief Predict target feature for input data; regression for single feature supported.
- *   Inference of trees is CPU only for now.
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
- * @param[in] tree: CPU pointer to TreeMetaDataNode.
- * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
- *   Current impl. expects a CPU pointer. TODO future API change.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in,out] predictions: n_rows predicted labels. Current impl. expects a CPU
- *   pointer, user allocated. TODO future API change.
- * @param[in] verbosity: verbosity level for logging messages during execution.
- *                       A negative value means to not perform an explicit
- *                       `setLevel()` call, but to continue with the level that
- *                       the caller itself might have set.
- * @{
- */
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
@@ -233,7 +176,6 @@ void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
   dt_regressor->predict(handle, tree, rows, n_rows, n_cols, predictions,
                         verbosity);
 }
-/** @} */
 
 // Functions' specializations
 template void print_tree_summary<float, int>(const TreeClassifierF *tree);
