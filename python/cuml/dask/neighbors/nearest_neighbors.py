@@ -13,13 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import to_dask_cudf, extract_ddf_partitions, \
-    workers_to_parts, parts_to_ranks, raise_exception_from_futures, \
-    flatten_grouped_results, raise_mg_import_exception
+from cuml.dask.common import to_dask_cudf, workers_to_parts, parts_to_ranks, \
+    raise_exception_from_futures, flatten_grouped_results, \
+    raise_mg_import_exception
 
 from dask.distributed import default_client
 from cuml.dask.common.comms import worker_state, CommsContext
 from dask.distributed import wait
+
+from cuml.dask.common.part_utils import _extract_partitions
 
 from uuid import uuid1
 
@@ -60,7 +62,7 @@ class NearestNeighbors(object):
         -------
         self: NearestNeighbors model
         """
-        self.X = self.client.sync(extract_ddf_partitions, X)
+        self.X = self.client.sync(_extract_partitions, X)
         self.n_cols = X.shape[1]
         return self
 
@@ -170,7 +172,7 @@ class NearestNeighbors(object):
         """
 
         key = uuid1()
-        nn_fit = dict([(worker_info[worker]["r"], self.client.submit(
+        nn_fit = dict([(worker_info[worker]["rank"], self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
                         index_worker_to_parts[worker] if
@@ -182,7 +184,7 @@ class NearestNeighbors(object):
                         worker in query_worker_to_parts else [],
                         query_M,
                         query_parts_to_ranks,
-                        worker_info[worker]["r"],
+                        worker_info[worker]["rank"],
                         n_neighbors,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
@@ -231,7 +233,7 @@ class NearestNeighbors(object):
         n_neighbors = self.get_neighbors(n_neighbors)
 
         query_futures = self.X if X is None else \
-            self.client.sync(extract_ddf_partitions, X)
+            self.client.sync(_extract_partitions, X)
 
         if X is None:
             raise ValueError("Model needs to be trained using fit() "
