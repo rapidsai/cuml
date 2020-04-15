@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <algorithm>
+#include <cuml/common/logger.hpp>
 #include "time_series_datasets.h"
 
 namespace ML {
@@ -169,7 +170,7 @@ TEST_P(HoltWintersTestF, Fit) {
   updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
   float mae = calculate_MAE<float>(test, forecast_h.data(), batch_size, h);
-  std::cout << "MAE: " << mae << std::endl;
+  CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);
 }
 
@@ -179,7 +180,7 @@ TEST_P(HoltWintersTestD, Fit) {
   updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
   double mae = calculate_MAE<double>(test, forecast_h.data(), batch_size, h);
-  std::cout << "MAE: " << mae << std::endl;
+  CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);
 }
 

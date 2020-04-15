@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +30,19 @@ constexpr bool UCX_ENABLED = false;
 #include "ucp_helper.h"
 #endif
 
+#include <stdlib.h>
+#include <time.h>
 #include <algorithm>
+#include <chrono>
+#include <common/cumlHandle.hpp>
 #include <cstdio>
+#include <cuML_comms.hpp>
 #include <exception>
 #include <memory>
 
-#include <common/cumlHandle.hpp>
-#include <cuML_comms.hpp>
+#include <cuml/common/logger.hpp>
+
+#include <thread>
 
 #include <cuda_runtime.h>
 
@@ -49,16 +55,13 @@ constexpr bool UCX_ENABLED = false;
            ncclGetErrorString(status));                                        \
   } while (0)
 
-//@todo adapt logging infrastructure for NCCL_CHECK_NO_THROW once available:
-//https://github.com/rapidsai/cuml/issues/100
-#define NCCL_CHECK_NO_THROW(call)                                              \
-  do {                                                                         \
-    ncclResult_t status = call;                                                \
-    if (ncclSuccess != status) {                                               \
-      std::fprintf(stderr,                                                     \
-                   "ERROR: NCCL call='%s' at file=%s line=%d failed with %s ", \
-                   #call, __FILE__, __LINE__, ncclGetErrorString(status));     \
-    }                                                                          \
+#define NCCL_CHECK_NO_THROW(call)                                 \
+  do {                                                            \
+    ncclResult_t status = call;                                   \
+    if (status != ncclSuccess) {                                  \
+      CUML_LOG_ERROR("NCCL call='%s' failed. Reason:%s\n", #call, \
+                     ncclGetErrorString(status));                 \
+    }                                                             \
   } while (0)
 
 namespace ML {
@@ -135,34 +138,31 @@ bool ucx_enabled() { return UCX_ENABLED; }
  */
 #ifdef WITH_UCX
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
-                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
+                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank,
+                  bool verbose) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlStdCommunicator_impl(comm, ucp_worker, eps, size, rank)));
+      new cumlStdCommunicator_impl(comm, ucp_worker, eps, size, rank,
+                                   verbose)));
   handle.getImpl().setCommunicator(communicator);
 }
 #endif
 
-void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank) {
+void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank,
+                  bool verbose) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlStdCommunicator_impl(comm, size, rank)));
+      new cumlStdCommunicator_impl(comm, size, rank, verbose)));
   handle.getImpl().setCommunicator(communicator);
 }
 
 void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
-                          int rank) {
-  inject_comms(*handle, comm, size, rank);
+                          int rank, bool verbose) {
+  inject_comms(*handle, comm, size, rank, verbose);
 }
 
-void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
-#ifdef WITH_UCX
-                     void *ucp_worker, void *eps,
-#else
-                     void *, void *,
-#endif
-                     int size, int rank) {
-
+void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
+                     void *eps, int size, int rank, bool verbose) {
 #ifdef WITH_UCX
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
@@ -171,19 +171,20 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm,
 
   for (int i = 0; i < size; i++) {
     size_t ptr = size_t_ep_arr[i];
-    ucp_ep_h *ucp_ep_v = *eps_sp;
+    ucp_ep_h *ucp_ep_v = (ucp_ep_h *)*eps_sp;
 
     if (ptr != 0) {
-      ucp_ep_h *eps_ptr = (ucp_ep_h *)size_t_ep_arr[i];
-      ucp_ep_v[i] = *eps_ptr;
+      ucp_ep_h eps_ptr = (ucp_ep_h)size_t_ep_arr[i];
+      ucp_ep_v[i] = eps_ptr;
     } else {
       ucp_ep_v[i] = nullptr;
     }
   }
 
-  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
+  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank,
+               verbose);
 #else
-  inject_comms(*handle, comm, size, rank);
+  inject_comms(*handle, comm, size, rank, verbose);
 #endif
 }
 
@@ -191,15 +192,6 @@ void ncclUniqueIdFromChar(ncclUniqueId *id, char *uniqueId, int size) {
   memcpy(id->internal, uniqueId, size);
 }
 
-/**
- * @brief Returns a NCCL unique ID as a character array. PyTorch
- * uses this same approach, so that it can be more easily
- * converted to a native Python string by Cython and further
- * serialized to be sent across process & node boundaries.
- *
- * @returns the generated NCCL unique ID for establishing a
- * new clique.
- */
 void get_unique_id(char *uid, int size) {
   ncclUniqueId id;
   ncclGetUniqueId(&id);
@@ -210,14 +202,15 @@ void get_unique_id(char *uid, int size) {
 #ifdef WITH_UCX
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(
   ncclComm_t comm, ucp_worker_h ucp_worker, std::shared_ptr<ucp_ep_h *> eps,
-  int size, int rank)
+  int size, int rank, bool verbose)
   : _nccl_comm(comm),
     _ucp_worker(ucp_worker),
     _ucp_eps(eps),
     _size(size),
     _rank(rank),
     _next_request_id(0),
-    _ucp_handle(NULL) {
+    _ucp_handle(NULL),
+    _verbose(verbose) {
   initialize();
 
   _ucp_handle = (void *)malloc(sizeof(struct comms_ucp_handle));
@@ -226,8 +219,8 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
 #endif
 
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(ncclComm_t comm, int size,
-                                                   int rank)
-  : _nccl_comm(comm), _size(size), _rank(rank) {
+                                                   int rank, bool verbose)
+  : _nccl_comm(comm), _size(size), _rank(rank), _verbose(verbose) {
   initialize();
 }
 
@@ -299,11 +292,16 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
   get_request_id(request);
   ucp_ep_h ep_ptr = (*_ucp_eps)[dest];
 
-  struct ucx_context *ucp_request =
+  struct ucp_request *ucp_req =
     ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
-              default_tag_mask, getRank());
+              default_tag_mask, getRank(), _verbose);
 
-  _requests_in_flight.insert(std::make_pair(*request, ucp_request));
+  CUML_LOG_DEBUG(
+    "%d: Created send request [id=%llu], ptr=%llu, to=%llu, ep=%llu", getRank(),
+    (unsigned long long)*request, (unsigned long long)ucp_req->req,
+    (unsigned long long)dest, (unsigned long long)ep_ptr);
+
+  _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
 }
 
@@ -321,13 +319,20 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   ucp_tag_t tag_mask = default_tag_mask;
 
-  if (source == CUML_ANY_SOURCE) tag_mask = any_rank_tag_mask;
+  if (source == CUML_ANY_SOURCE) {
+    tag_mask = any_rank_tag_mask;
+  }
 
-  struct ucx_context *ucp_request =
+  struct ucp_request *ucp_req =
     ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
-              size, tag, tag_mask, source);
+              size, tag, tag_mask, source, _verbose);
 
-  _requests_in_flight.insert(std::make_pair(*request, ucp_request));
+  CUML_LOG_DEBUG(
+    "%d: Created receive request [id=%llu], ptr=%llu, from=%llu, ep=%llu",
+    getRank(), (unsigned long long)*request, (unsigned long long)ucp_req->req,
+    (unsigned long long)source, (unsigned long long)ep_ptr);
+
+  _requests_in_flight.insert(std::make_pair(*request, ucp_req));
 #endif
 }
 
@@ -339,8 +344,10 @@ void cumlStdCommunicator_impl::waitall(int count,
   ASSERT(_ucp_worker != nullptr,
          "ERROR: UCX comms not initialized on communicator.");
 
-  std::vector<struct ucx_context *> requests;
+  std::vector<struct ucp_request *> requests;
   requests.reserve(count);
+
+  time_t start = time(NULL);
 
   for (int i = 0; i < count; ++i) {
     auto req_it = _requests_in_flight.find(array_of_requests[i]);
@@ -352,18 +359,59 @@ void cumlStdCommunicator_impl::waitall(int count,
   }
 
   while (requests.size() > 0) {
-    for (std::vector<struct ucx_context *>::iterator it = requests.begin();
+    time_t now = time(NULL);
+
+    // Timeout if we have not gotten progress or completed any requests
+    // in 10 or more seconds.
+    ASSERT(now - start < 10, "Timed out waiting for requests.");
+
+    for (std::vector<struct ucp_request *>::iterator it = requests.begin();
          it != requests.end();) {
-      ucp_progress((struct comms_ucp_handle *)_ucp_handle, _ucp_worker);
+      bool restart = false;  // resets the timeout when any progress was made
+
+      // Causes UCP to progress through the send/recv message queue
+      while (ucp_progress((struct comms_ucp_handle *)_ucp_handle,
+                          _ucp_worker) != 0) {
+        restart = true;
+      }
 
       auto req = *it;
-      if (req->completed == 1) {
-        req->completed = 0;
-        if (req->needs_release)
-          free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
+
+      // If the message needs release, we know it will be sent/received
+      // asynchronously, so we will need to track and verify its state
+      if (req->needs_release) {
+        ASSERT(UCS_PTR_IS_PTR(req->req),
+               "UCX Request Error. Request is not valid UCX pointer");
+        ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n",
+               UCS_PTR_STATUS(req->req));
+        ASSERT(req->req->completed == 1 || req->req->completed == 0,
+               "request->completed not a valid value: %d\n",
+               req->req->completed);
+      }
+
+      // If a message was sent synchronously (eg. completed before
+      // `isend`/`irecv` completed) or an asynchronous message
+      // is complete, we can go ahead and clean it up.
+      if (!req->needs_release || req->req->completed == 1) {
+        restart = true;
+        CUML_LOG_DEBUG(
+          "%d: request completed. [ptr=%llu, num_left=%lu,"
+          " other_rank=%d, is_send=%d, completed_immediately=%d]",
+          getRank(), (unsigned long long)req->req, requests.size() - 1,
+          req->other_rank, req->is_send_request, !req->needs_release);
+
+        // perform cleanup
+        free_ucp_request((struct comms_ucp_handle *)_ucp_handle, req);
+
+        // remove from pending requests
         it = requests.erase(it);
-      } else
+      } else {
         ++it;
+      }
+      // if any progress was made, reset the timeout start time
+      if (restart) {
+        start = time(NULL);
+      }
     }
   }
 

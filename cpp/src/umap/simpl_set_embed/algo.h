@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
@@ -23,6 +24,7 @@
 #include <thrust/system/cuda/execution_policy.h>
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
+#include <cuml/common/logger.hpp>
 #include <string>
 #include "optimize_batch_kernel.cuh"
 #include "random/rng_impl.h"
@@ -43,7 +45,8 @@ using namespace ML;
  * @param weights: The weights of how much we wish to sample each 1-simplex
  * @param weights_n: the size of the weights array
  * @param n_epochs: the total number of epochs we want to train for
- * @returns an array of number of epochs per sample, one for each 1-simplex
+ * @param result: an array of number of epochs per sample, one for each 1-simplex
+ * @param stream cuda stream
  */
 template <typename T>
 void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
@@ -115,6 +118,10 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
   // Are we doing a fit or a transform?
   bool move_other = head_embedding == tail_embedding;
 
+  if (params->optim_batch_size <= 0) {
+    params->optim_batch_size = 100000 / params->n_components;
+  }
+
   T alpha = params->initial_alpha;
 
   MLCommon::device_buffer<T> epoch_of_next_negative_sample(d_alloc, stream,
@@ -158,16 +165,28 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
       d_alloc, stream, n_vertices * params->n_components);
     double *embedding_updates = embedding_updates_buf.data();
     dim3 grid2(MLCommon::ceildiv(n_vertices * params->n_components, TPB_X));
+
     for (int n = 0; n < n_epochs; n++) {
       CUDA_CHECK(cudaMemsetAsync(
         embedding_updates, 0,
         n_vertices * params->n_components * sizeof(double), stream));
-      call_optimize_batch_kernel<T, TPB_X>(
-        head_embedding, head_n, tail_embedding, tail_n_fast, head, tail, nnz,
-        epochs_per_sample, n_vertices, epoch_of_next_negative_sample.data(),
-        epoch_of_next_sample.data(), alpha, n, gamma, seed, embedding_updates,
-        move_other, use_shared_mem, params, n, grid, blk, requiredSize, stream);
-      CUDA_CHECK(cudaGetLastError());
+
+      int toDo = nnz;
+      int offset = 0;
+      while (toDo > 0) {
+        int curBatchSize = min(toDo, params->optim_batch_size);
+        call_optimize_batch_kernel<T, TPB_X>(
+          head_embedding, head_n, tail_embedding, tail_n_fast, head, tail,
+          offset + curBatchSize, epochs_per_sample, n_vertices,
+          epoch_of_next_negative_sample.data(), epoch_of_next_sample.data(),
+          alpha, n, gamma, seed, embedding_updates, move_other, use_shared_mem,
+          params, n, grid, blk, requiredSize, stream, offset);
+        CUDA_CHECK(cudaGetLastError());
+
+        toDo -= curBatchSize;
+        offset += curBatchSize;
+      }
+
       apply_optimization_kernel<T, TPB_X><<<grid2, blk, 0, stream>>>(
         head_embedding, embedding_updates, n_vertices * params->n_components);
       CUDA_CHECK(cudaGetLastError());
@@ -227,10 +246,12 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
                          epochs_per_sample.data(), stream);
 
-  if (params->verbose)
-    std::cout << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
-                                   "epochs_per_sample", stream)
-              << std::endl;
+  if (params->verbose) {
+    std::stringstream ss;
+    ss << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
+                            "epochs_per_sample", stream);
+    CUML_LOG_INFO(ss.str().c_str());
+  }
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),
                             out.nnz, epochs_per_sample.data(), m,

@@ -165,10 +165,7 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
  * @param globalmin final col-wise global minimum (size = ncols)
  * @param globalmax final col-wise global maximum (size = ncols)
  * @param sampledcols output sampled data. Pass nullptr if you don't need this
- * @param init_val initial minimum value to be
- * @param prop cuda device properties. This is being explicitly requested since
- * querying it inside prims is not good for perf.
- * @param stream: cuda stream
+ * @param stream cuda stream
  * @note This method makes the following assumptions:
  * 1. input and output matrices are assumed to be col-major
  * 2. ncols is small enough to fit the whole of min/max values across all cols

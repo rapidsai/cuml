@@ -113,7 +113,7 @@ int DI hash(int key, int n_cache_sets, int associativity) {
  * equal than a given value.
  * @param [in] array sorted array of n numbers
  * @param [in] n length of the array
- * @param [in] value
+ * @param [in] val the value to search for
  * @return the index of the first element in the array for which
  * array[idx] >= value. If there is no such value, then return n.
  */
@@ -185,7 +185,7 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  * @tparam nthreads number of threads per block (nthreads <= associativity)
  * @tparam associativity number of items in a cache set
  *
- * @param [in] time time stamp of caching the data,
+ * @param [in] cache_time time stamp of caching the data,
      size [associativity * n_cache_sets]
  * @param [in] n_cache_sets number of cache sets
  * @param [out] rank within the cache set size [nthreads * items_per_thread]
