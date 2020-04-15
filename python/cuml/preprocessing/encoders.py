@@ -40,12 +40,12 @@ class OneHotEncoder:
 
     Parameters
     ----------
-    categories : 'auto' or a cudf.DataFrame, default='auto'
+    categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
         Categories (unique values) per feature:
         - 'auto' : Determine categories automatically from the training data.
-        - DataFrame : ``categories[col]`` holds the categories expected in the
+        - DataFrame/Array : ``categories[col]`` holds the categories expected in the
           feature col.
-    drop : 'first', None or a dict, default=None
+    drop : 'first', None, a dict or a list, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
         features cause problems, such as when feeding the resulting data
@@ -53,7 +53,7 @@ class OneHotEncoder:
         - None : retain all features (the default).
         - 'first' : drop the first category in each feature. If only one
           category is present, the feature will be dropped entirely.
-        - Dict : ``drop[col]`` is the category in feature col that
+        - dict/list : ``drop[col]`` is the category in feature col that
           should be dropped.
     sparse : bool, default=False
         This feature was deactivated and will give an exception when True.
@@ -120,6 +120,7 @@ class OneHotEncoder:
             return collection[:, key]
 
     def _compute_drop_idx(self):
+        """Helper to compute indices to drop from category to drop"""
         if self.drop is None:
             return None
         elif isinstance(self.drop, str) and self.drop == 'first':
@@ -253,7 +254,7 @@ class OneHotEncoder:
         Fit OneHotEncoder to X.
         Parameters
         ----------
-        X : cuDF.DataFrame
+        X : cuDF.DataFrame or cupy.ndarray
             The data to determine the categories of each feature.
         Returns
         -------
@@ -282,7 +283,7 @@ class OneHotEncoder:
 
         Parameters
         ----------
-        X : cudf.DataFrame
+        X : cudf.DataFrame or cupy.ndarray
             The data to encode.
         Returns
         -------
@@ -297,7 +298,7 @@ class OneHotEncoder:
         Transform X using one-hot encoding.
         Parameters
         ----------
-        X : cudf.DataFrame
+        X : cudf.DataFrame or cupy.ndarray
             The data to encode.
         Returns
         -------
