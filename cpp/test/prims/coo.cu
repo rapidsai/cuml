@@ -182,12 +182,11 @@ TEST_P(COORemoveZeros, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
   std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
   float *in_h_vals = new float[params.nnz];
 
   COO<float> in(alloc, stream, params.nnz, 5, 5);
-
-  params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
   Random::Rng r(params.seed);
   r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);
