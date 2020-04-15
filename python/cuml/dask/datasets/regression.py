@@ -120,9 +120,9 @@ def f_order_shuffle(client, rs, X, y, n_parts, chunksizes,
 def convert_C_to_F_order(client, X, chunksizes, n_features, dtype):
     X_parts = client.sync(_extract_partitions, X)
     X_converted = [client.submit(cp.array, X_part, copy=False, order='F',
-                                 workers=[w]) 
+                                 workers=[w])
                    for idx, (w, X_part) in enumerate(X_parts)]
-    
+
     X_dela = [da.from_delayed(dask.delayed(Xc),
                               shape=(chunksizes[idx], n_features),
                               meta=cp.zeros((1)),
@@ -364,9 +364,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         y = da.dot(X, ground_truth) + bias
     else:
         ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
-                                                chunks=(n_samples_per_part,
-                                                        -1),
-                                                dtype=dtype)
+                                                  chunks=(n_samples_per_part,
+                                                          -1),
+                                                  dtype=dtype)
 
         y = da.dot(X[:, :n_informative], ground_truth) + bias
 
