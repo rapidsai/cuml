@@ -331,11 +331,6 @@ class TSNE(Base):
             raise ValueError("data should be two dimensional")
 
         cdef uintptr_t X_ptr
-        #_X, X_ptr, n, p, dtype = \
-        #    input_to_dev_array(X, order='C', check_dtype=np.float32,
-        #                       convert_to_dtype=(np.float32 if convert_dtype
-        #                                         else None))
-        
         X_m, n, p, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                convert_to_dtype=(np.float32 if convert_dtype
@@ -352,12 +347,7 @@ class TSNE(Base):
                           "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
-        # Prepare output embeddings
-        #Y = rmm.device_array(
-        #    (n, self.n_components),
-        #    order="F",
-        #    dtype=np.float32)
-        
+        # Prepare output embeddings        
         Y = CumlArray.zeros(
             (n, self.n_components),
             order="F",
