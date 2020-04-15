@@ -1,0 +1,21 @@
+{
+ "test_failure": {
+  "some_metric": 0.5
+ },
+ "test_model": {
+  "accuracy": 1.0
+ },
+ "test_numpy_arrays": {
+  "good_values": [
+   0.0,
+   1.0,
+   2.0
+  ]
+ },
+ "test_other_model[1]": {
+  "accuracy": 1.99
+ },
+ "test_other_model[2]": {
+  "accuracy": 2.99
+ }
+}

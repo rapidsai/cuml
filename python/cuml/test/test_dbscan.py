@@ -76,7 +76,7 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
                                  'no_structure'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-def test_dbscan_sklearn_comparison(name, nrows):
+def test_dbscan_sklearn_comparison(name, nrows, golden):
     default_base = {'quantile': .3,
                     'eps': .5,
                     'damping': .9,
@@ -95,10 +95,13 @@ def test_dbscan_sklearn_comparison(name, nrows):
                            output_type='numpy')
     cu_y_pred = cuml_dbscan.fit_predict(X)
 
-    if nrows < 500000:
-        dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
-        sk_y_pred = dbscan.fit_predict(X)
-        score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+    if nrows <= 5000:
+        if golden.recompute:
+            dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
+            sk_y_pred = dbscan.fit_predict(X)
+            golden.sk_y_pred_ = sk_y_pred.tolist()
+
+        score = adjusted_rand_score(np.array(golden.sk_y_pred_), cu_y_pred)
         assert(score == 1.0)
 
 
