@@ -98,6 +98,20 @@ def set_level(level):
     Logger.get().setLevel(<int>level)
 
 
+class PatternSetter:
+    """Internal "context manager" object for restoring previous log pattern"""
+
+    def __init__(self, prev_pattern):
+        self.prev_pattern = prev_pattern
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, a, b, c):
+        cdef string s = self.prev_pattern
+        Logger.get().setPattern(s)
+
+
 def set_pattern(pattern):
     """
     Set the logging pattern. This setting will be persistent from here onwards
@@ -109,16 +123,31 @@ def set_pattern(pattern):
     .. code-block:: python
 
         import cuml.common.logger as logger
+
+        # regular usage of setting a logging pattern for all subsequent logs
         logger.set_pattern("--> [%H-%M-%S] %v")
+
+        # in case one wants to temporarily set the pattern for a code block
+        with logger.set_pattern("--> [%H-%M-%s] %v") as _:
+            logger.info("Hello world!")
 
     Parameters
     ----------
     pattern : str
         Logging pattern string. Refer to this wiki page for its syntax:
         https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
+
+    Returns
+    -------
+    context_object : PatternSetter
+        This is useful if one wants to temporarily set a different logging
+        pattern for a code section, as described in the example section above.
     """
+    cdef string prev = Logger.get().getPattern()
+    context_object = PatternSetter(prev.decode("UTF-8"))
     cdef string s = pattern
     Logger.get().setPattern(s)
+    return context_object
 
 
 def should_log_for(level):
