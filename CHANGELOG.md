@@ -15,11 +15,15 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
 - PR #2019: Enable doxygen build in our nightly doc build CI script
 - PR #1996: Cythonize in parallel
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2047: Make internal streams non-blocking w.r.t. NULL stream
+- PR #2058: Use CumlArray in Random Projection
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
+
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -32,6 +36,7 @@
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+- PR #2078: Ignore negative cache indices in get_vecs
 
 # cuML 0.13.0 (Date TBD)
 
