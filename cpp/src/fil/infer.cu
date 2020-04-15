@@ -53,7 +53,6 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
   do {
 #pragma unroll
     for (int j = 0; j < NITEMS; ++j) {
-      //if ((mask & (1 << j)) == 0) continue;
       auto n = tree[curr[j]];
       if (n.is_leaf()) {
         mask &= ~(1 << j);
@@ -94,13 +93,14 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
 
 // the device template should achieve the best performance, using up-to-date
 // CUB defaults
-#define BlockReduceDevice typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>
+template <int NITEMS>
+using BlockReduce = typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
 /**
 The shared memory requirements for finalization stage may differ based
 on the set of PTX architectures the kernels were compiled for, as well as 
 the CUDA compute capability of the device chosen for computation.
 
-TODO: run a test kernel during forest init to determine the compute capability
+TODO (levsnv): run a test kernel during forest init to determine the compute capability
 chosen for the inference, for an accurate sizeof(BlockReduce::TempStorage),
 which is used in determining max NITEMS or max input data columns.
 
@@ -111,11 +111,9 @@ See https://rapids.ai/start.html as well as cmake defaults.
 */
 // values below are defaults as of this change.
 template <int NITEMS>
-struct BlockReduceHost {
-  typedef typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
-                                    cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1,
-                                    600>::TempStorage TempStorage;
-};
+using BlockReduceHost =
+  typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
+                            cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
 
 template <int NITEMS,
           leaf_value_t leaf_payload_type>  // = FLOAT_SCALAR
@@ -123,14 +121,24 @@ struct tree_aggregator_t {
   vec<NITEMS, float> acc;
   void* tmp_storage;
 
-  static size_t smem_finalize_footprint(int) {
+  /** shared memory footprint of the accumulator during
+  the finalization of forest inference kernel, when infer_k output
+  value is computed.
+  num_classes is used for other template parameters */
+  static size_t smem_finalize_footprint(int num_classes) {
     return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
   }
 
-  static size_t smem_accumulate_footprint(int) { return 0; }
+  /** shared memory footprint of the accumulator during
+  the accumulation of forest inference, when individual trees
+  are inferred and partial aggregates are accumulated.
+  num_classes is used for other template parameters */
+  static size_t smem_accumulate_footprint(int num_classes) { return 0; }
 
-  __device__ __forceinline__ tree_aggregator_t(int, void* shared_workspace,
-                                               size_t)
+  /** 
+  num_classes is used for other template parameters */
+  __device__ __forceinline__ tree_aggregator_t(int num_classes,
+                                               void* shared_workspace, size_t)
     : tmp_storage(shared_workspace) {}
 
   __device__ __forceinline__ void accumulate(
@@ -141,8 +149,8 @@ struct tree_aggregator_t {
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int output_stride) {
     __syncthreads();
-    acc =
-      BlockReduceDevice(*(BlockReduceDevice::TempStorage*)tmp_storage).Sum(acc);
+    typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
+    acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
     if (threadIdx.x == 0) {
       for (int i = 0; i < NITEMS; ++i) {
         int row = blockIdx.x * NITEMS + i;

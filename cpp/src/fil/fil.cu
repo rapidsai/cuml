@@ -78,7 +78,7 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
                             float global_bias, bool complement_proba) {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
-  if (complement_proba && (i % 2) != 0) return;
+  if (complement_proba && i % 2 != 0) return;
 
   float result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
@@ -314,7 +314,7 @@ void check_params(const forest_params_t* params, bool dense) {
       break;
     case leaf_value_t::INT_CLASS_LABEL:
       ASSERT(params->num_classes >= 2,
-             "num_classes is not ignored for "
+             "num_classes >= 2 is required for "
              "leaf_payload_type == INT_CLASS_LABEL");
       break;
     default:
@@ -527,7 +527,6 @@ int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree,
 
 size_t tl_leaf_vector_size(const tl::Model& model) {
   const tl::Tree& tree = model.trees[0];
-  int _ = max_depth(tree);  // just checking for cycles
   int node_key;
   for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
        node_key = tl_node_at(tree, node_key).cright())
@@ -545,6 +544,9 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
 
+  // fill in forest-dependent params
+  params->depth = max_depth(model);  // also checks for cycles
+
   // assuming either all leaves use the .leaf_vector() or all leaves use .leaf_value()
   size_t leaf_vec_size = tl_leaf_vector_size(model);
   if (leaf_vec_size > 0) {
@@ -557,7 +559,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
     params->num_classes = 0;  // ignored
   }
 
-  // fill in forest-dependent params
   params->num_cols = model.num_feature;
   const tl::ModelParam& param = model.param;
   ASSERT(param.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
@@ -577,7 +578,6 @@ void tl2fil_common(forest_params_t* params, const tl::Model& model,
            param.pred_transform.c_str());
   }
   params->num_trees = model.trees.size();
-  params->depth = max_depth(model);
 }
 
 // uses treelite model with additional tl_params to initialize FIL params
