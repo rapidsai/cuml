@@ -42,7 +42,7 @@ def create_rs_generator(random_state):
 
 def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
                          tail_strength=0.5, random_state=None, n_parts=1,
-                         n_samples_per_part=None):
+                         n_samples_per_part=None, dtype='float32'):
     """ Generate a mostly low rank matrix with bell-shaped singular values
 
     Parameters
@@ -63,6 +63,8 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
         The number of parts of work.
+    dtype: str, optional (default='float32')
+        dtype of generated data
 
     Returns
     -------
@@ -87,12 +89,14 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     # Random (ortho normal) vectors
     m1 = rs.standard_normal((n_samples, n),
                             chunks=(generate_chunks_for_qr(n_samples,
-                                                           n, n_parts), -1))
+                                                           n, n_parts), -1),
+                            dtype=dtype)
     u, _ = da.linalg.qr(m1)
 
     m2 = rs.standard_normal((n, n_features),
                             chunks=(-1, generate_chunks_for_qr(n_features,
-                                                               n, n_parts)))
+                                                               n, n_parts)),
+                            dtype=dtype)
     v, _ = da.linalg.qr(m2)
 
     # For final multiplication
@@ -119,7 +123,8 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
 def make_regression(n_samples=100, n_features=100, n_informative=10,
                     n_targets=1, bias=0.0, effective_rank=None,
                     tail_strength=0.5, noise=0.0, shuffle=False, coef=False,
-                    random_state=None, n_parts=1, n_samples_per_part=None):
+                    random_state=None, n_parts=1, n_samples_per_part=None,
+                    order='F', dtype='float32'):
     """Generate a random regression problem.
     The input set can either be well conditioned (by default) or have a low
     rank-fat tail singular profile.
@@ -167,6 +172,10 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         for reproducible output across multiple function calls.
     n_parts : int, optional (default=1)
         The number of parts of work.
+    order : str, optional (default='F')
+        Row-major or Col-major
+    dtype: str, optional (default='float32')
+        dtype of generated data
 
     Returns
     -------
@@ -190,7 +199,8 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         X = rs.standard_normal((n_samples, n_features),
                                chunks=(n_samples_per_part, (n_informative,
                                                             n_features -
-                                                            n_informative)))
+                                                            n_informative)),
+                               dtype=dtype)
 
     else:
         # Randomly generate a low rank, fat tail input set
@@ -199,7 +209,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                  effective_rank=effective_rank,
                                  tail_strength=tail_strength,
                                  random_state=rs,
-                                 n_parts=n_parts)
+                                 n_parts=n_parts, dtype=dtype)
         X = X.rechunk({0: n_samples_per_part,
                        1: (n_informative, n_features-n_informative)})
 
@@ -208,7 +218,8 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     # by a sparsifying regularizers such as L1 or elastic net)
 
     ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
-                                              chunks=(n_samples_per_part, -1))
+                                              chunks=(n_samples_per_part, -1),
+                                              dtype=dtype)
 
     y = da.dot(X[:, :n_informative], ground_truth) + bias
     X = X.rechunk((None, -1))
@@ -216,13 +227,13 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     if n_informative != n_features:
         zeroes = 0.0 * rs.standard_normal((n_features -
                                            n_informative,
-                                           n_targets))
+                                           n_targets), dtype=dtype)
         ground_truth = da.concatenate([ground_truth, zeroes], axis=0)
         ground_truth = ground_truth.rechunk(-1)
 
     # Add noise
     if noise > 0.0:
-        y += rs.normal(scale=noise, size=y.shape)
+        y += rs.normal(scale=noise, size=y.shape, dtype=dtype)
 
     # Randomly permute samples and features
     if shuffle:
