@@ -31,7 +31,7 @@
 #include "matrix/matrix.h"
 #include "permute.h"
 #include "rng.h"
-#include "utils.h"
+#include "common/cudart_utils.h"
 
 namespace MLCommon {
 namespace Random {

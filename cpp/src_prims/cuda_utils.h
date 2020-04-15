@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <iomanip>
 #include "math_constants.h"
-#include "utils.h"
+#include "common/cudart_utils.h"
 
 namespace MLCommon {
 
