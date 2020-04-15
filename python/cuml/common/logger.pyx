@@ -74,6 +74,19 @@ LEVEL_CRITICAL = CUML_LEVEL_CRITICAL
 LEVEL_OFF = CUML_LEVEL_OFF
 
 
+class LogLevelSetter:
+    """Internal "context manager" object for restoring previous log level"""
+
+    def __init__(self, prev_log_level):
+        self.prev_log_level = prev_log_level
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, a, b, c):
+        Logger.get().setLevel(<int>self.prev_log_level)
+
+
 def set_level(level):
     """
     Set logging level. This setting will be persistent from here onwards until
@@ -93,7 +106,10 @@ def set_level(level):
     level : int
         Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
     """
+    cdef int prev = Logger.get().getLevel()
+    context_object = LogLevelSetter(prev)
     Logger.get().setLevel(<int>level)
+    return context_object
 
 
 class PatternSetter:
