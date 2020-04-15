@@ -160,7 +160,8 @@ def test_make_regression(n_samples, n_features, n_informative,
         X_part = c.sync(_extract_partitions, out)
         out_part = X_part[0][1].result()
         if order == 'F':
-            if effective_rank is None or (effective_rank and not use_full_low_rank):
+            if effective_rank is None or (effective_rank
+                                          and not use_full_low_rank):
                 assert out_part.flags['F_CONTIGUOUS']
         elif order == 'C':
             assert out_part.flags['C_CONTIGUOUS']

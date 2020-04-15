@@ -16,7 +16,7 @@
 
 import dask.array as da
 import dask.delayed
-from dask.distributed import default_client, get_worker
+from dask.distributed import default_client
 import numpy as np
 import cupy as cp
 from cuml.utils import rmm_cupy_ary
@@ -92,10 +92,10 @@ def f_order_shuffle(client, rs, X, y, n_parts, n_samples_per_part,
     chunk_seeds = rs.permutation(n_parts)
 
     shuffled = [client.submit(_f_order_shuffle, X_part, y_parts[idx][1],
-                                n_samples_per_part,
-                                chunk_seeds[idx], features_indices,
-                                workers=[w])
-                    for idx, (w, X_part) in enumerate(X_parts)]
+                              n_samples_per_part,
+                              chunk_seeds[idx], features_indices,
+                              workers=[w])
+                for idx, (w, X_part) in enumerate(X_parts)]
 
     X_shuffled = [client.submit(get_X, f, pure=False)
                   for idx, f in enumerate(shuffled)]
@@ -107,7 +107,7 @@ def f_order_shuffle(client, rs, X, y, n_parts, n_samples_per_part,
                               meta=cp.zeros((1)),
                               dtype=dtype)
               for Xs in X_shuffled]
-    
+
     y_dela = [da.from_delayed(dask.delayed(ys),
                               shape=(n_samples_per_part, n_targets),
                               meta=cp.zeros((1)),
@@ -170,7 +170,7 @@ def make_low_rank_matrix(client=None, n_samples=100, n_features=100,
     # Random (ortho normal) vectors
     m1 = rs.standard_normal((n_samples, n),
                             chunks=(generate_chunks_for_qr(n_samples,
-                                                        n, n_parts), -1),
+                                                           n, n_parts), -1),
                             dtype=dtype)
     u, _ = da.linalg.qr(m1)
 
@@ -290,53 +290,57 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                         [n_samples_per_part] * n_parts, dtype)
         elif order == 'C':
             X = rs.standard_normal((n_samples, n_features),
-                                chunks=(n_samples_per_part, (n_informative,
+                                   chunks=(n_samples_per_part, (
+                                                                n_informative,
                                                                 n_features -
-                                                                n_informative)),
-                                dtype=dtype)
+                                                                n_informative)
+                                           ),
+                                   dtype=dtype)
 
     else:
         # Randomly generate a low rank, fat tail input set
-        X = make_low_rank_matrix(client=client, 
-                                n_samples=n_samples,
-                                n_features=n_features,
-                                effective_rank=effective_rank,
-                                tail_strength=tail_strength,
-                                random_state=rs,
-                                n_parts=n_parts,
-                                dtype=dtype,
-                                order=order)
+        X = make_low_rank_matrix(client=client,
+                                 n_samples=n_samples,
+                                 n_features=n_features,
+                                 effective_rank=effective_rank,
+                                 tail_strength=tail_strength,
+                                 random_state=rs,
+                                 n_parts=n_parts,
+                                 dtype=dtype,
+                                 order=order)
         X = X.rechunk({0: n_samples_per_part,
-                    1: (n_informative, n_features-n_informative)})
+                      1: (n_informative, n_features-n_informative)})
 
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
     # by a sparsifying regularizers such as L1 or elastic net)
     if effective_rank and not use_full_low_rank:
         _, _, coef_ = sg_make_regression(n_samples=n_samples_per_part,
-                                        n_features=n_features,
-                                        n_informative=n_informative,
-                                        n_targets=n_targets,
-                                        bias=bias,
-                                        effective_rank=effective_rank,
-                                        tail_strength=tail_strength,
-                                        noise=noise,
-                                        shuffle=shuffle,
-                                        coef=True,
-                                        random_state=random_state,
-                                        dtype='double')
+                                         n_features=n_features,
+                                         n_informative=n_informative,
+                                         n_targets=n_targets,
+                                         bias=bias,
+                                         effective_rank=effective_rank,
+                                         tail_strength=tail_strength,
+                                         noise=noise,
+                                         shuffle=shuffle,
+                                         coef=True,
+                                         random_state=random_state,
+                                         dtype='double')
         coef_ = cp.array(coef_, dtype=dtype)
         ground_truth = da.from_array(coef_, chunks=(n_samples_per_part, -1))
         y = da.dot(X, ground_truth) + bias
     else:
         ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
-                                                chunks=(n_samples_per_part, -1),
-                                                dtype=dtype)
+                                                  chunks=(n_samples_per_part,
+                                                          -1),
+                                                  dtype=dtype)
 
         y = da.dot(X[:, :n_informative], ground_truth) + bias
     X = X.rechunk((None, -1))
 
-    if n_informative != n_features and (effective_rank is None or use_full_low_rank):
+    if n_informative != n_features and (effective_rank is None
+                                        or use_full_low_rank):
         zeroes = 0.0 * rs.standard_normal((n_features -
                                            n_informative,
                                            n_targets), dtype=dtype)
@@ -355,7 +359,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                    n_samples_per_part,
                                    n_features, features_indices,
                                    n_targets, dtype)
-            
+
         elif order == 'C':
             samples_indices = np.random.permutation(n_samples)
 
