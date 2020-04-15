@@ -333,10 +333,10 @@ class TSNE(Base):
         cdef uintptr_t X_ptr
         X_m, n, p, dtype = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
-                                                else None))
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None))
         X_ptr = X_m.ptr
-        
+
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
                              "nearest the neighbors graph")
@@ -347,7 +347,7 @@ class TSNE(Base):
                           "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
-        # Prepare output embeddings        
+        # Prepare output embeddings
         Y = CumlArray.zeros(
             (n, self.n_components),
             order="F",
@@ -411,7 +411,7 @@ class TSNE(Base):
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        #del _X
+        # del _X
         self.embedding_ = Y
         return self
 
@@ -447,7 +447,6 @@ class TSNE(Base):
             else:
                 return cudf.DataFrame.from_gpu_matrix(self.embedding_)
         elif isinstance(X, np.ndarray):
-            #data = self.embedding_.copy_to_host()
             data = self.embedding_.to_output(out_type)
             del self.embedding_
             return data
