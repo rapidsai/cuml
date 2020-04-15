@@ -16,11 +16,13 @@
 
 import dask.array as da
 import dask.delayed
-from dask.distributed import default_client
+from dask.distributed import default_client, get_worker
 import numpy as np
 import cupy as cp
 from cuml.utils import rmm_cupy_ary
 from cuml.dask.common.part_utils import _extract_partitions
+from cuml.datasets.regression import make_regression as sg_make_regression
+from cuml.utils import with_cupy_rmm
 
 
 def create_rs_generator(random_state):
@@ -83,7 +85,7 @@ def _f_order_shuffle(X, y, n_samples_per_part, seed, features_indices):
 
 
 def f_order_shuffle(client, rs, X, y, n_parts, n_samples_per_part,
-                    n_features, features_indices, dtype):
+                    n_features, features_indices, n_targets, dtype):
     X_parts = client.sync(_extract_partitions, X)
     y_parts = client.sync(_extract_partitions, y)
 
@@ -97,7 +99,7 @@ def f_order_shuffle(client, rs, X, y, n_parts, n_samples_per_part,
 
     X_shuffled = [client.submit(get_X, f, pure=False)
                   for idx, f in enumerate(shuffled)]
-    Y_shuffled = [client.submit(get_labels, f, pure=False)
+    y_shuffled = [client.submit(get_labels, f, pure=False)
                   for idx, f in enumerate(shuffled)]
 
     X_dela = [da.from_delayed(dask.delayed(Xs),
@@ -106,11 +108,11 @@ def f_order_shuffle(client, rs, X, y, n_parts, n_samples_per_part,
                               dtype=dtype)
               for Xs in X_shuffled]
     
-    y_dela = [da.from_delayed(dask.delayed(Xs),
-                              shape=(n_samples_per_part,),
+    y_dela = [da.from_delayed(dask.delayed(ys),
+                              shape=(n_samples_per_part, n_targets),
                               meta=cp.zeros((1)),
                               dtype=dtype)
-              for Xs in X_shuffled]
+              for ys in y_shuffled]
 
     return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
 
@@ -170,6 +172,7 @@ def make_low_rank_matrix(client=None, n_samples=100, n_features=100,
                             chunks=(generate_chunks_for_qr(n_samples,
                                                         n, n_parts), -1),
                             dtype=dtype)
+    u, _ = da.linalg.qr(m1)
 
     m2 = rs.standard_normal((n, n_features),
                             chunks=(-1, generate_chunks_for_qr(n_features,
@@ -198,11 +201,13 @@ def make_low_rank_matrix(client=None, n_samples=100, n_features=100,
     return da.dot(u, v)
 
 
+@with_cupy_rmm
 def make_regression(n_samples=100, n_features=100, n_informative=10,
                     n_targets=1, bias=0.0, effective_rank=None,
                     tail_strength=0.5, noise=0.0, shuffle=False, coef=False,
                     random_state=None, n_parts=1, n_samples_per_part=None,
-                    order='F', dtype='float32', client=None):
+                    order='F', dtype='float32', client=None,
+                    use_full_low_rank=True):
     """Generate a random regression problem.
     The input set can either be well conditioned (by default) or have a low
     rank-fat tail singular profile.
@@ -254,6 +259,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         Row-major or Col-major
     dtype: str, optional (default='float32')
         dtype of generated data
+    use_full_low_rank : boolean (default=True)
+        Whether to use the entire dataset to generate the low rank matrix.
+        If False, it uses the first chunk
 
     Returns
     -------
@@ -275,7 +283,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     if n_samples_per_part is None:
         n_samples_per_part = max(1, int(n_samples / n_parts))
 
-    if effective_rank is None:
+    if (effective_rank is None) or (effective_rank and not use_full_low_rank):
         # Randomly generate a well conditioned input set
         if order == 'F':
             X = f_order_standard_normal(client, rs, n_samples, n_features,
@@ -290,29 +298,45 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     else:
         # Randomly generate a low rank, fat tail input set
         X = make_low_rank_matrix(client=client, 
-                                 n_samples=n_samples,
-                                 n_features=n_features,
-                                 effective_rank=effective_rank,
-                                 tail_strength=tail_strength,
-                                 random_state=rs,
-                                 n_parts=n_parts,
-                                 dtype=dtype,
-                                 order=order)
+                                n_samples=n_samples,
+                                n_features=n_features,
+                                effective_rank=effective_rank,
+                                tail_strength=tail_strength,
+                                random_state=rs,
+                                n_parts=n_parts,
+                                dtype=dtype,
+                                order=order)
         X = X.rechunk({0: n_samples_per_part,
-                       1: (n_informative, n_features-n_informative)})
+                    1: (n_informative, n_features-n_informative)})
 
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
     # by a sparsifying regularizers such as L1 or elastic net)
+    if effective_rank and not use_full_low_rank:
+        _, _, coef_ = sg_make_regression(n_samples=n_samples_per_part,
+                                        n_features=n_features,
+                                        n_informative=n_informative,
+                                        n_targets=n_targets,
+                                        bias=bias,
+                                        effective_rank=effective_rank,
+                                        tail_strength=tail_strength,
+                                        noise=noise,
+                                        shuffle=shuffle,
+                                        coef=True,
+                                        random_state=random_state,
+                                        dtype='double')
+        coef_ = cp.array(coef_, dtype=dtype)
+        ground_truth = da.from_array(coef_, chunks=(n_samples_per_part, -1))
+        y = da.dot(X, ground_truth) + bias
+    else:
+        ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
+                                                chunks=(n_samples_per_part, -1),
+                                                dtype=dtype)
 
-    ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
-                                              chunks=(n_samples_per_part, -1),
-                                              dtype=dtype)
-
-    y = da.dot(X[:, :n_informative], ground_truth) + bias
+        y = da.dot(X[:, :n_informative], ground_truth) + bias
     X = X.rechunk((None, -1))
 
-    if n_informative != n_features:
+    if n_informative != n_features and (effective_rank is None or use_full_low_rank):
         zeroes = 0.0 * rs.standard_normal((n_features -
                                            n_informative,
                                            n_targets), dtype=dtype)
@@ -330,7 +354,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
             X, y = f_order_shuffle(client, rs, X, y, n_parts,
                                    n_samples_per_part,
                                    n_features, features_indices,
-                                   dtype)
+                                   n_targets, dtype)
             
         elif order == 'C':
             samples_indices = np.random.permutation(n_samples)

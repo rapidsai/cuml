@@ -25,6 +25,7 @@ from dask.distributed import Client
 from cuml.dask.datasets import make_blobs
 
 from cuml.test.utils import unit_param, quality_param, stress_param
+from cuml.dask.common.part_utils import _extract_partitions
 
 
 @pytest.mark.parametrize('nrows', [unit_param(1e3), quality_param(1e5),
@@ -97,11 +98,13 @@ def test_make_blobs(nrows,
 @pytest.mark.parametrize('random_state', [None, 1234])
 @pytest.mark.parametrize('n_parts', [unit_param(1),
                          stress_param(3)])
+@pytest.mark.parametrize('order', ['F', 'C'])
+@pytest.mark.parametrize('use_full_low_rank', [True, False])
 def test_make_regression(n_samples, n_features, n_informative,
                          n_targets, bias, effective_rank,
                          tail_strength, noise, shuffle,
-                         coef, random_state, n_parts,
-                         cluster):
+                         coef, random_state, n_parts, order,
+                         use_full_low_rank, cluster):
     c = Client(cluster)
     try:
         from cuml.dask.datasets import make_regression
@@ -111,7 +114,9 @@ def test_make_regression(n_samples, n_features, n_informative,
                                  n_targets=n_targets, bias=bias,
                                  effective_rank=effective_rank, noise=noise,
                                  shuffle=shuffle, coef=coef,
-                                 random_state=random_state, n_parts=n_parts)
+                                 random_state=random_state, n_parts=n_parts,
+                                 use_full_low_rank=use_full_low_rank,
+                                 order=order)
 
         if coef:
             out, values, coefs = result
@@ -151,6 +156,14 @@ def test_make_regression(n_samples, n_features, n_informative,
                 "Unexpected number of informative features"
 
             assert test2, "Unexpectedly incongruent outputs"
+
+        X_part = c.sync(_extract_partitions, out)
+        out_part = X_part[0][1].result()
+        if order == 'F':
+            if effective_rank is None or (effective_rank and not use_full_low_rank):
+                assert out_part.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert out_part.flags['C_CONTIGUOUS']
 
     finally:
         c.close()
