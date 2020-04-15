@@ -174,27 +174,6 @@ def should_log_for(level):
     return Logger.get().shouldLogFor(<int>level)
 
 
-def get_pattern():
-    """
-    Returns the current logging pattern. Useful in case one is temporarily
-    changing the pattern, like in a method.
-
-    Examples
-    --------
-
-    .. code-block:: python
-
-        import cuml.common.logger as logger
-        def some_func(new_patt):
-            old_patt = logger.get_pattern()
-            logger.set_pattern(new_patt)
-            do_work()
-            logger.set_pattern(old_patt)
-    """
-    cdef string s = Logger.get().getPattern()
-    return s.decode("UTF-8")
-
-
 def trace(msg):
     """
     Logs a trace message, if it is enabled.
