@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include "cuda_utils.h"
@@ -58,8 +59,8 @@ static const float MIN_K_DIST_SCALE = 1e-3;
  * @param mean_dist: The mean distance
  * @param sigmas: An array of size n representing the distance to the kth nearest neighbor,
  *                as suitably approximated.
- * @parasm rhos:  An array of size n representing the distance to the 1st nearest neighbor
- *                for each point.
+ * @param rhos:  An array of size n representing the distance to the 1st nearest neighbor
+ *               for each point.
  * @param n_neighbors: The number of neighbors
  *
  * @param local_connectivity: The local connectivity required -- i.e. the number of nearest
@@ -179,11 +180,9 @@ __global__ void smooth_knn_dist_kernel(
  * @param knn_dists: the knn distance matrix of size (n, k)
  * @param sigmas: array of size n representing distance to kth nearest neighbor
  * @param rhos: array of size n representing distance to the first nearest neighbor
- *
- * @return vals: T array of size n*k
- *         rows: int64_t array of size n
- *         cols: int64_t array of size k
- *
+ * @param vals: T array of size n*k
+ * @param rows: int64_t array of size n
+ * @param cols: int64_t array of size k
  * @param n Number of samples (rows in knn indices/distances)
  * @param n_neighbors number of columns in knn indices/distances
  *
@@ -322,11 +321,11 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
   MLCommon::Sparse::COO<T> in(d_alloc, stream, n * n_neighbors, n, n);
 
   if (params->verbose) {
-    std::cout << "Smooth kNN Distances" << std::endl;
-    std::cout << MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream)
-              << std::endl;
-    std::cout << MLCommon::arr2Str(rhos.data(), 25, "rhos", stream)
-              << std::endl;
+    CUML_LOG_INFO("Smooth kNN Distances");
+    auto str = MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream);
+    CUML_LOG_INFO("%s", str.c_str());
+    str = MLCommon::arr2Str(rhos.data(), 25, "rhos", stream);
+    CUML_LOG_INFO("%s", str.c_str());
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
@@ -340,8 +339,10 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params->verbose) {
-    std::cout << "Compute Membership Strength" << std::endl;
-    std::cout << in << std::endl;
+    CUML_LOG_INFO("Compute Membership Strength");
+    std::stringstream ss;
+    ss << in;
+    CUML_LOG_INFO(ss.str().c_str());
   }
 
   /**
