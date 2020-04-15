@@ -71,6 +71,20 @@ struct DecisionTreeParams {
   float min_impurity_decrease;
 };
 
+/**
+ * @brief Set all DecisionTreeParams members.
+ * @param[in,out] params: update with tree parameters
+ * @param[in] cfg_max_depth: maximum tree depth; default -1
+ * @param[in] cfg_max_leaves: maximum leaves; default -1
+ * @param[in] cfg_max_features: maximum number of features; default 1.0f
+ * @param[in] cfg_n_bins: number of bins; default 8
+ * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
+ * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
+ * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
+ *            i.e., GINI for classification or MSE for regression
+ * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
+ */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
                      int cfg_n_bins = 8, int cfg_split_algo = SPLIT_ALGO::HIST,
@@ -80,7 +94,17 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      CRITERION cfg_split_criterion = CRITERION_END,
                      bool cfg_quantile_per_tree = false,
                      bool cfg_shuffle_features = false);
+
+/**
+ * @brief Check validity of all decision tree hyper-parameters.
+ * @param[in] params: decision tree hyper-parameters.
+ */
 void validity_check(const DecisionTreeParams params);
+
+/**
+ * @brief Print all decision tree hyper-parameters.
+ * @param[in] params: decision tree hyper-parameters.
+ */
 void print(const DecisionTreeParams params);
 
 template <class T, class L>
@@ -93,9 +117,21 @@ struct TreeMetaDataNode {
   std::vector<SparseTreeNode<T, L>> sparsetree;
 };
 
+/**
+ * @brief Print high-level tree information.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] tree: CPU pointer to TreeMetaDataNode
+ */
 template <class T, class L>
 void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
 
+/**
+ * @brief Print detailed tree information.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] tree: CPU pointer to TreeMetaDataNode
+ */
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree);
 
@@ -104,6 +140,28 @@ void print_tree(const TreeMetaDataNode<T, L> *tree);
 typedef TreeMetaDataNode<float, int> TreeClassifierF;
 typedef TreeMetaDataNode<double, int> TreeClassifierD;
 
+/**
+ * @defgroup Decision Tree Classifier - Fit function
+ * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
+ * @param[in] handle: cumlHandle
+ * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
+ * @param[in] data: train data (nrows samples, ncols features) in column major format,
+ *    excluding labels. Device pointer.
+ * @param[in] ncols: number of features (i.e., columns) excluding target feature.
+ * @param[in] nrows: number of training data samples of the whole unsampled dataset.
+ * @param[in] labels: 1D array of target features (int only). One label per training
+ *    sample. Device pointer.
+ *    Assumption: labels need to be preprocessed to map to ascending numbers from 0;
+ *    needed for current gini impl. in decision tree.
+ * @param[in,out] rowids: array of n_sampled_rows integers in [0, nrows) range.
+ *    Device pointer. The same array is then rearranged when splits are made,
+ *    allowing us to construct trees without rearranging the actual dataset.
+ * @param[in] n_sampled_rows: number of training samples, after sampling.
+ *    If using decision tree directly over the whole dataset: n_sampled_rows = nrows
+ * @param[in] n_unique_labels: #unique label values. Number of categories of classification.
+ * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @{
+ */
 void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                                TreeClassifierF *&tree, float *data,
                                const int ncols, const int nrows, int *labels,
@@ -117,6 +175,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
                                DecisionTree::DecisionTreeParams tree_params);
+/** @} */
 
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierF *tree,
