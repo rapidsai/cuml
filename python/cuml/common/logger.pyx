@@ -33,6 +33,10 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         bool shouldLogFor(int level) const
         string getPattern() const
 
+    cdef cppclass PatternSetter:
+        PatternSetter(const std::String& pattern)
+
+
 cdef extern from "cuml/common/logger.hpp" nogil:
     void CUML_LOG_TRACE(const char* fmt, ...)
     void CUML_LOG_DEBUG(const char* fmt, ...)
