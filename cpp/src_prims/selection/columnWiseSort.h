@@ -119,9 +119,10 @@ __global__ void __launch_bounds__(1024, 1)
   cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, inputVals + blockOffset,
                                       threadValues, n_cols);
 
-  if (outputKeys)
+  if (outputKeys) {
     cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, outputKeys + blockOffset,
                                         threadKeys, n_cols);
+  }
 }
 
 template <
