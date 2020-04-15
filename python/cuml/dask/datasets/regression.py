@@ -15,9 +15,12 @@
 #
 
 import dask.array as da
+import dask.delayed
+from dask.distributed import default_client
 import numpy as np
 import cupy as cp
 from cuml.utils import rmm_cupy_ary
+from cuml.dask.common.part_utils import _extract_partitions
 
 
 def create_rs_generator(random_state):
@@ -40,9 +43,82 @@ def create_rs_generator(random_state):
     return rs
 
 
-def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
-                         tail_strength=0.5, random_state=None, n_parts=1,
-                         n_samples_per_part=None, dtype='float32'):
+def _f_order_standard_normal(nrows, ncols, dtype, seed):
+    local_rs = cp.random.RandomState(seed=seed)
+    x = local_rs.standard_normal(nrows * ncols, dtype=dtype)
+    x = x.reshape((nrows, ncols), order='F')
+    return x
+
+
+def f_order_standard_normal(client, rs, nrows, ncols, chunksizes, dtype):
+    chunk_seeds = rs.permutation(len(chunksizes))
+    chunks = [client.submit(_f_order_standard_normal, chunksize, ncols, dtype,
+                            chunk_seeds[idx])
+              for idx, chunksize in enumerate(chunksizes)]
+
+    chunks_dela = [da.from_delayed(dask.delayed(chunk),
+                                   shape=(chunksizes[idx], ncols),
+                                   meta=cp.zeros((1)), dtype=dtype)
+                   for idx, chunk in enumerate(chunks)]
+    return da.concatenate(chunks_dela, axis=0)
+
+
+def get_X(t):
+    return t[0]
+
+
+def get_labels(t):
+    return t[1]
+
+
+def _f_order_shuffle(X, y, n_samples_per_part, seed, features_indices):
+    local_rs = cp.random.RandomState(seed=seed)
+    samples_indices = local_rs.permutation(n_samples_per_part)
+
+    X[...] = X[samples_indices, :]
+    X[...] = X[:, features_indices]
+
+    y[...] = y[samples_indices, :]
+    return X, y
+
+
+def f_order_shuffle(client, rs, X, y, n_parts, n_samples_per_part,
+                    n_features, features_indices, dtype):
+    X_parts = client.sync(_extract_partitions, X)
+    y_parts = client.sync(_extract_partitions, y)
+
+    chunk_seeds = rs.permutation(n_parts)
+
+    shuffled = [client.submit(_f_order_shuffle, X_part, y_parts[idx][1],
+                                n_samples_per_part,
+                                chunk_seeds[idx], features_indices,
+                                workers=[w])
+                    for idx, (w, X_part) in enumerate(X_parts)]
+
+    X_shuffled = [client.submit(get_X, f, pure=False)
+                  for idx, f in enumerate(shuffled)]
+    Y_shuffled = [client.submit(get_labels, f, pure=False)
+                  for idx, f in enumerate(shuffled)]
+
+    X_dela = [da.from_delayed(dask.delayed(Xs),
+                              shape=(n_samples_per_part, n_features),
+                              meta=cp.zeros((1)),
+                              dtype=dtype)
+              for Xs in X_shuffled]
+    
+    y_dela = [da.from_delayed(dask.delayed(Xs),
+                              shape=(n_samples_per_part,),
+                              meta=cp.zeros((1)),
+                              dtype=dtype)
+              for Xs in X_shuffled]
+
+    return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
+
+
+def make_low_rank_matrix(client=None, n_samples=100, n_features=100,
+                         effective_rank=10, tail_strength=0.5,
+                         random_state=None, n_parts=1,
+                         n_samples_per_part=None, dtype='float32', order='F'):
     """ Generate a mostly low rank matrix with bell-shaped singular values
 
     Parameters
@@ -71,6 +147,9 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     X : Dask-CuPy array of shape [n_samples, n_features]
         The matrix.
     """
+
+    client = default_client() if client is None else client
+
     rs = create_rs_generator(random_state)
     n = min(n_samples, n_features)
 
@@ -89,9 +168,8 @@ def make_low_rank_matrix(n_samples=100, n_features=100, effective_rank=10,
     # Random (ortho normal) vectors
     m1 = rs.standard_normal((n_samples, n),
                             chunks=(generate_chunks_for_qr(n_samples,
-                                                           n, n_parts), -1),
+                                                        n, n_parts), -1),
                             dtype=dtype)
-    u, _ = da.linalg.qr(m1)
 
     m2 = rs.standard_normal((n, n_features),
                             chunks=(-1, generate_chunks_for_qr(n_features,
@@ -124,7 +202,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                     n_targets=1, bias=0.0, effective_rank=None,
                     tail_strength=0.5, noise=0.0, shuffle=False, coef=False,
                     random_state=None, n_parts=1, n_samples_per_part=None,
-                    order='F', dtype='float32'):
+                    order='F', dtype='float32', client=None):
     """Generate a random regression problem.
     The input set can either be well conditioned (by default) or have a low
     rank-fat tail singular profile.
@@ -188,6 +266,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
     """
+
+    client = default_client() if client is None else client
+
     n_informative = min(n_features, n_informative)
     rs = create_rs_generator(random_state)
 
@@ -196,20 +277,27 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     if effective_rank is None:
         # Randomly generate a well conditioned input set
-        X = rs.standard_normal((n_samples, n_features),
-                               chunks=(n_samples_per_part, (n_informative,
-                                                            n_features -
-                                                            n_informative)),
-                               dtype=dtype)
+        if order == 'F':
+            X = f_order_standard_normal(client, rs, n_samples, n_features,
+                                        [n_samples_per_part] * n_parts, dtype)
+        elif order == 'C':
+            X = rs.standard_normal((n_samples, n_features),
+                                chunks=(n_samples_per_part, (n_informative,
+                                                                n_features -
+                                                                n_informative)),
+                                dtype=dtype)
 
     else:
         # Randomly generate a low rank, fat tail input set
-        X = make_low_rank_matrix(n_samples=n_samples,
+        X = make_low_rank_matrix(client=client, 
+                                 n_samples=n_samples,
                                  n_features=n_features,
                                  effective_rank=effective_rank,
                                  tail_strength=tail_strength,
                                  random_state=rs,
-                                 n_parts=n_parts, dtype=dtype)
+                                 n_parts=n_parts,
+                                 dtype=dtype,
+                                 order=order)
         X = X.rechunk({0: n_samples_per_part,
                        1: (n_informative, n_features-n_informative)})
 
@@ -237,12 +325,20 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     # Randomly permute samples and features
     if shuffle:
-        samples_indices = np.random.permutation(n_samples)
-        X = X[samples_indices, :]
-        y = y[samples_indices, :]
-
         features_indices = np.random.permutation(n_features)
-        X = X[:, features_indices]
+        if order == 'F':
+            X, y = f_order_shuffle(client, rs, X, y, n_parts,
+                                   n_samples_per_part,
+                                   n_features, features_indices,
+                                   dtype)
+            
+        elif order == 'C':
+            samples_indices = np.random.permutation(n_samples)
+
+            X = X[samples_indices, :]
+            y = y[samples_indices, :]
+
+            X = X[:, features_indices]
         ground_truth = ground_truth[features_indices, :]
 
     y = da.squeeze(y)
