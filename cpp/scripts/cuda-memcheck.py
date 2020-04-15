@@ -92,7 +92,7 @@ def run_tests(args, testlist):
         print("PASS")
     diff = time.time() - start
     print("Total time taken: %d s" % diff)
-    if len(failed) != 0):
+    if len(failed) != 0:
         raise Exception("Test failed!")
 
 
