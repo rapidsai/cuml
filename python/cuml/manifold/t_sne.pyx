@@ -31,7 +31,6 @@ import warnings
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
-from cuml.utils import input_to_dev_array
 from cuml.common.array import CumlArray
 from cuml.utils import input_to_cuml_array
 import rmm
@@ -411,7 +410,6 @@ class TSNE(Base):
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        # del _X
         self.embedding_ = Y
         return self
 
