@@ -31,6 +31,7 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         void setLevel(int level)
         void setPattern(const string& pattern)
         bool shouldLogFor(int level) const
+        int getLevel() const
         string getPattern() const
 
 
