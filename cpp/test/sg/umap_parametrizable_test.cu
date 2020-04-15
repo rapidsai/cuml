@@ -247,7 +247,7 @@ class UMAPParametrizableTest : public ::testing::Test {
       {false, true, false, 10000, 200, 42, 0.45},
       {false, false, false, 10000, 200, 42, 0.45},
       {true, false, true, 10000, 200, 42, 0.45},
-    
+
       {true, false, false, 1000, 50, 100, 0.45},
       {true, false, false, 5000, 50, 100, 0.45},
       {true, false, false, 10000, 50, 100, 0.45},
