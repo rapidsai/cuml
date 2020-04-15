@@ -97,14 +97,26 @@ def set_level(level):
 
     .. code-block:: python
 
-        # To enable all log messages upto and including `info()`
         import cuml.common.logger as logger
+
+        # regular usage of setting a logging level for all subsequent logs
+        # in this case, it will enable all logs upto and including `info()`
         logger.set_level(logger.LEVEL_INFO)
+
+        # in case one wants to temporarily set the log level for a code block
+        with logger.set_level(logger.LEVEL_DEBUG) as _:
+            logger.debug("Hello world!")
 
     Parameters
     ----------
     level : int
         Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
+
+    Returns
+    -------
+    context_object : LogLevelSetter
+        This is useful if one wants to temporarily set a different logging
+        level for a code section, as described in the example section above.
     """
     cdef int prev = Logger.get().getLevel()
     context_object = LogLevelSetter(prev)
