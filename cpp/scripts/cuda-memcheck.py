@@ -69,34 +69,37 @@ def get_testlist(exe, workdir):
 def run_tests(args, testlist):
     start = time.time()
     idx = 1
-    failed = 0
+    failed = []
     total = len(testlist)
     for test in testlist:
         cmd = "cuda-memcheck --tool %s %s --gtest_filter=%s" % \
             (args.tool, args.exe, test)
         print("[%d/%d Failed:%d] Checking %s ... " % \
-              (idx, total, failed, test), end="")
+              (idx, total, len(failed), test), end="")
         retcode, out = run_cmd(cmd, args.pwd)
         print("[%s]" % ("PASS" if retcode == 0 else "FAIL"))
         if retcode != 0:
             if args.verbose:
                 print(out)
-            failed += 1
+            failed.append(test)
         idx += 1
-    if failed != 0:
-        print("FAIL: %d failed tests out of %d" % (failed, total))
+    if len(failed) != 0:
+        print("FAIL: %d failed tests out of %d. Failed tests are" % \
+              (len(failed), total))
+        for f in failed:
+            print("  %s" % f)
     else:
         print("PASS")
     diff = time.time() - start
     print("Total time taken: %d s" % diff)
-    return failed == 0
+    if len(failed) != 0):
+        raise Exception("Test failed!")
 
 
 def main():
     args = parse_args()
     testlist = get_testlist(args.exe, args.pwd)
-    if not run_tests(args, testlist):
-        raise Exception("Test failed! See above for errors")
+    run_tests(args, testlist)
     return
 
 
