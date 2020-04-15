@@ -159,12 +159,25 @@ def test_make_regression(n_samples, n_features, n_informative,
 
         X_part = c.sync(_extract_partitions, out)
         out_part = X_part[0][1].result()
+
+        y_part = c.sync(_extract_partitions, values)
+        value_part = y_part[0][1].result()
+
+        if coef:
+            coefs_part = c.sync(_extract_partitions, coefs)
+            coefs_part = coefs_part[0][1].result()
         if order == 'F':
-            if effective_rank is None or (effective_rank
-                                          and not use_full_low_rank):
-                assert out_part.flags['F_CONTIGUOUS']
+            assert out_part.flags['F_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['F_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['F_CONTIGUOUS']
         elif order == 'C':
             assert out_part.flags['C_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['C_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['C_CONTIGUOUS']
 
     finally:
         c.close()
