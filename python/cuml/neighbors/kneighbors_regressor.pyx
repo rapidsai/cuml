@@ -68,6 +68,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         float *out,
         int64_t *knn_indices,
         vector[float *] &y,
+        size_t n_rows,
         size_t n_samples,
         int k,
     ) except +
@@ -250,7 +251,8 @@ class KNeighborsRegressor(NearestNeighbors):
             <float*>results_ptr,
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>X.shape[0],
+            <size_t>self.n_rows,
+            <size_t>n_rows,
             <int>self.n_neighbors
         )
 
