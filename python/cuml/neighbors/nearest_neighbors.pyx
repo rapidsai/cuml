@@ -233,6 +233,8 @@ class NearestNeighbors(Base):
                                                  if convert_dtype
                                                  else None))
 
+        self.n_rows = n_rows
+
         self.n_indices = 1
 
         return self
