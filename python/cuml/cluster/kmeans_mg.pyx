@@ -50,7 +50,7 @@ cdef extern from "cumlprims/opg/kmeans.hpp" namespace \
         InitMethod init
         int max_iter,
         double tol,
-        int verbose,
+        int verbosity,
         int seed,
         int metric,
         double oversampling_factor,
