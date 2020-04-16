@@ -83,7 +83,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     dbscanFit(handle, out.data(), params.n_row, params.n_col, params.eps,
-              params.min_pts, labels, params.max_bytes_per_batch, false);
+              params.min_pts, labels, params.max_bytes_per_batch);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 

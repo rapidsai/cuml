@@ -273,8 +273,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                 .idx;
             ++class_votes[class_label];
           }
-          int best_class = 0;
-          float most_votes = 0.0;
           for (int c = 0; c < ps.num_classes; ++c) {
             float thresholded_proba;  // not used; do argmax instead
             transform(class_votes[c], want_proba_h[r * ps.num_classes + c],
