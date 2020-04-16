@@ -384,7 +384,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  *          each output in the vector is a different array of labels
  *          corresponding to the i'th output.
  * @param n_rows number of rows in knn_indices
- * @param n_labels number of vertices in index
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param k number of neighbors in knn_indices
  * @param uniq_labels vector of the sorted unique labels for each array in y
  * @param n_unique vector of sizes for each array in uniq_labels
@@ -441,7 +441,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
- * @param n_labels number of vertices in index
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_rows number of rows in knn_indices
  *  * @param k number of neighbors in knn_indices
  * @param uniq_labels vector of the sorted unique labels for each array in y
@@ -519,7 +519,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * @param y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
- * @param n_labels number of vertices in index
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_rows number of rows in knn_indices
  * @param k number of neighbors in knn_indices
  * @param user_stream main stream to use for queuing isolated CUDA events
