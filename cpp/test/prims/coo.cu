@@ -19,6 +19,7 @@
 #include "random/rng.h"
 #include "sparse/coo.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 #include <iostream>
 

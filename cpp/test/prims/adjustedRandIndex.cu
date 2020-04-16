@@ -21,6 +21,7 @@
 #include "metrics/adjustedRandIndex.h"
 #include "metrics/contingencyMatrix.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Metrics {

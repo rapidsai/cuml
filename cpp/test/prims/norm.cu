@@ -18,6 +18,7 @@
 #include "linalg/norm.h"
 #include "random/rng.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {

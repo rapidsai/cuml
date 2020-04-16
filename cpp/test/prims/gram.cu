@@ -25,6 +25,7 @@
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Matrix {

@@ -26,6 +26,7 @@
 #include "linalg/batched/matrix.h"
 #include "linalg_naive.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <functions/hinge.h>
 #include <functions/linearReg.h>
 #include <functions/logisticReg.h>

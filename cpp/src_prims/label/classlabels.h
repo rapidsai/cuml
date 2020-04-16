@@ -21,6 +21,7 @@
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
+#include "common/cudart_utils.h"
 #include "linalg/unary_op.h"
 #include "ml_utils.h"
 

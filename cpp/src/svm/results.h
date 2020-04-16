@@ -33,6 +33,7 @@
 #include "linalg/map_then_reduce.h"
 #include "linalg/unary_op.h"
 #include "matrix/matrix.h"
+#include "common/cudart_utils.h"
 #include "ws_util.h"
 
 namespace ML {

@@ -17,6 +17,7 @@
 #pragma once
 #include "hw_eval.h"
 #include "hw_utils.h"
+#include <common/cudart_utils.h>
 
 template <typename Dtype>
 __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c) {

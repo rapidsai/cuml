@@ -19,6 +19,7 @@
 #include <numeric>
 #include "selection/columnWiseSort.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Selection {

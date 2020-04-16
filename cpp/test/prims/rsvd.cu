@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
+#include <common/cudart_utils.h>
 #include "linalg/rsvd.h"
 #include "random/rng.h"
 #include "test_utils.h"

@@ -62,7 +62,7 @@ std::string arr2Str(const T *arr, int size, std::string name,
 
   return ss.str();
 }
-
+/** this seems to be unused, but may be useful in the future */
 template <typename T>
 void ASSERT_DEVICE_MEM(T *ptr, std::string name) {
   cudaPointerAttributes s_att;

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <math.h>
 #include <iostream>
 #include <limits>
@@ -34,7 +35,6 @@
 #include "matrix/kernelfactory.h"
 #include "smo_sets.h"
 #include "smoblocksolve.h"
-#include "utils.h"
 #include "workingset.h"
 #include "ws_util.h"
 

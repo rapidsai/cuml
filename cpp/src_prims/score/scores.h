@@ -20,6 +20,7 @@
 #include "linalg/power.h"
 #include "linalg/subtract.h"
 #include "stats/mean.h"
+#include "common/cudart_utils.h"
 
 #include <memory>
 

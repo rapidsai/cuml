@@ -18,7 +18,7 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <sstream>

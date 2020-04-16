@@ -22,6 +22,7 @@
 #include "random/rng.h"
 #include "stats/minmax.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Stats {

@@ -20,6 +20,7 @@
 
 #include "random/rng.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 #include <iostream>
 #include <limits>

@@ -19,6 +19,7 @@
 #include <random/rng.h>
 #include <stats/histogram.h>
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Stats {

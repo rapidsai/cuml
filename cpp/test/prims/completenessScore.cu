@@ -20,6 +20,7 @@
 #include <iostream>
 #include <random>
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Metrics {

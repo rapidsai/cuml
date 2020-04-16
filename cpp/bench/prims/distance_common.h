@@ -16,6 +16,7 @@
 
 #include <distance/distance.h>
 #include "benchmark.cuh"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Bench {

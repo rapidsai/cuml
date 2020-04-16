@@ -23,6 +23,7 @@
 #include "random/rng.h"
 #include "randomforest_impl.h"
 #include "score/scores.h"
+#include <common/cudart_utils.h>
 
 namespace ML {
 /**

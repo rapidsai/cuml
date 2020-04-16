@@ -23,6 +23,7 @@
 #include <cstddef>
 #include "../linalg/cublas_wrappers.h"
 #include "cuda_utils.h"
+#include "common/cudart_utils.h"
 #include "cusolverDn.h"
 
 namespace MLCommon {

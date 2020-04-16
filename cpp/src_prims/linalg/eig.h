@@ -20,6 +20,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
+#include "common/cudart_utils.h"
 #include "cusolver_wrappers.h"
 #include "matrix/matrix.h"
 
