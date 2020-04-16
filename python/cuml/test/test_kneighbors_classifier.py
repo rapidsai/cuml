@@ -131,14 +131,14 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
     if datatype == "dataframe":
         assert isinstance(predictions, cudf.DataFrame)
         predictions = predictions.as_gpu_matrix().copy_to_host()
-        y_test = y_test.as_gpu_matrix().copy_to_host().reshape(nrows)
+        y_test = y_test.as_gpu_matrix().copy_to_host().reshape(y_test.shape[0])
     else:
         assert isinstance(predictions, np.ndarray)
 
     y_hat = np.argmax(predictions, axis=1)
 
     assert array_equal(y_hat.astype(np.int32), y_test.astype(np.int32))
-    assert array_equal(predictions.sum(axis=1), np.ones(nrows))
+    assert array_equal(predictions.sum(axis=1), np.ones(y_test.shape[0]))
 
 
 @pytest.mark.parametrize("n_samples", [100])
