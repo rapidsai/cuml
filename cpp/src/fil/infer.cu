@@ -160,8 +160,6 @@ struct tree_aggregator_t {
   }
 };
 
-#undef BlockReduce_
-
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, INT_CLASS_LABEL> {
   // could switch to unsigned short to save shared memory
@@ -282,10 +280,11 @@ void infer_k_launcher(storage_type forest, predict_params params,
   params.max_items =
     params.algo == algo_t::BATCH_TREE_REORG ? MAX_BATCH_ITEMS : 1;
 
+  /** searching for the most items per block while respecting the shared
+  * memory limits creates a full linear programming problem.
+  * solving it in a single equation looks less tractable than this */
   int num_items = 0;
   size_t shm_sz = 0;
-  // solving this linear programming problem in a single equation
-  // looks less tractable than this
   for (int nitems = 1; nitems <= params.max_items; ++nitems) {
     size_t peak_footprint;
     switch (nitems) {

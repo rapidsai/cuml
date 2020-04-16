@@ -137,36 +137,65 @@ struct forest {
     params.num_classes = num_classes_;
     params.leaf_payload_type = leaf_payload_type_;
 
+    /**
+    The binary classification / regression (FLOAT_SCALAR) predict_proba() works as follows
+      (always 2 outputs):
+    RAW: output the sum of tree predictions
+    AVG is set: divide by the number of trees (averaging)
+    SIGMOID is set: apply sigmoid
+    CLASS is set: ignored
+    write the output of the previous stages and its complement
+
+    The binary classification / regression (FLOAT_SCALAR) predict() works as follows
+      (always 1 output):
+    RAW (no values set): output the sum of tree predictions
+    AVG is set: divide by the number of trees (averaging)
+    SIGMOID is set: apply sigmoid
+    CLASS is set: apply threshold (equivalent to choosing best class)
+    
+    The multi-class classification / regression (INT_CLASS_LABEL) predict_proba() works as follows
+      (always num_classes outputs):
+    RAW (no values set): output class votes
+    AVG is set: divide by the number of trees (averaging, output class probability)
+    SIGMOID is set: apply sigmoid
+    CLASS is set: ignored
+    
+    The multi-class classification / regression (INT_CLASS_LABEL) predict() works as follows
+      (always 1 output):
+    RAW (no values set): output the label of the class with highest probability, else output label 0.
+    AVG is set: ignored
+    SIGMOID is set: ignored
+    CLASS is set: ignored
+    */
     output_t ot = output_;
-    if (predict_proba) {
-      ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+    bool complement_proba = false, do_transform = global_bias_ != 0.0f;
+
+    if (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR) {
+      if (predict_proba) {
+        params.num_outputs = 2;
+        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+        complement_proba = true;
+        do_transform = true;
+      } else {
+        params.num_outputs = 1;
+        if (ot != output_t::RAW) do_transform = true;
+      }
+    } else if (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) {
+      if (predict_proba) {
+        params.num_outputs = num_classes_;
+        ot = output_t(ot & ~output_t::CLASS);  // no threshold on probabilities
+        if (ot != output_t::RAW) do_transform = true;
+      } else {
+        params.num_outputs = 1;
+        // moot since choosing best class and all transforms are monotonic
+        // also, would break current code
+        do_transform = false;
+      }
     }
-    bool complement_proba = ((ot & output_t::CLASS) == 0) &&
-                            (leaf_payload_type_ == leaf_value_t::FLOAT_SCALAR);
-    /** FLOAT_SCALAR means inference produces 1 class score/component and
-        transform_k might complement to 2 for classification,
-        if class probabilities are being requested.
-        assuming predict(..., predict_proba=true) will not get called
-        for regression, hence predict_params::num_outputs == 2 */
-    params.num_outputs =
-      ((ot & output_t::CLASS) != 0)
-        ? 1
-        : (leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL ? num_classes_
-                                                               : 2);
 
     // Predict using the forest.
     cudaStream_t stream = h.getStream();
     infer(params, stream);
-
-    // Transform the output if necessary.
-    bool do_transform =
-      ot != output_t::RAW || global_bias_ != 0.0f || complement_proba;
-    if ((leaf_payload_type_ == leaf_value_t::INT_CLASS_LABEL) &&
-        ((ot & output_t::CLASS) != 0)) {
-      // moot since choosing best class and all transforms are monotonic
-      // also, would break current code
-      do_transform = false;
-    }
 
     if (do_transform) {
       size_t num_values_to_transform =
@@ -328,10 +357,6 @@ void check_params(const forest_params_t* params, bool dense) {
     ASSERT(false,
            "output should be a combination of RAW, AVG, SIGMOID and CLASS");
   }
-  ASSERT(
-    (params->output & output_t::CLASS || params->num_classes < 2 ||
-     params->leaf_payload_type) == leaf_value_t::INT_CLASS_LABEL,
-    "cannot do two-component regression using FLOAT_SCALAR leaf_payload_type");
 }
 
 // tl_node_at is a checked version of tree[i]
@@ -529,8 +554,7 @@ size_t tl_leaf_vector_size(const tl::Model& model) {
   const tl::Tree& tree = model.trees[0];
   int node_key;
   for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
-       node_key = tl_node_at(tree, node_key).cright())
-    ;
+       node_key = tl_node_at(tree, node_key).cright());
   const tl::Tree::Node& node = tl_node_at(tree, node_key);
   if (node.has_leaf_vector()) return node.leaf_vector().size();
   return 0;
