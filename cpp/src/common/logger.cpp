@@ -48,7 +48,9 @@ Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")}, currPattern() {
 }
 
 void Logger::setLevel(int level) {
-  logger->set_level(static_cast<spdlog::level::level_enum>(level));
+  if (CUML_LEVEL_TRACE <= level && level <= CUML_LEVEL_OFF) {
+    logger->set_level(static_cast<spdlog::level::level_enum>(level));
+  }
 }
 
 void Logger::setPattern(const std::string& pattern) {
