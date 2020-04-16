@@ -247,17 +247,17 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                 params->target_n_neighbors, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  if (params->verbose) {
-    CUML_LOG_INFO("Target kNN Graph");
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    CUML_LOG_DEBUG("Target kNN Graph");
     std::stringstream ss1, ss2;
     ss1 << MLCommon::arr2Str(y_knn_indices.data(),
                              rgraph_coo->n_rows * params->target_n_neighbors,
                              "knn_indices", stream);
-    CUML_LOG_INFO("%s", ss1.str().c_str());
+    CUML_LOG_DEBUG("%s", ss1.str().c_str());
     ss2 << MLCommon::arr2Str(y_knn_dists.data(),
                              rgraph_coo->n_rows * params->target_n_neighbors,
                              "knn_dists", stream);
-    CUML_LOG_INFO("%s", ss2.str().c_str());
+    CUML_LOG_DEBUG("%s", ss2.str().c_str());
   }
 
   /**
@@ -270,11 +270,11 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                                &ygraph_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  if (params->verbose) {
-    CUML_LOG_INFO("Target Fuzzy Simplicial Set");
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    CUML_LOG_DEBUG("Target Fuzzy Simplicial Set");
     std::stringstream ss;
     ss << ygraph_coo;
-    CUML_LOG_INFO(ss.str().c_str());
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
 
   /**
