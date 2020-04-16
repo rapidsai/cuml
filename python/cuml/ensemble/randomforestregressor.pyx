@@ -23,6 +23,7 @@ import ctypes
 import cudf
 import math
 import numpy as np
+import timeit
 import warnings
 
 from libcpp cimport bool
@@ -58,7 +59,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   int,
                   float*,
-                  RF_params,
+                  RF_params, ModelHandle*,
                   int) except +
 
     cdef void fit(cumlHandle & handle,
@@ -67,7 +68,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   int,
                   double*,
-                  RF_params,
+                  RF_params, ModelHandle*,
                   int) except +
 
     cdef void predict(cumlHandle& handle,
@@ -76,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       float*,
-                      int) except +
+                      bool) except +
 
     cdef void predict(cumlHandle& handle,
                       RandomForestMetaData[double, double]*,
@@ -84,21 +85,21 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       double*,
-                      int) except +
+                      bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
                           int,
                           float*,
-                          int) except +
+                          bool) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
                           int,
                           double*,
-                          int) except +
+                          bool) except +
 
 
 class RandomForestRegressor(Base):
@@ -280,6 +281,8 @@ class RandomForestRegressor(Base):
         self.n_bins = n_bins
         self.n_cols = None
         self.dtype = None
+        self.treelite_handle = None
+        self.concat_handle = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
@@ -360,7 +363,7 @@ class RandomForestRegressor(Base):
 
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
-            return self.max_features/self.n_cols
+            return self.max_features/self.n_2cols
         elif type(self.max_features) == float:
             return self.max_features
         elif self.max_features == 'sqrt':
@@ -388,9 +391,20 @@ class RandomForestRegressor(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
-        fit_mod_ptr = self._obtain_treelite_handle()
+        if self.concat_handle and len(self.concat_model_bytes) > 0:
+            return self.concat_model_bytes
+        elif self.concat_handle:
+            fit_mod_ptr = self.concat_handle
+        elif self.concat_handle is None and self.treelite_handle:
+            if len(self.model_pbuf_bytes) > 0:
+                return self.model_pbuf_bytes
+            else:
+                fit_mod_ptr = self.treelite_handle
+        else:
+            fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
         model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
+
         return model_protobuf_bytes
 
     def convert_to_treelite_model(self):
@@ -401,8 +415,10 @@ class RandomForestRegressor(Base):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_treelite_model(treelite_handle)
+        if self.treelite_handle is None:
+            handle = self._obtain_treelite_handle()
+
+        return _obtain_treelite_model(handle)
 
     def convert_to_fil_model(self, output_class=False,
                              algo='auto',
@@ -447,8 +463,11 @@ class RandomForestRegressor(Base):
             inferencing on the random forest model.
 
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_fil_model(treelite_handle=treelite_handle,
+        if self.treelite_handle is None:
+            handle = self._obtain_treelite_handle()
+        else:
+            handle = self.treelite_handle
+        return _obtain_fil_model(treelite_handle=handle,
                                  depth=self.max_depth,
                                  output_class=output_class,
                                  algo=algo,
@@ -485,12 +504,9 @@ class RandomForestRegressor(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
 
         concat_model_ptr = <size_t> concat_model_handle
-        return ctypes.c_void_p(concat_model_ptr).value
-
-    def _concatenate_model_bytes(self, concat_model_handle):
-        cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
-        concat_model_bytes = save_model(<ModelHandle> model_ptr)
-        self.model_pbuf_bytes = concat_model_bytes
+        self.concat_handle = ctypes.c_void_p(concat_model_ptr).value
+        cdef uintptr_t model_ptr = <uintptr_t> self.concat_handle
+        self.concat_model_bytes = save_model(<ModelHandle> model_ptr)
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -532,6 +548,8 @@ class RandomForestRegressor(Base):
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
+        cdef ModelHandle cuml_model_ptr = NULL
+        task_category = REGRESSION_MODEL
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
@@ -573,7 +591,8 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <float*> y_ptr,
                 rf_params,
-                <int> self.logging_level)
+                & cuml_model_ptr,
+                <int> task_category)
 
         else:
             rf_params64 = rf_params
@@ -584,12 +603,15 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <double*> y_ptr,
                 rf_params64,
-                <int> self.logging_level)
+                & cuml_model_ptr,
+                <int> task_category)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
         del(X_m)
         del(y_m)
+        mod_ptr = <size_t> cuml_model_ptr
+        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
@@ -665,7 +687,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <float*> preds_ptr,
-                    <int> self.logging_level)
+                    <bool> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -674,7 +696,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <double*> preds_ptr,
-                    <int> self.logging_level)
+                    <bool> self.verbose)
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
@@ -830,7 +852,7 @@ class RandomForestRegressor(Base):
                                     <float*> y_ptr,
                                     <int> n_rows,
                                     <float*> preds_ptr,
-                                    <int> self.logging_level)
+                                    <bool> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
@@ -838,7 +860,7 @@ class RandomForestRegressor(Base):
                                     <double*> y_ptr,
                                     <int> n_rows,
                                     <double*> preds_ptr,
-                                    <int> self.logging_level)
+                                    <bool> self.verbose)
 
         if self.accuracy_metric == 'median_ae':
             stats = self.temp_stats['median_abs_error']
