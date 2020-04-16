@@ -95,15 +95,13 @@ def test_make_blobs(nrows,
 @pytest.mark.parametrize('noise', [1.0])
 @pytest.mark.parametrize('shuffle', [True, False])
 @pytest.mark.parametrize('coef', [True, False])
-@pytest.mark.parametrize('random_state', [None, 1234])
-@pytest.mark.parametrize('n_parts', [unit_param(1),
-                         stress_param(3)])
+@pytest.mark.parametrize('n_parts', [1, 4, 23])
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('use_full_low_rank', [True, False])
 def test_make_regression(n_samples, n_features, n_informative,
                          n_targets, bias, effective_rank,
                          tail_strength, noise, shuffle,
-                         coef, random_state, n_parts, order,
+                         coef, n_parts, order,
                          use_full_low_rank, cluster):
     c = Client(cluster)
     try:
@@ -114,7 +112,7 @@ def test_make_regression(n_samples, n_features, n_informative,
                                  n_targets=n_targets, bias=bias,
                                  effective_rank=effective_rank, noise=noise,
                                  shuffle=shuffle, coef=coef,
-                                 random_state=random_state, n_parts=n_parts,
+                                 n_parts=n_parts,
                                  use_full_low_rank=use_full_low_rank,
                                  order=order)
 
