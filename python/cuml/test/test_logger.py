@@ -22,7 +22,7 @@ from cuml.common.logger import logger
 def test_logger():
     logger.trace("This is a trace message")
     logger.debug("This is a debug message")
-    logger.info("This is a info message")
+    logger.info("This is an info message")
     logger.warn("This is a warn message")
     logger.error("This is a error message")
     logger.critical("This is a critical message")
@@ -30,3 +30,6 @@ def test_logger():
     with logger.set_level(logger.LOG_LEVEL_WARN):
         assert(logger.should_log_for(logger.LOG_LEVEL_WARN))
         assert(not logger.should_log_for(logger.LOG_LEVEL_INFO))
+
+    with logger.set_pattern("%v"):
+        logger.info("This is an info message")
