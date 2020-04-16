@@ -25,7 +25,8 @@ def _generate_hypercube(samples, dimensions, rng):
     """Returns distinct binary samples of length dimensions
     """
     if dimensions > 30:
-        return np.hstack([np.random.randint(2, size=(samples, dimensions - 30)),
+        return np.hstack([np.random.randint(2, size=(samples,
+                                                     dimensions - 30)),
                           _generate_hypercube(samples, 30, rng)])
     random_state = int(rng.randint(dimensions))
     out = sample_without_replacement(2 ** dimensions, samples,
@@ -127,7 +128,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     _redundant_covariance: array for covariance between redundant features
         of shape (n_informative, n_redundant)
     _repeated_indices: array of indices for the repeated features
-        of shape (n_repeated, )          
+        of shape (n_repeated, )
     Returns
     -------
     X : device array of shape [n_samples, n_features]
@@ -228,10 +229,10 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                 A = _informative_covariance[k]
             X_k = cp.dot(X_k, A)
 
-            #NOTE: This could be done outside the loop, but a current
+            # NOTE: This could be done outside the loop, but a current
             # cupy bug does not allow that
-            X[centroid_indices[0], n_informative:n_informative + n_redundant] = \
-                cp.dot(X_k, B)
+            X[centroid_indices[0], n_informative:n_informative
+              + n_redundant] = cp.dot(X_k, B)
 
             X_k += centroid  # shift the cluster to a vertex
             X[centroid_indices[0], :n_informative] = X_k

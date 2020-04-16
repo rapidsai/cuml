@@ -170,17 +170,17 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     # redundant_covariance = client.scatter(redundant_covariance_local,
     #                                       workers=workers)
     covariance_seeds = rs.randint(n_features, size=2)
-    informative_covariance = client.submit(_create_covariance, 
+    informative_covariance = client.submit(_create_covariance,
                                            (n_clusters, n_informative,
                                             n_informative),
                                            int(covariance_seeds[0]),
                                            pure=False)
 
-    redundant_covariance = client.submit(_create_covariance, 
-                                           (n_informative,
-                                            n_redundant),
-                                           int(covariance_seeds[1]),
-                                           pure=False)
+    redundant_covariance = client.submit(_create_covariance,
+                                         (n_informative,
+                                          n_redundant),
+                                         int(covariance_seeds[1]),
+                                         pure=False)
 
     # repeated indices
     n = n_informative + n_redundant
