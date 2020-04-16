@@ -54,7 +54,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
@@ -99,7 +99,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
@@ -134,7 +134,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
@@ -169,7 +169,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(),
                       handle.getStream());

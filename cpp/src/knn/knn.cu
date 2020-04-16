@@ -91,9 +91,9 @@ void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                                    uniq_labels, n_unique, d_alloc, stream);
 }
 
-kNN::kNN(const cumlHandle &handle, int D, bool verbose)
+kNN::kNN(const cumlHandle &handle, int D, int verbosity)
   : D(D), total_n(0), indices(0) {
-  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+  ML::Logger::get().setLevel(verbosity);
   this->handle = const_cast<cumlHandle *>(&handle);
   sizes = nullptr;
   ptrs = nullptr;
@@ -128,7 +128,7 @@ void kNN::fit(std::vector<float *> &input, std::vector<int> &sizes,
 
   int N = input.size();
 
-  CUML_LOG_INFO("N=%d", N);
+  CUML_LOG_DEBUG("N=%d", N);
 
   reset();
 

@@ -24,24 +24,40 @@ from sklearn.datasets.samples_generator import make_regression
 from sklearn.model_selection import train_test_split
 
 
-@pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['ndarray'])
-@pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
-                         nrows, column_info):
-    ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info, random_state=0)
+@pytest.fixture(scope="module", params=[
+    unit_param([500, 20, 10, np.float32]),
+    unit_param([500, 20, 10, np.float64]),
+    quality_param([5000, 100, 50, np.float32]),
+    quality_param([5000, 100, 50, np.float64]),
+    stress_param([500000, 1000, 500, np.float32]),
+    stress_param([500000, 1000, 500, np.float64]),
+], ids=['500-20-10-f32', '500-20-10-f64',
+        '5000-100-50-f32', '5000-100-50-f64',
+        '500000-1000-500-f32', '500000-1000-500-f64'])
+def make_dataset(request):
+    nrows, ncols, n_info, datatype = request.param
+    X, y = make_regression(n_samples=nrows, n_informative=n_info,
+                           n_features=ncols, random_state=0)
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+                                                        random_state=10)
+
+    return nrows, datatype, X_train, X_test, y_train, y_test
+
+
+@pytest.mark.parametrize(
+    # Grouped those tests to reduce the total number of individual tests
+    # while still keeping good coverage of the different features of MBSGD
+    ('lrate', 'penalty'), [
+        ('constant', 'none'),
+        ('invscaling', 'l1'),
+        ('adaptive', 'l2'),
+        ('constant', 'elasticnet'),
+    ]
+)
+def test_mbsgd_regressor(lrate, penalty, make_dataset):
+    nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
 
     cu_mbsgd_regressor = cumlMBSGRegressor(learning_rate=lrate, eta0=0.005,
                                            epochs=100, fit_intercept=True,
@@ -64,21 +80,8 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
         assert abs(cu_r2 - skl_r2) <= 0.02
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-def test_mbsgd_regressor_default(datatype, nrows,
-                                 column_info):
-    ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info, random_state=0)
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+def test_mbsgd_regressor_default(make_dataset):
+    nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
 
     cu_mbsgd_regressor = cumlMBSGRegressor()
     cu_mbsgd_regressor.fit(X_train, y_train)
