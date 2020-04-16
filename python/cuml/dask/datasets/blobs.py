@@ -66,7 +66,7 @@ def get_labels(t):
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                n_parts=None, center_box=(-10, 10), random_state=None,
                verbose=False, dtype=np.float32, output='dataframe',
-               order='F', shuffle=False, client=None):
+               order='F', shuffle=True, client=None):
     """
     Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
     for a randomly generated set of centroids.
@@ -102,9 +102,13 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
          enables / disables verbose printing.
     dtype : dtype (default = np.float32)
          datatype to generate
-    output : str (default = 'dataframe')
+    output : str { 'dataframe', 'array' } (default = 'dataframe')
          whether to generate dask array or
          dask dataframe output. Default will be array in the future.
+    shuffle : bool (default=False)
+              Shuffles the samples on each worker.
+    client : dask.distributed.Client (optional)
+             Dask client to use
 
     Returns
     -------
@@ -120,6 +124,9 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     rows_per_part = math.ceil(n_samples / n_parts)
 
     centers = 3 if centers is None else centers
+
+    random_state = np.random.randint(0, 100) \
+        if random_state is None else random_state
 
     if not isinstance(centers, np.ndarray):
         centers = np.random.uniform(center_box[0], center_box[1],
@@ -148,7 +155,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                    n_features,
                                    centers,
                                    cluster_std,
-                                   random_state,
+                                   random_state+idx,
                                    dtype,
                                    output,
                                    order,
