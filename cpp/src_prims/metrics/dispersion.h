@@ -46,7 +46,8 @@ __global__ void weightedMeanKernel(DataT *mu, const DataT *data,
   __syncthreads();
   myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk && colId < D) myAtomicAdd(mu + colId, smu[thisColId]);
+  if (threadIdx.x < ColsPerBlk && colId < D)
+    myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename DataT, typename IdxT, int TPB>
