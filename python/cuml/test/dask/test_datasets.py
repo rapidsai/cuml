@@ -26,6 +26,8 @@ from cuml.dask.datasets import make_blobs
 
 from cuml.test.utils import unit_param, quality_param, stress_param
 
+from cuml.dask.common.part_utils import _extract_partitions
+
 
 @pytest.mark.parametrize('nrows', [unit_param(1e3), quality_param(1e5),
                                    stress_param(1e6)])
@@ -180,13 +182,23 @@ def test_make_classification(n_samples, n_features, n_classes,
         assert(len(X.chunks[0])) == n_parts
         assert(len(X.chunks[1])) == 1
 
-        X_local = X.compute()
-        y_local = y.compute()
+        assert X.shape == (n_samples, n_features)
+        assert y.shape == (n_samples, )
 
-        assert X_local.shape == (n_samples, n_features)
+        assert len(X.chunks[0]) == n_parts
+        assert len(y.chunks[0]) == n_parts
+
         import cupy as cp
+        y_local = y.compute()
         assert len(cp.unique(y_local)) == n_classes
-        assert y_local.shape == (n_samples, )
+
+        X_parts = client.sync(_extract_partitions, X)
+        X_first = X_parts[0][1].result()
+
+        if order == 'F':
+            assert X_first.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert X_first.flags['C_CONTIGUOUS']
 
     finally:
         client.close()

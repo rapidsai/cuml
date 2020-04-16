@@ -36,8 +36,9 @@ def get_labels(t):
     return t[1]
 
 
-def _create_covariance(*args, rs, dtype='float32'):
-    return 2 * rs.rand(*args, dtype=dtype) - 1
+def _create_covariance(dims, seed, dtype='float32'):
+    local_rs = cp.random.RandomState(seed=seed)
+    return 2 * local_rs.rand(*dims, dtype=dtype) - 1
 
 
 @with_cupy_rmm
@@ -159,17 +160,27 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                                              rs)).astype(dtype, copy=False)
 
     # # create covariance matrices
-    informative_covariance_local = rs.rand(n_clusters, n_informative,
-                                           n_informative, dtype=dtype)
-    informative_covariance = client.scatter(informative_covariance_local,
-                                            workers=workers)
-    del informative_covariance_local
+    # informative_covariance_local = rs.rand(n_clusters, n_informative,
+    #                                        n_informative, dtype=dtype)
+    # informative_covariance = client.scatter(informative_covariance_local,
+    #                                         workers=workers)
 
-    redundant_covariance_local = rs.rand(n_informative, n_redundant,
-                                         dtype=dtype)
-    redundant_covariance = client.scatter(redundant_covariance_local,
-                                          workers=workers)
-    del redundant_covariance_local
+    # redundant_covariance_local = rs.rand(n_informative, n_redundant,
+    #                                      dtype=dtype)
+    # redundant_covariance = client.scatter(redundant_covariance_local,
+    #                                       workers=workers)
+    covariance_seeds = rs.randint(n_features, size=2)
+    informative_covariance = client.submit(_create_covariance, 
+                                           (n_clusters, n_informative,
+                                            n_informative),
+                                           int(covariance_seeds[0]),
+                                           pure=False)
+
+    redundant_covariance = client.submit(_create_covariance, 
+                                           (n_informative,
+                                            n_redundant),
+                                           int(covariance_seeds[1]),
+                                           pure=False)
 
     # repeated indices
     n = n_informative + n_redundant
@@ -184,7 +195,6 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         scale = 1 + 100 * rs.rand(n_features, dtype=dtype)
 
     # Create arrays on each worker (gpu)
-    parts = []
     worker_rows = []
     rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
@@ -194,13 +204,15 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         else:
             worker_rows.append((int(n_samples) - rows_so_far))
 
+    part_seeds = rs.permutation(n_parts)
     parts = [client.submit(sg_make_classification, worker_rows[i], n_features,
                            n_informative, n_redundant, n_repeated, n_classes,
                            n_clusters_per_class, weights, flip_y, class_sep,
-                           hypercube, shift, scale, shuffle, random_state,
-                           order, dtype, centroids, informative_covariance,
-                           redundant_covariance, repeated_indices,
-                           pure=False, workers=[parts_workers[i]])
+                           hypercube, shift, scale, shuffle,
+                           int(part_seeds[i]), order, dtype, centroids,
+                           informative_covariance, redundant_covariance,
+                           repeated_indices, pure=False,
+                           workers=[parts_workers[i]])
              for i in range(len(parts_workers))]
 
     X_parts = [client.submit(get_X, f, pure=False)
@@ -217,7 +229,4 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                               meta=cp.zeros((1)))
               for idx, yp in enumerate(y_parts)]
 
-    X = da.concatenate([Xd for Xd in X_dela], axis=0)
-    y = da.concatenate([yd for yd in y_dela], axis=0)
-
-    return X, y
+    return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
