@@ -53,9 +53,15 @@ def _f_order_standard_normal(nrows, ncols, dtype, seed):
 
 
 def f_order_standard_normal(client, rs, chunksizes, ncols, dtype):
+    workers = list(client.has_what().keys())
+
+    n_chunks = len(chunksizes)
+    chunks_workers = (workers * n_chunks)[:n_chunks]
+
     chunk_seeds = rs.permutation(len(chunksizes))
     chunks = [client.submit(_f_order_standard_normal, chunksize, ncols, dtype,
-                            chunk_seeds[idx])
+                            chunk_seeds[idx], workers=[chunks_workers[idx]],
+                            pure=False)
               for idx, chunksize in enumerate(chunksizes)]
 
     chunks_dela = [da.from_delayed(dask.delayed(chunk),
@@ -94,7 +100,7 @@ def f_order_shuffle(client, rs, X, y, n_parts, chunksizes,
     shuffled = [client.submit(_f_order_shuffle, X_part, y_parts[idx][1],
                               chunksizes[idx],
                               chunk_seeds[idx], features_indices,
-                              workers=[w])
+                              workers=[w], pure=False)
                 for idx, (w, X_part) in enumerate(X_parts)]
 
     X_shuffled = [client.submit(get_X, f, pure=False)
@@ -312,8 +318,11 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     if n_samples_per_part is None:
         n_samples_per_part = max(1, int(n_samples / n_parts))
 
-    data_chunksizes = [n_samples_per_part] * n_parts + \
-                      [n_samples % n_samples_per_part]
+    data_chunksizes = [n_samples_per_part] * n_parts
+    if n_samples % n_samples_per_part > 0:
+        data_chunksizes[-1] += n_samples % n_samples_per_part
+    
+    data_chunksizes = tuple(data_chunksizes)
 
     if (effective_rank is None) or (effective_rank and not use_full_low_rank):
         # Randomly generate a well conditioned input set
@@ -323,7 +332,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
         elif order == 'C':
             X = rs.standard_normal((n_samples, n_features),
-                                   chunks=(n_samples_per_part, -1),
+                                   chunks=(data_chunksizes, -1),
                                    dtype=dtype)
 
     else:
@@ -337,11 +346,11 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                  n_parts=n_parts,
                                  dtype=dtype,
                                  order=order)
+        X = X.rechunk({0: data_chunksizes,
+                       1: -1})
         if order == 'F':
             X = convert_C_to_F_order(client, X, data_chunksizes,
                                      n_features, dtype)
-        X = X.rechunk({0: n_samples_per_part,
-                      1: -1})
 
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
@@ -376,7 +385,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                            n_informative,
                                            n_targets), dtype=dtype)
         ground_truth = da.concatenate([ground_truth, zeroes], axis=0)
-        ground_truth = ground_truth.rechunk(-1)
+    ground_truth = ground_truth.rechunk(-1)
 
     # Add noise
     if noise > 0.0:
@@ -398,6 +407,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
             y = y[samples_indices, :]
 
             X = X[:, features_indices]
+
+            X = X.rechunk((data_chunksizes, -1))
+            y = y.rechunk((data_chunksizes, -1))
         ground_truth = ground_truth[features_indices, :]
 
     y = da.squeeze(y)
