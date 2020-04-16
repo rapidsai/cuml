@@ -483,7 +483,6 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
 
-  std::cout << "n_rows classify: " << n_rows << std::endl;
   class_probs(probs, knn_indices, y, n_labels, n_rows, k, uniq_labels, n_unique,
               allocator, user_stream, int_streams, n_int_streams);
 
