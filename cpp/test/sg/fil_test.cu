@@ -259,12 +259,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             pred +=
               infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols]).f;
           }
-          if ((ps.output & fil::output_t::CLASS) != 0) {
-            transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
-          } else {
-            transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i * 2 + 1]);
-            complement(&(want_preds_h[i * 2]));
-          }
+          transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
           complement(&(want_proba_h[i * 2]));
         }
         break;
@@ -286,17 +281,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
               most_votes = pred;
               best_class = c;
             }
-            if ((ps.output & fil::output_t::CLASS) != 0) {
-              float _;
-              transform(pred, want_proba_h[r * ps.num_classes + c], _);
-            } else {
-              transform(pred, want_proba_h[r * ps.num_classes + c],
-                        want_preds_h[r * ps.num_classes + c]);
-            }
+            float thresholded_proba; // not used; do argmax instead
+            transform(pred, want_proba_h[r * ps.num_classes + c], thresholded_proba);
           }
-          if ((ps.output & fil::output_t::CLASS) != 0) {
-            want_preds_h[r] = best_class;
-          }
+          want_preds_h[r] = best_class;
         }
         break;
     }
