@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import pytest
-
 from cuml.common.logger import logger
 
 
