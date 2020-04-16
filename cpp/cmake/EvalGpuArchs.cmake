@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 ")
   execute_process(
     COMMAND ${CUDA_NVCC_EXECUTABLE}
-      -std=c++11
+      -std=c++14
       -o ${eval_exe}
       --run
       ${eval_file}
