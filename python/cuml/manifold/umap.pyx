@@ -82,7 +82,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float repulsion_strength,
         int negative_sample_rate,
         float transform_queue_size,
-        bool verbose,
+        int verbosity,
         float a,
         float b,
         float initial_alpha,
@@ -376,7 +376,7 @@ class UMAP(Base):
         umap_params.repulsion_strength = <float> cls.repulsion_strength
         umap_params.negative_sample_rate = <int> cls.negative_sample_rate
         umap_params.transform_queue_size = <int> cls.transform_queue_size
-        umap_params.verbose = <bool> cls.verbose
+        umap_params.verbosity = <int> cls.logging_level
         umap_params.a = <float> cls.a
         umap_params.b = <float> cls.b
         if cls.init == "spectral":

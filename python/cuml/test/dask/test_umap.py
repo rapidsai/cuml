@@ -59,64 +59,89 @@ def _load_dataset(dataset, n_rows):
     return local_X, local_y
 
 
+def _local_umap_trustworthiness(local_X, local_y,
+                                n_neighbors,
+                                supervised):
+    """
+    Train model on all data, report trustworthiness
+    """
+    from cuml.manifold import UMAP
+
+    local_model = UMAP(n_neighbors=n_neighbors,
+                       random_state=42)
+    y_train = None
+    if supervised:
+        y_train = local_y
+    local_model.fit(local_X, y=y_train)
+    embedding = local_model.transform(local_X)
+    return trustworthiness(local_X, embedding,
+                           n_neighbors=n_neighbors)
+
+
+def _umap_mnmg_trustworthiness(local_X, local_y,
+                               n_neighbors,
+                               supervised,
+                               n_parts,
+                               sampling_ratio):
+    """
+    Train model on random sample of data, transform in
+    parallel, report trustworthiness
+    """
+    import dask.array as da
+    from cuml.dask.manifold import UMAP as MNMG_UMAP
+
+    from cuml.manifold import UMAP
+
+    local_model = UMAP(n_neighbors=n_neighbors,
+                       random_state=42)
+
+    n_samples = local_X.shape[0]
+    n_samples_per_part = int(n_samples / n_parts)
+
+    selection = np.random.RandomState(42).choice(
+        [True, False], n_samples, replace=True,
+        p=[sampling_ratio, 1.0 - sampling_ratio])
+    X_train = local_X[selection]
+    X_transform = local_X[~selection]
+    X_transform_d = da.from_array(X_transform,
+                                  chunks=(n_samples_per_part, -1))
+
+    y_train = None
+    if supervised:
+        y_train = local_y[selection]
+
+    local_model.fit(X_train, y=y_train)
+
+    distributed_model = MNMG_UMAP(local_model)
+    embedding = distributed_model.transform(X_transform_d)
+
+    embedding = embedding.compute()
+    return trustworthiness(X_transform, embedding,
+                           n_neighbors=n_neighbors)
+
+
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2, 5, 10])
 @pytest.mark.parametrize("n_rows", [10000, 50000])
 @pytest.mark.parametrize("sampling_ratio", [0.1, 0.2, 0.4, 0.5])
 @pytest.mark.parametrize("supervised", [True, False])
 @pytest.mark.parametrize("dataset", ["digits", "iris"])
+@pytest.mark.parametrize("n_neighbors", [10])
 def test_umap_mnmg(n_parts, n_rows, sampling_ratio, supervised,
-                   dataset, cluster):
+                   dataset, n_neighbors, cluster):
 
     client = Client(cluster)
 
     try:
-        import dask.array as da
-        from cuml.manifold import UMAP
-        from cuml.dask.manifold import UMAP as MNMG_UMAP
-
-        n_neighbors = 10
 
         local_X, local_y = _load_dataset(dataset, n_rows)
 
-        def umap_mnmg_trustworthiness():
-            n_samples = local_X.shape[0]
-            n_samples_per_part = int(n_samples / n_parts)
+        dist_umap = _umap_mnmg_trustworthiness(local_X, local_y,
+                                               n_neighbors, supervised,
+                                               n_parts, sampling_ratio)
 
-            local_model = UMAP(n_neighbors=n_neighbors,
-                               random_state=42)
-
-            selection = np.random.RandomState(42).choice(
-                [True, False], n_samples, replace=True,
-                p=[sampling_ratio, 1.0-sampling_ratio])
-            X_train = local_X[selection]
-            X_transform = local_X[~selection]
-            X_transform_d = da.from_array(X_transform,
-                                          chunks=(n_samples_per_part, -1))
-
-            y_train = None
-            if supervised:
-                y_train = local_y[selection]
-
-            local_model.fit(X_train, y=y_train)
-
-            distributed_model = MNMG_UMAP(local_model)
-            embedding = distributed_model.transform(X_transform_d)
-
-            embedding = embedding.compute()
-            return trustworthiness(X_transform, embedding,
-                                   n_neighbors=n_neighbors)
-
-        def local_umap_trustworthiness():
-            local_model = UMAP(n_neighbors=n_neighbors,
-                               random_state=42)
-            local_model.fit(local_X, local_y)
-            embedding = local_model.transform(local_X)
-            return trustworthiness(local_X, embedding,
-                                   n_neighbors=n_neighbors)
-
-        loc_umap = local_umap_trustworthiness()
-        dist_umap = umap_mnmg_trustworthiness()
+        loc_umap = _local_umap_trustworthiness(local_X, local_y,
+                                               n_neighbors, supervised)
 
         print("\nLocal UMAP trustworthiness score : {:.2f}".format(loc_umap))
         print("UMAP MNMG trustworthiness score : {:.2f}".format(dist_umap))

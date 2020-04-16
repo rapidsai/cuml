@@ -25,7 +25,7 @@ import numpy as np
 
 
 @pytest.mark.parametrize('input_type', ['ndarray', 'dataframe'])
-@pytest.mark.parametrize('n_samples', [10, 100])
+@pytest.mark.parametrize('n_samples', [10, 100, 1000])
 @pytest.mark.parametrize('batch_size', [512, 2])
 @pytest.mark.parametrize('n_features', [10, 100])
 @pytest.mark.parametrize('n_components', [2, 8])
