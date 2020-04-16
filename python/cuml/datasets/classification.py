@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from sklearn.utils.random import sample_without_replacement
 from cuml.datasets.utils import _create_rs_generator
 from cuml.utils import with_cupy_rmm
 
@@ -24,10 +25,12 @@ def _generate_hypercube(samples, dimensions, rng):
     """Returns distinct binary samples of length dimensions
     """
     if dimensions > 30:
-        return np.hstack([rng.randint(2, size=(samples, dimensions - 30)),
+        return np.hstack([np.random.randint(2, size=(samples, dimensions - 30)),
                           _generate_hypercube(samples, 30, rng)])
-    out = np.random.choice(2 ** dimensions, samples,
-                           replace=False).astype(dtype='>u4', copy=False)
+    random_state = int(rng.randint(dimensions))
+    out = sample_without_replacement(2 ** dimensions, samples,
+                                     random_state=random_state).astype(
+                                         dtype='>u4', copy=False)
     out = np.unpackbits(out.view('>u1')).reshape((-1, 32))[:, -dimensions:]
     return out
 
@@ -118,6 +121,13 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         The order of the generated samples
     dtype : str, optional (default='float32')
         Dtype of the generated samples
+    _centroids: array of centroids of shape (n_clusters, n_informative)
+    _informative_covariance: array for covariance between informative features
+        of shape (n_clusters, n_informative, n_informative)
+    _redundant_covariance: array for covariance between redundant features
+        of shape (n_informative, n_redundant)
+    _repeated_indices: array of indices for the repeated features
+        of shape (n_repeated, )          
     Returns
     -------
     X : device array of shape [n_samples, n_features]
@@ -188,7 +198,12 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         centroids *= generator.rand(n_clusters, 1, dtype=dtype)
         centroids *= generator.rand(1, n_informative, dtype=dtype)
 
-    # Initially draw informative features from the standard normal
+    # Create redundant features
+    if n_redundant > 0:
+        if _redundant_covariance is None:
+            B = 2 * generator.rand(n_informative, n_redundant, dtype=dtype) - 1
+        else:
+            B = _redundant_covariance
 
     # Create each cluster; a variant of make_blobs
     if shuffle:
@@ -203,6 +218,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         for k, centroid in enumerate(centroids):
             centroid_indices = cp.where(shuffled_sample_indices == k)
             y[centroid_indices[0]] = k % n_classes
+
             X_k = X[centroid_indices[0], :n_informative]
 
             if _informative_covariance is None:
@@ -210,9 +226,15 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                                        dtype=dtype) - 1
             else:
                 A = _informative_covariance[k]
-            X_k[...] = cp.dot(X_k, A)  # introduce random covariance
+            X_k = cp.dot(X_k, A)
+
+            #NOTE: This could be done outside the loop, but a current
+            # cupy bug does not allow that
+            X[centroid_indices[0], n_informative:n_informative + n_redundant] = \
+                cp.dot(X_k, B)
 
             X_k += centroid  # shift the cluster to a vertex
+            X[centroid_indices[0], :n_informative] = X_k
     else:
         stop = 0
         for k, centroid in enumerate(centroids):
@@ -225,18 +247,13 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                                        dtype=dtype) - 1
             else:
                 A = _informative_covariance[k]
-            X_k[...] = cp.dot(X_k, A)  # introduce random covariance
+            X_k = cp.dot(X_k, A)  # introduce random covariance
+
+            X[start:stop, n_informative:n_informative + n_redundant] = \
+                cp.dot(X_k, B)
 
             X_k += centroid  # shift the cluster to a vertex
-
-    # Create redundant features
-    if n_redundant > 0:
-        if _redundant_covariance is None:
-            B = 2 * generator.rand(n_informative, n_redundant, dtype=dtype) - 1
-        else:
-            B = _redundant_covariance
-        X[:, n_informative:n_informative + n_redundant] = \
-            cp.dot(X[:, :n_informative], B)
+            X[start:stop, :n_informative] = X_k
 
     # Repeat some features
     if n_repeated > 0:
