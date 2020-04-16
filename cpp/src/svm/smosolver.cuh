@@ -72,7 +72,6 @@ namespace SVM {
 template <typename math_t>
 class SmoSolver {
  public:
-  bool verbose = false;
   SmoSolver(const cumlHandle_impl &handle, svmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t> *kernel)
     : handle(handle),
@@ -83,7 +82,6 @@ class SmoSolver {
       cache_size(param.cache_size),
       nochange_steps(param.nochange_steps),
       epsilon(param.epsilon),
-      verbose(param.verbose),
       svmType(param.svmType),
       stream(handle.getStream()),
       return_buff(handle.getDeviceAllocator(), stream, 2),
@@ -91,7 +89,7 @@ class SmoSolver {
       delta_alpha(handle.getDeviceAllocator(), stream),
       f(handle.getDeviceAllocator(), stream),
       y_label(handle.getDeviceAllocator(), stream) {
-    ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
+    ML::Logger::get().setLevel(param.verbosity);
   }
 
 #define SMO_WS_SIZE 1024
@@ -117,12 +115,11 @@ class SmoSolver {
              int *n_support, math_t **x_support, int **idx, math_t *b,
              int max_outer_iter = -1, int max_inner_iter = 10000) {
     // Prepare data structures for SMO
-    WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType,
-                          verbose);
+    WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
     n_ws = ws.GetSize();
     Initialize(&y, n_rows, n_cols);
     KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel,
-                              cache_size, svmType, verbose);
+                              cache_size, svmType);
     // Init counters
     max_outer_iter = GetDefaultMaxIter(n_train, max_outer_iter);
     int n_iter = 0;
@@ -157,11 +154,11 @@ class SmoSolver {
       n_inner_iter += host_return_buff[1];
       n_iter++;
       if (n_iter % 500 == 0) {
-        CUML_LOG_INFO("SMO iteration %d, diff %lf", n_iter, (double)diff);
+        CUML_LOG_DEBUG("SMO iteration %d, diff %lf", n_iter, (double)diff);
       }
     }
 
-    CUML_LOG_INFO(
+    CUML_LOG_DEBUG(
       "SMO solver finished after %d outer iterations, total inner"
       " iterations, and diff %lf",
       n_iter, n_inner_iter, diff_prev);
