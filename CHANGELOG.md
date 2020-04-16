@@ -15,11 +15,15 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2044: A cuda-memcheck helper wrapper for devs
 - PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
 - PR #2019: Enable doxygen build in our nightly doc build CI script
 - PR #1996: Cythonize in parallel
+- PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
+- PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
 
 ## Bug Fixes
@@ -34,6 +38,9 @@
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 - PR #2077L dask-make blobs arguments to match sklearn
+- PR #2078: Ignore negative cache indices in get_vecs
+- PR #2084: Fixed cuda-memcheck errors with COO unit-tests
+- PR #2087: Fixed cuda-memcheck errors with dispersion prim
 
 # cuML 0.13.0 (Date TBD)
 
