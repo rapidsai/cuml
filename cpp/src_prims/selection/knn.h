@@ -443,7 +443,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  *          to the i'th output.
  * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_rows number of rows in knn_indices
- *  * @param k number of neighbors in knn_indices
+ * @param k number of neighbors in knn_indices
  * @param uniq_labels vector of the sorted unique labels for each array in y
  * @param n_unique vector of sizes for each array in uniq_labels
  * @param allocator device allocator to use for temporary workspace
