@@ -154,8 +154,7 @@ ucp_tag_t build_message_tag(int rank, int tag) {
  */
 struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
                               ucp_ep_h ep_ptr, const void *buf, int size,
-                              int tag, ucp_tag_t tag_mask, int rank,
-                              bool verbose) {
+                              int tag, ucp_tag_t tag_mask, int rank) {
   ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
   CUML_LOG_DEBUG("Sending tag: %ld", ucp_tag);
@@ -195,7 +194,7 @@ struct ucp_request *ucp_isend(struct comms_ucp_handle *ucp_handle,
 struct ucp_request *ucp_irecv(struct comms_ucp_handle *ucp_handle,
                               ucp_worker_h worker, ucp_ep_h ep_ptr, void *buf,
                               int size, int tag, ucp_tag_t tag_mask,
-                              int sender_rank, bool verbose) {
+                              int sender_rank) {
   ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 
   CUML_LOG_DEBUG("%d: Receiving tag: %ld", ucp_tag);
