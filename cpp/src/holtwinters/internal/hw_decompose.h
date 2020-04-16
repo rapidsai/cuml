@@ -16,6 +16,7 @@
 
 #pragma once
 #include "hw_utils.h"
+#include "common/cudart_utils.h"
 
 // optimize, maybe im2col ?
 // https://github.com/rapidsai/cuml/issues/891

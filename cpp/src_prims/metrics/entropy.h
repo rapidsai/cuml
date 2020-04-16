@@ -23,6 +23,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
+#include "common/cudart_utils.h"
 #include "linalg/divide.h"
 #include "linalg/map_then_reduce.h"
 

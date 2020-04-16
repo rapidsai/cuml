@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <common/device_utils.cuh>
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 

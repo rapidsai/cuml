@@ -18,6 +18,7 @@
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>
 #include <numeric>
+#include "common/cudart_utils.h"
 #include "common_helper.cuh"
 #include "levelhelper_regressor.cuh"
 #include "metric.cuh"

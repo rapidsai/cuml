@@ -29,6 +29,7 @@
 
 #include <cuda_runtime.h>
 #include "cuda_utils.h"
+#include "common/cudart_utils.h"
 
 #include <iostream>
 #define restrict __restrict__

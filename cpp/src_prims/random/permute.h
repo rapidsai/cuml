@@ -19,6 +19,7 @@
 #include <cooperative_groups.h>
 #include <memory>
 #include "cuda_utils.h"
+#include <common/cudart_utils.h>
 #include "vectorized.h"
 
 namespace MLCommon {

@@ -15,6 +15,7 @@
  */
 #pragma once
 #include "levelkernel_classifier.cuh"
+#include "common/cudart_utils.h"
 
 template <typename T, typename F>
 void initial_metric_classification(

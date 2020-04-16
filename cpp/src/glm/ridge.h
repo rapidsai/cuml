@@ -30,6 +30,7 @@
 #include "common/cumlHandle.hpp"
 #include "ml_utils.h"
 #include "preprocess.h"
+#include <common/cudart_utils.h>
 
 namespace ML {
 namespace GLM {

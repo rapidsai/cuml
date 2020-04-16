@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <linalg/add.h>
 #include <linalg/eltwise.h>
 #include <linalg/norm.h>

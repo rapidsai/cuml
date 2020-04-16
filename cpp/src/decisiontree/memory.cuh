@@ -16,7 +16,7 @@
 
 #pragma once
 #include <thrust/extrema.h>
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <algorithm>
 #include <cuml/common/logger.hpp>
 #include "cub/cub.cuh"

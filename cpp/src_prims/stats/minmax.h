@@ -18,6 +18,7 @@
 
 #include <limits>
 #include "cuda_utils.h"
+#include "common/cudart_utils.h"
 
 namespace MLCommon {
 namespace Stats {

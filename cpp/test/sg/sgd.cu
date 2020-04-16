@@ -1,4 +1,5 @@
 #include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/cusolver_wrappers.h>
 #include <matrix/matrix.h>

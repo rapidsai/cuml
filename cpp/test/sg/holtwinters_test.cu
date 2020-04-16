@@ -15,6 +15,7 @@
  */
 
 #include <cuda_utils.h>
+#include <common/cudart_utils.h>
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>

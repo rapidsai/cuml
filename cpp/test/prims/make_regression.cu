@@ -24,6 +24,7 @@
 #include "linalg/transpose.h"
 #include "random/make_regression.h"
 #include "test_utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Random {

@@ -20,6 +20,7 @@
 #include <limits>
 #include "random/rng.h"
 #include "selection/kselection.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Selection {

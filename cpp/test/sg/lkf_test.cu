@@ -22,6 +22,7 @@
 #include "kalman_filter/KalmanFilter.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
+#include <common/cudart_utils.h>
 
 namespace kf {
 namespace linear {
