@@ -136,7 +136,6 @@ set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
 
-# TODO: Update to c++14, github issue
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
