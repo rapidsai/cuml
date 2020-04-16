@@ -176,7 +176,7 @@ class comms_ucp_handler {
    * @brief Asynchronously send data to the given endpoint using the given tag
    */
   void ucp_isend(ucp_request *req, ucp_ep_h ep_ptr, const void *buf, int size,
-                 int tag, ucp_tag_t tag_mask, int rank, bool verbose) const {
+                 int tag, ucp_tag_t tag_mask, int rank) const {
     ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
     CUML_LOG_DEBUG("Sending tag: %ld", ucp_tag);
@@ -213,7 +213,7 @@ class comms_ucp_handler {
    */
   void ucp_irecv(ucp_request *req, ucp_worker_h worker, ucp_ep_h ep_ptr,
                  void *buf, int size, int tag, ucp_tag_t tag_mask,
-                 int sender_rank, bool verbose) const {
+                 int sender_rank) const {
     ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 
     CUML_LOG_DEBUG("%d: Receiving tag: %ld", ucp_tag);
