@@ -106,7 +106,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   *k = 0;
   ML::Logger::get().setLevel(verbosity > 0 ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
 
-  CUML_LOG_INFO("Running L-BFGS");
+  CUML_LOG_DEBUG("Running L-BFGS");
 
   // Evaluate function and compute gradient
   fx = f(x, grad, dev_scalar, stream);
@@ -117,7 +117,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Early exit if the initial x is already a minimizer
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
-    CUML_LOG_INFO("Initial solution fulfills optimality condition.");
+    CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
 
@@ -236,7 +236,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   };
 
   *k = 0;
-  CUML_LOG_INFO("Running OWL-QN with lambda=%f", l1_penalty);
+  CUML_LOG_DEBUG("Running OWL-QN with lambda=%f", l1_penalty);
 
   // op to compute the pseudo gradients
   op_pseudo_grad<T> pseudo_grad(l1_penalty);
@@ -255,7 +255,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   // Early exit if the initial x is already a minimizer
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
-    CUML_LOG_INFO("Initial solution fulfills optimality condition.");
+    CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
 
@@ -337,7 +337,7 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
                     workspace,  // scratch space
                     stream, verbosity);
 
-    CUML_LOG_INFO("L-BFGS Done");
+    CUML_LOG_DEBUG("L-BFGS Done");
   } else {
     // There might not be a better way to deal with dispatching
     // for the l1 case:
@@ -359,7 +359,7 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
                     workspace,  // scratch space
                     stream, verbosity);
 
-    CUML_LOG_INFO("OWL-QN Done");
+    CUML_LOG_DEBUG("OWL-QN Done");
   }
   return ret;
 }
