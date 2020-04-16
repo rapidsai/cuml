@@ -27,6 +27,7 @@
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
 - PR #2080: Improved import of sparse FIL forests from treelite
+- PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
