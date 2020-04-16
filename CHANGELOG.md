@@ -39,6 +39,7 @@
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
+- PR #2087: Fixed cuda-memcheck errors with dispersion prim
 
 # cuML 0.13.0 (Date TBD)
 
