@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1906: UMAP MNMG
 
