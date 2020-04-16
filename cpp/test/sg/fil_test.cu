@@ -65,10 +65,7 @@ struct FilTestParams {
   int num_classes;
 
   size_t num_proba_outputs() { return num_rows * std::max(num_classes, 2); }
-  size_t num_preds_outputs() {
-    return ((output & fil::output_t::CLASS) != 0) ? num_rows
-                                                  : num_proba_outputs();
-  }
+  size_t num_preds_outputs() { return num_rows; }
 };
 
 std::string output2str(fil::output_t output) {

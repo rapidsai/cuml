@@ -172,7 +172,7 @@ struct forest_params_t {
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if ((output & OUTPUT_CLASS) != 0),
+  // threshold is used to for classification if leaf_payload_type == FLOAT_SCALAR && (output & OUTPUT_CLASS) != 0 && !predict_proba,
   // and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions
