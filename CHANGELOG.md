@@ -27,6 +27,7 @@
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
 - PR #2080: Improved import of sparse FIL forests from treelite
+- PR #2090: Upgrade C++ build to C++14 standard
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
