@@ -155,47 +155,6 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-def test_rf_classification_default(datatype, column_info, nrows):
-
-    ncols, n_info = column_info
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=0, n_classes=2)
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
-    # Initialize, fit and predict using cuML's
-    # random forest classification model
-    cuml_model = curfc()
-    cuml_model.fit(X_train, y_train)
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
-    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
-
-    fil_acc = accuracy_score(y_test, fil_preds)
-    cu_acc = accuracy_score(y_test, cu_preds)
-
-    score_acc = cuml_model.score(X_test, y_test)
-    assert cu_acc == pytest.approx(score_acc)
-
-    # sklearn random forest classification model
-    # initialization, fit and predict
-    if nrows < 500000:
-        sk_model = skrfc(max_depth=16, random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_preds = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_preds)
-        assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cu_acc - 0.02)
-
-
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(2000), quality_param(25000),
                          stress_param(500000)])
 def test_rf_regression_default(datatype, column_info, nrows):
@@ -258,6 +217,29 @@ def test_rf_classification_seed(datatype, column_info, nrows):
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
+
+    cuml_model = curfc()
+    cuml_model.fit(X_train, y_train)
+    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+
+    fil_acc = accuracy_score(y_test, fil_preds)
+    cu_acc = accuracy_score(y_test, cu_preds)
+
+    score_acc = cuml_model.score(X_test, y_test)
+    assert cu_acc == pytest.approx(score_acc)
+
+    # sklearn random forest classification model
+    # initialization, fit and predict
+    if nrows < 500000:
+        sk_model = skrfc(max_depth=16, random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
+        assert fil_acc >= (sk_acc - 0.07)
+    assert fil_acc >= (cu_acc - 0.02)
+
     for i in range(8):
         seed = random.randint(100, 1e5)
         # Initialize, fit and predict using cuML's
@@ -351,7 +333,7 @@ def test_rf_classification_float64(datatype, column_info,
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([200, 100]),
                          stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(3000), quality_param(25000),
+@pytest.mark.parametrize('nrows', [unit_param(1000), quality_param(25000),
                          stress_param(500000)])
 def test_rf_regression_float64(datatype, column_info, nrows):
     ncols, n_info = column_info
@@ -402,7 +384,7 @@ def test_rf_regression_float64(datatype, column_info, nrows):
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_classes', [5, 10])
+@pytest.mark.parametrize('n_classes', [10])
 @pytest.mark.parametrize('type', ['dataframe', 'numpy'])
 def test_rf_classification_multi_class(datatype, column_info, nrows,
                                        n_classes, type):
@@ -548,7 +530,7 @@ def test_rf_regression_sparse(datatype, mode, column_info,
         X, y = fetch_california_housing(return_X_y=True)
 
     else:
-        X, y = make_regression(n_samples=3000, n_features=ncols,
+        X, y = make_regression(n_samples=1000, n_features=ncols,
                                n_informative=n_info,
                                random_state=123)
     X = X.astype(datatype)
@@ -617,8 +599,9 @@ def test_rf_regression_sparse(datatype, mode, column_info,
                          stress_param([500, 350])])
 @pytest.mark.parametrize('nrows', [unit_param(800), quality_param(50000),
                          stress_param(500000)])
-def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
-    n_iter = 3
+@pytest.mark.parametrize('n_iter', [unit_param(5), quality_param(30),
+                         stress_param(80)])
+def test_rf_memory_leakage(fil_sparse_format, column_info, nrows, n_iter):
     datatype = np.float32
     use_handle = True
     ncols, n_info = column_info
@@ -648,7 +631,7 @@ def test_rf_memory_leakage(fil_sparse_format, column_info, nrows):
         delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
         assert delta_mem == 0
 
-        for i in range(3):
+        for i in range(2):
             cuml_mods.predict(X_test, predict_model="GPU",
                               fil_sparse_format=fil_sparse_format)
             handle.sync()  # just to be sure
@@ -751,9 +734,8 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification_proba(datatype, split_algo, rows_sample, nrows,
+def test_rf_classification_proba(datatype, rows_sample, nrows,
                                  column_info, max_features):
     use_handle = True
     ncols, n_info = column_info
@@ -771,7 +753,7 @@ def test_rf_classification_proba(datatype, split_algo, rows_sample, nrows,
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=max_features, rows_sample=rows_sample,
-                       n_bins=16, split_algo=split_algo, split_criterion=0,
+                       n_bins=16, split_criterion=0,
                        min_rows_per_node=2, seed=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
