@@ -222,7 +222,7 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
   MLCommon::updateHost(nodestart, d_nodestart, n_nodes + 1, tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
   ML::PatternSetter _("%v");
-  CUML_LOG_INFO("Full sample list size %u", nodestart[n_nodes]);
+  CUML_LOG_DEBUG("Full sample list size %u", nodestart[n_nodes]);
   MLCommon::updateHost(samplelist, d_samplelist, nodestart[n_nodes],
                        tempmem->stream);
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -233,7 +233,7 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
     for (int i = 0; i < n_nodes + 1; i++) {
       ss << nodecount[i] << " ";
     }
-    CUML_LOG_INFO(ss.str().c_str());
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
   {
     std::stringstream ss;
@@ -241,7 +241,7 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
     for (int i = 0; i < n_nodes + 1; i++) {
       ss << nodestart[i] << " ";
     }
-    CUML_LOG_INFO(ss.str().c_str());
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
   {
     std::stringstream ss;
@@ -252,7 +252,7 @@ void print_convertor(unsigned int *d_nodecount, unsigned int *d_nodestart,
         ss << samplelist[j] << " ";
       }
     }
-    CUML_LOG_INFO(ss.str().c_str());
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
 }
 
@@ -261,7 +261,7 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
                  int n_nodes, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
   CUDA_CHECK(cudaDeviceSynchronize());
   ML::PatternSetter _("%v");
-  CUML_LOG_INFO(
+  CUML_LOG_DEBUG(
     "Node format --> (colid, quesval, best_metric, prediction, left_child) ");
   int *h_nodelist = (int *)(tempmem->h_outgain->data());
   if (nodelist != nullptr) {
@@ -277,7 +277,7 @@ void print_nodes(SparseTreeNode<T, L> *sparsenodes, float *gain, int *nodelist,
        << " ," << node.best_metric_val << ", ";
     ss << node.prediction << " ," << node.left_child_id << " )";
     if (gain != nullptr) ss << "  gain -->" << gain[i];
-    CUML_LOG_INFO(ss.str().c_str());
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
 }
 
