@@ -52,6 +52,7 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
  * @param out output array on device (size n_samples * size of y vector)
  * @param knn_indices index array on device resulting from knn query (size n_samples * k)
  * @param y vector of label arrays on device vector size is number of (size n_samples)
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices
  * @param k number of nearest neighbors in knn_indices
  */
@@ -69,6 +70,7 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param out output array on device (size n_samples)
  * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
