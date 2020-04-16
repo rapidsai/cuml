@@ -27,7 +27,7 @@ else()
   set(NCCL_FOUND ON)
 endif(NOT NCCL_PATH)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(include
