@@ -321,7 +321,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     data_chunksizes = [n_samples_per_part] * n_parts
     if n_samples % n_samples_per_part > 0:
         data_chunksizes[-1] += n_samples % n_samples_per_part
-    
+
     data_chunksizes = tuple(data_chunksizes)
 
     if (effective_rank is None) or (effective_rank and not use_full_low_rank):
