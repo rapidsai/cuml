@@ -16,8 +16,9 @@
 
 import cudf
 
-from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
+from cuml.dask.common import raise_exception_from_futures, workers_to_parts
+from cuml.dask.common.part_utils import _extract_partitions
+
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
@@ -26,7 +27,6 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 import math
 import random
-import timeit
 from uuid import uuid1
 
 
@@ -377,8 +377,8 @@ class RandomForestRegressor(DelayedPredictionMixin):
         """
         c = default_client()
 
-        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
-        y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
+        X_futures = workers_to_parts(c.sync(_extract_partitions, X))
+        y_futures = workers_to_parts(c.sync(_extract_partitions, y))
 
         X_partition_workers = [w for w, xc in X_futures.items()]
         y_partition_workers = [w for w, xc in y_futures.items()]
@@ -475,13 +475,13 @@ class RandomForestRegressor(DelayedPredictionMixin):
                            delayed=True):
         self._concat_treelite_models()
 
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
         kwargs = {"convert_dtype": convert_dtype,
                   "predict_model": predict_model, "algo": algo,
                   "fil_sparse_format": fil_sparse_format}
-        preds = self._predict(X, delayed=delayed, **kwargs)
-        return preds
+        return self._predict(X, delayed=delayed, **kwargs)
+
 
     """
     TODO : Update function names used for CPU predict.
