@@ -129,6 +129,67 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   ML::POP_RANGE();
 }
 
+/**
+ * @todo: docs
+ */
+template <typename DataT>
+__global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_phi,
+                                      const DataT* d_theta, const DataT* d_mu,
+                                      DataT* d_vs, DataT* d_loglike, int n_obs,
+                                      int n_phi, int n_theta, int k,
+                                      int start) {
+  // Load phi, theta and mu to registers
+  DataT phi, theta;
+  if (threadIdx.x < n_phi) {
+    phi = d_phi[n_phi * blockIdx.x + threadIdx.x];
+  }
+  if (threadIdx.x < n_theta) {
+    theta = d_theta[n_theta * blockIdx.x + threadIdx.x];
+  }
+  DataT mu = k ? d_mu[blockIdx.x] : (DataT)0;
+
+  // Shared memory: load y and initialize the residuals
+  extern __shared__ DataT shared_mem[];
+  DataT* b_y = shared_mem;
+  DataT* b_vs = shared_mem + n_obs;
+  for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
+    b_y[i] = d_y[n_obs * blockIdx.x + i];
+  }
+  for (int i = threadIdx.x; i < start; i += blockDim.x) {
+    b_vs[i] = (DataT)0;
+  }
+
+  // Main loop
+  char* temp_smem = (char*)(shared_mem + 2 * n_obs);
+  DataT res, ssq = 0;
+  for (int i = start; i < n_obs; i++) {
+    __syncthreads();
+    res = (DataT)0;
+    res -= threadIdx.x < n_phi ? phi * b_y[i - threadIdx.x - 1] : (DataT)0;
+    res -= threadIdx.x < n_theta ? theta * b_vs[i - threadIdx.x - 1] : (DataT)0;
+    res = MLCommon::blockReduce(res, temp_smem);
+    if (threadIdx.x == 0) {
+      res += b_y[i] - mu;
+      b_vs[i] = res;
+      ssq += res * res;
+    }
+  }
+
+  // Write residuals to global memory
+  /// TODO: remove?
+  __syncthreads();
+  for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
+    d_vs[n_obs * blockIdx.x + i] = b_vs[i];
+  }
+
+  // Compute log-likelihood and write it to global memory
+  if (threadIdx.x == 0) {
+    d_loglike[blockIdx.x] =
+      -0.5 * static_cast<DataT>(n_obs) *
+      MLCommon::myLog(ssq / static_cast<DataT>(n_obs - start));
+  }
+}
+
 void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
                                 int batch_size, int n_obs,
                                 const ARIMAOrder& order,
@@ -162,42 +223,17 @@ void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
       }
     });
 
-  // Set residuals to 0 before the starting point
-  int start = std::max(n_phi, n_theta) + 1;
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int bid) {
-                     double* b_vs = d_vs + bid * n_obs;
-                     for (int i = 0; i < start; i++) {
-                       b_vs[i] = 0.0;
-                     }
-                   });
+  int max_lags = std::max(n_phi, n_theta);
+  int start = max_lags + 1;
 
   // Compute the sum-of-squares and the log-likelihood
-  /// TODO: versions where threads compute the dot product together for
-  ///       large n_phi or n_theta, phi and theta in shared mem
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int bid) {
-                     double* b_phi = d_phi + bid * n_phi;
-                     double* b_theta = d_theta + bid * n_theta;
-                     const double* b_y = d_y + bid * n_obs;
-                     double* b_vs = d_vs + bid * n_obs;
-                     double mu = order.k ? Tparams.mu[bid] : 0.0;
-                     double ssq = 0.0;
-                     for (int i = start; i < n_obs; i++) {
-                       double vi = b_y[i] - mu;
-                       for (int j = 0; j < n_phi; j++) {
-                         vi -= b_phi[j] * b_y[i - j - 1];
-                       }
-                       for (int j = 0; j < n_theta; j++) {
-                         vi -= b_theta[j] * b_vs[i - j - 1];
-                       }
-                       b_vs[i] = vi;
-                       ssq += vi * vi;
-                     }
-                     d_loglike[bid] =
-                       -.5 * static_cast<double>(n_obs) *
-                       log(ssq / static_cast<double>(n_obs - start));
-                   });
+  /// TODO: error if max_lags > 1024 (if that's even possible)
+  int n_warps = std::max(MLCommon::ceildiv<int>(max_lags, 32), 1);
+  size_t shared_mem_size = (2 * n_obs + n_warps) * sizeof(double);
+  sum_of_squares_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(
+    d_y, d_phi, d_theta, Tparams.mu, d_vs, d_loglike, n_obs, n_phi, n_theta,
+    order.k, start);
+  CUDA_CHECK(cudaPeekAtLastError());
 
   ML::POP_RANGE();
 }

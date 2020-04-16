@@ -205,6 +205,8 @@ class AutoARIMA(Base):
                             s_ = s if (P_ + D_ + Q_) else 0
                             # TODO: raise issue that input_to_cuml_array
                             #       should support cuML arrays
+                            if verbose:
+                                print(" - {}", (p_, d_, q_, P_, D_, Q_, s_, k_))
                             all_ic.append(arima_estimate(
                                 cp.asarray(data_temp), (p_, d_, q_),
                                 (P_, D_, Q_, s_), k_, approximation, ic,
@@ -268,7 +270,7 @@ class AutoARIMA(Base):
         return self.predict(self.n_obs, self.n_obs + nsteps)
 
 # TODO: Illegal mem access? (in end of fit or forecast?)
-#       -> can't reproduce...
+#       -> hard to reproduce...
 
 
 def arima_estimate(data, order, seasonal_order, fit_intercept, approximation,
