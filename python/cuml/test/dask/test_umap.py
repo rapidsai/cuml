@@ -75,7 +75,8 @@ def _local_umap_trustworthiness(local_X, local_y,
     local_model.fit(local_X, y=y_train)
     embedding = local_model.transform(local_X)
     return trustworthiness(local_X, embedding,
-                           n_neighbors=n_neighbors)
+                           n_neighbors=n_neighbors,
+                           batch_size=5000)
 
 
 def _umap_mnmg_trustworthiness(local_X, local_y,
@@ -96,13 +97,13 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
                        random_state=42)
 
     n_samples = local_X.shape[0]
-    n_samples_per_part = int(n_samples / n_parts)
+    n_samples_per_part = math.ceil(n_samples / n_parts)
 
     selection = np.random.RandomState(42).choice(
         [True, False], n_samples, replace=True,
         p=[sampling_ratio, 1.0 - sampling_ratio])
     X_train = local_X[selection]
-    X_transform = local_X[~selection]
+    X_transform = local_X
     X_transform_d = da.from_array(X_transform,
                                   chunks=(n_samples_per_part, -1))
 
@@ -117,7 +118,8 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
 
     embedding = embedding.compute()
     return trustworthiness(X_transform, embedding,
-                           n_neighbors=n_neighbors)
+                           n_neighbors=n_neighbors,
+                           batch_size=5000)
 
 
 @pytest.mark.mg
