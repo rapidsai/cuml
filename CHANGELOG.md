@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1906: UMAP MNMG
 
@@ -22,9 +23,11 @@
 - PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
 - PR #2064: Speed-up K-Means test
+- PR #2080: Improved import of sparse FIL forests from treelite
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -39,6 +42,7 @@
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
+- PR #2087: Fixed cuda-memcheck errors with dispersion prim
 
 # cuML 0.13.0 (Date TBD)
 
