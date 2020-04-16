@@ -554,7 +554,8 @@ size_t tl_leaf_vector_size(const tl::Model& model) {
   const tl::Tree& tree = model.trees[0];
   int node_key;
   for (node_key = tree_root(tree); !tl_node_at(tree, node_key).is_leaf();
-       node_key = tl_node_at(tree, node_key).cright());
+       node_key = tl_node_at(tree, node_key).cright())
+    ;
   const tl::Tree::Node& node = tl_node_at(tree, node_key);
   if (node.has_leaf_vector()) return node.leaf_vector().size();
   return 0;

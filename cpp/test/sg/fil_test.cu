@@ -276,15 +276,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           int best_class = 0;
           float most_votes = 0.0;
           for (int c = 0; c < ps.num_classes; ++c) {
-            float pred = class_votes[c];
-            if (pred > most_votes) {
-              most_votes = pred;
-              best_class = c;
-            }
-            float thresholded_proba; // not used; do argmax instead
-            transform(pred, want_proba_h[r * ps.num_classes + c], thresholded_proba);
+            float thresholded_proba;  // not used; do argmax instead
+            transform(class_votes[c], want_proba_h[r * ps.num_classes + c],
+                      thresholded_proba);
           }
-          want_preds_h[r] = best_class;
+          want_preds_h[r] =
+            std::max_element(class_votes.begin(), class_votes.end()) -
+            class_votes.begin();
         }
         break;
     }
