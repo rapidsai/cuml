@@ -33,7 +33,6 @@
 #include "linalg/cublas_wrappers.h"
 #include "sparse/batched/csr.h"
 #include "timeSeries/arima_helpers.h"
-#include "utils.h"
 
 namespace ML {
 
