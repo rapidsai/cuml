@@ -45,10 +45,7 @@ tests_map = {
 # TODO:
 # - change interface to match the new fable package instead of deprecated
 #   forecast package?
-# - stepwise argument? -> if false, complete traversal
-# - approximation argument to choose the model based on conditional sum of
-#   squares?
-# - truncate argument to use last values when approximation is True?
+# - truncate argument to use only last values with CSS
 # - Box-Cox transformations? (parameter lambda)
 # - summary method with recap of the models used
 
@@ -68,7 +65,7 @@ class AutoARIMA(Base):
             d=None,
             D=None,
             max_d=2,
-            max_D=1,
+            max_D=1, # TODO: remove if we never use D=2
             start_p=2, # TODO: start at 0?
             start_q=2,
             start_P=1,
@@ -80,7 +77,8 @@ class AutoARIMA(Base):
             ic="aicc", # TODO: which one to use by default?
             test="kpss",
             seasonal_test="seas",
-            approximation=False,
+            search_method="auto",
+            final_method="ml",
             verbose=False):
         """TODO: docs
         """
@@ -98,6 +96,8 @@ class AutoARIMA(Base):
         seasonal_test = seasonal_test.lower()
         if s == 1:  # R users might use s=1 for a non-seasonal dataset
             s = None
+        if search_method == "auto":
+            search_method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
 
         # Box-Cox transform
         # TODO: handle it
@@ -202,16 +202,19 @@ class AutoARIMA(Base):
                 for q_ in range(start_q, max_q + 1):
                     for P_ in range(start_P, max_P + 1):
                         for Q_ in range(start_Q, max_Q + 1):
+                            if p_ + q_ + P_ + Q_ + k_ == 0:
+                                continue
                             s_ = s if (P_ + D_ + Q_) else 0
                             # TODO: raise issue that input_to_cuml_array
                             #       should support cuML arrays
+                            model = ARIMA(cp.asarray(data_temp), (p_, d_, q_),
+                                          (P_, D_, Q_, s_), k_, self.handle)
                             if verbose:
-                                print(" - {}", (p_, d_, q_, P_, D_, Q_, s_, k_))
-                            all_ic.append(arima_estimate(
-                                cp.asarray(data_temp), (p_, d_, q_),
-                                (P_, D_, Q_, s_), k_, approximation, ic,
-                                self.handle))
+                                print(" -", str(model))
+                            model.fit(method=search_method)
+                            all_ic.append(model._ic(ic))
                             all_orders.append((p_, q_, P_, Q_, s_, k_))
+                            del model
 
             # Organize the results into a matrix
             n_models = len(all_orders)
@@ -241,7 +244,7 @@ class AutoARIMA(Base):
         for model in self.models:
             if verbose:
                 print(" - {}".format(model))
-            model.fit()
+            model.fit(method=final_method)
 
         # Build a map to match each series to its model and position in the
         # sub-batch
@@ -271,15 +274,3 @@ class AutoARIMA(Base):
 
 # TODO: Illegal mem access? (in end of fit or forecast?)
 #       -> hard to reproduce...
-
-
-def arima_estimate(data, order, seasonal_order, fit_intercept, approximation,
-                   ic, handle):
-    model = ARIMA(data, order=order, seasonal_order=seasonal_order,
-                  fit_intercept=fit_intercept, handle=handle)
-    if approximation:
-        model.fit(approximate=True)
-        return model._ic(ic) # TODO: use approximate ic?
-    else:
-        model.fit()
-        return model._ic(ic)

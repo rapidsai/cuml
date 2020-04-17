@@ -21,6 +21,8 @@
 
 namespace ML {
 
+enum LoglikeMethod { CSS, MLE };
+
 /**
  * Compute the loglikelihood of the given parameter on the given time series
  * in a batched context.
@@ -36,16 +38,17 @@ namespace ML {
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
  *                          shape = (nobs-d-s*D, batch_size) (device)
+ *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
- * @param[in]  approximate  Whether to use an approximation (sum-of-squares)
+ * @param[in]  method       Whether to use sum-of-squares or Kalman filter
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
-                     bool host_loglike = true, bool approximate = false,
+                     bool host_loglike = true, LoglikeMethod method = MLE,
                      int fc_steps = 0, double* d_fc = nullptr);
 
 /**
@@ -65,9 +68,10 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
  *                          shape = (nobs-d-s*D, batch_size) (device)
+ *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
- * @param[in]  approximate  Whether to use an approximation (sum-of-squares)
+ * @param[in]  method       Whether to use sum-of-squares or Kalman filter
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
@@ -75,7 +79,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
-                     bool approximate = false, int fc_steps = 0,
+                     LoglikeMethod method = MLE, int fc_steps = 0,
                      double* d_fc = nullptr);
 
 /**
