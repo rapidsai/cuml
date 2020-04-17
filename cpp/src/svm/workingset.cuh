@@ -28,8 +28,8 @@
 #include "linalg/init.h"
 #include "linalg/unary_op.h"
 #include "ml_utils.h"
-#include "smo_sets.h"
-#include "ws_util.h"
+#include "smo_sets.cuh"
+#include "ws_util.cuh"
 
 namespace ML {
 namespace SVM {
