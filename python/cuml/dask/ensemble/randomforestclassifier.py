@@ -26,8 +26,10 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 import math
+import numpy as np
 import random
 from uuid import uuid1
+import warnings
 
 
 class RandomForestClassifier(DelayedPredictionMixin):
@@ -385,14 +387,21 @@ class RandomForestClassifier(DelayedPredictionMixin):
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
+            y to be of dtype int32 and X to be float32. This will increase
+            memory used for the method.
 
         """
 
         c = default_client()
 
         self.num_classes = len(y.unique())
+        self.dtype = X.dtypes
+        if self.dtype.any() == np.float64 and convert_dtype==False:
+            warnings.warn("To use Dask RF data should have dtype float 32."
+                          " Converting data to dtype=np.float32."
+                          " This will consume more memory and time.")
+            convert_dtype = True
+
         X_futures = workers_to_parts(c.sync(_extract_partitions, X))
         y_futures = workers_to_parts(c.sync(_extract_partitions, y))
 
@@ -510,9 +519,15 @@ class RandomForestClassifier(DelayedPredictionMixin):
                            convert_dtype=False, predict_model="GPU",
                            delayed=True, fil_sparse_format='auto'):
 
-        self._concat_treelite_models()
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
+        if self.datatype == np.float64:
+            raise TypeError("GPU based predict only accepts np.float32 data. \
+                            If you would like to use test \
+                            data of dtype=np.float64 please set \
+                            predict_model='CPU' to use the CPU implementation \
+                            of predict.")
+        self._concat_treelite_models()
 
         kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
                   "predict_model": predict_model, "threshold": threshold,
