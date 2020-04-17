@@ -35,7 +35,7 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
     try:
         adj_input_type = 'dataframe' if input_type == 'series' else input_type
 
-        X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
+        X, y = make_blobs(n_samples=nrows, n_features=ncols, n_parts=n_parts,
                           output=adj_input_type)
 
         if input_type == "series":
@@ -66,7 +66,7 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
     try:
         adj_input_type = 'dataframe' if input_type == 'series' else input_type
 
-        X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
+        X, y = make_blobs(n_samples=nrows, n_features=ncols, n_parts=n_parts,
                           output=adj_input_type)
 
         if input_type == "series":
