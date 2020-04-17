@@ -144,7 +144,7 @@ void grow_deep_tree_classification(
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     leaf_eval_classification(
       infogain, depth, tree_params.min_impurity_decrease, tree_params.max_depth,
-      n_unique_labels, tree_params.max_depth, h_new_node_flags, sparsetree,
+      n_unique_labels, tree_params.max_leaves, h_new_node_flags, sparsetree,
       sparsesize, h_parent_hist, n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
