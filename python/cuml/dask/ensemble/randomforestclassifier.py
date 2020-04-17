@@ -396,10 +396,10 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
         self.num_classes = len(y.unique())
         self.dtype = X.dtypes
-        if self.dtype.any() == np.float64 and convert_dtype==False:
-            warnings.warn("To use Dask RF data should have dtype float 32."
-                          " Converting data to dtype=np.float32."
-                          " This will consume more memory and time.")
+        if (self.dtype.any() == np.float64) and (convert_dtype is False):
+            warnings.warn("To use Dask RF data should have dtype float 32. \
+                          Converting data to dtype=np.float32. \
+                          This will consume more memory and time.")
             convert_dtype = True
 
         X_futures = workers_to_parts(c.sync(_extract_partitions, X))
