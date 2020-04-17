@@ -138,31 +138,28 @@ bool ucx_enabled() { return UCX_ENABLED; }
  */
 #ifdef WITH_UCX
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
-                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank,
-                  bool verbose) {
+                  std::shared_ptr<ucp_ep_h *> eps, int size, int rank) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlStdCommunicator_impl(comm, ucp_worker, eps, size, rank,
-                                   verbose)));
+      new cumlStdCommunicator_impl(comm, ucp_worker, eps, size, rank)));
   handle.getImpl().setCommunicator(communicator);
 }
 #endif
 
-void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank,
-                  bool verbose) {
+void inject_comms(cumlHandle &handle, ncclComm_t comm, int size, int rank) {
   auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
     std::unique_ptr<MLCommon::cumlCommunicator_iface>(
-      new cumlStdCommunicator_impl(comm, size, rank, verbose)));
+      new cumlStdCommunicator_impl(comm, size, rank)));
   handle.getImpl().setCommunicator(communicator);
 }
 
 void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
-                          int rank, bool verbose) {
-  inject_comms(*handle, comm, size, rank, verbose);
+                          int rank) {
+  inject_comms(*handle, comm, size, rank);
 }
 
 void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
-                     void *eps, int size, int rank, bool verbose) {
+                     void *eps, int size, int rank) {
 #ifdef WITH_UCX
   std::shared_ptr<ucp_ep_h *> eps_sp =
     std::make_shared<ucp_ep_h *>(new ucp_ep_h[size]);
@@ -181,10 +178,9 @@ void inject_comms_py(ML::cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
     }
   }
 
-  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank,
-               verbose);
+  inject_comms(*handle, comm, (ucp_worker_h)ucp_worker, eps_sp, size, rank);
 #else
-  inject_comms(*handle, comm, size, rank, verbose);
+  inject_comms(*handle, comm, size, rank);
 #endif
 }
 
@@ -202,15 +198,14 @@ void get_unique_id(char *uid, int size) {
 #ifdef WITH_UCX
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(
   ncclComm_t comm, ucp_worker_h ucp_worker, std::shared_ptr<ucp_ep_h *> eps,
-  int size, int rank, bool verbose)
+  int size, int rank)
   : _nccl_comm(comm),
     _ucp_worker(ucp_worker),
     _ucp_eps(eps),
     _size(size),
     _rank(rank),
     _next_request_id(0),
-    _ucp_handle(NULL),
-    _verbose(verbose) {
+    _ucp_handle(NULL) {
   initialize();
 
   _ucp_handle = (void *)malloc(sizeof(struct comms_ucp_handle));
@@ -219,8 +214,8 @@ cumlStdCommunicator_impl::cumlStdCommunicator_impl(
 #endif
 
 cumlStdCommunicator_impl::cumlStdCommunicator_impl(ncclComm_t comm, int size,
-                                                   int rank, bool verbose)
-  : _nccl_comm(comm), _size(size), _rank(rank), _verbose(verbose) {
+                                                   int rank)
+  : _nccl_comm(comm), _size(size), _rank(rank) {
   initialize();
 }
 
@@ -294,7 +289,7 @@ void cumlStdCommunicator_impl::isend(const void *buf, int size, int dest,
 
   struct ucp_request *ucp_req =
     ucp_isend((struct comms_ucp_handle *)_ucp_handle, ep_ptr, buf, size, tag,
-              default_tag_mask, getRank(), _verbose);
+              default_tag_mask, getRank());
 
   CUML_LOG_DEBUG(
     "%d: Created send request [id=%llu], ptr=%llu, to=%llu, ep=%llu", getRank(),
@@ -325,7 +320,7 @@ void cumlStdCommunicator_impl::irecv(void *buf, int size, int source, int tag,
 
   struct ucp_request *ucp_req =
     ucp_irecv((struct comms_ucp_handle *)_ucp_handle, _ucp_worker, ep_ptr, buf,
-              size, tag, tag_mask, source, _verbose);
+              size, tag, tag_mask, source);
 
   CUML_LOG_DEBUG(
     "%d: Created receive request [id=%llu], ptr=%llu, from=%llu, ep=%llu",

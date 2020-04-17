@@ -29,8 +29,8 @@
 #include "linalg/init.h"
 #include "linalg/unary_op.h"
 #include "ml_utils.h"
-#include "smo_sets.h"
-#include "ws_util.h"
+#include "smo_sets.cuh"
+#include "ws_util.cuh"
 
 namespace ML {
 namespace SVM {
@@ -53,8 +53,6 @@ __device__ bool dummy_select_op(int idx) { return true; }
 template <typename math_t>
 class WorkingSet {
  public:
-  bool verbose;
-
   //!> Workspace selection strategy, note that only FIFO is tested so far
   bool FIFO_strategy = true;
 
@@ -66,14 +64,12 @@ class WorkingSet {
    * @param n_rows number of training vectors
    * @param n_ws number of elements in the working set (default 1024)
    * @param svmType classification or regression
-   * @param verbose print debug messages
    */
   WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
-             int n_ws = 0, SvmType svmType = C_SVC, bool verbose = false)
+             int n_ws = 0, SvmType svmType = C_SVC)
     : handle(handle),
       stream(stream),
       svmType(svmType),
-      verbose(verbose),
       n_rows(n_rows),
       available(handle.getDeviceAllocator(), stream),
       available_sorted(handle.getDeviceAllocator(), stream),
@@ -109,7 +105,7 @@ class WorkingSet {
     }
     n_ws = min(1024, n_ws);
     this->n_ws = n_ws;
-    CUML_LOG_INFO("Creating working set with %d elements", n_ws);
+    CUML_LOG_DEBUG("Creating working set with %d elements", n_ws);
     AllocateBuffers();
   }
 
@@ -161,11 +157,11 @@ class WorkingSet {
       (void *)cub_storage.data(), cub_bytes, f, f_sorted.data(), f_idx.data(),
       f_idx_sorted.data(), n_train, 0, (int)8 * sizeof(math_t), stream);
 
-    if (verbose && n_train < 20) {
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
       MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_train,
                                  ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
@@ -189,7 +185,7 @@ class WorkingSet {
         "Warning: could not fill working set, found only %d"
         " elements",
         n_already_selected);
-      CUML_LOG_INFO("Filling up with unused elements");
+      CUML_LOG_DEBUG("Filling up with unused elements");
       CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_train));
       n_already_selected +=
         GatherAvailable(n_already_selected, n_ws - n_already_selected, true);
@@ -377,10 +373,10 @@ class WorkingSet {
         available, n_train, idx.data(), n_already_selected);
       CUDA_CHECK(cudaPeekAtLastError());
     }
-    if (verbose && n_train < 20) {
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
       MLCommon::myPrintDevVector("avail", available, n_train, ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
 
     // Map the mask to the sorted indices
@@ -391,11 +387,11 @@ class WorkingSet {
                  thrust::make_permutation_iterator(av_ptr, idx_ptr),
                  thrust::make_permutation_iterator(av_ptr, idx_ptr + n_train),
                  av_sorted_ptr);
-    if (verbose && n_train < 20) {
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
       MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
                                  n_train, ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
 
     // Select the available elements
@@ -415,11 +411,11 @@ class WorkingSet {
       MLCommon::copy(idx.data() + n_already_selected,
                      idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
-    if (verbose && n_train < 20) {
+    if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
       MLCommon::myPrintDevVector("selected", idx.data(),
                                  n_already_selected + n_copy, ss);
-      CUML_LOG_INFO(ss.str().c_str());
+      CUML_LOG_DEBUG(ss.str().c_str());
     }
     return n_copy;
   }
