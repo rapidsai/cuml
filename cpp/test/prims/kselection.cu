@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <limits>
 #include "random/rng.h"
 #include "selection/kselection.h"
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Selection {

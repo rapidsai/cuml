@@ -12,13 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
 #include "test_utils.h"
-#include <common/cudart_utils.h>
 #include "timeSeries/jones_transform.h"
 
 namespace MLCommon {

@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "linalg/divide.h"
 #include "random/rng.h"
 #include "test_utils.h"
 #include "unary_op.h"
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +23,6 @@
 #include "kalman_filter/KalmanFilter.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
-#include <common/cudart_utils.h>
 
 namespace kf {
 namespace linear {

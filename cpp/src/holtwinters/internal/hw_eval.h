@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "hw_utils.h"
 #include <common/cudart_utils.h>
+#include "hw_utils.h"
 
 template <typename Dtype>
 __device__ Dtype holtwinters_eval_device(

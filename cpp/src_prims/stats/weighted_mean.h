@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "common/cudart_utils.h"
 #include "linalg/coalesced_reduction.h"
 #include "linalg/strided_reduction.h"
-#include "common/cudart_utils.h"
 
 namespace MLCommon {
 namespace Stats {

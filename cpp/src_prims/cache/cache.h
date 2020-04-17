@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include "cache_util.h"

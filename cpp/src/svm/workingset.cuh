@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <limits.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>

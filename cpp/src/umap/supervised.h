@@ -35,8 +35,8 @@
 #include "sparse/coo.h"
 #include "sparse/csr.h"
 
-#include "cuda_utils.h"
 #include "common/cudart_utils.h"
+#include "cuda_utils.h"
 
 #include <cuda_runtime.h>
 

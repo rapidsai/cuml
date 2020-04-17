@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuml/matrix/kernelparams.h>
+#include "common/cudart_utils.h"
 #include "grammatrix.h"
 #include "kernelmatrices.h"
-#include "common/cudart_utils.h"
 
 namespace MLCommon {
 namespace Matrix {

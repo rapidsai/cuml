@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.h>
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <linalg/gemm.h>
 #include <cub/cub.cuh>
 #include "cache/cache.h"
