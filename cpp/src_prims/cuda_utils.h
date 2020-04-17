@@ -17,7 +17,7 @@
 #pragma once
 
 #include <stdint.h>
-#include <iomanip>
+#include <cuml/common/utils.hpp>
 #include "math_constants.h"
 
 namespace MLCommon {
