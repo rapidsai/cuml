@@ -46,7 +46,7 @@ constexpr bool UCX_ENABLED = false;
 
 #include <cuda_runtime.h>
 
-#include <utils.h>
+#include <common/cudart_utils.h>
 
 #define NCCL_CHECK(call)                                                       \
   do {                                                                         \

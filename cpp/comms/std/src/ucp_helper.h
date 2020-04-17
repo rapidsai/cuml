@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 

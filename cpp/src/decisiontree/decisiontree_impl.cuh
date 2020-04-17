@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <queue>
 #include <random>

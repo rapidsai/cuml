@@ -35,7 +35,7 @@
 
 #include <float.h>
 #include <math.h>
-#include "utils.h"
+#include <common/cudart_utils.h>
 
 namespace ML {
 namespace TSNE {

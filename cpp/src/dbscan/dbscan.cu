@@ -18,7 +18,7 @@
 #include <cuml/cluster/dbscan.hpp>
 #include "dbscan.h"
 #include "runner.h"
-#include "utils.h"
+#include <common/cudart_utils.h>
 
 namespace ML {
 
