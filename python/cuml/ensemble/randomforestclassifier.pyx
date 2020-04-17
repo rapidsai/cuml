@@ -541,7 +541,6 @@ class RandomForestClassifier(Base):
 
         """
         self._set_output_type(X)
-        print(" convert dtype in rf cython code : ", convert_dtype)
 
         # Reset the old tree data for new fit call
         self._reset_forest_data()
