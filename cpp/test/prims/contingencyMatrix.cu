@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <iostream>
 #include <random>
 #include "metrics/contingencyMatrix.h"
 #include "test_utils.h"
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Metrics {

@@ -1,3 +1,4 @@
+#include <common/cudart_utils.h>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
 #include <glm/qn/glm_softmax.h>
@@ -7,7 +8,6 @@
 #include <cuml/linear_model/glm.hpp>
 #include <vector>
 #include "test_utils.h"
-#include <common/cudart_utils.h>
 
 namespace ML {
 namespace GLM {

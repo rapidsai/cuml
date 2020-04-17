@@ -18,8 +18,8 @@
 
 #include "label/classlabels.h"
 
-#include <cuda_utils.h>
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include "test_utils.h"
 

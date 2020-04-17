@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuda_utils.h>
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>

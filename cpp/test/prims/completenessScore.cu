@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <metrics/completenessScore.h>
 #include <algorithm>
@@ -20,7 +21,6 @@
 #include <iostream>
 #include <random>
 #include "test_utils.h"
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Metrics {

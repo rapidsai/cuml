@@ -18,13 +18,13 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/subtract.h"
 #include "linalg/transpose.h"
 #include "random/make_regression.h"
 #include "test_utils.h"
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Random {

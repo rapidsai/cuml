@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <random>
@@ -21,7 +22,6 @@
 #include "cuda_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 

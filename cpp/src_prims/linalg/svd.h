@@ -17,10 +17,10 @@
 #pragma once
 
 #include <cuml/common/cuml_allocator.hpp>
+#include "common/cudart_utils.h"
 #include "common/device_buffer.hpp"
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
-#include "common/cudart_utils.h"
 #include "cusolver_wrappers.h"
 #include "eig.h"
 #include "gemm.h"

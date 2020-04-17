@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuda_runtime.h>
 #include <common/cudart_utils.h>
+#include <cuda_runtime.h>
 
 #pragma once
 

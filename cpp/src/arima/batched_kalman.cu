@@ -24,10 +24,10 @@
 #include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
+#include "common/cudart_utils.h"
 #include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
-#include "common/cudart_utils.h"
 #include "linalg/batched/matrix.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"

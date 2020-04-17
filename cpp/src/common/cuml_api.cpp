@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <cuml/cuml_api.h>
 #include <cuml/common/utils.hpp>
 #include <functional>
-#include <common/cudart_utils.h>
 #include "cumlHandle.hpp"
 
 namespace ML {

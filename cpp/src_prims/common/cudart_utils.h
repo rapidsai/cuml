@@ -17,8 +17,8 @@
 #pragma once
 
 #include <chrono>
-#include <iomanip>
 #include <cuml/common/utils.hpp>
+#include <iomanip>
 #include <iostream>
 
 namespace MLCommon {
@@ -84,11 +84,11 @@ void copyAsync(Type* dPtr1, const Type* dPtr2, size_t len,
 
 /** helper method to convert an array on device to a string on host */
 template <typename T>
-std::string arr2Str(const T *arr, int size, std::string name,
+std::string arr2Str(const T* arr, int size, std::string name,
                     cudaStream_t stream, int width = 4) {
   std::stringstream ss;
 
-  T *arr_h = (T *)malloc(size * sizeof(T));
+  T* arr_h = (T*)malloc(size * sizeof(T));
   updateHost(arr_h, arr, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -106,7 +106,7 @@ std::string arr2Str(const T *arr, int size, std::string name,
 }
 /** this seems to be unused, but may be useful in the future */
 template <typename T>
-void ASSERT_DEVICE_MEM(T *ptr, std::string name) {
+void ASSERT_DEVICE_MEM(T* ptr, std::string name) {
   cudaPointerAttributes s_att;
   cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
 

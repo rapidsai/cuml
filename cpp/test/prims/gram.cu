@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
@@ -25,7 +26,6 @@
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
 #include "test_utils.h"
-#include <common/cudart_utils.h>
 
 namespace MLCommon {
 namespace Matrix {

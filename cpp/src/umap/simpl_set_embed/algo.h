@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuml/manifold/umapparams.h>
 #include <curand.h>
 #include <internals/internals.h>
@@ -29,7 +30,6 @@
 #include "optimize_batch_kernel.cuh"
 #include "random/rng_impl.h"
 #include "sparse/coo.h"
-#include <common/cudart_utils.h>
 
 #pragma once
 

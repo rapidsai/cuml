@@ -30,8 +30,8 @@
 #include "common/device_buffer.hpp"
 #include "umap/runner.h"
 
-#include <cuda_utils.h>
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 
 #include <iostream>
 #include <vector>

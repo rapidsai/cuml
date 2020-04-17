@@ -24,6 +24,7 @@
 
 #include <cub/device/device_select.cuh>
 #include <cuml/common/cuml_allocator.hpp>
+#include "common/cudart_utils.h"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
@@ -33,7 +34,6 @@
 #include "linalg/map_then_reduce.h"
 #include "linalg/unary_op.h"
 #include "matrix/matrix.h"
-#include "common/cudart_utils.h"
 #include "ws_util.cuh"
 
 namespace ML {
