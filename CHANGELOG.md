@@ -27,7 +27,9 @@
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
 - PR #2064: Speed-up K-Means test
+- PR #2015: Renaming .h to .cuh in solver, dbscan and svm
 - PR #2080: Improved import of sparse FIL forests from treelite
+- PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -40,6 +42,7 @@
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+- PR #2077L dask-make blobs arguments to match sklearn
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
