@@ -29,6 +29,7 @@
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2095: Improved import of src_prims/utils.h, making it less ambiguous
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
