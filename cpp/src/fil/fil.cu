@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <stack>
 #include <utility>
 
 #include <cuml/fil/fil.h>
@@ -53,12 +54,19 @@ void dense_node_decode(const dense_node_t* n, float* output, float* thresh,
   *is_leaf = dn.is_leaf();
 }
 
-void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
-                      bool def_left, bool is_leaf, int left_index) {
+inline void sparse_node_init_inline(sparse_node_t* node, float output,
+                                    float thresh, int fid, bool def_left,
+                                    bool is_leaf, int left_index) {
   sparse_node n(output, thresh, fid, def_left, is_leaf, left_index);
   node->bits = n.bits;
   node->val = n.val;
   node->left_idx = n.left_idx;
+}
+
+void sparse_node_init(sparse_node_t* node, float output, float thresh, int fid,
+                      bool def_left, bool is_leaf, int left_index) {
+  sparse_node_init_inline(node, output, thresh, fid, def_left, is_leaf,
+                          left_index);
 }
 
 /** sparse_node_decode extracts individual members from node */
@@ -288,7 +296,7 @@ void check_params(const forest_params_t* params, bool dense) {
 }
 
 // tl_node_at is a checked version of tree[i]
-const tl::Tree::Node& tl_node_at(const tl::Tree& tree, size_t i) {
+inline const tl::Tree::Node& tl_node_at(const tl::Tree& tree, size_t i) {
   ASSERT(i < tree.num_nodes, "node index out of range");
   return tree[i];
 }
@@ -317,12 +325,31 @@ int max_depth_helper(const tl::Tree& tree, const tl::Tree::Node& node,
            max_depth_helper(tree, tl_node_at(tree, node.cright()), limit - 1));
 }
 
-int max_depth(const tl::Tree& tree) {
+inline int max_depth(const tl::Tree& tree) {
   // trees of this depth aren't used, so it most likely means bad input data,
   // e.g. cycles in the forest
-  const int RECURSION_LIMIT = 500;
-  return max_depth_helper(tree, tl_node_at(tree, tree_root(tree)),
-                          RECURSION_LIMIT);
+  const int DEPTH_LIMIT = 500;
+  int root_index = tree_root(tree);
+  typedef std::pair<const tl::Tree::Node*, int> pair_t;
+  std::stack<pair_t> stack;
+  stack.push(pair_t(&tl_node_at(tree, root_index), 0));
+  int max_depth = 0;
+  while (!stack.empty()) {
+    const pair_t& pair = stack.top();
+    const tl::Tree::Node* node = pair.first;
+    int depth = pair.second;
+    stack.pop();
+    while (!node->is_leaf()) {
+      stack.push(pair_t(&tl_node_at(tree, node->cleft()), depth + 1));
+      node = &tl_node_at(tree, node->cright());
+      depth++;
+      ASSERT(depth < DEPTH_LIMIT,
+             "depth limit reached, might be a cycle in the tree");
+    }
+    // only need to update depth for leaves
+    max_depth = std::max(max_depth, depth);
+  }
+  return max_depth;
 }
 
 int max_depth(const tl::Model& model) {
@@ -331,8 +358,8 @@ int max_depth(const tl::Model& model) {
   return depth;
 }
 
-void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
-                      bool* default_left, const tl::Tree::Node& node) {
+inline void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
+                             bool* default_left, const tl::Tree::Node& node) {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
@@ -382,47 +409,55 @@ void node2fil_dense(std::vector<dense_node_t>* pnodes, int root, int cur,
   node2fil_dense(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right));
 }
 
-void node2fil_sparse(std::vector<sparse_node_t>* pnodes, int root, int cur,
-                     const tl::Tree& tree, const tl::Tree::Node& node) {
-  if (node.is_leaf()) {
-    sparse_node_init(&(*pnodes)[root + cur], node.leaf_value(), 0, 0, false,
-                     true, 0);
-    return;
-  }
-
-  // inner node
-  ASSERT(node.split_type() == tl::SplitFeatureType::kNumerical,
-         "only numerical split nodes are supported");
-  // tl_left and tl_right are indices of the children in the treelite tree
-  // (stored  as an array of nodes)
-  int tl_left = node.cleft(), tl_right = node.cright();
-  bool default_left = node.default_left();
-  float threshold = node.threshold();
-  adjust_threshold(&threshold, &tl_left, &tl_right, &default_left, node);
-
-  // reserve space for child nodes
-  // left is the offset of the left child node relative to the tree root
-  // in the array of all nodes of the FIL sparse forest
-  int left = pnodes->size() - root;
-  pnodes->push_back(sparse_node_t());
-  pnodes->push_back(sparse_node_t());
-  sparse_node_init(&(*pnodes)[root + cur], 0, threshold, node.split_index(),
-                   default_left, false, left);
-
-  // init child nodes
-  node2fil_sparse(pnodes, root, left, tree, tl_node_at(tree, tl_left));
-  node2fil_sparse(pnodes, root, left + 1, tree, tl_node_at(tree, tl_right));
-}
-
 void tree2fil_dense(std::vector<dense_node_t>* pnodes, int root,
                     const tl::Tree& tree) {
   node2fil_dense(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
 }
 
 int tree2fil_sparse(std::vector<sparse_node_t>* pnodes, const tl::Tree& tree) {
+  typedef std::pair<const tl::Tree::Node*, int> pair_t;
+  std::stack<pair_t> stack;
   int root = pnodes->size();
   pnodes->push_back(sparse_node_t());
-  node2fil_sparse(pnodes, root, 0, tree, tl_node_at(tree, tree_root(tree)));
+  stack.push(pair_t(&tl_node_at(tree, tree_root(tree)), 0));
+  while (!stack.empty()) {
+    const pair_t& top = stack.top();
+    const tl::Tree::Node* node = top.first;
+    int cur = top.second;
+    stack.pop();
+
+    while (!node->is_leaf()) {
+      // inner node
+      ASSERT(node->split_type() == tl::SplitFeatureType::kNumerical,
+             "only numerical split nodes are supported");
+      // tl_left and tl_right are indices of the children in the treelite tree
+      // (stored  as an array of nodes)
+      int tl_left = node->cleft(), tl_right = node->cright();
+      bool default_left = node->default_left();
+      float threshold = node->threshold();
+      adjust_threshold(&threshold, &tl_left, &tl_right, &default_left, *node);
+
+      // reserve space for child nodes
+      // left is the offset of the left child node relative to the tree root
+      // in the array of all nodes of the FIL sparse forest
+      int left = pnodes->size() - root;
+      pnodes->push_back(sparse_node_t());
+      pnodes->push_back(sparse_node_t());
+      sparse_node_init_inline(&(*pnodes)[root + cur], 0, threshold,
+                              node->split_index(), default_left, false, left);
+
+      // push child nodes into the stack
+      stack.push(pair_t(&tl_node_at(tree, tl_right), left + 1));
+      //stack.push(pair_t(&tl_node_at(tree, tl_left), left));
+      node = &tl_node_at(tree, tl_left);
+      cur = left;
+    }
+
+    // leaf node
+    sparse_node_init_inline(&(*pnodes)[root + cur], node->leaf_value(), 0, 0,
+                            false, true, 0);
+  }
+
   return root;
 }
 
@@ -543,8 +578,6 @@ void from_treelite(const cumlHandle& handle, forest_t* pforest,
       std::vector<sparse_node_t> nodes;
       tl2fil_sparse(&trees, &nodes, &params, model_ref, tl_params);
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
-      // sync is necessary as nodes is used in init_dense(),
-      // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
       break;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 
@@ -98,7 +99,6 @@ class kNN {
   int total_n;
   int indices;
   int D;
-  bool verbose;
 
   bool rowMajorIndex;
 
@@ -107,11 +107,11 @@ class kNN {
  public:
   /**
    * Build a kNN object for training and querying a k-nearest neighbors model.
-   * @param handle  cuml handle
-   * @param D       number of features in each vector
-   * @param verbose whether to print debug messages
+   * @param[in] handle    cuml handle
+   * @param[in] D         number of features in each vector
+   * @param[in] verbosity verbosity level for logging messages during execution
    */
-  kNN(const cumlHandle &handle, int D, bool verbose = false);
+  kNN(const cumlHandle &handle, int D, int verbosity = CUML_LEVEL_INFO);
   ~kNN();
 
   void reset();
