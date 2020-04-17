@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
@@ -108,13 +107,12 @@ class DecisionTreeBase {
   // Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format.
   void predict(const ML::cumlHandle &handle, const TreeMetaDataNode<T, L> *tree,
                const T *rows, const int n_rows, const int n_cols,
-               L *predictions, bool verbose = false) const;
+               L *predictions, int verbosity = -1) const;
   void predict_all(const TreeMetaDataNode<T, L> *tree, const T *rows,
-                   const int n_rows, const int n_cols, L *preds,
-                   bool verbose = false) const;
+                   const int n_rows, const int n_cols, L *preds) const;
   L predict_one(const T *row,
-                const std::vector<SparseTreeNode<T, L>> sparsetree, int idx,
-                bool verbose = false) const;
+                const std::vector<SparseTreeNode<T, L>> sparsetree,
+                int idx) const;
 
   void set_metadata(TreeMetaDataNode<T, L> *&tree);
 
