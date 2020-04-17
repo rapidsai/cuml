@@ -321,12 +321,13 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
 
   MLCommon::Sparse::COO<T> in(d_alloc, stream, n * n_neighbors, n, n);
 
-  if (params->verbose) {
-    CUML_LOG_INFO("Smooth kNN Distances");
+  // check for logging in order to avoid the potentially costly `arr2Str` call!
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    CUML_LOG_DEBUG("Smooth kNN Distances");
     auto str = MLCommon::arr2Str(sigmas.data(), 25, "sigmas", stream);
-    CUML_LOG_INFO("%s", str.c_str());
+    CUML_LOG_DEBUG("%s", str.c_str());
     str = MLCommon::arr2Str(rhos.data(), 25, "rhos", stream);
-    CUML_LOG_INFO("%s", str.c_str());
+    CUML_LOG_DEBUG("%s", str.c_str());
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
@@ -339,11 +340,11 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
     in.cols(), in.n_rows, n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  if (params->verbose) {
-    CUML_LOG_INFO("Compute Membership Strength");
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    CUML_LOG_DEBUG("Compute Membership Strength");
     std::stringstream ss;
     ss << in;
-    CUML_LOG_INFO(ss.str().c_str());
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
 
   /**

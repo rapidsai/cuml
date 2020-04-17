@@ -24,6 +24,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <cub/cub.cuh>
+#include <cuml/common/logger.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <iostream>
@@ -38,9 +39,9 @@
 #include "matrix/kernelmatrices.h"
 #include "random/make_blobs.h"
 #include "random/rng.h"
-#include "svm/smoblocksolve.h"
-#include "svm/smosolver.h"
-#include "svm/workingset.h"
+#include "svm/smoblocksolve.cuh"
+#include "svm/smosolver.cuh"
+#include "svm/workingset.cuh"
 #include "test_utils.h"
 
 namespace ML {
@@ -228,7 +229,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest) {
         params, this->handle.getImpl().getCublasHandle());
     KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                  this->n_rows, this->n_cols, this->n_ws, kernel,
-                                 cache_size, C_SVC, false);
+                                 cache_size, C_SVC);
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
@@ -248,7 +249,7 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest) {
       param, this->handle.getImpl().getCublasHandle());
   KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, C_SVC, false);
+                               cache_size, C_SVC);
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
     TypeParam *tile_dev = cache.GetTile(this->ws_idx_dev);
@@ -271,7 +272,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest) {
       param, this->handle.getImpl().getCublasHandle());
   KernelCache<TypeParam> cache(this->handle.getImpl(), this->x_dev,
                                this->n_rows, this->n_cols, this->n_ws, kernel,
-                               cache_size, EPSILON_SVR, false);
+                               cache_size, EPSILON_SVR);
 
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
@@ -372,7 +373,7 @@ svmParameter getDefaultSvmParameter() {
   param.cache_size = 200;
   param.max_iter = -1;
   param.nochange_steps = 1000;
-  param.verbose = false;
+  param.verbosity = CUML_LEVEL_INFO;
   param.epsilon = 0.1;
   param.svmType = C_SVC;
   return param;
@@ -1008,7 +1009,7 @@ TYPED_TEST(SmoSolverTest, BlobPredict) {
                this->handle.getImpl().getCublasHandle(), this->stream,
                centers.data());
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, -1, 50,
-                       false);
+                       CUML_LEVEL_INFO);
     svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
 
     // Create a different dataset for prediction
@@ -1180,7 +1181,6 @@ class SvrTest : public ::testing::Test {
 
     ws =
       new WorkingSet<math_t>(handle.getImpl(), stream, n_rows, 10, EPSILON_SVR);
-    //ws->verbose = true;
     EXPECT_EQ(ws->GetSize(), 10);
     ws->Select(f, alpha, yc, C);
     int exp_idx2[] = {6, 12, 5, 11, 3, 9, 8, 1, 7, 0};
@@ -1217,7 +1217,7 @@ class SvrTest : public ::testing::Test {
   void TestSvrFitPredict() {
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 10, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 1, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1228,7 +1228,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 10, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 10, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1239,7 +1239,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 1, 1e-3, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,             // n_rows
          2,             // n_cols
@@ -1250,7 +1250,7 @@ class SvrTest : public ::testing::Test {
          2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 100, 10, 1e-6, false, 0.1, EPSILON_SVR},
+         svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      //n_cols

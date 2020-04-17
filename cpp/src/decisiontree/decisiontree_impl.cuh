@@ -57,13 +57,13 @@ void print_node(const std::string &prefix,
                 const std::vector<SparseTreeNode<T, L>> &sparsetree, int idx,
                 bool isLeft) {
   const SparseTreeNode<T, L> &node = sparsetree[idx];
-  CUML_LOG_INFO(prefix.c_str());
-  CUML_LOG_INFO(isLeft ? "├" : "└");
+  CUML_LOG_DEBUG(prefix.c_str());
+  CUML_LOG_DEBUG(isLeft ? "├" : "└");
 
   // print the value of the node
   std::stringstream ss;
   ss << node << std::endl;
-  CUML_LOG_INFO(ss.str().c_str());
+  CUML_LOG_DEBUG(ss.str().c_str());
 
   if ((node.colid != -1)) {
     // enter the next tree level - left and right branch
@@ -166,15 +166,15 @@ void build_treelite_tree(TreeBuilderHandle tree_builder,
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::print_tree_summary() const {
   PatternSetter _("%v");
-  CUML_LOG_INFO(" Decision Tree depth --> %d and n_leaves --> %d",
-                depth_counter, leaf_counter);
-  CUML_LOG_INFO(" Total temporary memory usage--> %lf MB",
-                ((double)total_temp_mem / (1024 * 1024)));
-  CUML_LOG_INFO(" Shared memory used --> %d B", shmem_used);
-  CUML_LOG_INFO(" Tree Fitting - Overall time --> %lf s",
-                prepare_time + train_time);
-  CUML_LOG_INFO("   - preparing for fit time: %lf s", prepare_time);
-  CUML_LOG_INFO("   - tree growing time: %lf s", train_time);
+  CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
+                 depth_counter, leaf_counter);
+  CUML_LOG_DEBUG(" Total temporary memory usage--> %lf MB",
+                 ((double)total_temp_mem / (1024 * 1024)));
+  CUML_LOG_DEBUG(" Shared memory used --> %d B", shmem_used);
+  CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf s",
+                 prepare_time + train_time);
+  CUML_LOG_DEBUG("   - preparing for fit time: %lf s", prepare_time);
+  CUML_LOG_DEBUG("   - tree growing time: %lf s", train_time);
 }
 
 /**
@@ -260,7 +260,10 @@ void DecisionTreeBase<T, L>::predict(const ML::cumlHandle &handle,
                                      const TreeMetaDataNode<T, L> *tree,
                                      const T *rows, const int n_rows,
                                      const int n_cols, L *predictions,
-                                     bool verbose) const {
+                                     int verbosity) const {
+  if (verbosity >= 0) {
+    ML::Logger::get().setLevel(verbosity);
+  }
   ASSERT(!is_dev_ptr(rows) && !is_dev_ptr(predictions),
          "DT Error: Current impl. expects both input and predictions to be CPU "
          "pointers.\n");
@@ -271,40 +274,37 @@ void DecisionTreeBase<T, L>::predict(const ML::cumlHandle &handle,
   ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
   ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-  predict_all(tree, rows, n_rows, n_cols, predictions, verbose);
+  predict_all(tree, rows, n_rows, n_cols, predictions);
 }
 
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::predict_all(const TreeMetaDataNode<T, L> *tree,
                                          const T *rows, const int n_rows,
-                                         const int n_cols, L *preds,
-                                         bool verbose) const {
+                                         const int n_cols, L *preds) const {
   for (int row_id = 0; row_id < n_rows; row_id++) {
-    preds[row_id] =
-      predict_one(&rows[row_id * n_cols], tree->sparsetree, 0, verbose);
+    preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
   }
 }
 
 template <typename T, typename L>
 L DecisionTreeBase<T, L>::predict_one(
-  const T *row, const std::vector<SparseTreeNode<T, L>> sparsetree, int idx,
-  bool verbose) const {
+  const T *row, const std::vector<SparseTreeNode<T, L>> sparsetree,
+  int idx) const {
   int colid = sparsetree[idx].colid;
   T quesval = sparsetree[idx].quesval;
   int leftchild = sparsetree[idx].left_child_id;
-  ML::Logger::get().setLevel(verbose ? CUML_LEVEL_INFO : CUML_LEVEL_WARN);
   if (colid == -1) {
-    CUML_LOG_INFO("Leaf node. Predicting %f",
-                  (float)sparsetree[idx].prediction);
+    CUML_LOG_DEBUG("Leaf node. Predicting %f",
+                   (float)sparsetree[idx].prediction);
     return sparsetree[idx].prediction;
   } else if (row[colid] <= quesval) {
-    CUML_LOG_INFO("Classifying Left @ node w/ column %d and value %f", colid,
-                  (float)quesval);
-    return predict_one(row, sparsetree, leftchild, verbose);
+    CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid,
+                   (float)quesval);
+    return predict_one(row, sparsetree, leftchild);
   } else {
-    CUML_LOG_INFO("Classifying Right @ node w/ column %d and value %f", colid,
-                  (float)quesval);
-    return predict_one(row, sparsetree, leftchild + 1, verbose);
+    CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f", colid,
+                   (float)quesval);
+    return predict_one(row, sparsetree, leftchild + 1);
   }
 }
 

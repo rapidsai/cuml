@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,10 +108,10 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels, false);
+            params.n_cols, predicted_labels);
     // Predict and compare against known labels
-    RF_metrics tmp = score(handle, forest, labels, params.n_inference_rows,
-                           predicted_labels, false);
+    RF_metrics tmp =
+      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -207,10 +207,10 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
     predict(handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels, false);
+            params.n_cols, predicted_labels);
     // Predict and compare against known labels
-    RF_metrics tmp = score(handle, forest, labels, params.n_inference_rows,
-                           predicted_labels, false);
+    RF_metrics tmp =
+      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));

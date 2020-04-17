@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -183,12 +183,11 @@ TEST_P(COORemoveZeros, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
   std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+  params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
   float *in_h_vals = new float[params.nnz];
 
   COO<float> in(alloc, stream, params.nnz, 5, 5);
-
-  params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
   Random::Rng r(params.seed);
   r.uniform(in.vals(), params.nnz, float(-1.0), float(1.0), stream);

@@ -247,11 +247,11 @@ void launcher(int m, int n, MLCommon::Sparse::COO<T> *in, UMAPParams *params,
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs,
                          epochs_per_sample.data(), stream);
 
-  if (params->verbose) {
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     std::stringstream ss;
     ss << MLCommon::arr2Str(epochs_per_sample.data(), out.nnz,
                             "epochs_per_sample", stream);
-    CUML_LOG_INFO(ss.str().c_str());
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
 
   optimize_layout<TPB_X, T>(embedding, m, embedding, m, out.rows(), out.cols(),

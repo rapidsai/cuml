@@ -34,7 +34,7 @@
 #include "linalg/unary_op.h"
 #include "matrix/matrix.h"
 #include "common/cudart_utils.h"
-#include "ws_util.h"
+#include "ws_util.cuh"
 
 namespace ML {
 namespace SVM {
