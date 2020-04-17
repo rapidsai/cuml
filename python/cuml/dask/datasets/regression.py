@@ -19,7 +19,6 @@ import dask.delayed
 from dask.distributed import default_client
 import numpy as np
 import cupy as cp
-from cuml.utils import rmm_cupy_ary
 from cuml.dask.common.part_utils import _extract_partitions
 from cuml.datasets.regression import make_regression as sg_make_regression
 from cuml.utils import with_cupy_rmm
@@ -71,6 +70,36 @@ def f_order_standard_normal(client, rs, chunksizes, ncols, dtype):
     return da.concatenate(chunks_dela, axis=0)
 
 
+def _data_from_multivariate_normal(seed, covar, n_samples, n_features, dtype):
+    mean = cp.zeros(n_features)
+    local_rs = cp.random.RandomState()
+    return local_rs.multivariate_normal(mean, covar, n_samples,
+                                        dtype=dtype)
+
+def data_from_multivariate_normal(client, rs, covar, chunksizes, n_features,
+                                  dtype):
+    workers = list(client.has_what().keys())
+
+    n_chunks = len(chunksizes)
+    chunks_workers = (workers * n_chunks)[:n_chunks]
+
+    chunk_seeds = rs.permutation(len(chunksizes))
+    covar = covar.compute()
+
+    data_parts = [client.submit(_data_from_multivariate_normal,
+                                chunk_seeds[idx], covar,
+                                chunksizes[idx], n_features,
+                                dtype, workers=[chunks_workers[idx]],
+                                pure=False)
+                  for idx, chunk in enumerate(chunksizes)]
+
+    data_dela = [da.from_delayed(dask.delayed(chunk),
+                                 shape=(chunksizes[idx], n_features),
+                                 meta=cp.zeros((1)), dtype=dtype)
+                   for idx, chunk in enumerate(data_parts)]
+    return da.concatenate(data_dela, axis=0)
+
+
 def get_X(t):
     return t[0]
 
@@ -90,12 +119,12 @@ def _f_order_shuffle(X, y, n_samples, seed, features_indices):
     return X, y
 
 
-def f_order_shuffle(client, rs, X, y, n_parts, chunksizes,
-                    n_features, features_indices, n_targets, dtype):
+def f_order_shuffle(client, rs, X, y, chunksizes, n_features,
+                    features_indices, n_targets, dtype):
     X_parts = client.sync(_extract_partitions, X)
     y_parts = client.sync(_extract_partitions, y)
 
-    chunk_seeds = rs.permutation(n_parts)
+    chunk_seeds = rs.permutation(len(chunksizes))
 
     shuffled = [client.submit(_f_order_shuffle, X_part, y_parts[idx][1],
                               chunksizes[idx],
@@ -137,10 +166,62 @@ def convert_C_to_F_order(client, X, chunksizes, n_features, dtype):
     return da.concatenate(X_dela, axis=0)
 
 
-def make_low_rank_matrix(client=None, n_samples=100, n_features=100,
+def generate_chunks_for_qr(total_size, min_size, n_parts):
+
+    n_total_per_part = max(1, int(total_size / n_parts))
+    if n_total_per_part > min_size:
+        min_size = n_total_per_part
+
+    n_partitions = int(max(1, total_size / min_size))
+    rest = total_size % (n_partitions * min_size)
+    chunks_list = [min_size for i in range(n_partitions-1)]
+    chunks_list.append(min_size + rest)
+    return tuple(chunks_list)
+
+
+def generate_singular_values(n, effective_rank, tail_strength,
+                             n_samples_per_part):
+    # Index of the singular values
+    sing_ind = cp.arange(n, dtype=cp.float64)
+
+    # Build the singular profile by assembling signal and noise components
+    tmp = sing_ind / effective_rank
+    low_rank = (1 - tail_strength) * cp.exp(-1.0 * tmp ** 2)
+    tail = tail_strength * cp.exp(-0.1 * tmp)
+    local_s = low_rank + tail
+    s = da.from_array(local_s,
+                      chunks=(int(n_samples_per_part),))
+    return s
+
+
+def make_low_rank_covariance(n_features, effective_rank,
+                             tail_strength, random_state, n_parts,
+                             n_samples_per_part, dtype):
+
+    rs = create_rs_generator(random_state)
+
+    m2 = rs.standard_normal((n_features, n_features),
+                            chunks=(-1, generate_chunks_for_qr(n_features,
+                                                            n_features,
+                                                            n_parts)),
+                            dtype=dtype)
+    v, _ = da.linalg.qr(m2)
+
+    if n_samples_per_part is None:
+        n_samples_per_part = max(1, int(n_samples / n_parts))
+    v = v.rechunk({0: n_samples_per_part, 1: -1})
+
+    s = generate_singular_values(n_features, effective_rank, tail_strength,
+                                 n_samples_per_part)
+
+    v *= (s ** 2)
+    return da.dot(v, da.transpose(v))
+
+
+def make_low_rank_matrix(n_samples=100, n_features=100,
                          effective_rank=10, tail_strength=0.5,
                          random_state=None, n_parts=1,
-                         n_samples_per_part=None, dtype='float32', order='F'):
+                         n_samples_per_part=None, dtype='float32'):
     """ Generate a mostly low rank matrix with bell-shaped singular values
 
     Parameters
@@ -170,22 +251,8 @@ def make_low_rank_matrix(client=None, n_samples=100, n_features=100,
         The matrix.
     """
 
-    client = default_client() if client is None else client
-
     rs = create_rs_generator(random_state)
     n = min(n_samples, n_features)
-
-    def generate_chunks_for_qr(total_size, min_size, n_parts):
-
-        n_total_per_part = max(1, int(total_size / n_parts))
-        if n_total_per_part > min_size:
-            min_size = n_total_per_part
-
-        n_partitions = int(max(1, total_size / min_size))
-        rest = total_size % (n_partitions * min_size)
-        chunks_list = [min_size for i in range(n_partitions-1)]
-        chunks_list.append(min_size + rest)
-        return tuple(chunks_list)
 
     # Random (ortho normal) vectors
     m1 = rs.standard_normal((n_samples, n),
@@ -206,16 +273,8 @@ def make_low_rank_matrix(client=None, n_samples=100, n_features=100,
     u = u.rechunk({0: n_samples_per_part, 1: -1})
     v = v.rechunk({0: n_samples_per_part, 1: -1})
 
-    # Index of the singular values
-    sing_ind = rmm_cupy_ary(cp.arange, n, dtype=cp.float64)
-
-    # Build the singular profile by assembling signal and noise components
-    tmp = sing_ind / effective_rank
-    low_rank = ((1 - tail_strength) * rmm_cupy_ary(cp.exp, -1.0 * tmp ** 2))
-    tail = tail_strength * rmm_cupy_ary(cp.exp, -0.1 * tmp)
-    local_s = low_rank + tail
-    s = da.from_array(local_s,
-                      chunks=(int(n_samples_per_part),))
+    s = generate_singular_values(n, effective_rank, tail_strength,
+                                 n_samples_per_part)
 
     u *= s
     return da.dot(u, v)
@@ -324,7 +383,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     data_chunksizes = tuple(data_chunksizes)
 
-    if (effective_rank is None) or (effective_rank and not use_full_low_rank):
+    if effective_rank is None:
         # Randomly generate a well conditioned input set
         if order == 'F':
             X = f_order_standard_normal(client, rs, data_chunksizes,
@@ -337,17 +396,26 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     else:
         # Randomly generate a low rank, fat tail input set
-        X = make_low_rank_matrix(client=client,
-                                 n_samples=n_samples,
-                                 n_features=n_features,
-                                 effective_rank=effective_rank,
-                                 tail_strength=tail_strength,
-                                 random_state=rs,
-                                 n_parts=n_parts,
-                                 dtype=dtype,
-                                 order=order)
-        X = X.rechunk({0: data_chunksizes,
-                       1: -1})
+        if use_full_low_rank:
+            X = make_low_rank_matrix(n_samples=n_samples,
+                                     n_features=n_features,
+                                     effective_rank=effective_rank,
+                                     tail_strength=tail_strength,
+                                     random_state=rs,
+                                     n_parts=n_parts,
+                                     n_samples_per_part=n_samples_per_part,
+                                     dtype=dtype)
+
+            X = X.rechunk({0: data_chunksizes,
+                           1: -1})
+        else:
+            covar = make_low_rank_covariance(n_features, effective_rank,
+                                             tail_strength, rs, n_parts,
+                                             n_samples_per_part, dtype)
+            X = data_from_multivariate_normal(client, rs, covar,
+                                              data_chunksizes, n_features,
+                                              dtype)
+
         if order == 'F':
             X = convert_C_to_F_order(client, X, data_chunksizes,
                                      n_features, dtype)
@@ -355,36 +423,19 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
     # by a sparsifying regularizers such as L1 or elastic net)
-    if effective_rank and not use_full_low_rank:
-        _, _, coef_ = sg_make_regression(n_samples=n_samples_per_part,
-                                         n_features=n_features,
-                                         n_informative=n_informative,
-                                         n_targets=n_targets,
-                                         bias=bias,
-                                         effective_rank=effective_rank,
-                                         tail_strength=tail_strength,
-                                         noise=noise,
-                                         shuffle=shuffle,
-                                         coef=True,
-                                         random_state=random_state,
-                                         dtype='double')
-        coef_ = cp.array(coef_, dtype=dtype, order=order)
-        ground_truth = da.from_array(coef_, chunks=(n_samples_per_part, -1))
-        y = da.dot(X, ground_truth) + bias
-    else:
-        ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
-                                                  chunks=(n_samples_per_part,
-                                                          -1),
-                                                  dtype=dtype)
+    ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
+                                                chunks=(n_samples_per_part,
+                                                        -1),
+                                                dtype=dtype)
 
-        y = da.dot(X[:, :n_informative], ground_truth) + bias
+    y = da.dot(X[:, :n_informative], ground_truth) + bias
 
-    if n_informative != n_features and (effective_rank is None
-                                        or use_full_low_rank):
+    if n_informative != n_features:
         zeroes = 0.0 * rs.standard_normal((n_features -
                                            n_informative,
                                            n_targets), dtype=dtype)
         ground_truth = da.concatenate([ground_truth, zeroes], axis=0)
+
     ground_truth = ground_truth.rechunk(-1)
 
     # Add noise
@@ -395,8 +446,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     if shuffle:
         features_indices = np.random.permutation(n_features)
         if order == 'F':
-            X, y = f_order_shuffle(client, rs, X, y, n_parts,
-                                   data_chunksizes,
+            X, y = f_order_shuffle(client, rs, X, y, data_chunksizes,
                                    n_features, features_indices,
                                    n_targets, dtype)
 
@@ -410,6 +460,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
             X = X.rechunk((data_chunksizes, -1))
             y = y.rechunk((data_chunksizes, -1))
+
         ground_truth = ground_truth[features_indices, :]
 
     y = da.squeeze(y)
