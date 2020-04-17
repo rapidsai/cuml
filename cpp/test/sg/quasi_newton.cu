@@ -1,7 +1,7 @@
-#include <glm/qn/glm_linear.h>
-#include <glm/qn/glm_logistic.h>
-#include <glm/qn/glm_softmax.h>
-#include <glm/qn/qn.h>
+#include <glm/qn/glm_linear.cuh>
+#include <glm/qn/glm_logistic.cuh>
+#include <glm/qn/glm_softmax.cuh>
+#include <glm/qn/qn.cuh>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <cuml/linear_model/glm.hpp>

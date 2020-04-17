@@ -25,7 +25,7 @@
 #include <map>
 #include <numeric>
 #include <vector>
-#include "levelalgo/metric_def.h"
+#include "memory.h"
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                            \
