@@ -25,7 +25,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
 #include "linalg/eltwise.h"
-#include "utils.h"
+#include <common/cudart_utils.h>
 
 #define IDX(n, m, N) (n + (m) * (N))
 

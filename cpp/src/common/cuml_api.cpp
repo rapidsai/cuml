@@ -17,7 +17,7 @@
 #include <cuml/cuml_api.h>
 #include <cuml/common/utils.hpp>
 #include <functional>
-#include "../../src_prims/utils.h"
+#include <common/cudart_utils.h>
 #include "cumlHandle.hpp"
 
 namespace ML {

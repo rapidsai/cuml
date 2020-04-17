@@ -16,7 +16,7 @@
 
 #pragma once
 #include <math.h>
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <vector>
 #include "../memory.h"
 #include "cuda_utils.h"

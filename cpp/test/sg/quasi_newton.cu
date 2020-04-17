@@ -8,7 +8,6 @@
 #include <vector>
 #include "test_utils.h"
 #include <common/cudart_utils.h>
-#include "utils.h"
 
 namespace ML {
 namespace GLM {

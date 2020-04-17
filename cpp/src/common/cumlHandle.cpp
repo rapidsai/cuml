@@ -20,7 +20,7 @@
 #include <sparse/cusparse_wrappers.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
-#include "../../src_prims/utils.h"
+#include <common/cudart_utils.h>
 
 namespace ML {
 
