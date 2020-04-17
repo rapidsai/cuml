@@ -55,10 +55,12 @@ extern "C" cumlError_t cumlDpQnFit(
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);
-  if (status == CUML_SUCCESS) {
-    try {
+  if(status==CUML_SUCCESS) 
+  {
+    try{
       ML::GLM::qnFit(*handle_ptr, X, y, N, D, C, fit_intercept, l1, l2,
-                     max_iter, grad_tol, linesearch_max_iter, lbfgs_memory,
+                     max_iter, grad_tol, 
+                     linesearch_max_iter, lbfgs_memory,
                      verbosity, w0, f, num_iters, X_col_major, loss_type);
 
     }
