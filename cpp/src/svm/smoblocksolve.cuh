@@ -23,7 +23,7 @@
 #include "cuml/svm/svm_parameter.h"
 #include "ml_utils.h"
 #include "selection/kselection.h"
-#include "smo_sets.h"
+#include "smo_sets.cuh"
 
 namespace ML {
 namespace SVM {
