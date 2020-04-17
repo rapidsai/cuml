@@ -181,7 +181,7 @@ void sgdFit(const cumlHandle_impl &handle, math_t *input, int n_rows,
                                   allocator, stream);
       } else {
         ASSERT(false,
-               "sgd.h: Other loss functions have not been implemented yet!");
+               "sgd.cuh: Other loss functions have not been implemented yet!");
       }
 
       if (lr_type != ML::lr_type::ADAPTIVE)
