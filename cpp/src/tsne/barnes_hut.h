@@ -18,6 +18,7 @@
 #include <cuml/common/logger.hpp>
 #include "bh_kernels.h"
 #include "utils.h"
+#include <common/cudart_utils.h>
 
 namespace ML {
 namespace TSNE {
