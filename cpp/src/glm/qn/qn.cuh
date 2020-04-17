@@ -15,12 +15,12 @@
  */
 
 #pragma once
-#include <glm/qn/glm_base.h>
-#include <glm/qn/glm_linear.h>
-#include <glm/qn/glm_logistic.h>
-#include <glm/qn/glm_regularizer.h>
-#include <glm/qn/glm_softmax.h>
-#include <glm/qn/qn_solvers.h>
+#include <glm/qn/glm_base.cuh>
+#include <glm/qn/glm_linear.cuh>
+#include <glm/qn/glm_logistic.cuh>
+#include <glm/qn/glm_regularizer.cuh>
+#include <glm/qn/glm_softmax.cuh>
+#include <glm/qn/qn_solvers.cuh>
 #include <matrix/math.h>
 #include <common/device_buffer.hpp>
 
