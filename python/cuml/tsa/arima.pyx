@@ -73,10 +73,12 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
 
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+    ctypedef enum LoglikeMethod: CSS, MLE
+
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
-        double* d_vs, bool trans, bool host_loglike, bool approximate)
+        double* d_vs, bool trans, bool host_loglike, LoglikeMethod method)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -586,7 +588,7 @@ class ARIMA(Base):
             opt_disp: int = -1,
             h: float = 1e-9,
             maxiter=1000,
-            approximate=False):
+            method="ml"):
         """Fit the ARIMA model to each time series.
 
         Parameters
@@ -611,51 +613,66 @@ class ARIMA(Base):
                           2 * h
         maxiter : int
             Maximum number of iterations of L-BFGS-B
-        approximate : bool
-            Approximate the log-likelihood with a conditional sum-of-squares
+        method : str
+            Estimation method - "css", "css-ml" or "ml".
+            CSS uses a sum-of-squares approximation.
+            ML estimates the log-likelihood with statespace methods.
+            CSS-ML starts with CSS and refines with ML.
         """
+        def fit_helper(x_in, fit_method):
+            cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+
+            def f(x: np.ndarray) -> np.ndarray:
+                """The (batched) energy functional returning the negative
+                log-likelihood (foreach series)."""
+                # Recall: We maximize LL by minimizing -LL
+                n_llf = -self._loglike(x, True, fit_method)
+                return n_llf / (self.n_obs - 1)
+
+            # Optimized finite differencing gradient for batches
+            def gf(x) -> np.ndarray:
+                """The gradient of the (batched) energy functional."""
+                # Recall: We maximize LL by minimizing -LL
+                n_gllf = -self._loglike_grad(x, h, True, fit_method)
+                return n_gllf / (self.n_obs - 1)
+
+            # check initial parameter sanity
+            if ((np.isnan(x_in).any()) or (np.isinf(x_in).any())):
+                raise FloatingPointError(
+                    "Initial parameter vector x has NaN or Inf.")
+
+            # Optimize parameters by minimizing log likelihood.
+            x_out, niter, flags = batched_fmin_lbfgs_b(
+                f, x_in, self.batch_size, gf, iprint=opt_disp, factr=1000,
+                maxiter=maxiter)
+
+            # Handle non-zero flags with Warning
+            if (flags != 0).any():
+                print("WARNING: Some batch members had optimizer problems.",
+                    file=sys.stderr)
+            
+            return x_out, niter
+
         if start_params is None:
             self._estimate_x0()
         else:
             self.set_params(start_params)
 
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
-
-        def f(x: np.ndarray) -> np.ndarray:
-            """The (batched) energy functional returning the negative
-            log-likelihood (foreach series)."""
-            # Recall: We maximize LL by minimizing -LL
-            n_llf = -self._loglike(x, True, approximate)
-            return n_llf / (self.n_obs - 1)
-
-        # Optimized finite differencing gradient for batches
-        def gf(x):
-            """The gradient of the (batched) energy functional."""
-            # Recall: We maximize LL by minimizing -LL
-            n_gllf = -self._loglike_grad(x, h, True, approximate)
-            return n_gllf / (self.n_obs - 1)
-
         x0 = self._batched_transform(self.pack(), True)
 
-        # check initial parameter sanity
-        if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
-            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
-
-        # Optimize parameters by minimizing log likelihood.
-        x, niter, flags = batched_fmin_lbfgs_b(f, x0, self.batch_size, gf,
-                                               iprint=opt_disp, factr=1000,
-                                               maxiter=maxiter)
-
-        # Handle non-zero flags with Warning
-        if (flags != 0).any():
-            print("WARNING(`fit`): Some batch members had optimizer problems.",
-                  file=sys.stderr)
+        method = method.lower()
+        if method not in {"css", "css-ml", "ml"}:
+            raise ValueError("Unknown method: {}".format(method))
+        if method == "css" or method == "css-ml":
+            x, self.niter = fit_helper(x0, "css")
+        if method == "css-ml" or method == "ml":
+            x, niter = fit_helper(x if method == "css-ml" else x0, "ml")
+            self.niter = (self.niter + niter) if method == "css-ml" else niter
 
         self.unpack(self._batched_transform(x))
-        self.niter = niter
 
     @nvtx_range_wrap
-    def _loglike(self, x, trans=True, approximate=False):
+    def _loglike(self, x, trans=True, method="ml"):
         """Compute the batched log-likelihood for the given parameters.
 
         Parameters:
@@ -665,8 +682,9 @@ class ARIMA(Base):
         trans : bool
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
-        approximate : bool
-            Approximate the log-likelihood with a conditional sum-of-squares
+        method : str
+            Estimation method: "css" for sum-of-squares, "ml" for
+            an estimation with statespace methods
 
         Returns:
         --------
@@ -690,15 +708,16 @@ class ARIMA(Base):
                                 dtype=np.float64, order="F")
         cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
 
+        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
         batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
                         <int> self.n_obs, order, <double*> d_x_ptr,
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
-                        <bool> trans, <bool> True, <bool> approximate)
+                        <bool> trans, <bool> True, ll_method)
 
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_range_wrap
-    def _loglike_grad(self, x, h=1e-8, trans=True, approximate=False):
+    def _loglike_grad(self, x, h=1e-8, trans=True, method="ml"):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
@@ -712,8 +731,9 @@ class ARIMA(Base):
         trans : bool
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
-        approximate : bool
-            Approximate the log-likelihood with a conditional sum-of-squares
+        method : str
+            Estimation method: "css" for sum-of-squares, "ml" for
+            an estimation with statespace methods
 
         Returns:
         --------
@@ -739,8 +759,8 @@ class ARIMA(Base):
             # reset perturbation
             fd[i] = 0.0
 
-            ll_b_ph = self._loglike(x + fdph, trans, approximate)
-            ll_b_mh = self._loglike(x - fdph, trans, approximate)
+            ll_b_ph = self._loglike(x + fdph, trans, method)
+            ll_b_mh = self._loglike(x - fdph, trans, method)
 
             # first derivative second order accuracy
             grad_i_b = (ll_b_ph - ll_b_mh) / (2 * h)
