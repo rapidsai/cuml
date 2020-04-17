@@ -507,6 +507,10 @@ class RandomForestRegressor(Base):
             Acceptable formats: NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
             These labels should be contiguous integers from 0 to n_classes.
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be of dtype float32 and X to be float32. This will increase
+            memory used for the method.
         """
         self._set_output_type(X)
 
@@ -517,6 +521,8 @@ class RandomForestRegressor(Base):
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
                                 order='F')
         X_ptr = X_m.ptr
         y_m, _, _, y_dtype = \
@@ -598,6 +604,8 @@ class RandomForestRegressor(Base):
         cdef ModelHandle cuml_model_ptr = NULL
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
                                 check_cols=self.n_cols)
 
         if dtype == np.float64 and not convert_dtype:

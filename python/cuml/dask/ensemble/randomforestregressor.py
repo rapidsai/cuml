@@ -25,8 +25,10 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.part_utils import _extract_partitions
 
 import math
+import numpy as np
 import random
 from uuid import uuid1
+import warnings
 
 
 class RandomForestRegressor(DelayedPredictionMixin):
@@ -277,7 +279,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         )
 
     @staticmethod
-    def _fit(model, X_df_list, y_df_list, r):
+    def _fit(model, X_df_list, y_df_list, convert_dtype, r):
         if len(X_df_list) != len(y_df_list):
             raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
                              len(X_df_list), len(y_df_list))
@@ -287,7 +289,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         else:
             X_df = cudf.concat(X_df_list)
             y_df = cudf.concat(y_df_list)
-        return model.fit(X_df, y_df)
+        return model.fit(X_df, y_df, convert_dtype)
 
     @staticmethod
     def _print_summary(model):
@@ -341,7 +343,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         self.local_model = model
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the input data with a Random Forest regression model
 
@@ -375,8 +377,19 @@ class RandomForestRegressor(DelayedPredictionMixin):
             Dense matrix (floats or doubles) of shape (n_samples, 1)
             Labels of training examples.
             y must be partitioned the same way as X
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be of dtype float32 and X to be float32. This will increase
+            memory used for the method.
         """
         c = default_client()
+
+        self.dtype = X.dtypes
+        if self.dtype.any() == np.float64 and convert_dtype==False:
+            warnings.warn("To use Dask RF data should have dtype float 32."
+                          " Converting data to dtype=np.float32."
+                          " This will consume more memory and time.")
+            convert_dtype = True
 
         X_futures = workers_to_parts(c.sync(_extract_partitions, X))
         y_futures = workers_to_parts(c.sync(_extract_partitions, y))
@@ -403,6 +416,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                     self.rfs[w],
                     xc,
                     y_futures[w],
+                    convert_dtype,
                     random.random(),
                     workers=[w],
                 )
