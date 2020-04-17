@@ -18,13 +18,13 @@
 
 #include "common/device_buffer.hpp"
 #include "cuml/svm/svc.hpp"
-#include "kernelcache.h"
+#include "kernelcache.cuh"
 #include "label/classlabels.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
 #include "matrix/kernelfactory.h"
-#include "smosolver.h"
-#include "svr_impl.h"
+#include "smosolver.cuh"
+#include "svr_impl.cuh"
 
 namespace ML {
 namespace SVM {
