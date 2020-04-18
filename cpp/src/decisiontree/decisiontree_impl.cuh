@@ -27,7 +27,7 @@
 #include "quantile/quantile.cuh"
 
 namespace ML {
-
+// Changes for triggerring correct set of CI
 bool is_dev_ptr(const void *p) {
   cudaPointerAttributes pointer_attr;
   cudaError_t err = cudaPointerGetAttributes(&pointer_attr, p);

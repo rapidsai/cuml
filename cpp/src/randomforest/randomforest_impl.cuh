@@ -25,6 +25,7 @@
 #include "score/scores.h"
 
 namespace ML {
+// Changes for triggerring correct set of CI
 /**
  * @brief Construct rf (random forest) object.
  * @tparam T: data type for input data (float or double).
