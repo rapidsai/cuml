@@ -68,7 +68,7 @@ struct DecisionTreeParams {
   /**
    * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this value, node is leafed out. Default is 0.0
    */
-  float min_impurity_decrease = 0.0f;
+  float min_impurity_decrease;
 };
 
 /**
