@@ -36,7 +36,7 @@
   } while (0)
 
 namespace ML {
-
+// Changes for triggerring correct set of CI
 bool is_dev_ptr(const void *p);
 
 namespace DecisionTree {
