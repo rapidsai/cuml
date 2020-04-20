@@ -87,6 +87,10 @@ class Logger {
    * Only messages with level equal or above this will be printed
    *
    * @param[in] level logging level
+   *
+   * @note The log level will actually be set only if the input is within the
+   *       range [CUML_LEVEL_TRACE, CUML_LEVEL_OFF]. If it is not, then it'll
+   *       be ignored. See documentation of decisiontree for how this gets used
    */
   void setLevel(int level);
 
