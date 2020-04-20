@@ -19,7 +19,7 @@
 #include <cuda_utils.h>
 #include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
-#include "dbscan/common.h"
+#include "dbscan/common.cuh"
 #include "pack.h"
 
 namespace Dbscan {

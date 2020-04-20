@@ -58,7 +58,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   int,
                   float*,
-                  RF_params) except +
+                  RF_params,
+                  int) except +
 
     cdef void fit(cumlHandle & handle,
                   RandomForestMetaData[double, double]*,
@@ -66,7 +67,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   int,
                   double*,
-                  RF_params) except +
+                  RF_params,
+                  int) except +
 
     cdef void predict(cumlHandle& handle,
                       RandomForestMetaData[float, float] *,
@@ -74,7 +76,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       float*,
-                      bool) except +
+                      int) except +
 
     cdef void predict(cumlHandle& handle,
                       RandomForestMetaData[double, double]*,
@@ -82,21 +84,21 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       double*,
-                      bool) except +
+                      int) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
                           int,
                           float*,
-                          bool) except +
+                          int) except +
 
     cdef RF_metrics score(cumlHandle& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
                           int,
                           double*,
-                          bool) except +
+                          int) except +
 
 
 class RandomForestRegressor(Base):
@@ -570,7 +572,8 @@ class RandomForestRegressor(Base):
                 <int> n_rows,
                 <int> self.n_cols,
                 <float*> y_ptr,
-                rf_params)
+                rf_params,
+                <int> self.logging_level)
 
         else:
             rf_params64 = rf_params
@@ -580,7 +583,8 @@ class RandomForestRegressor(Base):
                 <int> n_rows,
                 <int> self.n_cols,
                 <double*> y_ptr,
-                rf_params64)
+                rf_params64,
+                <int> self.logging_level)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -661,7 +665,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <float*> preds_ptr,
-                    <bool> self.verbose)
+                    <int> self.logging_level)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -670,7 +674,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <double*> preds_ptr,
-                    <bool> self.verbose)
+                    <int> self.logging_level)
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
@@ -826,7 +830,7 @@ class RandomForestRegressor(Base):
                                     <float*> y_ptr,
                                     <int> n_rows,
                                     <float*> preds_ptr,
-                                    <bool> self.verbose)
+                                    <int> self.logging_level)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
@@ -834,7 +838,7 @@ class RandomForestRegressor(Base):
                                     <double*> y_ptr,
                                     <int> n_rows,
                                     <double*> preds_ptr,
-                                    <bool> self.verbose)
+                                    <int> self.logging_level)
 
         if self.accuracy_metric == 'median_ae':
             stats = self.temp_stats['median_abs_error']
