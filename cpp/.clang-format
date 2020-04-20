@@ -146,7 +146,7 @@ SpacesInContainerLiterals: true
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
-# Being explicit here, since we are anyways C++11 (and soon to be C++14)
+# We are C++14, but clang-format puts this under `Cpp11` itself
 Standard:        Cpp11
 StatementMacros: 
   - Q_UNUSED

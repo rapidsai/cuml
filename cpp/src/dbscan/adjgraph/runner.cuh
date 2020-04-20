@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
-#include "algo.h"
-#include "naive.h"
+#include "algo.cuh"
+#include "naive.cuh"
 #include "pack.h"
 
 namespace Dbscan {
