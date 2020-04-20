@@ -130,34 +130,30 @@ class comms_ucp_handler {
   }
 
   void load_send_func() {
-    send_func = (ucs_status_ptr_t(*)(
-      ucp_ep_h, const void *, size_t, ucp_datatype_t, ucp_tag_t,
-      ucp_send_callback_t))dlsym(ucp_handle, "ucp_tag_send_nb");
+    send_func = (dlsym_send)dlsym(ucp_handle, "ucp_tag_send_nb");
     assert_dlerror();
   }
 
   void load_free_req_func() {
     req_free_func =
-      (void (*)(void *request))dlsym(ucp_handle, "ucp_request_free");
+      (dlsym_rec_free)dlsym(ucp_handle, "ucp_request_free");
     assert_dlerror();
   }
 
   void load_print_info_func() {
     print_info_func =
-      (void (*)(ucp_ep_h, FILE *))dlsym(ucp_handle, "ucp_ep_print_info");
+      (dlsym_print_info)dlsym(ucp_handle, "ucp_ep_print_info");
     assert_dlerror();
   }
 
   void load_worker_progress_func() {
     worker_progress_func =
-      (int (*)(ucp_worker_h))dlsym(ucp_handle, "ucp_worker_progress");
+      (dlsym_worker_progress)dlsym(ucp_handle, "ucp_worker_progress");
     assert_dlerror();
   }
 
   void load_recv_func() {
-    recv_func = (ucs_status_ptr_t(*)(
-      ucp_worker_h, void *, size_t, ucp_datatype_t, ucp_tag_t, ucp_tag_t,
-      ucp_tag_recv_callback_t))dlsym(ucp_handle, "ucp_tag_recv_nb");
+    recv_func = (dlsym_recv)dlsym(ucp_handle, "ucp_tag_recv_nb");
     assert_dlerror();
   }
 
