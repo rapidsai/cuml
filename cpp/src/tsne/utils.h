@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
 #include "linalg/norm.h"
 
@@ -43,12 +44,12 @@
 
 /**
  * @brief Performs P + P.T.
- * @output param vector: The output vector you want to overwrite with randomness.
- * @input param minimum: The minimum value in the output vector you want.
- * @input param maximum: The maximum value in the output vector you want.
- * @input param size: The size of the output vector.
- * @input param stream: The GPU stream.
- * @input param seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
+ * @param[out] vector: The output vector you want to overwrite with randomness.
+ * @param[in] minimum: The minimum value in the output vector you want.
+ * @param[in] maximum: The maximum value in the output vector you want.
+ * @param[in] size: The size of the output vector.
+ * @param[in] stream: The GPU stream.
+ * @param[in] seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
  */
 void random_vector(float *vector, const float minimum, const float maximum,
                    const int size, cudaStream_t stream, long long seed = -1) {
@@ -74,20 +75,20 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
 // To silence warnings
 
 #define START_TIMER                                                         \
-  if (verbose) {                                                            \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                   \
     gettimeofday(&timecheck, NULL);                                         \
     start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
   }
 
 #define END_TIMER(add_onto)                                               \
-  if (verbose) {                                                          \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                 \
     gettimeofday(&timecheck, NULL);                                       \
     end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000; \
     add_onto += (end - start);                                            \
   }
 
 #define PRINT_TIMES                                                           \
-  if (verbose) {                                                              \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                     \
     double total =                                                            \
       (SymmetrizeTime + DistancesTime + NormalizeTime + PerplexityTime +      \
        BoundingBoxKernel_time + ClearKernel1_time + TreeBuildingKernel_time + \
@@ -95,7 +96,7 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
        RepulsionTime + Reduction_time + attractive_time +                     \
        IntegrationKernel_time) /                                              \
       100.0;                                                                  \
-    printf(                                                                   \
+    CUML_LOG_DEBUG(                                                           \
       "SymmetrizeTime = %.lf (%.lf)\n"                                        \
       "DistancesTime = %.lf (%.lf)\n"                                         \
       "NormalizeTime = %.lf (%.lf)\n"                                         \
@@ -110,7 +111,7 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
       "Reduction_time  = %.lf (%.lf)\n"                                       \
       "attractive_time  = %.lf (%.lf)\n"                                      \
       "IntegrationKernel_time = %.lf (%.lf)\n"                                \
-      "TOTAL TIME = %.lf\n\n",                                                \
+      "TOTAL TIME = %.lf",                                                    \
       SymmetrizeTime, SymmetrizeTime / total, DistancesTime,                  \
       DistancesTime / total, NormalizeTime, NormalizeTime / total,            \
       PerplexityTime, PerplexityTime / total, BoundingBoxKernel_time,         \

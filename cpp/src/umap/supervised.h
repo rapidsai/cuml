@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include "optimize.h"
 
@@ -38,7 +38,6 @@
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>
-#include <iostream>
 
 namespace UMAPAlgo {
 
@@ -248,18 +247,17 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                 params->target_n_neighbors, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  if (params->verbose) {
-    std::cout << "Target kNN Graph" << std::endl;
-    std::cout << MLCommon::arr2Str(
-                   y_knn_indices.data(),
-                   rgraph_coo->n_rows * params->target_n_neighbors,
-                   "knn_indices", stream)
-              << std::endl;
-    std::cout << MLCommon::arr2Str(
-                   y_knn_dists.data(),
-                   rgraph_coo->n_rows * params->target_n_neighbors, "knn_dists",
-                   stream)
-              << std::endl;
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    CUML_LOG_DEBUG("Target kNN Graph");
+    std::stringstream ss1, ss2;
+    ss1 << MLCommon::arr2Str(y_knn_indices.data(),
+                             rgraph_coo->n_rows * params->target_n_neighbors,
+                             "knn_indices", stream);
+    CUML_LOG_DEBUG("%s", ss1.str().c_str());
+    ss2 << MLCommon::arr2Str(y_knn_dists.data(),
+                             rgraph_coo->n_rows * params->target_n_neighbors,
+                             "knn_dists", stream);
+    CUML_LOG_DEBUG("%s", ss2.str().c_str());
   }
 
   /**
@@ -272,9 +270,11 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
                                &ygraph_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  if (params->verbose) {
-    std::cout << "Target Fuzzy Simplicial Set" << std::endl;
-    std::cout << ygraph_coo << std::endl;
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+    CUML_LOG_DEBUG("Target Fuzzy Simplicial Set");
+    std::stringstream ss;
+    ss << ygraph_coo;
+    CUML_LOG_DEBUG(ss.str().c_str());
   }
 
   /**

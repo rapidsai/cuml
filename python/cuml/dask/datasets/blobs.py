@@ -17,6 +17,7 @@
 
 import cudf
 import cupy as cp
+import dask
 import dask.array as da
 import math
 import numpy as np
@@ -28,8 +29,6 @@ from dask.distributed import default_client
 
 from sklearn.datasets import make_blobs as skl_make_blobs
 
-from uuid import uuid1
-
 
 def create_local_data(m, n, centers, cluster_std, random_state,
                       dtype, type, order='F', shuffle=False):
@@ -39,7 +38,7 @@ def create_local_data(m, n, centers, cluster_std, random_state,
     if type == 'array':
         X = rmm_cupy_ary(cp.array, X.astype(dtype), order=order)
         y = rmm_cupy_ary(cp.array, y.astype(dtype),
-                         order=order).reshape(m, 1)
+                         order=order).reshape(m)
 
     elif type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
@@ -64,10 +63,10 @@ def get_labels(t):
     return t[1]
 
 
-def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
-               center_box=(-10, 10), random_state=None, verbose=False,
-               dtype=np.float32, output='dataframe',
-               order='F', shuffle=False):
+def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
+               n_parts=None, center_box=(-10, 10), random_state=None,
+               verbose=False, dtype=np.float32, output='dataframe',
+               order='F', shuffle=True, client=None):
     """
     Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
     for a randomly generated set of centroids.
@@ -81,17 +80,20 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
     Parameters
     ----------
 
-    nrows : int
+    n_samples : int
         number of rows
-    ncols : int
+    n_features : int
         number of features
-    n_centers : int (default = 8)
-        number of centers to generate
+    centers : int or array of shape [n_centers, n_features],
+        optional (default=None) The number of centers to generate, or the fixed
+        center locations. If n_samples is an int and centers is None, 3 centers
+        are generated. If n_samples is array-like, centers must be either None
+        or an array of length equal to the length of n_samples.
+    cluster_std : float (default = 1.0)
+         standard deviation of points around centroid
     n_parts : int (default = None)
         number of partitions to generate (this can be greater
         than the number of workers)
-    cluster_std : float (default = 1.0)
-         standard deviation of points around centroid
     center_box : tuple (int, int) (default = (-10, 10))
          the bounding box which constrains all the centroids
     random_state : int (default = None)
@@ -100,79 +102,98 @@ def make_blobs(nrows, ncols, centers=8, n_parts=None, cluster_std=1.0,
          enables / disables verbose printing.
     dtype : dtype (default = np.float32)
          datatype to generate
-    output : str (default = 'dataframe')
+    output : str { 'dataframe', 'array' } (default = 'dataframe')
          whether to generate dask array or
          dask dataframe output. Default will be array in the future.
+    shuffle : bool (default=False)
+              Shuffles the samples on each worker.
+    client : dask.distributed.Client (optional)
+             Dask client to use
 
     Returns
     -------
          (dask.Dataframe for X, dask.Series for labels)
     """
 
-    client = default_client()
+    client = default_client() if client is None else client
 
     workers = list(client.has_what().keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
-    rows_per_part = math.ceil(nrows / n_parts)
+    rows_per_part = math.ceil(n_samples / n_parts)
+
+    centers = 3 if centers is None else centers
+
+    random_state = np.random.randint(0, 100) \
+        if random_state is None else random_state
 
     if not isinstance(centers, np.ndarray):
         centers = np.random.uniform(center_box[0], center_box[1],
-                                    size=(centers, ncols)).astype(np.float32)
+                                    size=(centers, n_features))\
+            .astype(np.float32)
 
     if verbose:
         print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
-              (math.ceil(nrows / len(workers)), n_parts, len(workers), nrows))
+              (math.ceil(n_samples / len(workers)),
+               n_parts, len(workers), n_samples))
 
-    key = str(uuid1())
     # Create dfs on each worker (gpu)
-
     parts = []
     worker_rows = []
     rows_so_far = 0
     for idx, worker in enumerate(parts_workers):
-        if rows_so_far + rows_per_part <= nrows:
+        if rows_so_far + rows_per_part <= n_samples:
             rows_so_far += rows_per_part
             worker_rows.append(rows_per_part)
         else:
-            worker_rows.append((int(nrows) - rows_so_far))
+            worker_rows.append((int(n_samples) - rows_so_far))
 
-        parts.append(client.submit(create_local_data, worker_rows[idx], ncols,
-                                   centers, cluster_std, random_state, dtype,
-                                   output, order, shuffle,
-                                   key="%s-%s" % (key, idx),
+        parts.append(client.submit(create_local_data,
+                                   worker_rows[idx],
+                                   n_features,
+                                   centers,
+                                   cluster_std,
+                                   random_state+idx,
+                                   dtype,
+                                   output,
+                                   order,
+                                   shuffle,
+                                   pure=False,
                                    workers=[worker]))
 
-    x_key = str(uuid1())
-    y_key = str(uuid1())
-
-    X = [client.submit(get_X, f, key="%s-%s" % (x_key, idx))
+    X = [client.submit(get_X, f, pure=False)
          for idx, f in enumerate(parts)]
-    y = [client.submit(get_labels, f, key="%s-%s" % (y_key, idx))
+    Y = [client.submit(get_labels, f, pure=False)
          for idx, f in enumerate(parts)]
 
     if output == 'dataframe':
 
-        meta_X = client.submit(get_meta, X[0]).result()
-        X = from_delayed(X, meta=meta_X)
+        meta_X = client.submit(get_meta, X[0], pure=False)
+        meta_X_local = meta_X.result()
+        X_final = from_delayed([dask.delayed(x, pure=False)
+                                for x in X], meta=meta_X_local)
 
-        meta_y = client.submit(get_meta, y[0]).result()
-        y = from_delayed(y, meta=meta_y)
+        meta_y = client.submit(get_meta, Y[0], pure=False)
+        meta_y_local = meta_y.result()
+        Y_final = from_delayed([dask.delayed(y, pure=False)
+                                for y in Y], meta=meta_y_local)
 
     elif output == 'array':
 
-        X = [da.from_delayed(chunk, shape=(worker_rows[idx], ncols),
-                             dtype=dtype,
-                             meta=cp.zeros((1,), dtype=cp.float32))
-             for idx, chunk in enumerate(X)]
-        y = [da.from_delayed(chunk, shape=(worker_rows[idx],),
-                             dtype=dtype,
-                             meta=cp.zeros((1,), dtype=cp.float32))
-             for idx, chunk in enumerate(y)]
+        X_del = [da.from_delayed(dask.delayed(chunk, pure=False),
+                                 shape=(worker_rows[idx], n_features),
+                                 dtype=dtype,
+                                 meta=cp.zeros((1)))
+                 for idx, chunk in enumerate(X)]
+        Y_del = [da.from_delayed(dask.delayed(chunk, pure=False),
+                                 shape=(worker_rows[idx],),
+                                 dtype=dtype,
+                                 meta=cp.zeros((1)))
+                 for idx, chunk in enumerate(Y)]
 
-        X = da.concatenate(X, axis=0)
-        y = da.concatenate(y, axis=0)
+        X_final = da.concatenate(X_del, axis=0)
+        Y_final = da.concatenate(Y_del, axis=0)
 
-    return X, y
+    return X_final, Y_final

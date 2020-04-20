@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <internals/internals.h>
+#include <cuml/common/logger.hpp>
 #include <string>
 
 namespace ML {
@@ -110,9 +111,9 @@ class UMAPParams {
   float transform_queue_size = 4.0;
 
   /**
-   * Print debug logging information as algorithm executes
+   * Control logging level during algorithm execution
    */
-  bool verbose = false;
+  int verbosity = CUML_LEVEL_INFO;
 
   /**
    *  More specific parameters controlling the embedding. If None these
@@ -152,7 +153,9 @@ class UMAPParams {
 
   uint64_t random_state = 0;
 
-  bool multicore_implem = true;
+  bool multicore_implem = false;
+
+  int optim_batch_size = 0;
 
   GraphBasedDimRedCallback* callback = nullptr;
 };

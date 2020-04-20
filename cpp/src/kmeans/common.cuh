@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <distance/distance.h>
@@ -45,26 +44,22 @@
 #include <common/tensor.hpp>
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/common/logger.hpp>
 
 #include <fstream>
 
 namespace ML {
 
-//@todo: Use GLOG once https://github.com/rapidsai/cuml/issues/100 is addressed.
-#define LOG(handle, verbose, fmt, ...)                                   \
+#define LOG(handle, fmt, ...)                                            \
   do {                                                                   \
-    bool verbose_ = verbose;                                             \
+    bool isRoot = true;                                                  \
     if (handle.commsInitialized()) {                                     \
       const MLCommon::cumlCommunicator &comm = handle.getCommunicator(); \
       const int my_rank = comm.getRank();                                \
-      verbose_ = verbose && (my_rank == 0);                              \
+      isRoot = my_rank == 0;                                             \
     }                                                                    \
-    if (verbose_) {                                                      \
-      std::string msg;                                                   \
-      char verboseMsg[2048];                                             \
-      std::sprintf(verboseMsg, fmt, ##__VA_ARGS__);                      \
-      msg += verboseMsg;                                                 \
-      std::cerr << msg;                                                  \
+    if (isRoot) {                                                        \
+      CUML_LOG_DEBUG(fmt, ##__VA_ARGS__);                                \
     }                                                                    \
   } while (0)
 
@@ -600,9 +595,9 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
   // number of seeding trials for each center (except the first)
   auto n_trials = 2 + static_cast<int>(std::ceil(log(n_clusters)));
 
-  LOG(handle, params.verbose,
+  LOG(handle,
       "Run sequential k-means++ to select %d centroids from %d input samples "
-      "(%d seeding trials per iterations)\n",
+      "(%d seeding trials per iterations)",
       n_clusters, n_samples, n_trials);
 
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
@@ -669,8 +664,8 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
     handle, params, X, centroids, minClusterDistance, L2NormX,
     L2NormBuf_OR_DistBuf, workspace, metric, stream);
 
-  LOG(handle, params.verbose, " k-means++ - Sampled %d/%d centroids\n",
-      n_clusters_picked, n_clusters);
+  LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked,
+      n_clusters);
 
   // <<<< Step-2 >>> : while |C| < k
   while (n_clusters_picked < n_clusters) {
@@ -748,8 +743,8 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
       /// <<< End of Step-4 >>>
     }
 
-    LOG(handle, params.verbose, " k-means++ - Sampled %d/%d centroids\n",
-        n_clusters_picked, n_clusters);
+    LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked,
+        n_clusters);
   }  /// <<<< Step-5 >>>
 }
 

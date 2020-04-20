@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <cuml/common/logger.hpp>
 #include "optimize.h"
 #include "supervised.h"
 
@@ -38,7 +39,6 @@
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>
-#include <iostream>
 
 namespace UMAPAlgo {
 
@@ -90,8 +90,9 @@ void _fit(const cumlHandle &handle,
 
   int k = params->n_neighbors;
 
-  if (params->verbose)
-    std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
+  ML::Logger::get().setLevel(params->verbosity);
+
+  CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
 
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
   MLCommon::device_buffer<T> *knn_dists_b = nullptr;
@@ -161,6 +162,8 @@ void _fit(const cumlHandle &handle,
 
   int k = params->n_neighbors;
 
+  ML::Logger::get().setLevel(params->verbosity);
+
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
 
@@ -210,8 +213,7 @@ void _fit(const cumlHandle &handle,
    * categorical simplicial set intersection.
    */
   if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
-    if (params->verbose)
-      std::cout << "Performing categorical intersection" << std::endl;
+    CUML_LOG_DEBUG("Performing categorical intersection");
     Supervised::perform_categorical_intersection<TPB_X, T>(
       y, &rgraph_coo, &final_coo, params, d_alloc, stream);
 
@@ -219,8 +221,7 @@ void _fit(const cumlHandle &handle,
      * Otherwise, perform general simplicial set intersection
      */
   } else {
-    if (params->verbose)
-      std::cout << "Performing general intersection" << std::endl;
+    CUML_LOG_DEBUG("Performing general intersection");
     Supervised::perform_general_intersection<TPB_X, T>(
       handle, y, &rgraph_coo, &final_coo, params, stream);
   }
@@ -269,13 +270,11 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  if (params->verbose) {
-    std::cout << "Running transform" << std::endl;
-  }
+  ML::Logger::get().setLevel(params->verbosity);
 
-  if (params->verbose) {
-    std::cout << "Building KNN Graph" << std::endl;
-  }
+  CUML_LOG_DEBUG("Running transform");
+
+  CUML_LOG_DEBUG("Building KNN Graph");
 
   MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
   MLCommon::device_buffer<T> *knn_dists_b = nullptr;
@@ -305,9 +304,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   float adjusted_local_connectivity =
     max(0.0, params->local_connectivity - 1.0);
 
-  if (params->verbose) {
-    std::cout << "Smoothing KNN distances" << std::endl;
-  }
+  CUML_LOG_DEBUG("Smoothing KNN distances");
 
   /**
    * Perform smooth_knn_dist
@@ -332,9 +329,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
 
-  if (params->verbose) {
-    std::cout << "Executing fuzzy simplicial set" << std::endl;
-  }
+  CUML_LOG_DEBUG("Executing fuzzy simplicial set");
 
   /**
    * Allocate workspace for fuzzy simplicial set.
@@ -363,9 +358,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   CUDA_CHECK(
     cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(T), stream));
 
-  if (params->verbose) {
-    std::cout << "Performing L1 normalization" << std::endl;
-  }
+  CUML_LOG_DEBUG("Performing L1 normalization");
 
   MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(
     row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows,
@@ -398,9 +391,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     n_epochs /= 3;
   }
 
-  if (params->verbose) {
-    std::cout << "n_epochs=" << n_epochs << std::endl;
-  }
+  CUML_LOG_DEBUG("n_epochs=%d", n_epochs);
 
   MLCommon::LinAlg::unaryOp<T>(
     graph_coo.vals(), graph_coo.vals(), graph_coo.nnz,
@@ -421,17 +412,18 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, d_alloc,
                                                stream);
 
-  if (params->verbose) {
-    std::cout << "Computing # of epochs for training each sample" << std::endl;
-  }
+  CUML_LOG_DEBUG("Computing # of epochs for training each sample");
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, nnz);
 
   SimplSetEmbedImpl::make_epochs_per_sample(
     comp_coo.vals(), comp_coo.nnz, n_epochs, epochs_per_sample.data(), stream);
 
-  if (params->verbose) {
-    std::cout << "Performing optimization" << std::endl;
+  CUML_LOG_DEBUG("Performing optimization");
+
+  if (params->callback) {
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(transformed);
   }
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(

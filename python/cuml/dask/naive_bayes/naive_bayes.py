@@ -58,7 +58,7 @@ class MultinomialNB(BaseEstimator,
     from dask_cuda import LocalCUDACluster
     from dask.distributed import Client
 
-    from cuml.dask.common import to_sp_dask_array
+    from cuml.dask.common import to_sparse_dask_array
 
     from cuml.dask.naive_bayes import MultinomialNB
 
@@ -75,7 +75,7 @@ class MultinomialNB(BaseEstimator,
     cv = CountVectorizer()
     xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
 
-    X = to_sp_dask_array(xformed, client)
+    X = to_sparse_dask_array(xformed, client)
     y = dask.array.from_array(twenty_train.target, asarray=False,
                           fancy=False).astype(cp.int32)
 
@@ -180,14 +180,16 @@ class MultinomialNB(BaseEstimator,
             MultinomialNB._unique).compute()) \
             if classes is None else classes
 
-        models = [self.client.submit(self._fit, part, classes, self.kwargs)
+        models = [self.client.submit(self._fit, part, classes, self.kwargs,
+                                     pure=False)
                   for w, part in futures.gpu_futures]
 
         self.local_model = reduce(models,
                                   self._merge_counts_to_model,
                                   client=self.client)
         self.local_model = self.client.submit(self._update_log_probs,
-                                              self.local_model)
+                                              self.local_model,
+                                              pure=False)
 
         wait(self.local_model)
 
