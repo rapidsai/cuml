@@ -16,8 +16,8 @@
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
-#include "dbscan.h"
-#include "runner.h"
+#include "dbscan.cuh"
+#include "runner.cuh"
 #include "utils.h"
 
 namespace ML {
