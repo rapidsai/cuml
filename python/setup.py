@@ -30,13 +30,15 @@ import sysconfig
 import versioneer
 import warnings
 
-try:
-    if "--singlegpu" in sys.argv:
-        from Cython.Build import cythonize
-    else:
-        from Cython.Distutils.build_ext import new_build_ext as build_ext
-except ImportError:
+
+if "--singlegpu" in sys.argv:
+    from Cython.Build import cythonize
     from setuptools.command.build_ext import build_ext
+else:
+    try:
+        from Cython.Distutils.build_ext import new_build_ext as build_ext
+    except ImportError:
+        from setuptools.command.build_ext import build_ext
 
 install_requires = [
     'numba',
