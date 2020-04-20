@@ -137,10 +137,14 @@ class ContingencyMatrixTestImpl
 
 const std::vector<contingencyMatrixParam> inputs = {
   {10000, 1, 10, true, false, 0.000001},
+  {10000, 1, 5000, true, false, 0.000001},
+  {10000, 1, 10000, true, false, 0.000001},
+  {10000, 1, 20000, true, false, 0.000001},
   {100000, 1, 100, false, false, 0.000001},
   {1000000, 1, 1200, true, false, 0.000001},
   {1000000, 1, 10000, false, false, 0.000001},
-  {100000, 1, 100, false, true, 0.000001}};
+  {100000, 1, 100, false, true, 0.000001},
+};
 
 typedef ContingencyMatrixTestImpl<int> ContingencyMatrixTestImplS;
 TEST_P(ContingencyMatrixTestImplS, Result) {
