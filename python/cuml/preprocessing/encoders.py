@@ -21,6 +21,7 @@ from cudf import DataFrame, Series
 from cudf.core import GenericIndex
 
 from cuml.utils import with_cupy_rmm
+import warnings
 
 
 class OneHotEncoder:
@@ -40,12 +41,12 @@ class OneHotEncoder:
 
     Parameters
     ----------
-    categories : 'auto' or a cudf.DataFrame, default='auto'
+    categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
         Categories (unique values) per feature:
         - 'auto' : Determine categories automatically from the training data.
-        - DataFrame : ``categories[col]`` holds the categories expected in the
-          feature col.
-    drop : 'first', None or a dict, default=None
+        - DataFrame/ndarray : ``categories[col]`` holds the categories expected
+          in the feature col.
+    drop : 'first', None, a dict or a list, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
         features cause problems, such as when feeding the resulting data
@@ -53,7 +54,7 @@ class OneHotEncoder:
         - None : retain all features (the default).
         - 'first' : drop the first category in each feature. If only one
           category is present, the feature will be dropped entirely.
-        - Dict : ``drop[col]`` is the category in feature col that
+        - dict/list : ``drop[col]`` is the category in feature col that
           should be dropped.
     sparse : bool, default=False
         This feature was deactivated and will give an exception when True.
@@ -88,6 +89,7 @@ class OneHotEncoder:
         self.drop_idx_ = None
         self._features = None
         self._encoders = None
+        self.input_type = None
         if sparse and np.dtype(dtype) not in ['f', 'd', 'F', 'D']:
             raise ValueError('Only float32, float64, complex64 and complex128 '
                              'are supported when using sparse')
@@ -113,11 +115,14 @@ class OneHotEncoder:
             raise NotFittedError(msg)
 
     def _compute_drop_idx(self):
+        """Helper to compute indices to drop from category to drop"""
         if self.drop is None:
             return None
         elif isinstance(self.drop, str) and self.drop == 'first':
             return {feature: 0 for feature in self._encoders.keys()}
-        elif isinstance(self.drop, dict):
+        elif isinstance(self.drop, (dict, list)):
+            if isinstance(self.drop, list):
+                self.drop = dict(zip(range(len(self.drop)), self.drop))
             if len(self.drop.keys()) != len(self._encoders):
                 msg = ("`drop` should have as many columns as the number "
                        "of features ({}), got {}")
@@ -145,27 +150,43 @@ class OneHotEncoder:
                    "'first', None or a dict, got {}")
             raise ValueError(msg.format(type(self.drop)))
 
-    def get_categories_(self):
+    @property
+    def categories_(self):
         """
         Returns categories used for the one hot encoding in the correct order.
-
-        This copies the categories to the CPU and should only be used to check
-        the order of the categories.
         """
-        return [self._encoders[f].classes_.to_array() for f in self._features]
+        return [self._encoders[f].classes_ for f in self._features]
+
+    def _set_input_type(self, value):
+        if self.input_type is None:
+            self.input_type = value
+
+    def _check_input(self, X, is_categories=False):
+        """
+        If input is cupy, convert it to a DataFrame with 0 copies
+        """
+        if isinstance(X, cp.ndarray):
+            self._set_input_type('array')
+            if is_categories:
+                X = X.transpose()
+            return DataFrame.from_gpu_matrix(X)
+        else:
+            self._set_input_type('df')
+            return X
 
     def fit(self, X):
         """
         Fit OneHotEncoder to X.
         Parameters
         ----------
-        X : cuDF.DataFrame
+        X : cuDF.DataFrame or cupy.ndarray
             The data to determine the categories of each feature.
         Returns
         -------
         self
         """
         self._validate_keywords()
+        X = self._check_input(X)
         if type(self.categories) is str and self.categories == 'auto':
             self._features = X.columns
             self._encoders = {
@@ -174,6 +195,7 @@ class OneHotEncoder:
                 for feature in X.columns
             }
         else:
+            self.categories = self._check_input(self.categories, True)
             self._features = self.categories.columns
             self._encoders = dict()
             for feature in self.categories.columns:
@@ -196,13 +218,14 @@ class OneHotEncoder:
 
         Parameters
         ----------
-        X : cudf.DataFrame
+        X : cudf.DataFrame or cupy.ndarray
             The data to encode.
         Returns
         -------
         X_out : sparse matrix if sparse=True else a 2-d array
             Transformed input.
         """
+        X = self._check_input(X)
         return self.fit(X).transform(X)
 
     @with_cupy_rmm
@@ -211,7 +234,7 @@ class OneHotEncoder:
         Transform X using one-hot encoding.
         Parameters
         ----------
-        X : cudf.DataFrame
+        X : cudf.DataFrame or cupy.ndarray
             The data to encode.
         Returns
         -------
@@ -219,6 +242,7 @@ class OneHotEncoder:
             Transformed input.
         """
         self._check_is_fitted()
+        X = self._check_input(X)
 
         cols, rows = list(), list()
         j = 0
@@ -267,20 +291,23 @@ class OneHotEncoder:
         Convert the data back to the original representation.
         In case unknown categories are encountered (all zeros in the
         one-hot encoding), ``None`` is used to represent this category.
+
+        The return type is the same as the type of the input used by the first
+        call to fit on this estimator instance.
         Parameters
         ----------
         X : array-like or sparse matrix, shape [n_samples, n_encoded_features]
             The transformed data.
         Returns
         -------
-        X_tr : cudf.DataFrame
+        X_tr : cudf.DataFrame or cupy.ndarray
             Inverse transformed array.
         """
         self._check_is_fitted()
         if cp.sparse.issparse(X):
             # cupy.sparse 7.x does not support argmax, when we upgrade cupy to
             # 8.x, we should add a condition in the
-            # if close: `and cp.sparse.issparsecsc(X)`
+            # if close: `and not cp.sparse.issparsecsc(X)`
             # and change the following line by `X = X.tocsc()`
             X = X.toarray()
         result = DataFrame(columns=self._encoders.keys())
@@ -318,4 +345,12 @@ class OneHotEncoder:
 
             result[feature] = inv
             j += enc_size
+        if self.input_type == 'array':
+            try:
+                result = cp.asarray(result.as_gpu_matrix())
+            except ValueError:
+                warnings.warn("The input one hot encoding contains rows with "
+                              "unknown categories. Arrays do not support null "
+                              "values. Returning output as a DataFrame "
+                              "instead.")
         return result
