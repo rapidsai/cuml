@@ -390,8 +390,8 @@ class RandomForestRegressor(Base):
     def _get_protobuf_bytes(self):
         fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
-        return model_protobuf_bytes
+        self.model_pbuf_bytes = save_model(<ModelHandle> model_ptr)
+        return self.model_pbuf_bytes
 
     def convert_to_treelite_model(self):
         """
