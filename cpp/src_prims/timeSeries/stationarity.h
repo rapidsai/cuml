@@ -291,7 +291,7 @@ void kpss_test(const DataT* d_y, bool* results, IdxT batch_size, IdxT n_obs,
   if (d == 0 && D == 0) {
     d_y_diff = d_y;
   } else {
-    diff_buffer.resize(n_obs - d - s * D, stream);
+    diff_buffer.resize(batch_size * (n_obs - d - s * D), stream);
     prepare_data(diff_buffer.data(), d_y, batch_size, n_obs, d, D, s, stream);
     d_y_diff = diff_buffer.data();
   }
