@@ -401,7 +401,7 @@ class Matrix {
    * 
    * @param[in]  m            Number of rows/columns of matrix
    * @param[in]  batch_size   Number of matrices in batch
-   * @param[in]  handle       cuml handle
+   * @param[in]  cublasHandle cublas handle
    * @param[in]  allocator    device allocator
    * @param[in]  stream       cuda stream to schedule work on
    * 
@@ -563,8 +563,8 @@ Matrix<T> b_gemm(const Matrix<T>& A, const Matrix<T>& B, bool aT = false,
  *           - cuBLAS only supports overdetermined systems.
  *           - This function copies A to avoid modifying the original one.
  * 
- * @param[in]      A  Batched matrix A (must have more rows than columns)
- * @param[in|out]  C  Batched matrix C (the number of rows must match A)
+ * @param[in]     A  Batched matrix A (must have more rows than columns)
+ * @param[inout]  C  Batched matrix C (the number of rows must match A)
  */
 template <typename T>
 void b_gels(const Matrix<T>& A, Matrix<T>& C) {
@@ -863,8 +863,8 @@ static __global__ void batched_2dcopy_kernel(const T* in, T* out,
  * @param[out] out           Batched output matrix
  * @param[in]  starting_row  First row to copy
  * @param[in]  starting_col  First column to copy
- * @param[in]  out_rows      Number of rows to copy
- * @param[in]  out_cols      Number of columns to copy
+ * @param[in]  rows          Number of rows to copy
+ * @param[in]  cols          Number of columns to copy
  */
 template <typename T>
 void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int starting_row,
@@ -886,11 +886,13 @@ void b_2dcopy(const Matrix<T>& in, Matrix<T>& out, int starting_row,
  * @note This overload only takes the input matrix as input and creates and
  *       returns the output matrix
  * 
+ * @tparam T      data type
+ *
  * @param[in]  in            Batched input matrix
  * @param[in]  starting_row  First row to copy
  * @param[in]  starting_col  First column to copy
- * @param[in]  out_rows      Number of rows to copy
- * @param[in]  out_cols      Number of columns to copy
+ * @param[in]  rows          Number of rows to copy
+ * @param[in]  cols          Number of columns to copy
  * 
  * @return The batched output matrix
  */
@@ -983,10 +985,10 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, T* shared_mem,
  * Reduce H to Hessenberg form by iteratively applying Householder
  * reflections and update U accordingly.
  * 
- * @param[in|out]  d_U  Batched matrix U
- * @param[in|out]  d_H  Batched matrix H
- * @param[out]     d_hh Buffer where Householder reflectors are stored
- * @param[in]      n    Matrix dimensions
+ * @param[inout] d_U  Batched matrix U
+ * @param[inout] d_H  Batched matrix H
+ * @param[out]   d_hh Buffer where Householder reflectors are stored
+ * @param[in]    n    Matrix dimensions
  */
 template <typename T>
 __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
@@ -1106,7 +1108,8 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
  * Hessenberg decomposition A = UHU' of a square matrix A, where Q is unitary
  * and H in Hessenberg form (no zeros below the subdiagonal), using
  * Householder reflections
- * 
+ *
+ * @tparam T      data type
  * @param[in]  A  Batched matrix A
  * @param[out] U  Batched matrix U
  * @param[out] H  Batched matrix H
@@ -1170,11 +1173,13 @@ DI void generate_givens(T a, T b, T& c, T& s) {
 /**
  * Device auxiliary function to compute Ahues and Tisseur's criterion
  * to consider a subdiagonal element M[i,i-1] as 0
- * 
- * @param[in]  M  Batched matrix M
- * @param[in]  i  Index i
- * @param[in]  n  Dimension of the matrix
- * @return        A boolean: the result of the test
+ *
+ * @tparam T data type
+ *
+ * @param[in] d_M       Batched matrix M
+ * @param[in] i         Index i
+ * @param[in] n         Dimension of the matrix
+ * @return              A boolean: the result of the test
  */
 template <typename T>
 DI bool ahues_tisseur(const T* d_M, int i, int n) {
@@ -1197,9 +1202,9 @@ DI bool ahues_tisseur(const T* d_M, int i, int n) {
  * 
  * @note Computes 1 batch member per thread block (n threads)
  * 
- * @param[in|out]  d_U  Batched matrix U
- * @param[in|out]  d_H  Batched matrix H
- * @param[in]      n    Matrix dimension
+ * @param[inout]  d_U  Batched matrix U
+ * @param[inout]  d_H  Batched matrix H
+ * @param[in]     n    Matrix dimension
  */
 template <typename T>
 __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
@@ -1383,9 +1388,10 @@ __global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n) {
  * @brief Schur decomposition A = USU' of a square matrix A, where U is
  *        unitary and S is an upper quasi-triangular matrix
  * 
- * @param[in]   A  Batched matrix A
- * @param[out]  U  Batched matrix U
- * @param[out]  S  Batched matrix S
+ * @param[in]  A  Batched matrix A
+ * @param[out] U  Batched matrix U
+ * @param[out] S  Batched matrix S
+ * @param[in]  max_iter_per_step maximum iterations
  */
 template <typename T>
 void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
@@ -1408,10 +1414,13 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S,
  * of x and b, where A is in Hessenberg form. A and b are stored side-by-side
  * in a scratch buffer
  *
- * @tparam        p          Number of columns to solve
- * @param[in|out] d_scratch  Scratch buffer containing A and b (overwritten)
- * @param[out]    d_x        Solution
- * @param[out]    shared_mem Shared memory
+ * @tparam       p          Number of columns to solve
+ * @tparam       T          data type
+ *
+ * @param[inout] d_scratch  Scratch buffer containing A and b (overwritten)
+ * @param[out]   d_x        Solution
+ * @param[in]    n          number of columns
+ * @param[out]   shared_mem Shared memory
  */
 template <int p, typename T>
 DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, T* shared_mem) {

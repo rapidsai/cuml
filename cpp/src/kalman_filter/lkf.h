@@ -307,6 +307,7 @@ void find_kalman_gain(Variables<T> &var, cublasHandle_t handle,
  * @param _H state to measurement tranformation matrix
  * @param workspace workspace buffer. Pass nullptr to compute its size
  * @param workspaceSize workspace buffer size in B.
+ * @param handle_sol cusolver handle
  * @note this must always be called first before calling predict/update
  */
 template <typename T>
@@ -322,6 +323,8 @@ void init(Variables<T> &var, int _dim_x, int _dim_z, Option _solver, T *_x_est,
  * @brief Predict the state for the next step, before the measurements are taken
  * @tparam T the data type for computation
  * @param var the opaque structure storing all the required state for KF
+ * @param handle cublas handle
+ * @param stream cuda stream
  * @note it is assumed that the 'init' function call has already been made with
  * a legal workspace buffer! Also, calling the 'predict' and 'update' functions
  * out-of-order will lead to unknown state!
@@ -337,7 +340,10 @@ void predict(Variables<T> &var, cublasHandle_t handle, cudaStream_t stream) {
  * @brief Update the state in-lieu of measurements
  * @tparam T the data type for computation
  * @param var the opaque structure storing all the required state for KF
- * @param _z the measurement vector
+ * @param _z the measurement vectorw
+ * @param handle cublas handle
+ * @param handle_sol cusolver handle 
+ * @param stream cuda stream
  * @note it is assumed that the 'init' function call has already been made with
  * a legal workspace buffer! Also, calling the 'predict' and 'update' functions
  * out-of-order will lead to unknown state!

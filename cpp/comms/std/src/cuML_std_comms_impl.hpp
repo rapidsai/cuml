@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,30 @@
 
 #ifdef WITH_UCX
 #include <ucp/api/ucp.h>
+
+/**
+ * Standard UCX request object that will be passed
+ * around asynchronously. This object is really
+ * opaque and the comms layer only cares that it
+ * has been completed. Because cuml comms do not
+ * initialize the ucx application context, it doesn't
+ * own this object and thus it's important not to
+ * modify this struct.
+ */
 struct ucx_context {
   int completed;
+};
+
+/**
+ * The ucp_request struct is owned by cuml comms. It
+ * wraps the `ucx_context` request and adds a few
+ * other fields for logging and cleanup.
+ */
+struct ucp_request {
+  struct ucx_context* req;
   bool needs_release = true;
+  int other_rank = -1;
+  bool is_send_request = false;
 };
 #endif
 
@@ -132,7 +153,7 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
   mutable request_t _next_request_id;
-  mutable std::unordered_map<request_t, struct ucx_context*>
+  mutable std::unordered_map<request_t, struct ucp_request*>
     _requests_in_flight;
   mutable std::unordered_set<request_t> _free_requests;
 #endif

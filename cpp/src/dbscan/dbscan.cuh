@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include "common/device_buffer.hpp"
 #include "common/nvtx.hpp"
-#include "runner.h"
+#include "runner.cuh"
 
 namespace ML {
 
@@ -60,8 +61,9 @@ template <typename T, typename Index_ = int>
 void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
                    Index_ n_cols, T eps, int min_pts, Index_ *labels,
                    size_t max_mbytes_per_batch, cudaStream_t stream,
-                   bool verbose) {
+                   int verbosity) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
+  ML::Logger::get().setLevel(verbosity);
   int algoVd = 1;
   int algoAdj = 1;
   int algoCcl = 2;
@@ -69,14 +71,11 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
   // @todo: Query device for remaining memory
   Index_ n_batches = computeBatchCount<T, Index_>(n_rows, max_mbytes_per_batch);
 
-  if (verbose) {
+  if (n_batches > 1) {
     Index_ batchSize = ceildiv<Index_>(n_rows, n_batches);
-    if (n_batches > 1) {
-      std::cout << "Running batched training on " << n_batches
-                << " batches w/ ";
-      std::cout << batchSize * n_rows * sizeof(T) * 1e-6 << " megabytes."
-                << std::endl;
-    }
+    CUML_LOG_DEBUG("Running batched training on %ld batches w/ %lf MB",
+                   (unsigned long)n_batches,
+                   (double)(batchSize * n_rows * sizeof(T) * 1e-6));
   }
 
   size_t workspaceSize =
@@ -86,7 +85,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
   MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream,
                                           workspaceSize);
   Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd,
-              algoAdj, algoCcl, workspace.data(), n_batches, stream, verbose);
+              algoAdj, algoCcl, workspace.data(), n_batches, stream);
   ML::POP_RANGE();
 }
 
