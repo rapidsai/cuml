@@ -138,7 +138,8 @@ def input_to_cuml_array(X, order='F', deepcopy=False,
         elif order == 'C':
             X_m = CumlArray(data=cuml.utils.numba_utils.row_matrix(X))
 
-    elif cuda.is_cuda_array(X) or isinstance(X, np.ndarray):
+    elif hasattr(X, "__array_interface__") or \
+            hasattr(X, "__cuda_array_interface__"):
         X_m = CumlArray(data=X)
 
         if deepcopy:
