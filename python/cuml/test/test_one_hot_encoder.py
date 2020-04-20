@@ -29,23 +29,58 @@ def _from_df_to_array(df):
     return list(zip(*[df[feature] for feature in df.columns]))
 
 
+def _from_df_to_cupy(df):
+    """Transform char columns to integer columns, and then create an array"""
+    for col in df.columns:
+        if not np.issubdtype(df[col].dtype, np.number):
+            df[col] = [ord(c) for c in df[col]]
+    return cp.array(_from_df_to_array(df))
+
+
+def _convert_drop(drop):
+    if drop is None or drop == 'first':
+        return drop
+    return [ord(x) if isinstance(x, str) else x for x in drop.values()]
+
+
 def _generate_inputs_from_categories(categories=None,
-                                     n_samples=10, seed=5060):
+                                     n_samples=10,
+                                     seed=5060,
+                                     as_array=False):
     if categories is None:
-        categories = {'strings': ['Foo', 'Bar', 'Baz'],
-                      'integers': list(range(1000))}
+        if as_array:
+            categories = {'strings': list(range(1000, 4000, 3)),
+                          'integers': list(range(1000))}
+        else:
+            categories = {'strings': ['Foo', 'Bar', 'Baz'],
+                          'integers': list(range(1000))}
 
     rd = np.random.RandomState(seed)
     pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
                               for name, cat in categories.items()})
     ary = _from_df_to_array(pandas_df)
-    df = DataFrame.from_pandas(pandas_df)
-    return df, ary
+    if as_array:
+        inp_ary = cp.array(ary)
+        return inp_ary, ary
+    else:
+        df = DataFrame.from_pandas(pandas_df)
+        return df, ary
 
 
-def test_onehot_vs_skonehot():
-    X = DataFrame({'gender': ['Male', 'Female', 'Female'], 'int': [1, 3, 2]})
+def assert_inverse_equal(ours, ref):
+    if isinstance(ours, cp.ndarray):
+        cp.testing.assert_array_equal(ours, ref)
+    else:
+        assert_frame_equal(ours.to_pandas(), ref.to_pandas())
+
+
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_vs_skonehot(as_array):
+    X = DataFrame({'gender': ['M', 'F', 'F'], 'int': [1, 3, 2]})
     skX = _from_df_to_array(X)
+    if as_array:
+        X = _from_df_to_cupy(X)
+        skX = cp.asnumpy(X)
 
     enc = OneHotEncoder(sparse=True)
     skohe = SkOneHotEncoder(sparse=True)
@@ -59,31 +94,42 @@ def test_onehot_vs_skonehot():
 @pytest.mark.parametrize('drop', [None,
                                   'first',
                                   {'g': 'F', 'i': 3}])
-def test_onehot_inverse_transform(drop):
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_inverse_transform(drop, as_array):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2]})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        drop = _convert_drop(drop)
 
     enc = OneHotEncoder(drop=drop)
     ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
 
-    assert_frame_equal(inv.to_pandas(), X.to_pandas())
+    assert_inverse_equal(inv, X)
 
 
-def test_onehot_categories():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_categories(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
-    enc = OneHotEncoder(
-        categories=DataFrame({'chars': ['a', 'b', 'c'], 'int': [0, 1, 2]}),
-        sparse=False
-    )
+    categories = DataFrame({'chars': ['a', 'b', 'c'], 'int': [0, 1, 2]})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        categories = _from_df_to_cupy(categories).transpose()
+
+    enc = OneHotEncoder(categories=categories, sparse=False)
     ref = cp.array([[1., 0., 0., 1., 0., 0.],
                     [0., 1., 0., 0., 0., 1.]])
     res = enc.fit_transform(X)
     cp.testing.assert_array_equal(res, ref)
 
 
-def test_onehot_fit_handle_unknown():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_fit_handle_unknown(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        Y = _from_df_to_cupy(Y)
 
     enc = OneHotEncoder(handle_unknown='error', categories=Y)
     with pytest.raises(KeyError):
@@ -93,9 +139,13 @@ def test_onehot_fit_handle_unknown():
     enc.fit(X)
 
 
-def test_onehot_transform_handle_unknown():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_transform_handle_unknown(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        Y = _from_df_to_cupy(Y)
 
     enc = OneHotEncoder(handle_unknown='error', sparse=False)
     enc = enc.fit(X)
@@ -110,42 +160,50 @@ def test_onehot_transform_handle_unknown():
     cp.testing.assert_array_equal(ohe, ref)
 
 
-def test_onehot_inverse_transform_handle_unknown():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_inverse_transform_handle_unknown(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y_ohe = cp.array([[0., 0., 1., 0.],
                       [0., 1., 0., 1.]])
+    ref = DataFrame({'chars': [None, 'b'], 'int': [0, 2]})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        ref = DataFrame({0: [None, ord('b')], 1: [0, 2]})
 
     enc = OneHotEncoder(handle_unknown='ignore')
     enc = enc.fit(X)
     df = enc.inverse_transform(Y_ohe)
-    ref = DataFrame({'chars': [None, 'b'], 'int': [0, 2]})
-    assert_frame_equal(df.to_pandas(), ref.to_pandas())
+    assert_inverse_equal(df, ref)
 
 
 @pytest.mark.parametrize('drop', [None, 'first'])
 @pytest.mark.parametrize('sparse', [True, False], ids=['sparse', 'dense'])
 @pytest.mark.parametrize("n_samples", [10, 1000, 20000, stress_param(250000)])
-def test_onehot_random_inputs(drop, sparse, n_samples):
-    df, ary = _generate_inputs_from_categories(n_samples=n_samples)
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
+    X, ary = _generate_inputs_from_categories(n_samples=n_samples,
+                                              as_array=as_array)
 
     enc = OneHotEncoder(sparse=sparse, drop=drop)
     sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop)
-    ohe = enc.fit_transform(df)
+    ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     if sparse:
         cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())
     else:
         cp.testing.assert_array_equal(ohe, ref)
-
     inv_ohe = enc.inverse_transform(ohe)
+    assert_inverse_equal(inv_ohe, X)
 
-    assert_frame_equal(inv_ohe.to_pandas(), df.to_pandas())
 
-
-def test_onehot_drop_idx_first():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_drop_idx_first(as_array):
     X_ary = [['c', 2, 'a'],
              ['b', 2, 'b']]
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        X_ary = cp.asnumpy(X)
 
     enc = OneHotEncoder(sparse=False, drop='first')
     sk_enc = SkOneHotEncoder(sparse=False, drop='first')
@@ -153,18 +211,27 @@ def test_onehot_drop_idx_first():
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
     inv = enc.inverse_transform(ohe)
-    assert_frame_equal(inv.to_pandas(), X.to_pandas())
+    assert_inverse_equal(inv, X)
 
 
-def test_onehot_drop_one_of_each():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_drop_one_of_each(as_array):
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
     drop = dict({'chars': 'b', 'int': 2, 'letters': 'b'})
+    X_ary = _from_df_to_array(X)
+    drop_ary = ['b', 2, 'b']
+    if as_array:
+        X = _from_df_to_cupy(X)
+        X_ary = cp.asnumpy(X)
+        drop = drop_ary = _convert_drop(drop)
+
     enc = OneHotEncoder(sparse=False, drop=drop)
     ohe = enc.fit_transform(X)
-    ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
+    print(ohe.dtype)
+    ref = SkOneHotEncoder(sparse=False, drop=drop_ary).fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
     inv = enc.inverse_transform(ohe)
-    assert_frame_equal(inv.to_pandas(), X.to_pandas())
+    assert_inverse_equal(inv, X)
 
 
 @pytest.mark.parametrize("drop, pattern",
@@ -173,33 +240,46 @@ def test_onehot_drop_one_of_each():
                           [dict({'chars': 'b', 'int': [2, 0]}),
                            'Trying to drop multiple values'],
                           [dict({'chars': 'b', 'int': 3}),
-                           'Some categories [a-zA-Z, ]* were not found'],
+                           'Some categories [0-9a-zA-Z, ]* were not found'],
                           [DataFrame({'chars': 'b', 'int': 3}),
                            'Wrong input for parameter `drop`.']])
-def test_onehot_drop_exceptions(drop, pattern):
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_drop_exceptions(drop, pattern, as_array):
     X = DataFrame({'chars': ['c', 'b', 'd'], 'int': [2, 1, 0]})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        drop = _convert_drop(drop) if not isinstance(drop, DataFrame) else drop
 
     with pytest.raises(ValueError, match=pattern):
         OneHotEncoder(sparse=False, drop=drop).fit(X)
 
 
-def test_onehot_get_categories():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_get_categories(as_array):
     X = DataFrame({'chars': ['c', 'b', 'd'], 'ints': [2, 1, 0]})
-
     ref = [np.array(['b', 'c', 'd']), np.array([0, 1, 2])]
+    if as_array:
+        X = _from_df_to_cupy(X)
+        ref[0] = np.array([ord(x) for x in ref[0]])
+
     enc = OneHotEncoder().fit(X)
-    cats = enc.get_categories_()
+    cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i])
+        cp.testing.assert_array_equal(ref[i], cats[i])
 
 
-def test_onehot_sparse_drop():
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_sparse_drop(as_array):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2], 'l': [5, 5, 6]})
     drop = {'g': 'F', 'i': 3, 'l': 6}
 
     ary = _from_df_to_array(X)
     drop_ary = ['F', 3, 6]
+    if as_array:
+        X = _from_df_to_cupy(X)
+        ary = cp.asnumpy(X)
+        drop = drop_ary = _convert_drop(drop)
 
     enc = OneHotEncoder(sparse=True, drop=drop)
     sk_enc = SkOneHotEncoder(sparse=True, drop=drop_ary)
