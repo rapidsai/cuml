@@ -24,6 +24,17 @@
 
 #pragma once
 
+typedef void (*dlsym_print_info)(ucp_ep_h, FILE *);
+typedef void (*dlsym_rec_free)(void *);
+typedef int (*dlsym_worker_progress)(ucp_worker_h);
+
+typedef ucs_status_ptr_t (*dlsym_send)(ucp_ep_h, const void *, size_t,
+                                       ucp_datatype_t, ucp_tag_t,
+                                       ucp_send_callback_t);
+typedef ucs_status_ptr_t (*dlsym_recv)(ucp_worker_h, void *, size_t count,
+                                       ucp_datatype_t datatype, ucp_tag_t,
+                                       ucp_tag_t, ucp_tag_recv_callback_t);
+
 /**
  * Standard UCX request object that will be passed
  * around asynchronously. This object is really
@@ -97,20 +108,19 @@ class comms_ucp_handler {
  private:
   void *ucp_handle;
 
-  ucs_status_ptr_t (*send_func)(ucp_ep_h, const void *, size_t, ucp_datatype_t,
-                                ucp_tag_t, ucp_send_callback_t);
-  ucs_status_ptr_t (*recv_func)(ucp_worker_h, void *, size_t count,
-                                ucp_datatype_t datatype, ucp_tag_t, ucp_tag_t,
-                                ucp_tag_recv_callback_t);
-  void (*print_info_func)(ucp_ep_h, FILE *);
-  void (*req_free_func)(void *);
-  int (*worker_progress_func)(ucp_worker_h);
+  dlsym_print_info print_info_func;
+  dlsym_rec_free req_free_func;
+  dlsym_worker_progress worker_progress_func;
+  dlsym_send send_func;
+  dlsym_recv recv_func;
+
   void load_ucp_handle() {
     ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
     if (!ucp_handle) {
       ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NODELETE);
       ASSERT(ucp_handle, "Cannot open UCX library: %s\n", dlerror());
     }
+    // Reset any potential error
     dlerror();
   }
 
