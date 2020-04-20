@@ -43,8 +43,8 @@ class OneHotEncoder:
     categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
         Categories (unique values) per feature:
         - 'auto' : Determine categories automatically from the training data.
-        - DataFrame/Array : ``categories[col]`` holds the categories 
-          expected in the feature col.
+        - DataFrame/Array : ``categories[col]`` holds the categories expected in the
+          feature col.
     drop : 'first', None, a dict or a list, default=None
         Specifies a methodology to use to drop one of the categories per
         feature. This is useful in situations where perfectly collinear
