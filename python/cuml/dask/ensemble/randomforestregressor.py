@@ -15,6 +15,7 @@
 #
 
 import cudf
+import dask
 
 from cuml.dask.common import raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestRegressor as cuRFR
@@ -293,6 +294,18 @@ class RandomForestRegressor(DelayedPredictionMixin):
     def _print_summary(model):
         model.print_summary()
 
+    @dask.delayed
+    def _get_pbuf_bytes(model):
+        return model._get_protobuf_bytes()
+
+    @dask.delayed
+    def _pbuf_bytes(model):
+        return model.model_pbuf_bytes
+
+    @dask.delayed
+    def _tl_model_handles(model, model_pbuf_bytes):
+        return model._tl_model_handles(model_pbuf_bytes)
+
     @staticmethod
     def _predict_cpu(model, X, convert_dtype):
         return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
@@ -325,10 +338,12 @@ class RandomForestRegressor(DelayedPredictionMixin):
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
-
         mod_bytes = []
+        models = list()
+        #c = default_client()
         for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+            models.append((RandomForestRegressor._get_pbuf_bytes)(self.rfs[w]))
+        mod_bytes = self.client.compute(models, sync=True)
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
