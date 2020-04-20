@@ -16,12 +16,13 @@
 
 import numpy as np
 import cupy as cp
-from cuml.dask.common import extract_arr_partitions
+from cuml.dask.common.input_utils import DistributedDataHandler
+
+from cuml.dask.common.utils import get_client
 
 from cuml.utils.memory_utils import with_cupy_rmm
 from cuml.dask.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
-from dask.distributed import default_client
 
 
 @with_cupy_rmm
@@ -82,7 +83,7 @@ def confusion_matrix(y_true, y_pred,
     C : array-like (device or host) shape = (n_classes, n_classes)
         Confusion matrix.
     """
-    client = default_client() if client is None else client
+    client = get_client()
 
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
@@ -97,9 +98,9 @@ def confusion_matrix(y_true, y_pred,
         [y_true, y_pred]
 
     # run cm computation on each partition.
-    parts = client.sync(extract_arr_partitions, dask_arrays)
+    data = DistributedDataHandler.create(dask_arrays, client=client)
     cms = [client.submit(_local_cm, p, labels, use_sample_weight,
-                         workers=[w]).result() for w, p in parts]
+                         workers=[w]).result() for w, p in data.gpu_futures]
 
     # reduce each partition's result into one cupy matrix
     cm = sum(cms)
