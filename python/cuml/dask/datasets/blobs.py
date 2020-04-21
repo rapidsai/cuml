@@ -50,16 +50,16 @@ def create_local_data(m, n, centers, cluster_std, random_state,
     return X, y
 
 
-def get_meta(df):
+def _get_meta(df):
     ret = df.iloc[:0]
     return ret
 
 
-def get_X(t):
+def _get_X(t):
     return t[0]
 
 
-def get_labels(t):
+def _get_labels(t):
     return t[1]
 
 
@@ -163,19 +163,19 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                    pure=False,
                                    workers=[worker]))
 
-    X = [client.submit(get_X, f, pure=False)
+    X = [client.submit(_get_X, f, pure=False)
          for idx, f in enumerate(parts)]
-    Y = [client.submit(get_labels, f, pure=False)
+    Y = [client.submit(_get_labels, f, pure=False)
          for idx, f in enumerate(parts)]
 
     if output == 'dataframe':
 
-        meta_X = client.submit(get_meta, X[0], pure=False)
+        meta_X = client.submit(_get_meta, X[0], pure=False)
         meta_X_local = meta_X.result()
         X_final = from_delayed([dask.delayed(x, pure=False)
                                 for x in X], meta=meta_X_local)
 
-        meta_y = client.submit(get_meta, Y[0], pure=False)
+        meta_y = client.submit(_get_meta, Y[0], pure=False)
         meta_y_local = meta_y.result()
         Y_final = from_delayed([dask.delayed(y, pure=False)
                                 for y in Y], meta=meta_y_local)

@@ -158,15 +158,16 @@ def test_make_regression(n_samples, n_features, n_informative,
         c.close()
 
 
-@pytest.mark.parametrize('n_samples', [1000])
-@pytest.mark.parametrize('n_features', [100])
+@pytest.mark.parametrize('n_samples', [500, 1000])
+@pytest.mark.parametrize('n_features', [50, 100])
+@pytest.mark.parametrize('hypercube', [True, False])
 @pytest.mark.parametrize('n_classes', [2, 4])
 @pytest.mark.parametrize('n_clusters_per_class', [2, 4])
-@pytest.mark.parametrize('n_informative', [7])
+@pytest.mark.parametrize('n_informative', [7, 20])
 @pytest.mark.parametrize('random_state', [None, 1234])
 @pytest.mark.parametrize('n_parts', [2, 23])
 @pytest.mark.parametrize('order', ['C', 'F'])
-def test_make_classification(n_samples, n_features, n_classes,
+def test_make_classification(n_samples, n_features, hypercube, n_classes,
                              n_clusters_per_class, n_informative,
                              random_state, n_parts, order, cluster):
     client = Client(cluster)
@@ -174,7 +175,7 @@ def test_make_classification(n_samples, n_features, n_classes,
         from cuml.dask.datasets.classification import make_classification
 
         X, y = make_classification(n_samples=n_samples, n_features=n_features,
-                                   n_classes=n_classes,
+                                   n_classes=n_classes, hypercube=hypercube,
                                    n_clusters_per_class=n_clusters_per_class,
                                    n_informative=n_informative,
                                    random_state=random_state, n_parts=n_parts,
