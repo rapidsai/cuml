@@ -315,7 +315,7 @@ void infer_k_launcher(storage_type forest, predict_params params,
     // given_num_cols is a random large int
     params.num_cols = params.max_shm / sizeof(float);
     // since we're crashing, this will not take too long
-    while (get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm) {
+    while (params.num_cols > 0 && get_smem_footprint<1, leaf_payload_type>(params) > params.max_shm) {
       --params.num_cols;
     }
     ASSERT(false, "p.num_cols == %d: too many features, only %d allowed%s",
