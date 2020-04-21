@@ -77,7 +77,6 @@ class ContingencyMatrixTest
     MLCommon::updateDevice(dYHat, &y_hat[0], numElements, stream);
     MLCommon::updateDevice(dY, &y[0], numElements, stream);
 
-    T minLabel, maxLabel;
     if (params.calcCardinality) {
       MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
                                                   minLabel, maxLabel);
@@ -105,13 +104,9 @@ class ContingencyMatrixTest
     MLCommon::updateDevice(dGoldenOutput, hGoldenOutput,
                            numUniqueClasses * numUniqueClasses, stream);
 
-    size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
+    workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
       numElements, dY, stream, minLabel, maxLabel);
     if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
-
-    MLCommon::Metrics::contingencyMatrix(
-      dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
-      workspaceSz, minLabel, maxLabel);
   }
 
   void TearDown() override {
@@ -125,15 +120,27 @@ class ContingencyMatrixTest
     if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
   }
 
+  void RunTest() {
+    int numElements = params.nElements;
+    MLCommon::Metrics::contingencyMatrix(
+      dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
+      workspaceSz, minLabel, maxLabel);
+    ASSERT_TRUE(
+      devArrMatch(dComputedOutput, dGoldenOutput,
+                  numUniqueClasses * numUniqueClasses, Compare<T>()));
+  }
+
   ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T *dY = nullptr;
   T *dYHat = nullptr;
+  T minLabel, maxLabel;
   int *dComputedOutput = nullptr;
   int *dGoldenOutput = nullptr;
   int *hGoldenOutput = nullptr;
   char *pWorkspace = nullptr;
   cudaStream_t stream;
+  size_t workspaceSz;
 };
 
 const std::vector<ContingencyMatrixParam> inputs = {
@@ -152,12 +159,7 @@ const std::vector<ContingencyMatrixParam> inputs = {
 };
 
 typedef ContingencyMatrixTest<int> ContingencyMatrixTestS;
-TEST_P(ContingencyMatrixTestS, Result) {
-  ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
-                          numUniqueClasses * numUniqueClasses,
-                          CompareApprox<float>(params.tolerance)));
-}
-
+TEST_P(ContingencyMatrixTestS, Result) { RunTest(); }
 INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestS,
                         ::testing::ValuesIn(inputs));
 }  // namespace Metrics
