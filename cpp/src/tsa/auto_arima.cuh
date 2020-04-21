@@ -141,7 +141,7 @@ inline void divide_by_mask_execute(const DataT* d_in, const bool* d_mask,
                                    const int* d_index, DataT* d_out0,
                                    DataT* d_out1, int batch_size, int n_obs,
                                    cudaStream_t stream) {
-  int TPB = std::min(64, n_obs);
+  int TPB = std::min(64, n_obs); // TODO: better heuristics
   divide_by_mask_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_mask, d_index,
                                                         d_out0, d_out1, n_obs);
   CUDA_CHECK(cudaPeekAtLastError());
