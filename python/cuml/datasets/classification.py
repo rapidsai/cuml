@@ -66,7 +66,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     .. code-block:: python
         from cuml.datasets.classification import make_classification
 
-        X, y = make_classification(n_samples=10, n_features=4, n_informative=2, n_classes=2)
+        X, y = make_classification(n_samples=10, n_features=4,
+                                   n_informative=2, n_classes=2)
 
         print("X:")
         print(X)
@@ -190,7 +191,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            copies
         3. Lastly, we also shuffle by construction. Centroid indices are
            permuted for each sample, and then we construct the data for
-           each centroid. This shuffle works for both `order=C` and 
+           each centroid. This shuffle works for both `order=C` and
            `order=F` and eliminates any need for secondary copies
     """
     generator = _create_rs_generator(random_state)
