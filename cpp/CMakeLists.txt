@@ -384,7 +384,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/svm/svc.cu
     src/svm/svr.cu
     src/svm/ws_util.cu
-    src/tsa/ts_utils.cu
+    src/tsa/auto_arima.cu
     src/tsa/stationarity.cu
     src/tsne/tsne.cu
     src/tsvd/tsvd.cu
