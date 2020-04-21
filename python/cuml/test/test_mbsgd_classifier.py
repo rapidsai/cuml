@@ -65,7 +65,7 @@ def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
                                              penalty=penalty)
 
     cu_mbsgd_classifier.fit(X_train, y_train)
-    cu_pred = cu_mbsgd_classifier.predict(X_test).to_array()
+    cu_pred = cu_mbsgd_classifier.predict(X_test).get()
     cu_acc = accuracy_score(cu_pred, y_test)
 
     if nrows < 500000:
@@ -86,7 +86,7 @@ def test_mbsgd_classifier_default(make_dataset):
     cu_mbsgd_classifier = cumlMBSGClassifier()
 
     cu_mbsgd_classifier.fit(X_train, y_train)
-    cu_pred = cu_mbsgd_classifier.predict(X_test).to_array()
+    cu_pred = cu_mbsgd_classifier.predict(X_test).get()
     cu_acc = accuracy_score(cu_pred, y_test)
 
     if nrows < 500000:
