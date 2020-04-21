@@ -20,7 +20,7 @@ from cuml.dask.common import raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from dask.distributed import default_client, wait
 from cuml.dask.common.part_utils import _extract_partitions
-
+from cuml.dask.datasets.blobs import get_X, get_labels
 
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -391,13 +391,30 @@ class RandomForestClassifier(DelayedPredictionMixin):
         """
 
         c = default_client()
-
         self.num_classes = len(y.unique())
-        X_futures = workers_to_parts(c.sync(_extract_partitions, X))
-        y_futures = workers_to_parts(c.sync(_extract_partitions, y))
 
-        X_partition_workers = [w for w, xc in X_futures.items()]
-        y_partition_workers = [w for w, xc in y_futures.items()]
+        tuple_futures = c.sync(_extract_partitions, (X, y))
+
+        X_futures = {}
+        y_futures = {}
+        X_partition_workers = []
+        y_partition_workers = []
+
+        for i in range(len(tuple_futures)):
+            w = tuple_futures[i][0]
+            xc = tuple_futures[i][1]
+
+            if w not in X_futures.keys():
+                X_futures[w] = []
+                y_futures[w] = []
+
+            X_partition_workers.append(w)
+            y_partition_workers.append(w)
+
+            X_future = c.submit(get_X, xc, workers=[w])
+            y_future = c.submit(get_labels, xc, workers=[w])
+            X_futures[w].append(X_future)
+            y_futures[w].append(y_future)
 
         if set(X_partition_workers) != set(self.workers) or \
            set(y_partition_workers) != set(self.workers):
@@ -420,6 +437,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
                     y_futures[w],
                     convert_dtype,
                     random.random(),
+                    pure=False,
                     workers=[w],
                 )
             )
