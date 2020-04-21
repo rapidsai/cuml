@@ -17,6 +17,8 @@ from cuml.datasets.classification import _generate_hypercube
 from cuml.datasets.classification import make_classification \
  as sg_make_classification
 from cuml.datasets.utils import _create_rs_generator
+from cuml.dask.datasets.blobs import _get_X
+from cuml.dask.datasets.blobs import _get_labels
 from cuml.utils import with_cupy_rmm
 
 from dask.distributed import default_client
@@ -26,14 +28,6 @@ import dask.delayed
 import cupy as cp
 import numpy as np
 import math
-
-
-def get_X(t):
-    return t[0]
-
-
-def get_labels(t):
-    return t[1]
 
 
 def _create_covariance(dims, seed, dtype='float32'):
@@ -61,7 +55,42 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     redundant features. The remaining features are filled with random noise.
     Thus, without shuffling, all useful features are contained in the columns
     ``X[:, :n_informative + n_redundant + n_repeated]``.
-    Read more in the :ref:`User Guide <sample_generators>`.
+
+    Examples
+    --------
+
+    .. code-block:: python
+        from dask.distributed import Client
+        from dask_cuda import LocalCUDACluster
+        from cuml.dask.datasets.classification import make_classification
+        cluster = LocalCUDACluster()
+        client = Client(cluster)
+        X, y = make_classification(n_samples=10, n_features=4, n_informative=2, n_classes=2)
+
+        print("X:")
+        print(X.compute())
+
+        print("y:")
+        print(y.compute())
+
+    Output:
+
+    .. code-block:: python
+        X:
+        [[-1.6990056  -0.8241044  -0.06997631  0.45107925]
+        [-1.8105277   1.7829906   0.492909    0.05390119]
+        [-0.18290454 -0.6155432   0.6667889  -1.0053712 ]
+        [-2.7530136  -0.888528   -0.5023055   1.3983376 ]
+        [-0.9788184  -0.89851004  0.10802134 -0.10021686]
+        [-0.76883423 -1.0689086   0.01249526 -0.1404741 ]
+        [-1.5676656  -0.83082974 -0.03072987  0.34499463]
+        [-0.9381793  -1.0971068  -0.07465998  0.02618019]
+        [-1.3021476  -0.87076336  0.02249984  0.15187258]
+        [ 1.1820307   1.7524253   1.5087451  -2.4626074 ]]
+
+        y:
+        [0 1 0 0 0 0 0 0 0 1]
+
     Parameters
     ----------
     n_samples : int, optional (default=100)
@@ -129,18 +158,23 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         than the number of workers)
     Returns
     -------
-    X : device array of shape [n_samples, n_features]
+    X : dask.array of shape [n_samples, n_features]
         The generated samples.
-    y : device array of shape [n_samples]
+    y : dask.array of shape [n_samples]
         The integer labels for class membership of each sample.
-    Notes
-    -----
-    The algorithm is adapted from Guyon [1] and was designed to generate
-    the "Madelon" dataset.
-    References
-    ----------
-    .. [1] I. Guyon, "Design of experiments for the NIPS 2003 variable
-           selection benchmark", 2003.
+
+    How we extended the dask MNMG version from the single GPU version:
+        1. We generate centroids of shape (n_centroids, n_informative)
+        2. We generate an informative covariance of shape
+           (n_centroids, n_informative, n_informative)
+        3. We generate a redundant covariance of shape
+           (n_informative, n_redundant)
+        4. We generate the indices for the repeated features
+        We pass along the references to the futures of the above arrays
+        with each part to the single GPU 
+        `cuml.datasets.classification.make_classification` so that each
+        part (and worker) has access to the correct values to generate
+        data from the same covariances
     """
 
     client = default_client() if client is None else client
@@ -159,16 +193,6 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     centroids = cp.array(_generate_hypercube(n_clusters, n_informative,
                                              rs)).astype(dtype, copy=False)
 
-    # # create covariance matrices
-    # informative_covariance_local = rs.rand(n_clusters, n_informative,
-    #                                        n_informative, dtype=dtype)
-    # informative_covariance = client.scatter(informative_covariance_local,
-    #                                         workers=workers)
-
-    # redundant_covariance_local = rs.rand(n_informative, n_redundant,
-    #                                      dtype=dtype)
-    # redundant_covariance = client.scatter(redundant_covariance_local,
-    #                                       workers=workers)
     covariance_seeds = rs.randint(n_features, size=2)
     informative_covariance = client.submit(_create_covariance,
                                            (n_clusters, n_informative,
@@ -215,9 +239,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                            workers=[parts_workers[i]])
              for i in range(len(parts_workers))]
 
-    X_parts = [client.submit(get_X, f, pure=False)
+    X_parts = [client.submit(_get_X, f, pure=False)
                for idx, f in enumerate(parts)]
-    y_parts = [client.submit(get_labels, f, pure=False)
+    y_parts = [client.submit(_get_labels, f, pure=False)
                for idx, f in enumerate(parts)]
 
     X_dela = [da.from_delayed(dask.delayed(Xp),

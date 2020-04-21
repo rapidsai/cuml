@@ -17,6 +17,14 @@ import cupy as cp
 
 
 def _create_rs_generator(random_state):
+    """
+    This is a utility function that returns an instance of CuPy RandomState
+    Parameters
+    ----------
+    random_state : None, int, or CuPy RandomState
+        The random_state from which the CuPy random state is generated
+    """
+
     if hasattr(random_state, '__module__'):
         rs_type = random_state.__module__ + '.' + type(random_state).__name__
     else:

@@ -59,7 +59,39 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     redundant features. The remaining features are filled with random noise.
     Thus, without shuffling, all useful features are contained in the columns
     ``X[:, :n_informative + n_redundant + n_repeated]``.
-    Read more in the :ref:`User Guide <sample_generators>`.
+
+    Examples
+    --------
+
+    .. code-block:: python
+        from cuml.datasets.classification import make_classification
+
+        X, y = make_classification(n_samples=10, n_features=4, n_informative=2, n_classes=2)
+
+        print("X:")
+        print(X)
+
+        print("y:")
+        print(y)
+
+    Output:
+
+    .. code-block:: python
+        X:
+        [[-2.3249989  -0.8679415  -1.1511791   1.3525577 ]
+        [ 2.2933831   1.3743551   0.63128835 -0.84648645]
+        [ 1.6361488  -1.3233329   0.807027   -0.894092  ]
+        [-1.0093077  -0.9990691  -0.00808992  0.00950443]
+        [ 0.99803793  2.068382    0.49570698 -0.8462848 ]
+        [-1.2750955  -0.9725835  -0.2390058   0.28081596]
+        [-1.3635055  -0.9637669  -0.31582272  0.37106958]
+        [ 1.1893625   2.227583    0.48750278 -0.8737561 ]
+        [-0.05753583 -1.0939395   0.8188342  -0.9620734 ]
+        [ 0.47910076  0.7648213  -0.17165393  0.26144698]]
+
+        y:
+        [0 1 0 0 1 0 0 1 0 1]
+
     Parameters
     ----------
     n_samples : int, optional (default=100)
@@ -143,6 +175,23 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     ----------
     .. [1] I. Guyon, "Design of experiments for the NIPS 2003 variable
            selection benchmark", 2003.
+
+    How we optimized to the GPU:
+        1. Firstly, we generate X from a standard univariate instead of zeros.
+           This saves memory as we don't need to generate univariates each
+           time for each feature class (informative, repeated, etc.) while
+           also providing the added speedup of generating a big matrix
+           on GPU
+        2. We generate `order=F` construction. We exploit the
+           fact that X is a generated from a univariate normal, and
+           covariance is introduced with matrix multiplications. Which means,
+           we can generate X as a 1D array and just reshape it to the
+           desired order, which only updates the metadata and eliminates
+           copies
+        3. Lastly, we also shuffle by construction. Centroid indices are
+           permuted for each sample, and then we construct the data for
+           each centroid. This shuffle works for both `order=C` and 
+           `order=F` and eliminates any need for secondary copies
     """
     generator = _create_rs_generator(random_state)
 
@@ -182,7 +231,6 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         n_samples_per_cluster[i % n_clusters] += 1
 
     # Initialize X and y
-    # X = cp.zeros(n_samples * n_features, dtype=dtype, order=order)
     X = generator.randn(n_samples * n_features, dtype=dtype)
     X = X.reshape((n_samples, n_features), order=order)
     y = cp.zeros(n_samples, dtype=np.int)
@@ -231,6 +279,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
             # NOTE: This could be done outside the loop, but a current
             # cupy bug does not allow that
+            # https://github.com/cupy/cupy/issues/3284
             X[centroid_indices[0], n_informative:n_informative
               + n_redundant] = cp.dot(X_k, B)
 
