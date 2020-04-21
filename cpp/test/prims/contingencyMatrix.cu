@@ -70,48 +70,48 @@ class ContingencyMatrixTest
       std::replace(y_hat.begin(), y_hat.end(), y2, y2_R);
     }
 
-    numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-
-    // generate golden output on CPU
-    size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
-    int *hGoldenOutput = (int *)malloc(sizeOfMat);
-    memset(hGoldenOutput, 0, sizeOfMat);
-
-    for (int i = 0; i < numElements; i++) {
-      int row = y[i] - lowerLabelRange;
-      int column = y_hat[i] - lowerLabelRange;
-
-      hGoldenOutput[row * numUniqueClasses + column] += 1;
-    }
-
     CUDA_CHECK(cudaStreamCreate(&stream));
     MLCommon::allocate(dY, numElements);
     MLCommon::allocate(dYHat, numElements);
-    MLCommon::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
-    MLCommon::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
-
-    size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
-      numElements, dY, stream, lowerLabelRange, upperLabelRange);
-
-    if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
 
     MLCommon::updateDevice(dYHat, &y_hat[0], numElements, stream);
     MLCommon::updateDevice(dY, &y[0], numElements, stream);
+
+    T minLabel, maxLabel;
+    if (params.calcCardinality) {
+      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
+                                                  minLabel, maxLabel);
+    } else {
+      minLabel = lowerLabelRange;
+      maxLabel = upperLabelRange;
+    }
+
+    numUniqueClasses = maxLabel - minLabel + 1;
+
+    MLCommon::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
+    MLCommon::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
+
+    // generate golden output on CPU
+    size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
+    hGoldenOutput = (int *)malloc(sizeOfMat);
+    memset(hGoldenOutput, 0, sizeOfMat);
+
+    for (int i = 0; i < numElements; i++) {
+      auto row = y[i] - minLabel;
+      auto column = y_hat[i] - minLabel;
+      hGoldenOutput[row * numUniqueClasses + column] += 1;
+    }
+
     MLCommon::updateDevice(dGoldenOutput, hGoldenOutput,
                            numUniqueClasses * numUniqueClasses, stream);
 
-    if (params.calcCardinality) {
-      T minLabel, maxLabel;
-      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
-                                                  minLabel, maxLabel);
-      // allocate dComputedOutput using minLabel, maxLabel count - already done above
-      MLCommon::Metrics::contingencyMatrix(
-        dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
-        workspaceSz, minLabel, maxLabel);
-    } else
-      MLCommon::Metrics::contingencyMatrix(
-        dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
-        workspaceSz, lowerLabelRange, upperLabelRange);
+    size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
+      numElements, dY, stream, minLabel, maxLabel);
+    if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
+
+    MLCommon::Metrics::contingencyMatrix(
+      dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
+      workspaceSz, minLabel, maxLabel);
   }
 
   void TearDown() override {
