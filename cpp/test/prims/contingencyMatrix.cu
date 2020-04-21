@@ -24,7 +24,7 @@
 namespace MLCommon {
 namespace Metrics {
 
-struct contingencyMatrixParam {
+struct ContingencyMatrixParam {
   int nElements;
   int minClass;
   int maxClass;
@@ -34,11 +34,11 @@ struct contingencyMatrixParam {
 };
 
 template <typename T>
-class ContingencyMatrixTestImpl
-  : public ::testing::TestWithParam<contingencyMatrixParam> {
+class ContingencyMatrixTest
+  : public ::testing::TestWithParam<ContingencyMatrixParam> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<contingencyMatrixParam>::GetParam();
+    params = ::testing::TestWithParam<ContingencyMatrixParam>::GetParam();
 
     int numElements = params.nElements;
     int lowerLabelRange = params.minClass;
@@ -124,7 +124,7 @@ class ContingencyMatrixTestImpl
     if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
   }
 
-  contingencyMatrixParam params;
+  ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T *dY = nullptr;
   T *dYHat = nullptr;
@@ -135,7 +135,7 @@ class ContingencyMatrixTestImpl
   cudaStream_t stream;
 };
 
-const std::vector<contingencyMatrixParam> inputs = {
+const std::vector<ContingencyMatrixParam> inputs = {
   {10000, 1, 10, true, false, 0.000001},
   {10000, 1, 5000, true, false, 0.000001},
   {10000, 1, 10000, true, false, 0.000001},
@@ -146,14 +146,14 @@ const std::vector<contingencyMatrixParam> inputs = {
   {100000, 1, 100, false, true, 0.000001},
 };
 
-typedef ContingencyMatrixTestImpl<int> ContingencyMatrixTestImplS;
-TEST_P(ContingencyMatrixTestImplS, Result) {
+typedef ContingencyMatrixTest<int> ContingencyMatrixTestS;
+TEST_P(ContingencyMatrixTestS, Result) {
   ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
                           numUniqueClasses * numUniqueClasses,
                           CompareApprox<float>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestImplS,
+INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestS,
                         ::testing::ValuesIn(inputs));
 }  // namespace Metrics
 }  // namespace MLCommon
