@@ -115,6 +115,7 @@ class ContingencyMatrixTest
   }
 
   void TearDown() override {
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     free(hGoldenOutput);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(dY));
