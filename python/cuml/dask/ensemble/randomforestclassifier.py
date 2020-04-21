@@ -16,7 +16,7 @@
 
 import cudf
 
-from cuml.dask.common import raise_exception_from_futures, workers_to_parts
+from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from dask.distributed import default_client, wait
 from cuml.dask.common.part_utils import _extract_partitions
