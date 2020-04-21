@@ -65,7 +65,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         from cuml.dask.datasets.classification import make_classification
         cluster = LocalCUDACluster()
         client = Client(cluster)
-        X, y = make_classification(n_samples=10, n_features=4, n_informative=2, n_classes=2)
+        X, y = make_classification(n_samples=10, n_features=4,
+                                   n_informative=2, n_classes=2)
 
         print("X:")
         print(X.compute())
@@ -171,7 +172,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            (n_informative, n_redundant)
         4. We generate the indices for the repeated features
         We pass along the references to the futures of the above arrays
-        with each part to the single GPU 
+        with each part to the single GPU
         `cuml.datasets.classification.make_classification` so that each
         part (and worker) has access to the correct values to generate
         data from the same covariances
