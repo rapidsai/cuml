@@ -300,14 +300,6 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
-    @property
-    def Y(self):
-        warnings.warn("Attribute Y is deprecated and will be dropped in "
-                      "version 0.14, access the embeddings using the "
-                      "attribute ‘embedding_’ instead.",
-                      DeprecationWarning)
-        return self.embedding_
-
     def fit(self, X, convert_dtype=True):
         """Fit X into an embedded space.
 
@@ -410,13 +402,13 @@ class TSNE(Base):
                  <bool> (self.method == 'barnes_hut'))
 
         # Clean up memory
-        self.embedding_ = Y
+        self._embedding_ = Y
         return self
 
     def __del__(self):
-        if hasattr(self, 'embedding_'):
-            del self.embedding_
-            self.embedding_ = None
+        if hasattr(self, '_embedding_'):
+            del self._embedding_
+            self._embedding_ = None
 
     def fit_transform(self, X, convert_dtype=True):
         """Fit X into an embedded space and return that transformed output.
@@ -440,22 +432,22 @@ class TSNE(Base):
         out_type = self._get_output_type(X)
 
         if isinstance(X, cudf.DataFrame):
-            if isinstance(self.embedding_, cudf.DataFrame):
-                return self.embedding_
+            if isinstance(self._embedding_, cudf.DataFrame):
+                return self._embedding_
             else:
-                return cudf.DataFrame.from_gpu_matrix(self.embedding_)
+                return cudf.DataFrame.from_gpu_matrix(self._embedding_)
         elif isinstance(X, np.ndarray):
-            data = self.embedding_.to_output(out_type)
-            del self.embedding_
+            data = self._embedding_.to_output(out_type)
+            del self._embedding_
             return data
         return None  # is this even possible?
 
     def __getstate__(self):
         state = self.__dict__.copy()
 
-        if "embedding_" in state:
-            state["embedding_"] = cudf.DataFrame.from_gpu_matrix(
-                state["embedding_"])
+        if "_embedding_" in state:
+            state["_embedding_"] = cudf.DataFrame.from_gpu_matrix(
+                state["_embedding_"].to_output('cupy'))
 
         if "handle" in state:
             del state["handle"]
