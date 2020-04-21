@@ -30,6 +30,7 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
