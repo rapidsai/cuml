@@ -424,7 +424,7 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
