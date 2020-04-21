@@ -49,7 +49,7 @@ def get_data_consistency_test():
 
 
 @pytest.mark.xfail
-@pytest.mark.parametrize('random_state', [i for i in range(10, 2)])
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
 def test_n_init_cluster_consistency(random_state):
 
     nclusters = 8
@@ -78,7 +78,7 @@ def test_n_init_cluster_consistency(random_state):
 @pytest.mark.parametrize('nrows', [1000, 10000])
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
-@pytest.mark.parametrize('random_state', [i for i in range(10, 2)])
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
 def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
                                           random_state):
 
@@ -113,7 +113,7 @@ def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
-@pytest.mark.parametrize('random_state', [i for i in range(10, 2)])
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
 def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
                                random_state, cluster_std):
 
