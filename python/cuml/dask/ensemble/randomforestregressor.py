@@ -23,6 +23,7 @@ from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.part_utils import _extract_partitions
+from cuml.dask.datasets.blobs import get_X, get_labels
 
 import math
 import random
