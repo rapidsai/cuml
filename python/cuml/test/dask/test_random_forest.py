@@ -34,7 +34,6 @@ import cudf
 import cupy as cp
 import dask_cudf
 import pytest
-import rmm
 
 import numpy as np
 import pandas as pd
