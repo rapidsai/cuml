@@ -46,6 +46,7 @@ from cuml.utils.input_utils import input_to_cuml_array
 # - summary method with recap of the models used
 # - integrate cuML logging system
 # - unit tests
+# - use output_type as soon as cuML array change in ARIMA is merged
 
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":

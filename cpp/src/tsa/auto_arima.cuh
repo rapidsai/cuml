@@ -141,7 +141,7 @@ inline void divide_by_mask_execute(const DataT* d_in, const bool* d_mask,
                                    const int* d_index, DataT* d_out0,
                                    DataT* d_out1, int batch_size, int n_obs,
                                    cudaStream_t stream) {
-  int TPB = std::min(64, n_obs); // TODO: better heuristics
+  int TPB = std::min(64, n_obs);  // TODO: better heuristics
   divide_by_mask_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_mask, d_index,
                                                         d_out0, d_out1, n_obs);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -306,7 +306,8 @@ inline void build_division_map(const int* const* hd_id, const int* h_size,
   MLCommon::updateDevice(d_size, h_size, n_sub, stream);
 
   int avg_size = batch_size / n_sub;
-  int TPB = avg_size > 128 ? 256 : (avg_size > 64 ? 128 : 64);
+  int TPB =
+    avg_size > 256 ? 256 : (avg_size > 128 ? 128 : (avg_size > 64 ? 64 : 32));
   build_division_map_kernel<<<n_sub, TPB, 0, stream>>>(
     d_id, d_size, d_id_to_pos, d_id_to_model);
   CUDA_CHECK(cudaPeekAtLastError());
