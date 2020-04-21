@@ -119,7 +119,7 @@ class ARIMA(Base):
         model.fit()
 
         # Forecast
-        fc = model.forecast(10).to_output('numpy')
+        fc = model.forecast(10)
         print(fc)
 
     Output:
@@ -152,6 +152,13 @@ class ARIMA(Base):
         Leave to None for automatic selection based on the model order
     handle: cuml.Handle
         If it is None, a new one is created just for this instance
+    verbose: int (optional, default 0)
+        Controls verbosity level of logging.
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Attributes
     ----------
@@ -200,14 +207,20 @@ class ARIMA(Base):
                  seasonal_order: Tuple[int, int, int, int]
                  = (0, 0, 0, 0),
                  fit_intercept=None,
-                 handle=None):
+                 handle=None,
+                 verbose=0,
+                 output_type=None):
 
         if not has_scipy():
             raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
                                " Please install it to enable ARIMA "
                                "estimation.")
-        super().__init__(handle)
 
+        # Initialize base class
+        super().__init__(handle, verbose, output_type)
+        self._set_output_type(y)
+
+        # Set the ARIMA order
         cdef ARIMAOrder cpp_order
         cpp_order.p, cpp_order.d, cpp_order.q = order
         cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
@@ -215,7 +228,6 @@ class ARIMA(Base):
             # by default, use an intercept only with non differenced models
             fit_intercept = (order[1] + seasonal_order[1] == 0)
         cpp_order.k = int(fit_intercept)
-
         self.order = cpp_order
 
         # Check validity of the ARIMA order and seasonal order
@@ -239,7 +251,7 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
 
         # Get device array. Float64 only for now.
-        self.d_y, self.n_obs, self.batch_size, self.dtype \
+        self._d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(y, check_dtype=np.float64)
 
         if self.n_obs < d + s * D + 1:
@@ -249,12 +261,15 @@ class ARIMA(Base):
         self.niter = None  # number of iterations used during fit
 
     def __str__(self):
-        if self.seasonal_order[3]:
-            return "Batched ARIMA{}{}_{}".format(self.order,
-                                                 self.seasonal_order[:3],
-                                                 self.seasonal_order[3])
+        cdef ARIMAOrder order = self.order
+        intercept_str = 'c' if order.k else 'n'
+        if order.s:
+            return "ARIMA({},{},{})({},{},{})_{} ({}) - {} series".format(
+                order.p, order.d, order.q, order.P, order.D, order.Q, order.s,
+                intercept_str, self.batch_size)
         else:
-            return "Batched ARIMA{}".format(self.order)
+            return "ARIMA({},{},{}) ({}) - {} series".format(
+                order.p, order.d, order.q, intercept_str, self.batch_size)
 
     @nvtx_range_wrap
     def _ic(self, ic_type: str):
@@ -299,7 +314,7 @@ class ARIMA(Base):
 
         cdef vector[double] ic
         ic.resize(self.batch_size)
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
         cdef int ic_type_id
@@ -397,7 +412,7 @@ class ARIMA(Base):
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
-            y_pred = model.predict().to_output('numpy')
+            y_pred = model.predict()
         """
         cdef ARIMAOrder order = self.order
 
@@ -463,13 +478,13 @@ class ARIMA(Base):
         d_vs_ptr = d_vs.ptr
         d_y_p_ptr = d_y_p.ptr
 
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
                     <int> self.n_obs, <int> start, <int> end, order,
                     cpp_params, <double*>d_vs_ptr, <double*>d_y_p_ptr)
 
-        return d_y_p
+        return d_y_p.to_output(self.output_type)
 
     @nvtx_range_wrap
     def forecast(self, nsteps: int):
@@ -492,7 +507,7 @@ class ARIMA(Base):
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
-            y_fc = model.forecast(10).copy_to_host()
+            y_fc = model.forecast(10)
         """
 
         return self.predict(self.n_obs, self.n_obs + nsteps)
@@ -503,7 +518,7 @@ class ARIMA(Base):
         """
         cdef ARIMAOrder order = self.order
 
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         # Create mu, ar and ma arrays
@@ -597,7 +612,7 @@ class ARIMA(Base):
         else:
             self.set_params(start_params)
 
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         def f(x: np.ndarray) -> np.ndarray:
             """The (batched) energy functional returning the negative
@@ -658,7 +673,7 @@ class ARIMA(Base):
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,

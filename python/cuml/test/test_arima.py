@@ -239,12 +239,12 @@ def test_integration(test_case, dtype):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create and fit cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
     cuml_model.fit()
 
     # Predict
-    cuml_pred = cuml_model.predict(data.start, data.end).to_output('numpy')
+    cuml_pred = cuml_model.predict(data.start, data.end)
     ref_preds = np.zeros((data.end - data.start, data.batch_size))
     for i in range(data.batch_size):
         ref_preds[:, i] = ref_fits[i].get_prediction(
@@ -286,8 +286,8 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -299,9 +299,9 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         ref_preds[:, i] = ref_fits[i].get_prediction(
             start, end - 1).predicted_mean
     if num_steps is None:
-        cuml_pred = cuml_model.predict(start, end).to_output('numpy')
+        cuml_pred = cuml_model.predict(start, end)
     else:
-        cuml_pred = cuml_model.forecast(num_steps).to_output('numpy')
+        cuml_pred = cuml_model.forecast(num_steps)
 
     # Compare results
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
