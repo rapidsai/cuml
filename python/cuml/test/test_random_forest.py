@@ -35,24 +35,54 @@ from sklearn.datasets import fetch_california_housing, \
 from sklearn.model_selection import train_test_split
 
 
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
+@pytest.fixture(
+    params=[
+        unit_param({'n_samples': 500, 'n_features': 20, 'n_informative': 10}),
+        quality_param({'n_samples': 5000, 'n_features': 200,
+                      'n_informative': 100}),
+        stress_param({'n_samples': 500000, 'n_features': 500,
+                     'n_informative': 350})
+    ])
+def dataset(request):
+    n_samples = request.param['n_samples']
+    n_features = request.param['n_features']
+    n_informative = request.param['n_informative']
+    X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                               n_clusters_per_class=1,
+                               n_informative=n_informative,
+                               random_state=123, n_classes=2)
+    return X, y
+
+
+@pytest.fixture(
+    params=[
+        unit_param({'n_samples': 1500, 'n_features': 80, 'n_informative': 40}),
+        quality_param({'n_samples': 5000, 'n_features': 200,
+                      'n_informative': 100}),
+        stress_param({'n_samples': 500000, 'n_features': 500,
+                     'n_informative': 350})
+    ])
+def large_dataset(request):
+    n_samples = request.param['n_samples']
+    n_features = request.param['n_features']
+    n_informative = request.param['n_informative']
+    X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                               n_clusters_per_class=1,
+                               n_informative=n_informative,
+                               random_state=123, n_classes=2)
+    return X, y
+
+
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification(datatype, split_algo, rows_sample, nrows,
-                           column_info, max_features):
+def test_rf_classification(dataset, datatype, split_algo,
+                           rows_sample, max_features):
     use_handle = True
-    ncols, n_info = column_info
 
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=123, n_classes=2)
+    X, y = dataset
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -77,7 +107,7 @@ def test_rf_classification(datatype, split_algo, rows_sample, nrows,
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
     cuml_acc = accuracy_score(y_test, cu_preds)
     fil_acc = accuracy_score(y_test, fil_preds)
-    if nrows < 500000:
+    if X.shape[0] < 500000:
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
                          min_samples_split=2, max_features=max_features,
@@ -152,17 +182,9 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(2000), quality_param(25000),
-                         stress_param(500000)])
-def test_rf_regression_default(datatype, column_info, nrows):
+def test_rf_regression_default(large_dataset, datatype):
 
-    ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info,
-                           random_state=123)
+    X, y = large_dataset
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -189,7 +211,7 @@ def test_rf_regression_default(datatype, column_info, nrows):
 
     # Initialize, fit and predict using
     # sklearn's random forest regression model
-    if nrows < 500000:
+    if X.shape[0] < 500000:
         sk_model = skrfr(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
@@ -202,17 +224,9 @@ def test_rf_regression_default(datatype, column_info, nrows):
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(250), quality_param(5000),
-                         stress_param(500000)])
-def test_rf_classification_seed(datatype, column_info, nrows):
+def test_rf_classification_seed(dataset, datatype):
 
-    ncols, n_info = column_info
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=0, n_classes=2)
+    X, y = dataset
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -232,7 +246,7 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
     # sklearn random forest classification model
     # initialization, fit and predict
-    if nrows < 500000:
+    if X.shape[0] < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
@@ -279,19 +293,10 @@ def test_rf_classification_seed(datatype, column_info, nrows):
 
 @pytest.mark.parametrize('datatype', [(np.float64, np.float32),
                                       (np.float32, np.float64)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
 @pytest.mark.parametrize('convert_dtype', [True, False])
-def test_rf_classification_float64(datatype, column_info,
-                                   nrows, convert_dtype):
+def test_rf_classification_float64(dataset, datatype, convert_dtype):
 
-    ncols, n_info = column_info
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=0, n_classes=2)
+    X, y = dataset
     X = X.astype(datatype[0])
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -307,7 +312,7 @@ def test_rf_classification_float64(datatype, column_info,
 
     # sklearn random forest classification model
     # initialization, fit and predict
-    if nrows < 500000:
+    if X.shape[0] < 500000:
         sk_model = skrfc(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
@@ -330,17 +335,9 @@ def test_rf_classification_float64(datatype, column_info,
 
 @pytest.mark.parametrize('datatype', [(np.float64, np.float32),
                                       (np.float32, np.float64)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(1000), quality_param(25000),
-                         stress_param(500000)])
-def test_rf_regression_float64(datatype, column_info, nrows):
-    ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info,
-                           random_state=123)
+def test_rf_regression_float64(large_dataset, datatype):
 
+    X, y = large_dataset
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
     X_train = X_train.astype(datatype[0])
@@ -357,7 +354,7 @@ def test_rf_regression_float64(datatype, column_info, nrows):
 
     # sklearn random forest classification model
     # initialization, fit and predict
-    if nrows < 500000:
+    if X.shape[0] < 500000:
         sk_model = skrfr(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
@@ -425,25 +422,16 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
         assert cu_acc >= (sk_acc - 0.07)
 
 
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
                                                'auto', False])
 @pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
-def test_rf_classification_sparse(datatype, nrows, column_info,
-                                  fil_sparse_format, algo):
+def test_rf_classification_sparse(dataset, datatype, fil_sparse_format, algo):
     use_handle = True
-    ncols, n_info = column_info
     num_treees = 50
 
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=123, n_classes=2)
+    X, y = dataset
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -490,10 +478,10 @@ def test_rf_classification_sparse(datatype, nrows, column_info,
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
-        assert ncols == tl_model.num_features
+        assert X.shape[1] == tl_model.num_features
         del tl_model
 
-        if nrows < 500000:
+        if X.shape[0] < 500000:
             sk_model = skrfc(n_estimators=50,
                              max_depth=40,
                              min_samples_split=2,
@@ -594,20 +582,13 @@ def test_rf_regression_sparse(datatype, mode, column_info,
 
 @pytest.mark.memleak
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
-@pytest.mark.parametrize('column_info', [unit_param([80, 40]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(800), quality_param(50000),
-                         stress_param(500000)])
 @pytest.mark.parametrize('n_iter', [unit_param(5), quality_param(30),
                          stress_param(80)])
-def test_rf_memory_leakage(fil_sparse_format, column_info, nrows, n_iter):
+def test_rf_memory_leakage(dataset, fil_sparse_format, n_iter):
     datatype = np.float32
     use_handle = True
-    ncols, n_info = column_info
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=0, n_classes=2)
+
+    X, y = dataset
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -665,19 +646,12 @@ def test_create_classification_model(max_features,
     assert params['n_bins'] == verfiy_params['n_bins']
 
 
-@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
 @pytest.mark.parametrize('n_estimators', [10, 20, 100])
 @pytest.mark.parametrize('n_bins', [8, 9, 10])
-def test_multiple_fits_classification(column_info,
-                                      nrows, n_estimators, n_bins):
+def test_multiple_fits_classification(large_dataset, n_estimators, n_bins):
+
     datatype = np.float32
-    ncols, n_info = column_info
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_informative=n_info, n_classes=2)
+    X, y = large_dataset
     X = X.astype(datatype)
     y = y.astype(np.int32)
     cuml_model = curfc(n_bins=n_bins,
@@ -695,19 +669,12 @@ def test_multiple_fits_classification(column_info,
     assert params['n_bins'] == n_bins
 
 
-@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
-                         quality_param([200, 100]),
-                         stress_param([500, 350])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
 @pytest.mark.parametrize('n_estimators', [10, 20, 100])
 @pytest.mark.parametrize('n_bins', [8, 9, 10])
-def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
+def test_multiple_fits_regression(large_dataset, n_estimators, n_bins):
     datatype = np.float32
-    ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info,
-                           random_state=123)
+
+    X, y = large_dataset
     X = X.astype(datatype)
     y = y.astype(np.int32)
     cuml_model = curfr(n_bins=n_bins,
@@ -727,22 +694,14 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
     assert params['n_bins'] == n_bins
 
 
-@pytest.mark.parametrize('nrows', [unit_param(500),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         stress_param([500, 350])])
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification_proba(datatype, rows_sample, nrows,
-                                 column_info, max_features):
+def test_rf_classification_proba(dataset, datatype, rows_sample, max_features):
     use_handle = True
-    ncols, n_info = column_info
 
-    X, y = make_classification(n_samples=nrows, n_features=ncols,
-                               n_clusters_per_class=1, n_informative=n_info,
-                               random_state=123, n_classes=2)
+    X, y = dataset
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -766,7 +725,7 @@ def test_rf_classification_proba(datatype, rows_sample, nrows,
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
     fil_mse = mean_squared_error(y_proba, fil_preds_proba)
-    if nrows < 500000:
+    if X.shape[0] < 500000:
         sk_model = skrfc(n_estimators=40,
                          max_depth=16,
                          min_samples_split=2, max_features=max_features,
