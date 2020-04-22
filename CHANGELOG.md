@@ -47,6 +47,7 @@
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
 - PR #2119: Combine futures call as a tuple in dask RF
+- PR #2117: cuDF __array__ exception small fixes
 
 # cuML 0.13.0 (Date TBD)
 
