@@ -19,7 +19,7 @@
 #include <cuml/common/logger.hpp>
 #include "common/device_buffer.hpp"
 #include "common/nvtx.hpp"
-#include "runner.h"
+#include "runner.cuh"
 
 namespace ML {
 
