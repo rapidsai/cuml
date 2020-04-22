@@ -1,10 +1,10 @@
+#include <gtest/gtest.h>
+#include <linalg/transpose.h>
+#include <cuml/linear_model/glm.hpp>
 #include <glm/qn/glm_linear.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
-#include <gtest/gtest.h>
-#include <linalg/transpose.h>
-#include <cuml/linear_model/glm.hpp>
 #include <vector>
 #include "test_utils.h"
 #include "utils.h"
