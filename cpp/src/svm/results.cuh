@@ -33,7 +33,7 @@
 #include "linalg/map_then_reduce.h"
 #include "linalg/unary_op.h"
 #include "matrix/matrix.h"
-#include "ws_util.h"
+#include "ws_util.cuh"
 
 namespace ML {
 namespace SVM {
