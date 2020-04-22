@@ -184,8 +184,8 @@ def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
     X, ary = _generate_inputs_from_categories(n_samples=n_samples,
                                               as_array=as_array)
 
-    enc = OneHotEncoder(sparse=sparse, drop=drop)
-    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop)
+    enc = OneHotEncoder(sparse=sparse, drop=drop, categories='auto')
+    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop, categories='auto')
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     if sparse:
@@ -205,8 +205,8 @@ def test_onehot_drop_idx_first(as_array):
         X = _from_df_to_cupy(X)
         X_ary = cp.asnumpy(X)
 
-    enc = OneHotEncoder(sparse=False, drop='first')
-    sk_enc = SkOneHotEncoder(sparse=False, drop='first')
+    enc = OneHotEncoder(sparse=False, drop='first', categories='auto')
+    sk_enc = SkOneHotEncoder(sparse=False, drop='first', categories='auto')
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
@@ -225,10 +225,11 @@ def test_onehot_drop_one_of_each(as_array):
         X_ary = cp.asnumpy(X)
         drop = drop_ary = _convert_drop(drop)
 
-    enc = OneHotEncoder(sparse=False, drop=drop)
+    enc = OneHotEncoder(sparse=False, drop=drop, categories='auto')
     ohe = enc.fit_transform(X)
     print(ohe.dtype)
-    ref = SkOneHotEncoder(sparse=False, drop=drop_ary).fit_transform(X_ary)
+    ref = SkOneHotEncoder(sparse=False, drop=drop_ary,
+                          categories='auto').fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
     inv = enc.inverse_transform(ohe)
     assert_inverse_equal(inv, X)
@@ -266,7 +267,7 @@ def test_onehot_get_categories(as_array):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        cp.testing.assert_array_equal(ref[i], cats[i])
+        np.testing.assert_array_equal(ref[i], cats[i].to_array())
 
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
@@ -281,8 +282,8 @@ def test_onehot_sparse_drop(as_array):
         ary = cp.asnumpy(X)
         drop = drop_ary = _convert_drop(drop)
 
-    enc = OneHotEncoder(sparse=True, drop=drop)
-    sk_enc = SkOneHotEncoder(sparse=True, drop=drop_ary)
+    enc = OneHotEncoder(sparse=True, drop=drop, categories='auto')
+    sk_enc = SkOneHotEncoder(sparse=True, drop=drop_ary, categories='auto')
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())
