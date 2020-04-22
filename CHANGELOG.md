@@ -26,6 +26,7 @@
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
+- PR #2064: Speed-up K-Means test
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
@@ -47,6 +48,7 @@
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
 - PR #2107: Fix PCA transform
+- PR #2117: cuDF __array__ exception small fixes
 
 # cuML 0.13.0 (Date TBD)
 
