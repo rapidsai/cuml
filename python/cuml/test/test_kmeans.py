@@ -32,14 +32,11 @@ dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
 SCORE_EPS = 0.06
 
 
-@pytest.mark.xfail
-@pytest.mark.parametrize('random_state', [i for i in range(10)])
-def test_n_init_cluster_consistency(random_state):
-
+@pytest.fixture
+def get_data_consistency_test():
     cluster_std = 1.0
-
-    nrows = 100000
-    ncols = 100
+    nrows = 1000
+    ncols = 50
     nclusters = 8
 
     X, y = make_blobs(nrows,
@@ -48,6 +45,15 @@ def test_n_init_cluster_consistency(random_state):
                       cluster_std=cluster_std,
                       shuffle=False,
                       random_state=0)
+    return X, y
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
+def test_n_init_cluster_consistency(random_state):
+
+    nclusters = 8
+    X, y = get_data_consistency_test()
 
     cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
                               n_clusters=nclusters,
@@ -70,9 +76,9 @@ def test_n_init_cluster_consistency(random_state):
 
 
 @pytest.mark.parametrize('nrows', [1000, 10000])
-@pytest.mark.parametrize('ncols', [10, 50])
+@pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
-@pytest.mark.parametrize('random_state', [i for i in range(50)])
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
 def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
                                            random_state):
 
@@ -143,10 +149,10 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('nrows', [1000, 10000])
-@pytest.mark.parametrize('ncols', [10, 50])
+@pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
 @pytest.mark.parametrize('cluster_std', [1.0, 0.1, 0.01])
-@pytest.mark.parametrize('random_state', [i for i in range(25)])
+@pytest.mark.parametrize('random_state', [i for i in range(0, 10, 2)])
 def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
                                random_state, cluster_std):
 
@@ -241,8 +247,6 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
     assert sk_score - 1e-2 <= cu_score <= sk_score + 1e-2
 
 
-@pytest.mark.parametrize('n_rows', [unit_param(100),
-                                    stress_param(500000)])
 @pytest.mark.parametrize('n_clusters', [unit_param(10),
                                         unit_param(100),
                                         stress_param(1000)])
@@ -252,7 +256,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows):
 @pytest.mark.parametrize('init', ['k-means||',
                                   'random',
                                   'preset'])
-def test_all_kmeans_params(n_rows, n_clusters, max_iter, init,
+def test_all_kmeans_params(n_clusters, max_iter, init,
                            oversampling_factor, max_samples_per_batch):
 
     np.random.seed(0)
