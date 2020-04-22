@@ -68,7 +68,7 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
             if type(cuml_res) == np.ndarray:
                 cuml_res = cuml_res.as_matrix()
             skl_res = getattr(skpca, attr)
-            assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
     finally:
         client.close()
 
