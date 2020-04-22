@@ -59,17 +59,17 @@ def confusion_matrix(y_true, y_pred,
 
     Parameters
     ----------
-    y_true : array-like (device or host) shape = (n_samples,)
+    y_true : dask.Array (device or host) shape = (n_samples,)
         or (n_samples, n_outputs)
         Ground truth (correct) target values.
-    y_pred : array-like (device or host) shape = (n_samples,)
+    y_pred : dask.Array (device or host) shape = (n_samples,)
         or (n_samples, n_outputs)
         Estimated target values.
     labels : array-like (device or host) shape = (n_classes,), optional
         List of labels to index the matrix. This may be used to reorder or
         select a subset of labels. If None is given, those that appear at least
         once in y_true or y_pred are used in sorted order.
-    sample_weight : array-like (device or host) shape = (n_samples,), optional
+    sample_weight : dask.Array (device or host) shape = (n_samples,), optional
         Sample weights.
     normalize : string in [‘true’, ‘pred’, ‘all’]
         Normalizes confusion matrix over the true (rows), predicted (columns)
@@ -83,7 +83,7 @@ def confusion_matrix(y_true, y_pred,
     C : array-like (device or host) shape = (n_classes, n_classes)
         Confusion matrix.
     """
-    client = get_client()
+    client = get_client(client)
 
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
