@@ -772,7 +772,7 @@ void checkWeights(const cumlHandle_impl &handle,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (wt_sum != n_samples) {
-    LOG(handle, true,
+    LOG(handle,
         "[Warning!] KMeans: normalizing the user provided sample weights to "
         "sum up to %d samples",
         n_samples);
