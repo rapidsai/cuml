@@ -329,7 +329,7 @@ class OneHotEncoder:
             enc_size = len(cats)
             x_feature = X[:, j:j + enc_size]
             idx = cp.argmax(x_feature, axis=1)
-            inv = Series(cats[idx]).reset_index(drop=True)
+            inv = Series(cats.iloc[idx]).reset_index(drop=True)
 
             if self.handle_unknown == 'ignore':
                 not_null_idx = x_feature.any(axis=1)
