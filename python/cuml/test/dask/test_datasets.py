@@ -25,7 +25,7 @@ from dask.distributed import Client
 from cuml.dask.datasets import make_blobs
 
 from cuml.test.utils import unit_param, quality_param, stress_param
-from cuml.dask.common.part_utils import _extract_partitions
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 
 @pytest.mark.parametrize('nrows', [unit_param(1e3), quality_param(1e5),
@@ -155,15 +155,14 @@ def test_make_regression(n_samples, n_features, n_informative,
 
             assert test2, "Unexpectedly incongruent outputs"
 
-        X_part = c.sync(_extract_partitions, out)
-        out_part = X_part[0][1].result()
-
-        y_part = c.sync(_extract_partitions, values)
-        value_part = y_part[0][1].result()
+        data_ddh = DistributedDataHandler.create(data=(out, values),
+                                                 client=c)
+        out_part, value_part = data_ddh.gpu_futures[0][1].result()
 
         if coef:
-            coefs_part = c.sync(_extract_partitions, coefs)
-            coefs_part = coefs_part[0][1].result()
+            coefs_ddh = DistributedDataHandler.create(data=coefs,
+                                                      client=c)
+            coefs_part = coefs_ddh.gpu_futures[0][1].result()
         if order == 'F':
             assert out_part.flags['F_CONTIGUOUS']
             if n_targets > 1:

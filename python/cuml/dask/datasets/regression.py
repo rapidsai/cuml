@@ -19,10 +19,10 @@ import dask.delayed
 from dask.distributed import default_client
 import numpy as np
 import cupy as cp
-from cuml.dask.common.part_utils import _extract_partitions
 from cuml.utils import with_cupy_rmm
 from cuml.dask.datasets.blobs import get_X
 from cuml.dask.datasets.blobs import get_labels
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 
 def create_rs_generator(random_state):
@@ -45,6 +45,11 @@ def create_rs_generator(random_state):
     return rs
 
 
+def _dask_array_from_delayed(part, nrows, ncols, dtype):
+    return da.from_delayed(dask.delayed(part), shape=(nrows, ncols),
+                           meta=cp.zeros((1)), dtype=dtype)
+
+
 def _f_order_standard_normal(nrows, ncols, dtype, seed):
     local_rs = cp.random.RandomState(seed=seed)
     x = local_rs.standard_normal(nrows * ncols, dtype=dtype)
@@ -64,10 +69,10 @@ def f_order_standard_normal(client, rs, chunksizes, ncols, dtype):
                             pure=False)
               for idx, chunksize in enumerate(chunksizes)]
 
-    chunks_dela = [da.from_delayed(dask.delayed(chunk),
-                                   shape=(chunksizes[idx], ncols),
-                                   meta=cp.zeros((1)), dtype=dtype)
+    chunks_dela = [_dask_array_from_delayed(chunk, chunksizes[idx], ncols,
+                                            dtype)
                    for idx, chunk in enumerate(chunks)]
+
     return da.concatenate(chunks_dela, axis=0)
 
 
@@ -94,14 +99,15 @@ def data_from_multivariate_normal(client, rs, covar, chunksizes, n_features,
                                 pure=False)
                   for idx, chunk in enumerate(chunksizes)]
 
-    data_dela = [da.from_delayed(dask.delayed(chunk),
-                                 shape=(chunksizes[idx], n_features),
-                                 meta=cp.zeros((1)), dtype=dtype)
+    data_dela = [_dask_array_from_delayed(chunk, chunksizes[idx], n_features,
+                                          dtype)
                  for idx, chunk in enumerate(data_parts)]
+
     return da.concatenate(data_dela, axis=0)
 
 
-def _f_order_shuffle(X, y, n_samples, seed, features_indices):
+def _f_order_shuffle(part, n_samples, seed, features_indices):
+    X, y = part[0], part[1]
     local_rs = cp.random.RandomState(seed=seed)
     samples_indices = local_rs.permutation(n_samples)
 
@@ -114,42 +120,37 @@ def _f_order_shuffle(X, y, n_samples, seed, features_indices):
 
 def f_order_shuffle(client, rs, X, y, chunksizes, n_features,
                     features_indices, n_targets, dtype):
-    X_parts = client.sync(_extract_partitions, X)
-    y_parts = client.sync(_extract_partitions, y)
+    data_ddh = DistributedDataHandler.create(data=(X, y), client=client)
 
     chunk_seeds = rs.permutation(len(chunksizes))
 
-    shuffled = [client.submit(_f_order_shuffle, X_part, y_parts[idx][1],
+    shuffled = [client.submit(_f_order_shuffle, part,
                               chunksizes[idx],
                               chunk_seeds[idx], features_indices,
                               workers=[w], pure=False)
-                for idx, (w, X_part) in enumerate(X_parts)]
+                for idx, (w, part) in enumerate(data_ddh.gpu_futures)]
 
     X_shuffled = [client.submit(get_X, f, pure=False)
                   for idx, f in enumerate(shuffled)]
     y_shuffled = [client.submit(get_labels, f, pure=False)
                   for idx, f in enumerate(shuffled)]
 
-    X_dela = [da.from_delayed(dask.delayed(Xs),
-                              shape=(chunksizes[idx], n_features),
-                              meta=cp.zeros((1)),
-                              dtype=dtype)
+    X_dela = [_dask_array_from_delayed(Xs, chunksizes[idx], n_features,
+                                       dtype)
               for idx, Xs in enumerate(X_shuffled)]
 
-    y_dela = [da.from_delayed(dask.delayed(ys),
-                              shape=(chunksizes[idx], n_targets),
-                              meta=cp.zeros((1)),
-                              dtype=dtype)
+    y_dela = [_dask_array_from_delayed(ys, chunksizes[idx], n_targets,
+                                       dtype)
               for idx, ys in enumerate(y_shuffled)]
 
     return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
 
 
 def convert_C_to_F_order(client, X, chunksizes, n_features, dtype):
-    X_parts = client.sync(_extract_partitions, X)
+    X_ddh = DistributedDataHandler.create(data=X, client=client)
     X_converted = [client.submit(cp.array, X_part, copy=False, order='F',
                                  workers=[w])
-                   for idx, (w, X_part) in enumerate(X_parts)]
+                   for idx, (w, X_part) in enumerate(X_ddh.gpu_futures)]
 
     X_dela = [da.from_delayed(dask.delayed(Xc),
                               shape=(chunksizes[idx], n_features),
@@ -159,7 +160,7 @@ def convert_C_to_F_order(client, X, chunksizes, n_features, dtype):
     return da.concatenate(X_dela, axis=0)
 
 
-def generate_chunks_for_qr(total_size, min_size, n_parts):
+def _generate_chunks_for_qr(total_size, min_size, n_parts):
 
     n_total_per_part = max(1, int(total_size / n_parts))
     if n_total_per_part > min_size:
@@ -172,10 +173,10 @@ def generate_chunks_for_qr(total_size, min_size, n_parts):
     return tuple(chunks_list)
 
 
-def generate_singular_values(n, effective_rank, tail_strength,
-                             n_samples_per_part):
+def _generate_singular_values(n, effective_rank, tail_strength,
+                              n_samples_per_part, dtype='float32'):
     # Index of the singular values
-    sing_ind = cp.arange(n, dtype=cp.float64)
+    sing_ind = cp.arange(n, dtype=dtype)
 
     # Build the singular profile by assembling signal and noise components
     tmp = sing_ind / effective_rank
@@ -188,12 +189,23 @@ def generate_singular_values(n, effective_rank, tail_strength,
 def _make_low_rank_covariance(n_features, effective_rank,
                               tail_strength, seed, n_parts,
                               n_samples_per_part, dtype):
+    """
+        This approach is a faster approach than making X as a full low
+        rank matrix. Here, we take advantage of the fact that with
+        SVD, X * X^T = V * S^2 * V^T. This means that we can
+        generate a covariance matrix by generating only the right
+        eigen-vector and the squared, low-rank singular values.
+        With a memory usage of only O(n_features ^ 2) in this case, we pass
+        this covariance matrix to workers to generate each part of X
+        embarassingly parallel from a multi-variate normal with mean 0
+        and generated covariance.
+    """
     local_rs = cp.random.RandomState(seed=seed)
     m2 = local_rs.standard_normal((n_features, n_features), dtype=dtype)
     v, _ = cp.linalg.qr(m2)
 
-    s = generate_singular_values(n_features, effective_rank, tail_strength,
-                                 n_samples_per_part)
+    s = _generate_singular_values(n_features, effective_rank, tail_strength,
+                                  n_samples_per_part)
 
     v *= (s ** 2)
     return cp.dot(v, cp.transpose(v))
@@ -246,14 +258,14 @@ def make_low_rank_matrix(n_samples=100, n_features=100,
 
     # Random (ortho normal) vectors
     m1 = rs.standard_normal((n_samples, n),
-                            chunks=(generate_chunks_for_qr(n_samples,
-                                                           n, n_parts), -1),
+                            chunks=(_generate_chunks_for_qr(n_samples,
+                                                            n, n_parts), -1),
                             dtype=dtype)
     u, _ = da.linalg.qr(m1)
 
     m2 = rs.standard_normal((n, n_features),
-                            chunks=(-1, generate_chunks_for_qr(n_features,
-                                                               n, n_parts)),
+                            chunks=(-1, _generate_chunks_for_qr(n_features,
+                                                                n, n_parts)),
                             dtype=dtype)
     v, _ = da.linalg.qr(m2)
 
@@ -263,8 +275,8 @@ def make_low_rank_matrix(n_samples=100, n_features=100,
     u = u.rechunk({0: n_samples_per_part, 1: -1})
     v = v.rechunk({0: n_samples_per_part, 1: -1})
 
-    local_s = generate_singular_values(n, effective_rank, tail_strength,
-                                       n_samples_per_part)
+    local_s = _generate_singular_values(n, effective_rank, tail_strength,
+                                        n_samples_per_part)
     s = da.from_array(local_s,
                       chunks=(int(n_samples_per_part),))
 
@@ -332,7 +344,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         dtype of generated data
     use_full_low_rank : boolean (default=True)
         Whether to use the entire dataset to generate the low rank matrix.
-        If False, it uses the first chunk
+        If False, it creates a low rank covariance and uses the
+        corresponding covariance to generate a multivariate normal
+        distribution on the remaining chunks
 
     Returns
     -------
@@ -356,9 +370,8 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         3. When `shuffle = True` and `order = F`, there are memory spikes to
            shuffle the `F` order arrays
 
-    NOTE: If one runs into Out-Of-Memory errors when any of the above
-          known-limitations are breached, try increasing the `n_parts`
-          parameter.
+    NOTE: If out-of-memory errors are encountered in any of the above
+          configurations, try increasing the `n_parts` parameter.
     """
 
     client = default_client() if client is None else client
@@ -401,9 +414,10 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
             X = X.rechunk({0: data_chunksizes,
                            1: -1})
         else:
-            seed = rs.randint(n_samples)
-            covar = make_low_rank_covariance(n_features, effective_rank,
-                                             tail_strength, seed, n_parts,
+            seed = int(rs.randint(n_samples).compute())
+            covar = make_low_rank_covariance(client, n_features,
+                                             effective_rank, tail_strength,
+                                             seed, n_parts,
                                              n_samples_per_part, dtype)
             X = data_from_multivariate_normal(client, rs, covar,
                                               data_chunksizes, n_features,
