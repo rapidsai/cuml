@@ -338,18 +338,36 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.svm.SVC,
             cuml.svm.SVC,
-            shared_args={},
+            shared_args={"kernel": "rbf"},
             cuml_args={},
-            name="SVC",
+            name="SVC-RBF",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.SVC,
+            cuml.svm.SVC,
+            shared_args={"kernel": "linear"},
+            cuml_args={},
+            name="SVC-Linear",
             accepts_labels=True,
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
             sklearn.svm.SVR,
             cuml.svm.SVR,
-            shared_args={},
+            shared_args={"kernel": "rbf"},
             cuml_args={},
-            name="SVR",
+            name="SVR-RBF",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.SVR,
+            cuml.svm.SVR,
+            shared_args={"kernel": "linear"},
+            cuml_args={},
+            name="SVR-Linear",
             accepts_labels=True,
             accuracy_function=cuml.metrics.r2_score,
         ),
@@ -418,16 +436,24 @@ def all_algorithms():
     ]
 
     if has_umap():
-        algorithms.append(
+        algorithms.extend([
             AlgorithmPair(
                 umap.UMAP,
                 cuml.manifold.UMAP,
                 shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP",
-                accepts_labels=False,
+                name="UMAP-Unsupervised",
+                accepts_labels=True,
+                accuracy_function=cuml.metrics.trustworthiness,
+            ),
+            AlgorithmPair(
+                umap.UMAP,
+                cuml.manifold.UMAP,
+                shared_args=dict(n_neighbors=5, n_epochs=500),
+                name="UMAP-Supervised",
+                accepts_labels=True,
                 accuracy_function=cuml.metrics.trustworthiness,
             )
-        )
+        ])
 
     return algorithms
 
