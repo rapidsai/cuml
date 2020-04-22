@@ -28,6 +28,7 @@
 - PR #2058: Use CumlArray in Random Projection
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
 - PR #2080: Improved import of sparse FIL forests from treelite
+- PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 
 ## Bug Fixes
@@ -45,6 +46,7 @@
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
+- PR #2117: cuDF __array__ exception small fixes
 
 # cuML 0.13.0 (Date TBD)
 
