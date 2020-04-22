@@ -61,12 +61,10 @@ def confusion_matrix(y_true, y_pred,
     """
     y_true, n_rows, n_cols, dtype = \
         input_to_cuml_array(y_true, check_dtype=[cp.int32, cp.int64])
-    y_true = y_true.to_output('cupy')
 
     y_pred, _, _, _ = \
         input_to_cuml_array(y_pred, check_dtype=dtype,
                             check_rows=n_rows, check_cols=n_cols)
-    y_pred = y_pred.to_output('cupy')
 
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
