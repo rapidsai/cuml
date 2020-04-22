@@ -20,7 +20,7 @@
 #include <matrix/matrix.h>
 #include <test_utils.h>
 #include "ml_utils.h"
-#include "solver/cd.h"
+#include "solver/cd.cuh"
 
 namespace ML {
 namespace Solver {

@@ -105,8 +105,8 @@ inline double check_density(double density, size_t n_features)
 namespace ML{
     /**
      * @brief computes minimum target dimension to preserve information according to error tolerance (eps parameter)
-     * @input param n_samples: number of samples
-     * @input param eps: error tolerance
+     * @param[in] n_samples: number of samples
+     * @param[in] eps: error tolerance
      * @return minimum target dimension
      */
     size_t johnson_lindenstrauss_min_dim(size_t n_samples, double eps)
