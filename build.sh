@@ -119,11 +119,13 @@ if (( ${CLEAN} == 1 )); then
           rmdir ${bd} || true
       fi
 
-      cd ${REPODIR}/python
-      python setup.py clean --all
-      cd ${REPODIR}
+
 
     done
+
+    cd ${REPODIR}/python
+    python setup.py clean --all
+    cd ${REPODIR}
 fi
 
 ################################################################################
