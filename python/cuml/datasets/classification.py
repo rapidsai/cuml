@@ -281,8 +281,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
             # NOTE: This could be done outside the loop, but a current
             # cupy bug does not allow that
             # https://github.com/cupy/cupy/issues/3284
-            X[centroid_indices[0], n_informative:n_informative
-              + n_redundant] = cp.dot(X_k, B)
+            if n_redundant > 0:
+                X[centroid_indices[0], n_informative:n_informative
+                    + n_redundant] = cp.dot(X_k, B)
 
             X_k += centroid  # shift the cluster to a vertex
             X[centroid_indices[0], :n_informative] = X_k
@@ -300,8 +301,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                 A = _informative_covariance[k]
             X_k = cp.dot(X_k, A)  # introduce random covariance
 
-            X[start:stop, n_informative:n_informative + n_redundant] = \
-                cp.dot(X_k, B)
+            if n_redundant > 0:
+                X[start:stop, n_informative:n_informative + n_redundant] = \
+                    cp.dot(X_k, B)
 
             X_k += centroid  # shift the cluster to a vertex
             X[start:stop, :n_informative] = X_k
