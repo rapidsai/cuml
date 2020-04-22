@@ -84,7 +84,7 @@ def test_singlets_holtwinters(seasonal, h, datatype):
 
     cu_pred = cu_hw.forecast(h)
     sm_pred = sm_hw.forecast(h)
-    cu_r2 = r2_score(cu_pred, test)
+    cu_r2 = r2_score(cu_pred.to_array(), test)
     sm_r2 = r2_score(sm_pred, test)
 
     assert (cu_r2 >= sm_r2) or (abs(cu_r2 - sm_r2) < 2e-1)
@@ -130,8 +130,8 @@ def test_multits_holtwinters(seasonal, h, datatype):
     assert (cu_co2_r2 >= sm_co2_r2) or (abs(cu_co2_r2 - sm_co2_r2) < 4)
 
     full_cu_pred = cu_hw.forecast(h)
-    air_cu_r2 = r2_score(full_cu_pred[0], air_test)
-    co2_cu_r2 = r2_score(full_cu_pred[1], co2_test)
+    air_cu_r2 = r2_score(full_cu_pred[0].to_array(), air_test)
+    co2_cu_r2 = r2_score(full_cu_pred[1].to_array(), co2_test)
     assert (air_cu_r2 >= sm_air_r2) or (abs(air_cu_r2 - sm_air_r2) < 4)
     assert (co2_cu_r2 >= sm_co2_r2) or (abs(co2_cu_r2 - sm_co2_r2) < 4)
 
