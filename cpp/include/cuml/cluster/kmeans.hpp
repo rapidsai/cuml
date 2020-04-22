@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 
 namespace ML {
@@ -45,8 +46,8 @@ struct KMeansParams {
   // Relative tolerance with regards to inertia to declare convergence.
   double tol = 1e-4;
 
-  // verbosity mode.
-  int verbose = 0;
+  // verbosity level.
+  int verbosity = CUML_LEVEL_INFO;
 
   // Seed to the random number generator.
   int seed = 0;

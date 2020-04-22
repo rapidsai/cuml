@@ -21,7 +21,7 @@
 #include <thrust/scan.h>
 #include <common/allocatorAdapter.hpp>
 #include <common/cumlHandle.hpp>
-#include "../common.h"
+#include "../common.cuh"
 #include "pack.h"
 
 #include "sparse/csr.h"

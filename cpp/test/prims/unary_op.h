@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,12 @@ __global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
                                  IdxType len) {
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {
-    out[idx] = static_cast<OutType>(scalar * in[idx]);
+    if (in == nullptr) {
+      // used for testing writeOnlyUnaryOp
+      out[idx] = static_cast<OutType>(scalar * idx);
+    } else {
+      out[idx] = static_cast<OutType>(scalar * in[idx]);
+    }
   }
 }
 
@@ -43,7 +48,7 @@ void naiveScale(OutType *out, const InType *in, InType scalar, int len,
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
 struct UnaryOpInputs {
-  InType tolerance;
+  OutType tolerance;
   IdxType len;
   InType scalar;
   unsigned long long int seed;
