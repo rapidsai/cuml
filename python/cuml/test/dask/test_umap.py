@@ -97,7 +97,7 @@ def test_umap_mnmg(n_parts, sampling_ratio, supervised, dataset, cluster):
             assert dist_umap > 0.8
         else:  # dataset == "iris"
             assert loc_umap > 0.88
-            assert dist_umap > 0.78
+            assert dist_umap > 0.75
 
     finally:
         client.close()
