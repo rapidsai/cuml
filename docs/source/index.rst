@@ -22,7 +22,13 @@ Support for Windows is possible in the near future.
    :caption: Contents:
 
    api.rst
-
+   
+   cuml_datatypes.rst
+   cuml_notebooks.rst
+   cuml_blogs.rst
+   metrics_demo.ipynb
+  
+   
 Indices and tables
 ==================
 
