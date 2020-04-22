@@ -15,14 +15,14 @@
  */
 
 #pragma once
+#include <matrix/math.h>
+#include <common/device_buffer.hpp>
 #include <glm/qn/glm_base.cuh>
 #include <glm/qn/glm_linear.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_regularizer.cuh>
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn_solvers.cuh>
-#include <matrix/math.h>
-#include <common/device_buffer.hpp>
 
 namespace ML {
 namespace GLM {
