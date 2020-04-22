@@ -28,4 +28,4 @@ def sorted_unique_labels(*ys):
     ys = (cp.unique(y.map_blocks(lambda x: cp.unique(x)).compute())
           for y in ys)
     labels = cp.unique(cp.concatenate(ys))
-    return cp.sort(labels)
+    return labels

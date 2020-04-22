@@ -27,4 +27,4 @@ def sorted_unique_labels(*ys):
     labels."""
     ys = (cp.unique(y) for y in ys)
     labels = cp.unique(cp.concatenate(ys))
-    return cp.sort(labels)
+    return labels
