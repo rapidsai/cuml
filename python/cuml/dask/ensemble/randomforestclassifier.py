@@ -16,10 +16,10 @@
 
 import cudf
 
-from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
+from cuml.dask.common import raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from dask.distributed import default_client, wait
+from cuml.dask.common.part_utils import _extract_partitions
 
 
 from cuml.dask.common.base import DelayedPredictionMixin, \
@@ -395,8 +395,8 @@ class RandomForestClassifier(DelayedPredictionMixin,
         c = default_client()
 
         self.num_classes = len(y.unique())
-        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
-        y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
+        X_futures = workers_to_parts(c.sync(_extract_partitions, X))
+        y_futures = workers_to_parts(c.sync(_extract_partitions, y))
 
         X_partition_workers = [w for w, xc in X_futures.items()]
         y_partition_workers = [w for w, xc in y_futures.items()]
@@ -513,7 +513,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
                            delayed=True, fil_sparse_format='auto'):
 
         self._concat_treelite_models()
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
         kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,

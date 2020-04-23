@@ -1,6 +1,10 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1980: prim: added a new write-only unary op prim
+- PR #1867: C++: add logging interface support in cuML based spdlog
+- PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
+- PR #1906: UMAP MNMG
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -8,13 +12,27 @@
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 - PR #1968: Update SVC SVR with cuML Array
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
+- PR #2044: A cuda-memcheck helper wrapper for devs
+- PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
+- PR #2019: Enable doxygen build in our nightly doc build CI script
 - PR #1996: Cythonize in parallel
+- PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
+- PR #2047: Make internal streams non-blocking w.r.t. NULL stream
+- PR #2058: Use CumlArray in Random Projection
+- PR #2064: Speed-up K-Means test
+- PR #2015: Renaming .h to .cuh in solver, dbscan and svm
+- PR #2080: Improved import of sparse FIL forests from treelite
+- PR #2090: Upgrade C++ build to C++14 standard
+- PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -23,8 +41,15 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2017: Fixing memory issue in weak cc prim
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
+- PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+- PR #2077L dask-make blobs arguments to match sklearn
+- PR #2078: Ignore negative cache indices in get_vecs
+- PR #2084: Fixed cuda-memcheck errors with COO unit-tests
+- PR #2087: Fixed cuda-memcheck errors with dispersion prim
+- PR #2117: cuDF __array__ exception small fixes
 
 # cuML 0.13.0 (Date TBD)
 
