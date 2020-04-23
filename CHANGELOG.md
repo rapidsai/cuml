@@ -17,6 +17,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 - PR #2044: A cuda-memcheck helper wrapper for devs
 - PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
 - PR #2019: Enable doxygen build in our nightly doc build CI script
