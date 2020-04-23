@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help --deep"
+VALIDARGS="clean libcuml cuml prims bench prims-bench -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -53,7 +53,6 @@ BUILD_ALL_GPU_ARCH=0
 SINGLEGPU=""
 NVTX=OFF
 CLEAN=0
-DEEPCLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 
 # Set defaults for vars that may not have been defined externally
@@ -120,11 +119,13 @@ if (( ${CLEAN} == 1 )); then
           rmdir ${bd} || true
       fi
 
-      cd ${REPODIR}/python
-      python setup.py clean --all
-      cd ${REPODIR}
+
 
     done
+
+    cd ${REPODIR}/python
+    python setup.py clean --all
+    cd ${REPODIR}
 fi
 
 ################################################################################
