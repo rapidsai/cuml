@@ -18,12 +18,13 @@ import cudf
 import dask
 
 from cuml.dask.common import raise_exception_from_futures, workers_to_parts
+from cuml.dask.common.part_utils import _extract_partitions
+
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.part_utils import _extract_partitions
 
 import math
 import random
@@ -340,7 +341,6 @@ class RandomForestRegressor(DelayedPredictionMixin):
         """
         mod_bytes = []
         models = list()
-        #c = default_client()
         for w in self.workers:
             models.append((RandomForestRegressor._get_pbuf_bytes)(self.rfs[w]))
         mod_bytes = self.client.compute(models, sync=True)
@@ -350,9 +350,8 @@ class RandomForestRegressor(DelayedPredictionMixin):
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_model_handle = model._concatenate_treelite_handle(
+        model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
@@ -490,9 +489,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
                            convert_dtype=True, fil_sparse_format='auto',
                            delayed=True):
         self._concat_treelite_models()
+
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
-
         kwargs = {"convert_dtype": convert_dtype,
                   "predict_model": predict_model, "algo": algo,
                   "fil_sparse_format": fil_sparse_format}
