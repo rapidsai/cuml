@@ -36,40 +36,85 @@ from sklearn.model_selection import train_test_split
 
 
 @pytest.fixture(
+    scope="session",
     params=[
-        unit_param({'n_samples': 500, 'n_features': 20, 'n_informative': 10}),
+        unit_param({'n_samples': 350, 'n_features': 20, 'n_informative': 10}),
         quality_param({'n_samples': 5000, 'n_features': 200,
-                      'n_informative': 100}),
-        stress_param({'n_samples': 500000, 'n_features': 500,
-                     'n_informative': 350})
+                      'n_informative': 80}),
+        stress_param({'n_samples': 500000, 'n_features': 400,
+                     'n_informative': 180})
     ])
-def dataset(request):
-    n_samples = request.param['n_samples']
-    n_features = request.param['n_features']
-    n_informative = request.param['n_informative']
-    X, y = make_classification(n_samples=n_samples, n_features=n_features,
+def small_clf(request):
+    X, y = make_classification(n_samples=request.param['n_samples'],
+                               n_features=request.param['n_features'],
                                n_clusters_per_class=1,
-                               n_informative=n_informative,
+                               n_informative=request.param['n_informative'],
                                random_state=123, n_classes=2)
     return X, y
 
 
 @pytest.fixture(
+    scope="session",
     params=[
-        unit_param({'n_samples': 1500, 'n_features': 80, 'n_informative': 40}),
+        unit_param({'n_samples': 500, 'n_features': 20, 'n_informative': 10}),
         quality_param({'n_samples': 5000, 'n_features': 200,
+                      'n_informative': 50}),
+        stress_param({'n_samples': 500000, 'n_features': 400,
+                     'n_informative': 100})
+    ])
+def large_clf(request):
+    X, y = make_classification(n_samples=request.param['n_samples'],
+                               n_features=request.param['n_features'],
+                               n_clusters_per_class=1,
+                               n_informative=request.param['n_informative'],
+                               random_state=123, n_classes=2)
+    return X, y
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        unit_param({'n_samples': 1500, 'n_features': 20, 'n_informative': 10}),
+        quality_param({'n_samples': 12000, 'n_features': 200,
                       'n_informative': 100}),
         stress_param({'n_samples': 500000, 'n_features': 500,
                      'n_informative': 350})
     ])
-def large_dataset(request):
-    n_samples = request.param['n_samples']
-    n_features = request.param['n_features']
-    n_informative = request.param['n_informative']
-    X, y = make_classification(n_samples=n_samples, n_features=n_features,
-                               n_clusters_per_class=1,
-                               n_informative=n_informative,
-                               random_state=123, n_classes=2)
+def large_reg(request):
+    X, y = make_regression(n_samples=request.param['n_samples'],
+                           n_features=request.param['n_features'],
+                           n_informative=request.param['n_informative'],
+                           random_state=123)
+    return X, y
+
+
+special_reg_params = [
+        unit_param({'mode': 'unit', 'n_samples': 500,
+                   'n_features': 20, 'n_informative': 10}),
+        quality_param({'mode': 'quality', 'n_samples': 500,
+                      'n_features': 20, 'n_informative': 10}),
+        quality_param({'mode': 'quality', 'n_features': 200,
+                      'n_informative': 50}),
+        stress_param({'mode': 'stress', 'n_samples': 500,
+                     'n_features': 20, 'n_informative': 10}),
+        stress_param({'mode': 'stress', 'n_features': 200,
+                     'n_informative': 50}),
+        stress_param({'mode': 'stress', 'n_samples': 1000,
+                     'n_features': 400, 'n_informative': 100})
+    ]
+
+
+@pytest.fixture(
+    scope="session",
+    params=special_reg_params)
+def special_reg(request):
+    if request.param['mode'] == 'quality':
+        X, y = fetch_california_housing(return_X_y=True)
+    else:
+        X, y = make_regression(n_samples=request.param['n_samples'],
+                               n_features=request.param['n_features'],
+                               n_informative=request.param['n_informative'],
+                               random_state=123)
     return X, y
 
 
@@ -78,11 +123,11 @@ def large_dataset(request):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification(dataset, datatype, split_algo,
+def test_rf_classification(small_clf, datatype, split_algo,
                            rows_sample, max_features):
     use_handle = True
 
-    X, y = dataset
+    X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -119,33 +164,17 @@ def test_rf_classification(dataset, datatype, split_algo,
     assert fil_acc >= (cuml_acc - 0.02)
 
 
-@pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
-                         stress_param('stress')])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 50]),
-                         stress_param([400, 100])])
 @pytest.mark.parametrize('rows_sample', [unit_param(1.0), quality_param(0.90),
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_regression(datatype, split_algo, mode, column_info,
-                       max_features, rows_sample):
+def test_rf_regression(special_reg, datatype, split_algo, max_features,
+                       rows_sample):
 
-    ncols, n_info = column_info
     use_handle = True
 
-    if mode == 'unit':
-        X, y = make_regression(n_samples=500, n_features=ncols,
-                               n_informative=n_info,
-                               random_state=123)
-    elif mode == 'quality':
-        X, y = fetch_california_housing(return_X_y=True)
-
-    else:
-        X, y = make_regression(n_samples=100000, n_features=ncols,
-                               n_informative=n_info,
-                               random_state=123)
+    X, y = special_reg
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -170,7 +199,7 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
     fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
     # Initialize, fit and predict using
     # sklearn's random forest regression model
-    if mode != "stress":
+    if X.shape[0] < 1000:  # mode != "stress"
         sk_model = skrfr(n_estimators=50, max_depth=16,
                          min_samples_split=2, max_features=max_features,
                          random_state=10)
@@ -182,77 +211,13 @@ def test_rf_regression(datatype, split_algo, mode, column_info,
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
-def test_rf_regression_default(large_dataset, datatype):
+def test_rf_classification_seed(small_clf, datatype):
 
-    X, y = large_dataset
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
-
-    # Initialize, fit and predict using cuML's
-    # random forest classification model
-    cuml_model = curfr()
-    cuml_model.fit(X_train, y_train)
-
-    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
-
-    # predict using FIL
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
-    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
-
-    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
-
-    # score function should be equivalent
-    score_mse = cuml_model.score(X_test, y_test, predict_model="GPU")
-    sk_mse = mean_squared_error(y_test, fil_preds)
-    assert sk_mse == pytest.approx(score_mse)
-
-    # Initialize, fit and predict using
-    # sklearn's random forest regression model
-    if X.shape[0] < 500000:
-        sk_model = skrfr(max_depth=16, random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_preds = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
-        # XXX Accuracy gap exists with default parameters, requires
-        # further investigation for next release
-        assert fil_r2 >= (sk_r2 - 0.08)
-
-    assert fil_r2 >= (cu_r2 - 0.02)
-
-
-@pytest.mark.parametrize('datatype', [np.float32])
-def test_rf_classification_seed(dataset, datatype):
-
-    X, y = dataset
+    X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
-
-    cuml_model = curfc()
-    cuml_model.fit(X_train, y_train)
-    fil_preds = cuml_model.predict(X_test, predict_model="GPU")
-    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
-
-    fil_acc = accuracy_score(y_test, fil_preds)
-    cu_acc = accuracy_score(y_test, cu_preds)
-
-    score_acc = cuml_model.score(X_test, y_test)
-    assert cu_acc == pytest.approx(score_acc)
-
-    # sklearn random forest classification model
-    # initialization, fit and predict
-    if X.shape[0] < 500000:
-        sk_model = skrfc(max_depth=16, random_state=10)
-        sk_model.fit(X_train, y_train)
-        sk_preds = sk_model.predict(X_test)
-        sk_acc = accuracy_score(y_test, sk_preds)
-        assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cu_acc - 0.02)
 
     for i in range(8):
         seed = random.randint(100, 1e5)
@@ -294,9 +259,9 @@ def test_rf_classification_seed(dataset, datatype):
 @pytest.mark.parametrize('datatype', [(np.float64, np.float32),
                                       (np.float32, np.float64)])
 @pytest.mark.parametrize('convert_dtype', [True, False])
-def test_rf_classification_float64(dataset, datatype, convert_dtype):
+def test_rf_classification_float64(small_clf, datatype, convert_dtype):
 
-    X, y = dataset
+    X, y = small_clf
     X = X.astype(datatype[0])
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -335,9 +300,9 @@ def test_rf_classification_float64(dataset, datatype, convert_dtype):
 
 @pytest.mark.parametrize('datatype', [(np.float64, np.float32),
                                       (np.float32, np.float64)])
-def test_rf_regression_float64(large_dataset, datatype):
+def test_rf_regression_float64(large_reg, datatype):
 
-    X, y = large_dataset
+    X, y = large_reg
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
     X_train = X_train.astype(datatype[0])
@@ -427,11 +392,12 @@ def test_rf_classification_multi_class(datatype, column_info, nrows,
                                                'auto', False])
 @pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
-def test_rf_classification_sparse(dataset, datatype, fil_sparse_format, algo):
+def test_rf_classification_sparse(small_clf, datatype,
+                                  fil_sparse_format, algo):
     use_handle = True
     num_treees = 50
 
-    X, y = dataset
+    X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -446,8 +412,6 @@ def test_rf_classification_sparse(dataset, datatype, fil_sparse_format, algo):
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40)
     cuml_model.fit(X_train, y_train)
-    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    cuml_acc = accuracy_score(y_test, cu_preds)
 
     if ((not fil_sparse_format or algo == 'tree_reorg' or
             algo == 'batch_tree_reorg') or
@@ -466,7 +430,7 @@ def test_rf_classification_sparse(dataset, datatype, fil_sparse_format, algo):
                                        threshold=0.5,
                                        fil_sparse_format=fil_sparse_format,
                                        algo=algo)
-        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+        fil_preds = np.reshape(fil_preds, np.shape(y_test))
         fil_acc = accuracy_score(y_test, fil_preds)
 
         fil_model = cuml_model.convert_to_fil_model()
@@ -491,36 +455,17 @@ def test_rf_classification_sparse(dataset, datatype, fil_sparse_format, algo):
             sk_acc = accuracy_score(y_test, sk_preds)
             assert fil_acc >= (sk_acc - 0.07)
 
-        assert fil_acc >= (cuml_acc - 0.02)
 
-
-@pytest.mark.parametrize('mode', [unit_param('unit'), quality_param('quality'),
-                         stress_param('stress')])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([200, 50]),
-                         stress_param([400, 100])])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('fil_sparse_format', ['not_supported', True,
                                                'auto', False])
 @pytest.mark.parametrize('algo', ['auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
-def test_rf_regression_sparse(datatype, mode, column_info,
-                              fil_sparse_format, algo):
-    ncols, n_info = column_info
+def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
     use_handle = True
     num_treees = 50
 
-    if mode == 'unit':
-        X, y = make_regression(n_samples=500, n_features=ncols,
-                               n_informative=n_info,
-                               random_state=123)
-    elif mode == 'quality':
-        X, y = fetch_california_housing(return_X_y=True)
-
-    else:
-        X, y = make_regression(n_samples=1000, n_features=ncols,
-                               n_informative=n_info,
-                               random_state=123)
+    X, y = special_reg
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -535,8 +480,7 @@ def test_rf_regression_sparse(datatype, mode, column_info,
                        n_estimators=num_treees, handle=handle, max_leaves=-1,
                        max_depth=40, accuracy_metric='mse')
     cuml_model.fit(X_train, y_train)
-    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
+
     # predict using FIL
     if ((not fil_sparse_format or algo == 'tree_reorg' or
             algo == 'batch_tree_reorg') or
@@ -549,7 +493,7 @@ def test_rf_regression_sparse(datatype, mode, column_info,
         fil_preds = cuml_model.predict(X_test, predict_model="GPU",
                                        fil_sparse_format=fil_sparse_format,
                                        algo=algo)
-        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+        fil_preds = np.reshape(fil_preds, np.shape(y_test))
         fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
 
         fil_model = cuml_model.convert_to_fil_model()
@@ -557,19 +501,19 @@ def test_rf_regression_sparse(datatype, mode, column_info,
         input_type = 'numpy'
         fil_model_preds = fil_model.predict(X_test,
                                             output_type=input_type)
-        fil_model_preds = np.reshape(fil_model_preds, np.shape(cu_preds))
+        fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
         fil_model_r2 = r2_score(y_test, fil_model_preds,
                                 convert_dtype=datatype)
         assert fil_r2 == fil_model_r2
 
         tl_model = cuml_model.convert_to_treelite_model()
         assert num_treees == tl_model.num_trees
-        assert ncols == tl_model.num_features
+        assert X.shape[1] == tl_model.num_features
         del tl_model
 
         # Initialize, fit and predict using
         # sklearn's random forest regression model
-        if mode != "stress":
+        if X.shape[0] < 1000:  # mode != "stress":
             sk_model = skrfr(n_estimators=50, max_depth=40,
                              min_samples_split=2,
                              random_state=10)
@@ -577,18 +521,17 @@ def test_rf_regression_sparse(datatype, mode, column_info,
             sk_preds = sk_model.predict(X_test)
             sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
             assert fil_r2 >= (sk_r2 - 0.07)
-        assert fil_r2 >= (cu_r2 - 0.02)
 
 
 @pytest.mark.memleak
 @pytest.mark.parametrize('fil_sparse_format', [True, False, 'auto'])
 @pytest.mark.parametrize('n_iter', [unit_param(5), quality_param(30),
                          stress_param(80)])
-def test_rf_memory_leakage(dataset, fil_sparse_format, n_iter):
+def test_rf_memory_leakage(small_clf, fil_sparse_format, n_iter):
     datatype = np.float32
     use_handle = True
 
-    X, y = dataset
+    X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
@@ -648,10 +591,10 @@ def test_create_classification_model(max_features,
 
 @pytest.mark.parametrize('n_estimators', [10, 20, 100])
 @pytest.mark.parametrize('n_bins', [8, 9, 10])
-def test_multiple_fits_classification(large_dataset, n_estimators, n_bins):
+def test_multiple_fits_classification(large_clf, n_estimators, n_bins):
 
     datatype = np.float32
-    X, y = large_dataset
+    X, y = large_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     cuml_model = curfc(n_bins=n_bins,
@@ -669,12 +612,19 @@ def test_multiple_fits_classification(large_dataset, n_estimators, n_bins):
     assert params['n_bins'] == n_bins
 
 
+@pytest.mark.parametrize('column_info', [unit_param([100, 50]),
+                         quality_param([200, 100]),
+                         stress_param([500, 350])])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(500000)])
 @pytest.mark.parametrize('n_estimators', [10, 20, 100])
 @pytest.mark.parametrize('n_bins', [8, 9, 10])
-def test_multiple_fits_regression(large_dataset, n_estimators, n_bins):
+def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
     datatype = np.float32
-
-    X, y = large_dataset
+    ncols, n_info = column_info
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info,
+                           random_state=123)
     X = X.astype(datatype)
     y = y.astype(np.int32)
     cuml_model = curfr(n_bins=n_bins,
@@ -698,10 +648,11 @@ def test_multiple_fits_regression(large_dataset, n_estimators, n_bins):
                          stress_param(0.95)])
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-def test_rf_classification_proba(dataset, datatype, rows_sample, max_features):
+def test_rf_classification_proba(small_clf, datatype,
+                                 rows_sample, max_features):
     use_handle = True
 
-    X, y = dataset
+    X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
