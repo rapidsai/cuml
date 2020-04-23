@@ -19,7 +19,29 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import warnings
+
+
+def get_environment_option(name):
+    ENV_VARIABLE = os.environ.get(name, False)
+
+    if not ENV_VARIABLE:
+        print("-- " + name + " environment variable not set.")
+
+    else:
+        print("-- " + name + " detected with value: " + str(ENV_VARIABLE))
+
+    return ENV_VARIABLE
+
+
+def get_cli_option(name):
+    if name in sys.argv:
+        print("-- Detected " + str(name) + " build option.")
+        return True
+
+    else:
+        return False
 
 
 def clean_folder(path):
@@ -46,7 +68,114 @@ def clean_folder(path):
             os.remove(file)
 
 
-def clone_repo(name, GIT_REPOSITORY, GIT_TAG, force_clone=False):
+def use_raft_package(raft_path, cpp_build_path,
+                     git_info_file='../cpp/cmake/Dependencies.cmake'):
+    """
+    Function to use the python code in RAFT in package.raft
+
+    - Uses RAFT located in $RAFT_PATH if $RAFT_PATH exists.
+    - Otherwise it will look for RAFT in the libcuml build folder,
+        located either in the default location ../cpp/build or in
+        $CUML_BUILD_PATH.
+    -Otherwise it will clone RAFT into _external_repositories.
+        - Branch/git tag cloned is located in git_info_file in this case.
+
+    """
+    if not raft_path:
+        raft_path, raft_cloned = \
+            clone_repo_if_needed('raft', cpp_build_path,
+                                 git_info_file=git_info_file)
+
+        raft_path = '../' + raft_path
+
+    else:
+        print("-- Using RAFT_PATH variable, RAFT found at " +
+              str(os.environ['RAFT_PATH']))
+        raft_path = os.environ['RAFT_PATH']
+
+    try:
+        os.symlink(raft_path + 'python/raft', 'cuml/raft')
+    except FileExistsError:
+        os.remove('cuml/raft')
+        os.symlink(raft_path + 'python/raft', 'cuml/raft')
+
+
+def clone_repo_if_needed(name, cpp_build_path,
+                         git_info_file='../cpp/cmake/Dependencies.cmake'):
+    if cpp_build_path:
+        cpp_build_path = '../' + cpp_build_path
+    else:
+        cpp_build_path = '../cpp/build/'
+
+    repo_cloned = get_submodule_dependency(name,
+                                           cpp_build_path=cpp_build_path,
+                                           git_info_file=git_info_file)
+
+    if repo_cloned:
+        repo_path = '_external_repositories/' + name + '/'
+    else:
+        repo_path = os.path.join(cpp_build_path, name + '/src/' + name + '/')
+
+    return repo_path, repo_cloned
+
+
+def get_submodule_dependency(repo,
+                             git_info_file='../cpp/cmake/Dependencies.cmake',
+                             cpp_build_path='../cpp/build/'):
+    """
+    Function to check if sub repositories (i.e. submodules in git terminology)
+    already exist in the libcuml build folder, otherwise will clone the
+    repos needed to build the cuML Python package.
+
+    Parameters
+    ----------
+    repo : Strings or list of Strings
+        Name of the repos to be cloned. Must match
+        the names of the cmake git clone instruction
+        `ExternalProject_Add(name`
+    git_info_file : String
+        Relative path of the location of the CMakeLists.txt (or the cmake
+        module which contains ExternalProject_Add definitions) to extract
+        the information. By default it will look in the standard location
+        `cuml_repo_root/cpp`
+    cpp_build_path : String
+        Relative location of the build folder to look if repositories
+        already exist
+
+    Returns
+    -------
+    result : boolean
+        True if repos were found in libcuml cpp build folder, False
+        if they were not found.
+    """
+
+    if isinstance(repo, str):
+        repos = [repo]
+
+    repo_info = get_repo_cmake_info(repos, git_info_file)
+
+    if os.path.exists(cpp_build_path):
+        print("-- Third party modules found succesfully in the libcuml++ "
+              "build folder.")
+
+        return False
+
+    else:
+
+        warnings.warn("-- Third party repositories have not been found so they"
+                      "will be cloned. To avoid this set the environment "
+                      "variable CUML_BUILD_PATH, containing the relative "
+                      "path of the root of the repository to the folder "
+                      "where libcuml++ was built.")
+
+        for repo in repos:
+            clone_repo(repo, repo_info[repo][0], repo_info[repo][1])
+
+        return True
+
+
+def clone_repo(name, GIT_REPOSITORY, GIT_TAG,
+               location_to_clone='_external_repositories/', force_clone=False):
     """
     Function to clone repos if they have not been cloned already.
     Variables are named identical to the cmake counterparts for clarity,
@@ -63,28 +192,24 @@ def clone_repo(name, GIT_REPOSITORY, GIT_TAG, force_clone=False):
         `git checkout` accepts
     force_clone : Boolean
         Set to True to ignore already cloned repositories in
-        external_repositories and clone
+        _external_repositories and clone
 
     """
 
-    if not os.path.exists("external_repositories/" + name) or force_clone:
-        print("Cloning repository "
-              + name
-              + " into external_repositories/"
-              + name)
+    if not os.path.exists(location_to_clone + name) or force_clone:
+        print("Cloning repository " + name + " into " + location_to_clone +
+              name)
         subprocess.check_call(['git', 'clone',
                                GIT_REPOSITORY,
-                               'external_repositories/' + name])
+                               location_to_clone + name])
         wd = os.getcwd()
-        os.chdir("external_repositories/" + name)
+        os.chdir(location_to_clone + name)
         subprocess.check_call(['git', 'checkout',
-                              GIT_TAG])
+                               GIT_TAG])
         os.chdir(wd)
     else:
-        print("Found repository "
-              + name
-              + " in external_repositories/"
-              + name)
+        print("Found repository " + name + " in _external_repositories/" +
+              name)
 
 
 def get_repo_cmake_info(names, file_path):
@@ -127,56 +252,3 @@ def get_repo_cmake_info(names, file_path):
         results[name] = res
 
     return results
-
-
-def get_submodule_dependencies(repos,
-                               file_path='../cpp/cmake/Dependencies.cmake',
-                               libcuml_path='../cpp/build/'):
-
-    """
-    Function to check if sub repositories (i.e. submodules in git terminology)
-    already exist in the libcuml build folder, otherwise will clone the
-    repos needed to build the cuML Python package.
-
-    Parameters
-    ----------
-    repos : List of Strings
-        List containing the names of the repos to be cloned. Must match
-        the names of the cmake git clone instruction
-        `ExternalProject_Add(name`
-    file_path : String
-        Relative path of the location of the CMakeLists.txt (or the cmake
-        module which contains ExternalProject_Add definitions) to extract
-        the information. By default it will look in the standard location
-        `cuml_repo_root/cpp`
-    libcuml_path : String
-        Relative location of the build folder to look if repositories
-        already exist
-
-    Returns
-    -------
-    result : boolean
-        True if repos were found in libcuml cpp build folder, False
-        if they were not found.
-    """
-
-    repo_info = get_repo_cmake_info(repos, file_path)
-
-    if os.path.exists(libcuml_path):
-        print("Third party modules found succesfully in the libcuml++ "
-              "build folder.")
-
-        return True
-
-    else:
-
-        warnings.warn("Third party repositories have not been found so they  "
-                      "will be cloned. To avoid this set the environment "
-                      "variable CUML_BUILD_PATH, containing the relative "
-                      "path of the root of the repository to the folder "
-                      "where libcuml++ was built.")
-
-        for repo in repos:
-            clone_repo(repo, repo_info[repo][0], repo_info[repo][1])
-
-        return False
