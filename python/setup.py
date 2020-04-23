@@ -30,13 +30,15 @@ import sysconfig
 import versioneer
 import warnings
 
-try:
-    if "--singlegpu" in sys.argv:
-        from Cython.Build import cythonize
-    else:
-        from Cython.Distutils.build_ext import new_build_ext as build_ext
-except ImportError:
+
+if "--singlegpu" in sys.argv:
+    from Cython.Build import cythonize
     from setuptools.command.build_ext import build_ext
+else:
+    try:
+        from Cython.Distutils.build_ext import new_build_ext as build_ext
+    except ImportError:
+        from setuptools.command.build_ext import build_ext
 
 install_requires = [
     'numba',
@@ -65,7 +67,6 @@ if "clean" in sys.argv:
 
     try:
         setup_file_path = str(Path(__file__).parent.absolute())
-        shutil.rmtree(setup_file_path + '/build')
         shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
         shutil.rmtree(setup_file_path + '/external_repositories',
                       ignore_errors=True)
@@ -73,6 +74,7 @@ if "clean" in sys.argv:
         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
 
         clean_folder(setup_file_path + '/cuml')
+        shutil.rmtree(setup_file_path + '/build')
 
     except IOError:
         pass
@@ -80,7 +82,9 @@ if "clean" in sys.argv:
     # need to terminate script so cythonizing doesn't get triggered after
     # cleanup unintendedly
     sys.argv.remove("clean")
-    sys.argv.remove("--all")
+
+    if "--all" in sys.argv:
+        sys.argv.remove("--all")
 
     if len(sys.argv) == 1:
         sys.exit(0)
