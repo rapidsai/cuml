@@ -344,16 +344,15 @@ class RandomForestRegressor(DelayedPredictionMixin):
         for w in self.workers:
             models.append((RandomForestRegressor._get_pbuf_bytes)(self.rfs[w]))
         mod_bytes = self.client.compute(models, sync=True)
+        print("len of mod_bytes 0 : ",len(mod_bytes[0]))
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_model_handle = model._concatenate_treelite_handle(
+        model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model._concatenate_model_bytes(concat_model_handle)
-
         self.local_model = model
 
     def fit(self, X, y):
