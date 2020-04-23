@@ -5,6 +5,7 @@
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 - PR #1906: UMAP MNMG
+- PR #2074: SG and MNMG `make_classification`
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -25,6 +26,7 @@
 - PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
