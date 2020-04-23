@@ -348,13 +348,13 @@ def test_rf_regression_dask_cpu(partitions_per_worker, cluster):
         c.close()
 
 
-@pytest.mark.parametrize('partitions_per_worker', [1])
+@pytest.mark.parametrize('partitions_per_worker', [5])
 @pytest.mark.parametrize('output_class', [True, False])
 def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
                                                   cluster,
                                                   output_class):
 
-    c = Client(threads_per_worker=1, n_workers=1)
+    c = Client()
 
     try:
 
@@ -397,4 +397,4 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
         assert fil_mse <= sk_mse + 0.003
 
     finally:
-        c.close()
+        c.close()        
