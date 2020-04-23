@@ -17,6 +17,32 @@
 include(ExternalProject)
 
 ##############################################################################
+# - raft - (header only) -----------------------------------------------------
+
+# Only cloned if RAFT_PATH env variable is not defined
+
+if(DEFINED ENV{RAFT_PATH})
+  message(STATUS "RAFT_PATH environment variable detected.")
+  message(STATUS "RAFT_DIR set to $ENV{RAFT_PATH}")
+  set(RAFT_DIR ENV{RAFT_PATH})
+
+else(DEFINED ENV{RAFT_PATH})
+  message(STATUS "RAFT_PATH environment variable NOT detected, cloning RAFT")
+  set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
+
+  ExternalProject_Add(raft
+    GIT_REPOSITORY    https://github.com/rapidsai/raft.git
+    GIT_TAG           a1a550a37c5fd2e9dff9ff81775a1542ba0af0d7
+    PREFIX            ${RAFT_GIT_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   "")
+
+  set(RAFT_INCLUDE_DIR ${RAFT_GIT_DIR}/src/raft/cpp/include CACHE STRING "Path to RAFT repo")
+endif(DEFINED ENV{RAFT_PATH})
+
+
+##############################################################################
 # - cub - (header only) ------------------------------------------------------
 
 set(CUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/cub CACHE STRING "Path to cub repo")
@@ -167,6 +193,13 @@ set_property(TARGET benchmarklib PROPERTY
 # after `project_a`, please add the dependency add_dependencies(project_b project_a)
 # This allows the cloning to happen sequentially, enhancing the printing at
 # compile time, helping significantly to troubleshoot build issues.
+
+# TODO: Change to using build.sh and make targets instead of this
+
+if(NOT DEFINED ENV{RAFT_PATH})
+    add_dependencies(cub raft)
+endif(NOT DEFINED ENV{RAFT_PATH})
+
 add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
 add_dependencies(faiss spdlog)
