@@ -654,7 +654,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
            Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
         self._concat_treelite_models()
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
         kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
