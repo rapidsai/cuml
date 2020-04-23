@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <metrics/trustworthiness.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
 
@@ -53,7 +54,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
@@ -98,7 +99,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
@@ -133,7 +134,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(), stream);
 
@@ -168,7 +169,7 @@ class UMAPTest : public ::testing::Test {
     UMAPParams *umap_params = new UMAPParams();
     umap_params->n_neighbors = 10;
     umap_params->init = 1;
-    umap_params->verbose = false;
+    umap_params->verbosity = CUML_LEVEL_INFO;
 
     UMAPAlgo::find_ab(umap_params, handle.getDeviceAllocator(),
                       handle.getStream());
@@ -227,10 +228,10 @@ class UMAPTest : public ::testing::Test {
     supervisedTest();
     fitWithKNNTest();
 
-    std::cout << "fit_score=" << fit_score << std::endl;
-    std::cout << "xform_score=" << xformed_score << std::endl;
-    std::cout << "supervised_score=" << supervised_score << std::endl;
-    std::cout << "fit_with_knn_score=" << fit_with_knn_score << std::endl;
+    CUML_LOG_DEBUG("fit_score=%lf", fit_score);
+    CUML_LOG_DEBUG("xform_score=%lf", xformed_score);
+    CUML_LOG_DEBUG("supervised_score=%f", supervised_score);
+    CUML_LOG_DEBUG("fit_with_knn_score=%lf", fit_with_knn_score);
   }
 
   void TearDown() override {}
