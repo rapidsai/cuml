@@ -5,6 +5,7 @@
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 - PR #1906: UMAP MNMG
+- PR #2074: SG and MNMG `make_classification`
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
