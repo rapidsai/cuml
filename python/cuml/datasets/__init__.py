@@ -14,5 +14,5 @@
 # limitations under the License.
 #
 
-from cuml.datasets.blobs import blobs as make_blobs
+from cuml.datasets.blobs import make_blobs
 from cuml.datasets.regression import make_regression
