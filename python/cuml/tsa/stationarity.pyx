@@ -25,6 +25,7 @@ from libcpp cimport bool
 
 import cuml
 from cuml.common.array import CumlArray as cumlArray
+from cuml.common.base import _input_to_type
 from cuml.common.handle cimport cumlHandle
 from cuml.utils.input_utils import input_to_cuml_array
 
@@ -49,7 +50,11 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
         double pval_threshold)
 
 
-def kpss_test(y, d=1, D=0, s=0, pval_threshold=0.05, handle=None):
+# TODO: support multiple output types!
+#       and don't pass the input as cuML arrays
+
+def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, output_type="input",
+              handle=None):
     """
     Perform the KPSS stationarity test on the data differenced according
     to the given order
@@ -76,15 +81,12 @@ def kpss_test(y, d=1, D=0, s=0, pval_threshold=0.05, handle=None):
     stationarity : List[bool]
         A list of the stationarity test result for each series in the batch
     """
-    if(isinstance(y, cumlArray)):
-        d_y = y
-        n_obs = d_y.shape[0]
-        batch_size = d_y.shape[1] if len(d_y.shape) > 1 else 1
-        dtype = d_y.dtype
-    else:
-        d_y, n_obs, batch_size, dtype = \
-            input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
+    d_y, n_obs, batch_size, dtype = \
+        input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
+
+    if output_type == "input":
+        output_type = _input_to_type(y)
 
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -111,4 +113,4 @@ def kpss_test(y, d=1, D=0, s=0, pval_threshold=0.05, handle=None):
                  <int> d, <int> D, <int> s,
                  <double> pval_threshold)
 
-    return results
+    return results.to_output(output_type)
