@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,10 +36,9 @@ bool ucx_enabled();
  * @param eps an array of ucp_ep_h endpoints to the other ucp workers in the cluster
  * @param size the size of the cluster (number of elements in eps)
  * @param rank rank of the current worker
- * @param verbose print verbose logging
  */
 void inject_comms_py(cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
-                     void *eps, int size, int rank, bool verbose);
+                     void *eps, int size, int rank);
 
 /**
    * @brief This function follows the design of the wrapper function in
@@ -49,11 +48,9 @@ void inject_comms_py(cumlHandle *handle, ncclComm_t comm, void *ucp_worker,
    * @param comm initialized nccl communicator
    * @param size the size of the cluster (number of elements in eps)
    * @param rank rank of the current worker
-   * @param verbose print verbose logging
    */
-
 void inject_comms_py_coll(cumlHandle *handle, ncclComm_t comm, int size,
-                          int rank, bool verbose);
+                          int rank);
 
 /**
  * @brief Stores the given character array on the given ncclUniqueId struct.
