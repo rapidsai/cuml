@@ -210,7 +210,8 @@ class AutoARIMA(Base):
                                      .format(test))
                 data_temp, id_temp = data_D[D_]
                 for d_ in range(min(max_d, 2 - D_)):
-                    mask = tests_map[test](data_temp, d_, D_, s)
+                    mask_cp = tests_map[test](cp.asarray(data_temp), d_, D_, s)
+                    mask = input_to_cuml_array(mask_cp)[0]
                     (out0, index0), (out1, index1) \
                         = _divide_by_mask(data_temp, mask, id_temp)
                     if out1 is not None:

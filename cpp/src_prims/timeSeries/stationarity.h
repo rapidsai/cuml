@@ -203,62 +203,58 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
 
   // Compute mean
   device_buffer<DataT> y_means(allocator, stream, batch_size);
-  DataT* d_y_means = y_means.data();
-  Stats::mean(d_y_means, d_y, batch_size, n_obs, false, false, stream);
+  Stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false, stream);
 
   // Center the data around its mean
   device_buffer<DataT> y_cent(allocator, stream, batch_size * n_obs);
-  DataT* d_y_cent = y_cent.data();
   LinAlg::matrixVectorOp(
-    d_y_cent, d_y, d_y_means, batch_size, n_obs, false, true,
+    y_cent.data(), d_y, y_means.data(), batch_size, n_obs, false, true,
     [] __device__(DataT a, DataT b) { return a - b; }, stream);
 
   // This calculates the first sum in eq. 10 (first part of s^2)
   device_buffer<DataT> s2A(allocator, stream, batch_size);
-  DataT* d_s2A = s2A.data();
-  LinAlg::reduce(d_s2A, d_y_cent, batch_size, n_obs, static_cast<DataT>(0.0),
-                 false, false, stream, false, L2Op<DataT>(), Sum<DataT>());
+  LinAlg::reduce(s2A.data(), y_cent.data(), batch_size, n_obs,
+                 static_cast<DataT>(0.0), false, false, stream, false,
+                 L2Op<DataT>(), Sum<DataT>());
 
   // From Kwiatkowski et al. referencing Schwert (1989)
   DataT lags_f = ceil(12.0 * pow(n_obs_f / 100.0, 0.25));
   IdxT lags = static_cast<IdxT>(lags_f);
 
   /* This accumulator will be used for both the calculation of s2B, and later
-   * the cumulative sum or d_y_cent */
+   * the cumulative sum or y centered */
   device_buffer<DataT> accumulator(allocator, stream, batch_size * n_obs);
-  DataT* d_acc = accumulator.data();
 
   // This calculates the second sum in eq. 10 (second part of s^2)
   DataT coeff_base = static_cast<DataT>(2.0) / n_obs_f;
   s2B_accumulation_kernel<<<grid, block, 0, stream>>>(
-    d_acc, d_y_cent, lags, batch_size, n_obs,
+    accumulator.data(), y_cent.data(), lags, batch_size, n_obs,
     -coeff_base / (lags_f + static_cast<DataT>(1.0)), coeff_base);
   CUDA_CHECK(cudaPeekAtLastError());
   device_buffer<DataT> s2B(allocator, stream, batch_size);
-  DataT* d_s2B = s2B.data();
-  LinAlg::reduce(d_s2B, d_acc, batch_size, n_obs, static_cast<DataT>(0.0),
-                 false, false, stream, false);
+  LinAlg::reduce(s2B.data(), accumulator.data(), batch_size, n_obs,
+                 static_cast<DataT>(0.0), false, false, stream, false);
 
   // Cumulative sum (inclusive scan with + operator)
   thrust::counting_iterator<IdxT> c_first(0);
   thrust::transform_iterator<which_col<IdxT>, thrust::counting_iterator<IdxT>>
     t_first(c_first, which_col<IdxT>(n_obs));
-  thrust::device_ptr<DataT> __y_cent = thrust::device_pointer_cast(d_y_cent);
-  thrust::device_ptr<DataT> __csum = thrust::device_pointer_cast(d_acc);
   thrust::inclusive_scan_by_key(thrust::cuda::par.on(stream), t_first,
-                                t_first + batch_size * n_obs, __y_cent, __csum);
+                                t_first + batch_size * n_obs, y_cent.data(),
+                                accumulator.data());
 
   // Eq. 11 (eta)
   device_buffer<DataT> eta(allocator, stream, batch_size);
-  DataT* d_eta = eta.data();
-  LinAlg::reduce(d_eta, d_acc, batch_size, n_obs, static_cast<DataT>(0.0),
-                 false, false, stream, false, L2Op<DataT>(), Sum<DataT>());
+  LinAlg::reduce(eta.data(), accumulator.data(), batch_size, n_obs,
+                 static_cast<DataT>(0.0), false, false, stream, false,
+                 L2Op<DataT>(), Sum<DataT>());
 
   /* The following kernel will decide whether each series is stationary based on
    * s^2 and eta */
   kpss_stationarity_check_kernel<<<ceildiv<int>(batch_size, TPB), TPB, 0,
-                                   stream>>>(
-    results, d_s2A, d_s2B, d_eta, batch_size, n_obs_f, pval_threshold);
+                                   stream>>>(results, s2A.data(), s2B.data(),
+                                             eta.data(), batch_size, n_obs_f,
+                                             pval_threshold);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -286,18 +282,20 @@ void kpss_test(const DataT* d_y, bool* results, IdxT batch_size, IdxT n_obs,
                cudaStream_t stream, DataT pval_threshold = 0.05) {
   const DataT* d_y_diff;
 
+  int n_obs_diff = n_obs - d - s * D;
+
   // Compute differenced series
   device_buffer<DataT> diff_buffer(allocator, stream);
   if (d == 0 && D == 0) {
     d_y_diff = d_y;
   } else {
-    diff_buffer.resize(batch_size * (n_obs - d - s * D), stream);
+    diff_buffer.resize(batch_size * n_obs_diff, stream);
     prepare_data(diff_buffer.data(), d_y, batch_size, n_obs, d, D, s, stream);
     d_y_diff = diff_buffer.data();
   }
 
   // KPSS test
-  _kpss_test(d_y_diff, results, batch_size, n_obs, allocator, stream,
+  _kpss_test(d_y_diff, results, batch_size, n_obs_diff, allocator, stream,
              pval_threshold);
 }
 
