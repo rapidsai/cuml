@@ -135,14 +135,12 @@ class comms_ucp_handler {
   }
 
   void load_free_req_func() {
-    req_free_func =
-      (dlsym_rec_free)dlsym(ucp_handle, "ucp_request_free");
+    req_free_func = (dlsym_rec_free)dlsym(ucp_handle, "ucp_request_free");
     assert_dlerror();
   }
 
   void load_print_info_func() {
-    print_info_func =
-      (dlsym_print_info)dlsym(ucp_handle, "ucp_ep_print_info");
+    print_info_func = (dlsym_print_info)dlsym(ucp_handle, "ucp_ep_print_info");
     assert_dlerror();
   }
 
