@@ -4,6 +4,7 @@
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1906: UMAP MNMG
+- PR #2126: MNMG weighted k-means
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
