@@ -36,7 +36,10 @@ def test_pca_fit(data_info, cluster):
 
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
                                cluster_std=0.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
@@ -79,7 +82,10 @@ def test_pca_fit_transform_fp32(data_info, cluster):
         from cuml.dask.decomposition import TruncatedSVD as daskTPCA
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
                                cluster_std=1.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
@@ -104,7 +110,10 @@ def test_pca_fit_transform_fp64(data_info, cluster):
         from cuml.dask.decomposition import TruncatedSVD as daskTPCA
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
                                cluster_std=1.5, verbose=False,
                                random_state=10, dtype=np.float64)
 
