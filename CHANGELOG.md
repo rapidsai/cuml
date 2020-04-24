@@ -26,16 +26,21 @@
 - PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2051: Reduce the time required to run dask pca and dask tsvd tests
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
+- PR #2048: Random forest testing speedup
 - PR #2058: Use CumlArray in Random Projection
+- PR #2062: Adding random state to UMAP mnmg tests
 - PR #2064: Speed-up K-Means test
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 - PR #2132: Add SVM C++ benchmarks
+- PR #1883: Use CumlArray in ARIMA
+
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -52,6 +57,7 @@
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
+- PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
 
 # cuML 0.13.0 (Date TBD)
@@ -59,6 +65,7 @@
 ## New Features
 - PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
+- PR #1817: Confusion matrix implementation with cupy (SNSG and MNMG)
 - PR #1766: Mean absolute error implementation with cupy
 - PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
@@ -74,6 +81,7 @@
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 - PR #1874: Add predict_proba function to RF classifier
 - PR #1815: Adding KNN parameter to UMAP
+- PR #1978: Adding `predict_proba` function to dask RF
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
