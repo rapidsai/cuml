@@ -15,6 +15,7 @@
 #
 
 import cudf
+from dask_cudf import concat
 
 from cuml.dask.common import raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestRegressor as cuRFR
@@ -277,17 +278,17 @@ class RandomForestRegressor(DelayedPredictionMixin):
         )
 
     @staticmethod
-    def _fit(model, X_df_list, y_df_list, r):
-        if len(X_df_list) != len(y_df_list):
-            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
-                             len(X_df_list), len(y_df_list))
-        if len(X_df_list) == 1:
-            X_df = X_df_list[0]
-            y_df = y_df_list[0]
-        else:
-            X_df = cudf.concat(X_df_list)
-            y_df = cudf.concat(y_df_list)
-        return model.fit(X_df, y_df)
+    def _fit(model, input_data):
+
+        X = input_data[0][0]
+        y = input_data[0][1]
+
+        if len(input_data) > 1:
+            for i in range(1, len(input_data)):
+                X = concat([X, input_data[i][0]]).compute()
+                y = concat([y, input_data[i][1]]).compute()
+
+        return model.fit(X, y)
 
     @staticmethod
     def _print_summary(model):
@@ -334,14 +335,13 @@ class RandomForestRegressor(DelayedPredictionMixin):
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-
         concat_model_handle = model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
         model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the input data with a Random Forest regression model
 
@@ -376,36 +376,18 @@ class RandomForestRegressor(DelayedPredictionMixin):
             Labels of training examples.
             y must be partitioned the same way as X
         """
-        c = default_client()
-
-        X_futures = workers_to_parts(c.sync(_extract_partitions, X))
-        y_futures = workers_to_parts(c.sync(_extract_partitions, y))
-
-        X_partition_workers = [w for w, xc in X_futures.items()]
-        y_partition_workers = [w for w, xc in y_futures.items()]
-
-        if set(X_partition_workers) != set(self.workers) or \
-           set(y_partition_workers) != set(self.workers):
-            raise ValueError("""
-              X is not partitioned on the same workers expected by RF\n
-              X workers: %s\n
-              y workers: %s\n
-              RF workers: %s
-            """ % (str(X_partition_workers),
-                   str(y_partition_workers),
-                   str(self.workers)))
+        data = DistributedDataHandler.create((X, y), client=self.client)
+        self.datatype = data.datatype
 
         futures = list()
-        for w, xc in X_futures.items():
+        for idx, wf in enumerate(data.worker_to_parts.items()):
             futures.append(
-                c.submit(
+                self.client.submit(
                     RandomForestRegressor._fit,
-                    self.rfs[w],
-                    xc,
-                    y_futures[w],
-                    random.random(),
-                    workers=[w],
-                )
+                    self.rfs[wf[0]],
+                    wf[1],
+                    workers=[wf[0]],
+                    pure=False)
             )
 
         wait(futures)
