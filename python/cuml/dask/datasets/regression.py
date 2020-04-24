@@ -85,7 +85,7 @@ def _dask_data_from_multivariate_normal(seed, covar, n_samples, n_features,
 
 
 def _data_from_multivariate_normal(client, rs, covar, chunksizes, n_features,
-                                  dtype):
+                                   dtype):
     workers = list(client.has_what().keys())
 
     n_chunks = len(chunksizes)
@@ -212,8 +212,8 @@ def _dask_make_low_rank_covariance(n_features, effective_rank,
 
 
 def _make_low_rank_covariance(client, n_features, effective_rank,
-                             tail_strength, seed, n_parts,
-                             n_samples_per_part, dtype):
+                              tail_strength, seed, n_parts,
+                              n_samples_per_part, dtype):
 
     return client.submit(_dask_make_low_rank_covariance, n_features,
                          effective_rank, tail_strength, seed,
