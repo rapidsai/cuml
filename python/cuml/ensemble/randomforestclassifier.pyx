@@ -412,8 +412,6 @@ class RandomForestClassifier(Base):
     def _get_protobuf_bytes(self):
         if self.concat_handle and len(self.concat_model_bytes) > 0:
             return self.concat_model_bytes
-        elif self.concat_handle:
-            fit_mod_ptr = self.concat_handle
         elif self.concat_handle is None and self.treelite_handle:
             if len(self.model_pbuf_bytes) > 0:
                 return self.model_pbuf_bytes
@@ -660,7 +658,6 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         del(X_m)
         del(y_m)
-        self.num_classes = num_unique_labels
         return self
 
     def _predict_model_on_gpu(self, X, output_class,
