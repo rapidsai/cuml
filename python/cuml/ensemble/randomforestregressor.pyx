@@ -394,8 +394,6 @@ class RandomForestRegressor(Base):
     def _get_protobuf_bytes(self):
         if self.concat_handle and len(self.concat_model_bytes) > 0:
             return self.concat_model_bytes
-        elif self.concat_handle:
-            fit_mod_ptr = self.concat_handle
         elif self.concat_handle is None and self.treelite_handle:
             if len(self.model_pbuf_bytes) > 0:
                 return self.model_pbuf_bytes
@@ -557,8 +555,6 @@ class RandomForestRegressor(Base):
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
-        cdef ModelHandle cuml_model_ptr = NULL
-        task_category = REGRESSION_MODEL
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
@@ -617,8 +613,6 @@ class RandomForestRegressor(Base):
         self.handle.sync()
         del(X_m)
         del(y_m)
-        mod_ptr = <size_t> cuml_model_ptr
-        self.treelite_handle = ctypes.c_void_p(mod_ptr).value
         return self
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
