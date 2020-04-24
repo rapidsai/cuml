@@ -465,7 +465,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   test_has_nan(comp_coo.vals(), comp_coo.nnz, d_alloc, stream, 31);
 
-  CUML_LOG_INFO("Computing # of epochs for training each sample");
+  CUML_LOG_DEBUG("Computing # of epochs for training each sample");
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, nnz);
 
@@ -476,7 +476,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   test_has_nan(epochs_per_sample.data(), epochs_per_sample.size(), d_alloc,
                stream, 33);
 
-  CUML_LOG_INFO("Performing optimization");
+  CUML_LOG_DEBUG("Performing optimization");
 
   if (params->callback) {
     params->callback->setup<T>(n, params->n_components);

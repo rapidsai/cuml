@@ -52,27 +52,33 @@ bool has_nan(T* data, size_t len, std::shared_ptr<deviceAllocator> alloc,
 
 template <typename T>
 __global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
-                                 bool* answer) {
+                                 double* diff) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) return;
   if (embedding1[tid] != embedding2[tid]) {
-    *answer = false;
+    *diff += abs(embedding1[tid] - embedding2[tid]);
   }
 }
 
 template <typename T>
 bool are_equal(T* embedding1, T* embedding2, size_t len,
                std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
-  dim3 blk(256);
+  dim3 blk(32);
   dim3 grid(MLCommon::ceildiv(len, (size_t)blk.x));
-  bool h_answer = true;
-  device_buffer<bool> d_answer(alloc, stream, 1);
+  double h_answer = 0.;
+  device_buffer<double> d_answer(alloc, stream, 1);
   updateDevice(d_answer.data(), &h_answer, 1, stream);
   are_equal_kernel<<<grid, blk, 0, stream>>>(embedding1, embedding2, len,
                                              d_answer.data());
   updateHost(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  return h_answer;
+
+  double tolerance = 1.0;
+  if (h_answer > tolerance) {
+    std::cout << "Not equal, difference : " << h_answer << std::endl;
+    return false;
+  }
+  return true;
 }
 
 class UMAPParametrizableTest : public ::testing::Test {
@@ -226,7 +232,6 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
 
-    /*
     if (!umap_params.multicore_implem) {
       device_buffer<float> embeddings2(alloc, stream,
                                        n_samples * umap_params.n_components);
@@ -237,7 +242,6 @@ class UMAPParametrizableTest : public ::testing::Test {
       ASSERT_TRUE(
         are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream));
     }
-    */
   }
 
   void SetUp() override {
