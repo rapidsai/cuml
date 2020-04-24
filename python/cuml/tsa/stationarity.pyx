@@ -50,9 +50,6 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
         double pval_threshold)
 
 
-# TODO: support multiple output types!
-#       and don't pass the input as cuML arrays
-
 def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, output_type="input",
               handle=None):
     """

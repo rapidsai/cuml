@@ -25,31 +25,14 @@ from libcpp cimport bool
 
 import cuml
 from cuml.common.array import CumlArray as cumlArray
+from cuml.common.base import _input_to_type
 from cuml.common.handle cimport cumlHandle
-from cuml.utils.input_utils import input_to_cuml_array
+from cuml.utils.input_utils import input_to_host_array, input_to_cuml_array
 
 # TODO: the following tests would be nice to have:
 # - CH (Canova & Hansen, 1995)
 # - OCSB (Osborn, Chui, Smith & Birchenhall, 1988)
 # - HEGY? (Hylleberg, Engle, Granger & Yoo, 1990)
-
-
-# cdef extern from "cuml/tsa/seasonality.h" namespace "ML":
-#     int cpp_seas_test "ML::Seasonality::seas_test" (
-#         const cumlHandle& handle,
-#         const float* d_y,
-#         bool* results,
-#         int batch_size,
-#         int n_obs,
-#         int s)
-
-#     int cpp_seas_test "ML::Seasonality::seas_test" (
-#         const cumlHandle& handle,
-#         const double* d_y,
-#         bool* results,
-#         int batch_size,
-#         int n_obs,
-#         int s)
 
 
 def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
@@ -69,7 +52,7 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
     return results
 
 
-def seas_test(y, s, handle=None):
+def seas_test(y, s, output_type="input", handle=None):
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed
@@ -94,45 +77,15 @@ def seas_test(y, s, handle=None):
         raise ValueError(
             "ERROR: Invalid period for the seasonal differencing test: {}"
             .format(s))
+    
+    if output_type == "input":
+        output_type = _input_to_type(y)
 
-    if(isinstance(y, cumlArray)):
-        d_y = y
-        n_obs = d_y.shape[0]
-        batch_size = d_y.shape[1] if len(d_y.shape) > 1 else 1
-        dtype = d_y.dtype
-    else:
-        d_y, n_obs, batch_size, dtype = \
-            input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
-    cdef uintptr_t d_y_ptr = d_y.ptr
-
-    h_y = d_y.to_output("numpy")
+    # At the moment we use a host array
+    h_y, _, n_obs, batch_size, dtype = \
+        input_to_host_array(y, check_dtype=[np.float32, np.float64])
 
     # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
     d_res, *_ = input_to_cuml_array(np.array(python_res), check_dtype=np.bool)
-    return d_res
-
-    # if handle is None:
-    #     handle = cuml.common.handle.Handle()
-    # cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
-
-    # results = cumlArray.empty(batch_size, dtype=np.bool)
-    # cdef uintptr_t d_results = results.data()
-
-    # # Call C++ function
-    # if dtype == np.float32:
-    #     cpp_seas_test(handle_[0],
-    #                   <float*> d_y_ptr,
-    #                   <bool*> d_results,
-    #                   <int> batch_size,
-    #                   <int> n_obs,
-    #                   <int> s)
-    # elif dtype == np.float64:
-    #     cpp_seas_test(handle_[0],
-    #                   <double*> d_y_ptr,
-    #                   <bool*> d_results,
-    #                   <int> batch_size,
-    #                   <int> n_obs,
-    #                   <int> s)
-
-    # return results
+    return d_res.to_output(output_type)
