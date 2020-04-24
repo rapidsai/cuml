@@ -290,8 +290,8 @@ class RandomForestRegressor(Base):
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("Setting the random seed does not fully guarantee"
                           " the exact same results at this time.")
-        self.model_pbuf_bytes = b""
-        self.concat_model_bytes = b""
+        self.model_pbuf_bytes = bytearray()
+        self.concat_model_bytes = bytearray()
 
     """
     TODO:
@@ -408,7 +408,7 @@ class RandomForestRegressor(Base):
             save_model(<ModelHandle> model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        model_pbuf_bytes = memoryview(pbuf_mod_view).tobytes()
+        model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
         return model_pbuf_bytes
 
     def convert_to_treelite_model(self):
@@ -514,7 +514,7 @@ class RandomForestRegressor(Base):
             save_model(<ModelHandle> model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.concat_model_bytes = memoryview(pbuf_mod_view).tobytes()
+        self.concat_model_bytes = bytearray(memoryview(pbuf_mod_view))
         return self.concat_model_bytes
 
     def fit(self, X, y, convert_dtype=False):

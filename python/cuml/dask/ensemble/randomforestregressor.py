@@ -300,10 +300,6 @@ class RandomForestRegressor(DelayedPredictionMixin):
         return model._get_protobuf_bytes()
 
     @dask.delayed
-    def _pbuf_bytes(model):
-        return model.model_pbuf_bytes
-
-    @dask.delayed
     def _tl_model_handles(model, model_pbuf_bytes):
         return model._tl_model_handles(model_pbuf_bytes)
 
