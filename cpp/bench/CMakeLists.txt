@@ -28,6 +28,8 @@ if(BUILD_CUML_BENCH)
     sg/main.cpp
     sg/rf_classifier.cu
     sg/rf_regressor.cu
+    sg/svc.cu
+    #sg/svr.cu
     sg/umap.cu
     )
 
