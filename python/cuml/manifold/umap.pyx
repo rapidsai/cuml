@@ -355,6 +355,13 @@ class UMAP(Base):
         self.X_m = None
         self.embedding_ = None
 
+        self.validate_hyperparams()
+
+    def validate_hyperparams(self):
+
+        if self.min_dist > self.spread:
+            raise ValueError("min_dist should be <= spread")
+
     @staticmethod
     def _build_umap_params(cls):
         cdef UMAPParams* umap_params = new UMAPParams()
