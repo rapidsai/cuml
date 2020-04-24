@@ -257,6 +257,18 @@ def test_mutual_info_score_big_array(use_handle, input_range):
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('n', [14])
+def test_mutual_info_score_range_equal_samples(use_handle, n):
+    input_range = (-n, n)
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              n,
+                                                              dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('input_range', [[0, 19],
                                          [0, 2],
                                          [-5, 20]])
