@@ -20,8 +20,8 @@ from dask.distributed import default_client
 import numpy as np
 import cupy as cp
 from cuml.utils import with_cupy_rmm
-from cuml.dask.datasets.blobs import get_X
-from cuml.dask.datasets.blobs import get_labels
+from cuml.dask.datasets.blobs import _get_X
+from cuml.dask.datasets.blobs import _get_labels
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 
@@ -131,9 +131,9 @@ def _f_order_shuffle(client, rs, X, y, chunksizes, n_features,
                               workers=[w], pure=False)
                 for idx, (w, part) in enumerate(data_ddh.gpu_futures)]
 
-    X_shuffled = [client.submit(get_X, f, pure=False)
+    X_shuffled = [client.submit(_get_X, f, pure=False)
                   for idx, f in enumerate(shuffled)]
-    y_shuffled = [client.submit(get_labels, f, pure=False)
+    y_shuffled = [client.submit(_get_labels, f, pure=False)
                   for idx, f in enumerate(shuffled)]
 
     X_dela = [_dask_array_from_delayed(Xs, chunksizes[idx], n_features,
