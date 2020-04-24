@@ -24,21 +24,22 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/common/logger.hpp>
 #include "common/cumlHandle.hpp"
-#include "kernelcache.h"
+#include "kernelcache.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/gemv.h"
 #include "linalg/unary_op.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
-#include "smo_sets.h"
-#include "smoblocksolve.h"
+#include "smo_sets.cuh"
+#include "smoblocksolve.cuh"
 #include "utils.h"
-#include "workingset.h"
-#include "ws_util.h"
+#include "workingset.cuh"
+#include "ws_util.cuh"
 
 #include "common/device_buffer.hpp"
-#include "results.h"
+#include "results.cuh"
 
 namespace ML {
 namespace SVM {
@@ -71,7 +72,6 @@ namespace SVM {
 template <typename math_t>
 class SmoSolver {
  public:
-  bool verbose = false;
   SmoSolver(const cumlHandle_impl &handle, svmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t> *kernel)
     : handle(handle),
@@ -82,14 +82,15 @@ class SmoSolver {
       cache_size(param.cache_size),
       nochange_steps(param.nochange_steps),
       epsilon(param.epsilon),
-      verbose(param.verbose),
       svmType(param.svmType),
       stream(handle.getStream()),
       return_buff(handle.getDeviceAllocator(), stream, 2),
       alpha(handle.getDeviceAllocator(), stream),
       delta_alpha(handle.getDeviceAllocator(), stream),
       f(handle.getDeviceAllocator(), stream),
-      y_label(handle.getDeviceAllocator(), stream) {}
+      y_label(handle.getDeviceAllocator(), stream) {
+    ML::Logger::get().setLevel(param.verbosity);
+  }
 
 #define SMO_WS_SIZE 1024
   /**
@@ -114,12 +115,11 @@ class SmoSolver {
              int *n_support, math_t **x_support, int **idx, math_t *b,
              int max_outer_iter = -1, int max_inner_iter = 10000) {
     // Prepare data structures for SMO
-    WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType,
-                          verbose);
+    WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
     n_ws = ws.GetSize();
     Initialize(&y, n_rows, n_cols);
     KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel,
-                              cache_size, svmType, verbose);
+                              cache_size, svmType);
     // Init counters
     max_outer_iter = GetDefaultMaxIter(n_train, max_outer_iter);
     int n_iter = 0;
@@ -153,16 +153,15 @@ class SmoSolver {
 
       n_inner_iter += host_return_buff[1];
       n_iter++;
-      if (verbose && n_iter % 500 == 0) {
-        std::cout << "SMO iteration " << n_iter << ", diff " << diff << "\n";
+      if (n_iter % 500 == 0) {
+        CUML_LOG_DEBUG("SMO iteration %d, diff %lf", n_iter, (double)diff);
       }
     }
 
-    if (verbose) {
-      std::cout << "SMO solver finished after " << n_iter
-                << " outer iterations, " << n_inner_iter
-                << " total inner iterations, and diff " << diff_prev << "\n";
-    }
+    CUML_LOG_DEBUG(
+      "SMO solver finished after %d outer iterations, total inner"
+      " iterations, and diff %lf",
+      n_iter, n_inner_iter, diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C, svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
@@ -360,22 +359,22 @@ class SmoSolver {
       n_small_diff = 0;
     }
     if (n_small_diff > nochange_steps) {
-      if (verbose) {
-        std::cout << "SMO error: Stopping due to unchanged diff over "
-                  << nochange_steps << " consecutive steps\n";
-      }
+      CUML_LOG_ERROR(
+        "SMO error: Stopping due to unchanged diff over %d"
+        " consecutive steps",
+        nochange_steps);
       keep_going = false;
     }
     if (diff < tol) keep_going = false;
     if (isnan(diff)) {
-      std::string txt = "SMO error: NaN found during fitting.";
+      std::string txt;
       if (std::is_same<float, math_t>::value) {
         txt +=
           " This might be caused by floating point overflow. In such case using"
           " fp64 could help. Alternatively, try gamma='scale' kernel"
           " parameter.";
       }
-      THROW(txt.c_str());
+      THROW("SMO error: NaN found during fitting.%s", txt.c_str());
     }
     return keep_going;
   }
