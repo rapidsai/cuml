@@ -36,9 +36,9 @@ from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
-from cuml.metrics.cluster import entropy
 from sklearn.preprocessing import StandardScaler
 
+from cuml.metrics.cluster import entropy
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
 from sklearn.metrics.regression import mean_squared_error as sklearn_mse
