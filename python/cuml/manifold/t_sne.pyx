@@ -66,7 +66,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const float pre_momentum,
         const float post_momentum,
         const long long random_state,
-        const bool verbose,
+        int verbosity,
         const bool intialize_embeddings,
         bool barnes_hut) except +
 
@@ -397,7 +397,7 @@ class TSNE(Base):
                  <float> self.pre_momentum,
                  <float> self.post_momentum,
                  <long long> seed,
-                 <bool> self.verbose,
+                 <int> self.logging_level,
                  <bool> True,
                  <bool> (self.method == 'barnes_hut'))
 
