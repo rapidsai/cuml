@@ -16,18 +16,19 @@
 
 #pragma once
 
-#include "adjgraph/runner.h"
+#include "adjgraph/runner.cuh"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
 #include "label/classlabels.h"
 #include "sparse/csr.h"
-#include "vertexdeg/runner.h"
+#include "vertexdeg/runner.cuh"
 
 #include "utils.h"
 
 #include <sys/time.h>
+#include <cuml/common/logger.hpp>
 
 namespace Dbscan {
 
@@ -79,8 +80,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
 template <typename Type, typename Type_f, typename Index_ = int>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
            Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
-           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream,
-           bool verbose = false) {
+           int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;
   size_t batchSize = ceildiv<size_t>(N, nBatches);
 
@@ -107,9 +107,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   ASSERT(
     N * batchSize < MAX_LABEL,
     "An overflow occurred with the current choice of precision "
-    "and the number of samples. (Max allowed batch size is %d, but was %d). "
+    "and the number of samples. (Max allowed batch size is %ld, but was %ld). "
     "Consider using double precision for the output labels.",
-    MAX_LABEL / N, batchSize);
+    (unsigned long)(MAX_LABEL / N), (unsigned long)batchSize);
 
   if (workspace == NULL) {
     auto size =
@@ -149,13 +149,12 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     Index_ nPoints = min(size_t(N - startVertexId), batchSize);
     if (nPoints <= 0) continue;
 
-    if (verbose)
-      std::cout << "- Iteration " << i + 1 << " / " << nBatches
-                << ". Batch size is " << nPoints << " samples." << std::endl;
+    CUML_LOG_DEBUG("- Iteration %d / %ld. Batch size is %ld samples", i + 1,
+                   (unsigned long)nBatches, (unsigned long)nPoints);
 
     int64_t start_time = curTimeMillis();
 
-    if (verbose) std::cout << "--> Computing vertex degrees" << std::endl;
+    CUML_LOG_DEBUG("--> Computing vertex degrees");
     VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
                                    startVertexId, nPoints, stream);
     MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
@@ -163,13 +162,10 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     int64_t cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
+    CUML_LOG_DEBUG("    |-> Took %ld ms", (cur_time - start_time));
 
-    if (verbose)
-      std::cout << "--> Computing adjacency graph of size " << curradjlen
-                << " samples." << std::endl;
+    CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
+                   (unsigned long)curradjlen);
     start_time = curTimeMillis();
     // Running AdjGraph
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
@@ -187,11 +183,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
 
     cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
+    CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
 
-    if (verbose) std::cout << "--> Computing connected components" << std::endl;
+    CUML_LOG_DEBUG("--> Computing connected components");
 
     start_time = curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
@@ -201,11 +195,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     ML::POP_RANGE();
 
     cur_time = curTimeMillis();
-    if (verbose)
-      std::cout << "    |-> Took " << (cur_time - start_time) << "ms."
-                << std::endl;
-
-    if (verbose) std::cout << " " << std::endl;
+    CUML_LOG_DEBUG("    |-> Took %ld ms.", (cur_time - start_time));
   }
 
   ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
@@ -215,7 +205,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
   CUDA_CHECK(cudaPeekAtLastError());
   ML::POP_RANGE();
 
-  if (verbose) std::cout << "Done." << std::endl;
+  CUML_LOG_DEBUG("Done.");
   return (size_t)0;
 }
 }  // namespace Dbscan
