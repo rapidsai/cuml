@@ -15,6 +15,7 @@
 #
 
 import cudf
+import dask
 
 from cuml.dask.common import raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
@@ -296,6 +297,14 @@ class RandomForestClassifier(DelayedPredictionMixin):
     def _predict_cpu(model, X, convert_dtype, r):
         return model._predict_get_all(X, convert_dtype)
 
+    @dask.delayed
+    def _get_pbuf_bytes(model):
+        return model._get_protobuf_bytes()
+
+    @dask.delayed
+    def _tl_model_handles(model, model_pbuf_bytes):
+        return model._tl_model_handles(model_pbuf_bytes)
+
     @staticmethod
     def _print_summary(model):
         model.print_summary()
@@ -326,23 +335,21 @@ class RandomForestClassifier(DelayedPredictionMixin):
         the treelite format and then concatenate the different treelite models
         to create a single model. The concatenated model is then converted to
         bytes format.
-
         """
-
         mod_bytes = []
+        models = list()
         for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-
+            models.append(
+                (RandomForestClassifier._get_pbuf_bytes)(self.rfs[w]))
+        mod_bytes = self.client.compute(models, sync=True)
         last_worker = w
-
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_model_handle = model._concatenate_treelite_handle(
+        model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
