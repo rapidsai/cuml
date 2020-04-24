@@ -91,21 +91,20 @@ class KernelCache {
    * @param n_ws size of working set
    * @param kernel pointer to kernel (default linear)
    * @param cache_size (default 200 MiB)
+   * @param svmType is this SVR or SVC
    */
   KernelCache(const cumlHandle_impl &handle, const math_t *x, int n_rows,
               int n_cols, int n_ws,
               MLCommon::Matrix::GramMatrixBase<math_t> *kernel,
-              float cache_size = 200, SvmType svmType = C_SVC,
-              bool verbose = false)
-    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows, cache_size,
-            verbose),
+              float cache_size = 200, SvmType svmType = C_SVC)
+    : cache(handle.getDeviceAllocator(), handle.getStream(), n_rows,
+            cache_size),
       kernel(kernel),
       x(x),
       n_rows(n_rows),
       n_cols(n_cols),
       n_ws(n_ws),
       svmType(svmType),
-      verbose(verbose),
       cublas_handle(handle.getCublasHandle()),
       d_num_selected_out(handle.getDeviceAllocator(), handle.getStream(), 1),
       d_temp_storage(handle.getDeviceAllocator(), handle.getStream()),
@@ -142,20 +141,20 @@ class KernelCache {
    *
    * For SVC:
    * kernel is rectangular with size [n_rows * n_ws], so:
-   * row_id \in [0..n_rows-1], col_id \in [0..n_ws-1]
+   * \f[ row_id \in [0..n_rows-1], col_id \in [0..n_ws-1] \f]
    *
    * The columns correspond to the vectors in the working set. For example:
    * Let's assume thet the working set are vectors x_5, x_9, x_0, and x_4,
    * then ws_idx = [5, 9, 0 ,4]. The second column of the kernel matrix,
-   * kernel[i + 1*n_rows] (i \in [0..n_rows-1]), stores the kernel matrix values
-   * for the second vector in the working set: K(x_i, x_9).
+   * kernel[i + 1*n_rows] (\f[ i \in [0..n_rows-1] \f]), stores the kernel
+   * matrix values for the second vector in the working set: K(x_i, x_9).
    *
    * For SVR:
    * We doubled the set of training vector, assigning:
-   * x_{n_rows+i} = x_i for i \in [0..n_rows-1].
+   * \f[ x_{n_rows+i} = x_i for i \in [0..n_rows-1]. \f]
    *
    * The kernel matrix values are the same for x_i and x_{i+n_rows}, therefore
-   * we store only kernel[row_id, col_id] for row_id \in [0..n_rows].
+   * we store only kernel[row_id, col_id] for \f[ row_id \in [0..n_rows]. \f]
    *
    * Similarly, it can happen that two elements in the working set have the
    * same x vector. For example, if n_rows=10, then for ws = [5, 19, 15 0], the
@@ -221,7 +220,7 @@ class KernelCache {
   /** Map workspace indices to kernel matrix indices.
   *
   * The kernel matrix is matrix of K[i+j*n_rows] = K(x_i, x_j), where
-  * i \in [0..n_rows-1], and j=[0..n_unique-1]
+  * \f[ i \in [0..n_rows-1], and j=[0..n_unique-1] \f]
   *
   * The SmoBlockSolver needs to know where to find the kernel values that
   * correspond to vectors in the working set. Vector ws[i] corresponds to column
@@ -302,8 +301,6 @@ class KernelCache {
   int n_cols;    //!< number of columns in x
   int n_ws;      //!< number of elements in the working set
   int n_unique;  //!< number of unique x vectors in the working set
-
-  bool verbose;
 
   cublasHandle_t cublas_handle;
 

@@ -29,36 +29,18 @@
 #include "common/device_buffer.hpp"
 #include "cuml/svm/svm_model.h"
 #include "cuml/svm/svm_parameter.h"
-#include "kernelcache.h"
+#include "kernelcache.cuh"
 #include "label/classlabels.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.h"
 #include "matrix/kernelfactory.h"
 #include "matrix/matrix.h"
-#include "smosolver.h"
-#include "svc_impl.h"
+#include "smosolver.cuh"
+#include "svc_impl.cuh"
 
 namespace ML {
 namespace SVM {
 
-/**
- * @brief Fit a support vector regressor to the training data.
- *
- * Each row of the input data stores a feature vector.
- *
- * The output buffers in the model struct shall be unallocated on entry.
- *
- * @tparam math_t floating point type
- * @param [in] handle the cuML handle
- * @param [in] X device pointer for the input data in column major format.
- *   Size n_rows x n_cols.
- * @param [in] n_rows number of rows
- * @param [in] n_cols number of columns
- * @param [in] y device pointer for the labels. Size n_rows.
- * @param [in] param parameters for training
- * @param [in] kernel_params parameters for the kernel function
- * @param [out] model parameters of the trained model
- */
 template <typename math_t>
 void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,

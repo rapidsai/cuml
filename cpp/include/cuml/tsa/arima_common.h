@@ -69,8 +69,6 @@ struct ARIMAParams {
    * @param[in]   batch_size Batch size
    * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
-   * @param[in]   order      ARIMA hyper-parameters
-   * @param[in]   batch_size Number of time series analyzed
    * @param[in]   tr         Whether these are the transformed parameters
    */
   template <typename AllocatorT>
