@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
+#include <cuml/common/logger.hpp>
 #include "cache_util.h"
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
@@ -104,8 +105,6 @@ namespace Cache {
 template <typename math_t, int associativity = 32>
 class Cache {
  public:
-  bool verbose;  //!< Enable verbose output
-
   /**
    * @brief Construct a Cache object
    *
@@ -117,10 +116,9 @@ class Cache {
    * @param n_vec number of elements in a single vector that is stored in a
    *   cache entry
    * @param cache_size in MiB
-   * @param verbose enable verbose output
    */
   Cache(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-        int n_vec, float cache_size = 200, bool verbose = false)
+        int n_vec, float cache_size = 200)
     : allocator(allocator),
       n_vec(n_vec),
       cache_size(cache_size),
@@ -131,8 +129,7 @@ class Cache {
       ws_tmp(allocator, stream),
       idx_tmp(allocator, stream),
       d_num_selected_out(allocator, stream, 1),
-      d_temp_storage(allocator, stream),
-      verbose(verbose) {
+      d_temp_storage(allocator, stream) {
     ASSERT(n_vec > 0, "Parameter n_vec: shall be larger than zero");
     ASSERT(associativity > 0, "Associativity shall be larger than zero");
     ASSERT(cache_size >= 0, "Cache size should not be negative");
@@ -153,18 +150,17 @@ class Cache {
                                  cache_time.size() * sizeof(int), stream));
     } else {
       if (cache_size > 0) {
-        std::cout << "Warning: not enough memory to cache a single set of "
-                     "rows, not using cache\n";
+        CUML_LOG_WARN(
+          "Warning: not enough memory to cache a single set of "
+          "rows, not using cache");
       }
       n_cache_sets = 0;
       cache_size = 0;
     }
-    if (verbose) {
-      std::cout << "Creating cache with size " << cache_size
-                << " MiB, to store " << n_cache_vecs << " vectors, in "
-                << n_cache_sets << " sets with associativity " << associativity
-                << "\n";
-    }
+    CUML_LOG_DEBUG(
+      "Creating cache with size=%f MiB, to store %d vectors, in "
+      "%d sets with associativity=%d",
+      cache_size, n_cache_vecs, n_cache_sets, associativity);
   }
 
   Cache(const Cache &other) = delete;
@@ -176,6 +172,8 @@ class Cache {
    * On exit, the tile array is filled the following way:
    * out[i + n_vec*k] = cache[i + n_vec * idx[k]]), where i=0..n_vec-1,
    * k = 0..n-1
+   *
+   * Idx values less than 0 are ignored. 
    *
    * @param [in] idx cache indices, size [n]
    * @param [in] n the number of vectors that need to be collected
@@ -231,10 +229,10 @@ class Cache {
    * In this case we assign the cache set for keys[k], and cache_idx[k] will
    * store the cache set.
    *
-   * @Note in order to retrieve the cached vector j=cache_idx[k] from the cache,
+   * @note in order to retrieve the cached vector j=cache_idx[k] from the cache,
    *  we have to access cache[i + j*n_vec], where i=0..n_vec-1.
    *
-   * @Note: do not use simultaneous GetCacheIdx and AssignCacheIdx
+   * @note: do not use simultaneous GetCacheIdx and AssignCacheIdx
    *
    * @param [in] keys device array of keys, size [n]
    * @param [in] n number of keys

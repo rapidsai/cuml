@@ -26,6 +26,7 @@ namespace Spectral {
 /***
    * Given a (symmetric) knn graph in COO format, this function computes the spectral
    * clustering, using Lanczos min cut algorithm and k-means.
+   * @param handle cuml handle
    * @param rows source vertices of knn graph
    * @param cols destination vertices of knn graph
    * @param vals edge weights (distances) connecting source & destination vertices
@@ -35,13 +36,13 @@ namespace Spectral {
    * @param eigen_tol the tolerance threshold for the eigensolver
    * @param out output array for labels (size m)
    */
-
 void fit_clusters(const cumlHandle &handle, int *rows, int *cols, float *vals,
                   int nnz, int n, int n_clusters, float eigen_tol, int *out);
 
 /***
    * Given a indices and distances matrices, this function computes the spectral
    * clustering, using Lanczos min cut algorithm and k-means.
+   * @param handle cuml handle
    * @param knn_indices m*n_neighbors matrix of nearest indices
    * @param knn_dists m*n_neighbors matrix of distances to nearest neigbors
    * @param m number of vertices in knn_indices and knn_dists
@@ -57,6 +58,7 @@ void fit_clusters(const cumlHandle &handle, long *knn_indices, float *knn_dists,
 /***
    * Given a feature matrix, this function computes the spectral
    * clustering, using Lanczos min cut algorithm and k-means.
+   * @param handle cuml handle
    * @param X a feature matrix (size m*n)
    * @param m number of samples in X
    * @param n number of features in X
@@ -72,12 +74,12 @@ void fit_clusters(const cumlHandle &handle, float *X, int m, int n,
    * Given a COO formatted (symmetric) knn graph, this function
    * computes the spectral embeddings (lowest n_components
    * eigenvectors), using Lanczos min cut algorithm.
+   * @param handle cuml handle
    * @param rows source vertices of knn graph (size nnz)
    * @param cols destination vertices of knn graph (size nnz)
    * @param vals edge weights connecting vertices of knn graph (size nnz)
    * @param nnz size of rows/cols/vals
    * @param n number of samples in X
-   * @param n_neighbors the number of neighbors to query for knn graph construction
    * @param n_components the number of components to project the X into
    * @param out output array for embedding (size n*n_comonents)
    */
@@ -88,6 +90,7 @@ void fit_embedding(const cumlHandle &handle, int *rows, int *cols, float *vals,
    * Given index and distance matrices returned from a knn query, this
    * function computes the spectral embeddings (lowest n_components
    * eigenvectors), using Lanczos min cut algorithm.
+   * @param handle cuml handle
    * @param knn_indices nearest neighbor indices (size m*n_neighbors)
    * @param knn_dists nearest neighbor distances (size m*n_neighbors
    * @param m number of samples in X
@@ -103,6 +106,7 @@ void fit_embedding(const cumlHandle &handle, long *knn_indices,
    * Given a feature matrix, this function computes the spectral
    * embeddings (lowest n_components eigenvectors), using
    * Lanczos min cut algorithm.
+   * @param handle cuml handle
    * @param X a feature matrix (size m*n)
    * @param m number of samples in X
    * @param n number of features in X

@@ -31,7 +31,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.utils import zeros
-
+import warnings
 
 cdef extern from "kalman_filter/kf_variables.h" namespace "kf::linear":
     enum Option:
@@ -120,6 +120,10 @@ class KalmanFilter(Base):
     After construction the filter will have default matrices created for you,
     but you must specify the values for each.
 
+    .. deprecated:: 0.13
+        KalmanFilter is deprecated and will be removed in an upcoming version.
+        See issue  #1754 for details.
+
     Examples
     --------
 
@@ -196,6 +200,10 @@ class KalmanFilter(Base):
 
     def __init__(self, dim_x, dim_z, solver='long', precision='single',
                  seed=False):
+        warnings.warn("""KalmanFilter is deprecated and will be removed in an
+                         upcoming release. The current version has known
+                         numerical and performance issues (see issue #1754 and
+                         #1758)""", DeprecationWarning)
 
         cdef Option algo
 

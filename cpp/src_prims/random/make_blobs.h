@@ -43,7 +43,7 @@ __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
  * @param labels labels for the generated data on device (dim = n_rows x 1)
  * @param n_rows number of rows in the generated data
  * @param n_cols number of columns in the generated data
- * @param n_cluster number of clusters (or classes) to generate
+ * @param n_clusters number of clusters (or classes) to generate
  * @param allocator device allocator to help allocate temporary buffers
  * @param stream cuda stream to schedule the work on
  * @param centers centers of each of the cluster, pass a nullptr if you need

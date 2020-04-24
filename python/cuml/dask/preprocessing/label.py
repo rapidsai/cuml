@@ -15,7 +15,7 @@
 
 from cuml.preprocessing.label import LabelBinarizer as LB
 from dask.distributed import default_client
-from cuml.dask.common import extract_arr_partitions
+from cuml.dask.common.input_utils import _extract_partitions
 
 from cuml.utils import rmm_cupy_ary
 
@@ -38,50 +38,50 @@ class LabelBinarizer(object):
 
     .. code-block:: python
 
-    import cupy as cp
-    from cuml.dask.preprocessing import LabelBinarizer
+        import cupy as cp
+        from cuml.dask.preprocessing import LabelBinarizer
 
-    from dask_cuda import LocalCUDACluster
-    from dask.distributed import Client
-    import dask
+        from dask_cuda import LocalCUDACluster
+        from dask.distributed import Client
+        import dask
 
-    cluster = LocalCUDACluster()
-    client = Client(cluster)
+        cluster = LocalCUDACluster()
+        client = Client(cluster)
 
-    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
-                        dtype=cp.int32)
-    labels = dask.array.from_array(labels)
+        labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
+                            dtype=cp.int32)
+        labels = dask.array.from_array(labels)
 
-    lb = LabelBinarizer()
+        lb = LabelBinarizer()
 
-    encoded = lb.fit_transform(labels)
+        encoded = lb.fit_transform(labels)
 
-    print(str(encoded.compute())
+        print(str(encoded.compute())
 
-    decoded = lb.inverse_transform(encoded)
+        decoded = lb.inverse_transform(encoded)
 
-    print(str(decoded.compute())
+        print(str(decoded.compute())
 
 
     Output:
 
-    .. code-block:: python
+    .. code-block::
 
-    [[1 0 0 0 0 0 0 0]
-     [0 0 0 0 0 1 0 0]
-     [0 0 0 0 0 0 0 1]
-     [0 0 0 0 0 0 1 0]
-     [0 0 1 0 0 0 0 0]
-     [0 0 0 0 1 0 0 0]
-     [0 1 0 0 0 0 0 0]
-     [1 0 0 0 0 0 0 0]
-     [1 0 0 0 0 0 0 0]
-     [0 0 0 0 1 0 0 0]
-     [0 0 0 1 0 0 0 0]
-     [0 0 1 0 0 0 0 0]
-     [0 1 0 0 0 0 0 0]]
+        [[1 0 0 0 0 0 0 0]
+         [0 0 0 0 0 1 0 0]
+         [0 0 0 0 0 0 0 1]
+         [0 0 0 0 0 0 1 0]
+         [0 0 1 0 0 0 0 0]
+         [0 0 0 0 1 0 0 0]
+         [0 1 0 0 0 0 0 0]
+         [1 0 0 0 0 0 0 0]
+         [1 0 0 0 0 0 0 0]
+         [0 0 0 0 1 0 0 0]
+         [0 0 0 1 0 0 0 0]
+         [0 0 1 0 0 0 0 0]
+         [0 1 0 0 0 0 0 0]]
 
-     [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+         [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
 
 
     """
@@ -141,7 +141,7 @@ class LabelBinarizer(object):
         """
 
         # Take the unique classes and broadcast them all around the cluster.
-        futures = self.client_.sync(extract_arr_partitions, y)
+        futures = self.client_.sync(_extract_partitions, y)
 
         unique = [self.client_.submit(LabelBinarizer._func_unique_classes, f)
                   for w, f in futures]
@@ -187,7 +187,7 @@ class LabelBinarizer(object):
         arr : Dask.Array backed by CuPy arrays containing encoded labels
         """
 
-        parts = self.client_.sync(extract_arr_partitions, y)
+        parts = self.client_.sync(_extract_partitions, y)
 
         xform_func = dask.delayed(LabelBinarizer._func_xform)
         meta = rmm_cupy_ary(cp.zeros, 1)
@@ -218,7 +218,7 @@ class LabelBinarizer(object):
         arr : Dask.Array backed by CuPy arrays containing original labels
         """
 
-        parts = self.client_.sync(extract_arr_partitions, y)
+        parts = self.client_.sync(_extract_partitions, y)
         inv_func = dask.delayed(LabelBinarizer._func_inv_xform)
 
         dtype = self.classes_.dtype

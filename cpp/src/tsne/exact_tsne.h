@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include "exact_kernels.h"
 #include "utils.h"
 
@@ -24,26 +24,25 @@ namespace TSNE {
 
 /**
  * @brief Slower Dimensionality reduction via TSNE using the Exact method O(N^2).
- * @input param VAL: The values in the attractive forces COO matrix.
- * @input param COL: The column indices in the attractive forces COO matrix.
- * @input param ROW: The row indices in the attractive forces COO matrix.
- * @input param NNZ: The number of non zeros in the attractive forces COO matrix.
- * @input param handle: The GPU handle.
- * @output param Y: The final embedding. Will overwrite this internally.
- * @input param n: Number of rows in data X.
- * @input param dim: Number of output columns for the output embedding Y.
- * @input param early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @input param exaggeration_iter: How many iterations you want the early pressure to run for.
- * @input param min_gain: Rounds up small gradient updates.
- * @input param pre_learning_rate: The learning rate during the exaggeration phase.
- * @input param post_learning_rate: The learning rate after the exaggeration phase.
- * @input param max_iter: The maximum number of iterations TSNE should run for.
- * @input param min_grad_norm: The smallest gradient norm TSNE should terminate on.
- * @input param pre_momentum: The momentum used during the exaggeration phase.
- * @input param post_momentum: The momentum used after the exaggeration phase.
- * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @input param verbose: Whether to print error messages or not.
- * @input param intialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @param[in] VAL: The values in the attractive forces COO matrix.
+ * @param[in] COL: The column indices in the attractive forces COO matrix.
+ * @param[in] ROW: The row indices in the attractive forces COO matrix.
+ * @param[in] NNZ: The number of non zeros in the attractive forces COO matrix.
+ * @param[in] handle: The GPU handle.
+ * @param[out] Y: The final embedding. Will overwrite this internally.
+ * @param[in] n: Number of rows in data X.
+ * @param[in] dim: Number of output columns for the output embedding Y.
+ * @param[in] early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
+ * @param[in] min_gain: Rounds up small gradient updates.
+ * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
+ * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
+ * @param[in] max_iter: The maximum number of iterations TSNE should run for.
+ * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on.
+ * @param[in] pre_momentum: The momentum used during the exaggeration phase.
+ * @param[in] post_momentum: The momentum used after the exaggeration phase.
+ * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
+ * @param[in] intialize_embeddings: Whether to overwrite the current Y vector with random noise.
  */
 void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n, const int dim,
@@ -53,7 +52,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float post_learning_rate = 500.0f,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
-                const long long random_state = -1, const bool verbose = true,
+                const long long random_state = -1,
                 const bool intialize_embeddings = true) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
@@ -63,7 +62,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Allocate space
   //---------------------------------------------------
-  if (verbose) printf("[Info] Now allocating memory for TSNE.\n");
+  CUML_LOG_DEBUG("Now allocating memory for TSNE.");
   float *norm = (float *)d_alloc->allocate(sizeof(float) * n, stream);
   float *Z_sum = (float *)d_alloc->allocate(sizeof(float) * 2 * n, stream);
   float *means = (float *)d_alloc->allocate(sizeof(float) * dim, stream);
@@ -88,8 +87,7 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
   const float recp_df = 1.0f / degrees_of_freedom;
   const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
-  //
-  if (verbose) printf("[Info] Start gradient updates!\n");
+  CUML_LOG_DEBUG("Start gradient updates!");
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
   bool check_convergence = false;
@@ -122,20 +120,18 @@ void Exact_TSNE(float *VAL, const int *COL, const int *ROW, const int NNZ,
       dim, n, min_gain, gradient, check_convergence, stream);
 
     if (check_convergence) {
-      if (verbose)
-        printf("Z at iter = %d = %f and gradient norm = %f\n", iter, Z,
-               gradient_norm);
-
+      CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
+                     gradient_norm);
       if (gradient_norm < min_grad_norm) {
-        printf(
+        CUML_LOG_DEBUG(
           "Gradient norm = %f <= min_grad_norm = %f. Early stopped at iter = "
-          "%d\n",
+          "%d",
           gradient_norm, min_grad_norm, iter);
         break;
       }
+    } else {
+      CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z);
     }
-    // else if (verbose)
-    //  printf("Z at iter = %d = %f\n", iter, Z);
   }
 
   d_alloc->deallocate(norm, sizeof(float) * n, stream);
