@@ -14,27 +14,21 @@
 # limitations under the License.
 #
 
-import cudf
-import numpy as np
-from dask_cudf import concat
-
-from cuml.dask.common import raise_exception_from_futures, workers_to_parts
+from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
-from dask.distributed import default_client, wait
-from cuml.dask.common.part_utils import _extract_partitions
-from cuml.dask.common.comms import CommsContext
-from cuml.dask.common.base import BaseEstimator
-
 
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
+
+from dask.distributed import default_client, wait
+from dask_cudf import concat
 
 import math
 import random
 from uuid import uuid1
 
 
-class RandomForestClassifier(BaseEstimator, DelayedPredictionMixin):
+class RandomForestClassifier(DelayedPredictionMixin):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -375,11 +369,10 @@ class RandomForestClassifier(BaseEstimator, DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples.
-        y : dask_cudf.Dataframe
-            Dense  matrix (floats or doubles) of shape (n_samples, 1)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
@@ -389,7 +382,6 @@ class RandomForestClassifier(BaseEstimator, DelayedPredictionMixin):
 
         """
 
-        #c = default_client()
         self.num_classes = len(y.unique())
 
         data = DistributedDataHandler.create((X, y), client=self.client)
