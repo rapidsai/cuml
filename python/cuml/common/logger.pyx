@@ -171,7 +171,7 @@ def set_pattern(pattern):
     """
     cdef string prev = Logger.get().getPattern()
     context_object = PatternSetter(prev.decode("UTF-8"))
-    cdef string s = pattern
+    cdef string s = pattern.encode("UTF-8")
     Logger.get().setPattern(s)
     return context_object
 
@@ -238,7 +238,7 @@ def debug(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg
+    cdef string s = msg.encode("UTF-8")
     CUML_LOG_DEBUG(s.c_str())
 
 
@@ -259,7 +259,7 @@ def info(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg
+    cdef string s = msg.encode("UTF-8")
     CUML_LOG_INFO(s.c_str())
 
 
@@ -280,7 +280,7 @@ def warn(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg
+    cdef string s = msg.encode("UTF-8")
     CUML_LOG_WARN(s.c_str())
 
 
@@ -301,7 +301,7 @@ def error(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg
+    cdef string s = msg.encode("UTF-8")
     CUML_LOG_ERROR(s.c_str())
 
 
@@ -322,5 +322,5 @@ def critical(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg
+    cdef string s = msg.encode("UTF-8")
     CUML_LOG_CRITICAL(s.c_str())
