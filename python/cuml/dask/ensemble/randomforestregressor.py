@@ -14,19 +14,16 @@
 # limitations under the License.
 #
 
-import cudf
-from dask_cudf import concat
-
-from cuml.dask.common import raise_exception_from_futures, workers_to_parts
+from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
-from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.part_utils import _extract_partitions
+
+from dask.distributed import default_client, wait
+from dask_cudf import concat
 
 import math
-import random
 from uuid import uuid1
 
 
@@ -278,7 +275,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         )
 
     @staticmethod
-    def _fit(model, input_data):
+    def _fit(model, input_data, convert_dtype):
 
         X = input_data[0][0]
         y = input_data[0][1]
@@ -288,7 +285,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                 X = concat([X, input_data[i][0]]).compute()
                 y = concat([y, input_data[i][1]]).compute()
 
-        return model.fit(X, y)
+        return model.fit(X, y, convert_dtype)
 
     @staticmethod
     def _print_summary(model):
@@ -367,14 +364,16 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples.
-
-        y : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, 1)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
-            y must be partitioned the same way as X
+            **y must be partitioned the same way as X**
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
         data = DistributedDataHandler.create((X, y), client=self.client)
         self.datatype = data.datatype
@@ -386,6 +385,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                     RandomForestRegressor._fit,
                     self.rfs[wf[0]],
                     wf[1],
+                    convert_dtype,
                     workers=[wf[0]],
                     pure=False)
             )
