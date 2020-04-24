@@ -3,7 +3,9 @@
 ## New Features
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
+- PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 - PR #1906: UMAP MNMG
+- PR #2074: SG and MNMG `make_classification`
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -16,6 +18,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 - PR #2044: A cuda-memcheck helper wrapper for devs
 - PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
 - PR #2019: Enable doxygen build in our nightly doc build CI script
@@ -23,14 +26,18 @@
 - PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2051: Reduce the time required to run dask pca and dask tsvd tests
+- PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2058: Use CumlArray in Random Projection
+- PR #2062: Adding random state to UMAP mnmg tests
 - PR #2064: Speed-up K-Means test
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #1883: Use CumlArray in ARIMA
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -48,6 +55,7 @@
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
 - PR #2107: Fix PCA transform
+- PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
 
 # cuML 0.13.0 (Date TBD)
