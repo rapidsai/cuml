@@ -134,7 +134,7 @@ class PatternSetter:
         pass
 
     def __exit__(self, a, b, c):
-        cdef string s = self.prev_pattern
+        cdef string s = self.prev_pattern.encode("utf-8")
         Logger.get().setPattern(s)
 
 
