@@ -25,9 +25,9 @@ def test_logger():
     logger.error("This is a error message")
     logger.critical("This is a critical message")
 
-    with logger.set_level(logger.LOG_LEVEL_WARN):
-        assert(logger.should_log_for(logger.LOG_LEVEL_WARN))
-        assert(not logger.should_log_for(logger.LOG_LEVEL_INFO))
+    with logger.set_level(logger.LEVEL_WARN):
+        assert(logger.should_log_for(logger.LEVEL_WARN))
+        assert(not logger.should_log_for(logger.LEVEL_INFO))
 
     with logger.set_pattern("%v"):
         logger.info("This is an info message")
