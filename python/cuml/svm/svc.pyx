@@ -28,10 +28,10 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
-    device_array_from_ptr, get_dev_array_ptr
+from cuml.utils import input_to_cuml_array
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
 
@@ -62,7 +62,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        int verbose
+        int verbosity
         double epsilon
         SvmType svmType
 
@@ -107,12 +107,12 @@ class SVC(SVMBase):
     References
     ----------
     [1] J. Vanek et al. A GPU-Architecture Optimized Hierarchical Decomposition
-         Algorithm for Support VectorMachine Training, IEEE Transactions on
-         Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
+    Algorithm for Support VectorMachine Training, IEEE Transactions on
+    Parallel and Distributed Systems, vol 28, no 12, 3330, (2017)
 
     [2] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
-    *      of Machine Learning Research, 19, 1-5 (2018)
-        https://github.com/Xtra-Computing/thundersvm
+    of Machine Learning Research, 19, 1-5 (2018)
+    https://github.com/Xtra-Computing/thundersvm
 
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
@@ -206,15 +206,14 @@ class SVC(SVMBase):
             ndarray, cuda array interface compliant array like CuPy
 
         """
+        self._set_output_type(X)
+        X_m, self.n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, order='F')
 
-        cdef uintptr_t X_ptr, y_ptr
+        cdef uintptr_t X_ptr = X_m.ptr
+        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
 
-        X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F')
-
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y,
-                                                 convert_to_dtype=self.dtype)
-
+        cdef uintptr_t y_ptr = y_m.ptr
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
 
@@ -240,7 +239,7 @@ class SVC(SVMBase):
             raise TypeError('Input data type should be float32 or float64')
 
         self._unpack_model()
-        self.fit_status_ = 0
+        self._fit_status_ = 0
         self.handle.sync()
 
         del X_m

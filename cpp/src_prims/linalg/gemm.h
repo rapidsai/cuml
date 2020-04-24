@@ -152,7 +152,7 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
  * @param alpha scalar
  * @param beta scalar
  * @param cublas_h cublas handle
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
@@ -195,9 +195,9 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
  * @param isZColMajor Storage layout of Z. true = col major, false = row major
  * @param isXColMajor Storage layout of X. true = col major, false = row major
  * @param isYColMajor Storage layout of Y. true = col major, false = row major
+ * @param stream cuda stream
  * @param alpha scalar
  * @param beta scalar
- * @{
  */
 template <typename T>
 void gemm(cublasHandle_t handle, T *z, T *x, T *y, int _M, int _N, int _K,

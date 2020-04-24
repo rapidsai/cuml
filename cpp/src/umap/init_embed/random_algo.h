@@ -16,7 +16,6 @@
 
 #include <cuml/manifold/umapparams.h>
 #include "random/rng.h"
-#include "sys/time.h"
 
 #pragma once
 
@@ -29,12 +28,10 @@ namespace RandomInit {
 using namespace ML;
 
 template <typename T>
-void launcher(const T *X, int n, int d, const long *knn_indices,
+void launcher(const T *X, int n, int d, const int64_t *knn_indices,
               const T *knn_dists, UMAPParams *params, T *embedding,
               cudaStream_t stream) {
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+  uint64_t seed = params->random_state;
 
   MLCommon::Random::Rng r(seed);
   r.uniform<T>(embedding, n * params->n_components, -10, 10, stream);

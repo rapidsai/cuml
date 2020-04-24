@@ -29,6 +29,7 @@ import numpy as np
 from cuml.test.utils import array_equal
 
 import pandas as pd
+import cupy as cp
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -57,11 +58,13 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
     predictions = knn_cu.predict(X)
 
     if datatype == "dataframe":
-        assert isinstance(predictions, cudf.DataFrame)
+        assert isinstance(predictions, cudf.Series)
+        assert array_equal(predictions.to_frame().astype(np.int32),
+                           y.astype(np.int32))
     else:
         assert isinstance(predictions, np.ndarray)
-
-    assert array_equal(predictions.astype(np.int32), y.astype(np.int32))
+        assert array_equal(predictions.astype(np.int32),
+                           y.astype(np.int32))
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -154,7 +157,7 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
     cuml_result = knn_cuml.predict(X_device_test)
 
     assert np.array_equal(
-        np.asarray(cuml_result.as_gpu_matrix())[:, 0], sk_result)
+        np.asarray(cuml_result.to_gpu_array()), sk_result)
 
 
 def test_nonmonotonic_labels():
@@ -171,43 +174,53 @@ def test_nonmonotonic_labels():
     assert array_equal(p.astype(np.int32), y)
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-def test_predict_multioutput(datatype):
+@pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
+def test_predict_multioutput(input_type, output_type):
 
     X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
-    if datatype == "dataframe":
+    if input_type == "cudf":
         X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
         y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        y = cp.asarray(y)
 
-    knn_cu = cuKNN(n_neighbors=1)
+    knn_cu = cuKNN(n_neighbors=1, output_type=output_type)
     knn_cu.fit(X, y)
 
     p = knn_cu.predict(X)
 
-    if datatype == "dataframe":
+    if output_type == "cudf":
         assert isinstance(p, cudf.DataFrame)
-    else:
+    elif output_type == "numpy":
         assert isinstance(p, np.ndarray)
+    elif output_type == "cupy":
+        assert isinstance(p, cp.core.core.ndarray)
 
     assert array_equal(p.astype(np.int32), y)
 
 
-@pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-def test_predict_proba_multioutput(datatype):
+@pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
+def test_predict_proba_multioutput(input_type, output_type):
 
     X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
-    if datatype == "dataframe":
+    if input_type == "cudf":
         X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
         y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        y = cp.asarray(y)
 
     expected = (np.array([[0., 1.], [1., 0.]]).astype(np.float32),
                 np.array([[1., 0.], [0., 1.]]).astype(np.float32))
 
-    knn_cu = cuKNN(n_neighbors=1)
+    knn_cu = cuKNN(n_neighbors=1, output_type=output_type)
     knn_cu.fit(X, y)
 
     p = knn_cu.predict_proba(X)
@@ -215,10 +228,12 @@ def test_predict_proba_multioutput(datatype):
     assert isinstance(p, tuple)
 
     for i in p:
-        if datatype == "dataframe":
+        if output_type == "cudf":
             assert isinstance(i, cudf.DataFrame)
-        else:
+        elif output_type == "numpy":
             assert isinstance(i, np.ndarray)
+        elif output_type == "cupy":
+            assert isinstance(i, cp.core.core.ndarray)
 
     assert array_equal(p[0].astype(np.float32), expected[0])
     assert array_equal(p[1].astype(np.float32), expected[1])

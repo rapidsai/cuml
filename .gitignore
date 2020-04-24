@@ -19,6 +19,7 @@ cuml.egg-info/
 dist/
 python/cuml/**/*.cpp
 python/external_repositories
+python/record.txt
 log
 .ipynb_checkpoints
 .DS_Store
@@ -41,3 +42,6 @@ dask-worker-space/
 *.qdrep.cache
 *.qdstrm
 *.nvprof
+
+## doxygen build check inside ci/checks/style.sh
+doxygen_check/

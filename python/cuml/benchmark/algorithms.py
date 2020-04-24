@@ -32,6 +32,8 @@ from cuml.benchmark.bench_helper_funcs import (
     fit_kneighbors,
     fit_transform,
     predict,
+    _build_cpu_skl_classifier,
+    _build_fil_skl_classifier,
     _build_fil_classifier,
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
@@ -282,7 +284,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
-            shared_args=dict(solver="lbfgs"),
+            shared_args=dict(),  # Use default solvers
             name="LogisticRegression",
             accepts_labels=True,
             accuracy_function=metrics.accuracy_score,
@@ -324,9 +326,9 @@ def all_algorithms():
         AlgorithmPair(
             treelite if has_treelite() else None,
             cuml.ForestInference,
-            shared_args=dict(num_rounds=10, max_depth=10),
+            shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                fil_algo="BATCH_TREE_REORG",
+                fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
                 storage_type="AUTO",
@@ -336,6 +338,23 @@ def all_algorithms():
             setup_cpu_func=_build_treelite_classifier,
             setup_cuml_func=_build_fil_classifier,
             cpu_data_prep_hook=_treelite_format_hook,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
+        AlgorithmPair(
+            treelite if has_treelite() else None,
+            cuml.ForestInference,
+            shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
+            cuml_args=dict(
+                fil_algo="AUTO",
+                output_class=False,
+                threshold=0.5,
+                storage_type="SPARSE",
+            ),
+            name="Sparse-FIL-SKL",
+            accepts_labels=False,
+            setup_cpu_func=_build_cpu_skl_classifier,
+            setup_cuml_func=_build_fil_skl_classifier,
             accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
         ),
