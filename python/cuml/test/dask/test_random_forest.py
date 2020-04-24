@@ -37,7 +37,6 @@ import pytest
 
 import numpy as np
 import pandas as pd
-import rmm
 
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
