@@ -15,11 +15,15 @@
 #
 
 import cudf
+import numpy as np
+from dask_cudf import concat
 
 from cuml.dask.common import raise_exception_from_futures, workers_to_parts
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from dask.distributed import default_client, wait
 from cuml.dask.common.part_utils import _extract_partitions
+from cuml.dask.common.comms import CommsContext
+from cuml.dask.common.base import BaseEstimator
 
 
 from cuml.dask.common.base import DelayedPredictionMixin
@@ -30,7 +34,7 @@ import random
 from uuid import uuid1
 
 
-class RandomForestClassifier(DelayedPredictionMixin):
+class RandomForestClassifier(BaseEstimator, DelayedPredictionMixin):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -174,7 +178,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
         self.n_estimators = n_estimators
         self.n_estimators_per_worker = list()
         self.num_classes = 2
-
+        self.verbose = verbose
         self.client = default_client() if client is None else client
         if workers is None:
             workers = self.client.has_what().keys()  # Default to all workers
@@ -279,18 +283,17 @@ class RandomForestClassifier(DelayedPredictionMixin):
         )
 
     @staticmethod
-    def _fit(model, X_df_list, y_df_list,
-             convert_dtype, r):
-        if len(X_df_list) != len(y_df_list):
-            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
-                             len(X_df_list), len(y_df_list))
-        if len(X_df_list) == 1:
-            X_df = X_df_list[0]
-            y_df = y_df_list[0]
-        else:
-            X_df = cudf.concat(X_df_list)
-            y_df = cudf.concat(y_df_list)
-        return model.fit(X_df, y_df, convert_dtype)
+    def _fit(model, input_data, convert_dtype):
+
+        X = input_data[0][0]
+        y = input_data[0][1]
+
+        if len(input_data) > 1:
+            for i in range(1, len(input_data)):
+                X = concat([X, input_data[i][0]]).compute()
+                y = concat([y, input_data[i][1]]).compute()
+
+        return model.fit(X, y, convert_dtype)
 
     @staticmethod
     def _predict_cpu(model, X, convert_dtype, r):
@@ -328,18 +331,14 @@ class RandomForestClassifier(DelayedPredictionMixin):
         bytes format.
 
         """
-
         mod_bytes = []
         for w in self.workers:
             mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-
         last_worker = w
-
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-
         concat_model_handle = model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
         model._concatenate_model_bytes(concat_model_handle)
@@ -390,38 +389,22 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
         """
 
-        c = default_client()
-
+        #c = default_client()
         self.num_classes = len(y.unique())
-        X_futures = workers_to_parts(c.sync(_extract_partitions, X))
-        y_futures = workers_to_parts(c.sync(_extract_partitions, y))
 
-        X_partition_workers = [w for w, xc in X_futures.items()]
-        y_partition_workers = [w for w, xc in y_futures.items()]
-
-        if set(X_partition_workers) != set(self.workers) or \
-           set(y_partition_workers) != set(self.workers):
-            raise ValueError("""
-              X is not partitioned on the same workers expected by RF\n
-              X workers: %s\n
-              y workers: %s\n
-              RF workers: %s
-            """ % (str(X_partition_workers),
-                   str(y_partition_workers),
-                   str(self.workers)))
+        data = DistributedDataHandler.create((X, y), client=self.client)
+        self.datatype = data.datatype
 
         futures = list()
-        for w, xc in X_futures.items():
+        for idx, wf in enumerate(data.worker_to_parts.items()):
             futures.append(
-                c.submit(
+                self.client.submit(
                     RandomForestClassifier._fit,
-                    self.rfs[w],
-                    xc,
-                    y_futures[w],
+                    self.rfs[wf[0]],
+                    wf[1],
                     convert_dtype,
-                    random.random(),
-                    workers=[w],
-                )
+                    workers=[wf[0]],
+                    pure=False)
             )
 
         wait(futures)
