@@ -217,7 +217,7 @@ def trace(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg
+    cdef string s = msg.encode("UTF-8")
     CUML_LOG_TRACE(s.c_str())
 
 
