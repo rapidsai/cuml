@@ -334,6 +334,7 @@ class ARIMA(Base):
                               <double*> d_ic_ptr, <int> ic_type_id)
 
         return ic
+        # TODO: don't return cuML array, use output type!
 
     @property
     def aic(self):

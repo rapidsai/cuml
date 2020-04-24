@@ -182,7 +182,9 @@ class AutoARIMA(Base):
             if seasonal_test not in tests_map:
                 raise ValueError("Unknown seasonal diff test: {}"
                                  .format(seasonal_test))
-            mask = tests_map[seasonal_test](self.d_y, s)
+            mask_cp = tests_map[seasonal_test](self.d_y.to_output("cupy"), s)
+            mask = input_to_cuml_array(mask_cp)[0]
+            del mask_cp
             data_D = {}
             (out0, index0), (out1, index1) = _divide_by_mask(self.d_y, mask,
                                                              d_index)
@@ -210,8 +212,10 @@ class AutoARIMA(Base):
                                      .format(test))
                 data_temp, id_temp = data_D[D_]
                 for d_ in range(min(max_d, 2 - D_)):
-                    mask_cp = tests_map[test](cp.asarray(data_temp), d_, D_, s)
+                    mask_cp = tests_map[test](data_temp.to_output("cupy"),
+                                              d_, D_, s)
                     mask = input_to_cuml_array(mask_cp)[0]
+                    del mask_cp
                     (out0, index0), (out1, index1) \
                         = _divide_by_mask(data_temp, mask, id_temp)
                     if out1 is not None:
@@ -267,8 +271,9 @@ class AutoARIMA(Base):
                             s_ = s if (P_ + D_ + Q_) else 0
                             # TODO: raise issue that input_to_cuml_array
                             #       should support cuML arrays
-                            model = ARIMA(cp.asarray(data_temp), (p_, d_, q_),
-                                          (P_, D_, Q_, s_), k_, self.handle)
+                            model = ARIMA(data_temp.to_output("cupy"),
+                                          (p_, d_, q_), (P_, D_, Q_, s_), k_,
+                                          self.handle)
                             if self.verbose:
                                 print(" -", str(model))
                             model.fit(method=search_method)
@@ -281,6 +286,7 @@ class AutoARIMA(Base):
             ic_matrix, *_ = input_to_cuml_array(
                 cp.concatenate([cp.asarray(ic_arr).reshape(batch_size, 1)
                                 for ic_arr in all_ic], 1))
+            # TODO: use output_type "cupy" to get the ic in the right format
 
             # Divide the batch, choosing the best model for each series
             sub_batches, sub_id = _divide_by_min(data_temp, ic_matrix, id_temp)
@@ -288,7 +294,7 @@ class AutoARIMA(Base):
                 if sub_batches[i] is None:
                     continue
                 p_, q_, P_, Q_, s_, k_ = all_orders[i]
-                self.models.append(ARIMA(cp.asarray(sub_batches[i]),
+                self.models.append(ARIMA(sub_batches[i].to_output("cupy"),
                                          order=(p_, d_, q_),
                                          seasonal_order=(P_, D_, Q_, s_),
                                          fit_intercept=k_,
