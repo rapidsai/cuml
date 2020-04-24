@@ -27,32 +27,22 @@ from cuml.utils import rmm_cupy_ary
 from dask.dataframe import from_delayed
 from dask.distributed import default_client
 
-from sklearn.datasets import make_blobs as skl_make_blobs
+# from sklearn.datasets import make_blobs as skl_make_blobs
+from cuml.datasets.blobs import _get_centers
+from cuml.datasets import make_blobs
 
 
-def create_local_data(m, n, centers, cluster_std, random_state,
-                      dtype, type, order='F', shuffle=False):
-    X, y = skl_make_blobs(m, n, centers=centers, cluster_std=cluster_std,
-                          random_state=random_state, shuffle=shuffle)
+def create_local_data(m, n, centers, cluster_std, shuffle, random_state,
+                      order, dtype):
 
-    if type == 'array':
-        X = rmm_cupy_ary(cp.array, X.astype(dtype), order=order)
-        y = rmm_cupy_ary(cp.array, y.astype(dtype),
-                         order=order).reshape(m)
-
-    elif type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X.astype(dtype)))
-        y = cudf.DataFrame.from_pandas(pd.DataFrame(y))
-
-    else:
-        raise ValueError('type must be array or dataframe')
+    X, y = make_blobs(m, n, centers=centers,
+                        cluster_std=cluster_std,
+                        random_state=random_state,
+                        shuffle=shuffle,
+                        order=order,
+                        dtype=dtype)
 
     return X, y
-
-
-def get_meta(df):
-    ret = df.iloc[:0]
-    return ret
 
 
 def get_X(t):
@@ -64,14 +54,14 @@ def get_labels(t):
 
 
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
-               n_parts=None, center_box=(-10, 10), random_state=None,
-               verbose=False, dtype=np.float32, output='dataframe',
-               order='F', shuffle=True, client=None):
+               n_parts=None, center_box=(-10, 10), shuffle=True,
+               random_state=None, return_centers=False, verbose=False,
+               order='F', dtype='float32', client=None):
     """
-    Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
+    Makes labeled Dask-Cupy arrays containing blobs
     for a randomly generated set of centroids.
 
-    This function calls `make_blobs` from Scikitlearn on each Dask worker
+    This function calls `make_blobs` from `cuml.datasets` on each Dask worker
     and aggregates them into a single Dask Dataframe.
 
     For more information on Scikit-learn's `make_blobs:
@@ -112,10 +102,18 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     Returns
     -------
-         (dask.Dataframe for X, dask.Series for labels)
+    X : Dask-CuPy array of shape [n_samples, n_features]
+        The input samples.
+    y : Dask-CuPy array of shape [n_samples]
+        The output values.
+    centers : Dask-CuPy array of shape [n_centers, n_features], optional
+        The centers of the underlying blobs. It is returned only if
+        return_centers is True.
     """
+    generator = cp.random.RandomState(seed=random_state)
 
     client = default_client() if client is None else client
+    print(client)
 
     workers = list(client.has_what().keys())
 
@@ -123,15 +121,12 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     parts_workers = (workers * n_parts)[:n_parts]
     rows_per_part = math.ceil(n_samples / n_parts)
 
-    centers = 3 if centers is None else centers
+    centers, n_centers = _get_centers(generator, centers, center_box,
+                                      n_samples, n_features,
+                                      dtype)
 
     random_state = np.random.randint(0, 100) \
         if random_state is None else random_state
-
-    if not isinstance(centers, np.ndarray):
-        centers = np.random.uniform(center_box[0], center_box[1],
-                                    size=(centers, n_features))\
-            .astype(np.float32)
 
     if verbose:
         print("Generating %d samples across %d partitions on "
@@ -155,11 +150,10 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                    n_features,
                                    centers,
                                    cluster_std,
-                                   random_state+idx,
-                                   dtype,
-                                   output,
-                                   order,
                                    shuffle,
+                                   random_state+idx,
+                                   order,
+                                   dtype,
                                    pure=False,
                                    workers=[worker]))
 
@@ -168,32 +162,21 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     Y = [client.submit(get_labels, f, pure=False)
          for idx, f in enumerate(parts)]
 
-    if output == 'dataframe':
+    X_del = [da.from_delayed(dask.delayed(chunk, pure=False),
+                                shape=(worker_rows[idx], n_features),
+                                dtype=dtype,
+                                meta=cp.zeros((1)))
+                for idx, chunk in enumerate(X)]
+    Y_del = [da.from_delayed(dask.delayed(chunk, pure=False),
+                                shape=(worker_rows[idx],),
+                                dtype=dtype,
+                                meta=cp.zeros((1)))
+                for idx, chunk in enumerate(Y)]       
 
-        meta_X = client.submit(get_meta, X[0], pure=False)
-        meta_X_local = meta_X.result()
-        X_final = from_delayed([dask.delayed(x, pure=False)
-                                for x in X], meta=meta_X_local)
+    X_final = da.concatenate(X_del, axis=0)
+    Y_final = da.concatenate(Y_del, axis=0)
 
-        meta_y = client.submit(get_meta, Y[0], pure=False)
-        meta_y_local = meta_y.result()
-        Y_final = from_delayed([dask.delayed(y, pure=False)
-                                for y in Y], meta=meta_y_local)
-
-    elif output == 'array':
-
-        X_del = [da.from_delayed(dask.delayed(chunk, pure=False),
-                                 shape=(worker_rows[idx], n_features),
-                                 dtype=dtype,
-                                 meta=cp.zeros((1)))
-                 for idx, chunk in enumerate(X)]
-        Y_del = [da.from_delayed(dask.delayed(chunk, pure=False),
-                                 shape=(worker_rows[idx],),
-                                 dtype=dtype,
-                                 meta=cp.zeros((1)))
-                 for idx, chunk in enumerate(Y)]
-
-        X_final = da.concatenate(X_del, axis=0)
-        Y_final = da.concatenate(Y_del, axis=0)
-
-    return X_final, Y_final
+    if return_centers:
+        return X_final, Y_final, centers
+    else:
+        return X_final, Y_final

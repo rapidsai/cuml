@@ -22,6 +22,48 @@ import cupy as cp
 import numpy as np
 
 
+def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
+    if isinstance(n_samples, numbers.Integral):
+        # Set n_centers by looking at centers arg
+        if centers is None:
+            centers = 3
+
+        if isinstance(centers, numbers.Integral):
+            n_centers = centers
+            centers = rs.uniform(center_box[0], center_box[1],
+                                size=(n_centers, n_features),
+                                dtype=dtype)
+
+        else:
+            if n_features != centers.shape[1]:
+                raise ValueError("Expected `n_features` to be equal to"
+                                 " the length of axis 1 of centers array")
+            n_centers = centers.shape[0]
+
+    else:
+        # Set n_centers by looking at [n_samples] arg
+        n_centers = len(n_samples)
+        if centers is None:
+            centers = rs.uniform(center_box[0], center_box[1],
+                                 size=(n_centers, n_features),
+                                 dtype=dtype)
+        try:
+            assert len(centers) == n_centers
+        except TypeError:
+            raise ValueError("Parameter `centers` must be array-like. "
+                             "Got {!r} instead".format(centers))
+        except AssertionError:
+            raise ValueError("Length of `n_samples` not consistent"
+                             " with number of centers. Got n_samples = {} "
+                             "and centers = {}".format(n_samples, centers))
+        else:
+            if n_features != centers.shape[1]:
+                raise ValueError("Expected `n_features` to be equal to"
+                                 " the length of axis 1 of centers array")
+
+    return centers, n_centers
+
+
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                center_box=(-10.0, 10.0), shuffle=True, random_state=None,
                return_centers=False, order='F', dtype='float32'):
@@ -83,43 +125,9 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     """
     generator = cp.random.RandomState(seed=random_state)
 
-    if isinstance(n_samples, numbers.Integral):
-        # Set n_centers by looking at centers arg
-        if centers is None:
-            centers = 3
-
-        if isinstance(centers, numbers.Integral):
-            n_centers = centers
-            centers = generator.uniform(center_box[0], center_box[1],
-                                        size=(n_centers, n_features),
-                                        dtype=dtype)
-
-        else:
-            if n_features != centers.shape[1]:
-                raise ValueError("Expected `n_features` to be equal to"
-                                 " the length of axis 1 of centers array")
-            n_centers = centers.shape[0]
-
-    else:
-        # Set n_centers by looking at [n_samples] arg
-        n_centers = len(n_samples)
-        if centers is None:
-            centers = generator.uniform(center_box[0], center_box[1],
-                                        size=(n_centers, n_features),
-                                        dtype=dtype)
-        try:
-            assert len(centers) == n_centers
-        except TypeError:
-            raise ValueError("Parameter `centers` must be array-like. "
-                             "Got {!r} instead".format(centers))
-        except AssertionError:
-            raise ValueError("Length of `n_samples` not consistent"
-                             " with number of centers. Got n_samples = {} "
-                             "and centers = {}".format(n_samples, centers))
-        else:
-            if n_features != centers.shape[1]:
-                raise ValueError("Expected `n_features` to be equal to"
-                                 " the length of axis 1 of centers array")
+    centers, n_centers = _get_centers(generator, centers, center_box,
+                                      n_samples, n_features,
+                                      dtype)
 
     # stds: if cluster_std is given as list, it must be consistent
     # with the n_centers
