@@ -29,18 +29,19 @@ from dask.distributed import default_client
 
 # from sklearn.datasets import make_blobs as skl_make_blobs
 from cuml.datasets.blobs import _get_centers
-from cuml.datasets import make_blobs
+from cuml.datasets.blobs import make_blobs as sg_make_blobs
+from cuml.utils import with_cupy_rmm
 
 
 def create_local_data(m, n, centers, cluster_std, shuffle, random_state,
                       order, dtype):
 
-    X, y = make_blobs(m, n, centers=centers,
-                        cluster_std=cluster_std,
-                        random_state=random_state,
-                        shuffle=shuffle,
-                        order=order,
-                        dtype=dtype)
+    X, y = sg_make_blobs(m, n, centers=centers,
+                         cluster_std=cluster_std,
+                         random_state=random_state,
+                         shuffle=shuffle,
+                         order=order,
+                         dtype=dtype)
 
     return X, y
 
@@ -53,6 +54,7 @@ def get_labels(t):
     return t[1]
 
 
+@with_cupy_rmm
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                n_parts=None, center_box=(-10, 10), shuffle=True,
                random_state=None, return_centers=False, verbose=False,
@@ -110,10 +112,10 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         The centers of the underlying blobs. It is returned only if
         return_centers is True.
     """
-    generator = cp.random.RandomState(seed=random_state)
 
     client = default_client() if client is None else client
-    print(client)
+
+    generator = cp.random.RandomState()
 
     workers = list(client.has_what().keys())
 
@@ -125,8 +127,8 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                       n_samples, n_features,
                                       dtype)
 
-    random_state = np.random.randint(0, 100) \
-        if random_state is None else random_state
+    # random_state = np.random.randint(0, 100) \
+    #     if random_state is None else random_state
 
     if verbose:
         print("Generating %d samples across %d partitions on "
@@ -145,17 +147,19 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         else:
             worker_rows.append((int(n_samples) - rows_so_far))
 
-        parts.append(client.submit(create_local_data,
-                                   worker_rows[idx],
+    seeds = generator.randint(n_samples, size=len(parts_workers))
+    parts = [client.submit(create_local_data,
+                                   part_rows,
                                    n_features,
                                    centers,
                                    cluster_std,
                                    shuffle,
-                                   random_state+idx,
+                                   int(seeds[idx]),
                                    order,
                                    dtype,
                                    pure=False,
-                                   workers=[worker]))
+                                   workers=[parts_workers[idx]])
+             for idx, part_rows in enumerate(worker_rows)]
 
     X = [client.submit(get_X, f, pure=False)
          for idx, f in enumerate(parts)]
