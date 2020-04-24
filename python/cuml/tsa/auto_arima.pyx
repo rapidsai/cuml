@@ -20,10 +20,11 @@
 # cython: language_level = 3
 
 import ctypes
-import numpy as np
+import itertools
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
+import numpy as np
 
 import cupy as cp
 
@@ -38,14 +39,10 @@ from cuml.utils.input_utils import input_to_cuml_array
 
 
 # TODO:
-# - change interface to match the new fable package instead of deprecated
-#    forecast package?
-#    -> use int/range/sequence syntax for params?
 # - truncate argument to use only last values with CSS
 # - Box-Cox transformations? (parameter lambda)
 # - summary method with recap of the models used
 # - integrate cuML logging system
-# - unit tests
 # - use output_type as soon as cuML array change in ARIMA is merged
 
 
@@ -122,18 +119,12 @@ class AutoARIMA(Base):
 
     def fit(self,
             s=None,
-            d=None,
-            D=None,
-            max_d=2,
-            max_D=1, # TODO: remove if we never use D=2
-            start_p=2, # TODO: start at 0?
-            start_q=2,
-            start_P=1,
-            start_Q=1,
-            max_p=4, # TODO: support p=5 / q=5 in ARIMA
-            max_q=4,
-            max_P=2,
-            max_Q=2,
+            d=range(3),
+            D=range(2),
+            p=range(1, 4),
+            q=range(1, 4),
+            P=range(3),
+            Q=range(3),
             ic="aicc", # TODO: which one to use by default?
             test="kpss",
             seasonal_test="seas",
@@ -158,25 +149,22 @@ class AutoARIMA(Base):
         if search_method == "auto":
             search_method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
 
-        # Box-Cox transform
-        # TODO: handle it
-
         # Original index
         d_index, *_ = input_to_cuml_array(np.r_[:self.batch_size],
                                           convert_to_dtype=np.int32)
-        # TODO: worth building on GPU?
 
         #
         # Choose the hyper-parameter D
         #
         if self.verbose:
             print("Deciding D...")
+        D_options = _parse_sequence("D", D, 0, 1)
         if not s:
             # Non-seasonal -> D=0
             data_D = {0: (self.d_y, d_index)}
-        elif D is not None:
+        elif len(D_options) == 1:
             # D is specified by the user
-            data_D = {D: (self.d_y, d_index)}
+            data_D = {D_options[0]: (self.d_y, d_index)}
         else:
             # D is chosen with a seasonal differencing test
             if seasonal_test not in tests_map:
@@ -193,7 +181,6 @@ class AutoARIMA(Base):
             if out1 is not None:
                 data_D[1] = (out1, index1)
             del mask, out0, index0, out1, index1
-        # TODO: can D be 2?
 
         #
         # Choose the hyper-parameter d
@@ -202,16 +189,17 @@ class AutoARIMA(Base):
             print("Deciding d...")
         data_dD = {}
         for D_ in data_D:
-            if d is not None:
+            d_options = _parse_sequence("d", d, 0, 2 - D_)
+            if len(d_options) == 1:
                 # d is specified by the user
-                data_dD[(d, D_)] = data_D[D_]
+                data_dD[(d_options[0], D_)] = data_D[D_]
             else:
                 # d is decided with stationarity tests
                 if test not in tests_map:
                     raise ValueError("Unknown stationarity test: {}"
                                      .format(test))
                 data_temp, id_temp = data_D[D_]
-                for d_ in range(min(max_d, 2 - D_)):
+                for d_ in d_options[:-1]:
                     mask_cp = tests_map[test](data_temp.to_output("cupy"),
                                               d_, D_, s)
                     mask = input_to_cuml_array(mask_cp)[0]
@@ -226,31 +214,19 @@ class AutoARIMA(Base):
                         break
                 else: # (when the for loop reaches its end naturally)
                     # The remaining series are assigned the max possible d
-                    data_dD[(min(max_d, 2 - D_), D_)] = (data_temp, id_temp)
+                    data_dD[d_options[-1]] = (data_temp, id_temp)
                 del data_temp, id_temp, mask, out0, index0, out1, index1
         del data_D
-
-        # Limit the number of parameters to what we can handle
-        # TODO: handle more than 4 in the Jones transform
-        max_p = min(max_p, 4)
-        max_q = min(max_q, 4)
-        if s:
-            max_p = min(max_p, s - 1)
-            max_q = min(max_q, s - 1)
-        max_P = min(max_P, 4) if s else 0
-        max_Q = min(max_Q, 4) if s else 0
-        start_p = min(start_p, max_p)
-        start_q = min(start_q, max_p)
-        start_P = min(start_P, max_p)
-        start_Q = min(start_Q, max_p)
 
         #
         # Choose the hyper-parameters p, q, P, Q, k
         #
         if self.verbose:
             print("Deciding p, q, P, Q, k...")
-        # TODO: try nice progress bar when using verbose for grid search
-        #       (can use different levels of verbose)
+        p_options = _parse_sequence("p", p, 0, s - 1 if s else 4)
+        q_options = _parse_sequence("q", q, 0, s - 1 if s else 4)
+        P_options = _parse_sequence("P", P, 0, 4 if s else 0)
+        Q_options = _parse_sequence("Q", Q, 0, 4 if s else 0)
         self.models = []
         id_tracker = []
         for (d_, D_) in data_dD:
@@ -259,27 +235,21 @@ class AutoARIMA(Base):
             k_ = 1 if d_ + D_ <= 1 else 0
 
             # Grid search
-            # TODO: think about a (partially) step-wise parallel approach
             all_ic = []
             all_orders = []
-            for p_ in range(start_p, max_p + 1):
-                for q_ in range(start_q, max_q + 1):
-                    for P_ in range(start_P, max_P + 1):
-                        for Q_ in range(start_Q, max_Q + 1):
-                            if p_ + q_ + P_ + Q_ + k_ == 0:
-                                continue
-                            s_ = s if (P_ + D_ + Q_) else 0
-                            # TODO: raise issue that input_to_cuml_array
-                            #       should support cuML arrays
-                            model = ARIMA(data_temp.to_output("cupy"),
-                                          (p_, d_, q_), (P_, D_, Q_, s_), k_,
-                                          self.handle)
-                            if self.verbose:
-                                print(" -", str(model))
-                            model.fit(method=search_method)
-                            all_ic.append(model._ic(ic))
-                            all_orders.append((p_, q_, P_, Q_, s_, k_))
-                            del model
+            for p_, q_, P_, Q_ in itertools.product(p_options, q_options,
+                                                    P_options, Q_options):
+                if p_ + q_ + P_ + Q_ + k_ == 0:
+                    continue
+                s_ = s if (P_ + D_ + Q_) else 0
+                model = ARIMA(data_temp.to_output("cupy"), (p_, d_, q_),
+                              (P_, D_, Q_, s_), k_, self.handle)
+                if self.verbose:
+                    print(" -", str(model))
+                model.fit(method=search_method)
+                all_ic.append(model._ic(ic))
+                all_orders.append((p_, q_, P_, Q_, s_, k_))
+                del model
 
             # Organize the results into a matrix
             n_models = len(all_orders)
@@ -340,6 +310,19 @@ class AutoARIMA(Base):
 
 
 # Helper functions
+
+def _parse_sequence(name, seq_in, min_accepted, max_accepted):
+    """Convert a sequence/generator/integer into a sorted list, keeping
+    only values within the accepted range
+    """
+    seq_temp = [seq_in] if type(seq_in) is int else seq_in
+    seq_out = sorted(x for x in seq_temp
+                     if x >= min_accepted and x <= max_accepted)
+    if len(seq_out) == 0:
+        raise ValueError("No valid option for {}".format(name))
+    else:
+        return seq_out
+
 
 def _divide_by_mask(original, mask, batch_id, handle=None):
     """TODO: docs
