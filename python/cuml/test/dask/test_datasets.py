@@ -22,7 +22,7 @@ import cupy as cp
 
 from dask.distributed import Client
 
-from cuml.dask.datasets import make_blobs
+from cuml.dask.datasets.blobs import make_blobs
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.test.utils import unit_param, quality_param, stress_param
@@ -58,6 +58,7 @@ def test_make_blobs(nrows,
                           order=order,
                           client=c)
 
+        print(X.chunks)
         assert len(X.chunks[0]) == nparts
         assert len(y.chunks[0]) == nparts
 
