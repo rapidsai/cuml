@@ -1,6 +1,22 @@
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import pytest
 from cuml.dask.datasets.blobs import make_blobs
-from cuml.dask.common.part_utils import _extract_partitions
+from cuml.dask.common.input_utils import DistributedDataHandler
 from dask.distributed import Client
 import dask.array as da
 import cupy as cp
@@ -19,7 +35,7 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
     try:
         adj_input_type = 'dataframe' if input_type == 'series' else input_type
 
-        X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
+        X, y = make_blobs(n_samples=nrows, n_features=ncols, n_parts=n_parts,
                           output=adj_input_type)
 
         if input_type == "series":
@@ -27,11 +43,11 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
             y = y[y.columns[0]]
 
         if colocated:
-            gpu_futures = client.sync(_extract_partitions, (X, y), client)
+            ddh = DistributedDataHandler.create((X, y), client)
         else:
-            gpu_futures = client.sync(_extract_partitions, X, client)
+            ddh = DistributedDataHandler.create(X, client)
 
-        parts = list(map(lambda x: x[1], gpu_futures))
+        parts = list(map(lambda x: x[1], ddh.gpu_futures))
         assert len(parts) == n_parts
     finally:
         client.close()
@@ -50,7 +66,7 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
     try:
         adj_input_type = 'dataframe' if input_type == 'series' else input_type
 
-        X, y = make_blobs(nrows=nrows, ncols=ncols, n_parts=n_parts,
+        X, y = make_blobs(n_samples=nrows, n_features=ncols, n_parts=n_parts,
                           output=adj_input_type)
 
         if input_type == "series":
@@ -65,17 +81,14 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
             y_len_parts = y.chunks[0]
 
         if colocated:
-            gpu_futures = client.sync(_extract_partitions, (X, y), client)
-        else:
-            gpu_futures = client.sync(_extract_partitions, X, client)
-
-        parts = [part.result() for worker, part in gpu_futures]
-
-        if colocated:
+            ddh = DistributedDataHandler.create((X, y), client)
+            parts = [part.result() for worker, part in ddh.gpu_futures]
             for i in range(len(parts)):
                 assert (parts[i][0].shape[0] == X_len_parts[i]) and (
                         parts[i][1].shape[0] == y_len_parts[i])
         else:
+            ddh = DistributedDataHandler.create(X, client)
+            parts = [part.result() for worker, part in ddh.gpu_futures]
             for i in range(len(parts)):
                 assert (parts[i].shape[0] == X_len_parts[i])
 
@@ -108,11 +121,11 @@ def test_extract_partitions_futures(nrows, ncols, n_parts, X_delayed,
             y = client.persist(y)
 
         if colocated:
-            gpu_futures = client.sync(_extract_partitions, (X, y), client)
+            ddh = DistributedDataHandler.create((X, y), client)
         else:
-            gpu_futures = client.sync(_extract_partitions, X, client)
+            ddh = DistributedDataHandler.create(X, client)
 
-        parts = list(map(lambda x: x[1], gpu_futures))
+        parts = list(map(lambda x: x[1], ddh.gpu_futures))
         assert len(parts) == n_parts
 
     finally:

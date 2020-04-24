@@ -61,7 +61,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        int verbose
+        int verbosity
         double epsilon
         SvmType svmType
 
@@ -313,7 +313,7 @@ class SVMBase(Base):
         param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbose = self.verbose
+        param.verbosity = self.logging_level
         param.epsilon = self.epsilon
         param.svmType = self.svmType
         return param
