@@ -125,9 +125,8 @@ class ContingencyMatrixTest
     MLCommon::Metrics::contingencyMatrix(
       dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
       workspaceSz, minLabel, maxLabel);
-    ASSERT_TRUE(
-      devArrMatch(dComputedOutput, dGoldenOutput,
-                  numUniqueClasses * numUniqueClasses, Compare<T>()));
+    ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
+                            numUniqueClasses * numUniqueClasses, Compare<T>()));
   }
 
   ContingencyMatrixParam params;
