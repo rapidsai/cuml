@@ -31,6 +31,7 @@
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
+- PR #2048: Random forest testing speedup
 - PR #2058: Use CumlArray in Random Projection
 - PR #2062: Adding random state to UMAP mnmg tests
 - PR #2064: Speed-up K-Means test
@@ -79,6 +80,7 @@
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 - PR #1874: Add predict_proba function to RF classifier
 - PR #1815: Adding KNN parameter to UMAP
+- PR #1978: Adding `predict_proba` function to dask RF
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
