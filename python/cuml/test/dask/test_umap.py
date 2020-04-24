@@ -18,86 +18,149 @@ from dask.distributed import Client
 
 import cupy as cp
 import numpy as np
-from sklearn.manifold.t_sne import trustworthiness
-from sklearn.datasets import make_blobs
+from cuml.metrics import trustworthiness
+from cuml.datasets import make_blobs
+
+import math
+
+from sklearn.datasets import load_digits
+from sklearn.datasets import load_iris
+
+
+def _load_dataset(dataset, n_rows):
+
+    if dataset == "make_blobs":
+        local_X, local_y = make_blobs(n_samples=n_rows, n_features=10,
+                                      centers=200, cluster_std=0.8,
+                                      random_state=42)
+
+        local_X = cp.asarray(local_X)
+        local_y = cp.asarray(local_y)
+
+    else:
+        if dataset == "digits":
+            local_X, local_y = load_digits(return_X_y=True)
+
+        else:  # dataset == "iris"
+            local_X, local_y = load_iris(return_X_y=True)
+
+        local_X = cp.asarray(local_X)
+        local_y = cp.asarray(local_y)
+
+        local_X = local_X.repeat(
+            math.ceil(n_rows / len(local_X)), axis=0)
+        local_y = local_y.repeat(
+            math.ceil(n_rows / len(local_y)), axis=0)
+
+        # Add some gaussian noise
+        local_X += cp.random.standard_normal(local_X.shape,
+                                             dtype=cp.float32)
+
+    return local_X, local_y
+
+
+def _local_umap_trustworthiness(local_X, local_y,
+                                n_neighbors,
+                                supervised):
+    """
+    Train model on all data, report trustworthiness
+    """
+    from cuml.manifold import UMAP
+
+    local_model = UMAP(n_neighbors=n_neighbors,
+                       random_state=42)
+    y_train = None
+    if supervised:
+        y_train = local_y
+    local_model.fit(local_X, y=y_train)
+    embedding = local_model.transform(local_X)
+    return trustworthiness(local_X, embedding,
+                           n_neighbors=n_neighbors,
+                           batch_size=5000)
+
+
+def _umap_mnmg_trustworthiness(local_X, local_y,
+                               n_neighbors,
+                               supervised,
+                               n_parts,
+                               sampling_ratio):
+    """
+    Train model on random sample of data, transform in
+    parallel, report trustworthiness
+    """
+    import dask.array as da
+    from cuml.dask.manifold import UMAP as MNMG_UMAP
+
+    from cuml.manifold import UMAP
+
+    local_model = UMAP(n_neighbors=n_neighbors,
+                       random_state=42)
+
+    n_samples = local_X.shape[0]
+    n_samples_per_part = math.ceil(n_samples / n_parts)
+
+    selection = np.random.RandomState(42).choice(
+        [True, False], n_samples, replace=True,
+        p=[sampling_ratio, 1.0 - sampling_ratio])
+    X_train = local_X[selection]
+    X_transform = local_X
+    X_transform_d = da.from_array(X_transform,
+                                  chunks=(n_samples_per_part, -1))
+
+    y_train = None
+    if supervised:
+        y_train = local_y[selection]
+
+    local_model.fit(X_train, y=y_train)
+
+    distributed_model = MNMG_UMAP(local_model)
+    embedding = distributed_model.transform(X_transform_d)
+
+    embedding = embedding.compute()
+    return trustworthiness(X_transform, embedding,
+                           n_neighbors=n_neighbors,
+                           batch_size=5000)
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("n_parts", [2, 5])
-@pytest.mark.parametrize("sampling_ratio", [0.1, 0.2, 0.4])
+@pytest.mark.parametrize("n_parts", [2, 5, 10])
+@pytest.mark.parametrize("n_rows", [10000, 50000])
+@pytest.mark.parametrize("sampling_ratio", [0.1, 0.2, 0.4, 0.5])
 @pytest.mark.parametrize("supervised", [True, False])
-@pytest.mark.parametrize("dataset", ["make_blobs", "digits", "iris"])
-def test_umap_mnmg(n_parts, sampling_ratio, supervised, dataset, cluster):
+@pytest.mark.parametrize("dataset", ["digits", "iris"])
+@pytest.mark.parametrize("n_neighbors", [10])
+def test_umap_mnmg(n_parts, n_rows, sampling_ratio, supervised,
+                   dataset, n_neighbors, cluster):
 
     client = Client(cluster)
 
     try:
-        import dask.array as da
-        from cuml.manifold import UMAP
-        from cuml.dask.manifold import UMAP as MNMG_UMAP
 
-        n_neighbors = 10
+        local_X, local_y = _load_dataset(dataset, n_rows)
 
-        if dataset == "make_blobs":
-            local_X, local_y = make_blobs(n_samples=10000, n_features=10,
-                                          centers=200, cluster_std=0.1)
-        else:
-            if dataset == "digits":
-                from sklearn.datasets import load_digits
-                local_X, local_y = load_digits(return_X_y=True)
-            else:  # dataset == "iris"
-                from sklearn.datasets import load_iris
-                local_X, local_y = load_iris(return_X_y=True)
+        dist_umap = _umap_mnmg_trustworthiness(local_X, local_y,
+                                               n_neighbors, supervised,
+                                               n_parts, sampling_ratio)
 
-        def umap_mnmg_trustworthiness():
-            n_samples = local_X.shape[0]
-            n_sampling = int(n_samples * sampling_ratio)
-            n_samples_per_part = int(n_samples / n_parts)
-
-            local_model = UMAP(n_neighbors=n_neighbors)
-
-            selection = np.random.choice(n_samples, n_sampling)
-            X_train = local_X[selection]
-            X_transform = local_X[~selection]
-            X_transform_d = da.from_array(X_transform,
-                                          chunks=(n_samples_per_part, -1))
-
-            y_train = None
-            if supervised:
-                y_train = local_y[selection]
-
-            local_model.fit(X_train, y=y_train)
-
-            distributed_model = MNMG_UMAP(local_model)
-            embedding = distributed_model.transform(X_transform_d)
-
-            embedding = cp.asnumpy(embedding.compute())
-            return trustworthiness(X_transform, embedding, n_neighbors)
-
-        def local_umap_trustworthiness():
-            local_model = UMAP(n_neighbors=n_neighbors)
-            local_model.fit(local_X, local_y)
-            embedding = local_model.transform(local_X)
-            return trustworthiness(local_X, embedding, n_neighbors)
-
-        loc_umap = local_umap_trustworthiness()
-        dist_umap = umap_mnmg_trustworthiness()
+        loc_umap = _local_umap_trustworthiness(local_X, local_y,
+                                               n_neighbors, supervised)
 
         print("\nLocal UMAP trustworthiness score : {:.2f}".format(loc_umap))
         print("UMAP MNMG trustworthiness score : {:.2f}".format(dist_umap))
 
-        if dataset == "make_blobs":
-            assert loc_umap > 0.98
-            if sampling_ratio <= 0.1:
-                assert dist_umap > 0.74
-            else:
-                assert dist_umap > 0.9
-        elif dataset == "digits":
-            assert loc_umap > 0.88
-            assert dist_umap > 0.8
-        else:  # dataset == "iris"
-            assert loc_umap > 0.88
-            assert dist_umap > 0.78
+        trust_diff = loc_umap - dist_umap
+
+        if sampling_ratio == 0.1:
+            assert trust_diff <= 0.4
+        elif sampling_ratio == 0.2:
+            assert trust_diff <= 0.3
+        elif sampling_ratio == 0.4:
+            assert trust_diff <= 0.2
+        elif sampling_ratio == 0.5:
+            assert trust_diff <= 0.11
+        else:
+            raise ValueError("No assertion for sampling ratio. "
+                             "Please update.")
 
     finally:
         client.close()

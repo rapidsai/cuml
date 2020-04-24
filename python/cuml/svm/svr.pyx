@@ -57,7 +57,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        int verbose
+        int verbosity
         double epsilon
         SvmType svmType
 
