@@ -44,7 +44,7 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
   MLCommon::Selection::brute_force_knn(
     input, sizes, D, search_items, n, res_I, res_D, k,
     handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
-    int_streams.data(), handle.getImpl().getNumInternalStreams(), rowMajorIndex,
+    int_streams.data(), handle.getImpl().getNumWorkerStreams(), rowMajorIndex,
     rowMajorQuery);
 }
 
@@ -154,12 +154,12 @@ void kNN::search(float *search_items, int n, int64_t *res_I, float *res_D,
   ASSERT(this->indices > 0, "Cannot search before model has been trained.");
 
   std::vector<cudaStream_t> int_streams =
-    handle->getImpl().getInternalStreams();
+    handle->getImpl().getWorkerStreams();
 
   MLCommon::Selection::brute_force_knn(
     ptrs, sizes, indices, D, search_items, n, res_I, res_D, k,
     handle->getImpl().getDeviceAllocator(), handle->getImpl().getStream(),
-    int_streams.data(), handle->getImpl().getNumInternalStreams(),
+    int_streams.data(), handle->getImpl().getNumWorkerStreams(),
     this->rowMajorIndex, rowMajor);
 }
 };  // namespace ML
@@ -193,7 +193,7 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
 
   std::vector<cudaStream_t> int_streams =
-    handle_ptr->getImpl().getInternalStreams();
+    handle_ptr->getImpl().getWorkerStreams();
 
   std::vector<float *> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);
@@ -208,7 +208,7 @@ extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
         input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
         handle_ptr->getImpl().getDeviceAllocator(),
         handle_ptr->getImpl().getStream(), int_streams.data(),
-        handle_ptr->getImpl().getNumInternalStreams(), rowMajorIndex,
+        handle_ptr->getImpl().getNumWorkerStreams(), rowMajorIndex,
         rowMajorQuery);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
