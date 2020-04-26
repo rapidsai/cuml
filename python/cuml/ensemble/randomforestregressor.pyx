@@ -282,7 +282,7 @@ class RandomForestRegressor(Base):
         self.dtype = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
-        self.n_streams = handle.getNumInternalStreams()
+        self.n_streams = handle.getNumWorkerStreams()
         self.seed = seed
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("Setting the random seed does not fully guarantee"

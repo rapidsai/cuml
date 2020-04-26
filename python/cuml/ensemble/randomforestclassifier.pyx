@@ -292,7 +292,7 @@ class RandomForestClassifier(Base):
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
         self.dtype = None
-        self.n_streams = handle.getNumInternalStreams()
+        self.n_streams = handle.getNumWorkerStreams()
         self.seed = seed
         self.num_classes = 2
         if ((seed is not None) and (n_streams != 1)):
