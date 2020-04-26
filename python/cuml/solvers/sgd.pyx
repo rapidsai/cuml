@@ -453,7 +453,7 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(self.output_type)
+        output_type = self._get_output_type(X)
 
         return preds.to_output(output_type)
 
@@ -514,6 +514,6 @@ class SGD(Base):
 
         del(X_m)
 
-        output_type = self._get_output_type(self.output_type)
+        output_type = self._get_output_type(X)
 
         return preds.to_output(output_type)
