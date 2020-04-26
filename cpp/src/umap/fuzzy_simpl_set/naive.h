@@ -168,56 +168,12 @@ __global__ void smooth_knn_dist_kernel(
   }
 }
 
-template <int TPB_X, typename T>
-__global__ void compute_membership_strength_kernel(
-  const int64_t *knn_indices,
-  const float *knn_dists,          // nn outputs
-  const T *sigmas, const T *rhos,  // continuous dists to nearest neighbors
-  T *vals, int *rows, int *cols,   // result coo
-  int n, int n_neighbors) {        // model params
-
-  // row-based matrix is best
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  int i = row * n_neighbors;  //   one row per thread
-
-  if (row < n) {
-    T cur_rho = rhos[row];
-    T cur_sigma = sigmas[row];
-
-    for (int j = 0; j < n_neighbors; j++) {
-      int idx = i + j;
-
-      int64_t cur_knn_ind = knn_indices[idx];
-      T cur_knn_dist = knn_dists[idx];
-
-      if (cur_knn_ind == -1) continue;
-
-      double val = 0.0;
-      if (cur_knn_ind == row)
-        val = 0.0;
-      else if (cur_knn_dist - cur_rho <= 0.0)
-        val = 1.0;
-      else {
-        val = exp(
-          -((double(cur_knn_dist) - double(cur_rho)) / (double(cur_sigma))));
-
-        if (val < MIN_FLOAT) val = MIN_FLOAT;
-      }
-
-      rows[idx] = row;
-      cols[idx] = cur_knn_ind;
-      vals[idx] = val;
-    }
-  }
-}
 
 /**
  * Construct the membership strength data for the 1-skeleton of each local
  * fuzzy simplicial set -- this is formed as a sparse matrix (COO) where each
  * row is a local fuzzy simplicial set, with a membership strength for the
  * 1-simplex to each other data point.
- *
- * TODO: Optimize for coalesced reads (use col-major inputs).
  *
  * @param knn_indices: the knn index matrix of size (n, k)
  * @param knn_dists: the knn distance matrix of size (n, k)
@@ -232,7 +188,7 @@ __global__ void compute_membership_strength_kernel(
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  */
 template <int TPB_X, typename T>
-__global__ void compute_membership_strength_kernel2(
+__global__ void compute_membership_strength_kernel(
   const int64_t *knn_indices,
   const float *knn_dists,          // nn outputs
   const T *sigmas, const T *rhos,  // continuous dists to nearest neighbors
@@ -256,7 +212,7 @@ __global__ void compute_membership_strength_kernel2(
         double val = 0.0;
         if (cur_knn_ind == row)
           val = 0.0;
-        else if (cur_knn_dist - cur_rho <= 0.0 or cur_sigma == 0.0)
+        else if (cur_knn_dist - cur_rho <= 0.0 || cur_sigma == 0.0)
           val = 1.0;
         else {
           val = exp(
@@ -340,9 +296,6 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
                             params->local_connectivity, d_alloc, stream);
 
   MLCommon::Sparse::COO<T> in(d_alloc, stream, n * n_neighbors, n, n);
-  CUDA_CHECK(cudaMemsetAsync(in.rows(), 0, n * n_neighbors * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(in.cols(), 0, n * n_neighbors * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(in.vals(), 0, n * n_neighbors * sizeof(T), stream));
 
   // check for logging in order to avoid the potentially costly `arr2Str` call!
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -362,7 +315,7 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
   dim3 grid_elm(MLCommon::ceildiv(n*n_neighbors, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
-  compute_membership_strength_kernel2<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(
+  compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(
     knn_indices, knn_dists, sigmas.data(), rhos.data(), in.vals(), in.rows(),
     in.cols(), in.n_rows, n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());

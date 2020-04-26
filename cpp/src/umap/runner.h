@@ -338,7 +338,7 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   COO<T> graph_coo(d_alloc, stream, nnz, n, n);
 
   FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X>
-    <<<grid_n, blk, 0, stream>>>(knn_indices, knn_dists, sigmas.data(),
+    <<<grid_nnz, blk, 0, stream>>>(knn_indices, knn_dists, sigmas.data(),
                                  rhos.data(), graph_coo.vals(),
                                  graph_coo.rows(), graph_coo.cols(),
                                  graph_coo.n_rows, params->n_neighbors);
