@@ -40,6 +40,7 @@
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
+- PR #2134: C++: Rename internal-streams to worker-streams in cumlHandle
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
