@@ -142,7 +142,8 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
 # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
 ################################################################################
 
-if [ "$BUILD_MODE" = "branch" && "$BUILD_TYPE" = "gpu" ]; then
+if [ "$BUILD_MODE" = "branch" ] && [ "$BUILD_TYPE" = "gpu" ]; then
+    logger "GoogleTest for ml-prims with cuda-memcheck enabled..."
     cd $WORKSPACE/cpp/build
     python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
 fi
