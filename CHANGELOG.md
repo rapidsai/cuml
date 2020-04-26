@@ -30,6 +30,7 @@
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
+- PR #2048: Random forest testing speedup
 - PR #2058: Use CumlArray in Random Projection
 - PR #2062: Adding random state to UMAP mnmg tests
 - PR #2064: Speed-up K-Means test
@@ -37,6 +38,7 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
 
 ## Bug Fixes
@@ -55,6 +57,7 @@
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
 - PR #2115: Fixed contingency matrix prim unit-tests for computing correct golden values
+- PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
 
@@ -79,6 +82,7 @@
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 - PR #1874: Add predict_proba function to RF classifier
 - PR #1815: Adding KNN parameter to UMAP
+- PR #1978: Adding `predict_proba` function to dask RF
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
