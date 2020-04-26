@@ -107,9 +107,9 @@ cdef class Handle:
     def getHandle(self):
         return self.h
 
-    def getNumInternalStreams(self):
+    def getNumWorkerStreams(self):
         cdef cumlHandle* h_ = <cumlHandle*>self.h
-        return h_.getNumInternalStreams()
+        return h_.getNumWorkerStreams()
 
     def __getstate__(self):
         return self.n_streams
