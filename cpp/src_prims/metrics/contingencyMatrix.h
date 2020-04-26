@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,8 @@ void contingencyMatrixWSort(const T *groundTruth, const T *predictedLabel,
   T *outValue = reinterpret_cast<T *>((size_t)workspace + alignedBufferSz);
   void *pWorkspaceCub =
     reinterpret_cast<void *>((size_t)workspace + 2 * alignedBufferSz);
-  int bitsToSort = int(std::ceil(std::log2f((float)maxLabel)));
+  auto bitsToSort = log2<int>(maxLabel);
+  if (!isPo2(maxLabel)) ++bitsToSort;
   // we dont really need perfect sorting, should get by with some sort of
   // binning-reordering operation
   ///@todo: future work - explore "efficient" custom binning kernels vs cub sort
@@ -125,14 +126,12 @@ template <typename OutT = int>
 ContingencyMatrixImplType getImplVersion(OutT outDimN) {
   int currDevice = 0;
   int l2CacheSize = 0;
-  int maxSmemPerBlock = 0;
   // no way to query this from CUDA APIs, value for CC 7.0, 3.0
   int maxBlocksResidentPerSM = 16;
   CUDA_CHECK(cudaGetDevice(&currDevice));
   CUDA_CHECK(
     cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, currDevice));
-  CUDA_CHECK(cudaDeviceGetAttribute(
-    &maxSmemPerBlock, cudaDevAttrMaxSharedMemoryPerBlock, currDevice));
+  auto maxSmemPerBlock = getSharedMemPerBlock();
   ContingencyMatrixImplType implVersion = IMPL_NONE;
   // keeping 8 block per SM to get good utilization
   // can go higher but reduced L1 size degrades perf
