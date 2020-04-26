@@ -116,7 +116,7 @@ class cumlHandle {
   static int getDefaultNumWorkerStreams();
 
  private:
-  static constexpr int _default_num_internal_streams = 0;
+  static constexpr int _default_num_default_streams = 0;
   std::unique_ptr<cumlHandle_impl> _impl;
 };
 
