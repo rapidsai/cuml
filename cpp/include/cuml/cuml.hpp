@@ -95,13 +95,13 @@ class cumlHandle {
   * @brief API to query Num of work streams set during handle creation.
   * @returns num of streams in the handle.
   */
-  int getNumInternalStreams();
+  int getNumWorkerStreams();
 
   /**
    * @brief API to get the internal streams as a vector.
    * @return vector of internal streams in the handle
    */
-  std::vector<cudaStream_t> getInternalStreams() const;
+  std::vector<cudaStream_t> getWorkerStreams() const;
 
   /**
      * @brief for internal use only.
@@ -113,7 +113,7 @@ class cumlHandle {
   cumlHandle_impl& getImpl();
 
   /** for internal use only */
-  static int getDefaultNumInternalStreams();
+  static int getDefaultNumWorkerStreams();
 
  private:
   static constexpr int _default_num_internal_streams = 0;
