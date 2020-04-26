@@ -41,16 +41,16 @@ namespace Selection {
 
 /**
  * @brief Simple utility function to determine whether user_stream or one of the
- * internal streams should be used.
+ *        worker streams should be used.
  * @param user_stream main user stream
- * @param int_streams array of internal streams
- * @param n_int_streams number of internal streams
+ * @param worker_streams array of worker streams
+ * @param n_worker_streams number of worker streams
  * @param idx the index for which to query the stream
  */
 inline cudaStream_t select_stream(cudaStream_t user_stream,
-                                  cudaStream_t *int_streams, int n_int_streams,
+                                  cudaStream_t *worker_streams, int n_worker_streams,
                                   int idx) {
-  return n_int_streams > 0 ? int_streams[idx % n_int_streams] : user_stream;
+  return n_worker_streams > 0 ? worker_streams[idx % n_worker_streams] : user_stream;
 }
 
 template <int warp_q, int thread_q, int tpb>
@@ -185,11 +185,11 @@ inline void knn_merge_parts(float *inK, int64_t *inV, float *outK,
    * @param k        number of neighbors to query
    * @param allocator the device memory allocator to use for temporary scratch memory
    * @param userStream the main cuda stream to use
-   * @param internalStreams optional when n_params > 0, the index partitions can be
-   *        queried in parallel using these streams. Note that n_int_streams also
+   * @param workerStreams optional when n_params > 0, the index partitions can be
+   *        queried in parallel using these streams. Note that n_worker_streams also
    *        has to be > 0 for these to be used and their cardinality does not need
    *        to correspond to n_parts.
-   * @param n_int_streams size of internalStreams. When this is <= 0, only the
+   * @param n_worker_streams size of workerStreams. When this is <= 0, only the
    *        user stream will be used.
    * @param rowMajorIndex are the index arrays in row-major layout?
    * @param rowMajorQuery are the query array in row-major layout?
@@ -203,8 +203,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
                      float *res_D, IntType k,
                      std::shared_ptr<deviceAllocator> allocator,
                      cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0, bool rowMajorIndex = true,
+                     cudaStream_t *workerStreams = nullptr,
+                     int n_worker_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr) {
   ASSERT(DistanceType == Distance::EucUnexpandedL2 ||
@@ -241,13 +241,13 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
   device_buffer<int64_t> all_I(allocator, userStream, input.size() * k * n);
 
   // Sync user stream only if using other streams to parallelize query
-  if (n_int_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
+  if (n_worker_streams > 0) CUDA_CHECK(cudaStreamSynchronize(userStream));
 
   for (int i = 0; i < input.size(); i++) {
     faiss::gpu::StandardGpuResources gpu_res;
 
     cudaStream_t stream =
-      select_stream(userStream, internalStreams, n_int_streams, i);
+      select_stream(userStream, workerStreams, n_worker_streams, i);
 
     gpu_res.noTempMemory();
     gpu_res.setCudaMallocWarning(false);
@@ -261,11 +261,11 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
-  // Sync internal streams if used. We don't need to
+  // Sync worker streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  for (int i = 0; i < n_int_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(internalStreams[i]));
+  for (int i = 0; i < n_worker_streams; i++) {
+    CUDA_CHECK(cudaStreamSynchronize(workerStreams[i]));
   }
 
   knn_merge_parts(all_D.data(), all_I.data(), res_D, res_I, n, input.size(), k,
@@ -285,8 +285,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
                      float *res_D, IntType k,
                      std::shared_ptr<deviceAllocator> allocator,
                      cudaStream_t userStream,
-                     cudaStream_t *internalStreams = nullptr,
-                     int n_int_streams = 0, bool rowMajorIndex = true,
+                     cudaStream_t *workerStreams = nullptr,
+                     int n_worker_streams = 0, bool rowMajorIndex = true,
                      bool rowMajorQuery = true,
                      std::vector<int64_t> *translations = nullptr) {
   std::vector<float *> input_vec(n_params);
@@ -299,7 +299,7 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
 
   brute_force_knn<IntType, DistanceType>(
     input_vec, sizes_vec, D, search_items, n, res_I, res_D, k, allocator,
-    userStream, internalStreams, n_int_streams, rowMajorIndex, rowMajorQuery,
+    userStream, workerStreams, n_worker_streams, rowMajorIndex, rowMajorQuery,
     translations);
 }
 
@@ -455,8 +455,8 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  * @param n_unique vector of sizes for each array in uniq_labels
  * @param allocator device allocator to use for temporary workspace
  * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param worker_streams worker streams to use for parallelizing independent CUDA events.
+ * @param n_worker_streams number of elements in worker_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32>
@@ -464,11 +464,11 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_rows, int k,
                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
                  std::shared_ptr<deviceAllocator> allocator,
-                 cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
-                 int n_int_streams = 0) {
+                 cudaStream_t user_stream, cudaStream_t *worker_streams = nullptr,
+                 int n_worker_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      select_stream(user_stream, worker_streams, n_worker_streams, i);
 
     int n_labels = n_unique[i];
     int cur_size = n_rows * n_labels;
@@ -506,8 +506,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param n_unique vector of sizes for each array in uniq_labels
  * @param allocator device allocator to use for temporary workspace
  * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param worker_streams worker streams to use for parallelizing independent CUDA events.
+ * @param n_worker_streams number of elements in worker_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 template <int TPB_X = 32>
@@ -515,8 +515,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
                   size_t n_rows, int k, std::vector<int *> &uniq_labels,
                   std::vector<int> &n_unique,
                   std::shared_ptr<deviceAllocator> &allocator,
-                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
-                  int n_int_streams = 0) {
+                  cudaStream_t user_stream, cudaStream_t *worker_streams = nullptr,
+                  int n_worker_streams = 0) {
   std::vector<float *> probs;
   std::vector<device_buffer<float> *> tmp_probs;
 
@@ -525,7 +525,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     int size = n_unique[i];
 
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      select_stream(user_stream, worker_streams, n_worker_streams, i);
 
     device_buffer<float> *probs_buff =
       new device_buffer<float>(allocator, stream, n_rows * size);
@@ -541,14 +541,14 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
   class_probs(probs, knn_indices, y, n_rows, k, uniq_labels, n_unique,
-              allocator, user_stream, int_streams, n_int_streams);
+              allocator, user_stream, worker_streams, n_worker_streams);
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      select_stream(user_stream, worker_streams, n_worker_streams, i);
 
     int n_labels = n_unique[i];
 
@@ -577,16 +577,16 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * @param n_rows number of rows in knn_indices
  * @param k number of neighbors in knn_indices
  * @param user_stream main stream to use for queuing isolated CUDA events
- * @param int_streams internal streams to use for parallelizing independent CUDA events.
- * @param n_int_streams number of elements in int_streams array. If this is less than 1,
+ * @param worker_streams worker streams to use for parallelizing independent CUDA events.
+ * @param n_worker_streams number of elements in worker_streams array. If this is less than 1,
  *        the user_stream is used.
  */
 
 template <typename ValType, int TPB_X = 32>
 void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_rows, int k,
-                 cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
-                 int n_int_streams = 0) {
+                 cudaStream_t user_stream, cudaStream_t *worker_streams = nullptr,
+                 int n_worker_streams = 0) {
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
@@ -595,7 +595,7 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
    */
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
-      select_stream(user_stream, int_streams, n_int_streams, i);
+      select_stream(user_stream, worker_streams, n_worker_streams, i);
     regress_avg_kernel<<<grid, blk, 0, stream>>>(out, knn_indices, y[i], n_rows,
                                                  k, y.size(), i);
     CUDA_CHECK(cudaPeekAtLastError());
