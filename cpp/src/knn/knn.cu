@@ -39,13 +39,14 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
-  std::vector<cudaStream_t> worker_streams = handle.getImpl().getWorkerStreams();
+  std::vector<cudaStream_t> worker_streams =
+    handle.getImpl().getWorkerStreams();
 
   MLCommon::Selection::brute_force_knn(
     input, sizes, D, search_items, n, res_I, res_D, k,
     handle.getImpl().getDeviceAllocator(), handle.getImpl().getStream(),
-    worker_streams.data(), handle.getImpl().getNumWorkerStreams(), rowMajorIndex,
-    rowMajorQuery);
+    worker_streams.data(), handle.getImpl().getNumWorkerStreams(),
+    rowMajorIndex, rowMajorQuery);
 }
 
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,

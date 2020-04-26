@@ -48,9 +48,10 @@ namespace Selection {
  * @param idx the index for which to query the stream
  */
 inline cudaStream_t select_stream(cudaStream_t user_stream,
-                                  cudaStream_t *worker_streams, int n_worker_streams,
-                                  int idx) {
-  return n_worker_streams > 0 ? worker_streams[idx % n_worker_streams] : user_stream;
+                                  cudaStream_t *worker_streams,
+                                  int n_worker_streams, int idx) {
+  return n_worker_streams > 0 ? worker_streams[idx % n_worker_streams]
+                              : user_stream;
 }
 
 template <int warp_q, int thread_q, int tpb>
@@ -464,7 +465,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_rows, int k,
                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
                  std::shared_ptr<deviceAllocator> allocator,
-                 cudaStream_t user_stream, cudaStream_t *worker_streams = nullptr,
+                 cudaStream_t user_stream,
+                 cudaStream_t *worker_streams = nullptr,
                  int n_worker_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
@@ -515,7 +517,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
                   size_t n_rows, int k, std::vector<int *> &uniq_labels,
                   std::vector<int> &n_unique,
                   std::shared_ptr<deviceAllocator> &allocator,
-                  cudaStream_t user_stream, cudaStream_t *worker_streams = nullptr,
+                  cudaStream_t user_stream,
+                  cudaStream_t *worker_streams = nullptr,
                   int n_worker_streams = 0) {
   std::vector<float *> probs;
   std::vector<device_buffer<float> *> tmp_probs;
@@ -585,7 +588,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
 template <typename ValType, int TPB_X = 32>
 void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_rows, int k,
-                 cudaStream_t user_stream, cudaStream_t *worker_streams = nullptr,
+                 cudaStream_t user_stream,
+                 cudaStream_t *worker_streams = nullptr,
                  int n_worker_streams = 0) {
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
