@@ -171,16 +171,16 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
   const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  ASSERT(n_streams <= handle.getNumInternalStreams(),
+  ASSERT(n_streams <= handle.getNumWorkerStreams(),
          "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
-         n_streams, handle.getNumInternalStreams());
+         n_streams, handle.getNumWorkerStreams());
 
   cudaStream_t stream = handle.getStream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    auto s = handle.getInternalStream(i);
+    auto s = handle.getWorkerStream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
       handle.getDeviceAllocator(), s, n_sampled_rows);
   }
@@ -188,7 +188,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, int>>(
-      handle, handle.getInternalStream(i), n_rows, n_cols,
+      handle, handle.getWorkerStream(i), n_rows, n_cols,
       this->rf_params.tree_params.max_features, n_unique_labels,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
@@ -443,16 +443,16 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   const cumlHandle_impl& handle = user_handle.getImpl();
   int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   int n_streams = this->rf_params.n_streams;
-  ASSERT(n_streams <= handle.getNumInternalStreams(),
+  ASSERT(n_streams <= handle.getNumWorkerStreams(),
          "rf_params.n_streams (=%d) should be <= cumlHandle.n_streams (=%d)",
-         n_streams, handle.getNumInternalStreams());
+         n_streams, handle.getNumWorkerStreams());
 
   cudaStream_t stream = user_handle.getStream();
   // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
   // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
   MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    auto s = handle.getInternalStream(i);
+    auto s = handle.getWorkerStream(i);
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
       handle.getDeviceAllocator(), s, n_sampled_rows);
   }
@@ -460,7 +460,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
   for (int i = 0; i < n_streams; i++) {
     tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
-      handle, handle.getInternalStream(i), n_rows, n_cols,
+      handle, handle.getWorkerStream(i), n_rows, n_cols,
       this->rf_params.tree_params.max_features, 1,
       this->rf_params.tree_params.n_bins,
       this->rf_params.tree_params.split_algo,
