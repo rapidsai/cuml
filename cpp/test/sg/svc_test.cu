@@ -382,7 +382,7 @@ template <typename math_t>
 class SmoUpdateTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    stream = handle.getImpl().getInternalStream(0);
+    stream = handle.getImpl().getWorkerStream(0);
     cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
     allocate(f_dev, n_rows, true);
     allocate(kernel_dev, n_rows * n_ws);
