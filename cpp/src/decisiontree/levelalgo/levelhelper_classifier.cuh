@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "common/cudart_utils.h"
+#include <common/cudart_utils.h>
 #include "levelkernel_classifier.cuh"
 
 template <typename T, typename F>

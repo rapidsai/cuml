@@ -18,7 +18,7 @@
 #include <cmath>
 #include <iostream>
 #include <random>
-#include "common/cudart_utils.h"
+#include <common/cudart_utils.h>
 #include "random/mvg.h"
 #include "test_utils.h"
 

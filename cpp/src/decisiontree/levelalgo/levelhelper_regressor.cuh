@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "common/cudart_utils.h"
+#include <common/cudart_utils.h>
 #include "levelkernel_regressor.cuh"
 template <typename T, typename F>
 void initial_metric_regression(const T *labels, unsigned int *sample_cnt,

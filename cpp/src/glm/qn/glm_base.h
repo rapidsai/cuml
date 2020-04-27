@@ -19,7 +19,7 @@
 #include <glm/qn/simple_mat.h>
 #include <linalg/matrix_vector_op.h>
 #include <vector>
-#include "common/cudart_utils.h"
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"

@@ -20,7 +20,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include "common/cudart_utils.h"
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
 #include "sparse/coo.h"

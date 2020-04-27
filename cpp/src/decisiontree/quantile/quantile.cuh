@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "common/cudart_utils.h"
+#include <common/cudart_utils.h>
 #include "cub/cub.cuh"
 #include "quantile.h"
 
