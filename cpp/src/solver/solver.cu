@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "cd.h"
+#include <cuml/solvers/solver.hpp>
+#include "cd.cuh"
 #include "ml_utils.h"
-#include "sgd.h"
-#include "solver.hpp"
+#include "sgd.cuh"
 
 namespace ML {
 namespace Solver {

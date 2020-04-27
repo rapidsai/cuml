@@ -38,9 +38,12 @@
   * as the O(nElements*nElements) increase beyond the floating point limit, floating point inaccuracies occur, and hence the above floor(...) !=  ceil(...)
  * </pre>
  */
+
+#pragma once
+
 #include <math.h>
 #include <cub/cub.cuh>
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 

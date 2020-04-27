@@ -12,7 +12,7 @@ PATH=/conda/bin:$PATH
 source activate gdf
 
 # Run flake8 and get results/return code
-FLAKE=`flake8 --exclude=cuML,ml-prims,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
+FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
 RETVAL=$?
 
 # Output results if failure otherwise show pass
@@ -38,6 +38,48 @@ if [ "$CR_RETVAL" != "0" ]; then
   echo -e "\n\n>>>> FAILED: copyright check; end output\n\n"
 else
   echo -e "\n\n>>>> PASSED: copyright check\n\n"
+fi
+
+# Check for a consistent #include syntax
+# TODO: keep adding more dirs as and when we update the syntax
+HASH_INCLUDE=`python cpp/scripts/include_checker.py \
+                     cpp/bench \
+                     cpp/comms/mpi/include \
+                     cpp/comms/mpi/src \
+                     cpp/comms/std/include \
+                     cpp/comms/std/src \
+                     cpp/include \
+                     cpp/examples \
+                     2>&1`
+HASH_RETVAL=$?
+if [ "$RETVAL" = "0" ]; then
+  RETVAL=$HASH_RETVAL
+fi
+
+# Output results if failure otherwise show pass
+if [ "$HASH_RETVAL" != "0" ]; then
+  echo -e "\n\n>>>> FAILED: #include check; begin output\n\n"
+  echo -e "$HASH_INCLUDE"
+  echo -e "\n\n>>>> FAILED: #include check; end output\n\n"
+else
+  echo -e "\n\n>>>> PASSED: #include check\n\n"
+fi
+
+# Check for a consistent code format
+# TODO: keep adding more dirs when we add more source folders in cuml
+FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
+FORMAT_RETVAL=$?
+if [ "$RETVAL" = "0" ]; then
+  RETVAL=$FORMAT_RETVAL
+fi
+
+# Output results if failure otherwise show pass
+if [ "$FORMAT_RETVAL" != "0" ]; then
+  echo -e "\n\n>>>> FAILED: clang format check; begin output\n\n"
+  echo -e "$FORMAT"
+  echo -e "\n\n>>>> FAILED: clang format check; end output\n\n"
+else
+  echo -e "\n\n>>>> PASSED: clang format check\n\n"
 fi
 
 exit $RETVAL

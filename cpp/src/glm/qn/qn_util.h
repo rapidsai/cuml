@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 namespace GLM {
@@ -115,27 +117,24 @@ HDI T project_orth(T x, T y) {
 template <typename T>
 inline bool check_convergence(const LBFGSParam<T> &param, const int k,
                               const T fx, SimpleVec<T> &x, SimpleVec<T> &grad,
-                              std::vector<T> &fx_hist, const int verbosity,
-                              T *dev_scalar, cudaStream_t stream) {
+                              std::vector<T> &fx_hist, T *dev_scalar,
+                              cudaStream_t stream) {
   // New x norm and gradient norm
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(grad, dev_scalar, stream);
 
-  if (verbosity > 0) {
-    printf("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)\n", k, fx,
-           gnorm / std::max(T(1), xnorm), gnorm, xnorm);
-  }
+  CUML_LOG_DEBUG("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)", k,
+                 fx, gnorm / std::max(T(1), xnorm), gnorm, xnorm);
   // Convergence test -- gradient
   if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
-    if (verbosity > 0)
-      printf("Converged after %d iterations: f(x)=%.6f\n", k, fx);
+    CUML_LOG_DEBUG("Converged after %d iterations: f(x)=%.6f", k, fx);
     return true;
   }
   // Convergence test -- objective function value
   if (param.past > 0) {
     if (k >= param.past &&
         std::abs((fx_hist[k % param.past] - fx) / fx) < param.delta) {
-      if (verbosity > 0) printf("Insufficient change in objective value\n");
+      CUML_LOG_DEBUG("Insufficient change in objective value");
       return true;
     }
 
@@ -163,7 +162,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
   T ys = dot(svec, yvec, dev_scalar, stream);
   T yy = dot(yvec, yvec, dev_scalar, stream);
   if (ys == 0 || yy == 0) {
-    printf("WARNING: zero detected\n");
+    CUML_LOG_WARN("WARNING: zero detected");
   }
   yhist[end] = ys;
 

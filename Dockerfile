@@ -3,25 +3,33 @@ FROM cudf
 
 ENV CONDA_ENV=cudf
 
-ADD thirdparty /cuml/thirdparty
-ADD ml-prims /cuml/ml-prims
-ADD cuML /cuml/cuML
-WORKDIR /cuml/cuML
+ADD . /cuml/
+
+WORKDIR /cuml
+
+RUN conda env update --name ${CONDA_ENV} \
+    --file /cuml/conda/environments/cuml_dev_cuda${CUDA_SHORT_VERSION}.yml
+
+# libcuml build/install
 RUN source activate ${CONDA_ENV} && \
-    conda install -c rapidsai libclang && \
-    conda clean -ya
-RUN source activate ${CONDA_ENV} && \
+    cd cpp && \
     mkdir build && \
     cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} && \
     make -j && \
     make install
 
-ADD python /cuml/python
-WORKDIR /cuml/python
+# libcumlcomms build/install
 RUN source activate ${CONDA_ENV} && \
+    cd cpp/comms/std && \
+    mkdir build && \
+    cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} && \
+    make -j && \
+    make install
+
+# cuML build/install
+RUN source activate ${CONDA_ENV} && \
+    cd python && \
     python setup.py build_ext --inplace && \
     python setup.py install
-
-ADD docs /cuml/docs
-WORKDIR /cuml

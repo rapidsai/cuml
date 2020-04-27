@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,47 +17,51 @@
 #pragma once
 
 #include <cublas_v2.h>
-#include "cuda_utils.h"
+#include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
 
-/** check for cublas runtime API errors and assert accordingly */
-#define CUBLAS_CHECK(call)                                             \
-  {                                                                    \
-    cublasStatus_t err;                                                \
-    if ((err = (call)) != CUBLAS_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUBLAS error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                               \
-      switch (err) {                                                   \
-        case CUBLAS_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_INVALID_VALUE");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_INTERNAL_ERROR");     \
-      }                                                                \
-      exit(1);                                                         \
-      exit(1);                                                         \
-    }                                                                  \
-  }
+#define _CUBLAS_ERR_TO_STR(err) \
+  case err:                     \
+    return #err
+inline const char *cublasErr2Str(cublasStatus_t err) {
+  switch (err) {
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_SUCCESS);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_NOT_INITIALIZED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_ALLOC_FAILED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_INVALID_VALUE);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_ARCH_MISMATCH);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_MAPPING_ERROR);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_EXECUTION_FAILED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_INTERNAL_ERROR);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_NOT_SUPPORTED);
+    _CUBLAS_ERR_TO_STR(CUBLAS_STATUS_LICENSE_ERROR);
+    default:
+      return "CUBLAS_STATUS_UNKNOWN";
+  };
+}
+#undef _CUBLAS_ERR_TO_STR
 
-///@todo: add a similar CUBLAS_CHECK_NO_THROW
-/// (Ref: https://github.com/rapidsai/cuml/issues/229)
+/** check for cublas runtime API errors and assert accordingly */
+#define CUBLAS_CHECK(call)                                         \
+  do {                                                             \
+    cublasStatus_t err = call;                                     \
+    ASSERT(err == CUBLAS_STATUS_SUCCESS,                           \
+           "CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
+           MLCommon::LinAlg::cublasErr2Str(err));                  \
+  } while (0)
+
+/** check for cublas runtime API errors but do not assert */
+#define CUBLAS_CHECK_NO_THROW(call)                                          \
+  do {                                                                       \
+    cublasStatus_t err = call;                                               \
+    if (err != CUBLAS_STATUS_SUCCESS) {                                      \
+      CUML_LOG_ERROR("CUBLAS call='%s' got errorcode=%d err=%s", #call, err, \
+                     MLCommon::LinAlg::cublasErr2Str(err));                  \
+    }                                                                        \
+  } while (0)
 
 /**
  * @defgroup Axpy cublas ax+y operations
@@ -179,6 +183,182 @@ inline cublasStatus_t cublasgemm(cublasHandle_t handle,
   return cublasDgemm(handle, transA, transB, m, n, k, alfa, A, lda, B, ldb,
                      beta, C, ldc);
 }
+/** @} */
+
+/**
+ * @defgroup gemmbatched cublas gemmbatched calls
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasgemmBatched(cublasHandle_t handle,
+                                 cublasOperation_t transa,
+                                 cublasOperation_t transb, int m, int n, int k,
+                                 const T *alpha, const T *const Aarray[],
+                                 int lda, const T *const Barray[], int ldb,
+                                 const T *beta, T *Carray[], int ldc,
+                                 int batchCount, cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgemmBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const float *alpha, const float *const Aarray[], int lda,
+  const float *const Barray[], int ldb, const float *beta, float *Carray[],
+  int ldc, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda,
+                            Barray, ldb, beta, Carray, ldc, batchCount);
+}
+
+template <>
+inline cublasStatus_t cublasgemmBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const double *alpha, const double *const Aarray[],
+  int lda, const double *const Barray[], int ldb, const double *beta,
+  double *Carray[], int ldc, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda,
+                            Barray, ldb, beta, Carray, ldc, batchCount);
+}
+/** @} */
+
+/**
+ * @defgroup gemmbatched cublas gemmbatched calls
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const T *alpha, const T *const Aarray, int lda,
+  long long int strideA, const T *const Barray, int ldb, long long int strideB,
+  const T *beta, T *Carray, int ldc, long long int strideC, int batchCount,
+  cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const float *alpha, const float *const Aarray, int lda,
+  long long int strideA, const float *const Barray, int ldb,
+  long long int strideB, const float *beta, float *Carray, int ldc,
+  long long int strideC, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
+                                   Aarray, lda, strideA, Barray, ldb, strideB,
+                                   beta, Carray, ldc, strideC, batchCount);
+}
+
+template <>
+inline cublasStatus_t cublasgemmStridedBatched(
+  cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+  int m, int n, int k, const double *alpha, const double *const Aarray, int lda,
+  long long int strideA, const double *const Barray, int ldb,
+  long long int strideB, const double *beta, double *Carray, int ldc,
+  long long int strideC, int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgemmStridedBatched(handle, transa, transb, m, n, k, alpha,
+                                   Aarray, lda, strideA, Barray, ldb, strideB,
+                                   beta, Carray, ldc, strideC, batchCount);
+}
+/** @} */
+
+/**
+ * @defgroup solverbatched cublas getrf/gettribatched calls
+ * @{
+ */
+
+template <typename T>
+cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
+                                  T *const A[],    /*Device pointer*/
+                                  int lda, int *P, /*Device Pointer*/
+                                  int *info,       /*Device Pointer*/
+                                  int batchSize, cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
+                                         float *const A[], /*Device pointer*/
+                                         int lda, int *P,  /*Device Pointer*/
+                                         int *info,        /*Device Pointer*/
+                                         int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgetrfBatched(handle, n, A, lda, P, info, batchSize);
+}
+
+template <>
+inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle, int n,
+                                         double *const A[], /*Device pointer*/
+                                         int lda, int *P,   /*Device Pointer*/
+                                         int *info,         /*Device Pointer*/
+                                         int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgetrfBatched(handle, n, A, lda, P, info, batchSize);
+}
+
+template <typename T>
+cublasStatus_t cublasgetriBatched(cublasHandle_t handle, int n,
+                                  const T *const A[],    /*Device pointer*/
+                                  int lda, const int *P, /*Device pointer*/
+                                  T *const C[],          /*Device pointer*/
+                                  int ldc, int *info, int batchSize,
+                                  cudaStream_t stream);
+
+template <>
+inline cublasStatus_t cublasgetriBatched(
+  cublasHandle_t handle, int n, const float *const A[], /*Device pointer*/
+  int lda, const int *P,                                /*Device pointer*/
+  float *const C[],                                     /*Device pointer*/
+  int ldc, int *info, int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
+}
+
+template <>
+inline cublasStatus_t cublasgetriBatched(
+  cublasHandle_t handle, int n, const double *const A[], /*Device pointer*/
+  int lda, const int *P,                                 /*Device pointer*/
+  double *const C[],                                     /*Device pointer*/
+  int ldc, int *info, int batchSize, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize);
+}
+
+/** @} */
+
+/**
+ * @defgroup gelsbatched cublas gelsbatched calls
+ * @{
+ */
+
+template <typename T>
+inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,
+                                        cublasOperation_t trans, int m, int n,
+                                        int nrhs, T *Aarray[], int lda,
+                                        T *Carray[], int ldc, int *info,
+                                        int *devInfoArray, int batchSize,
+                                        cudaStream_t stream = 0);
+
+template <>
+inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,
+                                        cublasOperation_t trans, int m, int n,
+                                        int nrhs, float *Aarray[], int lda,
+                                        float *Carray[], int ldc, int *info,
+                                        int *devInfoArray, int batchSize,
+                                        cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc,
+                            info, devInfoArray, batchSize);
+}
+
+template <>
+inline cublasStatus_t cublasgelsBatched(cublasHandle_t handle,
+                                        cublasOperation_t trans, int m, int n,
+                                        int nrhs, double *Aarray[], int lda,
+                                        double *Carray[], int ldc, int *info,
+                                        int *devInfoArray, int batchSize,
+                                        cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc,
+                            info, devInfoArray, batchSize);
+}
+
 /** @} */
 
 /**

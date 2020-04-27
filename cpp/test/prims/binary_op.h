@@ -22,33 +22,33 @@
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename Type, typename IdxType>
-__global__ void naiveAddKernel(Type *out, const Type *in1, const Type *in2,
-                               IdxType len) {
+template <typename InType, typename OutType, typename IdxType>
+__global__ void naiveAddKernel(OutType *out, const InType *in1,
+                               const InType *in2, IdxType len) {
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {
-    out[idx] = in1[idx] + in2[idx];
+    out[idx] = static_cast<OutType>(in1[idx] + in2[idx]);
   }
 }
 
-template <typename Type, typename IdxType = int>
-void naiveAdd(Type *out, const Type *in1, const Type *in2, IdxType len) {
+template <typename InType, typename IdxType = int, typename OutType = InType>
+void naiveAdd(OutType *out, const InType *in1, const InType *in2, IdxType len) {
   static const IdxType TPB = 64;
   IdxType nblks = ceildiv(len, TPB);
-  naiveAddKernel<Type, IdxType><<<nblks, TPB>>>(out, in1, in2, len);
+  naiveAddKernel<InType, OutType, IdxType><<<nblks, TPB>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T, typename IdxType = int>
+template <typename InType, typename IdxType = int, typename OutType = InType>
 struct BinaryOpInputs {
-  T tolerance;
+  InType tolerance;
   IdxType len;
   unsigned long long int seed;
 };
 
-template <typename T, typename IdxType = int>
+template <typename InType, typename IdxType = int, typename OutType = InType>
 ::std::ostream &operator<<(::std::ostream &os,
-                           const BinaryOpInputs<T, IdxType> &dims) {
+                           const BinaryOpInputs<InType, IdxType, OutType> &d) {
   return os;
 }
 

@@ -46,8 +46,8 @@ namespace Distance {
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void cosineAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
-                 InType const *pB, OutType *pD, AccType *workspace,
+void cosineAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
+                 const InType *pB, OutType *pD, AccType *workspace,
                  size_t worksize, FinalLambda fin_op, cudaStream_t stream,
                  bool isRowMajor) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>

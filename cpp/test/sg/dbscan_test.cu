@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,107 +16,157 @@
 
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cublas_wrappers.h>
 #include <vector>
-#include "dbscan/dbscan.hpp"
+
+#include <cuml/cluster/dbscan.hpp>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/cuml.hpp>
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/metrics/metrics.hpp>
+
+#include "linalg/cublas_wrappers.h"
+#include "linalg/transpose.h"
+
 #include "ml_utils.h"
-#include "random/rng.h"
 #include "test_utils.h"
+
+#include <cuml/common/logger.hpp>
+#include "common/device_buffer.hpp"
 
 namespace ML {
 
 using namespace MLCommon;
+using namespace Datasets;
+using namespace Metrics;
 using namespace std;
 
-template <typename T>
+template <typename T, typename IdxT>
 struct DbscanInputs {
-  T tolerance;
-  int len;
-  int n_row;
-  int n_col;
+  IdxT n_row;
+  IdxT n_col;
+  IdxT n_centers;
+  T cluster_std;
+  T eps;
+  int min_pts;
+  size_t max_bytes_per_batch;
   unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const DbscanInputs<T>& dims) {
+template <typename T, typename IdxT>
+::std::ostream& operator<<(::std::ostream& os,
+                           const DbscanInputs<T, IdxT>& dims) {
   return os;
 }
 
-template <typename T>
-class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T>> {
+template <typename T, typename IdxT>
+class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
  protected:
   void basicTest() {
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    cumlHandle handle;
 
-    params = ::testing::TestWithParam<DbscanInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
-    int len = params.len;
+    params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
-    allocate(data, len);
+    device_buffer<T> out(handle.getDeviceAllocator(), handle.getStream(),
+                         params.n_row * params.n_col);
+    device_buffer<IdxT> l(handle.getDeviceAllocator(), handle.getStream(),
+                          params.n_row);
 
-    std::vector<T> data_h = {1.0, 2.0, 2.0, 2.0, 2.0,  3.0,
-                             8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
-    data_h.resize(len);
-    updateDevice(data, data_h.data(), len, stream);
+    make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
+               params.n_centers, nullptr, nullptr, params.cluster_std, true,
+               -10.0f, 10.0f, 1234ULL);
 
     allocate(labels, params.n_row);
     allocate(labels_ref, params.n_row);
-    std::vector<int> labels_ref_h = {0, 0, 0, 1, 1, -1};
-    labels_ref_h.resize(len);
-    updateDevice(labels_ref, labels_ref_h.data(), params.n_row, stream);
 
-    T eps = 3.0;
-    int min_pts = 2;
-    cumlHandle handle;
-    handle.setStream(stream);
+    MLCommon::copy(labels_ref, l.data(), params.n_row, handle.getStream());
 
-    // forces a batch size of 2
-    size_t max_bytes_per_batch = 4 * sizeof(T) * 8;
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels,
-              max_bytes_per_batch, true);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    dbscanFit(handle, out.data(), params.n_row, params.n_col, params.eps,
+              params.min_pts, labels, params.max_bytes_per_batch);
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
+
+    score = adjustedRandIndex(handle, labels_ref, labels, params.n_row, 0,
+                              params.n_centers - 1);
+
+    if (score < 1.0) {
+      auto str = arr2Str(labels_ref, 25, "labels_ref", handle.getStream());
+      CUML_LOG_DEBUG("y: %s", str.c_str());
+      str = arr2Str(labels, 25, "labels", handle.getStream());
+      CUML_LOG_DEBUG("y_hat: %s", str.c_str());
+      CUML_LOG_DEBUG("Score = %lf", score);
+    }
   }
 
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(labels_ref));
   }
 
  protected:
-  DbscanInputs<T> params;
-  T* data;
-  int *labels, *labels_ref;
+  DbscanInputs<T, IdxT> params;
+  IdxT *labels, *labels_ref;
+
+  double score;
 };
 
-const std::vector<DbscanInputs<float>> inputsf2 = {
-  {0.05f, 6 * 2, 6, 2, 1234ULL}};
+const std::vector<DbscanInputs<float, int>> inputsf2 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {50000, 16, 5l, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
 
-const std::vector<DbscanInputs<double>> inputsd2 = {
-  {0.05, 6 * 2, 6, 2, 1234ULL}};
+const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {50000, 16, 5l, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
 
-typedef DbscanTest<float> DbscanTestF;
-TEST_P(DbscanTestF, Result) {
-  ASSERT_TRUE(devArrMatch(labels, labels_ref, params.n_row,
-                          CompareApproxAbs<float>(params.tolerance)));
-}
+const std::vector<DbscanInputs<double, int>> inputsd2 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
 
-typedef DbscanTest<double> DbscanTestD;
-TEST_P(DbscanTestD, Result) {
-  ASSERT_TRUE(devArrMatch(labels, labels_ref, params.n_row,
-                          CompareApproxAbs<double>(params.tolerance)));
-}
+const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF,
+typedef DbscanTest<float, int> DbscanTestF_Int;
+TEST_P(DbscanTestF_Int, Result) { ASSERT_TRUE(score == 1.0); }
+
+typedef DbscanTest<float, int64_t> DbscanTestF_Int64;
+TEST_P(DbscanTestF_Int64, Result) { ASSERT_TRUE(score == 1.0); }
+
+typedef DbscanTest<double, int> DbscanTestD_Int;
+TEST_P(DbscanTestD_Int, Result) { ASSERT_TRUE(score == 1.0); }
+
+typedef DbscanTest<double, int64_t> DbscanTestD_Int64;
+TEST_P(DbscanTestD_Int64, Result) { ASSERT_TRUE(score == 1.0); }
+
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int,
                         ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD,
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int64,
+                        ::testing::ValuesIn(inputsf3));
+
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int,
                         ::testing::ValuesIn(inputsd2));
+
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int64,
+                        ::testing::ValuesIn(inputsd3));
 
 }  // end namespace ML

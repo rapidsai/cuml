@@ -25,7 +25,7 @@ from libcpp.memory cimport shared_ptr
 from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
 
-cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
+cdef extern from "cuml/common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
     cdef cppclass rmmAllocatorAdapter(deviceAllocator):
         pass
 
@@ -33,7 +33,7 @@ cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
     of cumlHandle exposed by cuML's C++ interface. Refer to the header file
-    cuML.hpp for interface level details of this struct
+    cuml/cuml.hpp for interface level details of this struct
 
     Examples
     --------
@@ -60,10 +60,15 @@ cdef class Handle:
     # 'size_t'!
     cdef size_t h
 
-    def __cinit__(self):
-        self.h = <size_t>(new cumlHandle())
+    # not using __dict__ unless we need it to keep this Extension as lean as
+    # possible
+    cdef int n_streams
 
-    def __dealloc_(self):
+    def __cinit__(self, n_streams=0):
+        self.n_streams = n_streams
+        self.h = <size_t>(new cumlHandle(n_streams))
+
+    def __dealloc__(self):
         h_ = <cumlHandle*>self.h
         del h_
 
@@ -101,3 +106,14 @@ cdef class Handle:
 
     def getHandle(self):
         return self.h
+
+    def getNumInternalStreams(self):
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        return h_.getNumInternalStreams()
+
+    def __getstate__(self):
+        return self.n_streams
+
+    def __setstate__(self, state):
+        self.n_streams = state
+        self.h = <size_t>(new cumlHandle(self.n_streams))

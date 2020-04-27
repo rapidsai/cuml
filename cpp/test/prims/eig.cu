@@ -78,7 +78,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
     T tol = 1.e-7;
     int sweeps = 15;
     eigJacobi(cov_matrix, params.n_row, params.n_col, eig_vectors_jacobi,
-              eig_vals_jacobi, tol, sweeps, cusolverH, stream, allocator);
+              eig_vals_jacobi, cusolverH, stream, allocator, tol, sweeps);
 
     // test code for comparing two methods
     len = params.n * params.n;
@@ -93,7 +93,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
     eigDC(cov_matrix_large, params.n, params.n, eig_vectors_large,
           eig_vals_large, cusolverH, stream, allocator);
     eigJacobi(cov_matrix_large, params.n, params.n, eig_vectors_jacobi_large,
-              eig_vals_jacobi_large, tol, sweeps, cusolverH, stream, allocator);
+              eig_vals_jacobi_large, cusolverH, stream, allocator, tol, sweeps);
   }
 
   void TearDown() override {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,133 +15,34 @@
  */
 
 #include "cumlHandle.hpp"
-
+#include <linalg/cublas_wrappers.h>
+#include <linalg/cusolver_wrappers.h>
+#include <sparse/cusparse_wrappers.h>
+#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include "../../src_prims/utils.h"
-
-//TODO: Delete CUBLAS_CHECK and CUSOLVER_CHECK once
-//      https://github.com/rapidsai/cuml/issues/239 is addressed
-#define CUBLAS_CHECK(call)                                             \
-  {                                                                    \
-    cublasStatus_t err;                                                \
-    if ((err = (call)) != CUBLAS_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUBLAS error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                               \
-      switch (err) {                                                   \
-        case CUBLAS_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_INVALID_VALUE");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                     \
-        case CUBLAS_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUBLAS_STATUS_INTERNAL_ERROR");     \
-      }                                                                \
-      exit(1);                                                         \
-      exit(1);                                                         \
-    }                                                                  \
-  }
-#define CUSOLVER_CHECK(call)                                             \
-  {                                                                      \
-    cusolverStatus_t err;                                                \
-    if ((err = (call)) != CUSOLVER_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUSOLVER error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                                 \
-      switch (err) {                                                     \
-        case CUSOLVER_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_VALUE");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INTERNAL_ERROR");     \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED:                  \
-          fprintf(stderr, "%s\n",                                        \
-                  "CUSOLVER_STATUS_MATRIX_TYPE_NOT_SUPPORTED");          \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_NOT_SUPPORTED:                              \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_NOT_SUPPORTED");      \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_ZERO_PIVOT:                                 \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_ZERO_PIVOT");         \
-          exit(1);                                                       \
-        case CUSOLVER_STATUS_INVALID_LICENSE:                            \
-          fprintf(stderr, "%s\n", "CUSOLVER_STATUS_INVALID_LICENSE");    \
-          exit(1);                                                       \
-      }                                                                  \
-      exit(1);                                                           \
-    }                                                                    \
-  }
-#define CUSPARSE_CHECK(call)                                             \
-  {                                                                      \
-    cusparseStatus_t err;                                                \
-    if ((err = (call)) != CUSPARSE_STATUS_SUCCESS) {                     \
-      fprintf(stderr, "Got CUSPARSE error %d at %s:%d\n", err, __FILE__, \
-              __LINE__);                                                 \
-      switch (err) {                                                     \
-        case CUSPARSE_STATUS_NOT_INITIALIZED:                            \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_NOT_INITIALIZED");    \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_ALLOC_FAILED:                               \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_ALLOC_FAILED");       \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_INVALID_VALUE:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_INVALID_VALUE");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_ARCH_MISMATCH:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_ARCH_MISMATCH");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_MAPPING_ERROR:                              \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_MAPPING_ERROR");      \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_EXECUTION_FAILED:                           \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_EXECUTION_FAILED");   \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_INTERNAL_ERROR:                             \
-          fprintf(stderr, "%s\n", "CUSPARSE_STATUS_INTERNAL_ERROR");     \
-          exit(1);                                                       \
-        case CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED:                  \
-          fprintf(stderr, "%s\n",                                        \
-                  "CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED");          \
-          exit(1);                                                       \
-      }                                                                  \
-      exit(1);                                                           \
-    }                                                                    \
-  }
 
 namespace ML {
 
+int cumlHandle::getDefaultNumInternalStreams() {
+  return _default_num_internal_streams;
+}
+
+cumlHandle::cumlHandle(int n_streams) : _impl(new cumlHandle_impl(n_streams)) {}
 cumlHandle::cumlHandle() : _impl(new cumlHandle_impl()) {}
 cumlHandle::~cumlHandle() {}
 
 void cumlHandle::setStream(cudaStream_t stream) { _impl->setStream(stream); }
 
 cudaStream_t cumlHandle::getStream() const { return _impl->getStream(); }
+
+const cudaDeviceProp& cumlHandle::getDeviceProperties() const {
+  return _impl->getDeviceProperties();
+}
+
+std::vector<cudaStream_t> cumlHandle::getInternalStreams() const {
+  return _impl->getInternalStreams();
+}
 
 void cumlHandle::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
@@ -159,26 +60,31 @@ void cumlHandle::setHostAllocator(std::shared_ptr<hostAllocator> allocator) {
 std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const {
   return _impl->getHostAllocator();
 }
-
+int cumlHandle::getNumInternalStreams() {
+  return _impl->getNumInternalStreams();
+}
 const cumlHandle_impl& cumlHandle::getImpl() const { return *_impl.get(); }
 
-cumlHandle_impl& cumlHandle::getImpl()
-{
-    return *_impl.get();
-}
+cumlHandle_impl& cumlHandle::getImpl() { return *_impl.get(); }
 
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
 
-cumlHandle_impl::cumlHandle_impl()
+cumlHandle_impl::cumlHandle_impl(int n_streams)
   : _dev_id([]() -> int {
       int cur_dev = -1;
       CUDA_CHECK(cudaGetDevice(&cur_dev));
       return cur_dev;
     }()),
+    _num_streams(n_streams),
+    _cublasInitialized(false),
+    _cusolverDnInitialized(false),
+    _cusolverSpInitialized(false),
+    _cusparseInitialized(false),
     _deviceAllocator(std::make_shared<defaultDeviceAllocator>()),
     _hostAllocator(std::make_shared<defaultHostAllocator>()),
-    _userStream(NULL) {
+    _userStream(NULL),
+    _devicePropInitialized(false) {
   createResources();
 }
 
@@ -189,6 +95,14 @@ int cumlHandle_impl::getDevice() const { return _dev_id; }
 void cumlHandle_impl::setStream(cudaStream_t stream) { _userStream = stream; }
 
 cudaStream_t cumlHandle_impl::getStream() const { return _userStream; }
+
+const cudaDeviceProp& cumlHandle_impl::getDeviceProperties() const {
+  if (!_devicePropInitialized) {
+    CUDA_CHECK(cudaGetDeviceProperties(&_prop, _dev_id));
+    _devicePropInitialized = true;
+  }
+  return _prop;
+}
 
 void cumlHandle_impl::setDeviceAllocator(
   std::shared_ptr<deviceAllocator> allocator) {
@@ -209,14 +123,34 @@ std::shared_ptr<hostAllocator> cumlHandle_impl::getHostAllocator() const {
 }
 
 cublasHandle_t cumlHandle_impl::getCublasHandle() const {
+  if (!_cublasInitialized) {
+    CUBLAS_CHECK(cublasCreate(&_cublas_handle));
+    _cublasInitialized = true;
+  }
   return _cublas_handle;
 }
 
 cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const {
+  if (!_cusolverDnInitialized) {
+    CUSOLVER_CHECK(cusolverDnCreate(&_cusolverDn_handle));
+    _cusolverDnInitialized = true;
+  }
   return _cusolverDn_handle;
 }
 
+cusolverSpHandle_t cumlHandle_impl::getcusolverSpHandle() const {
+  if (!_cusolverSpInitialized) {
+    CUSOLVER_CHECK(cusolverSpCreate(&_cusolverSp_handle));
+    _cusolverSpInitialized = true;
+  }
+  return _cusolverSp_handle;
+}
+
 cusparseHandle_t cumlHandle_impl::getcusparseHandle() const {
+  if (!_cusparseInitialized) {
+    CUSPARSE_CHECK(cusparseCreate(&_cusparse_handle));
+    _cusparseInitialized = true;
+  }
   return _cusparse_handle;
 }
 
@@ -225,6 +159,14 @@ cudaStream_t cumlHandle_impl::getInternalStream(int sid) const {
 }
 
 int cumlHandle_impl::getNumInternalStreams() const { return _num_streams; }
+
+std::vector<cudaStream_t> cumlHandle_impl::getInternalStreams() const {
+  std::vector<cudaStream_t> int_streams_vec(_num_streams);
+  for (auto s : _streams) {
+    int_streams_vec.push_back(s);
+  }
+  return int_streams_vec;
+}
 
 void cumlHandle_impl::waitOnUserStream() const {
   CUDA_CHECK(cudaEventRecord(_event, _userStream));
@@ -240,79 +182,51 @@ void cumlHandle_impl::waitOnInternalStreams() const {
   }
 }
 
-void cumlHandle_impl::setCommunicator( std::shared_ptr<MLCommon::cumlCommunicator> communicator )
-{
-    _communicator = communicator;
+void cumlHandle_impl::setCommunicator(
+  std::shared_ptr<MLCommon::cumlCommunicator> communicator) {
+  _communicator = communicator;
 }
 
-const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const
-{
-    ASSERT(nullptr != _communicator.get(), "ERROR: Communicator was not initialized\n");
-    return *_communicator;
+const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const {
+  ASSERT(nullptr != _communicator.get(),
+         "ERROR: Communicator was not initialized\n");
+  return *_communicator;
 }
 
-bool cumlHandle_impl::commsInitialized() const
-{
-    return (nullptr != _communicator.get());
+bool cumlHandle_impl::commsInitialized() const {
+  return (nullptr != _communicator.get());
 }
 
 void cumlHandle_impl::createResources() {
   cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
-
-  CUBLAS_CHECK(cublasCreate(&_cublas_handle));
-
-  CUSOLVER_CHECK(cusolverDnCreate(&_cusolverDn_handle));
-
-  CUSPARSE_CHECK(cusparseCreate(&_cusparse_handle));
-
+  CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
   _streams.push_back(stream);
   for (int i = 1; i < _num_streams; ++i) {
     cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     _streams.push_back(stream);
   }
   CUDA_CHECK(cudaEventCreateWithFlags(&_event, cudaEventDisableTiming));
 }
 
 void cumlHandle_impl::destroyResources() {
-  {
-    cusparseStatus_t status = cusparseDestroy(_cusparse_handle);
-    if (CUSPARSE_STATUS_SUCCESS != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUSPARSE_CHECK is not used.
-    }
+  if (_cusparseInitialized) {
+    CUSPARSE_CHECK_NO_THROW(cusparseDestroy(_cusparse_handle));
   }
-
-  {
-    cusolverStatus_t status = cusolverDnDestroy(_cusolverDn_handle);
-    if (CUSOLVER_STATUS_SUCCESS != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.
-    }
+  if (_cusolverDnInitialized) {
+    CUSOLVER_CHECK_NO_THROW(cusolverDnDestroy(_cusolverDn_handle));
   }
-
-  {
-    cublasStatus_t status = cublasDestroy(_cublas_handle);
-    if (CUBLAS_STATUS_SUCCESS != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUBLAS_CHECK is not used.
-    }
+  if (_cusolverSpInitialized) {
+    CUSOLVER_CHECK_NO_THROW(cusolverSpDestroy(_cusolverSp_handle));
   }
-
+  if (_cublasInitialized) {
+    CUBLAS_CHECK_NO_THROW(cublasDestroy(_cublas_handle));
+  }
   while (!_streams.empty()) {
-    cudaError_t status = cudaStreamDestroy(_streams.back());
-    if (cudaSuccess != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-    }
+    CUDA_CHECK_NO_THROW(cudaStreamDestroy(_streams.back()));
     _streams.pop_back();
   }
-  cudaError_t status = cudaEventDestroy(_event);
-  if (cudaSuccess != status) {
-    //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-    // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-  }
+  CUDA_CHECK_NO_THROW(cudaEventDestroy(_event));
 }
 
 HandleMap handleMap;

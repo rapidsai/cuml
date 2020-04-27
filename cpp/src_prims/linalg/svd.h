@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
@@ -31,7 +31,7 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup singular value decomposition (SVD) on the column major float type
+ * @brief singular value decomposition (SVD) on the column major float type
  * input matrix using QR method
  * @param in: input matrix
  * @param n_rows: number rows of input matrix
@@ -39,13 +39,13 @@ namespace LinAlg {
  * @param sing_vals: singular values of input matrix
  * @param left_sing_vecs: left singular values of input matrix
  * @param right_sing_vecs: right singular values of input matrix
+ * @param trans_right: transpose right vectors or not
  * @param gen_left_vec: generate left eig vector. Not activated.
  * @param gen_right_vec: generate right eig vector. Not activated.
  * @param cusolverH cusolver handle
  * @param cublasH cublas handle
  * @param allocator device allocator for temporary buffers during computation
  * @param stream cuda stream
- * @{
  */
 // TODO: activate gen_left_vec and gen_right_vec options
 // TODO: couldn't template this function due to cusolverDnSgesvd and
@@ -56,6 +56,15 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
            bool gen_right_vec, cusolverDnHandle_t cusolverH,
            cublasHandle_t cublasH, std::shared_ptr<deviceAllocator> allocator,
            cudaStream_t stream) {
+#if CUDART_VERSION >= 10010
+  // 46340: sqrt of max int value
+  ASSERT(n_rows <= 46340,
+         "svd solver is not supported for the data that has more than 46340 "
+         "samples (rows) "
+         "if you are using CUDA version 10.1. Please use other solvers such as "
+         "eig if it is available.");
+#endif
+
   const int m = n_rows;
   const int n = n_cols;
 
@@ -126,25 +135,23 @@ void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
 }
 
 /**
- * @defgroup singular value decomposition (SVD) on the column major input matrix
- * using Jacobi method
+ * @brief on the column major input matrix using Jacobi method
  * @param in: input matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
  * @param sing_vals: singular values of input matrix
  * @param left_sing_vecs: left singular vectors of input matrix
- * @param right_sing_vecs_trans: right singular vectors of input matrix
+ * @param right_sing_vecs: right singular vectors of input matrix
  * @param gen_left_vec: generate left eig vector. Not activated.
  * @param gen_right_vec: generate right eig vector. Not activated.
  * @param tol: error tolerance for the jacobi method. Algorithm stops when the
  * error is below tol
- * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
+ * @param max_sweeps: number of sweeps in the Jacobi algorithm. The more the better
  * accuracy.
  * @param cusolverH cusolver handle
+ * @param stream cuda stream
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
-
 template <typename math_t>
 void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
                math_t *left_sing_vecs, math_t *right_sing_vecs,
@@ -181,18 +188,18 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
 }
 
 /**
- * @defgroup reconstruct a matrix use left and right singular vectors and
+ * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
  * @param U: left singular vectors of size n_rows x k
  * @param S: square matrix with singular values on its diagonal, k x k
- * @param VT: right singular vectors of size n_cols x k
+ * @param V: right singular vectors of size n_cols x k
  * @param out: reconstructed matrix to be returned
  * @param n_rows: number rows of output matrix
  * @param n_cols: number columns of output matrix
  * @param k: number of singular values
  * @param cublasH cublas handle
+ * @param stream cuda stream
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
 template <typename math_t>
 void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
@@ -209,18 +216,19 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
 }
 
 /**
- * @defgroup reconstruct a matrix use left and right singular vectors and
+ * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
+ * @param A_d: input matrix
  * @param U: left singular vectors of size n_rows x k
  * @param S_vec: singular values as a vector
- * @param VT: right singular vectors of size n_cols x k
+ * @param V: right singular vectors of size n_cols x k
  * @param n_rows: number rows of output matrix
  * @param n_cols: number columns of output matrix
  * @param k: number of singular values to be computed, 1.0 for normal SVD
  * @param tol: tolerance for the evaluation
  * @param cublasH cublas handle
+ * @param stream cuda stream
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
 template <typename math_t>
 bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,

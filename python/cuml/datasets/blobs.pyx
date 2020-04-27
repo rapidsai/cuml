@@ -34,7 +34,7 @@ from numba import cuda
 
 from random import randint
 
-cdef extern from "datasets/make_blobs.hpp" namespace "ML::Datasets":
+cdef extern from "cuml/datasets/make_blobs.hpp" namespace "ML::Datasets":
     cdef void make_blobs(const cumlHandle& handle,
                          float* out,
                          int* labels,
@@ -157,18 +157,16 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     if centers is not None:
         if isinstance(centers, int):
             n_clusters = centers
-            n_rows_centers = 1
 
         else:
             centers, centers_ptr, n_rows_centers, _, _ = \
-                input_to_dev_array(centers, convert_to_dtype=dtype,
+                input_to_dev_array(centers, order="C", convert_to_dtype=dtype,
                                    check_cols=n_features)
 
-            n_clusters = len(centers)
+            n_clusters = centers.shape[0]
 
     else:
         n_clusters = 3
-        n_rows_centers = 1
 
     cdef uintptr_t cluster_std_ptr
 
@@ -178,8 +176,8 @@ def blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     else:
         cluster_std_ary, cluster_std_ptr, _, _, _ = \
             input_to_dev_array(cluster_std, convert_to_dtype=dtype,
-                               check_cols=n_features,
-                               check_rows=n_rows_centers)
+                               check_cols=n_clusters,
+                               check_rows=1)
         cluster_std = -1.0
 
     center_box_min = center_box[0]

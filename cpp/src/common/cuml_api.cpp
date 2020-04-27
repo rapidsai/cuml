@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "cuML_api.h"
 
+#include <cuml/cuml_api.h>
+#include <cuml/common/utils.hpp>
 #include <functional>
-
-#include "cumlHandle.hpp"
-
 #include "../../src_prims/utils.h"
+#include "cumlHandle.hpp"
 
 namespace ML {
 namespace detail {
@@ -37,11 +36,7 @@ class hostAllocatorFunctionWrapper : public MLCommon::hostAllocator {
   }
 
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
-    cudaError_t status = _deallocate_fn(p, n, stream);
-    if (cudaSuccess != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-    }
+    CUDA_CHECK_NO_THROW(_deallocate_fn(p, n, stream));
   }
 
  private:
@@ -62,11 +57,7 @@ class deviceAllocatorFunctionWrapper : public MLCommon::deviceAllocator {
   }
 
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
-    cudaError_t status = _deallocate_fn(p, n, stream);
-    if (cudaSuccess != status) {
-      //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-      // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-    }
+    CUDA_CHECK_NO_THROW(_deallocate_fn(p, n, stream));
   }
 
  private:

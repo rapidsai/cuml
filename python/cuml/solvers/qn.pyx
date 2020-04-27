@@ -20,10 +20,11 @@
 
 import ctypes
 import cudf
+import cupy as cp
 import numpy as np
 import warnings
 
-from numba import cuda
+import rmm
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -32,10 +33,11 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+    input_to_dev_array, zeros, with_cupy_rmm
+from cuml.utils.import_utils import has_cupy
+from cuml.metrics import accuracy_score
 
-
-cdef extern from "glm/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     void qnFit(cumlHandle& cuml_handle,
                float *X,
@@ -55,7 +57,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                float *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
 
     void qnFit(cumlHandle& cuml_handle,
                double *X,
@@ -75,7 +77,29 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                double *f,
                int *num_iters,
                bool X_col_major,
-               int loss_type)
+               int loss_type) except +
+
+    void qnDecisionFunction(cumlHandle& cuml_handle,
+                            float *X,
+                            int N,
+                            int D,
+                            int C,
+                            bool fit_intercept,
+                            float *params,
+                            bool X_col_major,
+                            int loss_type,
+                            float *scores) except +
+
+    void qnDecisionFunction(cumlHandle& cuml_handle,
+                            double *X,
+                            int N,
+                            int D,
+                            int C,
+                            bool fit_intercept,
+                            double *params,
+                            bool X_col_major,
+                            int loss_type,
+                            double *scores) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    float *X,
@@ -86,7 +110,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    float *params,
                    bool X_col_major,
                    int loss_type,
-                   float *preds)
+                   float *preds) except +
 
     void qnPredict(cumlHandle& cuml_handle,
                    double *X,
@@ -97,7 +121,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    double *params,
                    bool X_col_major,
                    int loss_type,
-                   double *preds)
+                   double *preds) except +
 
 
 class QN(Base):
@@ -109,9 +133,10 @@ class QN(Base):
     Two algorithms are implemented underneath cuML's QN class, and which one
     is executed depends on the following rule:
 
-    - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-    regularization
-    - Limited Memory BFGS (L-BFGS) otherwise.
+    * Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+      regularization
+
+    * Limited Memory BFGS (L-BFGS) otherwise.
 
     cuML's QN class can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
@@ -154,6 +179,7 @@ class QN(Base):
     Output:
 
     .. code-block:: python
+
         Coefficients:
                     10.647417
                     0.3267412
@@ -189,8 +215,8 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    verbose: bool (optional, default False)
-        Controls verbosity of logging.
+    verbose: int (optional, default 0)
+        Controls verbosity level of logging.
 
     Attributes
     -----------
@@ -203,19 +229,21 @@ class QN(Base):
     Notes
     ------
        This class contains implementations of two popular Quasi-Newton methods:
+
        - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
-       Wright - Numerical Optimization (1999)]
+         Wright - Numerical Optimization (1999)]
+
        - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML
-       2007]
-       <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
+         2007]
+         <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
     """
 
     def __init__(self, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
-                 linesearch_max_iter=50, lbfgs_memory=5, verbose=False,
+                 linesearch_max_iter=50, lbfgs_memory=5, verbose=0,
                  handle=None):
 
-        super(QN, self).__init__(handle=handle, verbose=False)
+        super(QN, self).__init__(handle=handle, verbose=verbose)
 
         self.fit_intercept = fit_intercept
         self.l1_strength = l1_strength
@@ -224,13 +252,13 @@ class QN(Base):
         self.tol = tol
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
-        self.alpha = 0.0
         self.num_iter = 0
+        self.coef_ = None
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
 
-        self.loss_type = self._get_loss_int(loss)
+        self.loss = loss
 
     def _get_loss_int(self, loss):
         return {
@@ -239,9 +267,11 @@ class QN(Base):
             'normal': 1
         }[loss]
 
-    def fit(self, X, y):
+    @with_cupy_rmm
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -253,41 +283,46 @@ class QN(Base):
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F')
+            input_to_dev_array(X, order='F',
+                               check_dtype=[np.float32, np.float64])
 
         y_m, y_ptr, lab_rows, _, _ = \
-            input_to_dev_array(y)
+            input_to_dev_array(y, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_rows=n_rows, check_cols=1)
 
-        try:
-            import cupy
-            self.num_classes = len(cupy.unique(y_m)) - 1
-        except ImportError:
-            warnings.warn("Using NumPy for number of class detection,"
-                          "install CuPy for faster processing.")
-            self.num_classes = len(np.unique(y_m)) - 1
+        self._num_classes = len(cp.unique(y_m))
 
-        if self.loss_type != 2 and self.num_classes > 2:
+        self.loss_type = self._get_loss_int(self.loss)
+        if self.loss_type != 2 and self._num_classes > 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
-        if self.loss_type == 2 and self.num_classes <= 2:
+        if self.loss_type == 2 and self._num_classes <= 2:
             raise ValueError("Only softmax (multinomial) loss supports more"
                              "than 2 classes.")
 
-        if n_rows != lab_rows:
-            raise ValueError("Number of rows must match between X and y.")
+        if self.loss_type == 0:
+            self._num_classes_dim = self._num_classes - 1
+        else:
+            self._num_classes_dim = self._num_classes
 
         if self.fit_intercept:
-            coef_size = (self.n_cols + 1, self.num_classes)
+            coef_size = (self.n_cols + 1, self._num_classes_dim)
         else:
-            coef_size = (self.n_cols, self.num_classes)
+            coef_size = (self.n_cols, self._num_classes_dim)
 
-        self.coef_ = cuda.to_device(zeros(coef_size, dtype=self.dtype))
-
+        self.coef_ = rmm.to_device(np.ones(coef_size, dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
 
         cdef float objective32
@@ -302,7 +337,7 @@ class QN(Base):
                   <float*>y_ptr,
                   <int>n_rows,
                   <int>self.n_cols,
-                  <int> self.num_classes,
+                  <int> self._num_classes,
                   <bool> self.fit_intercept,
                   <float> self.l1_strength,
                   <float> self.l2_strength,
@@ -310,7 +345,7 @@ class QN(Base):
                   <float> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> 0,
+                  <int> self.verbose,
                   <float*> coef_ptr,
                   <float*> &objective32,
                   <int*> &num_iters,
@@ -325,7 +360,7 @@ class QN(Base):
                   <double*>y_ptr,
                   <int>n_rows,
                   <int>self.n_cols,
-                  <int> self.num_classes,
+                  <int> self._num_classes,
                   <bool> self.fit_intercept,
                   <double> self.l1_strength,
                   <double> self.l2_strength,
@@ -333,7 +368,7 @@ class QN(Base):
                   <double> self.tol,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
-                  <int> 0,
+                  <int> self.verbose,
                   <double*> coef_ptr,
                   <double*> &objective64,
                   <int*> &num_iters,
@@ -351,15 +386,87 @@ class QN(Base):
 
         return self
 
-    def predict(self, X):
+    def _decision_function(self, X, convert_dtype=False):
         """
-        Predicts the y for X.
+        Gives confidence score for X
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        Returns
+        ----------
+        y: array-like (device)
+            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
+        """
+
+        cdef uintptr_t X_ptr
+        X_m, X_ptr, n_rows, n_cols, self.dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
+                               check_cols=self.n_cols)
+
+        scores = rmm.to_device(zeros((self._num_classes_dim, n_rows),
+                                     dtype=self.dtype, order='F'))
+
+        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
+        cdef uintptr_t scores_ptr = get_dev_array_ptr(scores)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        if self.dtype == np.float32:
+            qnDecisionFunction(handle_[0],
+                               <float*> X_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int> self._num_classes,
+                               <bool> self.fit_intercept,
+                               <float*> coef_ptr,
+                               <bool> True,
+                               <int> self.loss_type,
+                               <float*> scores_ptr)
+
+        else:
+            qnDecisionFunction(handle_[0],
+                               <double*> X_ptr,
+                               <int> n_rows,
+                               <int> n_cols,
+                               <int> self._num_classes,
+                               <bool> self.fit_intercept,
+                               <double*> coef_ptr,
+                               <bool> True,
+                               <int> self.loss_type,
+                               <double*> scores_ptr)
+
+        self.handle.sync()
+
+        del X_m
+
+        return scores
+
+    def predict(self, X, convert_dtype=False):
+        """
+        Predicts the y for X.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
         Returns
         ----------
         y: cuDF DataFrame
@@ -369,9 +476,11 @@ class QN(Base):
         cdef uintptr_t X_ptr
         X_m, X_ptr, n_rows, n_cols, self.dtype = \
             input_to_dev_array(X, check_dtype=self.dtype,
+                               convert_to_dtype=(self.dtype if convert_dtype
+                                                 else None),
                                check_cols=self.n_cols)
 
-        preds = cuda.to_device(zeros(n_rows, dtype=self.dtype))
+        preds = rmm.to_device(zeros(n_rows, dtype=self.dtype))
 
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
         cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
@@ -383,7 +492,7 @@ class QN(Base):
                       <float*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
-                      <int> self.num_classes,
+                      <int> self._num_classes,
                       <bool> self.fit_intercept,
                       <float*> coef_ptr,
                       <bool> True,
@@ -395,7 +504,7 @@ class QN(Base):
                       <double*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
-                      <int> self.num_classes,
+                      <int> self._num_classes,
                       <bool> self.fit_intercept,
                       <double*> coef_ptr,
                       <bool> True,
@@ -408,9 +517,41 @@ class QN(Base):
 
         return cudf.Series(preds)
 
+    def score(self, X, y):
+        return accuracy_score(y, self.predict(X))
+
     def __getattr__(self, attr):
-        if self.fit_intercept:
-            if attr == 'coef_':
-                return self.coef_[0:-1]
-            if attr == 'intercept_':
+        if attr == 'intercept_':
+            if self.fit_intercept:
                 return self.coef_[-1]
+            else:
+                return rmm.to_device(zeros(1))
+        else:
+            raise AttributeError(attr)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        if 'handle' in state:
+            del state['handle']
+        if 'coef_' in state:
+            if state['coef_'] is not None:
+                state['coef_'] = cudf.Series(state['coef_'].ravel())
+        return state
+
+    def __setstate__(self, state):
+        super(QN, self).__init__(handle=None, verbose=state['verbose'])
+
+        if 'coef_' in state and state['coef_'] is not None:
+            if 'fit_intercept' in state and state['fit_intercept']:
+                coef_size = (state['n_cols'] + 1, state['_num_classes'])
+            else:
+                coef_size = (state['n_cols'], state['_num_classes'])
+            state['coef_'] = state['coef_'].to_gpu_array().reshape(coef_size)
+
+        self.__dict__.update(state)
+
+    def get_param_names(self):
+        return ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
+                'verbose']

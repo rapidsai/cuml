@@ -37,6 +37,11 @@ cumlCommunicator cumlCommunicator::commSplit(int color, int key) const {
 
 void cumlCommunicator::barrier() const { _impl->barrier(); }
 
+cumlCommunicator::status_t cumlCommunicator::syncStream(
+  cudaStream_t stream) const {
+  return _impl->syncStream(stream);
+}
+
 void cumlCommunicator::isend(const void* buf, int size, int dest, int tag,
                              request_t* request) const {
   _impl->isend(buf, size, dest, tag, request);

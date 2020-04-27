@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/cuml_allocator.hpp>
 #include "../matrix/matrix.h"
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "cublas_wrappers.h"
 #include "cusolver_wrappers.h"
@@ -26,14 +26,19 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * @defgroup QR decomposition, return the Q matrix
+ * @defgroup QRdecomp QR decomposition
+ * @{
+ */
+
+/**
+ * @brief compute QR decomp and return only Q matrix
  * @param M: input matrix
  * @param Q: Q matrix to be returned (on GPU)
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
  * @param cusolverH cusolver handle
  * @param stream cuda stream
- * @param allocate device allocator for temporary buffers during computation
+ * @param allocator device allocator for temporary buffers during computation
  * @{
  */
 template <typename math_t>
@@ -69,7 +74,7 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
 }
 
 /**
- * @defgroup QR decomposition, return the Q matrix
+ * @brief compute QR decomp and return both Q and R matrices
  * @param M: input matrix
  * @param Q: Q matrix to be returned (on GPU)
  * @param R: R matrix to be returned (on GPU)
@@ -78,7 +83,6 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
  * @param cusolverH cusolver handle
  * @param stream cuda stream
  * @param allocator device allocator for temporary buffers during computation
- * @{
  */
 template <typename math_t>
 void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
@@ -122,6 +126,7 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
     cusolverH, Q_nrows, Q_ncols, min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(),
     workspace.data(), Lwork, devInfo.data(), stream));
 }
+/** @} */
 
 };  // end namespace LinAlg
 };  // end namespace MLCommon

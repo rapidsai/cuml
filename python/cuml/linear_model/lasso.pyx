@@ -20,18 +20,22 @@
 # cython: language_level = 3
 
 from cuml.solvers import CD
+from cuml.metrics.base import RegressorMixin
+from cuml.common.base import Base
 
 
-class Lasso:
+class Lasso(Base, RegressorMixin):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the
     coefficients when predicting response y with a linear combination of the
     predictors in X. It can zero some of the coefficients for feature
-    selection, and improves the conditioning of the problem.
+    selection and improves the conditioning of the problem.
 
-    cuML's Lasso an array-like object or cuDF DataFrame, and
-    uses coordinate descent to fit a linear model.
+    cuML's Lasso can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects. It uses coordinate descent to fit
+    a linear model.
 
     Examples
     ---------
@@ -102,11 +106,13 @@ class Lasso:
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    selection : str, default ‘cyclic’
+    selection : 'cyclic', 'random' (default = 'cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class.
 
     Attributes
     -----------
@@ -120,7 +126,7 @@ class Lasso:
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
-                 max_iter=1000, tol=1e-3, selection='cyclic'):
+                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None):
 
         """
         Initializes the lasso regression class.
@@ -137,6 +143,10 @@ class Lasso:
         For additional docs, see `scikitlearn's Lasso
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
         """
+
+        # Hard-code verbosity as CoordinateDescent does not have verbosity
+        super(Lasso, self).__init__(handle=handle, verbose=0)
+
         self._check_alpha(alpha)
         self.alpha = alpha
         self.coef_ = None
@@ -154,12 +164,21 @@ class Lasso:
 
         self.intercept_value = 0.0
 
+        shuffle = False
+        if self.selection == 'random':
+            shuffle = True
+
+        self.culasso = CD(fit_intercept=self.fit_intercept,
+                          normalize=self.normalize, alpha=self.alpha,
+                          l1_ratio=1.0, shuffle=shuffle,
+                          max_iter=self.max_iter, handle=self.handle)
+
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
 
@@ -175,24 +194,21 @@ class Lasso:
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        convert_dtype : bool, optional (default = False)
+            When set to True, the transform method will, when necessary,
+            convert y to be the same data type as X if they differ. This
+            will increase memory used for the method.
+
         """
 
-        shuffle = False
-        if self.selection == 'random':
-            shuffle = True
-
-        self.culasso = CD(fit_intercept=self.fit_intercept,
-                          normalize=self.normalize, alpha=self.alpha,
-                          l1_ratio=1.0, shuffle=shuffle,
-                          max_iter=self.max_iter)
-        self.culasso.fit(X, y)
+        self.culasso.fit(X, y, convert_dtype=convert_dtype)
 
         self.coef_ = self.culasso.coef_
         self.intercept_ = self.culasso.intercept_
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
 
@@ -210,11 +226,11 @@ class Lasso:
 
         """
 
-        return self.culasso.predict(X)
+        return self.culasso.predict(X, convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------

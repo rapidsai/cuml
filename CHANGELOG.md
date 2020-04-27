@@ -1,7 +1,409 @@
-# cuML 0.9.0 (Date TBD)
+# cuML 0.14.0 (Date TBD)
+
+## New Features
+- PR #1980: prim: added a new write-only unary op prim
+- PR #1867: C++: add logging interface support in cuML based spdlog
+- PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
+- PR #1906: UMAP MNMG
+- PR #2074: SG and MNMG `make_classification`
+
+## Improvements
+- PR #1931: C++: enabled doxygen docs for all of the C++ codebase
+- PR #1944: Support for dask_cudf.core.Series in _extract_partitions
+- PR #1947: Cleaning up cmake
+- PR #1927: Use Cython's `new_build_ext` (if available)
+- PR #1946: Removed zlib dependency from cmake
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
+- PR #1968: Update SVC SVR with cuML Array
+- PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
+- PR #1974: Reduce ARIMA testing time
+- PR #1984: Enable Ninja build
+- PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
+- PR #2044: A cuda-memcheck helper wrapper for devs
+- PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
+- PR #2019: Enable doxygen build in our nightly doc build CI script
+- PR #1996: Cythonize in parallel
+- PR #2032: Reduce number of tests for MBSGD to improve CI running time
+- PR #2031: Encapsulating UCX-py interactions in singleton
+- PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2051: Reduce the time required to run dask pca and dask tsvd tests
+- PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
+- PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
+- PR #2047: Make internal streams non-blocking w.r.t. NULL stream
+- PR #2048: Random forest testing speedup
+- PR #2058: Use CumlArray in Random Projection
+- PR #2062: Adding random state to UMAP mnmg tests
+- PR #2064: Speed-up K-Means test
+- PR #2015: Renaming .h to .cuh in solver, dbscan and svm
+- PR #2080: Improved import of sparse FIL forests from treelite
+- PR #2090: Upgrade C++ build to C++14 standard
+- PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #1883: Use CumlArray in ARIMA
+- PR #877: Adding definition of done criteria to wiki
+
+## Bug Fixes
+- PR #1939: Fix syntax error in cuml.common.array
+- PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
+- PR #1971: python: Correctly honor --singlegpu option and CUML_BUILD_PATH env variable
+- PR #1969: Update libcumlprims to 0.14
+- PR #1973: Add missing mg files for setup.py --singlegpu flag
+- PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2017: Fixing memory issue in weak cc prim
+- PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
+- PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
+- PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+- PR #2077L dask-make blobs arguments to match sklearn
+- PR #2078: Ignore negative cache indices in get_vecs
+- PR #2084: Fixed cuda-memcheck errors with COO unit-tests
+- PR #2087: Fixed cuda-memcheck errors with dispersion prim
+- PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
+- PR #2117: cuDF __array__ exception small fixes
+
+# cuML 0.13.0 (Date TBD)
+
+## New Features
+- PR #1777: Python bindings for entropy
+- PR #1742: Mean squared error implementation with cupy
+- PR #1817: Confusion matrix implementation with cupy (SNSG and MNMG)
+- PR #1766: Mean absolute error implementation with cupy
+- PR #1766: Mean squared log error implementation with cupy
+- PR #1635: cuML Array shim and configurable output added to cluster methods
+- PR #1586: Seasonal ARIMA
+- PR #1683: cuml.dask make_regression
+- PR #1689: Add framework for cuML Dask serializers
+- PR #1709: Add `decision_function()` and `predict_proba()` for LogisticRegression
+- PR #1714: Add `print_env.sh` file to gather important environment details
+- PR #1750: LinearRegression CumlArray for configurable output
+- PR #1767: Single GPU decomposition models configurable output
+- PR #1646: Using FIL to predict in MNMG RF
+- PR #1778: Make cuML Handle picklable
+- PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
+- PR #1874: Add predict_proba function to RF classifier
+- PR #1815: Adding KNN parameter to UMAP
+- PR #1978: Adding `predict_proba` function to dask RF
+
+## Improvements
+- PR #1644: Add `predict_proba()` for FIL binary classifier
+- PR #1620: Pickling tests now automatically finds all model classes inheriting from cuml.Base
+- PR #1637: Update to newer treelite version with XGBoost 1.0 compatibility
+- PR #1632: Fix MBSGD models inheritance, they now inherits from cuml.Base
+- PR #1628: Remove submodules from cuML
+- PR #1755: Expose the build_treelite function for python
+- PR #1649: Add the fil_sparse_format variable option to RF API
+- PR #1647: storage_type=AUTO uses SPARSE for large models
+- PR #1668: Update the warning statement thrown in RF when the seed is set but n_streams is not 1
+- PR #1662: use of direct cusparse calls for coo2csr, instead of depending on nvgraph
+- PR #1747: C++: dbscan performance improvements and cleanup
+- PR #1697: Making trustworthiness batchable and using proper workspace
+- PR #1721: Improving UMAP pytests
+- PR #1717: Call `rmm_cupy_allocator` for CuPy allocations
+- PR #1718: Import `using_allocator` from `cupy.cuda`
+- PR #1723: Update RF Classifier to throw an exception for multi-class pickling
+- PR #1726: Decorator to allocate CuPy arrays with RMM
+- PR #1719: UMAP random seed reproducibility
+- PR #1748: Test serializing `CumlArray` objects
+- PR #1776: Refactoring pca/tsvd distributed
+- PR #1762: Update CuPy requirement to 7
+- PR #1768: C++: Different input and output types for add and subtract prims
+- PR #1790: Add support for multiple seeding in k-means++
+- PR #1805: Adding new Dask cuda serializers to naive bayes + a trivial perf update
+- PR #1812: C++: bench: UMAP benchmark cases added
+- PR #1795: Add capability to build CumlArray from bytearray/memoryview objects
+- PR #1824: C++: improving the performance of UMAP algo
+- PR #1816: Add ARIMA notebook
+- PR #1856: Update docs for 0.13
+- PR #1827: Add HPO demo Notebook
+- PR #1825: `--nvtx` option in `build.sh`
+- PR #1847: Update XGBoost version for CI
+- PR #1837: Simplify cuML Array construction
+- PR #1848: Rely on subclassing for cuML Array serialization
+- PR #1866: Minimizing client memory pressure on Naive Bayes
+- PR #1788: Removing complexity bottleneck in S-ARIMA
+- PR #1891: Additional improvements to naive bayes tree reduction
+
+## Bug Fixes
+- PR #1835 : Fix calling default RF Classification always
+- PT #1904: replace cub sort
+- PR #1833: Fix depth issue in shallow RF regression estimators
+- PR #1770: Warn that KalmanFilter is deprecated
+- PR #1775: Allow CumlArray to work with inputs that have no 'strides' in array interface
+- PR #1594: Train-test split is now reproducible
+- PR #1590: Fix destination directory structure for run-clang-format.py
+- PR #1611: Fixing pickling errors for KNN classifier and regressor
+- PR #1617: Fixing pickling issues for SVC and SVR
+- PR #1634: Fix title in KNN docs
+- PR #1627: Adding a check for multi-class data in RF classification
+- PR #1654: Skip treelite patch if its already been applied
+- PR #1661: Fix nvstring variable name
+- PR #1673: Using struct for caching dlsym state in communicator
+- PR #1659: TSNE - introduce 'convert_dtype' and refactor class attr 'Y' to 'embedding_'
+- PR #1672: Solver 'svd' in Linear and Ridge Regressors when n_cols=1
+- PR #1670: Lasso & ElasticNet - cuml Handle added
+- PR #1671: Update for accessing cuDF Series pointer
+- PR #1652: Support XGBoost 1.0+ models in FIL
+- PR #1702: Fix LightGBM-FIL validation test
+- PR #1701: test_score kmeans test passing with newer cupy version
+- PR #1706: Remove multi-class bug from QuasiNewton
+- PR #1699: Limit CuPy to <7.2 temporarily
+- PR #1708: Correctly deallocate cuML handles in Cython
+- PR #1730: Fixes to KF for test stability (mainly in CUDA 10.2)
+- PR #1729: Fixing naive bayes UCX serialization problem in fit()
+- PR #1749: bug fix rf classifier/regressor on seg fault in bench
+- PR #1751: Updated RF documentation
+- PR #1765: Update the checks for using RF GPU predict
+- PR #1787: C++: unit-tests to check for RF accuracy. As well as a bug fix to improve RF accuracy
+- PR #1793: Updated fil pyx to solve memory leakage issue
+- PR #1810: Quickfix - chunkage in dask make_regression
+- PR #1842: DistributedDataHandler not properly setting 'multiple'
+- PR #1849: Critical fix in ARIMA initial estimate
+- PR #1851: Fix for cuDF behavior change for multidimensional arrays
+- PR #1852: Remove Thrust warnings
+- PR #1868: Turning off IPC caching until it is fixed in UCX-py/UCX
+- PR #1876: UMAP exponential decay parameters fix
+- PR #1887: Fix hasattr for missing attributes on base models
+- PR #1877: Remove resetting index in shuffling in train_test_split
+- PR #1893: Updating UCX in comms to match current UCX-py
+- PR #1888: Small train_test_split test fix
+- PR #1899: Fix dask `extract_partitions()`, remove transformation as instance variable in PCA and TSVD and match sklearn APIs
+- PR #1920: Temporarily raising threshold for UMAP reproducibility tests
+- PR #1918: Create memleak fixture to skip memleak tests in CI for now
+- PR #1926: Update batch matrix test margins
+- PR #1925: Fix failing dask tests
+- PR #1936: Update DaskRF regression test to xfail
+- PR #1932: Isolating cause of make_blobs failure
+- PR #1951: Dask Random forest regression CPU predict bug fix
+- PR #1948: Adjust BatchedMargin margin and disable tests temporarily
+- PR #1950: Fix UMAP test failure
+
+
+
+# cuML 0.12.0 (04 Feb 2020)
+
+## New Features
+- PR #1483: prims: Fused L2 distance and nearest-neighbor prim
+- PR #1494: bench: ml-prims benchmark
+- PR #1514: bench: Fused L2 NN prim benchmark
+- PR #1411: Cython side of MNMG OLS
+- PR #1520: Cython side of MNMG Ridge Regression
+- PR #1516: Suppor Vector Regression (epsilon-SVR)
+
+## Improvements
+- PR #1638: Update cuml/docs/README.md
+- PR #1468: C++: updates to clang format flow to make it more usable among devs
+- PR #1473: C++: lazy initialization of "costly" resources inside cumlHandle
+- PR #1443: Added a new overloaded GEMM primitive
+- PR #1489: Enabling deep trees using Gather tree builder
+- PR #1463: Update FAISS submodule to 1.6.1
+- PR #1488: Add codeowners
+- PR #1432: Row-major (C-style) GPU arrays for benchmarks
+- PR #1490: Use dask master instead of conda package for testing
+- PR #1375: Naive Bayes & Distributed Naive Bayes
+- PR #1377: Add GPU array support for FIL benchmarking
+- PR #1493: kmeans: add tiling support for 1-NN computation and use fusedL2-1NN prim for L2 distance metric
+- PR #1532: Update CuPy to >= 6.6 and allow 7.0
+- PR #1528: Re-enabling KNN using dynamic library loading for UCX in communicator
+- PR #1545: Add conda environment version updates to ci script
+- PR #1541: Updates for libcudf++ Python refactor
+- PR #1555: FIL-SKL, an SKLearn-based benchmark for FIL
+- PR #1537: Improve pickling and scoring suppport for many models to support hyperopt
+- PR #1551: Change custom kernel to cupy for col/row order transform
+- PR #1533: C++: interface header file separation for SVM
+- PR #1560: Helper function to allocate all new CuPy arrays with RMM memory management
+- PR #1570: Relax nccl in conda recipes to >=2.4 (matching CI)
+- PR #1578: Add missing function information to the cuML documenataion
+- PR #1584: Add has_scipy utility function for runtime check
+- PR #1583: API docs updates for 0.12
+- PR #1591: Updated FIL documentation
+
+## Bug Fixes
+- PR #1470: Documentation: add make_regression, fix ARIMA section
+- PR #1482: Updated the code to remove sklearn from the mbsgd stress test
+- PR #1491: Update dev environments for 0.12
+- PR #1512: Updating setup_cpu() in SpeedupComparisonRunner
+- PR #1498: Add build.sh to code owners
+- PR #1505: cmake: added correct dependencies for prims-bench build
+- PR #1534: Removed TODO comment in create_ucp_listeners()
+- PR #1548: Fixing umap extra unary op in knn graph
+- PR #1547: Fixing MNMG kmeans score. Fixing UMAP pickling before fit(). Fixing UMAP test failures.
+- PR #1557: Increasing threshold for kmeans score
+- PR #1562: Increasing threshold even higher
+- PR #1564: Fixed a typo in function cumlMPICommunicator_impl::syncStream
+- PR #1569: Remove Scikit-learn exception and depedenncy in SVM
+- PR #1575: Add missing dtype parameter in call to strides to order for CuPy 6.6 code path
+- PR #1574: Updated the init file to include SVM
+- PR #1589: Fixing the default value for RF and updating mnmg predict to accept cudf
+- PR #1601: Fixed wrong datatype used in knn voting kernel
+
+# cuML 0.11.0 (11 Dec 2019)
 
 ## New Features
 
+- PR #1295: Cython side of MNMG PCA
+- PR #1218: prims: histogram prim
+- PR #1129: C++: Separate include folder for C++ API distribution
+- PR #1282: OPG KNN MNMG Code (disabled for 0.11)
+- PR #1242: Initial implementation of FIL sparse forests
+- PR #1194: Initial ARIMA time-series modeling support.
+- PR #1286: Importing treelite models as FIL sparse forests
+- PR #1285: Fea minimum impurity decrease RF param
+- PR #1301: Add make_regression to generate regression datasets
+- PR #1322: RF pickling using treelite, protobuf and FIL
+- PR #1332: Add option to cuml.dask make_blobs to produce dask array
+- PR #1307: Add RF regression benchmark
+- PR #1327: Update the code to build treelite with protobuf
+- PR #1289: Add Python benchmarking support for FIL
+- PR #1371: Cython side of MNMG tSVD
+- PR #1386: Expose SVC decision function value
+
+## Improvements
+- PR #1170: Use git to clone subprojects instead of git submodules
+- PR #1239: Updated the treelite version
+- PR #1225: setup.py clone dependencies like cmake and correct include paths
+- PR #1224: Refactored FIL to prepare for sparse trees
+- PR #1249: Include libcuml.so C API in installed targets
+- PR #1259: Conda dev environment updates and use libcumlprims current version in CI
+- PR #1277: Change dependency order in cmake for better printing at compile time
+- PR #1264: Add -s flag to GPU CI pytest for better error printing
+- PR #1271: Updated the Ridge regression documentation
+- PR #1283: Updated the cuMl docs to include MBSGD and adjusted_rand_score
+- PR #1300: Lowercase parameter versions for FIL algorithms
+- PR #1312: Update CuPy to version 6.5 and use conda-forge channel
+- PR #1336: Import SciKit-Learn models into FIL
+- PR #1314: Added options needed for ASVDb output (CUDA ver, etc.), added option
+  to select algos
+- PR #1335: Options to print available algorithms and datasets
+  in the Python benchmark
+- PR #1338: Remove BUILD_ABI references in CI scripts
+- PR #1340: Updated unit tests to uses larger dataset
+- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn
+  model importing
+- PR #1367: --test-split benchmark parameter for train-test split
+- PR #1360: Improved tests for importing SciKit-Learn models into FIL
+- PR #1368: Add --num-rows benchmark command line argument
+- PR #1351: Build treelite temporarily for GPU CI testing of FIL Scikit-learn model importing
+- PR #1366: Modify train_test_split to use CuPy and accept device arrays
+- PR #1258: Documenting new MPI communicator for multi-node multi-GPU testing
+- PR #1345: Removing deprecated should_downcast argument
+- PR #1362: device_buffer in UMAP + Sparse prims
+- PR #1376: AUTO value for FIL algorithm
+- PR #1408: Updated pickle tests to delete the pre-pickled model to prevent pointer leakage
+- PR #1357: Run benchmarks multiple times for CI
+- PR #1382: ARIMA optimization: move functions to C++ side
+- PR #1392: Updated RF code to reduce duplication of the code
+- PR #1444: UCX listener running in its own isolated thread
+- PR #1445: Improved performance of FIL sparse trees
+- PR #1431: Updated API docs
+- PR #1441: Remove unused CUDA conda labels
+- PR #1439: Match sklearn 0.22 default n_estimators for RF and fix test errors
+- PR #1461: Add kneighbors to API docs
+
+## Bug Fixes
+- PR #1281: Making rng.h threadsafe
+- PR #1212: Fix cmake git cloning always running configure in subprojects
+- PR #1261: Fix comms build errors due to cuml++ include folder changes
+- PR #1267: Update build.sh for recent change of building comms in main CMakeLists
+- PR #1278: Removed incorrect overloaded instance of eigJacobi
+- PR #1302: Updates for numba 0.46
+- PR #1313: Updated the RF tests to set the seed and n_streams
+- PR #1319: Using machineName arg passed in instead of default for ASV reporting
+- PR #1326: Fix illegal memory access in make_regression (bounds issue)
+- PR #1330: Fix C++ unit test utils for better handling of differences near zero
+- PR #1342: Fix to prevent memory leakage in Lasso and ElasticNet
+- PR #1337: Fix k-means init from preset cluster centers
+- PR #1354: Fix SVM gamma=scale implementation
+- PR #1344: Change other solver based methods to create solver object in init
+- PR #1373: Fixing a few small bugs in make_blobs and adding asserts to pytests
+- PR #1361: Improve SMO error handling
+- PR #1384: Lower expectations on batched matrix tests to prevent CI failures
+- PR #1380: Fix memory leaks in ARIMA
+- PR #1391: Lower expectations on batched matrix tests even more
+- PR #1394: Warning added in svd for cuda version 10.1
+- PR #1407: Resolved RF predict issues and updated RF docstring
+- PR #1401: Patch for lbfgs solver for logistic regression with no l1 penalty
+- PR #1416: train_test_split numba and rmm device_array output bugfix
+- PR #1419: UMAP pickle tests are using wrong n_neighbors value for trustworthiness
+- PR #1438: KNN Classifier to properly return Dataframe with Dataframe input
+- PR #1425: Deprecate seed and use random_state similar to Scikit-learn in train_test_split
+- PR #1458: Add joblib as an explicit requirement
+- PR #1474: Defer knn mnmg to 0.12 nightly builds and disable ucx-py dependency
+
+# cuML 0.10.0 (16 Oct 2019)
+
+## New Features
+- PR #1148: C++ benchmark tool for c++/CUDA code inside cuML
+- PR #1071: Selective eigen solver of cuSolver
+- PR #1073: Updating RF wrappers to use FIL for GPU accelerated prediction
+- PR #1104: CUDA 10.1 support
+- PR #1113: prims: new batched make-symmetric-matrix primitive
+- PR #1112: prims: new batched-gemv primitive
+- PR #855: Added benchmark tools
+- PR #1149 Add YYMMDD to version tag for nightly conda packages
+- PR #892: General Gram matrices prim
+- PR #912: Support Vector Machine
+- PR #1274: Updated the RF score function to use GPU predict
+
+## Improvements
+- PR #961: High Peformance RF; HIST algo
+- PR #1028: Dockerfile updates after dir restructure. Conda env yaml to add statsmodels as a dependency
+- PR #1047: Consistent OPG interface for kmeans, based on internal libcumlprims update
+- PR #763: Add examples to train_test_split documentation
+- PR #1093: Unified inference kernels for different FIL algorithms
+- PR #1076: Paying off some UMAP / Spectral tech debt.
+- PR #1086: Ensure RegressorMixin scorer uses device arrays
+- PR #1110: Adding tests to use default values of parameters of the models
+- PR #1108: input_to_host_array function in input_utils for input processing to host arrays
+- PR #1114: K-means: Exposing useful params, removing unused params, proxying params in Dask
+- PR #1138: Implementing ANY_RANK semantics on irecv
+- PR #1142: prims: expose separate InType and OutType for unaryOp and binaryOp
+- PR #1115: Moving dask_make_blobs to cuml.dask.datasets. Adding conversion to dask.DataFrame
+- PR #1136: CUDA 10.1 CI updates
+- PR #1135: K-means: add boundary cases for kmeans||, support finer control with convergence
+- PR #1163: Some more correctness improvements. Better verbose printing
+- PR #1165: Adding except + in all remaining cython
+- PR #1186: Using LocalCUDACluster Pytest fixture
+- PR #1173: Docs: Barnes Hut TSNE documentation
+- PR #1176: Use new RMM API based on Cython
+- PR #1219: Adding custom bench_func and verbose logging to cuml.benchmark
+- PR #1247: Improved MNMG RF error checking
+
+## Bug Fixes
+
+- PR #1231: RF respect number of cuda streams from cuml handle
+- PR #1230: Rf bugfix memleak in regression
+- PR #1208: compile dbscan bug
+- PR #1016: Use correct libcumlprims version in GPU CI
+- PR #1040: Update version of numba in development conda yaml files
+- PR #1043: Updates to accomodate cuDF python code reorganization
+- PR #1044: Remove nvidia driver installation from ci/cpu/build.sh
+- PR #991: Barnes Hut TSNE Memory Issue Fixes
+- PR #1075: Pinning Dask version for consistent CI results
+- PR #990: Barnes Hut TSNE Memory Issue Fixes
+- PR #1066: Using proper set of workers to destroy nccl comms
+- PR #1072: Remove pip requirements and setup
+- PR #1074: Fix flake8 CI style check
+- PR #1087: Accuracy improvement for sqrt/log in RF max_feature
+- PR #1088: Change straggling numba python allocations to use RMM
+- PR #1106: Pinning Distributed version to match Dask for consistent CI results
+- PR #1116: TSNE CUDA 10.1 Bug Fixes
+- PR #1132: DBSCAN Batching Bug Fix
+- PR #1162: DASK RF random seed bug fix
+- PR #1164: Fix check_dtype arg handling for input_to_dev_array
+- PR #1171: SVM prediction bug fix
+- PR #1177: Update dask and distributed to 2.5
+- PR #1204: Fix SVM crash on Turing
+- PR #1199: Replaced sprintf() with snprintf() in THROW()
+- PR #1205: Update dask-cuda in yml envs
+- PR #1211: Fixing Dask k-means transform bug and adding test
+- PR #1236: Improve fix for SMO solvers potential crash on Turing
+- PR #1251: Disable compiler optimization for CUDA 10.1 for distance prims
+- PR #1260: Small bugfix for major conversion in input_utils
+- PR #1276: Fix float64 prediction crash in test_random_forest
+
+# cuML 0.9.0 (21 Aug 2019)
+
+## New Features
+
+- PR #894: Convert RF to treelite format
 - PR #826: Jones transformation of params for ARIMA models timeSeries ml-prim
 - PR #697: Silhouette Score metric ml-prim
 - PR #674: KL Divergence metric ml-prim
@@ -9,14 +411,29 @@
 - PR #711: Mutual Information metric ml-prim
 - PR #724: Entropy metric ml-prim
 - PR #766: Expose score method based on inertia for KMeans
+- PR #823: prims: cluster dispersion metric
+- PR #816: Added inverse_transform() for LabelEncoder
 - PR #789: prims: sampling without replacement
 - PR #813: prims: Col major istance prim
 - PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 - PR #819: Forest Inferencing Library (FIL)
 - PR #829: C++: enable nvtx ranges
+- PR #835: Holt-Winters algorithm
 - PR #837: treelite for decision forest exchange format
+- PR #871: Wrapper for FIL
 - PR #870: make_blobs python function
-- PR #877: Adding definition of done criteria to wiki
+- PR #881: wrappers for accuracy_score and adjusted_rand_score functions
+- PR #840: Dask RF classification and regression
+- PR #870: make_blobs python function
+- PR #879: import of treelite models to FIL
+- PR #892: General Gram matrices prim
+- PR #883: Adding MNMG Kmeans
+- PR #930: Dask RF
+- PR #882: TSNE - T-Distributed Stochastic Neighbourhood Embedding
+- PR #624: Internals API & Graph Based Dimensionality Reductions Callback
+- PR #926: Wrapper for FIL
+- PR #994: Adding MPI comm impl for testing / benchmarking MNMG CUDA
+- PR #960: Enable using libcumlprims for MG algorithms/prims
 
 ## Improvements
 - PR #822: build: build.sh update to club all make targets together
@@ -25,13 +442,50 @@
 - PR #832: Stateless Decision Tree and Random Forest API
 - PR #857: Small modifications to comms for utilizing IB w/ Dask
 - PR #851: Random forest Stateless API wrappers
+- PR #865: High Performance RF
+- PR #895: Pretty prints arguments!
+- PR #920: Add an empty marker kernel for tracing purposes
+- PR #915: syncStream added to cumlCommunicator
+- PR #922: Random Forest support in FIL
+- PR #911: Update headers to credit CannyLabs BH TSNE implementation
+- PR #918: Streamline CUDA_REL environment variable
+- PR #924: kmeans: updated APIs to be stateless, refactored code for mnmg support
+- PR #950: global_bias support in FIL
+- PR #773: Significant improvements to input checking of all classes and common input API for Python
+- PR #957: Adding docs to RF & KMeans MNMG. Small fixes for release
+- PR #965: Making dask-ml a hard dependency
+- PR #976: Update api.rst for new 0.9 classes
+- PR #973: Use cudaDeviceGetAttribute instead of relying on cudaDeviceProp object being passed
+- PR #978: Update README for 0.9
+- PR #1009: Fix references to notebooks-contrib
+- PR #1015: Ability to control the number of internal streams in cumlHandle_impl via cumlHandle
+- PR #1175: Add more modules to docs ToC
 
 ## Bug Fixes
 
+- PR #923: Fix misshapen level/trend/season HoltWinters output
 - PR #831: Update conda package dependencies to cudf 0.9
 - PR #772: Add missing cython headers to SGD and CD
 - PR #849: PCA no attribute trans_input_ transform bug fix
 - PR #869: Removing incorrect information from KNN Docs
+- PR #885: libclang installation fix for GPUCI
+- PR #896: Fix typo in comms build instructions
+- PR #921: Fix build scripts using incorrect cudf version
+- PR #928: TSNE Stability Adjustments
+- PR #934: Cache cudaDeviceProp in cumlHandle for perf reasons
+- PR #932: Change default param value for RF classifier
+- PR #949: Fix dtype conversion tests for unsupported cudf dtypes
+- PR #908: Fix local build generated file ownerships
+- PR #983: Change RF max_depth default to 16
+- PR #987: Change default values for knn
+- PR #988: Switch to exact tsne
+- PR #991: Cleanup python code in cuml.dask.cluster
+- PR #996: ucx_initialized being properly set in CommsContext
+- PR #1007: Throws a well defined error when mutigpu is not enabled
+- PR #1018: Hint location of nccl in build.sh for CI
+- PR #1022: Using random_state to make K-Means MNMG tests deterministic
+- PR #1034: Fix typos and formatting issues in RF docs
+- PR #1052: Fix the rows_sample dtype to float
 
 # cuML 0.8.0 (27 June 2019)
 
@@ -87,6 +541,7 @@
 - PR #754: Pickling of UMAP/KNN
 - PR #753: Made PCA and TSVD picklable
 - PR #746: LogisticRegression and QN API docstrings
+- PR #820: Updating DEVELOPER GUIDE threading guidelines
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator

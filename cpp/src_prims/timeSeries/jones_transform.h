@@ -17,11 +17,12 @@
 * @file jones_transform.h
 * @brief Transforms params to induce stationarity/invertability.
 * reference: Jones(1980) 
-
 */
 
+#pragma once
+
 #include <math.h>
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/unary_op.h"
@@ -49,8 +50,8 @@ struct PAC {
 * @tparam IdxT: indexing data type
 * @tparam value: the pValue/qValue for the transformation
 * @param tmp: the temporary array used in transformation
-* @param myNewParam: will contain the transformed params
-* @param: isAr: tell the type of transform (if ar or ma transform)
+* @param myNewParams: will contain the transformed params
+* @param isAr: tell the type of transform (if ar or ma transform)
 */
 template <typename DataT, typename IdxT, int VALUE>
 inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr) {
@@ -94,8 +95,8 @@ inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr) {
 * @tparam IdxT: indexing data type
 * @tparam value: the pValue/qValue for the inverse transformation
 * @param tmp: the temporary array used in transformation
-* @param myNewParam: will contain the transformed params
-* @param: isAr: tell the type of inverse transform (if ar or ma transform)
+* @param myNewParams: will contain the transformed params
+* @param isAr: tell the type of inverse transform (if ar or ma transform)
 */
 template <typename DataT, typename IdxT, int VALUE>
 inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr) {
@@ -183,7 +184,7 @@ __global__ void jones_transform_kernel(DataT* newParams, const DataT* params,
 * @param batchSize: the number of models in a batch (number of rows in params)
 * @param parameter: the number of coefficients per model (basically number of columns in params)
 * @param newParams: the inverse transformed params (output)
-* @param isAR: set to true if the params to be transformed are Autoregressive params, false if params are of type MA
+* @param isAr: set to true if the params to be transformed are Autoregressive params, false if params are of type MA
 * @param isInv: set to true if the transformation is an inverse type transformation, false if regular transform
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
