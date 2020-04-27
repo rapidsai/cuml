@@ -43,6 +43,7 @@
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
+- PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array

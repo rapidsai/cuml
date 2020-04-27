@@ -15,7 +15,7 @@
  */
 
 #include <cuml/decomposition/pca.hpp>
-#include "pca.h"
+#include "pca.cuh"
 
 namespace ML {
 
