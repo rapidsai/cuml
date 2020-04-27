@@ -42,6 +42,7 @@
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
+- PR #2135: A few optimizations to UMAP fuzzy simplicial set
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
