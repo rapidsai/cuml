@@ -39,6 +39,7 @@
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 - PR #1883: Use CumlArray in ARIMA
+- PR #2135: A few optimizations to UMAP fuzzy simplicial set
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
