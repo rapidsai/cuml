@@ -179,7 +179,7 @@ class OneHotEncoder:
         Fit OneHotEncoder to X.
         Parameters
         ----------
-        X : cuDF.DataFrame or cupy.ndarray
+        X : cuDF.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
             The data to determine the categories of each feature.
         Returns
         -------
@@ -197,7 +197,7 @@ class OneHotEncoder:
         else:
             self.categories = self._check_input(self.categories, True)
             self._features = self.categories.columns
-            if self._features.shape[0] != X.shape[0]:
+            if len(self._features) != X.shape[1]:
                 raise ValueError("Shape mismatch: if categories is not 'auto',"
                                  " it has to be of shape (n_features, _).")
             self._encoders = dict()
@@ -221,7 +221,7 @@ class OneHotEncoder:
 
         Parameters
         ----------
-        X : cudf.DataFrame or cupy.ndarray
+        X : cudf.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
             The data to encode.
         Returns
         -------
