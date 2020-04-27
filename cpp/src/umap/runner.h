@@ -338,10 +338,10 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   COO<T> graph_coo(d_alloc, stream, nnz, n, n);
 
   FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X>
-    <<<grid_n, blk, 0, stream>>>(knn_indices, knn_dists, sigmas.data(),
-                                 rhos.data(), graph_coo.vals(),
-                                 graph_coo.rows(), graph_coo.cols(),
-                                 graph_coo.n_rows, params->n_neighbors);
+    <<<grid_nnz, blk, 0, stream>>>(knn_indices, knn_dists, sigmas.data(),
+                                   rhos.data(), graph_coo.vals(),
+                                   graph_coo.rows(), graph_coo.cols(),
+                                   graph_coo.n_rows, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (knn_indices_b) delete knn_indices_b;
@@ -426,7 +426,8 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     params->callback->on_preprocess_end(transformed);
   }
 
-  params->initial_alpha /= 4.0;
+  params->initial_alpha /=
+    4.0;  // TODO: This value should be passed into "optimize layout" directly to avoid side-effects.
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),

@@ -45,7 +45,7 @@ from cuml.metrics import confusion_matrix
 from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
 from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 
-from scipy.stats import entropy as sp_entropy
+from cuml.utils import has_scipy
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -323,6 +323,11 @@ def test_entropy(use_handle):
 @pytest.mark.parametrize('base', [None, 2, 10, 50])
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_entropy_random(n_samples, base, use_handle):
+    if has_scipy():
+        from scipy.stats import entropy as sp_entropy
+    else:
+        pytest.skip('Skipping test_entropy_random because Scipy is missing')
+
     handle, stream = get_handle(use_handle)
 
     clustering, _, _, _ = \

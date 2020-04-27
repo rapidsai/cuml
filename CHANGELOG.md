@@ -32,13 +32,17 @@
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2048: Random forest testing speedup
 - PR #2058: Use CumlArray in Random Projection
+- PR #2068: Updating knn class probabilities to use make_monotonic instead of binary search
 - PR #2062: Adding random state to UMAP mnmg tests
 - PR #2064: Speed-up K-Means test
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2118: Updating SGD & mini-batch estimators to use CumlArray
+- PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
+- PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #1914: Change the meaning of ARIMA's intercept to match the literature
 
 ## Bug Fixes
@@ -48,14 +52,19 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2004: Refactoring the arguments to `plant()` call
 - PR #2017: Fixing memory issue in weak cc prim
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+- PR #2059: Make all Scipy imports conditional
 - PR #2077L dask-make blobs arguments to match sklearn
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
+- PR #2096: Fixed syntax error with nightly build command for memcheck unit-tests
+- PR #2115: Fixed contingency matrix prim unit-tests for computing correct golden values
+- PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
 
@@ -80,6 +89,7 @@
 - PR #1738: cuml.dask refactor beginning and dask array input option for OLS, Ridge and KMeans
 - PR #1874: Add predict_proba function to RF classifier
 - PR #1815: Adding KNN parameter to UMAP
+- PR #1978: Adding `predict_proba` function to dask RF
 
 ## Improvements
 - PR #1644: Add `predict_proba()` for FIL binary classifier
