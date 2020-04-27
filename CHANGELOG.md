@@ -79,6 +79,7 @@
 - PR #1766: Mean absolute error implementation with cupy
 - PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
+- PR #1892: One hot encoder implementation with cupy
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
@@ -130,6 +131,7 @@
 - PR #1848: Rely on subclassing for cuML Array serialization
 - PR #1866: Minimizing client memory pressure on Naive Bayes
 - PR #1788: Removing complexity bottleneck in S-ARIMA
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 - PR #1891: Additional improvements to naive bayes tree reduction
 
 ## Bug Fixes
