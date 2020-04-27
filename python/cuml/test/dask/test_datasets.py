@@ -26,7 +26,6 @@ from cuml.dask.datasets.blobs import make_blobs
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.test.utils import unit_param, quality_param, stress_param
-from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.dask.common.part_utils import _extract_partitions
 

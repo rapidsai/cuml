@@ -24,7 +24,6 @@ from cuml.utils import with_cupy_rmm
 
 from dask.distributed import default_client
 import dask.array as da
-import dask.delayed
 
 import cupy as cp
 import numpy as np
