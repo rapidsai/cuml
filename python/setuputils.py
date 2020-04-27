@@ -20,7 +20,6 @@ import re
 import shutil
 import subprocess
 import sys
-import warnings
 
 
 def get_environment_option(name):
@@ -163,7 +162,8 @@ def get_submodule_dependency(repo,
 
     if os.path.exists(cpp_build_path):
         print("-- Third party modules found succesfully in the libcuml++ "
-              "build folder.")
+              "build folder:")
+        print("  " + cpp_build_path)
 
         return False
 
@@ -172,8 +172,8 @@ def get_submodule_dependency(repo,
         print("-- Third party repositories have not been found so they " +
               "will be cloned. To avoid this set the environment " +
               "variable CUML_BUILD_PATH, containing the relative " +
-              "path of the root of the repository to the folder " +
-              "where libcuml++ was built.")
+              " or positive path of the root of the repository to the " +
+              "folder where libcuml++ was built.")
 
         for repo in repos:
             clone_repo(repo, repo_info[repo][0], repo_info[repo][1])
@@ -200,7 +200,8 @@ def clone_repo(name, GIT_REPOSITORY, GIT_TAG,
     force_clone : Boolean
         Set to True to ignore already cloned repositories in
         _external_repositories and clone
-
+    location_to_clone: String (default: '_external_repositories/')
+        Name that will contain clone of repository if needed.
     """
 
     if not os.path.exists(location_to_clone + name) or force_clone:
