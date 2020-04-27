@@ -15,13 +15,12 @@
 import pytest
 from cuml.preprocessing import LabelBinarizer
 from cuml.test.utils import array_equal
+from cuml.utils import has_scipy
 
 from sklearn.preprocessing import LabelBinarizer as skLB
 
 import numpy as np
 import cupy as cp
-
-import scipy.sparse
 
 
 @pytest.mark.parametrize(
@@ -52,6 +51,12 @@ def test_basic_functions(labels, dtype, sparse_output):
 
     if sparse_output:
         skl_bin_xformed = skl_bin.transform(xform_labels.get())
+
+        if has_scipy():
+            import scipy.sparse
+        else:
+            pytest.skip('Skipping test_basic_functions(sparse_output=True) ' +
+                        'because Scipy is missing')
 
         skl_csr = scipy.sparse.coo_matrix(skl_bin_xformed).tocsr()
         cuml_csr = xformed
