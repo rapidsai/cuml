@@ -16,7 +16,7 @@
 
 #pragma once
 #include "cuda_utils.h"
-#include "metric_def.h"
+#include "metric_def.cuh"
 
 template <class T>
 DI T SquareFunctor::exec(T x) {

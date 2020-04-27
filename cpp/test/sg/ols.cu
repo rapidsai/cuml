@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include <vector>
-#include "glm/ols.h"
+#include "glm/ols.cuh"
 #include "ml_utils.h"
 
 namespace ML {
