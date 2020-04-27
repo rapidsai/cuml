@@ -291,7 +291,7 @@ def test_onehot_sparse_drop(as_array):
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
 def test_onehot_categories_shape_mismatch(as_array):
-    X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
+    X = DataFrame({'chars': ['a'], 'int': [0]})
     categories = DataFrame({'chars': ['a', 'b', 'c']})
     if as_array:
         X = _from_df_to_cupy(X)
