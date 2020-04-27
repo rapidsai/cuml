@@ -55,14 +55,14 @@ import cuml.tsa.arima as arima
 ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
                                      'end', 'tolerance_integration'])
 
-# ARIMA(1,0,1) with intercept
-test_101c = ARIMAData(
+# ARIMA(1,0,1)
+test_101 = ARIMAData(
     batch_size=8,
     n_obs=15,
     dataset="long_term_arrivals_by_citizenship",
     start=10,
     end=25,
-    tolerance_integration=0.06
+    tolerance_integration=0.001
 )
 
 # ARIMA(0,0,2) with intercept
@@ -159,7 +159,7 @@ test_111_111_12 = ARIMAData(
 # (a test case could be used with different models)
 # (p, d, q, P, D, Q, s, k) -> ARIMAData
 test_data = {
-    (1, 0, 1, 0, 0, 0, 0, 1): test_101c,
+    (1, 0, 1, 0, 0, 0, 0, 0): test_101,
     (0, 0, 2, 0, 0, 0, 0, 1): test_002c,
     (0, 1, 0, 0, 0, 0, 0, 1): test_010c,
     (1, 1, 0, 0, 0, 0, 0, 0): test_110,
