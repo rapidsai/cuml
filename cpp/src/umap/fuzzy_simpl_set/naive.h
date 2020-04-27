@@ -168,7 +168,6 @@ __global__ void smooth_knn_dist_kernel(
   }
 }
 
-
 /**
  * Construct the membership strength data for the 1-skeleton of each local
  * fuzzy simplicial set -- this is formed as a sparse matrix (COO) where each
@@ -199,31 +198,29 @@ __global__ void compute_membership_strength_kernel(
   int idx = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (idx < n * n_neighbors) {
+    int row = idx / n_neighbors;  // one neighbor per thread
 
-  int row = idx / n_neighbors;  // one neighbor per thread
-
-	double cur_rho = rhos[row];
+    double cur_rho = rhos[row];
     double cur_sigma = sigmas[row];
 
     int64_t cur_knn_ind = knn_indices[idx];
     double cur_knn_dist = knn_dists[idx];
 
     if (cur_knn_ind != -1) {
-        double val = 0.0;
-        if (cur_knn_ind == row)
-          val = 0.0;
-        else if (cur_knn_dist - cur_rho <= 0.0 || cur_sigma == 0.0)
-          val = 1.0;
-        else {
-          val = exp(
-            -((cur_knn_dist - cur_rho) / (cur_sigma)));
+      double val = 0.0;
+      if (cur_knn_ind == row)
+        val = 0.0;
+      else if (cur_knn_dist - cur_rho <= 0.0 || cur_sigma == 0.0)
+        val = 1.0;
+      else {
+        val = exp(-((cur_knn_dist - cur_rho) / (cur_sigma)));
 
-          if (val < MIN_FLOAT) val = MIN_FLOAT;
-        }
+        if (val < MIN_FLOAT) val = MIN_FLOAT;
+      }
 
-        rows[idx] = row;
-        cols[idx] = cur_knn_ind;
-        vals[idx] = val;
+      rows[idx] = row;
+      cols[idx] = cur_knn_ind;
+      vals[idx] = val;
     }
   }
 }
@@ -237,19 +234,17 @@ void smooth_knn_dist(int n, const int64_t *knn_indices, const float *knn_dists,
                      float local_connectivity,
                      std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
-
   dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   MLCommon::device_buffer<T> dist_means_dev(d_alloc, stream, n_neighbors);
 
-  MLCommon::Stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors*n, false,
-                        false, stream);
+  MLCommon::Stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n,
+                        false, false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   T mean_dist = 0.0;
-  MLCommon::updateHost(&mean_dist, dist_means_dev.data(), 1,
-                       stream);
+  MLCommon::updateHost(&mean_dist, dist_means_dev.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   /**
@@ -282,7 +277,6 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
               int n_neighbors, MLCommon::Sparse::COO<T> *out,
               UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
               cudaStream_t stream) {
-
   /**
    * Calculate mean distance through a parallel reduction
    */
@@ -312,7 +306,7 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
    * Compute graph of membership strengths
    */
 
-  dim3 grid_elm(MLCommon::ceildiv(n*n_neighbors, TPB_X), 1, 1);
+  dim3 grid_elm(MLCommon::ceildiv(n * n_neighbors, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
   compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(
