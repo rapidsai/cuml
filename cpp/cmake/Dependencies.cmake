@@ -61,7 +61,7 @@ set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
   "Path to FAISS source directory")
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           v1.6.1
+  GIT_TAG           v1.6.2
   CONFIGURE_COMMAND LIBS=-pthread
                     CPPFLAGS=-w
                     LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
