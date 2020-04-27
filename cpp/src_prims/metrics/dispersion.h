@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <memory>
-#include <common/cudart_utils.h>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/eltwise.h"

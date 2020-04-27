@@ -18,10 +18,10 @@
 * @brief Calculates the entropy for a labeling in nats.(ie, uses natural logarithm for the calculations)
 */
 
+#include <common/cudart_utils.h>
 #include <math.h>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <common/cudart_utils.h>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/divide.h"

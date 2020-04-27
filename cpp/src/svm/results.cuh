@@ -22,9 +22,9 @@
 #include <limits>
 #include <memory>
 
+#include <common/cudart_utils.h>
 #include <cub/device/device_select.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include <common/cudart_utils.h>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"

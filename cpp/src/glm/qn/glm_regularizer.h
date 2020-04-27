@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <glm/qn/simple_mat.h>
 #include <common/cudart_utils.h>
+#include <glm/qn/simple_mat.h>
 #include "cuda_utils.h"
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"

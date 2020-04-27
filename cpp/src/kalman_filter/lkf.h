@@ -15,9 +15,9 @@
  */
 
 #pragma once
+#include <common/cudart_utils.h>
 #include <stdio.h>
 #include <iostream>
-#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 #include "kf_variables.h"
 #include "linalg/cublas_wrappers.h"
