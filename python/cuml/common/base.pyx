@@ -28,7 +28,7 @@ import cuml.common.logger as logger
 from cudf.core import Series, DataFrame
 from cuml.common.array import CumlArray
 from cupy import ndarray as cupyArray
-from numba.cuda import is_cuda_array
+from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
 
 
@@ -307,7 +307,7 @@ def _input_to_type(input):
     # numba check for a numba device_array
     if type(input) in _input_type_to_str.keys():
         return _input_type_to_str[type(input)]
-    elif is_cuda_array(input):
+    elif numbaArray.is_cuda_ndarray(input):
         return 'numba'
     else:
         return 'cupy'
