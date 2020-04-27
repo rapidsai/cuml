@@ -6,7 +6,7 @@
 Below is a quick and simple checklist for developers to determine whether an algorithm is complete and ready for release. Most of these items contain more detailed descriptions in their corresponding developer guide. The checklist is broken down by layer (C++ or Python) and categorized further into
 
 - **Design:** All algorithms should be designed with an eye on maintainability, performance, readability, and robustness.
-- **Testing:** The goal for automated testing is to increase the code coverage as much as possible in order to ease time spent fixing bugs and developing new features. Additionally, a very important factor for a tool like `cuml` is to provide testing with multiple datasets that really stress the mathematical behavior of the algorithms, even if they don't increase code coverage! A comprehensive set of tests lowers the possibility for regressions and the introduction of bugs as the code evolves between versions. This covers both correctness & performance. 
+- **Testing:** The goal for automated testing is to increase both the spread and the depth of code coverage as much as possible in order to ease time spent fixing bugs and developing new features. Additionally, a very important factor for a tool like `cuml` is to provide testing with multiple datasets that really stress the mathematical behavior of the algorithms. A comprehensive set of tests lowers the possibility for regressions and the introduction of bugs as the code evolves between versions. This covers both correctness & performance. 
 - **Documentation:** User-facing documentation should be complete and descriptive. Developer-facing documentation should be used for constructs which are complex and/or not immediately obvious. 
 
 ### C++
