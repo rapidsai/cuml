@@ -55,22 +55,22 @@ Below is a quick and simple checklist for developers to determine whether an alg
 
 ## Algorithm Status
 
-Sometimes it is possible that only some of these requirements are satisfied before an algorithm gets released. We assign a status of `bronze`, `silver`, or `gold` to denote the amount of work necessary to provide the most robust, performant, and maintainable algorithm possible.
+Sometimes it is possible that only some of these requirements are satisfied before an algorithm gets released. We assign a status of `bronze`, `silver`, or `gold` to denote an algorithm's level of completeness and robustness.
 
 Note that a change to an algorithm's classification can go up or down, depending on circumstances. For example, an algorithm that has been considered `Gold status` might drop to a `Silver status` when being updated to a new low-level feature or library. 
 
 ### Bronze: 
 - Known design flaws affecting sustainability and/or performance require a significant effort / redesign / refactor
 - C++ checklist / API functionality is complete but Python API has not been built
-- ure Python API exists without using C++ for processing when a C++ implementation would provide a significant performance boost
+- Pure Python API exists without using C++ for processing when a C++ implementation would provide a significant performance boost
 - There are known issues that affect memory / accuracy / stability on some inputs
 - Coverage of automated tests in C++ or Python is minimal and could be significantly improved
 - Outdated / legacy code that requires significant work and refactoring
 
 
 ### Silver:
-- Known design flaws affecting sustainability and/or performance are fairly low in complexity (can be fixed quickly and without too much effort)
-- Automated tests in C++ or Python are not as extensive as they could be regarding different datasets / inputs, but they do test general functionality
+- Known design flaws affecting sustainability and/or performance are fairly minor.
+- Automated tests in C++ or Python are not as extensive as they should be regarding different datasets / inputs, but they do test general functionality
 - There are known (or potential) bugs that affect memory / accuracy, but only on a small subset of specific inputs
 - There are known optimizations that would provide a significant performance boost over the current implementation
 
