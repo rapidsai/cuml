@@ -287,3 +287,15 @@ def test_onehot_sparse_drop(as_array):
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())
+
+
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_categories_shape_mismatch(as_array):
+    X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
+    categories = DataFrame({'chars': ['a', 'b', 'c']})
+    if as_array:
+        X = _from_df_to_cupy(X)
+        categories = _from_df_to_cupy(categories).transpose()
+
+    with pytest.raises(ValueError):
+        OneHotEncoder(categories=categories, sparse=False).fit(X)

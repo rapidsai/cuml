@@ -192,20 +192,23 @@ class OneHotEncoder:
             self._encoders = {
                 feature: LabelEncoder(handle_unknown=self.handle_unknown).fit(
                     X[feature])
-                for feature in X.columns
+                for feature in self._features
             }
         else:
             self.categories = self._check_input(self.categories, True)
             self._features = self.categories.columns
+            if self._features.shape[0] != X.shape[0]:
+                raise ValueError("Shape mismatch: if categories is not 'auto',"
+                                 " it has to be of shape (n_features, _).")
             self._encoders = dict()
-            for feature in self.categories.columns:
-                le = LabelEncoder(handle_unknown=self.handle_unknown)
-                self._encoders[feature] = le.fit(self.categories[feature])
+            for feature in self._features:
                 if self.handle_unknown == 'error':
                     if not X[feature].isin(self.categories[feature]).all():
                         msg = ("Found unknown categories in column {0}"
                                " during fit".format(feature))
                         raise KeyError(msg)
+                le = LabelEncoder(handle_unknown=self.handle_unknown)
+                self._encoders[feature] = le.fit(self.categories[feature])
 
         self.drop_idx_ = self._compute_drop_idx()
         self._fitted = True
