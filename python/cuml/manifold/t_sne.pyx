@@ -431,24 +431,12 @@ class TSNE(Base):
         self.fit(X, convert_dtype=convert_dtype)
         out_type = self._get_output_type(X)
 
-        if isinstance(X, cudf.DataFrame):
-            if isinstance(self._embedding_, cudf.DataFrame):
-                return self._embedding_
-            else:
-                return cudf.DataFrame.from_gpu_matrix(self._embedding_)
-        elif isinstance(X, np.ndarray):
-            data = self._embedding_.to_output(out_type)
-            del self._embedding_
-            return data
-        return None  # is this even possible?
+        data = self._embedding_.to_output(out_type)
+        del self._embedding_
+        return data
 
     def __getstate__(self):
         state = self.__dict__.copy()
-
-        if "_embedding_" in state:
-            state["_embedding_"] = cudf.DataFrame.from_gpu_matrix(
-                state["_embedding_"].to_output('cupy'))
-
         if "handle" in state:
             del state["handle"]
         return state

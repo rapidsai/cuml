@@ -497,7 +497,7 @@ def test_tsne_pickle(tmpdir):
 
     def assert_second_model(pickled_model, X):
         trust_after = trustworthiness(
-            X, pickled_model._embedding_.to_pandas(), 10)
+            X, pickled_model._embedding_.to_output('numpy'), 10)
         assert result["trust"] == trust_after
 
     pickle_save_load(tmpdir, create_mod, assert_model)
