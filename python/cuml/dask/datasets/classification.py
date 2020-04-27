@@ -17,8 +17,9 @@ from cuml.datasets.classification import _generate_hypercube
 from cuml.datasets.classification import make_classification \
  as sg_make_classification
 from cuml.datasets.utils import _create_rs_generator
-from cuml.dask.datasets.blobs import _get_X
-from cuml.dask.datasets.blobs import _get_labels
+from cuml.dask.datasets.utils import _get_X
+from cuml.dask.datasets.utils import _get_labels
+from cuml.dask.datasets.utils import _dask_array_from_delayed
 from cuml.utils import with_cupy_rmm
 
 from dask.distributed import default_client
@@ -245,13 +246,20 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     y_parts = [client.submit(_get_labels, f, pure=False)
                for idx, f in enumerate(parts)]
 
-    X_dela = [da.from_delayed(dask.delayed(Xp),
-                              shape=(worker_rows[idx], n_features),
-                              dtype=dtype, meta=cp.zeros(1, dtype=dtype))
+    X_dela = [_dask_array_from_delayed(Xp,
+                                       worker_rows[idx],
+                                       n_features,
+                                       dtype)
               for idx, Xp in enumerate(X_parts)]
-    y_dela = [da.from_delayed(dask.delayed(yp),
-                              shape=(worker_rows[idx], ), dtype=dtype,
-                              meta=cp.zeros((1)))
+    y_dela = [_dask_array_from_delayed(yp,
+                                       worker_rows[idx],
+                                       None,
+                                       dtype)
               for idx, yp in enumerate(y_parts)]
 
-    return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
+    X = da.concatenate(X_dela)
+    y = da.concatenate(y_dela)
+
+    y = da.squeeze(y)
+
+    return X, y

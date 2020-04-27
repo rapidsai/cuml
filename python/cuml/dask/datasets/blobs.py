@@ -31,6 +31,10 @@ from dask.distributed import default_client
 from cuml.datasets.blobs import _get_centers
 from cuml.datasets.blobs import make_blobs as sg_make_blobs
 from cuml.utils import with_cupy_rmm
+from cuml.datasets.utils import _create_rs_generator
+from cuml.dask.datasets.utils import _get_X
+from cuml.dask.datasets.utils import _get_labels
+from cuml.dask.datasets.utils import _dask_array_from_delayed
 
 
 def create_local_data(m, n, centers, cluster_std, shuffle, random_state,
@@ -44,14 +48,6 @@ def create_local_data(m, n, centers, cluster_std, shuffle, random_state,
                          dtype=dtype)
 
     return X, y
-
-
-def _get_X(t):
-    return t[0]
-
-
-def _get_labels(t):
-    return t[1]
 
 
 @with_cupy_rmm
@@ -115,7 +111,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     client = default_client() if client is None else client
 
-    generator = cp.random.RandomState()
+    generator = _create_rs_generator(random_state=random_state)
 
     workers = list(client.has_what().keys())
 
@@ -163,24 +159,24 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     X = [client.submit(_get_X, f, pure=False)
          for idx, f in enumerate(parts)]
-    Y = [client.submit(_get_labels, f, pure=False)
+    y = [client.submit(_get_labels, f, pure=False)
          for idx, f in enumerate(parts)]
 
-    X_del = [da.from_delayed(dask.delayed(chunk, pure=False),
-                                shape=(worker_rows[idx], n_features),
-                                dtype=dtype,
-                                meta=cp.zeros((1)))
-                for idx, chunk in enumerate(X)]
-    Y_del = [da.from_delayed(dask.delayed(chunk, pure=False),
-                                shape=(worker_rows[idx],),
-                                dtype=dtype,
-                                meta=cp.zeros((1)))
-                for idx, chunk in enumerate(Y)]       
+    X_del = [_dask_array_from_delayed(Xp,
+                                     worker_rows[idx],
+                                     n_features,
+                                     dtype)
+             for idx, Xp in enumerate(X)]
+    y_del = [_dask_array_from_delayed(yp,
+                                      worker_rows[idx],
+                                      None,
+                                      dtype)
+             for idx, yp in enumerate(y)]   
 
     X_final = da.concatenate(X_del, axis=0)
-    Y_final = da.concatenate(Y_del, axis=0)
+    y_final = da.concatenate(y_del, axis=0)
 
     if return_centers:
-        return X_final, Y_final, centers
+        return X_final, y_final, centers
     else:
-        return X_final, Y_final
+        return X_final, y_final

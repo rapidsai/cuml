@@ -21,6 +21,7 @@ from collections.abc import Iterable
 import cupy as cp
 import numpy as np
 from cuml.utils import with_cupy_rmm
+from cuml.datasets.utils import _create_rs_generator
 
 
 def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
@@ -125,7 +126,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     --------
     make_classification: a more intricate variant
     """
-    generator = cp.random.RandomState(seed=random_state)
+    generator = _create_rs_generator(random_state=random_state)
 
     centers, n_centers = _get_centers(generator, centers, center_box,
                                       n_samples, n_features,
