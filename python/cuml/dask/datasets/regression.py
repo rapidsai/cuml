@@ -20,8 +20,9 @@ from dask.distributed import default_client
 import numpy as np
 import cupy as cp
 from cuml.utils import with_cupy_rmm
-from cuml.dask.datasets.blobs import _get_X
-from cuml.dask.datasets.blobs import _get_labels
+from cuml.dask.datasets.utils import _get_X
+from cuml.dask.datasets.utils import _get_labels
+from cuml.dask.datasets.utils import _dask_array_from_delayed
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 
@@ -43,11 +44,6 @@ def _create_rs_generator(random_state):
         raise ValueError('random_state type must be int, CuPy RandomState \
                           or Dask RandomState')
     return rs
-
-
-def _dask_array_from_delayed(part, nrows, ncols, dtype):
-    return da.from_delayed(dask.delayed(part), shape=(nrows, ncols),
-                           meta=cp.zeros((1)), dtype=dtype)
 
 
 def _dask_f_order_standard_normal(nrows, ncols, dtype, seed):

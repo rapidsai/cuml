@@ -53,7 +53,8 @@ def test_make_blobs(nrows,
 
     c = Client(cluster)
     try:
-        X, y = make_blobs(int(nrows), ncols,
+        nrows = int(nrows)
+        X, y = make_blobs(nrows, ncols,
                           centers=centers,
                           cluster_std=cluster_std,
                           dtype=dtype,
@@ -128,6 +129,7 @@ def test_make_regression(n_samples, n_features, n_informative,
                    "values shape mismatch"
         else:
             assert values.shape == (n_samples,), "values shape mismatch"
+            print(values.compute())
 
         assert len(out.chunks[0]) == n_parts
         assert len(out.chunks[1]) == 1
