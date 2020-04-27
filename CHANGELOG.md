@@ -65,6 +65,7 @@
 - PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
+- PR #2139: CumlArray for adjusted_rand_score
 
 # cuML 0.13.0 (Date TBD)
 
