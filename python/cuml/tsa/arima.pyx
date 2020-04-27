@@ -78,7 +78,8 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
-        double* d_vs, bool trans, bool host_loglike, LoglikeMethod method)
+        double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
+        int truncate)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -589,7 +590,8 @@ class ARIMA(Base):
             opt_disp: int = -1,
             h: float = 1e-9,
             maxiter=1000,
-            method="ml"):
+            method="ml",
+            truncate=0):
         """Fit the ARIMA model to each time series.
 
         Parameters
@@ -619,6 +621,9 @@ class ARIMA(Base):
             CSS uses a sum-of-squares approximation.
             ML estimates the log-likelihood with statespace methods.
             CSS-ML starts with CSS and refines with ML.
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations
         """
         def fit_helper(x_in, fit_method):
             cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
@@ -627,14 +632,14 @@ class ARIMA(Base):
                 """The (batched) energy functional returning the negative
                 log-likelihood (foreach series)."""
                 # Recall: We maximize LL by minimizing -LL
-                n_llf = -self._loglike(x, True, fit_method)
+                n_llf = -self._loglike(x, True, fit_method, truncate)
                 return n_llf / (self.n_obs - 1)
 
             # Optimized finite differencing gradient for batches
             def gf(x) -> np.ndarray:
                 """The gradient of the (batched) energy functional."""
                 # Recall: We maximize LL by minimizing -LL
-                n_gllf = -self._loglike_grad(x, h, True, fit_method)
+                n_gllf = -self._loglike_grad(x, h, True, fit_method, truncate)
                 return n_gllf / (self.n_obs - 1)
 
             # check initial parameter sanity
@@ -673,7 +678,7 @@ class ARIMA(Base):
         self.unpack(self._batched_transform(x))
 
     @nvtx_range_wrap
-    def _loglike(self, x, trans=True, method="ml"):
+    def _loglike(self, x, trans=True, method="ml", truncate=0):
         """Compute the batched log-likelihood for the given parameters.
 
         Parameters:
@@ -686,6 +691,9 @@ class ARIMA(Base):
         method : str
             Estimation method: "css" for sum-of-squares, "ml" for
             an estimation with statespace methods
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations
 
         Returns:
         --------
@@ -713,12 +721,12 @@ class ARIMA(Base):
         batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
                         <int> self.n_obs, order, <double*> d_x_ptr,
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
-                        <bool> trans, <bool> True, ll_method)
+                        <bool> trans, <bool> True, ll_method, <int> truncate)
 
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_range_wrap
-    def _loglike_grad(self, x, h=1e-8, trans=True, method="ml"):
+    def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
@@ -735,6 +743,9 @@ class ARIMA(Base):
         method : str
             Estimation method: "css" for sum-of-squares, "ml" for
             an estimation with statespace methods
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations
 
         Returns:
         --------
@@ -760,8 +771,8 @@ class ARIMA(Base):
             # reset perturbation
             fd[i] = 0.0
 
-            ll_b_ph = self._loglike(x + fdph, trans, method)
-            ll_b_mh = self._loglike(x - fdph, trans, method)
+            ll_b_ph = self._loglike(x + fdph, trans, method, truncate=0)
+            ll_b_mh = self._loglike(x - fdph, trans, method, truncate=0)
 
             # first derivative second order accuracy
             grad_i_b = (ll_b_ph - ll_b_mh) / (2 * h)
