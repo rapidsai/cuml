@@ -65,6 +65,7 @@
 - PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
+- PR #2140: Returning self in fit model functions
 
 # cuML 0.13.0 (Date TBD)
 
