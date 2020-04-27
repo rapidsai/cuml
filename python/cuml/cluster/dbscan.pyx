@@ -225,6 +225,7 @@ class DBSCAN(Base):
         self._labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
         cdef uintptr_t labels_ptr = self._labels_.ptr
 
+        print("type=%s val=%s" % (type(self.verbosity).__name__, self.verbosity))
         if self.dtype == np.float32:
             if out_dtype is "int32" or out_dtype is np.int32:
                 dbscanFit(handle_[0],

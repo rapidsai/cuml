@@ -163,8 +163,8 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False, verbosity=logger.LEVEL_INFO,
-                 output_type=None):
+    def __init__(self, handle=None, verbose=False, output_type=None,
+                 verbosity=logger.LEVEL_INFO):
         """
         Constructor. All children must call init method of this base class.
 
