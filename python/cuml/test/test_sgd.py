@@ -44,7 +44,7 @@ def test_sgd(dtype, lrate, penalty, loss, datatype):
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=0.8)
 
-    if datatype is "dataframe":
+    if datatype == "dataframe":
         X_train = cudf.DataFrame.from_gpu_matrix(X_train)
         X_test = cudf.DataFrame.from_gpu_matrix(X_test)
         y_train = cudf.Series(y_train)
@@ -56,7 +56,7 @@ def test_sgd(dtype, lrate, penalty, loss, datatype):
     cu_sgd.fit(X_train, y_train)
     cu_pred = cu_sgd.predict(X_test)
 
-    if datatype is "dataframe":
+    if datatype == "dataframe":
         assert isinstance(cu_pred, cudf.Series)
         cu_pred = cu_pred.to_array()
 
@@ -92,7 +92,7 @@ def test_sgd_default(dtype, datatype):
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=0.8)
 
-    if datatype is "dataframe":
+    if datatype == "dataframe":
         X_train = cudf.DataFrame.from_gpu_matrix(X_train)
         X_test = cudf.DataFrame.from_gpu_matrix(X_test)
         y_train = cudf.Series(y_train)
@@ -102,7 +102,7 @@ def test_sgd_default(dtype, datatype):
     cu_sgd.fit(X_train, y_train)
     cu_pred = cu_sgd.predict(X_test)
 
-    if datatype is "dataframe":
+    if datatype == "dataframe":
         assert isinstance(cu_pred, cudf.Series)
         cu_pred = cu_pred.to_array()
 
