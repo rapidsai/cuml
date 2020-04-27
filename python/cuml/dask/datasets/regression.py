@@ -15,7 +15,6 @@
 #
 
 import dask.array as da
-import dask.delayed
 from dask.distributed import default_client
 import numpy as np
 import cupy as cp

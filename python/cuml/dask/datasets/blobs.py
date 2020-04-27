@@ -15,16 +15,9 @@
 #
 
 
-import cudf
-import cupy as cp
-import dask
 import dask.array as da
 import math
-import numpy as np
-import pandas as pd
 
-from cuml.utils import rmm_cupy_ary
-from dask.dataframe import from_delayed
 from dask.distributed import default_client
 
 # from sklearn.datasets import make_blobs as skl_make_blobs
@@ -145,16 +138,16 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     seeds = generator.randint(n_samples, size=len(parts_workers))
     parts = [client.submit(create_local_data,
-                                   part_rows,
-                                   n_features,
-                                   centers,
-                                   cluster_std,
-                                   shuffle,
-                                   int(seeds[idx]),
-                                   order,
-                                   dtype,
-                                   pure=False,
-                                   workers=[parts_workers[idx]])
+                           part_rows,
+                           n_features,
+                           centers,
+                           cluster_std,
+                           shuffle,
+                           int(seeds[idx]),
+                           order,
+                           dtype,
+                           pure=False,
+                           workers=[parts_workers[idx]])
              for idx, part_rows in enumerate(worker_rows)]
 
     X = [client.submit(_get_X, f, pure=False)
@@ -163,15 +156,15 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
          for idx, f in enumerate(parts)]
 
     X_del = [_dask_array_from_delayed(Xp,
-                                     worker_rows[idx],
-                                     n_features,
-                                     dtype)
+                                      worker_rows[idx],
+                                      n_features,
+                                      dtype)
              for idx, Xp in enumerate(X)]
     y_del = [_dask_array_from_delayed(yp,
                                       worker_rows[idx],
                                       None,
                                       dtype)
-             for idx, yp in enumerate(y)]   
+             for idx, yp in enumerate(y)]
 
     X_final = da.concatenate(X_del, axis=0)
     y_final = da.concatenate(y_del, axis=0)

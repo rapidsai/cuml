@@ -15,7 +15,6 @@
 
 import cuml
 import pytest
-import numpy as np
 import cupy as cp
 
 from sklearn.metrics import adjusted_rand_score

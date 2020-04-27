@@ -16,7 +16,6 @@
 
 
 import numbers
-import array
 from collections.abc import Iterable
 import cupy as cp
 import numpy as np
@@ -33,8 +32,8 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
         if isinstance(centers, numbers.Integral):
             n_centers = centers
             centers = rs.uniform(center_box[0], center_box[1],
-                                size=(n_centers, n_features),
-                                dtype=dtype)
+                                 size=(n_centers, n_features),
+                                 dtype=dtype)
 
         else:
             if n_features != centers.shape[1]:
@@ -168,7 +167,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
             y[center_indices[0]] = i
 
-            X_k = X[center_indices[0], :] # slice a view
+            X_k = X[center_indices[0], :]  # slice a view
             X_k = generator.normal(scale=std,
                                    size=(len(center_indices[0]), n_features),
                                    dtype=dtype)
@@ -183,14 +182,14 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         stop = 0
         for i, (n, std) in enumerate(zip(n_samples_per_center, cluster_std)):
             start, stop = stop, stop + n_samples_per_center[i]
-            
+
             y[start:stop] = i
 
             X_k = X[start:stop, :]
             X_k = generator.normal(scale=std,
                                    size=(n, n_features),
                                    dtype=dtype)
-            
+
             cp.add(X_k, centers[i], out=X_k)
             X[start:stop, :] = X_k
 
