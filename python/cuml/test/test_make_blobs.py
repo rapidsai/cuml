@@ -38,7 +38,7 @@ n_features = [
 centers = [
     None,
     2,
-    10,
+    5,
 ]
 
 cluster_std = [
