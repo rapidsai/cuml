@@ -30,7 +30,7 @@
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
-#include "preprocess.h"
+#include "preprocess.cuh"
 
 namespace ML {
 namespace GLM {
