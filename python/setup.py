@@ -91,8 +91,7 @@ if clean_artifacts:
         clean_folder(setup_file_path + '/cuml')
         shutil.rmtree(setup_file_path + '/build')
 
-    except IOError as e:
-        print(e)
+    except IOError:
         pass
 
     # need to terminate script so cythonizing doesn't get triggered after

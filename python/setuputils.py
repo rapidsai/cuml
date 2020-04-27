@@ -21,6 +21,8 @@ import shutil
 import subprocess
 import sys
 
+from pathlib import Path
+
 
 def get_environment_option(name):
     ENV_VARIABLE = os.environ.get(name, False)
@@ -68,7 +70,7 @@ def clean_folder(path):
 
 
 def use_raft_package(raft_path, cpp_build_path,
-                     git_info_file='../cpp/cmake/Dependencies.cmake'):
+                     git_info_file=None):
     """
     Function to use the python code in RAFT in package.raft
 
@@ -82,13 +84,12 @@ def use_raft_package(raft_path, cpp_build_path,
         - Branch/git tag cloned is located in git_info_file in this case.
 
     """
+
     if not os.path.islink('cuml/raft'):
         if not raft_path:
             raft_path, raft_cloned = \
                 clone_repo_if_needed('raft', cpp_build_path,
                                      git_info_file=git_info_file)
-
-            raft_path = '../' + raft_path
 
         else:
             print("-- Using RAFT_PATH variable, RAFT found at " +
@@ -96,22 +97,23 @@ def use_raft_package(raft_path, cpp_build_path,
             raft_path = os.environ['RAFT_PATH']
 
         try:
-            os.symlink(raft_path + 'python/raft', 'cuml/raft')
+            os.symlink(raft_path + '/python/raft', 'cuml/raft')
         except FileExistsError:
             os.remove('cuml/raft')
-            os.symlink(raft_path + 'python/raft', 'cuml/raft')
+            os.symlink(raft_path + '/python/raft', 'cuml/raft')
 
     else:
         print("-- Using already existing RAFT folder, source located at")
         print(os.path.realpath('cuml/raft'))
 
 
-def clone_repo_if_needed(name, cpp_build_path,
-                         git_info_file='../cpp/cmake/Dependencies.cmake'):
-    if cpp_build_path:
-        cpp_build_path = '../' + cpp_build_path
-    else:
-        cpp_build_path = '../cpp/build/'
+def clone_repo_if_needed(name, cpp_build_path=None,
+                         git_info_file=None):
+    if git_info_file is None:
+        git_info_file = _get_repo_path() + '/cpp/cmake/Dependencies.cmake'
+
+    if cpp_build_path is None or cpp_build_path is False:
+        cpp_build_path = _get_repo_path() + '/cpp/build/'
 
     repo_cloned = get_submodule_dependency(name,
                                            cpp_build_path=cpp_build_path,
@@ -126,8 +128,8 @@ def clone_repo_if_needed(name, cpp_build_path,
 
 
 def get_submodule_dependency(repo,
-                             git_info_file='../cpp/cmake/Dependencies.cmake',
-                             cpp_build_path='../cpp/build/'):
+                             git_info_file,
+                             cpp_build_path):
     """
     Function to check if sub repositories (i.e. submodules in git terminology)
     already exist in the libcuml build folder, otherwise will clone the
@@ -163,7 +165,7 @@ def get_submodule_dependency(repo,
     if os.path.exists(cpp_build_path):
         print("-- Third party modules found succesfully in the libcuml++ "
               "build folder:")
-        print("  " + cpp_build_path)
+        print("  " + str(cpp_build_path))
 
         return False
 
@@ -171,8 +173,8 @@ def get_submodule_dependency(repo,
 
         print("-- Third party repositories have not been found so they " +
               "will be cloned. To avoid this set the environment " +
-              "variable CUML_BUILD_PATH, containing the relative " +
-              " or positive path of the root of the repository to the " +
+              "variable CUML_BUILD_PATH, containing the absolute " +
+              "path of the root of the repository to the " +
               "folder where libcuml++ was built.")
 
         for repo in repos:
@@ -260,3 +262,8 @@ def get_repo_cmake_info(names, file_path):
         results[name] = res
 
     return results
+
+
+def _get_repo_path():
+    python_dir = Path(__file__).resolve()
+    return str(python_dir.parent.parent.absolute())
