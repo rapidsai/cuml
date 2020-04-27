@@ -6,6 +6,7 @@
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 - PR #1906: UMAP MNMG
 - PR #2067L python: wrap logging interface in cython
+- PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
 
 ## Improvements
@@ -40,8 +41,11 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
+- PR #2135: A few optimizations to UMAP fuzzy simplicial set
+- PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -50,6 +54,7 @@
 - PR #1969: Update libcumlprims to 0.14
 - PR #1973: Add missing mg files for setup.py --singlegpu flag
 - PR #1993: Set `umap_transform_reproducibility` tests to xfail
+- PR #2004: Refactoring the arguments to `plant()` call
 - PR #2017: Fixing memory issue in weak cc prim
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
