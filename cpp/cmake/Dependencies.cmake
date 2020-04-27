@@ -28,17 +28,18 @@ if(DEFINED ENV{RAFT_PATH})
 
 else(DEFINED ENV{RAFT_PATH})
   message(STATUS "RAFT_PATH environment variable NOT detected, cloning RAFT")
-  set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
+  set(RAFT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
     GIT_TAG           a1a550a37c5fd2e9dff9ff81775a1542ba0af0d7
-    PREFIX            ${RAFT_GIT_DIR}
+    PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
     INSTALL_COMMAND   "")
 
-  set(RAFT_INCLUDE_DIR ${RAFT_GIT_DIR}/src/raft/cpp/include CACHE STRING "Path to RAFT repo")
+  # Redefining RAFT_DIR so it coincides with the one inferred by env variable.
+  set(RAFT_DIR ${RAFT_DIR}/src/raft/ CACHE STRING "Path to RAFT repo")
 endif(DEFINED ENV{RAFT_PATH})
 
 

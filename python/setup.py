@@ -86,10 +86,13 @@ if clean_artifacts:
         shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
 
+        os.remove(setup_file_path + '/cuml/raft')
+
         clean_folder(setup_file_path + '/cuml')
         shutil.rmtree(setup_file_path + '/build')
 
-    except IOError:
+    except IOError as e:
+        print(e)
         pass
 
     # need to terminate script so cythonizing doesn't get triggered after
