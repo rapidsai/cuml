@@ -26,6 +26,9 @@ from cuml.dask.datasets.blobs import make_blobs
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.test.utils import unit_param, quality_param, stress_param
+from cuml.dask.common.input_utils import DistributedDataHandler
+
+from cuml.dask.common.part_utils import _extract_partitions
 
 
 @pytest.mark.parametrize('nrows', [unit_param(1e3), quality_param(1e5),
@@ -92,14 +95,14 @@ def test_make_blobs(nrows,
 @pytest.mark.parametrize('noise', [1.0])
 @pytest.mark.parametrize('shuffle', [True, False])
 @pytest.mark.parametrize('coef', [True, False])
-@pytest.mark.parametrize('random_state', [None, 1234])
-@pytest.mark.parametrize('n_parts', [unit_param(1),
-                         stress_param(3)])
+@pytest.mark.parametrize('n_parts', [1, 4, 23])
+@pytest.mark.parametrize('order', ['F', 'C'])
+@pytest.mark.parametrize('use_full_low_rank', [True, False])
 def test_make_regression(n_samples, n_features, n_informative,
                          n_targets, bias, effective_rank,
                          tail_strength, noise, shuffle,
-                         coef, random_state, n_parts,
-                         cluster):
+                         coef, n_parts, order,
+                         use_full_low_rank, cluster):
     c = Client(cluster)
     try:
         from cuml.dask.datasets import make_regression
@@ -109,7 +112,9 @@ def test_make_regression(n_samples, n_features, n_informative,
                                  n_targets=n_targets, bias=bias,
                                  effective_rank=effective_rank, noise=noise,
                                  shuffle=shuffle, coef=coef,
-                                 random_state=random_state, n_parts=n_parts)
+                                 n_parts=n_parts,
+                                 use_full_low_rank=use_full_low_rank,
+                                 order=order)
 
         if coef:
             out, values, coefs = result
@@ -150,5 +155,73 @@ def test_make_regression(n_samples, n_features, n_informative,
 
             assert test2, "Unexpectedly incongruent outputs"
 
+        data_ddh = DistributedDataHandler.create(data=(out, values),
+                                                 client=c)
+        out_part, value_part = data_ddh.gpu_futures[0][1].result()
+
+        if coef:
+            coefs_ddh = DistributedDataHandler.create(data=coefs,
+                                                      client=c)
+            coefs_part = coefs_ddh.gpu_futures[0][1].result()
+        if order == 'F':
+            assert out_part.flags['F_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['F_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert out_part.flags['C_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['C_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['C_CONTIGUOUS']
+
     finally:
         c.close()
+
+
+@pytest.mark.parametrize('n_samples', [500, 1000])
+@pytest.mark.parametrize('n_features', [50, 100])
+@pytest.mark.parametrize('hypercube', [True, False])
+@pytest.mark.parametrize('n_classes', [2, 4])
+@pytest.mark.parametrize('n_clusters_per_class', [2, 4])
+@pytest.mark.parametrize('n_informative', [7, 20])
+@pytest.mark.parametrize('random_state', [None, 1234])
+@pytest.mark.parametrize('n_parts', [2, 23])
+@pytest.mark.parametrize('order', ['C', 'F'])
+def test_make_classification(n_samples, n_features, hypercube, n_classes,
+                             n_clusters_per_class, n_informative,
+                             random_state, n_parts, order, cluster):
+    client = Client(cluster)
+    try:
+        from cuml.dask.datasets.classification import make_classification
+
+        X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                                   n_classes=n_classes, hypercube=hypercube,
+                                   n_clusters_per_class=n_clusters_per_class,
+                                   n_informative=n_informative,
+                                   random_state=random_state, n_parts=n_parts,
+                                   order=order)
+        assert(len(X.chunks[0])) == n_parts
+        assert(len(X.chunks[1])) == 1
+
+        assert X.shape == (n_samples, n_features)
+        assert y.shape == (n_samples, )
+
+        assert len(X.chunks[0]) == n_parts
+        assert len(y.chunks[0]) == n_parts
+
+        import cupy as cp
+        y_local = y.compute()
+        assert len(cp.unique(y_local)) == n_classes
+
+        X_parts = client.sync(_extract_partitions, X)
+        X_first = X_parts[0][1].result()
+
+        if order == 'F':
+            assert X_first.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert X_first.flags['C_CONTIGUOUS']
+
+    finally:
+        client.close()
