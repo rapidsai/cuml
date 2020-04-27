@@ -72,7 +72,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   /// TODO: use device loglike to avoid useless copy
   batched_loglike(handle, d_y_prep, batch_size, n_obs - diff_obs,
                   order_after_prep, params, loglike.data(), d_vs, false, true,
-                  MLE, num_steps, d_y_fc);
+                  MLE, 0, num_steps, d_y_fc);
 
   auto counting = thrust::make_counting_iterator(0);
   int predict_ld = end - start;
@@ -136,7 +136,8 @@ template <typename DataT>
 __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_phi,
                                       const DataT* d_theta, const DataT* d_mu,
                                       DataT* d_loglike, int n_obs, int n_phi,
-                                      int n_theta, int k, int start) {
+                                      int n_theta, int k, int start_sum,
+                                      int start_y, int start_v) {
   // Load phi, theta and mu to registers
   DataT phi, theta;
   if (threadIdx.x < n_phi) {
@@ -150,26 +151,28 @@ __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_phi,
   // Shared memory: load y and initialize the residuals
   extern __shared__ DataT shared_mem[];
   DataT* b_y = shared_mem;
-  DataT* b_vs = shared_mem + n_obs;
-  for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
-    b_y[i] = d_y[n_obs * blockIdx.x + i];
+  DataT* b_vs = shared_mem + n_obs - start_y;
+  for (int i = threadIdx.x; i < n_obs - start_y; i += blockDim.x) {
+    b_y[i] = d_y[n_obs * blockIdx.x + i + start_y];
   }
-  for (int i = threadIdx.x; i < start; i += blockDim.x) {
+  for (int i = threadIdx.x; i < start_sum - start_v; i += blockDim.x) {
     b_vs[i] = (DataT)0;
   }
 
   // Main loop
-  char* temp_smem = (char*)(shared_mem + 2 * n_obs);
+  char* temp_smem = (char*)(shared_mem + 2 * n_obs - start_y - start_v);
   DataT res, ssq = 0;
-  for (int i = start; i < n_obs; i++) {
+  for (int i = start_sum; i < n_obs; i++) {
     __syncthreads();
     res = (DataT)0;
-    res -= threadIdx.x < n_phi ? phi * b_y[i - threadIdx.x - 1] : (DataT)0;
-    res -= threadIdx.x < n_theta ? theta * b_vs[i - threadIdx.x - 1] : (DataT)0;
+    res -=
+      threadIdx.x < n_phi ? phi * b_y[i - threadIdx.x - 1 - start_y] : (DataT)0;
+    res -= threadIdx.x < n_theta ? theta * b_vs[i - threadIdx.x - 1 - start_v]
+                                 : (DataT)0;
     res = MLCommon::blockReduce(res, temp_smem);
     if (threadIdx.x == 0) {
-      res += b_y[i] - mu;
-      b_vs[i] = res;
+      res += b_y[i - start_y] - mu;
+      b_vs[i - start_v] = res;
       ssq += res * res;
     }
   }
@@ -178,7 +181,7 @@ __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_phi,
   if (threadIdx.x == 0) {
     d_loglike[blockIdx.x] =
       -0.5 * static_cast<DataT>(n_obs) *
-      MLCommon::myLog(ssq / static_cast<DataT>(n_obs - start));
+      MLCommon::myLog(ssq / static_cast<DataT>(n_obs - start_sum));
   }
 }
 
@@ -186,7 +189,7 @@ void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
                                 int batch_size, int n_obs,
                                 const ARIMAOrder& order,
                                 const ARIMAParams<double>& Tparams,
-                                double* d_loglike) {
+                                double* d_loglike, int truncate) {
   ML::PUSH_RANGE(__func__);
   auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
@@ -216,15 +219,18 @@ void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
     });
 
   int max_lags = std::max(n_phi, n_theta);
-  int start = max_lags + 1;
+  int start_sum = std::max(max_lags, truncate);
+  int start_y = start_sum - n_phi;
+  int start_v = start_sum - n_theta;
 
   // Compute the sum-of-squares and the log-likelihood
   /// TODO: error if max_lags > 1024 (if that's even possible)
   int n_warps = std::max(MLCommon::ceildiv<int>(max_lags, 32), 1);
-  size_t shared_mem_size = (2 * n_obs + n_warps) * sizeof(double);
+  size_t shared_mem_size =
+    (2 * n_obs - start_y - start_v + n_warps) * sizeof(double);
   sum_of_squares_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(
     d_y, d_phi, d_theta, Tparams.mu, d_loglike, n_obs, n_phi, n_theta, order.k,
-    start);
+    start_sum, start_y, start_v);
   CUDA_CHECK(cudaPeekAtLastError());
 
   ML::POP_RANGE();
@@ -234,7 +240,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans, bool host_loglike,
-                     LoglikeMethod method, int fc_steps, double* d_fc) {
+                     LoglikeMethod method, int truncate, int fc_steps,
+                     double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   auto allocator = handle.getDeviceAllocator();
@@ -272,7 +279,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   if (!order.need_prep()) {
     if (method == CSS) {
       conditional_sum_of_squares(handle, d_y, batch_size, n_obs, order, Tparams,
-                                 d_loglike);
+                                 d_loglike, truncate);
     } else {
       batched_kalman_filter(handle, d_y, n_obs, Tparams, order, batch_size,
                             d_loglike, d_vs, fc_steps, d_fc);
@@ -289,7 +296,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
     if (method == CSS) {
       conditional_sum_of_squares(handle, d_y_prep, batch_size,
                                  n_obs - order.lost_in_diff(), order, Tparams,
-                                 d_loglike);
+                                 d_loglike, truncate);
     } else {
       batched_kalman_filter(handle, d_y_prep, n_obs - order.lost_in_diff(),
                             Tparams, order, batch_size, d_loglike, d_vs,
@@ -311,8 +318,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans,
-                     bool host_loglike, LoglikeMethod method, int fc_steps,
-                     double* d_fc) {
+                     bool host_loglike, LoglikeMethod method, int truncate,
+                     int fc_steps, double* d_fc) {
   ML::PUSH_RANGE(__func__);
 
   // unpack parameters
@@ -323,7 +330,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
   params.unpack(order, batch_size, d_params, stream);
 
   batched_loglike(handle, d_y, batch_size, n_obs, order, params, loglike, d_vs,
-                  trans, host_loglike, method, fc_steps, d_fc);
+                  trans, host_loglike, method, truncate, fc_steps, d_fc);
 
   params.deallocate(order, batch_size, allocator, stream, false);
   ML::POP_RANGE();

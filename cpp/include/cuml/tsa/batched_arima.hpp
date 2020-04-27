@@ -42,6 +42,8 @@ enum LoglikeMethod { CSS, MLE };
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
+ * @param[in]  truncate     For CSS, start the sum-of-squares after a given
+ *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
@@ -49,7 +51,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
                      bool host_loglike = true, LoglikeMethod method = MLE,
-                     int fc_steps = 0, double* d_fc = nullptr);
+                     int truncate = 0, int fc_steps = 0,
+                     double* d_fc = nullptr);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -72,6 +75,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
+ * @param[in]  truncate     For CSS, start the sum-of-squares after a given
+ *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
  */
@@ -79,8 +84,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int nobs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
-                     LoglikeMethod method = MLE, int fc_steps = 0,
-                     double* d_fc = nullptr);
+                     LoglikeMethod method = MLE, int truncate = 0,
+                     int fc_steps = 0, double* d_fc = nullptr);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
