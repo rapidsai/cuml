@@ -30,8 +30,8 @@ from cuml.dask.datasets.utils import _get_labels
 from cuml.dask.datasets.utils import _dask_array_from_delayed
 
 
-def create_local_data(m, n, centers, cluster_std, shuffle, random_state,
-                      order, dtype):
+def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,
+                       order, dtype):
 
     X, y = sg_make_blobs(m, n, centers=centers,
                          cluster_std=cluster_std,
@@ -138,7 +138,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
             worker_rows.append((int(n_samples) - rows_so_far))
 
     seeds = generator.randint(n_samples, size=len(parts_workers))
-    parts = [client.submit(create_local_data,
+    parts = [client.submit(_create_local_data,
                            part_rows,
                            n_features,
                            centers,
