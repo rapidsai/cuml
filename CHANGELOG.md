@@ -32,6 +32,7 @@
 - PR #2047: Make internal streams non-blocking w.r.t. NULL stream
 - PR #2048: Random forest testing speedup
 - PR #2058: Use CumlArray in Random Projection
+- PR #2068: Updating knn class probabilities to use make_monotonic instead of binary search
 - PR #2062: Adding random state to UMAP mnmg tests
 - PR #2064: Speed-up K-Means test
 - PR #2015: Renaming .h to .cuh in solver, dbscan and svm
