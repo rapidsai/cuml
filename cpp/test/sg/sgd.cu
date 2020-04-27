@@ -4,7 +4,7 @@
 #include <matrix/matrix.h>
 #include <test_utils.h>
 #include "ml_utils.h"
-#include "solver/sgd.h"
+#include "solver/sgd.cuh"
 
 namespace ML {
 namespace Solver {
