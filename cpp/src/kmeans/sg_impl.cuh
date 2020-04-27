@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "common.cuh"
 #include <common/cudart_utils.h>
+#include "common.cuh"
 
 namespace ML {
 

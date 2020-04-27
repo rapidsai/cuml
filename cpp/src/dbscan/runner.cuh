@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "adjgraph/runner.cuh"
 #include <common/cudart_utils.h>
+#include "adjgraph/runner.cuh"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/nvtx.hpp"

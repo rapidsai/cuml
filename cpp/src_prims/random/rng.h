@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <stdint.h>
 #include <cstdio>
 #include <cstdlib>
@@ -23,7 +24,6 @@
 #include <random>
 #include <type_traits>
 #include "common/cub_wrappers.h"
-#include <common/cudart_utils.h>
 #include "common/scatter.h"
 #include "cuda_utils.h"
 #include "rng_impl.h"

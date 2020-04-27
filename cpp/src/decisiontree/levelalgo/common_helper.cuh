@@ -15,9 +15,9 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
-#include <common/cudart_utils.h>
 #include "common_kernel.cuh"
 #include "random/rng.h"
 #include "stats/minmax.h"
