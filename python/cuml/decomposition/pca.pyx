@@ -607,7 +607,7 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        return X_m.to_output(out_type)
+        return t_input_data.to_output(out_type)
 
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
