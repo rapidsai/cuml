@@ -18,7 +18,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#include "glm/ridge.h"
+#include "glm/ridge.cuh"
 #include "ml_utils.h"
 
 namespace ML {
