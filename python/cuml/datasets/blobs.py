@@ -97,13 +97,17 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         for reproducible output across multiple function calls.
     return_centers : bool, optional (default=False)
         If True, then return the centers of each cluster
+    order: str, optional (default='F')
+        The order of the generated samples
+    dtype : str, optional (default='float32')
+        Dtype of the generated samples
     Returns
     -------
-    X : array of shape [n_samples, n_features]
+    X : device array of shape [n_samples, n_features]
         The generated samples.
-    y : array of shape [n_samples]
+    y : device array of shape [n_samples]
         The integer labels for cluster membership of each sample.
-    centers : array, shape [n_centers, n_features]
+    centers : device array, shape [n_centers, n_features]
         The centers of each cluster. Only returned if
         ``return_centers=True``.
     Examples
