@@ -79,15 +79,16 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
          the bounding box which constrains all the centroids
     random_state : int (default = None)
          sets random seed (or use None to reinitialize each time)
+    return_centers : bool, optional (default=False)
+        If True, then return the centers of each cluster
     verbose : bool (default = False)
          enables / disables verbose printing.
-    dtype : dtype (default = np.float32)
-         datatype to generate
-    output : str { 'dataframe', 'array' } (default = 'dataframe')
-         whether to generate dask array or
-         dask dataframe output. Default will be array in the future.
     shuffle : bool (default=False)
               Shuffles the samples on each worker.
+    order: str, optional (default='F')
+        The order of the generated samples
+    dtype : str, optional (default='float32')
+        Dtype of the generated samples
     client : dask.distributed.Client (optional)
              Dask client to use
 
