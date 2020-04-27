@@ -123,12 +123,12 @@ nvidia-smi
 
 logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+#GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak"
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" cuml/test/test_umap.py
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
