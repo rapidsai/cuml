@@ -123,7 +123,7 @@ nvidia-smi
 
 logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cpp/build
-#GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
