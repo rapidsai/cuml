@@ -106,6 +106,11 @@ class MBSGDRegressor(Base):
         The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Notes
     ------
@@ -117,8 +122,9 @@ class MBSGDRegressor(Base):
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 verbose=False):
-        super(MBSGDRegressor, self).__init__(handle=handle, verbose=verbose)
+                 verbose=False, output_type=None):
+        super(MBSGDRegressor, self).__init__(handle=handle, verbose=verbose,
+                                             output_type=output_type)
         if loss in ['squared_loss']:
             self.loss = loss
         else:
@@ -165,6 +171,8 @@ class MBSGDRegressor(Base):
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
 
+        return self
+
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
@@ -183,11 +191,13 @@ class MBSGDRegressor(Base):
 
         Returns
         ----------
-        y: cuDF DataFrame
+        y: Type specified by `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return self.cu_mbsgd_classifier.predict(X, convert_dtype=convert_dtype)
+        preds = self.cu_mbsgd_classifier.predict(X,
+                                                 convert_dtype=convert_dtype)
+        return preds
 
     def get_params(self, deep=True):
         """
