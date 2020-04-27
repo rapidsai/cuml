@@ -5,6 +5,7 @@
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 - PR #1906: UMAP MNMG
+- PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
 
 ## Improvements
@@ -44,6 +45,7 @@
 - PR #1883: Use CumlArray in ARIMA
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #1914: Change the meaning of ARIMA's intercept to match the literature
+- PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array

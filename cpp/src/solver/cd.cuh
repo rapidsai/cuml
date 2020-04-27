@@ -30,7 +30,7 @@
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 #include "common/cumlHandle.hpp"
-#include "glm/preprocess.h"
+#include "glm/preprocess.cuh"
 #include "ml_utils.h"
 #include "shuffle.h"
 
