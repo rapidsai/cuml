@@ -1,6 +1,6 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - GPU Machine Learning Algorithms</div>
 
-**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
+[![Build Status](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/badge/icon)](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/)
 
 cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
@@ -9,9 +9,10 @@ traditional tabular ML tasks on GPUs without going into the details of CUDA
 programming. In most cases, cuML's Python API matches the API from
 [scikit-learn](https://scikit-learn.org).
 
+
 For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
-Notebook](https://github.com/rapidsai/notebooks-extended/blob/master/intermediate_notebooks/benchmarks/cuml_benchmarks.ipynb).
+Notebook](https://github.com/rapidsai/notebooks-contrib/blob/master/intermediate_notebooks/benchmarks/cuml_benchmarks.ipynb).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
 ```python
@@ -39,8 +40,8 @@ Output:
 dtype: int32
 ```
 
-cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a 
-growing list of algorithms. The following Python snippet reads input from a CSV file and performs 
+cuML also features multi-GPU and multi-node-multi-GPU operation, using [Dask](https://www.dask.org), for a
+growing list of algorithms. The following Python snippet reads input from a CSV file and performs
 a NearestNeighbors query across a cluster of Dask workers, using multiple GPUs on a single node:
 ```python
 # Create a Dask CUDA cluster w/ one worker per device
@@ -63,33 +64,37 @@ For additional examples, browse our complete [API
 documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
 introductory [walkthrough
 notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml). Finally, you
-can find complete end-to-end examples in the [notebooks-extended
-repo](https://github.com/rapidsai/notebooks-extended).
+can find complete end-to-end examples in the [notebooks-contrib
+repo](https://github.com/rapidsai/notebooks-contrib).
 
 
 ### Supported Algorithms
 | Category | Algorithm | Notes |
 | --- | --- | --- |
 | **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
-|  | K-Means | Multi-Node Multi-GPU |
-| **Dimensionality Reduction** | Principal Components Analysis (PCA) | |
-| | Truncated Singular Value Decomposition (tSVD) | Multi-GPU version available (CUDA 10 only) |
+|  | K-Means | Multi-node multi-GPU via Dask |
+| **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
+| | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | |
 | | Random Projection | |
-| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-GPU available in conda CUDA 10 package |
-| | Linear Regression with Lasso or Ridge Regularization | |
+| | t-Distributed Stochastic Neighbor Embedding (TSNE) | |
+| **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
+| | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
 | | Logistic Regression | |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
-| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Initial preview version in cuML 0.8 | 
-|  | K-Nearest Neighbors (KNN) | Multi-GPU <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
+| | Random Forest (RF) Regression | Experimental multi-node multi-GPU via Dask |
+| | Inference for decision tree-based models | Forest Inference Library (FIL) |
+|  | K-Nearest Neighbors (KNN) | Multi-node multi-GPU via Dask, uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+|  | K-Nearest Neighbors (KNN) Classification | |
+|  | K-Nearest Neighbors (KNN) Regression | |
+|  | Support Vector Machine Classifier (SVC) | |
+|  | Epsilon-Support Vector Regression (SVR) | |
 | **Time Series** | Linear Kalman Filter | |
+|  | Holt-Winters Exponential Smoothing | |
+|  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
 ---
-
-More ML algorithms in cuML and more ML primitives in ml-prims are planned for
-future releases, including: T-SNE, spectral embedding, spectral clustering,
-support vector machines, and additional time series methods. Future releases
-will also expand support for multi-node, multi-GPU algorithms.
 
 ## Installation
 
@@ -104,6 +109,19 @@ See the build [guide](BUILD.md).
 ## Contributing
 
 Please see our [guide for contributing to cuML](CONTRIBUTING.md).
+
+## References
+
+For additional details on the technologies behind cuML, as well as a broader overview of the Python Machine Learning landscape, see [_Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence_ (2020)](https://arxiv.org/abs/2002.04803) by Sebastian Raschka, Joshua Patterson, and Corey Nolet.
+
+Please consider citing this when using cuML in a project. You can use the citation BibTeX:
+
+> @article{raschka2020machine,
+>   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
+>   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},
+>   journal={arXiv preprint arXiv:2002.04803},
+>   year={2020}
+> }
 
 ## Contact
 

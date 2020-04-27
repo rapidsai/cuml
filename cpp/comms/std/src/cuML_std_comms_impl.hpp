@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,8 @@
 
 #ifdef WITH_UCX
 #include <ucp/api/ucp.h>
-struct ucx_context {
-  int completed;
-  bool needs_release = true;
-};
+#include <ucp/api/ucp_def.h>
+#include "ucp_helper.h"
 #endif
 
 namespace ML {
@@ -113,6 +111,8 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
                              int recvcount, datatype_t datatype, op_t op,
                              cudaStream_t stream) const;
 
+  virtual status_t syncStream(cudaStream_t stream) const;
+
  private:
   ncclComm_t _nccl_comm;
   cudaStream_t _stream;
@@ -126,10 +126,12 @@ class cumlStdCommunicator_impl : public MLCommon::cumlCommunicator_iface {
   void get_request_id(request_t* req) const;
 
 #ifdef WITH_UCX
+  bool p2p_enabled = false;
+  comms_ucp_handler _ucp_handler;
   ucp_worker_h _ucp_worker;
   std::shared_ptr<ucp_ep_h*> _ucp_eps;
   mutable request_t _next_request_id;
-  mutable std::unordered_map<request_t, struct ucx_context*>
+  mutable std::unordered_map<request_t, struct ucp_request*>
     _requests_in_flight;
   mutable std::unordered_set<request_t> _free_requests;
 #endif

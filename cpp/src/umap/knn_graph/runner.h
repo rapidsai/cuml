@@ -29,6 +29,7 @@ using namespace ML;
   *        the input algorithm using the specified knn algorithm. 
   *        Only algorithm supported at the moment is brute force
   *        knn primitive. 
+  * @tparam T: Type of input, query, and dist matrices. Usually float
   * @param X: Matrix to query (size n x d) in row-major format
   * @param n: Number of rows in X
   * @param query: Search matrix in row-major format
@@ -38,13 +39,14 @@ using namespace ML;
   * @param knn_dists: Return dists matrix (size n*k)
   * @param n_neighbors: Number of closest neighbors, k, to query
   * @param params: Instance of UMAPParam settings
+  * @param d_alloc: device allocator
   * @param stream: cuda stream to use
   * @param algo: Algorithm to use. Currently only brute force is supported
-  * @tpatam T: Type of input, query, and dist matrices. Usually float
  */
 template <typename T = float>
-void run(T *X, int n, T *query, int q_n, int d, long *knn_indices, T *knn_dists,
-         int n_neighbors, UMAPParams *params, cudaStream_t stream,
+void run(T *X, int n, T *query, int q_n, int d, int64_t *knn_indices,
+         T *knn_dists, int n_neighbors, UMAPParams *params,
+         std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream,
          int algo = 0) {
   switch (algo) {
     /**
@@ -52,7 +54,7 @@ void run(T *X, int n, T *query, int q_n, int d, long *knn_indices, T *knn_dists,
       */
     case 0:
       Algo::launcher(X, n, query, q_n, d, knn_indices, knn_dists, n_neighbors,
-                     params, stream);
+                     params, d_alloc, stream);
       break;
   }
 }

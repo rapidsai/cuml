@@ -19,5 +19,6 @@ import warnings
 
 if has_dask():
     from cuml.dask.linear_model.linear_regression import LinearRegression  # NOQA
+    from cuml.dask.linear_model.ridge import Ridge
 else:
     warnings.warn("Dask not found. All Dask-based multi-GPU operation is disabed.")

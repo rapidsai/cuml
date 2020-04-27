@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/cuml_allocator.hpp>
 #include <vector>
-#include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
 #include "permute.h"
 #include "rng.h"
@@ -43,7 +43,7 @@ __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
  * @param labels labels for the generated data on device (dim = n_rows x 1)
  * @param n_rows number of rows in the generated data
  * @param n_cols number of columns in the generated data
- * @param n_cluster number of clusters (or classes) to generate
+ * @param n_clusters number of clusters (or classes) to generate
  * @param allocator device allocator to help allocate temporary buffers
  * @param stream cuda stream to schedule the work on
  * @param centers centers of each of the cluster, pass a nullptr if you need
@@ -63,12 +63,12 @@ __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
  * @param type dataset generator type
  */
 template <typename DataT, typename IdxT>
-void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
+void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
                 IdxT n_clusters, std::shared_ptr<deviceAllocator> allocator,
                 cudaStream_t stream, const DataT* centers = nullptr,
                 const DataT* cluster_std = nullptr,
                 const DataT cluster_std_scalar = (DataT)1.0,
-                bool shuffle = true, DataT center_box_min = (DataT)10.0,
+                bool shuffle = true, DataT center_box_min = (DataT)-10.0,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
                 GeneratorType type = GenPhilox) {
   Rng r(seed, type);
@@ -86,9 +86,9 @@ void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
   // use the right output buffer
   device_buffer<DataT> tmp_out(allocator, stream);
   device_buffer<IdxT> perms(allocator, stream);
-  device_buffer<int> tmp_labels(allocator, stream);
+  device_buffer<IdxT> tmp_labels(allocator, stream);
   DataT* _out;
-  int* _labels;
+  IdxT* _labels;
   if (shuffle) {
     tmp_out.resize(n_rows * n_cols, stream);
     perms.resize(n_rows, stream);
@@ -114,15 +114,16 @@ void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
       r.normalTable<DataT, IdxT>(_out + row_id * n_cols, current_rows, n_cols,
                                  _centers + i * n_cols, nullptr,
                                  h_cluster_std[i], stream);
-      r.fill(_labels + row_id, current_rows, (int)i, stream);
+      r.fill(_labels + row_id, current_rows, (IdxT)i, stream);
     }
   }
   // shuffle, if asked for
   ///@todo: currently using a poor quality shuffle for better perf!
   if (shuffle) {
-    permute(perms.data(), out, _out, n_cols, n_rows, true, stream);
-    constexpr int Nthreads = 256;
-    int nblks = ceildiv<int>(n_rows, Nthreads);
+    permute<DataT, IdxT, IdxT>(perms.data(), out, _out, n_cols, n_rows, true,
+                               stream);
+    constexpr long Nthreads = 256;
+    IdxT nblks = ceildiv<IdxT>(n_rows, Nthreads);
     gatherKernel<<<nblks, Nthreads, 0, stream>>>(labels, _labels, perms.data(),
                                                  n_rows);
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,35 +22,41 @@
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename Type, typename IdxType>
-__global__ void naiveScaleKernel(Type *out, const Type *in, Type scalar,
+template <typename InType, typename OutType, typename IdxType>
+__global__ void naiveScaleKernel(OutType *out, const InType *in, InType scalar,
                                  IdxType len) {
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {
-    out[idx] = scalar * in[idx];
+    if (in == nullptr) {
+      // used for testing writeOnlyUnaryOp
+      out[idx] = static_cast<OutType>(scalar * idx);
+    } else {
+      out[idx] = static_cast<OutType>(scalar * in[idx]);
+    }
   }
 }
 
-template <typename Type, typename IdxType = int>
-void naiveScale(Type *out, const Type *in, Type scalar, int len,
+template <typename InType, typename IdxType = int, typename OutType = InType>
+void naiveScale(OutType *out, const InType *in, InType scalar, int len,
                 cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
+  naiveScaleKernel<InType, OutType, IdxType>
+    <<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T, typename IdxType = int>
+template <typename InType, typename IdxType = int, typename OutType = InType>
 struct UnaryOpInputs {
-  T tolerance;
+  OutType tolerance;
   IdxType len;
-  T scalar;
+  InType scalar;
   unsigned long long int seed;
 };
 
-template <typename T, typename IdxType = int>
+template <typename InType, typename IdxType = int, typename OutType = InType>
 ::std::ostream &operator<<(::std::ostream &os,
-                           const UnaryOpInputs<T, IdxType> &dims) {
+                           const UnaryOpInputs<InType, IdxType, OutType> &d) {
   return os;
 }
 

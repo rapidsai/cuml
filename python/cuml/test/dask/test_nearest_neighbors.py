@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,91 +12,218 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import pytest
 
-from sklearn.neighbors import NearestNeighbors
+import cudf
+import dask_cudf
+import pandas as pd
+
+import scipy.stats as stats
+
+import numpy as np
+
+from cuml.dask.common import utils as dask_utils
 
 from dask.distributed import Client, wait
-from dask_cuda import LocalCUDACluster
 
-pytestmark = pytest.mark.mg
+from cuml.test.utils import unit_param, quality_param, stress_param
+
+from sklearn.neighbors import KNeighborsClassifier
+
+from cuml.test.utils import array_equal
 
 
-def test_end_to_end():
+def predict(neigh_ind, _y, n_neighbors):
 
-    cluster = LocalCUDACluster(threads_per_worker=1)
+    neigh_ind = neigh_ind.astype(np.int64)
+
+    ypred, count = stats.mode(_y[neigh_ind], axis=1)
+    return ypred.ravel(), count.ravel() * 1.0 / n_neighbors
+
+
+def _prep_training_data(c, X_train, partitions_per_worker):
+    workers = c.has_what().keys()
+    n_partitions = partitions_per_worker * len(workers)
+
+    X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+
+    X_train_df = dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
+    X_train_df, = dask_utils.persist_across_workers(c,
+                                                    [X_train_df],
+                                                    workers=workers)
+
+    return X_train_df
+
+
+@pytest.mark.parametrize("nrows", [unit_param(1e3), unit_param(1e4),
+                                   quality_param(1e6),
+                                   stress_param(5e8)])
+@pytest.mark.parametrize("ncols", [10, 30])
+@pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
+                                       stress_param(15)])
+@pytest.mark.parametrize("n_neighbors", [unit_param(10), quality_param(4),
+                                         stress_param(100)])
+@pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
+                                     quality_param(7), stress_param(50)])
+@pytest.mark.parametrize("streams_per_handle", [5, 10])
+def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
+                     streams_per_handle, cluster):
+
     client = Client(cluster)
 
-    print(client)
+    try:
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
 
-    # NOTE: The LocalCUDACluster needs to be started before any imports that
-    # could potentially create a CUDA context.
+        from sklearn.datasets import make_blobs
 
-    import dask_cudf
+        X, y = make_blobs(n_samples=int(nrows),
+                          n_features=ncols,
+                          centers=nclusters)
+        X = X.astype(np.float32)
 
-    import cudf
-    import numpy as np
+        X_cudf = _prep_training_data(client, X, n_parts)
 
-    from cuml.dask.neighbors import NearestNeighbors as cumlKNN
+        wait(X_cudf)
 
-    def create_df(f, m, n):
-        X = np.random.uniform(-1, 1, (m, n))
-        ret = cudf.DataFrame([(i,
-                               X[:, i].astype(np.float32)) for i in range(n)],
-                             index=cudf.dataframe.RangeIndex(f * m,
-                                                             f * m + m, 1))
-        return ret
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+                           streams_per_handle=streams_per_handle)
+        cumlModel.fit(X_cudf)
 
-    def get_meta(df):
-        ret = df.iloc[:0]
-        return ret
+        out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-    def build_dask_df(nrows, ncols):
-        workers = client.has_what().keys()
+        local_i = np.array(out_i.compute().as_gpu_matrix())
 
-        # Create dfs on each worker (gpu)
-        dfs = [client.submit(create_df, n, nrows, ncols, workers=[worker])
-               for worker, n in list(zip(workers, list(range(len(workers)))))]
-        # Wait for completion
-        wait(dfs)
-        meta = client.submit(get_meta, dfs[0]).result()
-        return dask_cudf.from_delayed(dfs, meta=meta)
+        sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
+        skl_y_hat = sklModel.predict(X)
 
-    # Per gpu/worker
-    train_m = 500
-    train_n = 25
+        y_hat, _ = predict(local_i, y, n_neighbors)
 
-    search_m = 10
-    search_k = 15
+        assert array_equal(y_hat, skl_y_hat)
 
-    X_df = build_dask_df(train_m, train_n)
-    test_DF = build_dask_df(search_m, train_n)
-    X_pd = X_df.compute().to_pandas()
-    test_PD = test_DF.compute().to_pandas()
+    finally:
+        client.close()
 
-    cumlNN = cumlKNN()
-    cumlNN.fit(X_df)
 
-    sklNN = NearestNeighbors(metric="sqeuclidean")
-    sklNN.fit(X_pd)
+@pytest.mark.parametrize("nrows", [unit_param(1000), stress_param(1e5)])
+@pytest.mark.parametrize("ncols", [unit_param(10), stress_param(500)])
+@pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
+@pytest.mark.parametrize("batch_size", [unit_param(100), stress_param(1e3)])
+def test_batch_size(nrows, ncols, n_parts,
+                    batch_size, cluster):
 
-    cuml_D, cuml_I = cumlNN.kneighbors(test_DF, search_k)
-    sk_D, sk_I = sklNN.kneighbors(test_PD, search_k)
+    client = Client(cluster)
 
-    cuml_I_nd = np.array(cuml_I.compute().as_gpu_matrix(), dtype=sk_I.dtype)
-    cuml_D_nd = np.array(cuml_D.compute().as_gpu_matrix(), dtype=sk_D.dtype)
+    n_neighbors = 10
+    n_clusters = 5
 
-    cuml_I_nd = np.sort(cuml_I_nd, axis=0)
-    cuml_D_nd = np.sort(cuml_D_nd, axis=0)
+    try:
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
 
-    sk_I = np.sort(sk_I, axis=0)
-    sk_D = np.sort(sk_D, axis=0)
+        from sklearn.datasets import make_blobs
 
-    print(str(cuml_D_nd.dtype))
-    print(str(sk_D.dtype))
+        X, y = make_blobs(n_samples=int(nrows),
+                          n_features=ncols,
+                          centers=n_clusters)
 
-    assert np.array_equal(cuml_I_nd, sk_I)
-    assert np.allclose(cuml_D_nd, sk_D, atol=1e-5)
+        X = X.astype(np.float32)
 
-    cluster.close()
+        X_cudf = _prep_training_data(client, X, n_parts)
+
+        wait(X_cudf)
+
+        cumlModel = daskNN(verbose=False, n_neighbors=n_neighbors,
+                           batch_size=batch_size,
+                           streams_per_handle=5)
+
+        cumlModel.fit(X_cudf)
+
+        out_d, out_i = cumlModel.kneighbors(X_cudf)
+
+        local_i = np.array(out_i.compute().as_gpu_matrix())
+
+        y_hat, _ = predict(local_i, y, n_neighbors)
+
+        assert array_equal(y_hat, y)
+
+    finally:
+        client.close()
+
+
+def test_return_distance(cluster):
+
+    client = Client(cluster)
+
+    n_samples = 50
+    n_feats = 50
+    k = 5
+
+    try:
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
+
+        from sklearn.datasets import make_blobs
+
+        X, y = make_blobs(n_samples=n_samples,
+                          n_features=n_feats, random_state=0)
+
+        X = X.astype(np.float32)
+
+        X_cudf = _prep_training_data(client, X, 1)
+
+        wait(X_cudf)
+
+        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel.fit(X_cudf)
+
+        ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
+        assert not isinstance(ret, tuple)
+        ret = ret.compute()
+        assert ret.shape == (n_samples, k)
+
+        ret = cumlModel.kneighbors(X_cudf, k, return_distance=True)
+        assert isinstance(ret, tuple)
+        assert len(ret) == 2
+
+    finally:
+        client.close()
+
+
+def test_default_n_neighbors(cluster):
+
+    client = Client(cluster)
+
+    n_samples = 50
+    n_feats = 50
+    k = 15
+
+    try:
+        from cuml.dask.neighbors import NearestNeighbors as daskNN
+        from cuml.neighbors.nearest_neighbors_mg import \
+            NearestNeighborsMG as cumlNN
+
+        from sklearn.datasets import make_blobs
+
+        X, y = make_blobs(n_samples=n_samples,
+                          n_features=n_feats, random_state=0)
+
+        X = X.astype(np.float32)
+
+        X_cudf = _prep_training_data(client, X, 1)
+
+        wait(X_cudf)
+
+        cumlModel = daskNN(verbose=False, streams_per_handle=5)
+        cumlModel.fit(X_cudf)
+
+        ret = cumlModel.kneighbors(X_cudf, return_distance=False)
+
+        assert ret.shape[1] == cumlNN().n_neighbors
+
+        cumlModel = daskNN(verbose=False, n_neighbors=k)
+        cumlModel.fit(X_cudf)
+
+        ret = cumlModel.kneighbors(X_cudf, k, return_distance=False)
+
+        assert ret.shape[1] == k
+
+    finally:
+        client.close()

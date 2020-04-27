@@ -23,7 +23,7 @@ from libc.stdint cimport uintptr_t
 
 
 cdef extern from "ml_cuda_utils.h" namespace "ML":
-    cdef int get_device(void *ptr)
+    cdef int get_device(void *ptr) except +
 
 
 def device_of_gpu_matrix(g):

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include "cuml/ensemble/randomforest.hpp"
 #include "ml_utils.h"
-#include "randomforest/randomforest.hpp"
 
 namespace ML {
 
@@ -39,6 +39,8 @@ struct RfInputs {
   int n_bins;
   int split_algo;
   int min_rows_per_node;
+  float min_impurity_decrease;
+  int n_streams;
   CRITERION split_criterion;
 };
 
@@ -56,11 +58,11 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.bootstrap_features,
-                    params.split_criterion, false);
+                    params.min_rows_per_node, params.min_impurity_decrease,
+                    params.bootstrap_features, params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, tree_params);
+                      params.rows_sample, -1, params.n_streams, tree_params);
     //print(rf_params);
 
     //--------------------------------------------------------
@@ -89,14 +91,14 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
 
-    cumlHandle handle;
+    cumlHandle handle(rf_params.n_streams);
     handle.setStream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels,
         labels_map.size(), rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
+    //print_rf_detailed(forest);
     // Inference data: same as train, but row major
     int inference_data_len = params.n_inference_rows * params.n_cols;
     inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
@@ -104,13 +106,14 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     allocate(inference_data_d, inference_data_len);
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
+    predict(handle, forest, inference_data_d, params.n_inference_rows,
+            params.n_cols, predicted_labels);
     // Predict and compare against known labels
     RF_metrics tmp =
-      score(handle, forest, inference_data_d, labels, params.n_inference_rows,
-            params.n_cols, predicted_labels, false);
+      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
-
     accuracy = tmp.accuracy;
   }
 
@@ -157,11 +160,11 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     DecisionTree::DecisionTreeParams tree_params;
     set_tree_params(tree_params, params.max_depth, params.max_leaves,
                     params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.bootstrap_features,
-                    params.split_criterion, false);
+                    params.min_rows_per_node, params.min_impurity_decrease,
+                    params.bootstrap_features, params.split_criterion, false);
     RF_params rf_params;
     set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, tree_params);
+                      params.rows_sample, -1, params.n_streams, tree_params);
     //print(rf_params);
 
     //--------------------------------------------------------
@@ -188,7 +191,7 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
 
-    cumlHandle handle;
+    cumlHandle handle(rf_params.n_streams);
     handle.setStream(stream);
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
@@ -202,10 +205,12 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     allocate(inference_data_d, inference_data_len);
     updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
+    predict(handle, forest, inference_data_d, params.n_inference_rows,
+            params.n_cols, predicted_labels);
     // Predict and compare against known labels
     RF_metrics tmp =
-      score(handle, forest, inference_data_d, labels, params.n_inference_rows,
-            params.n_cols, predicted_labels, false);
+      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
@@ -242,53 +247,52 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 //-------------------------------------------------------------------------------------------------------------------------------------
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
-   CRITERION::
-     GINI},  // single tree forest, bootstrap false, unlimited depth, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+   CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2,
+   2, 0.0, 2,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, CRITERION::ENTROPY}};
+   2, 0.0, 2, CRITERION::ENTROPY}};
 
 const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::GINI},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+   2, 0.0, 2, CRITERION::CRITERION_END},
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, CRITERION::ENTROPY}};
+   2, 0.0, 2, CRITERION::ENTROPY}};
 
 typedef RfClassifierTest<float> RfClassifierTestF;
 TEST_P(RfClassifierTestF, Fit) {
@@ -317,7 +321,7 @@ INSTANTIATE_TEST_CASE_P(RfClassifierTests, RfClassifierTestD,
 
 typedef RfRegressorTest<float> RfRegressorTestF;
 TEST_P(RfRegressorTestF, Fit) {
-  //print_rf_detailed(forest); // Prints all trees in the forest.
+  //print_rf_detailed(forest);  // Prints all trees in the forest.
   if (!params.bootstrap && (params.max_features == 1.0f)) {
     ASSERT_TRUE(mse == 0.0f);
   } else {
@@ -335,32 +339,32 @@ TEST_P(RfRegressorTestD, Fit) {
 }
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MAE},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, CRITERION::MAE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2,
+   2, 0.0, 2, CRITERION::MAE},
+  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
 const std::vector<RfInputs<double>> inputsd2_reg = {  // Same as inputsf2_reg
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::MAE},
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, CRITERION::MAE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2,
+   2, 0.0, 2, CRITERION::MAE},
+  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
 INSTANTIATE_TEST_CASE_P(RfRegressorTests, RfRegressorTestF,

@@ -62,8 +62,8 @@ TEST_P(CSRToCOO, Result) {
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
 
-  delete ex_scan_h;
-  delete verify_h;
+  delete[] ex_scan_h;
+  delete[] verify_h;
 
   CUDA_CHECK(cudaFree(ex_scan));
   CUDA_CHECK(cudaFree(verify));
@@ -141,6 +141,8 @@ TEST_P(CSRSum, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
+  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
+
   int *ex_scan, *ind_ptr_a, *ind_ptr_b, *verify_indptr;
   float *in_vals_a, *in_vals_b, *verify;
 
@@ -175,9 +177,9 @@ TEST_P(CSRSum, Result) {
   int *result_ind;
   allocate(result_ind, 4);
 
-  int nnz =
-    csr_add_calc_inds<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan,
-                                 ind_ptr_b, in_vals_b, 10, 4, result_ind, 0);
+  int nnz = csr_add_calc_inds<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10,
+                                         ex_scan, ind_ptr_b, in_vals_b, 10, 4,
+                                         result_ind, alloc, stream);
 
   int *result_indptr;
   float *result_val;
@@ -186,7 +188,7 @@ TEST_P(CSRSum, Result) {
 
   csr_add_finalize<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan,
                               ind_ptr_b, in_vals_b, 10, 4, result_ind,
-                              result_indptr, result_val, 0);
+                              result_indptr, result_val, stream);
 
   ASSERT_TRUE(nnz == 14);
 
@@ -280,6 +282,7 @@ TEST_P(WeakCCTest, Result) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
+  std::shared_ptr<deviceAllocator> alloc(new defaultDeviceAllocator);
   int *row_ind, *row_ind_ptr, *result, *verify;
 
   int row_ind_h1[3] = {0, 3, 6};
@@ -295,7 +298,10 @@ TEST_P(WeakCCTest, Result) {
   allocate(result, 9, true);
   allocate(verify, 9);
 
-  WeakCCState<int> state(6);
+  device_buffer<bool> xa(alloc, stream, 6);
+  device_buffer<bool> fa(alloc, stream, 6);
+  device_buffer<bool> m(alloc, stream, 1);
+  WeakCCState state(xa.data(), fa.data(), m.data());
 
   /**
      * Run batch #1
@@ -307,6 +313,7 @@ TEST_P(WeakCCTest, Result) {
   weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state,
                            stream);
 
+  cudaStreamSynchronize(stream);
   ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
   /**
@@ -320,6 +327,8 @@ TEST_P(WeakCCTest, Result) {
                            stream);
 
   ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
+
+  cudaStreamSynchronize(stream);
 
   cudaStreamDestroy(stream);
 

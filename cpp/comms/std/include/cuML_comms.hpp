@@ -22,10 +22,11 @@
 #include <ucp/api/ucp.h>
 #endif
 
-#include <cuML.hpp>
+#include <cuml/cuml.hpp>
 
 namespace ML {
 
+#ifdef WITH_UCX
 /**
  * @brief Given initialized comms handles for NCCL and UCP, this function builds a
  * cumlCommunicator object and injects it into the given cumlHandle instance.
@@ -36,7 +37,6 @@ namespace ML {
  * @param size the size of the cluster (number of elements in eps)
  * @param rank rank of the current worker
  */
-#ifdef WITH_UCX
 void inject_comms(cumlHandle &handle, ncclComm_t comm, ucp_worker_h ucp_worker,
                   ucp_ep_h *eps, int size, int rank);
 #endif

@@ -21,10 +21,12 @@
 
 import cudf
 import numpy as np
+import warnings
 
 from numba import cuda
 
 from libc.stdint cimport uintptr_t
+import cuml.common.handle
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array
@@ -41,7 +43,9 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
                                                        T* X_embedded,
                                                        int n, int m,
                                                        int d,
-                                                       int n_neighbors)
+                                                       int n_neighbors,
+                                                       int batchSize) \
+        except +
 
 
 def _get_array_ptr(obj):
@@ -52,21 +56,28 @@ def _get_array_ptr(obj):
 
 
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
-                    metric='euclidean', should_downcast=True):
+                    metric='euclidean', should_downcast=True,
+                    convert_dtype=False, batch_size=512):
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
 
     Parameters
     ----------
-        X : cuDF DataFrame or Numpy array (n_samples, n_features)
-            Data in original dimension
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        X_embedded : cuDF DataFrame or Numpy array (n_samples, n_components)
-            Data in target dimension (embedding)
+        X_embedded : array-like (device or host) shape= (n_samples, n_features)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         n_neighbors : int, optional (default: 5)
             Number of neighbors considered
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the trustworthiness method will automatically
+            convert the inputs to np.float32.
 
     Returns
     -------
@@ -74,26 +85,26 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
             Trustworthiness of the low-dimensional embedding
     """
 
+    if should_downcast:
+        convert_dtype = True
+        warnings.warn("Parameter should_downcast is deprecated, use "
+                      "convert_dtype instead. ")
+
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
-    if should_downcast:
-        X_m, d_X_ptr, n_samples, n_features, dtype1 = \
-            input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        X_m2, d_X_embedded_ptr, n_rows, n_components, dtype2 = \
-            input_to_dev_array(X_embedded, order='C',
-                               convert_to_dtype=np.float32)
-    else:
-        X_m, d_X_ptr, n_samples, n_features, dtype = \
-            input_to_dev_array(X, order='C', check_dtype=np.float32)
-        X_m2, d_X_embedded_ptr, n_rows, n_components, dtype = \
-            input_to_dev_array(X_embedded, order='C', check_dtype=np.float32)
+    X_m, d_X_ptr, n_samples, n_features, dtype1 = \
+        input_to_dev_array(X, order='C', check_dtype=np.float32,
+                           convert_to_dtype=(np.float32 if convert_dtype
+                                             else None))
+    X_m2, d_X_embedded_ptr, n_rows, n_components, dtype2 = \
+        input_to_dev_array(X_embedded, order='C',
+                           check_dtype=np.float32,
+                           convert_to_dtype=(np.float32 if convert_dtype
+                                             else None))
 
-    cdef cumlHandle* handle_ = <cumlHandle*>0
-    if handle is None:
-        handle_ = <cumlHandle*><size_t>(new cumlHandle())
-    else:
-        handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = cuml.common.handle.Handle() if handle is None else handle
+    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
 
     if metric == 'euclidean':
         res = trustworthiness_score[float, euclidean](handle_[0],
@@ -102,7 +113,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                                       n_samples,
                                                       n_features,
                                                       n_components,
-                                                      n_neighbors)
+                                                      n_neighbors,
+                                                      batch_size)
         del X_m
         del X_m2
     else:

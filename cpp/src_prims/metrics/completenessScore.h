@@ -20,13 +20,14 @@
 * that are members of a given class are elements of the same cluster.
 */
 
-#include "common/cuml_allocator.hpp"
+#pragma once
+
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "metrics/entropy.h"
 #include "metrics/mutualInfoScore.h"
 
 namespace MLCommon {
-
 namespace Metrics {
 
 /**
@@ -45,7 +46,6 @@ double completenessScore(const T *truthClusterArray, const T *predClusterArray,
                          int size, T lowerLabelRange, T upperLabelRange,
                          std::shared_ptr<MLCommon::deviceAllocator> allocator,
                          cudaStream_t stream) {
-
   if (size == 0) return 1.0;
 
   double computedMI, computedEntropy;
@@ -63,7 +63,6 @@ double completenessScore(const T *truthClusterArray, const T *predClusterArray,
     completeness = computedMI / computedEntropy;
   } else
     completeness = 1.0;
-
 
   return completeness;
 }

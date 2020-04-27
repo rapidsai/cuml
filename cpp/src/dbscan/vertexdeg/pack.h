@@ -26,7 +26,7 @@ struct Pack {
      * Last position is the sum of all elements in this array (excluding it)
      * Hence, its length is one more than the number of points
      */
-  int *vd;
+  Index_ *vd;
   /** the adjacency matrix */
   bool *adj;
   /** input dataset */
@@ -41,9 +41,10 @@ struct Pack {
   /**
      * @brief reset the output array before calling the actual kernel
      * @param stream cuda stream where to perform this operation
+     * @param vdlen lenght of the vertex degree array
      */
   void resetArray(cudaStream_t stream, Index_ vdlen) {
-    CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(int) * vdlen, stream));
+    CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(Index_) * vdlen, stream));
   }
 };
 

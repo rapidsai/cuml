@@ -14,17 +14,18 @@
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 import cudf
-from cuml.test import utils
-import pytest
 import numpy as np
+
+import pytest
+from sklearn.exceptions import NotFittedError
 
 
 def _df_to_similarity_mat(df):
-    arr = utils.to_nparray(df).reshape(1, -1)
+    arr = df.to_array().reshape(1, -1)
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
 
 
-@pytest.mark.parametrize("length", [10, 100, 1000])
+@pytest.mark.parametrize("length", [10, 1000])
 @pytest.mark.parametrize("cardinality", [5, 10, 50])
 def test_labelencoder_fit_transform(length, cardinality):
     """ Try encoding the entire df
@@ -74,5 +75,70 @@ def test_labelencoder_unfitted():
     le = LabelEncoder()
     assert not le._fitted
 
-    with pytest.raises(TypeError):
+    with pytest.raises(NotFittedError):
         le.transform(df)
+
+
+@pytest.mark.parametrize(
+        "orig_label, ord_label, expected_reverted, bad_ord_label",
+        [(cudf.Series(['a', 'b', 'c']),
+          cudf.Series([2, 1, 2, 0]),
+          cudf.Series(['c', 'b', 'c', 'a']),
+          cudf.Series([-1, 1, 2, 0])),
+         (cudf.Series(['Tokyo', 'Paris', 'Austin']),
+          cudf.Series([0, 2, 0]),
+          cudf.Series(['Austin', 'Tokyo', 'Austin']),
+          cudf.Series([0, 1, 2, 3])),
+         (cudf.Series(['a', 'b', 'c1']),
+          cudf.Series([2, 1]),
+          cudf.Series(['c1', 'b']),
+          cudf.Series([0, 1, 2, 3])),
+         (cudf.Series(['1.09', '0.09', '.09', '09']),
+          cudf.Series([0, 1, 2, 3]),
+          cudf.Series(['.09', '0.09', '09', '1.09']),
+          cudf.Series([0, 1, 2, 3, 4]))])
+def test_inverse_transform(orig_label, ord_label,
+                           expected_reverted, bad_ord_label):
+    # prepare LabelEncoder
+    le = LabelEncoder()
+    le.fit(orig_label)
+    assert(le._fitted is True)
+
+    # test if inverse_transform is correct
+    reverted = le.inverse_transform(ord_label)
+    assert(len(reverted) == len(expected_reverted))
+    assert(len(reverted)
+           == len(reverted[reverted == expected_reverted]))
+    # test if correctly raies ValueError
+    with pytest.raises(ValueError, match='y contains previously unseen label'):
+        le.inverse_transform(bad_ord_label)
+
+
+def test_unfitted_inverse_transform():
+    """ Try calling `.inverse_transform()` without fitting first
+    """
+    df = cudf.Series(np.random.choice(10, (10,)))
+    le = LabelEncoder()
+    assert(not le._fitted)
+
+    with pytest.raises(NotFittedError):
+        le.transform(df)
+
+
+@pytest.mark.parametrize("empty, ord_label",
+                         [(cudf.Series([]), cudf.Series([2, 1]))])
+def test_empty_input(empty, ord_label):
+    # prepare LabelEncoder
+    le = LabelEncoder()
+    le.fit(empty)
+    assert(le._fitted is True)
+
+    # test if correctly raies ValueError
+    with pytest.raises(ValueError, match='y contains previously unseen label'):
+        le.inverse_transform(ord_label)
+
+    # check fit_transform()
+    le = LabelEncoder()
+    transformed = le.fit_transform(empty)
+    assert(le._fitted is True)
+    assert(len(transformed) == 0)

@@ -38,7 +38,7 @@ struct CompareApprox {
   bool operator()(const T &a, const T &b) const {
     T diff = abs(a - b);
     T m = std::max(abs(a), abs(b));
-    T ratio = m >= eps ? diff / m : diff;
+    T ratio = diff >= eps ? diff / m : diff;
 
     return (ratio <= eps);
   }
@@ -53,7 +53,7 @@ struct CompareApproxAbs {
   bool operator()(const T &a, const T &b) const {
     T diff = abs(abs(a) - abs(b));
     T m = std::max(abs(a), abs(b));
-    T ratio = m >= eps ? diff / m : diff;
+    T ratio = diff >= eps ? diff / m : diff;
     return (ratio <= eps);
   }
 

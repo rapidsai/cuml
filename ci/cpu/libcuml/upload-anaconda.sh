@@ -5,17 +5,13 @@
 set -e
 
 if [ "$BUILD_LIBCUML" == "1" ]; then
-  CUDA_REL=${CUDA:0:3}
-  if [ "${CUDA:0:2}" == '10' ]; then
-    # CUDA 10 release
-    CUDA_REL=${CUDA:0:4}
-  fi
+  CUDA_REL=${CUDA_VERSION%.*}
 
-  export UPLOADFILE=`conda build conda/recipes/libcuml -c conda-forge -c numba -c nvidia/label/cuda${CUDA_REL} -c rapidsai/label/cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON} --output`
+  export UPLOADFILE=`conda build conda/recipes/libcuml -c conda-forge -c numba -c conda-forge/label/rc_ucx -c nvidia -c rapidsai -c pytorch -c defaults --python=${PYTHON} --output`
 
   SOURCE_BRANCH=master
 
-  LABEL_OPTION="--label main --label cuda${CUDA_REL}"
+  LABEL_OPTION="--label main"
   echo "LABEL_OPTION=${LABEL_OPTION}"
 
   test -e ${UPLOADFILE}

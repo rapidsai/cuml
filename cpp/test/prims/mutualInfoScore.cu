@@ -15,9 +15,9 @@
  */
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "common/cuml_allocator.hpp"
 #include "metrics/contingencyMatrix.h"
 #include "metrics/mutualInfoScore.h"
 #include "test_utils.h"

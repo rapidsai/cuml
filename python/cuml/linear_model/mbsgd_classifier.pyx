@@ -18,11 +18,11 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-
+from cuml.common.base import Base
 from cuml.solvers import SGD
 
 
-class MBSGDClassifier:
+class MBSGDClassifier(Base):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
@@ -30,6 +30,7 @@ class MBSGDClassifier:
     Examples
     ---------
     .. code-block:: python
+
         import numpy as np
         import cudf
         from cuml.linear_model import MBSGDClassifier as cumlMBSGDClassifier
@@ -52,8 +53,11 @@ class MBSGDClassifier:
         print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
         print(" cuML coef : ", cu_mbsgd_classifier.coef_)
         print("cuML predictions : ", cu_pred)
+
     Output:
+
     .. code-block:: python
+
         cuML intercept :  0.7150013446807861
         cuML coef :  0    0.27320495
                     1     0.1875956
@@ -63,18 +67,25 @@ class MBSGDClassifier:
 
     Parameters
     -----------
-    loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
+    loss : {'hinge', 'log', 'squared_loss'} (default = 'squared_loss')
        'hinge' uses linear SVM
+
        'log' uses logistic regression
+
        'squared_loss' uses linear regression
-    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
+
+    penalty: {'none', 'l1', 'l2', 'elasticnet'} (default = 'none')
        'none' does not perform any regularization
+
        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
        of coefficients
+
        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
        the coefficients
+
        'elasticnet' performs Elastic Net regularization which is a weighted
        average of L1 and L2 norms
+
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
@@ -88,29 +99,35 @@ class MBSGDClassifier:
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
-    eta0 : float (default = 0.0)
+    eta0 : float (default = 0.001)
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
-                    'adaptive' (default = 'constant')
-        optimal option supported in the next version
-        constant keeps the learning rate constant
-        adaptive changes the learning rate if the training loss or the
-        validation accuracy does not improve for n_iter_no_change epochs.
-        The old learning rate is generally divide by 5
+    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'}
+        (default = 'constant')
+
+        `optimal` option will be supported in a future version
+
+        `constant` keeps the learning rate constant
+
+        `adaptive` changes the learning rate if the training loss or the
+        validation accuracy does not improve for `n_iter_no_change` epochs.
+        The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
+
     Notes
     ------
-    For additional docs, see `scikitlearn's OLS
+    For additional docs, see `scikit-learn's SGDClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
 
     def __init__(self, loss='hinge', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5,
-                 batch_size=32, n_iter_no_change=5, handle=None):
+                 shuffle=True, learning_rate='constant', eta0=0.001,
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
+                 verbose=False):
+        super(MBSGDClassifier, self).__init__(handle=handle, verbose=verbose)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -124,11 +141,12 @@ class MBSGDClassifier:
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.handle = handle
+        self.cu_mbsgd_classifier = SGD(**self.get_params())
 
-    def fit(self, X, y):
+    def fit(self, X, y, convert_dtype=False):
         """
         Fit the model with X and y.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
@@ -140,33 +158,46 @@ class MBSGDClassifier:
             Dense vector (floats or doubles) of shape (n_samples, 1).
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the fit method will, when necessary, convert
+            y to be the same data type as X if they differ. This
+            will increase memory used for the method.
         """
 
-        self.cu_mbsgd_classifier = SGD(**self.get_params())
-        self.cu_mbsgd_classifier.fit(X, y)
+        self.cu_mbsgd_classifier.fit(X, y, convert_dtype=convert_dtype)
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
 
-    def predict(self, X):
+    def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
+
         Parameters
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
+        convert_dtype : bool, optional (default = False)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+
         Returns
         ----------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return self.cu_mbsgd_classifier.predictClass(X)
+        return \
+            self.cu_mbsgd_classifier.predictClass(X,
+                                                  convert_dtype=convert_dtype)
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style function that returns the estimator parameters.
 
         Parameters
         -----------

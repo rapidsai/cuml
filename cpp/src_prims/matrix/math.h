@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"
@@ -27,13 +27,17 @@ namespace MLCommon {
 namespace Matrix {
 
 /**
- * @defgroup power math operation on the input matrix. Power of every element in
- * the input matrix
+ * @defgroup MatrixMathOp math operation on the input matrix
+ * @{
+ */
+
+/**
+ * @brief Power of every element in the input matrix
  * @param in: input matrix
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar.
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void power(math_t *in, math_t *out, math_t scalar, int len,
@@ -47,12 +51,11 @@ void power(math_t *in, math_t *out, math_t scalar, int len,
 }
 
 /**
- * @defgroup power math operation on the input matrix. Power of every element in
- * the input matrix
+ * @brief Power of every element in the input matrix
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar.
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
@@ -60,11 +63,10 @@ void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
 }
 
 /**
- * @defgroup overloaded power math operation on the input matrix. Power of every
- * element in the input matrix
+ * @brief Power of every element in the input matrix
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void power(math_t *inout, int len, cudaStream_t stream) {
@@ -73,11 +75,11 @@ void power(math_t *inout, int len, cudaStream_t stream) {
 }
 
 /**
- * @defgroup power math operation on the input matrix. Power of every element in
- * the input matrix
+ * @brief Power of every element in the input matrix
  * @param in: input matrix
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  * @{
  */
 template <typename math_t>
@@ -87,14 +89,15 @@ void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
 }
 
 /**
- * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @brief Square root of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
+ * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t *in, math_t *out, math_t scalar, IdxType len,
@@ -119,13 +122,14 @@ void seqRoot(math_t *in, math_t *out, math_t scalar, IdxType len,
 }
 
 /**
- * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @brief Square root of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
+ * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
@@ -134,13 +138,13 @@ void seqRoot(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
 }
 
 /**
- * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @brief Square root of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
 void seqRoot(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
@@ -170,13 +174,13 @@ void setSmallValuesZero(math_t *out, const math_t *in, IdxType len,
 }
 
 /**
- * @defgroup sets the small values to zero based on a defined threshold
+ * @brief sets the small values to zero based on a defined threshold
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  * @param thres: threshold
- * @{
  */
 template <typename math_t, typename IdxType = int>
 void setSmallValuesZero(math_t *inout, IdxType len, cudaStream_t stream,
@@ -185,14 +189,16 @@ void setSmallValuesZero(math_t *inout, IdxType len, cudaStream_t stream,
 }
 
 /**
- * @defgroup inverse math operation on the input matrix. Reciprocal of every
- * element in the input matrix
+ * @brief Reciprocal of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
+ * @param stream cuda stream
+ * @param setzero round down to zero if the input is less the threshold
+ * @param thres the threshold used to forcibly set inputs to zero
  * @{
  */
 template <typename math_t, typename IdxType = int>
@@ -219,16 +225,15 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
 }
 
 /**
- * @defgroup inverse math operation on the input matrix. Reciprocal of every
- * element in the input matrix
+ * @brief Reciprocal of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
+ * @param stream cuda stream
  * @param setzero: (default false) when true and |value|<thres, avoid dividing by (almost) zero
  * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
- * @{
  */
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
@@ -237,13 +242,12 @@ void reciprocal(math_t *inout, math_t scalar, IdxType len, cudaStream_t stream,
 }
 
 /**
- * @defgroup overloaded reciprocal math operation on the input matrix.
- * Reciprocal of every element in the input matrix
+ * @brief Reciprocal of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
@@ -252,14 +256,13 @@ void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
 }
 
 /**
- * @defgroup inverse math operation on the input matrix. Reciprocal of every
- * element in the input matrix
+ * @brief Reciprocal of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t, typename IdxType = int>
 void reciprocal(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
@@ -275,9 +278,7 @@ void setValue(math_t *out, const math_t *in, math_t scalar, int len,
 }
 
 /**
- * @defgroup ratio math operation on the input matrix. ratio of every element
- * over sum of input vector is calculated
- *           Used in PCA.
+ * @brief ratio of every element over sum of input vector is calculated
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param src: input matrix
@@ -285,9 +286,7 @@ void setValue(math_t *out, const math_t *in, math_t scalar, int len,
  * @param len: number elements of input matrix
  * @param allocator device allocator
  * @param stream cuda stream
- * @{
  */
-
 template <typename math_t, typename IdxType = int>
 void ratio(math_t *src, math_t *dest, IdxType len,
            std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
@@ -302,6 +301,8 @@ void ratio(math_t *src, math_t *dest, IdxType len,
     d_dest, d_src, len, [=] __device__(math_t a) { return a / (*d_sum_ptr); },
     stream);
 }
+
+/** @} */
 
 // Computes the argmax(d_in) column-wise in a DxN matrix
 template <typename T, int TPB>
@@ -325,12 +326,14 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
     argmax[blockIdx.x] = maxKV.key;
   }
 }
+
 /**
  * @brief Argmax: find the row idx with maximum value for each column
  * @param in: input matrix
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
  * @param out: output vector of size n_cols
+ * @param stream: cuda stream
  */
 template <typename math_t>
 void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
@@ -383,12 +386,12 @@ __global__ void signFlipKernel(T *d_in, int D, int N) {
 }
 
 /**
- * @defgroup sign flip for PCA. This is used to stabilize the sign of column
+ * @brief sign flip for PCA. This is used to stabilize the sign of column
  * major eigen vectors. Flips the sign if the column has negative |max|.
  * @param inout: input matrix. Result also stored in this parameter
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {

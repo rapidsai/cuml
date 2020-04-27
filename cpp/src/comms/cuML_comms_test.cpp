@@ -111,5 +111,65 @@ bool test_pointToPoint_simple_send_recv(const ML::cumlHandle& h,
   return ret;
 }
 
+bool test_pointToPoint_recv_any_rank(const ML::cumlHandle& h, int numTrials) {
+  const cumlHandle_impl& handle = h.getImpl();
+  const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
+  const int rank = communicator.getRank();
+
+  bool ret = true;
+  for (int i = 0; i < numTrials; i++) {
+    std::vector<int> received_data((communicator.getSize() - 1), -1);
+
+    std::vector<MLCommon::cumlCommunicator::request_t> requests;
+    requests.resize(2 * (communicator.getSize() - 1));
+    int request_idx = 0;
+    //post receives
+    for (int r = 0; r < communicator.getSize(); ++r) {
+      if (r != rank) {
+        communicator.irecv(received_data.data() + request_idx, 1,
+                           MLCommon::cumlCommunicator::CUML_ANY_SOURCE, 0,
+                           requests.data() + request_idx);
+        ++request_idx;
+      }
+    }
+
+    for (int r = 0; r < communicator.getSize(); ++r) {
+      if (r != rank) {
+        communicator.isend(&rank, 1, r, 0, requests.data() + request_idx);
+        ++request_idx;
+      }
+    }
+
+    std::cout << "Waiting..." << std::endl;
+    communicator.waitall(requests.size(), requests.data());
+    communicator.barrier();
+
+    if (communicator.getRank() == 0) {
+      std::cout << "=========================" << std::endl;
+      std::cout << "Trial " << i << std::endl;
+    }
+
+    for (int printrank = 0; printrank < communicator.getSize(); ++printrank) {
+      if (communicator.getRank() == printrank) {
+        std::cout << "Rank " << communicator.getRank() << " received: [";
+        for (int i = 0; i < received_data.size(); i++) {
+          auto rec = received_data[i];
+          std::cout << rec;
+          if (rec == -1) ret = false;
+          communicator.barrier();
+          if (i < received_data.size() - 1) std::cout << ", ";
+        }
+        std::cout << "]" << std::endl;
+      }
+      communicator.barrier();
+    }
+
+    if (communicator.getRank() == 0)
+      std::cout << "=========================" << std::endl;
+  }
+
+  return ret;
+}
+
 };  // namespace Comms
 };  // end namespace ML

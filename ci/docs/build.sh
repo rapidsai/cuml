@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -41,7 +41,7 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c rapidsai/label/cuda$CUDA_REL -c rapidsai-nightly/label/cuda$CUDA_REL -c conda-forge \
+conda install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge \
     cudf=$CUDF_VERSION rmm=$RMM_VERSION cudatoolkit=$CUDA_REL
 
 pip install numpydoc sphinx sphinx-rtd-theme sphinxcontrib-websupport
@@ -61,6 +61,14 @@ git submodule update --init --recursive
 
 logger "Build libcuml..."
 $WORKSPACE/build.sh clean libcuml cuml
+
+################################################################################
+# BUILD - Build doxygen docs
+################################################################################
+
+cd $WORKSPACE/cpp/build
+logger "Build doxygen docs..."
+make doc
 
 ################################################################################
 # BUILD - Build docs

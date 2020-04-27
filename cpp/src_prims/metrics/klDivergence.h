@@ -19,8 +19,10 @@
 * approximates the probability distribution P AKA modelPDF.
 */
 
+#pragma once
+
 #include <math.h>
-#include "common/cuml_allocator.hpp"
+#include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/map_then_reduce.h"

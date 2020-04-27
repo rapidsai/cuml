@@ -15,10 +15,10 @@
  */
 
 #include <cuda_utils.h>
+#include <cuml/manifold/umapparams.h>
 #include <iostream>
 #include "linalg/unary_op.h"
 #include "selection/knn.h"
-#include "umap/umapparams.h"
 
 #pragma once
 
@@ -31,34 +31,28 @@ namespace Algo {
 using namespace ML;
 
 /**
-		 * Initial implementation calls out to FAISS to do its work.
-		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
-		 */
+ * Initial implementation calls out to FAISS to do its work.
+ * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
+ */
 
 /**
  * void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
-                     float *search_items, IntType n, long *res_I, float *res_D,
+                     float *search_items, IntType n, int64_t *res_I, float *res_D,
                      IntType k, cudaStream_t s)
  */
 template <typename T>
 void launcher(float *X, int x_n, float *X_query, int x_q_n, int d,
-              long *knn_indices, T *knn_dists, int n_neighbors,
-              UMAPParams *params, cudaStream_t stream) {
-  float **p = new float *[1];
-  int *sizes = new int[1];
-  p[0] = X;
+              int64_t *knn_indices, T *knn_dists, int n_neighbors,
+              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+              cudaStream_t stream) {
+  std::vector<float *> ptrs(1);
+  std::vector<int> sizes(1);
+  ptrs[0] = X;
   sizes[0] = x_n;
 
-  MLCommon::Selection::brute_force_knn(p, sizes, 1, d, X_query, x_q_n,
+  MLCommon::Selection::brute_force_knn(ptrs, sizes, d, X_query, x_q_n,
                                        knn_indices, knn_dists, n_neighbors,
-                                       stream);
-
-  MLCommon::LinAlg::unaryOp<T>(
-    knn_dists, knn_dists, x_n * n_neighbors,
-    [] __device__(T input) { return sqrt(input); }, stream);
-
-  delete p;
-  delete sizes;
+                                       d_alloc, stream);
 }
 }  // namespace Algo
 }  // namespace kNNGraph

@@ -4,10 +4,56 @@ This document summarizes rules and best practices for contributions to the cuML 
 ## General
 Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
-## Thread safety
-cuML is thread safe so its functions can be called from multiple host threads if they use different handles.
+## Performance
+1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See corresponding CUDA devblog [here](https://devblogs.nvidia.com/cuda-pro-tip-the-fast-way-to-query-device-properties/) to know more.
+2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `cumlHandle_impl::getInternalStream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `cumlHandle_impl::getNumInternalStreams()` to know how many such streams are available at your disposal.
 
-The implementation of cuML is single threaded.
+## Threading Model
+
+With the exception of the cumlHandle, cuML algorithms should maintain thread-safety and are, in general, 
+assumed to be single threaded. This means they should be able to be called from multiple host threads so 
+long as different instances of `cumlHandle` are used.
+
+Exceptions are made for algorithms that can take advantage of multiple CUDA streams within multiple host threads
+in order to oversubscribe or increase occupancy on a single GPU. In these cases, the use of multiple host 
+threads within cuML algorithms should be used only to maintain concurrency of the underlying CUDA streams. 
+Multiple host threads should be used sparingly, be bounded, and should steer clear of performing CPU-intensive 
+computations.
+
+A good example of an acceptable use of host threads within a cuML algorithm might look like the following
+
+```
+cudaStreamSynchronize(handle.getStream());
+
+int n_streams = handle.getNumInternalStreams();
+
+#pragma omp parallel for num_threads(n_threads)
+for(int i = 0; i < n; i++) {
+    int thread_num = omp_get_thread_num() % n_threads;
+    cudaStream_t s = handle.getInternalStream(thread_num);
+    ... possible light cpu pre-processing ...
+    my_kernel1<<<b, tpb, 0, s>>>(...);
+    ...
+    ... some possible async d2h / h2d copies ...
+    my_kernel2<<<b, tpb, 0, s>>>(...);
+    ...
+    cudaStreamSynchronize(s);
+    ... possible light cpu post-processing ...
+}
+```
+
+In the example above, if there is no CPU pre-processing at the beginning of the for-loop, an event can be registered in
+each of the streams within the for-loop to make them wait on the stream from the handle. 
+
+This can be done easily by replacing `cudaStreamSynchronize(handle.getStream())` with `handle.waitOnUserStream()` 
+for a lighter-weight synchronization. If there is no CPU post-processing at the end of each for-loop iteration, 
+`cudaStreamSynchronize(s)` can be replaced with a single `handle.waitOnInternalStreams()` after the for-loop. 
+
+To avoid compatibility issues between different threading models, the only threading programming allowed in cuML is OpenMP.
+Though cuML's build enables OpenMP by default, cuML algorithms should still function properly even when OpenMP has been
+disabled. If the CPU pre- and post-processing were not needed in the example above, OpenMP would not be needed.
+
+The use of threads in third-party libraries is allowed, though they should still avoid depending on a specific OpenMP runtime. 
 
 ## Public cuML interface
 ### Terminology
@@ -105,22 +151,89 @@ cuML relies on `clang-format` to enforce code style across all C++ and CUDA sour
 The reasons behind these deviations from the Google style guide are given in comments [here](../../cpp/.clang-format).
 
 ### How is the check done?
-[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is run first by `make`. This script runs clang-format only on modified files. An error is raised if the code diverges from the format suggested by clang-format, and the build fails.
+All formatting checks are done by this python script: [run-clang-format.py](../../cpp/scripts/run-clang-format.py) which is effectively a wrapper over `clang-format`. An error is raised if the code diverges from the format suggested by clang-format. It is expected that the developers run this script to detect and fix formatting violations before creating PR.
+
+#### As part of CI
+[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is executed as part of our `gpuCI/cuml/style-check` CI test. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the subsequent sub-section.
+
+#### Manually
+Developers can also manually (or setup this command as part of git pre-commit hook) run this check by executing:
+```bash
+python ./cpp/scripts/run-clang-format.py
+```
+From the root of the cuML repository.
 
 ### How to know the formatting violations?
-When there are formatting errors, `run-clang-format.py` prints a `diff` command, showing where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations, but instead directly formats the code. So, the only way currently to know why there are formatting differences is to run the diff command as suggested by this script against each violating source file.
+When there are formatting errors, [run-clang-format.py](../../cpp/scripts/run-clang-format.py) prints a `diff` command, showing where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations, but instead directly formats the code. So, the only way currently to know about formatting differences is to run the diff command as suggested by this script against each violating source file.
 
 ### How to fix the formatting violations?
-When there are formatting violations, `run-clang-format.py` prints an `-inplace` command you can use to automatically fix formatting errors. This is the easiest way to fix formatting errors. [This screencast](https://asciinema.org/a/248215) shows a typical build-fix-build cycle during cuML development.
+When there are formatting violations, [run-clang-format.py](../../cpp/scripts/run-clang-format.py) prints at the end, the exact command that can be run by developers to fix them. This is the easiest way to fix formatting errors. [This screencast](https://asciinema.org/a/287367) shows how developers can check for formatting violations in their branches and also how to fix those, before sending out PRs.
+
+In short, to bulk-fix all the formatting violations, execute the following command:
+```bash
+python ./cpp/scripts/run-clang-format.py -inplace
+```
+From the root of the cuML repository.
 
 ### clang-format version?
-To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by a CMake check for the required version. [See here for more details on the dependencies](../../cpp/README.md#dependencies).
+To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by the [run-clang-format.py](../../cpp/scripts/run-clang-format.py) script itself. Refer [here](../../cpp/README.md#dependencies) for the list of build-time dependencies.
 
 ## Error handling
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
 
 ## Logging
-Add once https://github.com/rapidsai/cuml/issues/100 is addressed.
+### Introduction
+Anything and everything about logging is defined inside [logger.hpp](../../cpp/include/cuml/common/logger.hpp). It uses [spdlog](https://github.com/gabime/spdlog) underneath, but this information is transparent to all.
+
+### Usage
+```cpp
+#include <cuml/common/logger.hpp>
+
+// Inside your method or function, use any of these macros
+CUML_LOG_TRACE("Hello %s!", "world");
+CUML_LOG_DEBUG("Hello %s!", "world");
+CUML_LOG_INFO("Hello %s!", "world");
+CUML_LOG_WARN("Hello %s!", "world");
+CUML_LOG_ERROR("Hello %s!", "world");
+CUML_LOG_CRITICAL("Hello %s!", "world");
+```
+
+### Changing logging level
+There are 7 logging levels with each successive level becoming quieter:
+1. CUML_LEVEL_TRACE
+2. CUML_LEVEL_DEBUG
+3. CUML_LEVEL_INFO
+4. CUML_LEVEL_WARN
+5. CUML_LEVEL_ERROR
+6. CUML_LEVEL_CRITICAL
+7. CUML_LEVEL_OFF
+Pass one of these as per your needs into the `setLevel()` method as follows:
+```cpp
+ML::Logger::get.setLevel(CUML_LEVEL_WARN);
+// From now onwards, this will print only WARN and above kind of messages
+```
+
+### Changing logging pattern
+Pass the [format string](https://github.com/gabime/spdlog/wiki/3.-Custom-formatting) as follows in order use a different logging pattern than the default.
+```cpp
+ML::Logger::get.setPattern(YourFavoriteFormat);
+```
+One can also use the corresponding `getPattern()` method to know the current format as well.
+
+### Temporarily changing the logging pattern
+Sometimes, we need to temporarily change the log pattern (eg: for reporting decision tree structure). This can be achieved in a RAII-like approach as follows:
+```cpp
+{
+  PatternSetter _(MyNewTempFormat);
+  // new log format is in effect from here onwards
+  doStuff();
+  // once the above temporary object goes out-of-scope, the old format will be restored
+}
+```
+
+### Tips
+* Do NOT end your logging messages with a newline! It is automatically added by spdlog.
+* The `CUML_LOG_TRACE()` is by default not compiled due to the `CUML_ACTIVE_LEVEL` macro setup, for performance reasons. If you need it to be enabled, change this macro accordingly during compilation time
 
 ## Documentation
 All external interfaces need to have a complete [doxygen](http://www.doxygen.nl) API documentation. This is also recommended for internal interfaces.
@@ -253,6 +366,16 @@ void foo(const ML::cumlHandle_impl& h, ...)
     const int stream_idx        = ...
     cudaStream_t stream         = h.getInternalStream(stream_idx);
     ...
+}
+```
+
+The example below shows one way to create `nStreams` number of internal cuda streams which can later be used by the algos inside cuML. For a full working example of how to use internal streams to schedule work on a single GPU, the reader is further referred to [this PR](https://github.com/rapidsai/cuml/pull/1015). In this PR, the internal streams inside `cumlHandle_impl` are used to schedule more work onto a GPU for Random Forest building.
+```cpp
+int main(int argc, char** argv)
+{
+    int nStreams = argc > 1 ? atoi(argv[1]) : 0;
+    ML::cumlHandle handle(nStreams);
+    foo(handle.getImpl(), ...);
 }
 ```
 

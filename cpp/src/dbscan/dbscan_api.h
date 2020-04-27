@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <cuML_api.h>
+#include <cuml/cuml_api.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,17 +34,17 @@ extern "C" {
  * @param[in] max_mem_bytes: the maximum number of bytes to be used for each batch of
  *            the pairwise distance calculation. This enables the trade off between
  *            memory usage and algorithm execution time.
- * @param[in] verbose Pass a 1 to print useful information as algorithm executes. To
- * execute quietly, pass 0
+ * @param[in] verbosity Set a verbosity level (higher values means quieter)
+ *                      Refer to `cuml/common/logger.hpp` for these levels
  * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
  * @{
  */
 cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
                             int n_cols, float eps, int min_pts, int *labels,
-                            size_t max_bytes_per_batch, int verbose);
+                            size_t max_bytes_per_batch, int verbosity);
 cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
                             int n_cols, double eps, int min_pts, int *labels,
-                            size_t max_bytes_per_batch, int verbose);
+                            size_t max_bytes_per_batch, int verbosity);
 /** @} */
 
 #ifdef __cplusplus

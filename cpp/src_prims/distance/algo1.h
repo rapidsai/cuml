@@ -38,12 +38,12 @@ namespace Distance {
  *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
  * @tparam IType input data-type (for A and B matrices)
  * @tparam AccType accumulation data-type
- * @tparam OType output data-type (for C and D matrices)
+ * @tparam OutType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FragmentMultiplyAdd_ cutlass-fragment-level multiply & add
  * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam NormLambda the final L2 norm lambda
  * @tparam Index_ index type
- * @param NormLambda the final L2 norm lambda
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
  * @param k number of cols of A and rows of B
@@ -61,8 +61,8 @@ namespace Distance {
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FragmentMultiplyAdd_,
           typename FinalLambda, typename NormLambda, typename Index_ = int>
-void distanceAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
-                   InType const *pB, OutType *pD, bool enable_sqrt,
+void distanceAlgo1(Index_ m, Index_ n, Index_ k, const InType *pA,
+                   const InType *pB, OutType *pD, bool enable_sqrt,
                    AccType *workspace, size_t worksize, FinalLambda fin_op,
                    NormLambda norm_op, cudaStream_t stream, bool isRowMajor) {
   typedef std::is_same<OutType, bool> is_bool;
