@@ -17,7 +17,7 @@
 #pragma once
 #include <stdio.h>
 #include <cmath>
-#include "common/cudart_utils.h"
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 #include "curand_wrappers.h"
 #include "linalg/cublas_wrappers.h"
