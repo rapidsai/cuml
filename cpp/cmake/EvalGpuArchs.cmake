@@ -54,6 +54,15 @@ int main(int argc, char** argv) {
       ${eval_file}
     OUTPUT_VARIABLE __gpu_archs
     OUTPUT_STRIP_TRAILING_WHITESPACE)
-  message("Auto detection of gpu-archs: ${__gpu_archs}")
-  set(${gpu_archs} ${__gpu_archs} PARENT_SCOPE)
+  set(__gpu_archs_filtered "${__gpu_archs}")
+  foreach(arch ${__gpu_archs})
+    if (arch VERSION_LESS 60)
+      list(REMOVE_ITEM __gpu_archs_filtered ${arch})
+    endif()
+  endforeach()
+  if (NOT __gpu_archs_filtered)
+    message(FATAL_ERROR "No supported GPU arch found on this system")
+  endif()
+  message("Auto detection of gpu-archs: ${__gpu_archs_filtered}")
+  set(${gpu_archs} ${__gpu_archs_filtered} PARENT_SCOPE)
 endfunction(evaluate_gpu_archs)
