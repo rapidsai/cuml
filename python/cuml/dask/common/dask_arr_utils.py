@@ -19,6 +19,7 @@ import cupy as cp
 import cupyx
 import cudf
 import dask
+import dask.dataframe as dd
 
 from cuml.utils.memory_utils import with_cupy_rmm
 
@@ -163,3 +164,28 @@ def to_sparse_dask_array(cudf_or_array, client=None):
 
         return dask.array.from_delayed(final_result, shape=shape,
                                        meta=meta)
+
+
+def get_meta(df):
+    ret = df.iloc[:0]
+    return ret
+
+
+@dask.delayed
+def to_cudf(arr):
+    if arr.ndim == 2:
+        return cudf.DataFrame.from_gpu_matrix(arr)
+    elif arr.ndim == 1:
+        return cudf.Series(arr)
+
+
+def dask_array_to_dask_cudf(dask_arr, client=None):
+    client = default_client() if client is None else client
+
+    elms = [to_cudf(dp) for dp in dask_arr.to_delayed().flatten()]
+    dfs = client.compute(elms)
+
+    meta = client.submit(get_meta, dfs[0])
+    meta_local = meta.result()
+
+    return dd.from_delayed(dfs, meta=meta_local)
