@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,4 +14,18 @@
 # limitations under the License.
 #
 
-from cuml.filter.kalman_filter import KalmanFilter
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
+import cupy as cp
+
+
+def sorted_unique_labels(*ys):
+    """Extract an ordered array of unique labels from one or more dask arrays
+    of labels."""
+    ys = (cp.unique(y.map_blocks(lambda x: cp.unique(x)).compute())
+          for y in ys)
+    labels = cp.unique(cp.concatenate(ys))
+    return labels
