@@ -80,10 +80,13 @@ struct DecisionTreeParams {
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
  * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_impurity_decrease: split a node only if its reduction in
+ *                                       impurity is more than this value
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
+ * @param[in] cfg_shuffle_features: whether to shuffle features or not
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
