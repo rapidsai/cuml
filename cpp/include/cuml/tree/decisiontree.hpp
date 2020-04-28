@@ -158,7 +158,8 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
  *    allowing us to construct trees without rearranging the actual dataset.
  * @param[in] n_sampled_rows: number of training samples, after sampling.
  *    If using decision tree directly over the whole dataset: n_sampled_rows = nrows
- * @param[in] n_unique_labels: #unique label values. Number of categories of classification.
+ * @param[in] n_unique_labels: number of unique label values. Number of
+ *                             categories of classification.
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
  * @{
  */
