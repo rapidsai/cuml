@@ -26,6 +26,13 @@ if(DEFINED ENV{RAFT_PATH})
   message(STATUS "RAFT_DIR set to $ENV{RAFT_PATH}")
   set(RAFT_DIR ENV{RAFT_PATH})
 
+  ExternalProject_Add(raft
+    DOWNLOAD_COMMAND  ""
+    SOURCE_DIR        ${RAFT_DIR}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND     ""
+    INSTALL_COMMAND   "")
+
 else(DEFINED ENV{RAFT_PATH})
   message(STATUS "RAFT_PATH environment variable NOT detected, cloning RAFT")
   set(RAFT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
@@ -197,10 +204,7 @@ set_property(TARGET benchmarklib PROPERTY
 
 # TODO: Change to using build.sh and make targets instead of this
 
-if(NOT DEFINED ENV{RAFT_PATH})
-    add_dependencies(cub raft)
-endif(NOT DEFINED ENV{RAFT_PATH})
-
+add_dependencies(cub raft)
 add_dependencies(cutlass cub)
 add_dependencies(spdlog cutlass)
 add_dependencies(faiss spdlog)
