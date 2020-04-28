@@ -15,11 +15,15 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include "common_kernel.cuh"
 #include "random/rng.h"
 #include "stats/minmax.h"
+
+namespace ML {
+namespace DecisionTree {
 
 /*This functions does feature subsampling.
  *The default is reshuffling of a feature list at ever level followed by random start index in the reshuffled vector for each node.
@@ -318,3 +322,6 @@ void make_split_gather(const T *data, unsigned int *nodestart,
     flagsptr, nodestart, nrows, nodecount, samplelist);
   CUDA_CHECK(cudaGetLastError());
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

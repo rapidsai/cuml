@@ -178,6 +178,7 @@ class KNeighborsRegressor(NearestNeighbors):
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
                                                   else None))
+        return self
 
     def predict(self, X, convert_dtype=True):
         """

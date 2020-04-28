@@ -313,7 +313,7 @@ class SVMBase(Base):
         param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbosity = self.logging_level
+        param.verbosity = self.verbosity
         param.epsilon = self.epsilon
         param.svmType = self.svmType
         return param
