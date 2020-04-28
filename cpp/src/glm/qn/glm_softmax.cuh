@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <glm/qn/simple_mat.h>
+#include <glm/qn/simple_mat.cuh>
 #include "cuda_utils.h"
-#include "glm/qn/glm_base.h"
+#include "glm/qn/glm_base.cuh"
 #include "linalg/binary_op.h"
 
 namespace ML {

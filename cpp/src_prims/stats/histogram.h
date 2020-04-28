@@ -15,10 +15,10 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <stdint.h>
 #include <common/seive.cuh>
 #include "cuda_utils.h"
-#include "utils.h"
 #include "vectorized.h"
 
 // This file is a shameless amalgamation of independent works done by

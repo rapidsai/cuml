@@ -23,7 +23,7 @@
 #include <cuML_comms.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <utils.h>
+#include <common/cudart_utils.h>
 
 #define MPI_CHECK(call)                                                     \
   do {                                                                      \
