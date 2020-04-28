@@ -89,6 +89,7 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  * Each array should have size(n_samples, n_classes)
  * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
+ * @param n_labels number of labels
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
