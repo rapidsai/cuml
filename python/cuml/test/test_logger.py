@@ -13,7 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.preprocessing.model_selection import train_test_split
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.encoders import OneHotEncoder
+
+import cuml.common.logger as logger
+
+
+def test_logger():
+    logger.trace("This is a trace message")
+    logger.debug("This is a debug message")
+    logger.info("This is an info message")
+    logger.warn("This is a warn message")
+    logger.error("This is a error message")
+    logger.critical("This is a critical message")
+
+    with logger.set_level(logger.LEVEL_WARN):
+        assert(logger.should_log_for(logger.LEVEL_WARN))
+        assert(not logger.should_log_for(logger.LEVEL_INFO))
+
+    with logger.set_pattern("%v"):
+        logger.info("This is an info message")
