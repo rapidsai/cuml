@@ -52,11 +52,11 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         from cuml.dask.datasets import make_blobs
 
         X, y = make_blobs(n_samples=int(nrows),
-                            n_features=ncols,
-                            centers=nclusters,
-                            n_parts=n_parts,
-                            cluster_std=0.01, verbose=False,
-                            random_state=10)
+                          n_features=ncols,
+                          centers=nclusters,
+                          n_parts=n_parts,
+                          cluster_std=0.01, verbose=False,
+                          random_state=10)
 
         wait(X)
         X_cudf = dask_array_to_dask_cudf(X)
@@ -116,13 +116,13 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X, y = make_blobs(n_samples=int(nrows),
-                               n_features=ncols,
-                               centers=nclusters,
-                               n_parts=n_parts,
-                               cluster_std=0.01,
-                               verbose=False,
-                               shuffle=False,
-                               random_state=10)
+                          n_features=ncols,
+                          centers=nclusters,
+                          n_parts=n_parts,
+                          cluster_std=0.01,
+                          verbose=False,
+                          shuffle=False,
+                          random_state=10)
 
         wait(X)
         X_cudf = dask_array_to_dask_cudf(X)
@@ -180,16 +180,15 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X, y = make_blobs(n_samples=int(nrows),
-                               n_features=ncols,
-                               centers=nclusters,
-                               n_parts=n_parts,
-                               cluster_std=0.01, verbose=False,
-                               shuffle=False,
-                               random_state=10)
+                          n_features=ncols,
+                          centers=nclusters,
+                          n_parts=n_parts,
+                          cluster_std=0.01, verbose=False,
+                          shuffle=False,
+                          random_state=10)
 
         wait(X)
         X_cudf = dask_array_to_dask_cudf(X)
-        y_cudf = dask_array_to_dask_cudf(y)
 
         cumlModel = cumlKMeans(verbose=0, init="k-means||",
                                n_clusters=nclusters,

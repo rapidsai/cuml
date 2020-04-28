@@ -16,7 +16,6 @@
 
 
 import dask.array as da
-import math
 
 from dask.distributed import default_client
 
@@ -116,12 +115,6 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                       n_samples, n_features,
                                       dtype)
 
-    if verbose:
-        print("Generating %d samples across %d partitions on "
-              "%d workers (total=%d samples)" %
-              (math.ceil(n_samples / len(workers)),
-               n_parts, len(workers), n_samples))
-
     rows_per_part = max(1, int(n_samples / n_parts))
 
     worker_rows = [rows_per_part] * n_parts
@@ -132,6 +125,11 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         worker_rows[-1] += n_samples % rows_per_part
 
     worker_rows = tuple(worker_rows)
+
+    if verbose:
+        print("Generating %s samples across %d partitions on "
+              "%d workers (total=%d samples)" % ','.join(worker_rows),
+              n_parts, len(workers), n_samples)
 
     seeds = generator.randint(n_samples, size=len(parts_workers))
     parts = [client.submit(_create_local_data,

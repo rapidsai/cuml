@@ -16,11 +16,11 @@
 import pytest
 
 import numpy as np
-import cudf
 
 from dask.distributed import Client
 
 from cuml.dask.common.dask_arr_utils import dask_array_to_dask_cudf
+
 
 @pytest.mark.parametrize("dtype", ['float32', 'float64'])
 @pytest.mark.parametrize("nparts", [1, 5, 7])
@@ -34,7 +34,7 @@ def test_to_dask_df(dtype, nparts, cluster):
         from cuml.dask.datasets import make_blobs
 
         X, y = make_blobs(int(1e3), 25, n_parts=nparts, dtype=dtype)
-        
+
         X_cudf = dask_array_to_dask_cudf(X)
         y_cudf = dask_array_to_dask_cudf(y)
 

@@ -27,7 +27,6 @@ import dask.array as da
 
 import cupy as cp
 import numpy as np
-import math
 
 
 def _create_covariance(dims, seed, dtype='float32'):
