@@ -25,7 +25,7 @@
 #include <map>
 #include <numeric>
 #include <vector>
-#include "levelalgo/metric_def.h"
+#include "memory.h"
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                            \
@@ -63,12 +63,8 @@ struct DataInfo {
 template <class T, class L>
 class DecisionTreeBase {
  protected:
-  int split_algo;
-  int nbins;
   DataInfo dinfo;
-  int treedepth;
   int depth_counter = 0;
-  int maxleaves;
   int leaf_counter = 0;
   std::shared_ptr<TemporaryMemory<T, L>> tempmem;
   size_t total_temp_mem;
@@ -78,19 +74,13 @@ class DecisionTreeBase {
   int n_unique_labels = -1;  // number of unique labels in dataset
   double prepare_time = 0;
   double train_time = 0;
-  int min_rows_per_node;
-  bool bootstrap_features;
-  CRITERION split_criterion;
   MLCommon::TimerCPU prepare_fit_timer;
-  float min_impurity_decrease = 0.0;
+  DecisionTreeParams tree_params;
 
   void plant(std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
              const int ncols, const int nrows, const L *labels,
              unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-             const int treeid, int maxdepth, int max_leaf_nodes,
-             const float colper, int n_bins, int split_algo_flag,
-             int cfg_min_rows_per_node, bool cfg_bootstrap_features,
-             CRITERION cfg_split_criterion, bool cfg_quantile_per_tree);
+             const int treeid);
 
   virtual void grow_deep_tree(
     const T *data, const L *labels, unsigned int *rowids,
@@ -105,8 +95,7 @@ class DecisionTreeBase {
     const int nrows, const L *labels, unsigned int *rowids,
     const int n_sampled_rows, int unique_labels,
     std::vector<SparseTreeNode<T, L>> &sparsetree, const int treeid,
-    DecisionTreeParams &tree_params, bool is_classifier,
-    std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
+    bool is_classifier, std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
   // Printing utility for high level tree info.
@@ -138,7 +127,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
   void fit(const ML::cumlHandle &handle, const T *data, const int ncols,
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
-           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_params,
+           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
   //This fit fucntion does not take handle , used by RF
@@ -147,7 +136,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            const cudaStream_t stream_in, const T *data, const int ncols,
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
-           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_params,
+           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
 
  private:
@@ -166,7 +155,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
   void fit(const ML::cumlHandle &handle, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_params,
+           DecisionTreeParams tree_parameters,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
   //This fit function does not take handle. Used by RF
@@ -175,7 +164,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
            const cudaStream_t stream_in, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_params,
+           DecisionTreeParams tree_parameters,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem);
 
  private:

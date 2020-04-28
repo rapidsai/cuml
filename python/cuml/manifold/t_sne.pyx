@@ -403,7 +403,7 @@ class TSNE(Base):
                  <float> self.pre_momentum,
                  <float> self.post_momentum,
                  <long long> seed,
-                 <int> self.logging_level,
+                 <int> self.verbosity,
                  <bool> True,
                  <bool> (self.method == 'barnes_hut'))
 
