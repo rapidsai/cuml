@@ -15,14 +15,14 @@
 #
 
 from cuml.dask.common import raise_exception_from_futures
-from cuml.ensemble import RandomForestRegressor as cuRFR
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
-from dask_cudf import concat
 
+import cudf
+import cupy as cp
 import math
 from uuid import uuid1
 
@@ -276,15 +276,18 @@ class RandomForestRegressor(DelayedPredictionMixin):
 
     @staticmethod
     def _fit(model, input_data, convert_dtype):
-
         X = input_data[0][0]
         y = input_data[0][1]
-
-        if len(input_data) > 1:
-            for i in range(1, len(input_data)):
-                X = concat([X, input_data[i][0]]).compute()
-                y = concat([y, input_data[i][1]]).compute()
-
+        if isinstance(X, cudf.core.DataFrame):
+            if len(input_data) > 1:
+                for i in range(1, len(input_data)):
+                    X = cudf.concat([X, input_data[i][0]])
+                    y = cudf.concat([y, input_data[i][1]])
+        else:
+            X_parts = list(map(lambda x: cp.asarray(x[0]), input_data))
+            X = cp.concatenate(X_parts)
+            y_parts = list(map(lambda y: cp.asarray(y[1]), input_data))
+            y = cp.concatenate(y_parts)
         return model.fit(X, y, convert_dtype)
 
     @staticmethod
@@ -377,7 +380,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         """
         data = DistributedDataHandler.create((X, y), client=self.client)
         self.datatype = data.datatype
-
+        print(" type of data : ", type(data))
         futures = list()
         for idx, wf in enumerate(data.worker_to_parts.items()):
             futures.append(
