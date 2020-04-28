@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -216,9 +216,39 @@ def get_classes_from_package(package):
     return {k: v for dictionary in classes for k, v in dictionary.items()}
 
 
-def generate_random_labels(random_generation_lambda, seed=1234):
+def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
+    """
+    Generates random labels to act as ground_truth and predictions for tests.
+
+    Parameters
+    ----------
+    random_generation_lambda : lambda function [numpy.random] -> ndarray
+        A lambda function used to generate labels for either y_true or y_pred
+        using a seeded numpy.random object.
+    seed : int
+        Seed for the numpy.random object.
+    as_cupy : bool
+        Choose return type of y_true and y_pred.
+        True: returns Cupy ndarray
+        False: returns Numba cuda DeviceNDArray
+
+    Returns
+    -------
+    y_true, y_pred, np_y_true, np_y_pred : tuple
+        y_true : Numba cuda DeviceNDArray or Cupy ndarray
+            Random target values.
+        y_pred : Numba cuda DeviceNDArray or Cupy ndarray
+            Random predictions.
+        np_y_true : Numpy ndarray
+            Same as y_true but as a numpy ndarray.
+        np_y_pred : Numpy ndarray
+            Same as y_pred but as a numpy ndarray.
+    """
     rng = np.random.RandomState(seed)  # makes it reproducible
     a = random_generation_lambda(rng)
     b = random_generation_lambda(rng)
 
-    return cuda.to_device(a), cuda.to_device(b)
+    if as_cupy:
+        return cp.array(a), cp.array(b), a, b
+    else:
+        return cuda.to_device(a), cuda.to_device(b), a, b

@@ -71,6 +71,9 @@ def test_umap_fit_transform_score(nrows, n_feats):
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
+    assert not np.isnan(embedding).any()
+    assert not np.isnan(cuml_embedding).any()
+
     if nrows < 500000:
         cuml_score = adjusted_rand_score(labels,
                                          KMeans(10).fit_predict(
@@ -126,6 +129,9 @@ def test_umap_transform_on_iris():
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
+
+    assert not np.isnan(embedding).any()
+
     trust = trustworthiness(new_data, embedding, 10)
     assert trust >= 0.85
 

@@ -426,6 +426,8 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     params->callback->on_preprocess_end(transformed);
   }
 
+  params->initial_alpha /= 4.0;
+
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
