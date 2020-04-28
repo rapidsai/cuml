@@ -21,6 +21,9 @@
 #include "../memory.h"
 #include "cuda_utils.h"
 
+namespace ML {
+namespace DecisionTree {
+
 struct SquareFunctor {
   template <typename T>
   static DI T exec(T x);
@@ -40,3 +43,6 @@ struct EntropyFunctor {
   static float exec(std::vector<unsigned int>& hist, int nrows);
   static float max_val(int nclass);
 };
+
+}  // namespace DecisionTree
+}  // namespace ML
