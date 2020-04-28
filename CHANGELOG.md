@@ -46,6 +46,7 @@
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 - PR #2146: Remove deprecated kalman filter
+- PR #2151: Add pytest duration and pytest timeout
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
