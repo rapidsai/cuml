@@ -122,10 +122,10 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 
   d_keys_out = new MLCommon::device_buffer<T>(tempmem->device_allocator,
                                               tempmem->stream, batch_items);
-  CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(
+
+  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
     d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out->data(),
-    batch_items, batch_cols, d_offsets->data(), d_offsets->data() + 1, 0,
-    8 * sizeof(T), tempmem->stream));
+    batch_items, 0, 8 * sizeof(T), tempmem->stream));
 
   // Allocate temporary storage
   d_temp_storage = new MLCommon::device_buffer<char>(
@@ -140,11 +140,9 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
     int batch_offset = batch * n_sampled_rows * batch_cols;
     int quantile_offset = batch * nbins * batch_cols;
 
-    // Run sorting operation
-    CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(
+    CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
       (void *)d_temp_storage->data(), temp_storage_bytes,
-      &d_keys_in[batch_offset], d_keys_out->data(), n_sampled_rows * batch_cols,
-      cur_batch_cols, d_offsets->data(), d_offsets->data() + 1, 0,
+      &d_keys_in[batch_offset], d_keys_out->data(), n_sampled_rows, 0,
       8 * sizeof(T), tempmem->stream));
 
     blocks = MLCommon::ceildiv(cur_batch_cols * nbins, threads);

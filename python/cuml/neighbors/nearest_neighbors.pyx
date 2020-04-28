@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import cuml
 import warnings
 
 from cuml.common.base import Base
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros, row_matrix
+from cuml.common.array import CumlArray
+from cuml.utils import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
@@ -87,7 +87,7 @@ class NearestNeighbors(Base):
     the neighborhood as the closest `k` neighbors to each query point.
 
     Parameters
-        ----------
+    ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
     verbose : boolean (default=False)
@@ -124,12 +124,12 @@ class NearestNeighbors(Base):
       print(indices)
       print(distances)
 
+
     Output:
 
-    .. code-block:: python
+    .. code-block::
 
-
-    indices:
+        indices:
 
              0   1   2
         0    0  14  21
@@ -142,7 +142,7 @@ class NearestNeighbors(Base):
         23  23  16   9
         24  24  17  10
 
-    distances:
+        distances:
 
               0         1         2
         0   0.0  4.883116  5.570006
@@ -157,12 +157,12 @@ class NearestNeighbors(Base):
 
 
     Notes
-    ------
+    -----
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/notebook/blob/master/python/notebooks/nearest_neighbors_demo.ipynb>`_.
 
-    For additional docs, see `scikitlearn's NearestNeighbors
+    For additional docs, see `scikit-learn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
     def __init__(self,
@@ -170,9 +170,11 @@ class NearestNeighbors(Base):
                  verbose=False,
                  handle=None,
                  algorithm="brute",
-                 metric="euclidean"):
+                 metric="euclidean",
+                 output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle, verbose)
+        super(NearestNeighbors, self).__init__(handle=handle, verbose=verbose,
+                                               output_type=output_type)
 
         if metric != "euclidean":
             raise ValueError("Only Euclidean (euclidean) "
@@ -182,29 +184,6 @@ class NearestNeighbors(Base):
         self.n_indices = 0
         self.metric = metric
         self.algorithm = algorithm
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['handle']
-
-        # Only need to store index if fit() was called
-        if self.n_indices == 1:
-            state['X_m'] = cudf.DataFrame.from_gpu_matrix(self.X_m)
-
-        return state
-
-    def __setstate__(self, state):
-        super(NearestNeighbors, self).__init__(handle=None,
-                                               verbose=state['verbose'])
-
-        cdef uintptr_t x_ctype
-        # Only need to recover state if model had been previously fit
-        if state["n_indices"] == 1:
-
-            state['X_m'] = state['X_m'].as_gpu_matrix()
-
-        self.__dict__.update(state)
 
     def fit(self, X, convert_dtype=True):
         """
@@ -222,16 +201,18 @@ class NearestNeighbors(Base):
             convert the inputs to np.float32.
         """
 
+        self._set_output_type(X)
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
         self.n_dims = X.shape[1]
 
-        self.X_m, X_ctype, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, order='F', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32
-                                                 if convert_dtype
-                                                 else None))
+        self.X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='F', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
 
         self.n_indices = 1
 
@@ -273,6 +254,8 @@ class NearestNeighbors(Base):
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
         X = self.X_m if X is None else X
 
+        out_type = self._get_output_type(X)
+
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
@@ -289,31 +272,30 @@ class NearestNeighbors(Base):
             raise ValueError("Dimensions of X need to match dimensions of "
                              "indices (%d)" % self.n_dims)
 
-        X_m, X_ctype, N, _, dtype = \
-            input_to_dev_array(X, order='F', check_dtype=np.float32,
-                               convert_to_dtype=(np.float32 if convert_dtype
-                                                 else False))
+        X_m, N, _, dtype = \
+            input_to_cuml_array(X, order='F', check_dtype=np.float32,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else False))
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.int64,
-                                      order="C"))
-        D_ndarr = rmm.to_device(zeros(N*n_neighbors, dtype=np.float32,
-                                      order="C"))
+        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
+        D_ndarr = CumlArray.zeros((N, n_neighbors),
+                                  dtype=np.float32, order="C")
 
-        cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
-        cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
+        cdef uintptr_t I_ptr = I_ndarr.ptr
+        cdef uintptr_t D_ptr = D_ndarr.ptr
 
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
 
-        cdef uintptr_t idx_ptr = get_dev_array_ptr(self.X_m)
+        cdef uintptr_t idx_ptr = self.X_m.ptr
         inputs.push_back(<float*>idx_ptr)
         sizes.push_back(<int>self.X_m.shape[0])
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t x_ctype_st = X_ctype
+        cdef uintptr_t x_ctype_st = X_m.ptr
 
         brute_force_knn(
             handle_[0],
@@ -329,22 +311,5 @@ class NearestNeighbors(Base):
             False
         )
 
-        I_ndarr = I_ndarr.reshape((N, n_neighbors))
-        D_ndarr = D_ndarr.reshape((N, n_neighbors))
-
-        if isinstance(X, cudf.DataFrame):
-            inds = cudf.DataFrame.from_gpu_matrix(I_ndarr)
-            dists = cudf.DataFrame.from_gpu_matrix(D_ndarr)
-
-        elif isinstance(X, np.ndarray):
-            inds = np.asarray(I_ndarr)
-            dists = np.asarray(D_ndarr)
-
-        del I_ndarr
-        del D_ndarr
-        del X_m
-
-        del inputs
-        del sizes
-
-        return (dists, inds) if return_distance else inds
+        return (D_ndarr.to_output(out_type), I_ndarr.to_output(out_type)) \
+            if return_distance else I_ndarr.to_output(out_type)

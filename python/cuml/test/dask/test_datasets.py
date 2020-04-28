@@ -22,7 +22,11 @@ import cupy as cp
 
 from dask.distributed import Client
 
+from cuml.dask.datasets import make_blobs
+
 from cuml.test.utils import unit_param, quality_param, stress_param
+
+from cuml.dask.common.part_utils import _extract_partitions
 
 
 @pytest.mark.parametrize('nrows', [unit_param(1e3), quality_param(1e5),
@@ -49,8 +53,6 @@ def test_make_blobs(nrows,
 
     c = Client(cluster)
     try:
-        from cuml.dask.datasets import make_blobs
-
         X, y = make_blobs(nrows, ncols,
                           centers=centers,
                           cluster_std=cluster_std,
@@ -62,20 +64,21 @@ def test_make_blobs(nrows,
         assert X.npartitions == nparts
         assert y.npartitions == nparts
 
-        X = X.compute()
-        y = y.compute()
+        X_local = X.compute()
+        y_local = y.compute()
 
-        assert X.shape == (nrows, ncols)
-        assert y.shape == (nrows, 1)
+        assert X_local.shape == (nrows, ncols)
 
         if output == 'dataframe':
-            assert len(y[0].unique()) == centers
-            assert X.dtypes.unique() == [dtype]
+            assert len(y_local[0].unique()) == centers
+            assert X_local.dtypes.unique() == [dtype]
+            assert y_local.shape == (nrows, 1)
 
         elif output == 'array':
             import cupy as cp
-            assert len(cp.unique(y)) == centers
-            assert y.dtype == dtype
+            assert len(cp.unique(y_local)) == centers
+            assert y_local.dtype == dtype
+            assert y_local.shape == (nrows, )
 
     finally:
         c.close()
@@ -153,3 +156,50 @@ def test_make_regression(n_samples, n_features, n_informative,
 
     finally:
         c.close()
+
+
+@pytest.mark.parametrize('n_samples', [500, 1000])
+@pytest.mark.parametrize('n_features', [50, 100])
+@pytest.mark.parametrize('hypercube', [True, False])
+@pytest.mark.parametrize('n_classes', [2, 4])
+@pytest.mark.parametrize('n_clusters_per_class', [2, 4])
+@pytest.mark.parametrize('n_informative', [7, 20])
+@pytest.mark.parametrize('random_state', [None, 1234])
+@pytest.mark.parametrize('n_parts', [2, 23])
+@pytest.mark.parametrize('order', ['C', 'F'])
+def test_make_classification(n_samples, n_features, hypercube, n_classes,
+                             n_clusters_per_class, n_informative,
+                             random_state, n_parts, order, cluster):
+    client = Client(cluster)
+    try:
+        from cuml.dask.datasets.classification import make_classification
+
+        X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                                   n_classes=n_classes, hypercube=hypercube,
+                                   n_clusters_per_class=n_clusters_per_class,
+                                   n_informative=n_informative,
+                                   random_state=random_state, n_parts=n_parts,
+                                   order=order)
+        assert(len(X.chunks[0])) == n_parts
+        assert(len(X.chunks[1])) == 1
+
+        assert X.shape == (n_samples, n_features)
+        assert y.shape == (n_samples, )
+
+        assert len(X.chunks[0]) == n_parts
+        assert len(y.chunks[0]) == n_parts
+
+        import cupy as cp
+        y_local = y.compute()
+        assert len(cp.unique(y_local)) == n_classes
+
+        X_parts = client.sync(_extract_partitions, X)
+        X_first = X_parts[0][1].result()
+
+        if order == 'F':
+            assert X_first.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert X_first.flags['C_CONTIGUOUS']
+
+    finally:
+        client.close()

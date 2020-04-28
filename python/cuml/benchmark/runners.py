@@ -15,20 +15,24 @@
 #
 """Wrappers to run ML benchmarks"""
 
-from cuml.benchmark import datagen
 import time
 import numpy as np
 import pandas as pd
+
+from cuml.benchmark import datagen
+from cudf.core import Series
 
 
 class BenchmarkTimer:
     """Provides a context manager that runs a code block `reps` times
     and records results to the instance variable `timings`. Use like:
 
-    timer = BenchmarkTimer(rep=5)
-    for _ in timer.benchmark_runs():
-       ... do something ...
-    print(np.min(timer.timings))
+    .. code-block:: python
+
+        timer = BenchmarkTimer(rep=5)
+        for _ in timer.benchmark_runs():
+            ... do something ...
+        print(np.min(timer.timings))
     """
 
     def __init__(self, reps=1):
@@ -215,8 +219,10 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 y_pred_cuml = cuml_model.predict(X_test)
             else:
                 y_pred_cuml = cuml_model.transform(X_test)
+            if isinstance(y_pred_cuml, Series):
+                y_pred_cuml = y_pred_cuml.to_array()
             cuml_accuracy = algo_pair.accuracy_function(
-                y_test, np.asarray(y_pred_cuml)
+                y_test, y_pred_cuml
             )
         else:
             cuml_accuracy = 0.0

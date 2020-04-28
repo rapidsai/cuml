@@ -28,10 +28,10 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array, zeros, get_cudf_column_ptr, \
-    device_array_from_ptr, get_dev_array_ptr
+from cuml.utils import input_to_cuml_array
 from libcpp cimport bool
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -61,7 +61,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        int verbose
+        int verbosity
         double epsilon
         SvmType svmType
 
@@ -200,14 +200,14 @@ class SVMBase(Base):
 
         # Parameter to indicate if model has been correctly fitted
         # fit_status == -1 indicates that the model is not yet fitted
-        self.fit_status_ = -1
+        self._fit_status_ = -1
 
         # Attributes (parameters of the fitted model)
-        self.dual_coef_ = None
-        self.support_ = None
-        self.support_vectors_ = None
-        self.intercept_ = None
-        self.n_support_ = None
+        self._dual_coef_ = None
+        self._support_ = None
+        self._support_vectors_ = None
+        self._intercept_ = None
+        self._n_support_ = None
 
         self._c_kernel = self._get_c_kernel(kernel)
         self._gamma_val = None  # the actual numerical value used for training
@@ -238,7 +238,7 @@ class SVMBase(Base):
             else:
                 raise TypeError("Unknown type for SVC class")
             try:
-                del self.fit_status_
+                del self._fit_status_
             except AttributeError:
                 pass
 
@@ -281,8 +281,8 @@ class SVMBase(Base):
             return self.gamma
 
     def _calc_coef(self):
-        return np.dot(self.dual_coef_.copy_to_host(),
-                      self.support_vectors_.copy_to_host())
+        return np.dot(self._dual_coef_.to_output('numpy'),
+                      self._support_vectors_.to_output('numpy'))
 
     @property
     def coef_(self):
@@ -313,7 +313,7 @@ class SVMBase(Base):
         param.max_iter = self.max_iter
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbose = self.verbose
+        param.verbosity = self.logging_level
         param.epsilon = self.epsilon
         param.svmType = self.svmType
         return param
@@ -325,42 +325,42 @@ class SVMBase(Base):
         """
         cdef svmModel[float] *model_f
         cdef svmModel[double] *model_d
-        if self.dual_coef_ is None:
+        if self._dual_coef_ is None:
             # the model is not fitted in this case
             return None
         if self.dtype == np.float32:
             model_f = new svmModel[float]()
-            model_f.n_support = self.n_support_
+            model_f.n_support = self._n_support_
             model_f.n_cols = self.n_cols
-            model_f.b = self.intercept_
+            model_f.b = self._intercept_
             model_f.dual_coefs = \
-                <float*><size_t>get_dev_array_ptr(self.dual_coef_)
+                <float*><size_t>self._dual_coef_.ptr
             model_f.x_support = \
-                <float*><uintptr_t>get_dev_array_ptr(self.support_vectors_)
+                <float*><uintptr_t>self._support_vectors_.ptr
             model_f.support_idx = \
-                <int*><uintptr_t>get_dev_array_ptr(self.support_)
+                <int*><uintptr_t>self._support_.ptr
             model_f.n_classes = self._n_classes
             if self._n_classes > 0:
                 model_f.unique_labels = \
-                    <float*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+                    <float*><uintptr_t>self._unique_labels.ptr
             else:
                 model_f.unique_labels = NULL
             return <uintptr_t>model_f
         else:
             model_d = new svmModel[double]()
-            model_d.n_support = self.n_support_
+            model_d.n_support = self._n_support_
             model_d.n_cols = self.n_cols
-            model_d.b = self.intercept_
+            model_d.b = self._intercept_
             model_d.dual_coefs = \
-                <double*><size_t>get_dev_array_ptr(self.dual_coef_)
+                <double*><size_t>self._dual_coef_.ptr
             model_d.x_support = \
-                <double*><uintptr_t>get_dev_array_ptr(self.support_vectors_)
+                <double*><uintptr_t>self._support_vectors_.ptr
             model_d.support_idx = \
-                <int*><uintptr_t>get_dev_array_ptr(self.support_)
+                <int*><uintptr_t>self._support_.ptr
             model_d.n_classes = self._n_classes
             if self._n_classes > 0:
                 model_d.unique_labels = \
-                    <double*><uintptr_t>get_dev_array_ptr(self._unique_labels)
+                    <double*><uintptr_t>self._unique_labels.ptr
             else:
                 model_d.unique_labels = NULL
             return <uintptr_t>model_d
@@ -378,45 +378,69 @@ class SVMBase(Base):
         if self.dtype == np.float32:
             model_f = <svmModel[float]*><uintptr_t> self._model
             if model_f.n_support == 0:
-                self.fit_status_ = 1  # incorrect fit
+                self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = model_f.b
-            self.n_support_ = model_f.n_support
-            self.dual_coef_ = device_array_from_ptr(
-                <uintptr_t>model_f.dual_coefs, (1, self.n_support_),
-                self.dtype)
-            self.support_ = device_array_from_ptr(
-                <uintptr_t>model_f.support_idx, (self.n_support_,), np.int32)
-            self.support_vectors_ = device_array_from_ptr(
-                <uintptr_t>model_f.x_support, (self.n_support_, self.n_cols),
-                self.dtype)
+            self._intercept_ = model_f.b
+            self._n_support_ = model_f.n_support
+
+            self._dual_coef_ = CumlArray(
+                data=<uintptr_t>model_f.dual_coefs,
+                shape=(1, self._n_support_),
+                dtype=self.dtype,
+                order='F')
+
+            self._support_ = CumlArray(
+                data=<uintptr_t>model_f.support_idx,
+                shape=(self._n_support_,),
+                dtype=np.int32,
+                order='F')
+
+            self._support_vectors_ = CumlArray(
+                data=<uintptr_t>model_f.x_support,
+                shape=(self._n_support_, self.n_cols),
+                dtype=self.dtype,
+                order='F')
             self._n_classes = model_f.n_classes
             if self._n_classes > 0:
-                self._unique_labels = device_array_from_ptr(
-                    <uintptr_t>model_f.unique_labels, (self._n_classes,),
-                    self.dtype)
+                self._unique_labels = CumlArray(
+                    data=<uintptr_t>model_f.unique_labels,
+                    shape=(self._n_classes,),
+                    dtype=self.dtype,
+                    order='F')
             else:
                 self._unique_labels = None
         else:
             model_d = <svmModel[double]*><uintptr_t> self._model
             if model_d.n_support == 0:
-                self.fit_status_ = 1  # incorrect fit
+                self._fit_status_ = 1  # incorrect fit
                 return
-            self.intercept_ = model_d.b
-            self.n_support_ = model_d.n_support
-            self.dual_coef_ = device_array_from_ptr(
-                <uintptr_t>model_d.dual_coefs, (1, self.n_support_),
-                self.dtype)
-            self.support_ = device_array_from_ptr(
-                <uintptr_t>model_d.support_idx, (self.n_support_,), np.int32)
-            self.support_vectors_ = device_array_from_ptr(
-                <uintptr_t>model_d.x_support, (self.n_support_, self.n_cols),
-                self.dtype)
+            self._intercept_ = model_d.b
+            self._n_support_ = model_d.n_support
+
+            self._dual_coef_ = CumlArray(
+                data=<uintptr_t>model_d.dual_coefs,
+                shape=(1, self._n_support_),
+                dtype=self.dtype,
+                order='F')
+
+            self._support_ = CumlArray(
+                data=<uintptr_t>model_d.support_idx,
+                shape=(self._n_support_,),
+                dtype=np.int32,
+                order='F')
+
+            self._support_vectors_ = CumlArray(
+                data=<uintptr_t>model_d.x_support,
+                shape=(self._n_support_, self.n_cols),
+                dtype=self.dtype,
+                order='F')
             self._n_classes = model_d.n_classes
             if self._n_classes > 0:
-                self._unique_labels = device_array_from_ptr(
-                    <uintptr_t>model_d.unique_labels, (self._n_classes,),
-                    self.dtype)
+                self._unique_labels = CumlArray(
+                    data=<uintptr_t>model_d.unique_labels,
+                    shape=(self._n_classes,),
+                    dtype=self.dtype,
+                    order='F')
             else:
                 self._unique_labels = None
 
@@ -438,13 +462,16 @@ class SVMBase(Base):
 
         """
 
-        cdef uintptr_t X_ptr, y_ptr
+        self._set_output_type(X)
 
-        X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='F')
+        X_m, self.n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, order='F')
 
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y,
-                                                 convert_to_dtype=self.dtype)
+        cdef uintptr_t X_ptr = X_m.ptr
+
+        y_m, _, _, _ = input_to_cuml_array(y, convert_to_dtype=self.dtype)
+
+        cdef uintptr_t y_ptr = y_m.ptr
 
         self._dealloc()  # delete any previously fitted model
         self._coef_ = None
@@ -471,7 +498,7 @@ class SVMBase(Base):
             raise TypeError('Input data type should be float32 or float64')
 
         self._unpack_model()
-        self.fit_status_ = 0
+        self._fit_status_ = 0
         self.handle.sync()
 
         del X_m
@@ -500,16 +527,17 @@ class SVMBase(Base):
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        out_type = self._get_output_type(X)
 
         if self._model is None:
             raise RuntimeError("Call fit before prediction")
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, pred_dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype)
+        X_m, n_rows, n_cols, pred_dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype)
+        cdef uintptr_t X_ptr = X_m.ptr
 
-        preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         cdef svmModel[float]* model_f
         cdef svmModel[double]* model_d
@@ -531,7 +559,7 @@ class SVMBase(Base):
 
         del(X_m)
 
-        return preds
+        return preds.to_output(out_type)
 
     def get_param_names(self):
         return ["C", "kernel", "degree", "gamma", "coef0", "cache_size",
@@ -541,27 +569,10 @@ class SVMBase(Base):
         state = self.__dict__.copy()
         del state['handle']
         del state['_model']
-
-        # Only when the model is fit once we need to store these parameters
-        if self.fit_status_ == 0:
-            state['dual_coef_'] = \
-                cudf.DataFrame.from_gpu_matrix(self.dual_coef_)
-            state['support_'] = cudf.Series(self.support_)
-            state['support_vectors_'] = \
-                cudf.DataFrame.from_gpu_matrix(self.support_vectors_)
-            state['_unique_labels'] = cudf.Series(self._unique_labels)
         return state
 
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None, verbose=state['verbose'])
-
-        # Only if model was fit, these parameters would be written
-        if state["fit_status_"] == 0:
-            state['dual_coef_'] = state['dual_coef_'].as_gpu_matrix()
-            state['support_'] = state['support_'].to_gpu_array()
-            state['support_vectors_'] = state['support_vectors_'] \
-                .as_gpu_matrix()
-            state['_unique_labels'] = state['_unique_labels'].to_gpu_array()
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False

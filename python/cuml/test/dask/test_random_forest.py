@@ -14,7 +14,24 @@
 # limitations under the License.
 #
 
+
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import cudf
+import cupy as cp
 import dask_cudf
 import pytest
 import rmm
@@ -25,9 +42,13 @@ import pandas as pd
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.dask.common import utils as dask_utils
+
+from dask.array import from_array
 from sklearn.datasets import make_regression, make_classification
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, r2_score
+from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
+from sklearn.ensemble import RandomForestClassifier as skrfc
+
 from dask.distributed import Client
 
 
@@ -72,17 +93,17 @@ def test_rf_classification_dask(partitions_per_worker, cluster):
         cu_rf_params = {
             'n_estimators': 40,
             'max_depth': 16,
+            'n_streams': 1,
             'n_bins': 16,
         }
 
         X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
                                                      partitions_per_worker)
-        cu_rf_mg = cuRFC_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test)
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test)
 
-        acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
-
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
         assert acc_score > 0.8
 
     finally:
@@ -117,11 +138,10 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
                                                      partitions_per_worker)
 
         X_test_cudf = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
-        cu_rf_mg = cuRFC_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
-
-        acc_score = accuracy_score(cu_rf_mg_predict, y_test, normalize=True)
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test_cudf)
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
 
         assert acc_score > 0.8
 
@@ -129,26 +149,10 @@ def test_rf_classification_dask_cudf(partitions_per_worker, cluster):
         c.close()
 
 
-def test_rf_throws_exceptions(cluster):
-    c = Client(cluster)
-    try:
-        cu_rf_params = {'n_estimators': 10, 'max_depth': 8}
-        cu_rf_mg = cuRFR_mg(**cu_rf_params)
-        X_train, y_train = make_regression(n_samples=100, n_features=20,
-                                           n_informative=10, random_state=123)
-        X_train = X_train.astype(np.float32)
-
-        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train, 1)
-
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        with pytest.raises(RuntimeError):
-            cu_rf_mg.fit(X_train_df, y_train_df)
-    finally:
-        c.close()
-
-
-@pytest.mark.parametrize('partitions_per_worker', [1, 3])
-def test_rf_regression_dask(partitions_per_worker, cluster):
+@pytest.mark.xfail(reason="Intermittent failure of test observed. For"
+                   "more information please check cuml issue #1934")
+@pytest.mark.parametrize('partitions_per_worker', [1, 5])
+def test_rf_regression_dask_fil(partitions_per_worker, cluster):
 
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
@@ -182,20 +186,213 @@ def test_rf_regression_dask(partitions_per_worker, cluster):
         y_cudf = cudf.Series(y_cudf)
         y_train_df = \
             dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
+        X_cudf_test = cudf.DataFrame.from_pandas(pd.DataFrame(X_test))
+        X_test_df = \
+            dask_cudf.from_cudf(X_cudf_test, npartitions=n_partitions)
 
         X_train_df, y_train_df = dask_utils.persist_across_workers(
             c, [X_train_df, y_train_df], workers=workers)
 
-        X_test_cudf = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X_test))
-        cu_rf_mg = cuRFR_mg(**cu_rf_params)
-        cu_rf_mg.fit(X_train_df, y_train_df)
-        cu_rf_mg_predict = cu_rf_mg.predict(X_test_cudf)
+        cuml_mod = cuRFR_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
 
-        acc_score = r2_score(cu_rf_mg_predict, y_test)
+        cuml_mod_predict = cuml_mod.predict(X_test_df).compute()
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict))
 
-        print(str(acc_score))
+        acc_score = r2_score(cuml_mod_predict, y_test)
 
         assert acc_score >= 0.67
+
+    finally:
+        c.close()
+
+
+@pytest.mark.parametrize('partitions_per_worker', [1, 5])
+@pytest.mark.parametrize('output_class', [True, False])
+def test_rf_classification_dask_fil(partitions_per_worker, cluster,
+                                    output_class):
+
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
+    c = Client(cluster)
+
+    try:
+
+        X, y = make_classification(n_samples=10000, n_features=30,
+                                   n_clusters_per_class=1, n_informative=20,
+                                   random_state=123, n_classes=2)
+
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
+
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=1000)
+
+        cu_rf_params = {
+            'n_estimators': 25,
+            'max_depth': 13,
+            'n_bins': 15,
+        }
+
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+                                                     partitions_per_worker)
+        X_test_df, _ = _prep_training_data(c, X_test, y_test,
+                                           partitions_per_worker)
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test_df, output_class).compute()
+        cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict))
+        if not output_class:
+            cuml_mod_predict = np.round(cuml_mod_predict)
+
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
+
+        assert acc_score > 0.8
+
+    finally:
+        c.close()
+
+
+@pytest.mark.parametrize('partitions_per_worker', [1, 5])
+@pytest.mark.parametrize('output_class', [True, False])
+def test_rf_classification_dask_array(partitions_per_worker, cluster,
+                                      output_class):
+
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
+    c = Client(cluster)
+
+    try:
+
+        X, y = make_classification(n_samples=10000, n_features=30,
+                                   n_clusters_per_class=1, n_informative=20,
+                                   random_state=123, n_classes=2)
+
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
+
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=1000)
+
+        cu_rf_params = {
+            'n_estimators': 25,
+            'max_depth': 13,
+            'n_bins': 15,
+        }
+
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+                                                     partitions_per_worker)
+        X_test_dask_array = from_array(X_test)
+        cuml_mod = cuRFC_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+        cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
+                                            output_class).compute()
+        if not output_class:
+            cuml_mod_predict = np.round(cuml_mod_predict)
+
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
+
+        assert acc_score > 0.8
+
+    finally:
+        c.close()
+
+
+@pytest.mark.parametrize('partitions_per_worker', [1, 5])
+def test_rf_regression_dask_cpu(partitions_per_worker, cluster):
+
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
+    c = Client(cluster)
+
+    try:
+
+        X, y = make_regression(n_samples=100000, n_features=20,
+                               n_informative=10, random_state=123)
+
+        X = X.astype(np.float32)
+        y = y.astype(np.float32)
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                            test_size=1000)
+
+        cu_rf_params = {
+            'n_estimators': 50,
+            'max_depth': 16,
+            'n_bins': 16,
+        }
+
+        workers = c.has_what().keys()
+        n_partitions = partitions_per_worker * len(workers)
+
+        X_cudf = cudf.DataFrame.from_pandas(pd.DataFrame(X_train))
+        X_train_df = \
+            dask_cudf.from_cudf(X_cudf, npartitions=n_partitions)
+
+        y_cudf = np.array(pd.DataFrame(y_train).values)
+        y_cudf = y_cudf[:, 0]
+        y_cudf = cudf.Series(y_cudf)
+        y_train_df = \
+            dask_cudf.from_cudf(y_cudf, npartitions=n_partitions)
+
+        X_train_df, y_train_df = dask_utils.persist_across_workers(
+            c, [X_train_df, y_train_df], workers=workers)
+
+        cuml_mod = cuRFR_mg(**cu_rf_params)
+        cuml_mod.fit(X_train_df, y_train_df)
+
+        cuml_mod_predict = cuml_mod.predict(X_test, predict_model='CPU')
+
+        acc_score = r2_score(cuml_mod_predict, y_test)
+
+        assert acc_score >= 0.67
+
+    finally:
+        c.close()
+
+
+@pytest.mark.parametrize('partitions_per_worker', [5])
+def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
+                                                  cluster):
+
+    c = Client(cluster)
+
+    try:
+
+        X, y = make_classification(n_samples=1000, n_features=30,
+                                   n_clusters_per_class=1, n_informative=20,
+                                   random_state=123, n_classes=2)
+
+        X = X.astype(np.float32)
+        y = y.astype(np.int32)
+
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=100, random_state=123)
+
+        cu_rf_params = {'n_bins': 16, 'n_streams': 1,
+                        'n_estimators': 40, 'max_depth': 16
+                        }
+
+        X_train_df, y_train_df = _prep_training_data(c, X_train, y_train,
+                                                     partitions_per_worker)
+        X_test_df, _ = _prep_training_data(c, X_test, y_test,
+                                           partitions_per_worker)
+        cu_rf_mg = cuRFC_mg(**cu_rf_params)
+        cu_rf_mg.fit(X_train_df, y_train_df)
+
+        fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
+        fil_preds_proba = cp.asnumpy(fil_preds_proba.to_gpu_matrix())
+        y_proba = np.zeros(np.shape(fil_preds_proba))
+        y_proba[:, 1] = y_test
+        y_proba[:, 0] = 1.0 - y_test
+        fil_mse = mean_squared_error(y_proba, fil_preds_proba)
+        sk_model = skrfc(n_estimators=40,
+                         max_depth=16,
+                         random_state=10)
+        sk_model.fit(X_train, y_train)
+        sk_preds_proba = sk_model.predict_proba(X_test)
+        sk_mse = mean_squared_error(y_proba, sk_preds_proba)
+
+        # The threshold is required as the test would intermitently
+        # fail with a max difference of 0.022 between the two mse values
+        assert fil_mse <= sk_mse + 0.022
 
     finally:
         c.close()

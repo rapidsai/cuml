@@ -13,16 +13,16 @@
 # limitations under the License.
 #
 
-
+from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.comms import worker_state
-from cuml.dask.common.utils import patch_cupy_sparse_serialization
 from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
-from dask.distributed import default_client
 
 
-class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
+class LinearRegression(BaseEstimator,
+                       BaseLinearModelSyncFitMixin,
+                       DelayedPredictionMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -62,10 +62,11 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
         The independent term. If fit_intercept_ is False, will be 0.
     """
 
-    def __init__(self, client=None, **kwargs):
-        self.client = default_client() if client is None else client
-        patch_cupy_sparse_serialization(self.client)
-        self.kwargs = kwargs
+    def __init__(self, client=None, verbose=False, **kwargs):
+        super(LinearRegression, self).__init__(client=client,
+                                               verbose=verbose,
+                                               **kwargs)
+
         self.coef_ = None
         self.intercept_ = None
         self._model_fit = False
@@ -81,7 +82,6 @@ class LinearRegression(BaseLinearModelSyncFitMixin, DelayedPredictionMixin):
             Features for regression
         y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
-
         """
 
         models = self._fit(model_func=LinearRegression._create_model,

@@ -18,47 +18,41 @@ from cuml.dask.common.comms import CommsContext
 from cuml.dask.common.input_utils import DistributedDataHandler
 from dask.distributed import wait
 
-from uuid import uuid1
-
 
 class BaseLinearModelSyncFitMixin(object):
 
     def _fit(self, model_func, data, **kwargs):
 
-        for d in data:
-            d = self.client.persist(data)
+        n_cols = data[0].shape[1]
 
         data = DistributedDataHandler.create(data=data, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        comms = CommsContext(comms_p2p=False, verbose=self.verbose)
         comms.init(workers=data.workers)
 
         data.calculate_parts_to_sizes(comms)
         self.ranks = data.ranks
 
-        n_cols = d[0].shape[1]
-
-        key = uuid1()
-        lin_models = dict([(data.worker_info[wf[0]]["r"], self.client.submit(
+        lin_models = dict([(data.worker_info[wf[0]]["rank"],
+                            self.client.submit(
             model_func,
             comms.sessionId,
             self.datatype,
             **self.kwargs,
-            key="%s-%s" % (key, idx),
+            pure=False,
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
 
-        key = uuid1()
         lin_fit = dict([(wf[0], self.client.submit(
             _func_fit,
-            lin_models[data.worker_info[wf[0]]["r"]],
+            lin_models[data.worker_info[wf[0]]["rank"]],
             wf[1],
             data.total_rows,
             n_cols,
-            data.parts_to_sizes[data.worker_info[wf[0]]["r"]],
-            data.worker_info[wf[0]]["r"],
-            key="%s-%s" % (key, idx),
+            data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
+            data.worker_info[wf[0]]["rank"],
+            pure=False,
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
 

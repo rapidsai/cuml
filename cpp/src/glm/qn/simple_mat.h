@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
 #include <iostream>
 #include <vector>
 
@@ -53,7 +53,7 @@ struct SimpleMat {
     len = m * n;
   }
 
-  void print() const { std::cout << (*this) << std::endl; }
+  void print(std::ostream &oss) const { oss << (*this) << std::endl; }
 
   inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
                           const SimpleMat<T> &A, const bool transA,
