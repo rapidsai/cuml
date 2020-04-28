@@ -104,7 +104,7 @@ endif(NOT BUILD_CUML_CPP_LIBRARY)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-find_package(CUDA 9.0 REQUIRED)
+find_package(CUDA 10.0 REQUIRED)
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
