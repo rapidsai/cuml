@@ -642,6 +642,7 @@ class ARIMA(Base):
 
         self.unpack(self._batched_transform(x))
         self.niter = niter
+        return self
 
     @nvtx_range_wrap
     def _loglike(self, x, trans=True):
