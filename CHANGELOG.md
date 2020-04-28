@@ -46,6 +46,7 @@
 - PR #1883: Use CumlArray in ARIMA
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
+- PR #2146: Remove deprecated kalman filter
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -69,6 +70,7 @@
 - PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
+- PR #2144: Remove GPU arch < 60 from CMake build
 
 # cuML 0.13.0 (Date TBD)
 
@@ -79,6 +81,7 @@
 - PR #1766: Mean absolute error implementation with cupy
 - PR #1766: Mean squared log error implementation with cupy
 - PR #1635: cuML Array shim and configurable output added to cluster methods
+- PR #1892: One hot encoder implementation with cupy
 - PR #1586: Seasonal ARIMA
 - PR #1683: cuml.dask make_regression
 - PR #1689: Add framework for cuML Dask serializers
@@ -130,6 +133,7 @@
 - PR #1848: Rely on subclassing for cuML Array serialization
 - PR #1866: Minimizing client memory pressure on Naive Bayes
 - PR #1788: Removing complexity bottleneck in S-ARIMA
+- PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 - PR #1891: Additional improvements to naive bayes tree reduction
 
 ## Bug Fixes
