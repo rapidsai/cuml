@@ -199,24 +199,24 @@ struct FusedL2NN : public BaseClass {
     updateResults();
   }
 
+  /*
+   * todo: From Volta onwards see if "coalesced" atomicCAS approach as
+   *        written below helps improve perf
+   * ```
+   *   auto tid = threadIdx.x;
+   *   auto rid = IdxT(blockIdx.x) * P::Mblk + tid;
+   *   if (rid < m) {
+   *     auto val = sRed[i];
+   *     while (atomicCAS(mutex + rid, 0, 1) == 1)
+   *       ;
+   *     __threadfence();
+   *     redOp(min + rid, val);
+   *     __threadfence();
+   *     atomicCAS(mutex + rid, 1, 0);
+   *   }
+   * ```
+   */
   DI void updateResults() {
-    /**
-     * @todo: From Volta onwards see if "coalesced" atomicCAS approach as
-     *        written below helps improve perf
-     * <code>
-     *   auto tid = threadIdx.x;
-     *   auto rid = IdxT(blockIdx.x) * P::Mblk + tid;
-     *   if (rid < m) {
-     *     auto val = sRed[i];
-     *     while (atomicCAS(mutex + rid, 0, 1) == 1)
-     *       ;
-     *     __threadfence();
-     *     redOp(min + rid, val);
-     *     __threadfence();
-     *     atomicCAS(mutex + rid, 1, 0);
-     *   }
-     * </code>
-     */
     // for now have first lane from each warp update a unique output row. This
     // will resolve hang issues with pre-Volta architectures
     auto nWarps = blockDim.x / WarpSize;
