@@ -29,7 +29,7 @@
 #include <stats/sum.h>
 #include "common/cumlHandle.hpp"
 #include "ml_utils.h"
-#include "preprocess.h"
+#include "preprocess.cuh"
 
 namespace ML {
 namespace GLM {

@@ -112,6 +112,13 @@ class Logger {
   bool shouldLogFor(int level) const;
 
   /**
+   * @brief Query for the current log level
+   *
+   * @return the current log level
+   */
+  int getLevel() const;
+
+  /**
    * @brief Get the current logging pattern
    * @return the pattern
    */

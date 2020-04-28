@@ -19,6 +19,9 @@
 #define PUSHRIGHT 0x00000001
 #include "stats/minmax.h"
 
+namespace ML {
+namespace DecisionTree {
+
 template <typename T>
 DI T get_data(const T* __restrict__ data, const T local_data,
               const unsigned int dataid, const unsigned int count) {
@@ -370,3 +373,6 @@ __global__ void split_nodes_compute_counts_kernel(
     }
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML
