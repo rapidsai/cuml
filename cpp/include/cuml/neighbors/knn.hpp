@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 
@@ -52,11 +53,13 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
  * @param out output array on device (size n_samples * size of y vector)
  * @param knn_indices index array on device resulting from knn query (size n_samples * k)
  * @param y vector of label arrays on device vector size is number of (size n_samples)
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
-                  std::vector<int *> &y, size_t n_samples, int k);
+                  std::vector<int *> &y, size_t n_labels, size_t n_samples,
+                  int k);
 
 /**
  * @brief Flat C++ API function to perform a knn regression using
@@ -68,11 +71,13 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param out output array on device (size n_samples)
  * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
-                 std::vector<float *> &y, size_t n_samples, int k);
+                 std::vector<float *> &y, size_t n_labels, size_t n_samples,
+                 int k);
 
 /**
  * @brief Flat C++ API function to compute knn class probabilities
@@ -89,7 +94,7 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  */
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
-                     size_t n_samples, int k);
+                     size_t n_labels, size_t n_samples, int k);
 
 class kNN {
   float **ptrs;
@@ -98,7 +103,6 @@ class kNN {
   int total_n;
   int indices;
   int D;
-  bool verbose;
 
   bool rowMajorIndex;
 
@@ -107,11 +111,11 @@ class kNN {
  public:
   /**
    * Build a kNN object for training and querying a k-nearest neighbors model.
-   * @param handle  cuml handle
-   * @param D       number of features in each vector
-   * @param verbose whether to print debug messages
+   * @param[in] handle    cuml handle
+   * @param[in] D         number of features in each vector
+   * @param[in] verbosity verbosity level for logging messages during execution
    */
-  kNN(const cumlHandle &handle, int D, bool verbose = false);
+  kNN(const cumlHandle &handle, int D, int verbosity = CUML_LEVEL_INFO);
   ~kNN();
 
   void reset();

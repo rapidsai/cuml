@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <distance/fused_l2_nn.h>
 #include <linalg/norm.h>
 #include <random/rng.h>

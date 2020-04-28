@@ -15,6 +15,7 @@
  */
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <utility>
 #include "benchmark.cuh"
@@ -75,7 +76,7 @@ std::vector<Params> getInputs() {
   p.kmeans.init = ML::kmeans::KMeansParams::InitMethod(0);
   p.kmeans.max_iter = 300;
   p.kmeans.tol = 1e-4;
-  p.kmeans.verbose = false;
+  p.kmeans.verbosity = CUML_LEVEL_INFO;
   p.kmeans.seed = int(p.blobs.seed);
   p.kmeans.metric = 0;  // L2
   p.kmeans.inertia_check = true;

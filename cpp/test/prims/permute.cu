@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <algorithm>
 #include <vector>
 #include "cuda_utils.h"
