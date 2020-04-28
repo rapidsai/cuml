@@ -48,6 +48,7 @@
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #1914: Change the meaning of ARIMA's intercept to match the literature
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
+- PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 - PR #2146: Remove deprecated kalman filter
 
 ## Bug Fixes
