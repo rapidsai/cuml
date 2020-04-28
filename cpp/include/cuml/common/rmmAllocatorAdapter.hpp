@@ -32,7 +32,7 @@ namespace ML {
  */
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
-  rmmAllocatorAdapter(){}
+  rmmAllocatorAdapter() {}
 
   /**
    * @brief asynchronosly allocate n bytes that can be used after all work in
@@ -43,9 +43,8 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
    */
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
-    ptr = rmm::mr::get_default_resource()->allocate(n ,stream);
+    ptr = rmm::mr::get_default_resource()->allocate(n, stream);
     return ptr;
-
   }
 
   /**
@@ -61,7 +60,6 @@ class rmmAllocatorAdapter : public ML::deviceAllocator {
   }
 
   virtual ~rmmAllocatorAdapter() {}
-
 };
 
 }  // end namespace ML
