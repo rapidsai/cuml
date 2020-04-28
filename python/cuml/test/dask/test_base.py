@@ -37,20 +37,20 @@ def test_getattr(cluster):
 
     # Test getattr on local_model param with a non-distributed model
 
-    X_cudf, y = make_blobs(n_samples=5,
-                           n_features=5,
-                           centers=2,
-                           n_parts=2,
-                           cluster_std=0.01,
-                           verbose=False,
-                           random_state=10)
+    X, y = make_blobs(n_samples=5,
+                      n_features=5,
+                      centers=2,
+                      n_parts=2,
+                      cluster_std=0.01,
+                      verbose=False,
+                      random_state=10)
 
-    wait(X_cudf)
+    wait(X)
 
-    kmeans_model.fit(X_cudf)
+    kmeans_model.fit(X)
 
     assert kmeans_model.cluster_centers_ is not None
-    assert isinstance(kmeans_model.cluster_centers_, cudf.DataFrame)
+    assert isinstance(kmeans_model.cluster_centers_, cupy.core.ndarray)
 
     # Test getattr on trained distributed model
 
