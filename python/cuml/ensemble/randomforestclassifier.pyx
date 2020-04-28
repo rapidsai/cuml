@@ -617,7 +617,7 @@ class RandomForestClassifier(Base):
                 <int*> y_ptr,
                 <int> num_unique_labels,
                 rf_params,
-                <int> self.logging_level)
+                <int> self.verbosity)
 
         elif self.dtype == np.float64:
             rf_params64 = rf_params
@@ -629,7 +629,7 @@ class RandomForestClassifier(Base):
                 <int*> y_ptr,
                 <int> num_unique_labels,
                 rf_params64,
-                <int> self.logging_level)
+                <int> self.verbosity)
 
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
@@ -719,7 +719,7 @@ class RandomForestClassifier(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.logging_level)
+                    <int> self.verbosity)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -728,7 +728,7 @@ class RandomForestClassifier(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.logging_level)
+                    <int> self.verbosity)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
@@ -869,7 +869,7 @@ class RandomForestClassifier(Base):
                           <int> n_rows,
                           <int> n_cols,
                           <int*> preds_ptr,
-                          <int> self.logging_level)
+                          <int> self.verbosity)
 
         elif self.dtype == np.float64:
             predictGetAll(handle_[0],
@@ -878,7 +878,7 @@ class RandomForestClassifier(Base):
                           <int> n_rows,
                           <int> n_cols,
                           <int*> preds_ptr,
-                          <int> self.logging_level)
+                          <int> self.verbosity)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
@@ -1064,14 +1064,14 @@ class RandomForestClassifier(Base):
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.logging_level)
+                               <int> self.verbosity)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.logging_level)
+                               <int> self.verbosity)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."

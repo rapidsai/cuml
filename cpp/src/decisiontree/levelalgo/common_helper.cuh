@@ -21,6 +21,9 @@
 #include "random/rng.h"
 #include "stats/minmax.h"
 
+namespace ML {
+namespace DecisionTree {
+
 /*This functions does feature subsampling.
  *The default is reshuffling of a feature list at ever level followed by random start index in the reshuffled vector for each node.
  *In case full reshuffle is enabled. A reshuffle is performed for every node in the tree
@@ -318,3 +321,6 @@ void make_split_gather(const T *data, unsigned int *nodestart,
     flagsptr, nodestart, nrows, nodecount, samplelist);
   CUDA_CHECK(cudaGetLastError());
 }
+
+}  // namespace DecisionTree
+}  // namespace ML
