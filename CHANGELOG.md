@@ -51,6 +51,7 @@
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 - PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 - PR #2146: Remove deprecated kalman filter
+- PR #2156: Add Docker 19 support to local gpuci build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
