@@ -234,11 +234,11 @@ def test_homogeneity_score_big_array(use_handle, input_range):
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('input_range', [[0, 2],
                                          [-5, 20],
-                                         [int(-10e3), int(10e3)]])
+                                         [int(-10e2), int(10e2)]])
 def test_homogeneity_completeness_symmetry(use_handle, input_range):
-    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
-                                                          int(10e3),
-                                                          dtype=np.int32))
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e3),
+                                                              dtype=np.int32))
     hom = score_homogeneity(a, b, use_handle)
     com = score_completeness(b, a, use_handle)
     np.testing.assert_almost_equal(hom, com, decimal=4)
@@ -277,9 +277,9 @@ def test_completeness_non_complete_labeling(use_handle, data):
 @pytest.mark.parametrize('input_range', [[0, 1000],
                                          [-1000, 1000]])
 def test_completeness_score_big_array(use_handle, input_range):
-    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
-                                                          int(10e4),
-                                                          dtype=np.int32))
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e4),
+                                                              dtype=np.int32))
     score = score_completeness(a, b, use_handle)
     ref = sk_completeness_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
