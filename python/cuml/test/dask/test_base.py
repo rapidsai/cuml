@@ -14,7 +14,6 @@
 #
 
 import cupy
-import cudf
 
 from cuml.dask.cluster import KMeans
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
