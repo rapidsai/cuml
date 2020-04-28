@@ -25,6 +25,7 @@ from dask.distributed import Client
 from cuml.dask.datasets import make_blobs
 
 from cuml.test.utils import unit_param, quality_param, stress_param
+from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.dask.common.part_utils import _extract_partitions
 
@@ -96,14 +97,14 @@ def test_make_blobs(nrows,
 @pytest.mark.parametrize('noise', [1.0])
 @pytest.mark.parametrize('shuffle', [True, False])
 @pytest.mark.parametrize('coef', [True, False])
-@pytest.mark.parametrize('random_state', [None, 1234])
-@pytest.mark.parametrize('n_parts', [unit_param(1),
-                         stress_param(3)])
+@pytest.mark.parametrize('n_parts', [1, 4, 23])
+@pytest.mark.parametrize('order', ['F', 'C'])
+@pytest.mark.parametrize('use_full_low_rank', [True, False])
 def test_make_regression(n_samples, n_features, n_informative,
                          n_targets, bias, effective_rank,
                          tail_strength, noise, shuffle,
-                         coef, random_state, n_parts,
-                         cluster):
+                         coef, n_parts, order,
+                         use_full_low_rank, cluster):
     c = Client(cluster)
     try:
         from cuml.dask.datasets import make_regression
@@ -113,7 +114,9 @@ def test_make_regression(n_samples, n_features, n_informative,
                                  n_targets=n_targets, bias=bias,
                                  effective_rank=effective_rank, noise=noise,
                                  shuffle=shuffle, coef=coef,
-                                 random_state=random_state, n_parts=n_parts)
+                                 n_parts=n_parts,
+                                 use_full_low_rank=use_full_low_rank,
+                                 order=order)
 
         if coef:
             out, values, coefs = result
@@ -153,6 +156,27 @@ def test_make_regression(n_samples, n_features, n_informative,
                 "Unexpected number of informative features"
 
             assert test2, "Unexpectedly incongruent outputs"
+
+        data_ddh = DistributedDataHandler.create(data=(out, values),
+                                                 client=c)
+        out_part, value_part = data_ddh.gpu_futures[0][1].result()
+
+        if coef:
+            coefs_ddh = DistributedDataHandler.create(data=coefs,
+                                                      client=c)
+            coefs_part = coefs_ddh.gpu_futures[0][1].result()
+        if order == 'F':
+            assert out_part.flags['F_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['F_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['F_CONTIGUOUS']
+        elif order == 'C':
+            assert out_part.flags['C_CONTIGUOUS']
+            if n_targets > 1:
+                assert value_part.flags['C_CONTIGUOUS']
+                if coef:
+                    assert coefs_part.flags['C_CONTIGUOUS']
 
     finally:
         c.close()

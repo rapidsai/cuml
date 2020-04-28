@@ -63,6 +63,11 @@ bool Logger::shouldLogFor(int level) const {
   return logger->should_log(level_e);
 }
 
+int Logger::getLevel() const {
+  auto level_e = logger->level();
+  return static_cast<int>(level_e);
+}
+
 void Logger::log(int level, const char* fmt, ...) {
   auto level_e = static_cast<spdlog::level::level_enum>(level);
   // explicit check to make sure that we only expand messages when required

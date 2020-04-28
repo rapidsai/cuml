@@ -20,6 +20,7 @@
 * of all pair-wise comparisons between clusterings specified by a random model.
 */
 
+#include <common/cudart_utils.h>
 #include <math.h>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
