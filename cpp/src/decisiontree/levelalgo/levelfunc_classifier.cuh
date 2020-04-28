@@ -23,6 +23,10 @@
 #include "common_helper.cuh"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
+
+namespace ML {
+namespace DecisionTree {
+
 /*
 This is the driver function for building classification tree
 level by level using a simple for loop.
@@ -244,3 +248,6 @@ void grow_deep_tree_classification(
                       h_sparsenodes + lastsize);
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML
