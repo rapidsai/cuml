@@ -185,6 +185,8 @@ __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_phi,
   }
 }
 
+/// TODO: kernel can take only about 25% of execution time, optimize the rest
+///       e.g compute phi and theta in the kernel
 void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
                                 int batch_size, int n_obs,
                                 const ARIMAOrder& order,
@@ -333,6 +335,66 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                   trans, host_loglike, method, truncate, fc_steps, d_fc);
 
   params.deallocate(order, batch_size, allocator, stream, false);
+  ML::POP_RANGE();
+}
+
+void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
+                          int n_obs, const ARIMAOrder& order, const double* d_x,
+                          double* d_grad, double h, bool trans,
+                          LoglikeMethod method, int truncate) {
+  ML::PUSH_RANGE(__func__);
+  auto allocator = handle.getDeviceAllocator();
+  auto stream = handle.getStream();
+  auto counting = thrust::make_counting_iterator(0);
+  int N = order.complexity();
+
+  // Initialize the perturbed x vector
+  MLCommon::device_buffer<double> x_pert(allocator, stream, N * batch_size);
+  double* d_x_pert = x_pert.data();
+  MLCommon::copy(d_x_pert, d_x, N * batch_size, stream);
+
+  // Create buffers for the log-likelihood and residuals
+  MLCommon::device_buffer<double> ll_pos(allocator, stream, batch_size);
+  MLCommon::device_buffer<double> ll_neg(allocator, stream, batch_size);
+  MLCommon::device_buffer<double> res(
+    allocator, stream, (n_obs - order.lost_in_diff()) * batch_size);
+  double* d_ll_pos = ll_pos.data();
+  double* d_ll_neg = ll_neg.data();
+
+  for (int i = 0; i < N; i++) {
+    // Add the perturbation to the i-th parameter
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       d_x_pert[N * bid + i] = d_x[N * bid + i] + h;
+                     });
+
+    // Evaluate the log-likelihood with the positive perturbation
+    batched_loglike(handle, d_y, batch_size, n_obs, order, d_x_pert, d_ll_pos,
+                    res.data(), trans, false, method, truncate);
+
+    // Subtract the perturbation to the i-th parameter
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       d_x_pert[N * bid + i] = d_x[N * bid + i] - h;
+                     });
+
+    // Evaluate the log-likelihood with the negative perturbation
+    batched_loglike(handle, d_y, batch_size, n_obs, order, d_x_pert, d_ll_neg,
+                    res.data(), trans, false, method, truncate);
+
+    // First derivative with a second-order accuracy
+    thrust::for_each(thrust::cuda::par.on(stream), counting,
+                     counting + batch_size, [=] __device__(int bid) {
+                       d_grad[N * bid + i] =
+                         (d_ll_pos[bid] - d_ll_neg[bid]) / (2.0 * h);
+                     });
+
+    // Reset the i-th parameter
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size,
+      [=] __device__(int bid) { d_x_pert[N * bid + i] = d_x[N * bid + i]; });
+  }
+
   ML::POP_RANGE();
 }
 
