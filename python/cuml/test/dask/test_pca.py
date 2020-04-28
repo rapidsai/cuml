@@ -17,6 +17,7 @@ import pytest
 from dask.distributed import Client, wait
 
 import numpy as np
+import cupy as cp
 
 
 @pytest.mark.mg
@@ -43,8 +44,6 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
         wait(X_cudf)
 
-        print(str(X_cudf.head(3)))
-
         try:
 
             cupca = daskPCA(n_components=5, whiten=True)
@@ -52,7 +51,7 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
         except Exception as e:
             print(str(e))
 
-        X = X_cudf.compute().to_pandas().values
+        X = cp.asnumpy(X_cudf.compute())
 
         skpca = PCA(n_components=5, whiten=True, svd_solver="full")
         skpca.fit(X)

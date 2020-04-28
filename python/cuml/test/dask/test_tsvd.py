@@ -19,6 +19,7 @@ from dask.distributed import Client, wait
 import numpy as np
 from cuml.test.utils import array_equal, \
     unit_param, stress_param
+import cupy as cp
 
 
 @pytest.mark.mg
@@ -45,7 +46,7 @@ def test_pca_fit(data_info, cluster):
 
         wait(X_cudf)
 
-        X = X_cudf.compute().to_pandas().values
+        X = cp.asnumpy(X_cudf.compute())
 
         cutsvd = daskTPCA(n_components=5)
         cutsvd.fit(X_cudf)
