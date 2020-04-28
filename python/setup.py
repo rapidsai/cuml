@@ -125,8 +125,6 @@ treelite_path = os.path.join(treelite_path, "include")
 # on libcumlprims
 libs = ['cuda',
         'cuml++',
-        'cumlcomms',
-        'nccl',
         'rmm']
 
 include_dirs = ['../cpp/src',
@@ -159,6 +157,8 @@ if "--singlegpu" in sys.argv:
 
 else:
     libs.append('cumlprims')
+    libs.append('cumlcomms')
+    libs.append('nccl')
 
     sys_include = os.path.dirname(sysconfig.get_path("include"))
     include_dirs.append("%s/cumlprims" % sys_include)

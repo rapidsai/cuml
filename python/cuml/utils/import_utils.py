@@ -104,3 +104,11 @@ def has_scipy():
         return True
     except ImportError:
         return False
+
+
+def dummy_function_always_false(*args, **kwargs):
+    return False
+
+
+class DummyClass(object):
+    pass

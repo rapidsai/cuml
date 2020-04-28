@@ -22,14 +22,12 @@ from cuml.test.utils import array_equal, \
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(6e5),
-                         stress_param(5e6)])
-@pytest.mark.parametrize("ncols", [unit_param(20),
-                         stress_param(1000)])
-@pytest.mark.parametrize("n_parts", [unit_param(67)])
-def test_pca_fit(nrows, ncols, n_parts, cluster):
+@pytest.mark.parametrize("data_info", [unit_param([1000, 20, 30]),
+                         stress_param([9e6, 5000, 30])])
+def test_pca_fit(data_info, cluster):
 
     client = Client(cluster)
+    nrows, ncols, n_parts = data_info
 
     try:
 
@@ -74,17 +72,12 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(4e3),
-                         unit_param(7e5),
-                         stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(100),
-                         unit_param(1000),
-                         stress_param(5000)])
-@pytest.mark.parametrize("n_parts", [46])
-def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
+@pytest.mark.parametrize("data_info", [unit_param([1000, 20, 46]),
+                         stress_param([9e6, 5000, 46])])
+def test_pca_fit_transform_fp32(data_info, cluster):
 
     client = Client(cluster)
-
+    nrows, ncols, n_parts = data_info
     try:
         from cuml.dask.decomposition import TruncatedSVD as daskTPCA
         from cuml.dask.datasets import make_blobs
@@ -106,14 +99,12 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(7e5),
-                         stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(200),
-                         stress_param(5000)])
-@pytest.mark.parametrize("n_parts", [unit_param(33)])
-def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
+@pytest.mark.parametrize("data_info", [unit_param([1000, 20, 33]),
+                         stress_param([9e6, 5000, 33])])
+def test_pca_fit_transform_fp64(data_info, cluster):
 
     client = Client(cluster)
+    nrows, ncols, n_parts = data_info
 
     try:
         from cuml.dask.decomposition import TruncatedSVD as daskTPCA

@@ -16,28 +16,33 @@
 
 #pragma once
 
-#include <glm/qn/simple_mat.h>
+#include <glm/qn/simple_mat.cuh>
 #include "cuda_utils.h"
-#include "glm/qn/glm_base.h"
+#include "glm/qn/glm_base.cuh"
 #include "linalg/binary_op.h"
 
 namespace ML {
 namespace GLM {
 
 template <typename T>
-struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
-  typedef GLMBase<T, SquaredLoss<T>> Super;
+struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
+  typedef GLMBase<T, LogisticLoss<T>> Super;
 
-  SquaredLoss(const cumlHandle_impl &handle, int D, bool has_bias)
+  LogisticLoss(const cumlHandle_impl &handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias) {}
 
-  inline __device__ T lz(const T y, const T z) const {
-    T diff = y - z;
-    return diff * diff * 0.5;
+  inline __device__ T log_sigmoid(T x) const {
+    return -MLCommon::myLog(1 + MLCommon::myExp(-x));
   }
 
-  inline __device__ T dlz(const T y, const T z) const { return z - y; }
-};
+  inline __device__ T lz(const T y, const T z) const {
+    T ytil = 2 * y - 1;
+    return -log_sigmoid(ytil * z);
+  }
 
+  inline __device__ T dlz(const T y, const T z) const {
+    return T(1.0) / (T(1.0) + MLCommon::myExp(-z)) - y;
+  }
+};
 };  // namespace GLM
 };  // namespace ML
