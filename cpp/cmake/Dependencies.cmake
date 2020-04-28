@@ -42,13 +42,26 @@ ExternalProject_Add(cutlass
   INSTALL_COMMAND   "")
 
 ##############################################################################
+# - spdlog -------------------------------------------------------------------
+
+set(SPDLOG_DIR ${CMAKE_CURRENT_BINARY_DIR}/spdlog CACHE STRING
+  "Path to spdlog install directory")
+ExternalProject_Add(spdlog
+  GIT_REPOSITORY    https://github.com/gabime/spdlog.git
+  GIT_TAG           v1.x
+  PREFIX            ${SPDLOG_DIR}
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   "")
+
+##############################################################################
 # - faiss --------------------------------------------------------------------
 
 set(FAISS_DIR ${CMAKE_CURRENT_BINARY_DIR}/faiss CACHE STRING
   "Path to FAISS source directory")
 ExternalProject_Add(faiss
   GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-  GIT_TAG           v1.6.1
+  GIT_TAG           v1.6.2
   CONFIGURE_COMMAND LIBS=-pthread
                     CPPFLAGS=-w
                     LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
@@ -155,7 +168,8 @@ set_property(TARGET benchmarklib PROPERTY
 # This allows the cloning to happen sequentially, enhancing the printing at
 # compile time, helping significantly to troubleshoot build issues.
 add_dependencies(cutlass cub)
-add_dependencies(faiss cutlass)
+add_dependencies(spdlog cutlass)
+add_dependencies(faiss spdlog)
 add_dependencies(faisslib faiss)
 add_dependencies(treelite faiss)
 add_dependencies(googletest treelite)

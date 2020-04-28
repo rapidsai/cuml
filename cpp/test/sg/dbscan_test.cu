@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <vector>
@@ -30,6 +31,7 @@
 #include "ml_utils.h"
 #include "test_utils.h"
 
+#include <cuml/common/logger.hpp>
 #include "common/device_buffer.hpp"
 
 namespace ML {
@@ -82,7 +84,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
     dbscanFit(handle, out.data(), params.n_row, params.n_col, params.eps,
-              params.min_pts, labels, params.max_bytes_per_batch, false);
+              params.min_pts, labels, params.max_bytes_per_batch);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
@@ -90,14 +92,11 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                               params.n_centers - 1);
 
     if (score < 1.0) {
-      std::cout << "y: "
-                << arr2Str(labels_ref, 25, "labels_ref", handle.getStream())
-                << std::endl;
-      std::cout << "y_hat: "
-                << arr2Str(labels, 25, "labels", handle.getStream())
-                << std::endl;
-
-      std::cout << "Score = " << score << std::endl;
+      auto str = arr2Str(labels_ref, 25, "labels_ref", handle.getStream());
+      CUML_LOG_DEBUG("y: %s", str.c_str());
+      str = arr2Str(labels, 25, "labels", handle.getStream());
+      CUML_LOG_DEBUG("y_hat: %s", str.c_str());
+      CUML_LOG_DEBUG("Score = %lf", score);
     }
   }
 

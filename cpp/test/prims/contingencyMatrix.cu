@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <iostream>
@@ -24,7 +25,7 @@
 namespace MLCommon {
 namespace Metrics {
 
-struct contingencyMatrixParam {
+struct ContingencyMatrixParam {
   int nElements;
   int minClass;
   int maxClass;
@@ -34,11 +35,11 @@ struct contingencyMatrixParam {
 };
 
 template <typename T>
-class ContingencyMatrixTestImpl
-  : public ::testing::TestWithParam<contingencyMatrixParam> {
+class ContingencyMatrixTest
+  : public ::testing::TestWithParam<ContingencyMatrixParam> {
  protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<contingencyMatrixParam>::GetParam();
+    params = ::testing::TestWithParam<ContingencyMatrixParam>::GetParam();
 
     int numElements = params.nElements;
     int lowerLabelRange = params.minClass;
@@ -70,51 +71,47 @@ class ContingencyMatrixTestImpl
       std::replace(y_hat.begin(), y_hat.end(), y2, y2_R);
     }
 
-    numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-
-    // generate golden output on CPU
-    size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
-    int *hGoldenOutput = (int *)malloc(sizeOfMat);
-    memset(hGoldenOutput, 0, sizeOfMat);
-
-    for (int i = 0; i < numElements; i++) {
-      int row = y[i] - lowerLabelRange;
-      int column = y_hat[i] - lowerLabelRange;
-
-      hGoldenOutput[row * numUniqueClasses + column] += 1;
-    }
-
     CUDA_CHECK(cudaStreamCreate(&stream));
     MLCommon::allocate(dY, numElements);
     MLCommon::allocate(dYHat, numElements);
-    MLCommon::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
-    MLCommon::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
-
-    size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
-      numElements, dY, stream, lowerLabelRange, upperLabelRange);
-
-    if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
 
     MLCommon::updateDevice(dYHat, &y_hat[0], numElements, stream);
     MLCommon::updateDevice(dY, &y[0], numElements, stream);
+
+    if (params.calcCardinality) {
+      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
+                                                  minLabel, maxLabel);
+    } else {
+      minLabel = lowerLabelRange;
+      maxLabel = upperLabelRange;
+    }
+
+    numUniqueClasses = maxLabel - minLabel + 1;
+
+    MLCommon::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
+    MLCommon::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
+
+    // generate golden output on CPU
+    size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
+    hGoldenOutput = (int *)malloc(sizeOfMat);
+    memset(hGoldenOutput, 0, sizeOfMat);
+
+    for (int i = 0; i < numElements; i++) {
+      auto row = y[i] - minLabel;
+      auto column = y_hat[i] - minLabel;
+      hGoldenOutput[row * numUniqueClasses + column] += 1;
+    }
+
     MLCommon::updateDevice(dGoldenOutput, hGoldenOutput,
                            numUniqueClasses * numUniqueClasses, stream);
 
-    if (params.calcCardinality) {
-      T minLabel, maxLabel;
-      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
-                                                  minLabel, maxLabel);
-      // allocate dComputedOutput using minLabel, maxLabel count - already done above
-      MLCommon::Metrics::contingencyMatrix(
-        dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
-        workspaceSz, minLabel, maxLabel);
-    } else
-      MLCommon::Metrics::contingencyMatrix(
-        dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
-        workspaceSz, lowerLabelRange, upperLabelRange);
+    workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
+      numElements, dY, stream, minLabel, maxLabel);
+    if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
   }
 
   void TearDown() override {
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     free(hGoldenOutput);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(dY));
@@ -124,32 +121,46 @@ class ContingencyMatrixTestImpl
     if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
   }
 
-  contingencyMatrixParam params;
+  void RunTest() {
+    int numElements = params.nElements;
+    MLCommon::Metrics::contingencyMatrix(
+      dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
+      workspaceSz, minLabel, maxLabel);
+    ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
+                            numUniqueClasses * numUniqueClasses, Compare<T>()));
+  }
+
+  ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T *dY = nullptr;
   T *dYHat = nullptr;
+  T minLabel, maxLabel;
   int *dComputedOutput = nullptr;
   int *dGoldenOutput = nullptr;
   int *hGoldenOutput = nullptr;
   char *pWorkspace = nullptr;
   cudaStream_t stream;
+  size_t workspaceSz;
 };
 
-const std::vector<contingencyMatrixParam> inputs = {
+const std::vector<ContingencyMatrixParam> inputs = {
   {10000, 1, 10, true, false, 0.000001},
+  {10000, 1, 5000, true, false, 0.000001},
+  {10000, 1, 10000, true, false, 0.000001},
+  {10000, 1, 20000, true, false, 0.000001},
+  {10000, 1, 10, false, false, 0.000001},
+  {10000, 1, 5000, false, false, 0.000001},
+  {10000, 1, 10000, false, false, 0.000001},
+  {10000, 1, 20000, false, false, 0.000001},
   {100000, 1, 100, false, false, 0.000001},
   {1000000, 1, 1200, true, false, 0.000001},
   {1000000, 1, 10000, false, false, 0.000001},
-  {100000, 1, 100, false, true, 0.000001}};
+  {100000, 1, 100, false, true, 0.000001},
+};
 
-typedef ContingencyMatrixTestImpl<int> ContingencyMatrixTestImplS;
-TEST_P(ContingencyMatrixTestImplS, Result) {
-  ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
-                          numUniqueClasses * numUniqueClasses,
-                          CompareApprox<float>(params.tolerance)));
-}
-
-INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestImplS,
+typedef ContingencyMatrixTest<int> ContingencyMatrixTestS;
+TEST_P(ContingencyMatrixTestS, Result) { RunTest(); }
+INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestS,
                         ::testing::ValuesIn(inputs));
 }  // namespace Metrics
 }  // namespace MLCommon

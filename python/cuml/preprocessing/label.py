@@ -13,13 +13,12 @@
 # limitations under the License.
 #
 
-import scipy
 import cupy as cp
 
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
 
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary, has_scipy
 
 
 def label_binarize(y, classes, neg_label=0, pos_label=1,
@@ -226,10 +225,16 @@ class LabelBinarizer(object):
         arr : array with original labels
         """
 
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
+
         # If we are already given multi-class, just return it.
         if cp.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
-        elif scipy.sparse.isspmatrix(y):
+        elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()
             y_mapped = rmm_cupy_ary(cp.array, y.indices,
                                     dtype=y.indices.dtype)

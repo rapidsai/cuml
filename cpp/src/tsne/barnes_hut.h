@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
+#include <common/cudart_utils.h>
+#include <cuml/common/logger.hpp>
 #include "bh_kernels.h"
 #include "utils.h"
 
@@ -42,7 +44,6 @@ namespace TSNE {
  * @param[in] pre_momentum: The momentum used during the exaggeration phase.
  * @param[in] post_momentum: The momentum used after the exaggeration phase.
  * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @param[in] verbose: Whether to print error messages or not.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n,
@@ -53,7 +54,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float post_learning_rate = 500.0f,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
-                const long long random_state = -1, const bool verbose = true) {
+                const long long random_state = -1) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -65,7 +66,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
   while ((nnodes & (32 - 1)) != 0) nnodes++;
   nnodes--;
-  if (verbose) printf("N_nodes = %d blocks = %d\n", nnodes, blocks);
+  CUML_LOG_DEBUG("N_nodes = %d blocks = %d", nnodes, blocks);
 
   // Allocate more space
   //---------------------------------------------------
@@ -150,7 +151,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Do gradient updates
   //---------------------------------------------------
-  if (verbose) printf("[Info] Start gradient updates!\n");
+  CUML_LOG_DEBUG("Start gradient updates!");
 
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
