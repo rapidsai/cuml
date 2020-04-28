@@ -61,7 +61,6 @@ def test_make_blobs(nrows,
                           order=order,
                           client=c)
 
-        print(X.chunks)
         assert len(X.chunks[0]) == nparts
         assert len(y.chunks[0]) == nparts
 
@@ -128,7 +127,6 @@ def test_make_regression(n_samples, n_features, n_informative,
                    "values shape mismatch"
         else:
             assert values.shape == (n_samples,), "values shape mismatch"
-            print(values.compute())
 
         assert len(out.chunks[0]) == n_parts
         assert len(out.chunks[1]) == 1
