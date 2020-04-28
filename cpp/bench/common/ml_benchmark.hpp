@@ -19,11 +19,11 @@
 #include <benchmark/benchmark.h>
 #include <common/cudart_utils.h>
 #include <cuda_runtime.h>
+#include <cuda_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <memory>
-#include <cuda_utils.h>
-#include <cuml/common/logger.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -85,11 +85,11 @@ struct CudaEventTimer {
   cudaEvent_t stop;
 };  // end struct CudaEventTimer
 
-/** Main fixture to be inherited and used by all other c++ benchmarks in cuml */ 
+/** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
 class Fixture : public ::benchmark::Fixture {
  public:
   Fixture(const std::string& name, std::shared_ptr<deviceAllocator> _alloc)
-    : ::benchmark::Fixture(), d_alloc(_alloc) { 
+    : ::benchmark::Fixture(), d_alloc(_alloc) {
     SetName(name.c_str());
   }
   Fixture() = delete;
