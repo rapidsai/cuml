@@ -169,7 +169,7 @@ def test_accuracy_runner():
 
 # Only test a few algorithms (which collectively span several types)
 # to reduce runtime burden
-@pytest.mark.parametrize('algo_name', ['UMAP',
+@pytest.mark.parametrize('algo_name', ['UMAP-Supervised',
                                        'DBSCAN',
                                        'LogisticRegression',
                                        'ElasticNet',
