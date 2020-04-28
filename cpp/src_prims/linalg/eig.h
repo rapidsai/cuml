@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuda_runtime_api.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
