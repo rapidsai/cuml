@@ -1,13 +1,13 @@
-#include <glm/qn/glm_linear.h>
-#include <glm/qn/glm_logistic.h>
-#include <glm/qn/glm_softmax.h>
-#include <glm/qn/qn.h>
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <cuml/linear_model/glm.hpp>
+#include <glm/qn/glm_linear.cuh>
+#include <glm/qn/glm_logistic.cuh>
+#include <glm/qn/glm_softmax.cuh>
+#include <glm/qn/qn.cuh>
 #include <vector>
 #include "test_utils.h"
-#include "utils.h"
 
 namespace ML {
 namespace GLM {

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <linalg/add.h>
 #include <linalg/gemm.h>
 #include <linalg/norm.h>
@@ -29,7 +30,7 @@
 #include <stats/sum.h>
 #include "common/cumlHandle.hpp"
 #include "ml_utils.h"
-#include "preprocess.h"
+#include "preprocess.cuh"
 
 namespace ML {
 namespace GLM {
