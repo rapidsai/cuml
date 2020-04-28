@@ -141,7 +141,7 @@ typedef TreeMetaDataNode<float, int> TreeClassifierF;
 typedef TreeMetaDataNode<double, int> TreeClassifierD;
 
 /**
- * @defgroup Decision Tree Classifier - Fit function
+ * @defgroup DecisionTreeClassifierFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
  * @param[in] handle: cumlHandle
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
@@ -177,7 +177,7 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
 /** @} */
 
 /**
- * @defgroup Decision Tree Classifier - Predict function
+ * @defgroup DecisionTreeClassifierPredict Predict functions
  * @brief Predict target feature for input data; n-ary classification for
  *   single feature supported. Inference of trees is CPU only for now.
  * @param[in] handle: cumlHandle (currently unused; API placeholder)
@@ -212,7 +212,7 @@ typedef TreeMetaDataNode<float, float> TreeRegressorF;
 typedef TreeMetaDataNode<double, double> TreeRegressorD;
 
 /**
- * @defgroup Decision Tree Regressor - Fit function
+ * @defgroup DecisionTreeRegressorFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree regressor for input data.
  * @param[in] handle: cumlHandle
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
@@ -243,7 +243,7 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
 /** @} */
 
 /**
- * @defgroup Decision Tree Regressor - Predict function
+ * @defgroup DecisionTreeRegressorPredict Predict functions
  * @brief Predict target feature for input data; regression for single feature supported.
  *   Inference of trees is CPU only for now.
  * @param[in] handle: cumlHandle (currently unused; API placeholder)
