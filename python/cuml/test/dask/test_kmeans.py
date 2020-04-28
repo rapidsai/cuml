@@ -25,6 +25,8 @@ from dask.distributed import Client, wait
 
 from sklearn.metrics import adjusted_rand_score
 
+from cuml.dask.common.dask_arr_utils import dask_array_to_dask_cudf
+
 SCORE_EPS = 0.06
 
 
@@ -49,14 +51,16 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, y = make_blobs(n_samples=nrows,
-                               n_features=ncols,
-                               centers=nclusters,
-                               n_parts=n_parts,
-                               cluster_std=0.01, verbose=False,
-                               random_state=10)
+        X, y = make_blobs(n_samples=int(nrows),
+                            n_features=ncols,
+                            centers=nclusters,
+                            n_parts=n_parts,
+                            cluster_std=0.01, verbose=False,
+                            random_state=10)
 
-        wait(X_cudf)
+        wait(X)
+        X_cudf = dask_array_to_dask_cudf(X)
+        y_cudf = dask_array_to_dask_cudf(y)
 
         cumlModel = cumlKMeans(verbose=0, init="k-means||",
                                n_clusters=nclusters,
@@ -79,7 +83,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         assert np.max(cumlPred) == nclusters - 1
         assert np.min(cumlPred) == 0
 
-        labels = np.squeeze(y.compute().to_pandas().values)
+        labels = np.squeeze(y_cudf.compute().to_pandas().values)
 
         score = adjusted_rand_score(labels, cp.squeeze(cumlPred.get()))
 
@@ -111,7 +115,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, y = make_blobs(n_samples=nrows,
+        X, y = make_blobs(n_samples=int(nrows),
                                n_features=ncols,
                                centers=nclusters,
                                n_parts=n_parts,
@@ -120,7 +124,9 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
                                shuffle=False,
                                random_state=10)
 
-        wait(X_cudf)
+        wait(X)
+        X_cudf = dask_array_to_dask_cudf(X)
+        y_cudf = dask_array_to_dask_cudf(y)
 
         cumlModel = cumlKMeans(verbose=0, init="k-means||",
                                n_clusters=nclusters,
@@ -128,7 +134,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
 
         cumlModel.fit(X_cudf)
 
-        labels = np.squeeze(y.compute().to_pandas().values)
+        labels = np.squeeze(y_cudf.compute().to_pandas().values)
 
         xformed = cumlModel.transform(X_cudf).compute()
 
@@ -173,7 +179,7 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
 
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, y = make_blobs(n_samples=nrows,
+        X, y = make_blobs(n_samples=int(nrows),
                                n_features=ncols,
                                centers=nclusters,
                                n_parts=n_parts,
@@ -181,7 +187,9 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
                                shuffle=False,
                                random_state=10)
 
-        wait(X_cudf)
+        wait(X)
+        X_cudf = dask_array_to_dask_cudf(X)
+        y_cudf = dask_array_to_dask_cudf(y)
 
         cumlModel = cumlKMeans(verbose=0, init="k-means||",
                                n_clusters=nclusters,
