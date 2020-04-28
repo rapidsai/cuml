@@ -45,6 +45,7 @@
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
+- PR #1914: Change the meaning of ARIMA's intercept to match the literature
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 - PR #2146: Remove deprecated kalman filter
 
