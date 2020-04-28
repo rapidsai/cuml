@@ -186,7 +186,6 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
-    rows_per_part = math.ceil(n_samples / n_parts)
 
     n_clusters = n_classes * n_clusters_per_class
 
@@ -220,14 +219,16 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         scale = 1 + 100 * rs.rand(n_features, dtype=dtype)
 
     # Create arrays on each worker (gpu)
-    worker_rows = []
-    rows_so_far = 0
-    for idx, worker in enumerate(parts_workers):
-        if rows_so_far + rows_per_part <= n_samples:
-            rows_so_far += rows_per_part
-            worker_rows.append(rows_per_part)
-        else:
-            worker_rows.append((int(n_samples) - rows_so_far))
+    rows_per_part = max(1, int(n_samples / n_parts))
+
+    worker_rows = [rows_per_part] * n_parts
+
+    if rows_per_part == 1:
+        worker_rows[-1] += n_samples % n_parts
+    else:
+        worker_rows[-1] += n_samples % rows_per_part
+
+    worker_rows = tuple(worker_rows)
 
     part_seeds = rs.permutation(n_parts)
     parts = [client.submit(sg_make_classification, worker_rows[i], n_features,

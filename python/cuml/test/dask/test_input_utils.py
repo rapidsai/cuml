@@ -20,6 +20,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from dask.distributed import Client
 import dask.array as da
 import cupy as cp
+from cuml.dask.common.dask_arr_utils import dask_array_to_dask_cudf
 
 
 @pytest.mark.mg
@@ -33,14 +34,20 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
     client = Client(cluster)
 
     try:
+
         adj_input_type = 'dataframe' if input_type == 'series' else input_type
 
-        X, y = make_blobs(n_samples=nrows, n_features=ncols, n_parts=n_parts,
-                          output=adj_input_type)
+        X_arr, y_arr = make_blobs(n_samples=int(nrows), n_features=ncols,
+                                  n_parts=n_parts)
+
+        if adj_input_type == "dataframe" or input_type == "dataframe":
+            X = dask_array_to_dask_cudf(X_arr)
+            y = dask_array_to_dask_cudf(y_arr)
+        elif input_type == "array":
+            X, y = X_arr, y_arr
 
         if input_type == "series":
             X = X[X.columns[0]]
-            y = y[y.columns[0]]
 
         if colocated:
             ddh = DistributedDataHandler.create((X, y), client)
@@ -66,12 +73,17 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
     try:
         adj_input_type = 'dataframe' if input_type == 'series' else input_type
 
-        X, y = make_blobs(n_samples=nrows, n_features=ncols, n_parts=n_parts,
-                          output=adj_input_type)
+        X_arr, y_arr = make_blobs(n_samples=nrows, n_features=ncols,
+                                  n_parts=n_parts)
+
+        if adj_input_type == "dataframe" or input_type == "dataframe":
+            X = dask_array_to_dask_cudf(X_arr)
+            y = dask_array_to_dask_cudf(y_arr)
+        elif input_type == "array":
+            X, y = X_arr, y_arr
 
         if input_type == "series":
             X = X[X.columns[0]]
-            y = y[y.columns[0]]
 
         if input_type == "dataframe" or input_type == "series":
             X_len_parts = X.map_partitions(len).compute()

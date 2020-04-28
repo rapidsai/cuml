@@ -111,7 +111,6 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
-    rows_per_part = math.ceil(n_samples / n_parts)
 
     centers, n_centers = _get_centers(generator, centers, center_box,
                                       n_samples, n_features,
@@ -123,16 +122,16 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
               (math.ceil(n_samples / len(workers)),
                n_parts, len(workers), n_samples))
 
-    # Create dfs on each worker (gpu)
-    parts = []
-    worker_rows = []
-    rows_so_far = 0
-    for idx, worker in enumerate(parts_workers):
-        if rows_so_far + rows_per_part <= n_samples:
-            rows_so_far += rows_per_part
-            worker_rows.append(rows_per_part)
-        else:
-            worker_rows.append((int(n_samples) - rows_so_far))
+    rows_per_part = max(1, int(n_samples / n_parts))
+
+    worker_rows = [rows_per_part] * n_parts
+
+    if rows_per_part == 1:
+        worker_rows[-1] += n_samples % n_parts
+    else:
+        worker_rows[-1] += n_samples % rows_per_part
+
+    worker_rows = tuple(worker_rows)
 
     seeds = generator.randint(n_samples, size=len(parts_workers))
     parts = [client.submit(_create_local_data,
