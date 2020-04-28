@@ -45,6 +45,7 @@
 - PR #1883: Use CumlArray in ARIMA
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
+- PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
