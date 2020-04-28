@@ -19,7 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import numpy as np
+import cupy as cp
 import warnings
 
 from libc.stdint cimport uintptr_t
@@ -39,7 +39,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                              int upper_class_range)
 
 
-def adjusted_rand_score(labels_true, labels_pred, handle=None):
+def adjusted_rand_score(labels_true, labels_pred, handle=None, convert_dtype=True):
     """
     Adjusted_rand_score is a clustering similarity metric based on the Rand
     index and is corrected for chance.
@@ -63,22 +63,24 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None):
         <cumlHandle*><size_t>handle.getHandle()
 
     labels_true, n_rows, _, _ = \
-        input_to_cuml_array(labels_true, order='C', check_dtype=np.int32,
-                            convert_to_dtype=np.int32)
+        input_to_cuml_array(labels_true, order='C', check_dtype=cp.int32,
+                            convert_to_dtype=(cp.int32 if convert_dtype
+                                              else None))
 
     labels_pred, _, _, _ = \
-        input_to_cuml_array(labels_pred, order='C', check_dtype=np.int32,
-                            convert_to_dtype=np.int32)
+        input_to_cuml_array(labels_pred, order='C', check_dtype=cp.int32,
+                            convert_to_dtype=(cp.int32 if convert_dtype
+                                              else None))
 
-    labels_true_np = labels_true.to_output('numpy')
-    labels_pred_np = labels_pred.to_output('numpy')
+    labels_true_cp = labels_true.to_output('cupy')
+    labels_pred_cp = labels_pred.to_output('cupy')
 
-    min_val_y = np.nanmin(labels_true_np)
-    lower_class_range = np.nanmin(labels_pred_np) \
-        if min_val_y > np.nanmin(labels_pred_np) else np.nanmin(labels_true_np)
-    max_val_y = np.nanmax(labels_true_np)
-    upper_class_range = np.nanmax(labels_pred_np) \
-        if max_val_y < np.nanmax(labels_pred_np) else np.nanmax(labels_true_np)
+    min_val_y = cp.nanmin(labels_true_cp)
+    lower_class_range = cp.nanmin(labels_pred_cp) \
+        if min_val_y > cp.nanmin(labels_pred_cp) else cp.nanmin(labels_true_cp)
+    max_val_y = cp.nanmax(labels_true_cp)
+    upper_class_range = cp.nanmax(labels_pred_cp) \
+        if max_val_y < cp.nanmax(labels_pred_cp) else cp.nanmax(labels_true_cp)
 
     rand_score = adjustedRandIndex(handle_[0],
                                    <int*><uintptr_t> labels_true.ptr,
