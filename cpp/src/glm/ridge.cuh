@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <linalg/add.h>
 #include <linalg/gemm.h>
 #include <linalg/norm.h>
