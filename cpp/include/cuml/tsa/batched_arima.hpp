@@ -28,16 +28,16 @@ enum LoglikeMethod { CSS, MLE };
  * in a batched context.
  *
  * @param[in]  handle       cuML handle
- * @param[in]  d_y          Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
- * @param[in]  nobs         Number of observations in a time series
+ * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  d_params     Parameters to evaluate grouped by series:
  *                          [mu0, ar.., ma.., mu1, ..] (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (nobs-d-s*D, batch_size) (device)
+ *                          shape = (n_obs-d-s*D, batch_size) (device)
  *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
@@ -48,7 +48,7 @@ enum LoglikeMethod { CSS, MLE };
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, const ARIMAOrder& order, const double* d_params,
+                     int n_obs, const ARIMAOrder& order, const double* d_params,
                      double* loglike, double* d_vs, bool trans = true,
                      bool host_loglike = true, LoglikeMethod method = MLE,
                      int truncate = 0, int fc_steps = 0,
@@ -62,15 +62,15 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  *        to avoid useless packing / unpacking
  *
  * @param[in]  handle       cuML handle
- * @param[in]  d_y          Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
- * @param[in]  nobs         Number of observations in a time series
+ * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  params       ARIMA parameters (device)
  * @param[out] loglike      Log-Likelihood of the model per series (host)
  * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (nobs-d-s*D, batch_size) (device)
+ *                          shape = (n_obs-d-s*D, batch_size) (device)
  *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
@@ -81,11 +81,20 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  d_fc         Array to store the forecast
  */
 void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
-                     int nobs, const ARIMAOrder& order,
+                     int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
                      LoglikeMethod method = MLE, int truncate = 0,
                      int fc_steps = 0, double* d_fc = nullptr);
+
+/**
+ * @todo: docs
+ */
+void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
+                          int n_obs, const ARIMAOrder& order,
+                          const double* d_x, double* d_grad, double h,
+                          bool trans = true, LoglikeMethod method = MLE,
+                          int truncate = 0);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
@@ -95,7 +104,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  d_y         Batched Time series to predict.
  *                         Shape: (num_samples, batch size) (device)
  * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
+ * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  start       Index to start the prediction
  * @param[in]  end         Index to end the prediction (excluded)
@@ -104,7 +113,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[out] d_vs        Residual output (device)
  * @param[out] d_y_p       Prediction output (device)
  */
-void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, const ARIMAOrder& order,
              const ARIMAParams<double>& params, double* d_vs, double* d_y_p);
 
@@ -112,10 +121,10 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  * Compute an information criterion (AIC, AICc, BIC)
  *
  * @param[in]  handle      cuML handle
- * @param[in]  d_y         Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
  *                         expects column major data layout. (device)
  * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
+ * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  * @param[in]  params      ARIMA parameters (device)
@@ -125,7 +134,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int nobs,
  *                         0: AIC, 1: AICc, 2: BIC
  */
 void information_criterion(cumlHandle& handle, const double* d_y,
-                           int batch_size, int nobs, const ARIMAOrder& order,
+                           int batch_size, int n_obs, const ARIMAOrder& order,
                            const ARIMAParams<double>& params, double* ic,
                            int ic_type);
 
@@ -134,15 +143,15 @@ void information_criterion(cumlHandle& handle, const double* d_y,
  *
  * @param[in]  handle      cuML handle
  * @param[in]  params      ARIMA parameters (device)
- * @param[in]  d_y         Series to fit: shape = (nobs, batch_size) and
+ * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
  *                         expects column major data layout. (device)
  * @param[in]  batch_size  Total number of batched time series
- * @param[in]  nobs        Number of samples per time series
+ * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
  */
 void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
-                 const double* d_y, int batch_size, int nobs,
+                 const double* d_y, int batch_size, int n_obs,
                  const ARIMAOrder& order);
 
 }  // namespace ML

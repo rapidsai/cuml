@@ -51,6 +51,8 @@ from libcpp.vector cimport vector
 from cuml.common.array import CumlArray as cumlArray
 # TODO: remove duplicate after merging cuML array PR
 
+# TODO: compute difference only once to accelerate fit()
+
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
     ctypedef struct ARIMAOrder:
@@ -80,6 +82,11 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         const ARIMAOrder& order, const double* params, double* loglike,
         double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
         int truncate)
+    
+    void batched_loglike_grad(
+        cumlHandle& handle, const double* d_y, int batch_size, int nobs,
+        const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
+        bool trans, LoglikeMethod method, int truncate)
 
     void cpp_predict "predict" (
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
@@ -756,38 +763,25 @@ class ARIMA(Base):
         N = self.complexity
         assert len(x) == N * self.batch_size
 
-        fd = np.zeros(N)
-        grad = np.zeros(len(x))
+        grad = cumlArray.empty(N * self.batch_size, np.float64)
+        cdef uintptr_t d_grad = <uintptr_t> grad.ptr
 
-        # Get current numpy error level and change all to 'raise'
-        err_lvl = np.seterr(all='raise')
+        cdef ARIMAOrder order = self.order
 
-        for i in range(N):
-            fd[i] = h
+        cdef uintptr_t d_x_ptr
+        d_x_array, d_x_ptr, _, _, _ = \
+            input_to_dev_array(x, check_dtype=np.float64, order='C')
 
-            # duplicate the perturbation across batches (they are independent)
-            fdph = np.tile(fd, self.batch_size)
+        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-            # reset perturbation
-            fd[i] = 0.0
+        cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
+        batched_loglike_grad(handle_[0], <double*> d_y_ptr,
+                             <int> self.batch_size, <int> self.n_obs, order,
+                             <double*> d_x_ptr, <double*> d_grad, <double> h,
+                             <bool> trans, ll_method, <int> truncate)
 
-            ll_b_ph = self._loglike(x + fdph, trans, method, truncate=0)
-            ll_b_mh = self._loglike(x - fdph, trans, method, truncate=0)
-
-            # first derivative second order accuracy
-            grad_i_b = (ll_b_ph - ll_b_mh) / (2 * h)
-
-            if self.batch_size == 1:
-                grad[i] = grad_i_b
-            else:
-                assert len(grad[i::N]) == len(grad_i_b)
-                # Distribute the result to all batches
-                grad[i::N] = grad_i_b
-
-        # Reset numpy error levels
-        np.seterr(**err_lvl)
-
-        return grad
+        return grad.to_output("numpy")
 
     @property
     def llf(self):
