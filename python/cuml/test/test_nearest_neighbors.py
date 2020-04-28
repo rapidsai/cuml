@@ -28,10 +28,11 @@ import cudf
 import pandas as pd
 import numpy as np
 
-import scipy.stats as stats
+from cuml.utils import has_scipy
 
 
 def predict(neigh_ind, _y, n_neighbors):
+    import scipy.stats as stats
 
     neigh_ind = neigh_ind.astype(np.int32)
 
@@ -46,6 +47,9 @@ def predict(neigh_ind, _y, n_neighbors):
 @pytest.mark.parametrize("n_clusters", [2, 10])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype):
+    if not has_scipy():
+        pytest.skip('Skipping test_neighborhood_predictions because ' +
+                    'Scipy is missing')
 
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
                       n_features=ncols, random_state=0)

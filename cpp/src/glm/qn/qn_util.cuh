@@ -15,8 +15,8 @@
  */
 
 #pragma once
-
 #include <cuml/common/logger.hpp>
+#include "cuda_utils.h"
 
 namespace ML {
 namespace GLM {
