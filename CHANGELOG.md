@@ -51,6 +51,8 @@
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 - PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 - PR #2146: Remove deprecated kalman filter
+- PR #2120: Speeding up dask RandomForest tests
+- PR #1883: Use CumlArray in ARIMA
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -65,11 +67,17 @@
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
 <<<<<<< HEAD
+<<<<<<< HEAD
 - PR #2077: dask-make blobs arguments to match sklearn
 =======
 - PR #2059: Make all Scipy imports conditional
 - PR #2077L dask-make blobs arguments to match sklearn
 >>>>>>> original/branch-0.14
+=======
+- PR #2077: dask-make blobs arguments to match sklearn
+- PR #2059: Make all Scipy imports conditional
+- PR #2077: dask-make blobs arguments to match sklearn
+>>>>>>> 46da22fccecad4484e295568f54812ba0f9ed8fd
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
