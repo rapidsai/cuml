@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <treelite/c_api.h>
 
 namespace ML {
 enum SPLIT_ALGO {
@@ -30,5 +31,13 @@ enum CRITERION {
   MAE,
   CRITERION_END,
 };
+
+/** check for treelite runtime API errors and assert accordingly */
+#define TREELITE_CHECK(call)                                            \
+  do {                                                                  \
+    int status = call;                                                  \
+    ASSERT(status >= 0, "TREELITE FAIL: call='%s'. Reason:%s\n", #call, \
+           TreeliteGetLastError());                                     \
+  } while (0)
 
 };  // namespace ML

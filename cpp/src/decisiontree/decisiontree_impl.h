@@ -27,14 +27,6 @@
 #include <vector>
 #include "levelalgo/metric_def.h"
 
-/** check for treelite runtime API errors and assert accordingly */
-#define TREELITE_CHECK(call)                                            \
-  do {                                                                  \
-    int status = call;                                                  \
-    ASSERT(status >= 0, "TREELITE FAIL: call='%s'. Reason:%s\n", #call, \
-           TreeliteGetLastError());                                     \
-  } while (0)
-
 namespace ML {
 
 bool is_dev_ptr(const void *p);
