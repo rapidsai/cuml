@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import logging
 import os
 import numba.cuda
+import random
+import time
+
+from dask.distributed import default_client
 
 from cuml.utils import device_of_gpu_matrix
-from cuml import Base
 
 from asyncio import InvalidStateError
 
-import time
-
 from threading import Lock
-
-import cupy as cp
-import copyreg
 
 
 def get_visible_devices():
@@ -81,6 +80,10 @@ def select_device(dev, close=True):
             logging.warn("Current device " +
                          str(numba.cuda.get_current_device()) +
                          " does not match expected " + str(dev))
+
+
+def get_client(client=None):
+    return default_client() if client is None else client
 
 
 def parse_host_port(address):
@@ -148,34 +151,6 @@ def raise_mg_import_exception():
                     " enable multiGPU support.")
 
 
-def patch_cupy_sparse_serialization(client):
-    """
-    This function provides a temporary fix for a bug
-    in CuPy that doesn't properly serialize cuSPARSE handles.
-
-    Reference: https://github.com/cupy/cupy/issues/3061
-
-    Parameters
-    ----------
-
-    client : dask.distributed.Client client to use
-    """
-
-    from distributed.protocol import register_generic
-
-    def patch_func():
-        def serialize_mat_descriptor(m):
-            return cp.cupy.cusparse.MatDescriptor.create, ()
-
-        register_generic(Base)
-
-        copyreg.pickle(cp.cupy.cusparse.MatDescriptor,
-                       serialize_mat_descriptor)
-
-    patch_func()
-    client.run(patch_func)
-
-
 class MultiHolderLock:
     """
     A per-process synchronization lock allowing multiple concurrent holders
@@ -200,6 +175,7 @@ class MultiHolderLock:
 
     def _acquire(self, blocking=True, timeout=10):
         lock_acquired = False
+
         inner_lock_acquired = self.lock.acquire(blocking, timeout)
 
         if inner_lock_acquired and self.current_tasks < self.n - 1:
@@ -228,6 +204,7 @@ class MultiHolderLock:
                 raise TimeoutError()
 
             lock_acquired = self.acquire(blocking, timeout)
+            time.sleep(random.uniform(0, 0.01))
 
         return lock_acquired
 

@@ -122,7 +122,7 @@ test_101_111_4 = ARIMAData(
     dataset="alcohol",
     start=80,
     end=110,
-    tolerance_integration=0.005
+    tolerance_integration=0.02
 )
 
 # ARIMA(1,1,1)(2,0,0)_4
@@ -168,7 +168,7 @@ test_data = {
     (1, 0, 1, 1, 1, 1, 4, 0): test_101_111_4,
     (1, 1, 1, 2, 0, 0, 4, 0): test_111_200_4,
     (1, 1, 2, 0, 1, 2, 4, 0): test_112_012_4,
-    (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
+    # (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
 }
 
 # Dictionary for lazy-loading of datasets
@@ -239,12 +239,12 @@ def test_integration(test_case, dtype):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create and fit cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
     cuml_model.fit()
 
     # Predict
-    cuml_pred = cuml_model.predict(data.start, data.end).copy_to_host()
+    cuml_pred = cuml_model.predict(data.start, data.end)
     ref_preds = np.zeros((data.end - data.start, data.batch_size))
     for i in range(data.batch_size):
         ref_preds[:, i] = ref_fits[i].get_prediction(
@@ -286,8 +286,8 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -299,9 +299,9 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         ref_preds[:, i] = ref_fits[i].get_prediction(
             start, end - 1).predicted_mean
     if num_steps is None:
-        cuml_pred = cuml_model.predict(start, end).copy_to_host()
+        cuml_pred = cuml_model.predict(start, end)
     else:
-        cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
+        cuml_pred = cuml_model.forecast(num_steps)
 
     # Compare results
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
@@ -415,9 +415,7 @@ def test_start_params(test_case, dtype):
         y_cudf, order, seasonal_order, fit_intercept=intercept)
     ref_model = [sm.tsa.SARIMAX(y[col], order=order,
                                 seasonal_order=seasonal_order,
-                                trend='c' if intercept else 'n',
-                                enforce_invertibility=False,
-                                enforce_stationarity=False)
+                                trend='c' if intercept else 'n')
                  for col in y.columns]
 
     # Estimate reference starting parameters
@@ -425,7 +423,9 @@ def test_start_params(test_case, dtype):
     nb = data.batch_size
     x_ref = np.zeros(N * nb, dtype=dtype)
     for ib in range(nb):
-        x_ref[ib*N:(ib+1)*N] = ref_model[ib].start_params[:N]
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            x_ref[ib*N:(ib+1)*N] = ref_model[ib].start_params[:N]
 
     # Estimate cuML starting parameters
     cuml_model._estimate_x0()

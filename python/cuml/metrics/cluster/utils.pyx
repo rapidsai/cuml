@@ -18,10 +18,9 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
-
-import numpy as np
 import cupy as cp
-
+from cuml.metrics.utils import sorted_unique_labels
+from cuml.prims.label import make_monotonic
 from cuml.utils import with_cupy_rmm, input_to_cuml_array
 
 
@@ -30,27 +29,28 @@ def prepare_cluster_metric_inputs(labels_true, labels_pred):
     """Helper function to avoid code duplication for homogeneity score, mutual
     info score and completeness score.
     """
-    preds_m, n_rows, _, _ = input_to_cuml_array(
-        labels_pred,
-        check_dtype=np.int32,
-        check_cols=1
-    )
-
-    ground_truth_m, _, _, _ = input_to_cuml_array(
+    y_true, n_rows, _, dtype = input_to_cuml_array(
         labels_true,
-        check_dtype=np.int32,
-        check_rows=n_rows,
-        check_cols=1
+        check_dtype=[cp.int32, cp.int64],
+        check_cols=1,
+        deepcopy=True  # deepcopy because we call make_monotonic inplace below
     )
 
-    cp_ground_truth_m = ground_truth_m.to_output(output_type='cupy')
-    cp_preds_m = preds_m.to_output(output_type='cupy')
+    y_pred, _, _, _ = input_to_cuml_array(
+        labels_pred,
+        check_dtype=dtype,
+        check_rows=n_rows,
+        check_cols=1,
+        deepcopy=True  # deepcopy because we call make_monotonic inplace below
+    )
 
-    lower_class_range = min(cp.min(cp_ground_truth_m),
-                            cp.min(cp_preds_m))
-    upper_class_range = max(cp.max(cp_ground_truth_m),
-                            cp.max(cp_preds_m))
+    classes = sorted_unique_labels(y_true, y_pred)
 
-    return (ground_truth_m, preds_m,
-            n_rows,
-            lower_class_range, upper_class_range)
+    make_monotonic(y_true, classes=classes, copy=False)
+    make_monotonic(y_pred, classes=classes, copy=False)
+
+    # Those values are only correct because we used make_monotonic
+    lower_class_range = 0
+    upper_class_range = len(classes) - 1
+
+    return y_true, y_pred, n_rows, lower_class_range, upper_class_range

@@ -77,15 +77,15 @@ def homogeneity_score(labels_true, labels_pred, handle=None):
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
 
-    (ground_truth, preds,
+    (y_true, y_pred,
      n_rows,
      lower_class_range, upper_class_range) = prepare_cluster_metric_inputs(
         labels_true,
         labels_pred
     )
 
-    cdef uintptr_t preds_ptr = preds.ptr
-    cdef uintptr_t ground_truth_ptr = ground_truth.ptr
+    cdef uintptr_t ground_truth_ptr = y_true.ptr
+    cdef uintptr_t preds_ptr = y_pred.ptr
 
     hom = homogeneityScore(handle_[0],
                            <int*> ground_truth_ptr,

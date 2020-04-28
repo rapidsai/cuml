@@ -16,21 +16,94 @@
 import cupy as cp
 import dask
 import numpy as np
+from toolz import first
 
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.input_utils import to_output
+import cudf.comm.serialize  # noqa: F401
+
+from cuml import Base
+from cuml.common.array import CumlArray
+
 from dask_cudf.core import DataFrame as dcDataFrame
+
+from dask.distributed import default_client
 from functools import wraps
-from uuid import uuid1
+
+
+class BaseEstimator(object):
+
+    def __init__(self, client=None, verbose=False, **kwargs):
+        """
+        Constructor for distributed estimators
+        """
+        self.client = default_client() if client is None else client
+        self.verbose = verbose
+        self.kwargs = kwargs
+
+    @staticmethod
+    @dask.delayed
+    def _get_model_attr(model, name):
+        if hasattr(model, name):
+            return getattr(model, name)
+        else:
+            raise ValueError("Attribute %s does not exist on model %s" %
+                             (name, type(model)))
+
+    def __getattr__(self, attr):
+        """
+        Method gives access to the correct format of cuml Array attribute to
+        the users and proxies attributes to the underlying trained model.
+
+        If the attribute being requested is not directly on the local object,
+        this function will see if the local object contains the attribute
+        prefixed with an _. In the case the attribute does not exist on this
+        local instance, the request will be proxied to self.local_model and
+        will be fetched either locally or remotely depending on whether
+        self.local_model is a local object instance or a future.
+        """
+        real_name = '_' + attr
+
+        # First check locally for attr
+        if attr in self.__dict__:
+            ret_attr = self.__dict__[attr]
+
+        # Next check locally for _ prefixed attr
+        elif real_name in self.__dict__:
+            ret_attr = self.__dict__[real_name]
+
+        # Finally, check the trained model (this is done as a
+        # last resort since fetching the attribute from the
+        # distributed model will incur a higher cost than
+        # local attributes.
+        elif "local_model" in self.__dict__:
+            local_model = self.__dict__["local_model"]
+
+            if isinstance(local_model, Base):
+                # If model is not distributed, just return the
+                # requested attribute
+                ret_attr = getattr(local_model, attr)
+            else:
+                # Otherwise, fetch the attribute from the distributed
+                # model and return it
+                ret_attr = BaseEstimator._get_model_attr(
+                    self.__dict__["local_model"], attr).compute()
+        else:
+            raise ValueError("Attribute %s not found in %s" %
+                             (attr, type(self)))
+
+        if isinstance(ret_attr, CumlArray):
+            return ret_attr.to_output(self.output_type)
+        else:
+            return ret_attr
 
 
 class DelayedParallelFunc(object):
     def _run_parallel_func(self,
                            func,
                            X,
+                           n_dims=1,
                            delayed=True,
-                           max_parallelism=5,
                            output_futures=False,
+                           output_dtype=None,
                            **kwargs):
         """
         Runs a function embarrassingly parallel on a set of workers while
@@ -50,19 +123,12 @@ class DelayedParallelFunc(object):
         ----------
         func : dask.delayed function to propagate to the workers to execute
                embarrassingly parallel, shared between tasks on each worker
-               and constrained by a holder lock
 
         X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
         delayed : bool return a lazy (delayed) object?
-
-        max_parallelism : int
-            Amount of concurrent partitions that can be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time. **Not used currently**
 
         output_futures : bool returns the futures pointing the to the resuls
                          of the parallel function executions on the workers,
@@ -73,118 +139,87 @@ class DelayedParallelFunc(object):
         y : dask cuDF (n_rows, 1)
         """
 
-        if delayed:
-            X_d = X.to_delayed()
+        X_d = X.to_delayed()
 
-            model = dask.delayed(self.local_model, pure=True, traverse=False)
+        model = dask.delayed(self.local_model, pure=True, traverse=False)
 
-            func = dask.delayed(func, pure=False, nout=1)
+        func = dask.delayed(func, pure=False, nout=1)
 
-            if isinstance(X, dcDataFrame):
-                preds = [func(model, part) for part in X_d]
-                return preds if output_futures \
-                    else dask.dataframe.from_delayed(preds)
+        if isinstance(X, dcDataFrame):
 
-            else:
-                preds = [func(model, part[0])
-                         for part in X_d]
-
-                # todo: add parameter for option of not checking directly
-                dtype = X.dtype
-
-                preds_arr = [
-                    dask.array.from_delayed(pred,
-                                            meta=cp.zeros(1, dtype=dtype),
-                                            shape=(np.nan,),
-                                            dtype=dtype)
-                    for pred in preds]
-
-                if output_futures:
-                    return preds_arr
-                else:
-                    return dask.array.concatenate(preds_arr, axis=0,
-                                                  allow_unknown_chunksizes=True
-                                                  )
+            preds = [func(model, part, **kwargs) for part in X_d]
+            dtype = first(X.dtypes) if output_dtype is None else output_dtype
 
         else:
-            X = X.persist()
+            preds = [func(model, part[0])
+                     for part in X_d]
+            dtype = X.dtype if output_dtype is None else output_dtype
 
-            data = DistributedDataHandler.single(X, client=self.client)
+        # TODO: Put the following conditionals in a
+        #  `to_delayed_output()` function
+        # TODO: Add eager path back in
+        if self.datatype == 'cupy':
 
-            scattered = self.client.scatter(self.local_model,
-                                            workers=data.workers,
-                                            broadcast=True,
-                                            hash=False)
+            # todo: add parameter for option of not checking directly
 
-            func_futures = [self.client.submit(
-                func,
-                scattered,
-                # lock,
-                p,
-                **kwargs,
-                workers=[w],
-                key=uuid1()) for w, p in data.gpu_futures]
+            shape = (np.nan,)*n_dims
+            preds_arr = [
+                dask.array.from_delayed(pred,
+                                        meta=cp.zeros(1, dtype=dtype),
+                                        shape=shape,
+                                        dtype=dtype)
+                for pred in preds]
 
-            return func_futures if output_futures \
-                else to_output(func_futures, self.datatype)
+            if output_futures:
+                return self.client.compute(preds)
+            else:
+                output = dask.array.concatenate(preds_arr, axis=0,
+                                                allow_unknown_chunksizes=True
+                                                )
+
+                return output if delayed else output.persist()
+
+        else:
+            if output_futures:
+                return self.client.compute(preds)
+            else:
+                output = dask.dataframe.from_delayed(preds)
+                return output if delayed else output.persist()
+
+
+class DelayedPredictionProbaMixin(DelayedParallelFunc):
+
+    def _predict_proba(self, X, delayed=True, **kwargs):
+        return self._run_parallel_func(func=_predict_proba_func, X=X,
+                                       n_dims=2, delayed=delayed, **kwargs)
 
 
 class DelayedPredictionMixin(DelayedParallelFunc):
 
-    def _predict(self, X, delayed=True, max_parallelism=25, **kwargs):
-        """
-        Makes predictions for X and returns a dask collection.
-
-        Parameters
-        ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
-
-        delayed : bool return lazy (delayed) result?
-
-        max_parallelism : int
-            Amount of concurrent partitions that will be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time.
-
-        Returns
-        -------
-        y : dask cuDF (n_rows, 1)
-        """
-
-        return self._run_parallel_func(_predict_func, X, delayed,
-                                       max_parallelism, **kwargs)
+    def _predict(self, X, delayed=True, **kwargs):
+        return self._run_parallel_func(func=_predict_func, X=X,
+                                       n_dims=1, delayed=delayed,
+                                       **kwargs)
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
 
-    def _transform(self, X, delayed=True, max_parallelism=5, **kwargs):
-        """
-        Call transform on the partitions of X and produce a dask collection.
+    def _transform(self, X, n_dims=1, delayed=True, **kwargs):
+        return self._run_parallel_func(func=_transform_func,
+                                       X=X,
+                                       n_dims=n_dims,
+                                       delayed=delayed,
+                                       **kwargs)
 
-        Parameters
-        ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
 
-        delayed : bool return lazy (delayed) result?
+class DelayedInverseTransformMixin(DelayedParallelFunc):
 
-        max_parallelism : int
-            Amount of concurrent partitions that will be processed
-            per worker. This bounds the total amount of temporary
-            workspace memory on the GPU that will need to be allocated
-            at any time.
-
-        Returns
-        -------
-        y : dask cuDF (n_rows, 1)
-        """
-
-        return self._run_parallel_func(_transform_func, X, delayed,
-                                       max_parallelism, **kwargs)
+    def _inverse_transform(self, X, n_dims=1, delayed=True, **kwargs):
+        return self._run_parallel_func(func=_inverse_transform_func,
+                                       X=X,
+                                       n_dims=n_dims,
+                                       delayed=delayed,
+                                       **kwargs)
 
 
 def mnmg_import(func):
@@ -202,10 +237,16 @@ def mnmg_import(func):
 
 
 def _predict_func(model, data, **kwargs):
-    ret = model.predict(data, **kwargs)
-    return ret
+    return model.predict(data, **kwargs)
+
+
+def _predict_proba_func(model, data, **kwargs):
+    return model.predict_proba(data, **kwargs)
 
 
 def _transform_func(model, data, **kwargs):
-    ret = model.transform(data, **kwargs)
-    return ret
+    return model.transform(data, **kwargs)
+
+
+def _inverse_transform_func(model, data, **kwargs):
+    return model.inverse_transform(data, **kwargs)

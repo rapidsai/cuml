@@ -41,6 +41,7 @@ namespace Metrics {
  * @param dContingencyMatrix: the contingency matrix corresponding to the two clusters
  * @param a: the row wise sum of the contingency matrix, which is also the bin counts of first cluster array
  * @param b: the column wise sum of the contingency matrix, which is also the bin counts of second cluster array
+ * @param numUniqueClasses: number of unique classes
  * @param size: the size of array a and b (size of the contingency matrix is (size x size))
  * @param d_MI: pointer to the device memory that stores the aggreggate mutual information
  */
@@ -87,7 +88,6 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
 * @param size: the size of the data points of type int
-* @param numUniqueClasses: number of Unique classes used for clustering
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
@@ -147,8 +147,8 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(size, numThreadsPerBlock.x),
-                 ceildiv<int>(size, numThreadsPerBlock.y));
+  dim3 numBlocks(ceildiv<int>(numUniqueClasses, numThreadsPerBlock.x),
+                 ceildiv<int>(numUniqueClasses, numThreadsPerBlock.y));
 
   //calling the kernel
   mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>

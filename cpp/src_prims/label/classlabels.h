@@ -36,13 +36,13 @@ using namespace MLCommon;
  * from this array.
  *
  * \tparam math_t numeric type of the arrays with class labels
- * \param [in] handle cuML handle
  * \param [in] y device array of labels, size [n]
  * \param [in] n number of labels
  * \param [out] y_unique device array of unique labels, unallocated on entry,
  *   on exit it has size [n_unique]
  * \param [out] n_unique number of unique labels
- * \param stream
+ * \param [in] stream cuda stream
+ * \param [in] allocator device allocator
  */
 template <typename math_t>
 void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
@@ -90,6 +90,7 @@ void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
  * \param [in] n_classes number of unique labels
  * \param [out] y_out device array of output labels
  * \param [in] idx index of unique label that should be labeled as 1
+ * \param [in] stream cuda stream
  */
 template <typename math_t>
 void getOvrLabels(math_t *y, int n, math_t *y_unique, int n_classes,
@@ -137,6 +138,8 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
    * @tparam Type the numeric type of the input and output arrays
    * @tparam Lambda the type of an optional filter function, which determines
    * which items in the array to map.
+   * @param out the output monotonic array
+   * @param in input label array
    * @param N number of elements in the input array
    * @param stream cuda stream to use
    * @param filter_op an optional function for specifying which values
@@ -174,6 +177,8 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
    * @tparam Type the numeric type of the input and output arrays
    * @tparam Lambda the type of an optional filter function, which determines
    * which items in the array to map.
+   * @param out output label array with labels assigned monotonically
+   * @param in input label array
    * @param N number of elements in the input array
    * @param stream cuda stream to use
    */

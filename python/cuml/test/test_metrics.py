@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from itertools import chain, permutations
 from functools import partial
 
 import cuml
@@ -34,7 +35,6 @@ from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
-from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.preprocessing import StandardScaler
 
@@ -42,6 +42,9 @@ from cuml.metrics.cluster import entropy
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
 from sklearn.metrics.regression import mean_squared_error as sklearn_mse
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
+
+from cuml.metrics import confusion_matrix
 from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
 from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 
@@ -179,14 +182,6 @@ def score_homogeneity(ground_truth, predictions, use_handle):
                                       dtype=np.int32)
 
 
-def score_mutual_info(ground_truth, predictions, use_handle):
-    return score_labeling_with_handle(cuml.metrics.mutual_info_score,
-                                      ground_truth,
-                                      predictions,
-                                      use_handle,
-                                      dtype=np.int32)
-
-
 def score_completeness(ground_truth, predictions, use_handle):
     return score_labeling_with_handle(cuml.metrics.completeness_score,
                                       ground_truth,
@@ -228,37 +223,11 @@ def test_homogeneity_non_homogeneous_labeling(use_handle, data):
 @pytest.mark.parametrize('input_range', [[0, 1000],
                                          [-1000, 1000]])
 def test_homogeneity_score_big_array(use_handle, input_range):
-    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
-                                                          int(10e4),
-                                                          dtype=np.int32))
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e4),
+                                                              dtype=np.int32))
     score = score_homogeneity(a, b, use_handle)
     ref = sk_homogeneity_score(a, b)
-    np.testing.assert_almost_equal(score, ref, decimal=4)
-
-
-@pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('input_labels', [([0, 0, 1, 1], [1, 1, 0, 0]),
-                                          ([0, 0, 1, 1], [0, 0, 1, 1]),
-                                          ([0, 0, 1, 1], [0, 0, 1, 2]),
-                                          ([0, 0, 1, 1], [0, 1, 2, 3]),
-                                          ([0, 0, 1, 1], [0, 1, 0, 1]),
-                                          ([0, 0, 1, 1], [0, 0, 0, 0])])
-def test_mutual_info_score(use_handle, input_labels):
-    score = score_mutual_info(*input_labels, use_handle)
-    ref = sk_mutual_info_score(*input_labels)
-    np.testing.assert_almost_equal(score, ref, decimal=4)
-
-
-@pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('input_range', [[0, 1000],
-                                         [-1000, 1000],
-                                         [int(-10e3), int(10e3)]])
-def test_mutual_info_score_big_array(use_handle, input_range):
-    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
-                                                          int(10e4),
-                                                          dtype=np.int32))
-    score = score_mutual_info(a, b, use_handle)
-    ref = sk_mutual_info_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
@@ -316,20 +285,6 @@ def test_completeness_score_big_array(use_handle, input_range):
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
-@pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('input_range', [[0, 19],
-                                         [0, 2],
-                                         [-5, 20]])
-@pytest.mark.parametrize('n_samples', [129, 258])
-def test_mutual_info_score_many_blocks(use_handle, input_range, n_samples):
-    a, b = generate_random_labels(lambda rng: rng.randint(*input_range,
-                                                          n_samples,
-                                                          dtype=np.int32))
-    score = score_mutual_info(a, b, use_handle)
-    ref = sk_mutual_info_score(a, b)
-    np.testing.assert_almost_equal(score, ref, decimal=4)
-
-
 def test_regression_metrics():
     y_true = np.arange(50, dtype=np.int)
     y_pred = y_true + 1
@@ -348,7 +303,7 @@ def test_regression_metrics_random(n_samples, dtype, function):
         # stress test for float32 fails because of floating point precision
         pytest.xfail()
 
-    y_true, y_pred = generate_random_labels(
+    y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
 
     cuml_reg, sklearn_reg = {
@@ -484,7 +439,7 @@ def test_entropy(use_handle):
 def test_entropy_random(n_samples, base, use_handle):
     handle, stream = get_handle(use_handle)
 
-    clustering, _ = \
+    clustering, _, _, _ = \
         generate_random_labels(lambda rng: rng.randint(0, 1000, n_samples))
 
     # generate unormalized probabilities from clustering
@@ -496,3 +451,79 @@ def test_entropy_random(n_samples, base, use_handle):
     S = entropy(np.array(clustering, dtype=np.int32), base, handle=handle)
 
     assert_almost_equal(S, sp_S, decimal=2)
+
+
+def test_confusion_matrix():
+    y_true = cp.array([2, 0, 2, 2, 0, 1])
+    y_pred = cp.array([0, 0, 2, 2, 0, 2])
+    cm = confusion_matrix(y_true, y_pred)
+    ref = cp.array([[2, 0, 0],
+                    [0, 0, 1],
+                    [1, 0, 2]])
+    cp.testing.assert_array_equal(cm, ref)
+
+
+def test_confusion_matrix_binary():
+    y_true = cp.array([0, 1, 0, 1])
+    y_pred = cp.array([1, 1, 1, 0])
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    ref = cp.array([0, 2, 1, 1])
+    cp.testing.assert_array_equal(ref, cp.array([tn, fp, fn, tp]))
+
+
+@pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64])
+@pytest.mark.parametrize('problem_type', ['binary', 'multiclass'])
+def test_confusion_matrix_random(n_samples, dtype, problem_type):
+    upper_range = 2 if problem_type == 'binary' else 1000
+
+    y_true, y_pred, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype))
+    cm = confusion_matrix(y_true, y_pred)
+    ref = sk_confusion_matrix(y_true, y_pred)
+    cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+
+
+@pytest.mark.parametrize(
+    "normalize, expected_results",
+    [('true', 0.333333333),
+     ('pred', 0.333333333),
+     ('all', 0.1111111111),
+     (None, 2)]
+)
+def test_confusion_matrix_normalize(normalize, expected_results):
+    y_test = cp.array([0, 1, 2] * 6)
+    y_pred = cp.array(list(chain(*permutations([0, 1, 2]))))
+    cm = confusion_matrix(y_test, y_pred, normalize=normalize)
+    cp.testing.assert_allclose(cm, cp.array(expected_results))
+
+
+@pytest.mark.parametrize('labels', [(0, 1),
+                                    (2, 1),
+                                    (2, 1, 4, 7),
+                                    (2, 20)])
+def test_confusion_matrix_multiclass_subset_labels(labels):
+    y_true, y_pred, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 3, 10).astype(np.int32))
+
+    ref = sk_confusion_matrix(y_true, y_pred, labels=labels)
+    labels = cp.array(labels, dtype=np.int32)
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+
+
+@pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64])
+@pytest.mark.parametrize('weights_dtype', ['int', 'float'])
+def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype):
+    y_true, y_pred, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 10, n_samples).astype(dtype))
+
+    if weights_dtype == 'int':
+        sample_weight = np.random.RandomState(0).randint(0, 10, n_samples)
+    else:
+        sample_weight = np.random.RandomState(0).rand(n_samples)
+
+    cm = confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
+    ref = sk_confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
+    cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
