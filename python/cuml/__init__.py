@@ -34,7 +34,6 @@ from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.fil import fil
-from cuml.filter.kalman_filter import KalmanFilter
 
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso

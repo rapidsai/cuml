@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <functions/hinge.h>
 #include <functions/linearReg.h>
@@ -32,7 +33,7 @@
 #include <stats/mean.h>
 #include <stats/mean_center.h>
 #include "common/cumlHandle.hpp"
-#include "glm/preprocess.h"
+#include "glm/preprocess.cuh"
 #include "learning_rate.h"
 #include "ml_utils.h"
 #include "shuffle.h"

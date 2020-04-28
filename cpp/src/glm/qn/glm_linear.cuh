@@ -15,10 +15,29 @@
  */
 
 #pragma once
-#include <curand.h>
-#include <stdio.h>
-#include <cmath>
-#include <iostream>
-#include <type_traits>
-#include "lkf.h"
-#include "lkf_py.h"
+
+#include <glm/qn/simple_mat.cuh>
+#include "cuda_utils.h"
+#include "glm/qn/glm_base.cuh"
+#include "linalg/binary_op.h"
+
+namespace ML {
+namespace GLM {
+
+template <typename T>
+struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
+  typedef GLMBase<T, SquaredLoss<T>> Super;
+
+  SquaredLoss(const cumlHandle_impl &handle, int D, bool has_bias)
+    : Super(handle, D, 1, has_bias) {}
+
+  inline __device__ T lz(const T y, const T z) const {
+    T diff = y - z;
+    return diff * diff * 0.5;
+  }
+
+  inline __device__ T dlz(const T y, const T z) const { return z - y; }
+};
+
+};  // namespace GLM
+};  // namespace ML
