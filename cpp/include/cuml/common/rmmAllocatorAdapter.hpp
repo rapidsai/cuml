@@ -19,7 +19,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
-#include <rmm/rmm.hpp>
+#include <rmm/mr/device/default_memory_resource.hpp>
 
 namespace ML {
 
