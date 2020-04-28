@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1655: Adds python bindings for homogeneity score
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
@@ -61,8 +62,6 @@
 # cuML 0.13.0 (Date TBD)
 
 ## New Features
-- PR #1655: Adds python bindings for homogeneity score
-- PR #1687: Adds python bindings for mutual info score
 - PR #1777: Python bindings for entropy
 - PR #1742: Mean squared error implementation with cupy
 - PR #1817: Confusion matrix implementation with cupy (SNSG and MNMG)
