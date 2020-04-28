@@ -160,6 +160,8 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     if shuffle:
         proba_samples_per_center = np.array(n_samples_per_center) / np.sum(
             n_samples_per_center)
+        np_seed = int(generator.randint(n_samples, size=1))
+        np.random.seed(np_seed)
         shuffled_sample_indices = cp.array(np.random.choice(
                                             n_centers,
                                             n_samples,

@@ -117,9 +117,6 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                       n_samples, n_features,
                                       dtype)
 
-    # random_state = np.random.randint(0, 100) \
-    #     if random_state is None else random_state
-
     if verbose:
         print("Generating %d samples across %d partitions on "
               "%d workers (total=%d samples)" %
