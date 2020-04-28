@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <random/permute.h>
 #include <random/rng.h>
 #include "benchmark.cuh"
