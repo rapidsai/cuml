@@ -199,24 +199,24 @@ struct FusedL2NN : public BaseClass {
     updateResults();
   }
 
+  /*
+   * todo: From Volta onwards see if "coalesced" atomicCAS approach as
+   *        written below helps improve perf
+   * ```
+   *   auto tid = threadIdx.x;
+   *   auto rid = IdxT(blockIdx.x) * P::Mblk + tid;
+   *   if (rid < m) {
+   *     auto val = sRed[i];
+   *     while (atomicCAS(mutex + rid, 0, 1) == 1)
+   *       ;
+   *     __threadfence();
+   *     redOp(min + rid, val);
+   *     __threadfence();
+   *     atomicCAS(mutex + rid, 1, 0);
+   *   }
+   * ```
+   */
   DI void updateResults() {
-    /**
-     * @todo: From Volta onwards see if "coalesced" atomicCAS approach as
-     *        written below helps improve perf
-     * <code>
-     *   auto tid = threadIdx.x;
-     *   auto rid = IdxT(blockIdx.x) * P::Mblk + tid;
-     *   if (rid < m) {
-     *     auto val = sRed[i];
-     *     while (atomicCAS(mutex + rid, 0, 1) == 1)
-     *       ;
-     *     __threadfence();
-     *     redOp(min + rid, val);
-     *     __threadfence();
-     *     atomicCAS(mutex + rid, 1, 0);
-     *   }
-     * </code>
-     */
     // for now have first lane from each warp update a unique output row. This
     // will resolve hang issues with pre-Volta architectures
     auto nWarps = blockDim.x / WarpSize;
@@ -333,6 +333,7 @@ void fusedL2NNImpl(OutT* min, const DataT* x, const DataT* y, const DataT* xn,
  * @param[in]  n             gemm n
  * @param[in]  k             gemm k
  * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
+ * @param[in]  redOp         reduction operator in the epilogue
  * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
  * @param[in]  initOutBuffer whether to initialize the output buffer before the
  *                           main kernel launch

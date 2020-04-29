@@ -20,7 +20,7 @@ import numpy as np
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [6e5])
+@pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [67])
 def test_pca_fit(nrows, ncols, n_parts, cluster):
@@ -34,7 +34,10 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
                                cluster_std=0.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
@@ -65,14 +68,14 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
             if type(cuml_res) == np.ndarray:
                 cuml_res = cuml_res.as_matrix()
             skl_res = getattr(skpca, attr)
-            assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
     finally:
         client.close()
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [4e3, 7e5])
-@pytest.mark.parametrize("ncols", [100, 1000])
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [46])
 def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
@@ -82,7 +85,10 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
         from cuml.dask.decomposition import PCA as daskPCA
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
                                cluster_std=1.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
@@ -96,8 +102,8 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [7e5])
-@pytest.mark.parametrize("ncols", [200])
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [33])
 def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
 
@@ -107,7 +113,10 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
         from cuml.dask.decomposition import PCA as daskPCA
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
                                cluster_std=1.5, verbose=False,
                                random_state=10, dtype=np.float64)
 

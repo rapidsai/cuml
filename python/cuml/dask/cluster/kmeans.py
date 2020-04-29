@@ -124,7 +124,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         """
 
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False, verbose=self.verbose)
