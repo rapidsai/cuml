@@ -1,3 +1,4 @@
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "functions/log.h"

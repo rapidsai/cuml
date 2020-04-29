@@ -20,6 +20,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2005: Adding missing algorithms to cuml benchmarks and notebook
 - PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 - PR #2044: A cuda-memcheck helper wrapper for devs
 - PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
@@ -41,13 +42,17 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2055: Update the metrics notebook to use important cuML models
+- PR #2095: Improved import of src_prims/utils.h, making it less ambiguous
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
 - PR #2135: A few optimizations to UMAP fuzzy simplicial set
 - PR #1914: Change the meaning of ARIMA's intercept to match the literature
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
+- PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 - PR #2146: Remove deprecated kalman filter
+- PR #2156: Add Docker 19 support to local gpuci build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -72,8 +77,10 @@
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
 - PR #2139: CumlArray for adjusted_rand_score
+- PR #2140: Returning self in fit model functions
 - PR #2144: Remove GPU arch < 60 from CMake build
 - PR #2153: Added missing namespaces to some Decision Tree files
+- PR #2155: C++: fix doxygen build break
 
 # cuML 0.13.0 (Date TBD)
 

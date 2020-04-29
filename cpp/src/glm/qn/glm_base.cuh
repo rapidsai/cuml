@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <linalg/matrix_vector_op.h>
 #include <glm/qn/simple_mat.cuh>
 #include <vector>
@@ -25,7 +26,6 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
-#include "utils.h"
 
 namespace ML {
 namespace GLM {
