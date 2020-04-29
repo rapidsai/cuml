@@ -16,6 +16,7 @@
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #endif
+#include <common/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include "../decisiontree/memory.h"
 #include "../decisiontree/quantile/quantile.h"
@@ -194,8 +195,9 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
   //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
-    preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
-                        this->rf_params.tree_params.n_bins, tempmem[0]);
+    DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
+                                      this->rf_params.tree_params.n_bins,
+                                      tempmem[0]);
     for (int i = 1; i < n_streams; i++) {
       CUDA_CHECK(cudaMemcpyAsync(
         tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
@@ -462,8 +464,9 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
-    preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
-                        this->rf_params.tree_params.n_bins, tempmem[0]);
+    DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
+                                      this->rf_params.tree_params.n_bins,
+                                      tempmem[0]);
     for (int i = 1; i < n_streams; i++) {
       CUDA_CHECK(cudaMemcpyAsync(
         tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),

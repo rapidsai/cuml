@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>
@@ -21,6 +22,10 @@
 #include "common_helper.cuh"
 #include "levelhelper_regressor.cuh"
 #include "metric.cuh"
+
+namespace ML {
+namespace DecisionTree {
+
 /*
 This is the driver function for building regression tree
 level by level using a simple for loop.
@@ -238,3 +243,6 @@ void grow_deep_tree_regression(
                       h_sparsenodes + lastsize);
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

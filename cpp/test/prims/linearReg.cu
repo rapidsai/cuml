@@ -1,3 +1,4 @@
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "functions/linearReg.h"
 #include "random/rng.h"
