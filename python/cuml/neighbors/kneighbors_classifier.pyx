@@ -60,6 +60,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         int* out,
         int64_t *knn_indices,
         vector[int*] &y,
+        size_t n_labels,
         size_t n_samples,
         int k
     ) except +
@@ -69,6 +70,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         vector[float*] &out,
         int64_t *knn_indices,
         vector[int*] &y,
+        size_t n_labels,
         size_t n_samples,
         int k
     ) except +
@@ -172,8 +174,7 @@ class KNeighborsClassifier(NearestNeighbors):
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
-
-        self.handle.sync()
+        return self
 
     def predict(self, X, convert_dtype=True):
         """
@@ -228,7 +229,8 @@ class KNeighborsClassifier(NearestNeighbors):
             <int*> classes_ptr,
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>X.shape[0],
+            <size_t>self.n_rows,
+            <size_t>n_rows,
             <int>self.n_neighbors
         )
 
@@ -294,7 +296,8 @@ class KNeighborsClassifier(NearestNeighbors):
             deref(out_vec),
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>X.shape[0],
+            <size_t>self.n_rows,
+            <size_t>n_rows,
             <int>self.n_neighbors
         )
 

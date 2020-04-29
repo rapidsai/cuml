@@ -33,9 +33,9 @@
 #define FACTOR6 2
 #define FACTOR7 1
 
+#include <common/cudart_utils.h>
 #include <float.h>
 #include <math.h>
-#include "utils.h"
 
 namespace ML {
 namespace TSNE {
