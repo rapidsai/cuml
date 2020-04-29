@@ -607,10 +607,10 @@ class ARIMA(Base):
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
-            h: float = 1e-9,
-            maxiter=1000,
+            h: float = 1e-8,
+            maxiter : int = 1000,
             method="ml",
-            truncate=0):
+            truncate : int = 0):
         """Fit the ARIMA model to each time series.
 
         Parameters

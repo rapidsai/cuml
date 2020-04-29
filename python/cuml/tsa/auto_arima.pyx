@@ -39,12 +39,10 @@ from cuml.utils.input_utils import input_to_cuml_array
 
 
 # TODO:
-# - truncate argument to use only last values with CSS
 # - Box-Cox transformations? (parameter lambda)
 # - summary method with recap of the models used
 # - integrate cuML logging system
 # - use output_type as soon as cuML array change in ARIMA is merged
-# - add parameter h to feed to ARIMA's fit()
 
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
@@ -118,19 +116,20 @@ class AutoARIMA(Base):
         self.d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(y, check_dtype=np.float64)
 
-    def fit(self,
-            s=None,
-            d=range(3),
-            D=range(2),
-            p=range(1, 4),
-            q=range(1, 4),
-            P=range(3),
-            Q=range(3),
-            ic="aicc", # TODO: which one to use by default?
-            test="kpss",
-            seasonal_test="seas",
-            search_method="auto",
-            final_method="ml"):
+    def search(self,
+               s=None,
+               d=range(3),
+               D=range(2),
+               p=range(1, 4),
+               q=range(1, 4),
+               P=range(3),
+               Q=range(3),
+               ic="aicc", # TODO: which one to use by default? "auto" mode?
+               test="kpss",
+               seasonal_test="seas",
+               method="auto",
+               truncate : int = 0,
+               h : float = 1e-8):
         """TODO: docs
         """
         # Notes:
@@ -147,8 +146,8 @@ class AutoARIMA(Base):
         seasonal_test = seasonal_test.lower()
         if s == 1:  # R users might use s=1 for a non-seasonal dataset
             s = None
-        if search_method == "auto":
-            search_method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
+        if method == "auto":
+            method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
 
         # Original index
         d_index, *_ = input_to_cuml_array(np.r_[:self.batch_size],
@@ -247,7 +246,7 @@ class AutoARIMA(Base):
                               (P_, D_, Q_, s_), k_, self.handle)
                 if self.verbose:
                     print(" -", str(model))
-                model.fit(method=search_method)
+                model.fit(method=method, truncate=truncate, h=h)
                 all_ic.append(model._ic(ic))
                 all_orders.append((p_, q_, P_, Q_, s_, k_))
                 del model
@@ -276,19 +275,23 @@ class AutoARIMA(Base):
 
         # TODO: try different k_ on the best model?
 
-        if self.verbose:
-            print("Fitting final models...")
-        for model in self.models:
-            if self.verbose:
-                print(" - {}".format(model))
-            model.fit(method=final_method)
-
         # Build a map to match each series to its model and position in the
         # sub-batch
         if self.verbose:
             print("Finalizing...")
         self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
                                                                self.batch_size)
+    
+    def fit(self, **kwargs):
+        """TODO: docs
+        """
+        if self.verbose:
+            print("Fitting final models...")
+        for model in self.models:
+            if self.verbose:
+                print(" - {}".format(model))
+            model.fit(**kwargs)
+
 
     def predict(self, start=0, end=None):
         """TODO: docs
