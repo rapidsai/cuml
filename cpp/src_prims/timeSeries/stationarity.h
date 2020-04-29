@@ -32,6 +32,7 @@
 #include <thrust/scan.h>
 #include <vector>
 
+#include <common/cudart_utils.h>
 #include "arima_helpers.h"
 #include "common/device_buffer.hpp"
 #include "cuml/common/cuml_allocator.hpp"
@@ -39,7 +40,7 @@
 #include "linalg/matrix_vector_op.h"
 #include "linalg/reduce.h"
 #include "stats/mean.h"
-#include "utils.h"
+
 
 namespace MLCommon {
 

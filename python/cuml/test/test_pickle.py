@@ -275,7 +275,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
         model = umap_model[keys]()
         cu_before_pickle_transform = model.fit_transform(X_train)
 
-        result["umap_embedding"] = model.embedding_
+        result["umap_embedding"] = model.embedding_.to_output('numpy')
         n_neighbors = model.n_neighbors
 
         result["umap"] = trustworthiness(X_train,
@@ -284,11 +284,10 @@ def test_umap_pickle(tmpdir, datatype, keys):
         return model, X_train
 
     def assert_model(pickled_model, X_train):
-        cu_after_embed = pickled_model.embedding_
+        cu_after_embed = pickled_model.embedding_.to_output('numpy')
 
         n_neighbors = pickled_model.n_neighbors
-        assert array_equal(result["umap_embedding"][0][0],
-                           cu_after_embed[0][0])
+        assert array_equal(result["umap_embedding"], cu_after_embed)
 
         cu_trust_after = trustworthiness(X_train,
                                          pickled_model.transform(X_train),
@@ -563,12 +562,12 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
     def assert_model(pickled_model, X):
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == -1
+        assert state["_fit_status_"] == -1
 
         pickled_model.fit(X[0], X[1])
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == 0
+        assert state["_fit_status_"] == 0
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -590,11 +589,11 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
     def assert_model(pickled_model, X):
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == -1
+        assert state["_fit_status_"] == -1
 
         pickled_model.fit(X[0], X[1])
         state = pickled_model.__dict__
 
-        assert state["fit_status_"] == 0
+        assert state["_fit_status_"] == 0
 
     pickle_save_load(tmpdir, create_mod, assert_model)
