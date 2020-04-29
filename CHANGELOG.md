@@ -82,6 +82,7 @@
 - PR #2153: Added missing namespaces to some Decision Tree files
 - PR #2155: C++: fix doxygen build break
 - PR #2165: Fit function test correction
+- PR #2166: Fix handling of temp file in RF pickling
 
 # cuML 0.13.0 (Date TBD)
 
