@@ -74,6 +74,7 @@
 - PR #2140: Returning self in fit model functions
 - PR #2144: Remove GPU arch < 60 from CMake build
 - PR #2153: Added missing namespaces to some Decision Tree files
+- PR #2165: Fit function test correction
 
 # cuML 0.13.0 (Date TBD)
 
