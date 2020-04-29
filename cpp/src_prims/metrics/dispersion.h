@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <memory>
