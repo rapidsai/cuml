@@ -23,10 +23,9 @@ Support for Windows is possible in the near future.
 
    api.rst
    
-   cuml_datatypes.rst
-   cuml_notebooks.rst
+   cuml_intro.rst
    cuml_blogs.rst
-   metrics_demo.ipynb
+   cuml_intro_notebook.ipynb
   
    
 Indices and tables
