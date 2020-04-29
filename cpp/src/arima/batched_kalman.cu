@@ -201,7 +201,7 @@ __global__ void batched_kalman_loop_kernel(
  * @param[in]  RRT          Batched R*R' (R="selection" vector)   (r x r)
  * @param[in]  P            Batched P                             (r x r)
  * @param[in]  alpha        Batched state vector                  (r x 1)
- * @param[in]  intercept  Do we fit an intercept?
+ * @param[in]  intercept    Do we fit an intercept?
  * @param[in]  d_mu         Batched intercept                     (1)
  * @param[in]  r            Dimension of the state vector
  * @param[out] d_vs         Batched residuals                     (nobs)

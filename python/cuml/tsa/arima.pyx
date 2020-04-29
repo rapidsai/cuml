@@ -762,11 +762,11 @@ class ARIMA(Base):
 
         cdef ARIMAOrder order = self.order
 
-        cdef uintptr_t d_x_ptr
-        d_x_array, d_x_ptr, _, _, _ = \
-            input_to_dev_array(x, check_dtype=np.float64, order='C')
+        d_x_array, *_ = \
+            input_to_cuml_array(x, check_dtype=np.float64, order='C')
+        cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE

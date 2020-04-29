@@ -251,6 +251,8 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
     MLCommon::TimeSeries::batched_jones_transform(
       order, batch_size, false, params, Tparams, allocator, stream);
+
+    Tparams.mu = params.mu;
   } else {
     // non-transformed case: just use original parameters
     Tparams = params;
