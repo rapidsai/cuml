@@ -18,6 +18,7 @@
 #include "csr.h"
 #include "sparse/csr.h"
 
+#include <common/cudart_utils.h>
 #include "random/rng.h"
 #include "test_utils.h"
 
@@ -313,6 +314,7 @@ TEST_P(WeakCCTest, Result) {
   weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state,
                            stream);
 
+  cudaStreamSynchronize(stream);
   ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
   /**

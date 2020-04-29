@@ -28,6 +28,7 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
+#include <common/cudart_utils.h>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "common/nvtx.hpp"
@@ -36,7 +37,6 @@
 #include "linalg/matrix_vector_op.h"
 #include "metrics/batched/information_criterion.h"
 #include "timeSeries/arima_helpers.h"
-#include "utils.h"
 
 namespace ML {
 
@@ -53,8 +53,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   double* d_y_prep = (double*)allocator->allocate(
     ld_yprep * batch_size * sizeof(double), stream);
   MLCommon::TimeSeries::prepare_data(d_y_prep, d_y, batch_size, n_obs, order.d,
-                                     order.D, order.s, stream, order.k,
-                                     params.mu);
+                                     order.D, order.s, stream);
 
   // Create temporary array for the forecasts
   int num_steps = std::max(end - n_obs, 0);
@@ -67,7 +66,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   // Compute the residual and forecast - provide already prepared data and
   // extracted parameters
   ARIMAOrder order_after_prep = {order.p, 0,       order.q, order.P,
-                                 0,       order.Q, order.s, 0};
+                                 0,       order.Q, order.s, order.k};
   std::vector<double> loglike = std::vector<double>(batch_size);
   /// TODO: use device loglike to avoid useless copy
   batched_loglike(handle, d_y_prep, batch_size, n_obs - diff_obs,
@@ -107,9 +106,9 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
   if (num_steps) {
     // Add trend and/or undiff
-    MLCommon::TimeSeries::finalize_forecast(
-      d_y_fc, d_y, num_steps, batch_size, n_obs, n_obs, order.d, order.D,
-      order.s, stream, order.k, params.mu);
+    MLCommon::TimeSeries::finalize_forecast(d_y_fc, d_y, num_steps, batch_size,
+                                            n_obs, n_obs, order.d, order.D,
+                                            order.s, stream);
 
     // Copy forecast in d_y_p
     thrust::for_each(thrust::cuda::par.on(stream), counting,
@@ -252,9 +251,6 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
     MLCommon::TimeSeries::batched_jones_transform(
       order, batch_size, false, params, Tparams, allocator, stream);
-
-    // TODO: should remove when merging intercept PR
-    Tparams.mu = params.mu;
   } else {
     // non-transformed case: just use original parameters
     Tparams = params;
@@ -274,8 +270,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
     double* d_y_prep = y_prep.data();
 
     MLCommon::TimeSeries::prepare_data(d_y_prep, d_y, batch_size, n_obs,
-                                       order.d, order.D, order.s, stream,
-                                       order.k, params.mu);
+                                       order.d, order.D, order.s, stream);
 
     if (method == CSS) {
       conditional_sum_of_squares(handle, d_y_prep, batch_size,
@@ -652,7 +647,6 @@ void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
     allocator, stream, false);
   MLCommon::TimeSeries::prepare_data(bm_yd.raw_data(), d_y, batch_size, n_obs,
                                      order.d, order.D, order.s, stream);
-  // Note: mu is not known yet! We just want to difference the data
 
   // Do the computation of the initial parameters
   _start_params(handle, params, bm_yd, order);

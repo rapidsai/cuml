@@ -30,9 +30,12 @@ import cupy as cp
 )
 def test_basic_functions(labels, cluster):
 
-    client = Client(cluster)
+    client = None
 
     try:
+
+        client = Client(cluster)
+
         fit_labels, xform_labels = labels
 
         s = cp.asarray(fit_labels, dtype=np.int32)
@@ -59,7 +62,9 @@ def test_basic_functions(labels, cluster):
 
         assert array_equal(cp.asnumpy(test), xform_labels)
     finally:
-        client.close()
+        if client is not None:
+            print("Closing client")
+            client.close()
 
 
 @pytest.mark.parametrize(
@@ -73,8 +78,10 @@ def test_basic_functions(labels, cluster):
                                              "arrays")
 def test_sparse_output_fails(labels, cluster):
 
+    client = None
     try:
         client = Client(cluster)
         LabelBinarizer(client=client, sparse_output=True)
     finally:
-        client.close()
+        if client is not None:
+            client.close()

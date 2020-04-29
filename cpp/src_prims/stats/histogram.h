@@ -15,10 +15,10 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <stdint.h>
 #include <common/seive.cuh>
 #include "cuda_utils.h"
-#include "utils.h"
 #include "vectorized.h"
 
 // This file is a shameless amalgamation of independent works done by
@@ -485,7 +485,7 @@ HistType selectBestHistAlgo(IdxT nbins) {
  * @param nrows data array length in each column (or batch)
  * @param ncols number of columsn (or batch size)
  * @param stream cuda stream
- * @param op the operation that computes the bin index of the input data
+ * @param binner the operation that computes the bin index of the input data
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
  */

@@ -14,7 +14,6 @@
 #
 
 import cupy as cp
-from uuid import uuid1
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
@@ -125,20 +124,19 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         """
 
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False, verbose=self.verbose)
         comms.init(workers=data.workers)
 
-        key = uuid1()
         kmeans_fit = [self.client.submit(KMeans._func_fit,
                                          comms.sessionId,
                                          wf[1],
                                          self.datatype,
                                          **self.kwargs,
                                          workers=[wf[0]],
-                                         key="%s-%s" % (key, idx))
+                                         pure=False)
                       for idx, wf in enumerate(data.worker_to_parts.items())]
 
         wait(kmeans_fit)
