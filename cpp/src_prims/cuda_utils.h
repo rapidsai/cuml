@@ -17,9 +17,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <iomanip>
+#include <cuml/common/utils.hpp>
 #include "math_constants.h"
-#include "utils.h"
 
 namespace MLCommon {
 
@@ -83,38 +82,6 @@ DI void forEach(int num, L lambda) {
     if (idx < num) lambda(idx, itr);
   }
 }
-
-template <typename T>
-std::string arr2Str(const T *arr, int size, std::string name,
-                    cudaStream_t stream, int width = 4) {
-  std::stringstream ss;
-
-  T *arr_h = (T *)malloc(size * sizeof(T));
-  updateHost(arr_h, arr, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  ss << name << " = [ ";
-  for (int i = 0; i < size; i++) {
-    ss << std::setw(width) << arr_h[i];
-
-    if (i < size - 1) ss << ", ";
-  }
-  ss << " ]" << std::endl;
-
-  free(arr_h);
-
-  return ss.str();
-}
-
-template <typename T>
-void ASSERT_DEVICE_MEM(T *ptr, std::string name) {
-  cudaPointerAttributes s_att;
-  cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
-
-  if (s_err != 0 || s_att.device == -1)
-    std::cout << "Invalid device pointer encountered in " << name
-              << ". device=" << s_att.device << ", err=" << s_err << std::endl;
-};
 
 /** number of threads per warp */
 static const int WarpSize = 32;
@@ -199,6 +166,16 @@ DI void myAtomicReduce(int *address, int val, ReduceLambda op) {
 template <typename ReduceLambda>
 DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
   long long old = *address, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address, assumed, op(val, assumed));
+  } while (assumed != old);
+}
+
+template <typename ReduceLambda>
+DI void myAtomicReduce(unsigned long long *address, unsigned long long val,
+                       ReduceLambda op) {
+  unsigned long long old = *address, assumed;
   do {
     assumed = old;
     old = atomicCAS(address, assumed, op(val, assumed));
@@ -481,33 +458,19 @@ struct Sum {
 
 /**
  * @defgroup Sign Obtain sign value
+ * @brief Obtain sign of x
+ * @param x input
+ * @return +1 if x >= 0 and -1 otherwise
  * @{
  */
-
-/** Obtain sign of x
-* @param x input
-* @return +1 if x>=0 and -1 otherwise
-*/
 template <typename T>
 DI T signPrim(T x) {
   return x < 0 ? -1 : +1;
 }
-
-/** Obtain sign of x
-* @param x input
-* @return +1 if x>=0 and -1 otherwise
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
-*/
 template <>
 DI float signPrim(float x) {
   return signbit(x) == true ? -1.0f : +1.0f;
 }
-
-/** Obtain sign of x
-* @param x input
-* @return +1 if x>=0 and -1 otherwise
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
-*/
 template <>
 DI double signPrim(double x) {
   return signbit(x) == true ? -1.0 : +1.0;
@@ -515,41 +478,26 @@ DI double signPrim(double x) {
 /** @} */
 
 /**
- * @defgroup Max value
+ * @defgroup Max maximum of two numbers
+ * @brief Obtain maximum of two values
+ * @param x one item
+ * @param y second item
+ * @return maximum of two items
  * @{
  */
-
-/** Obtain maximum of two values
-* @param x one item
-* @param y second item
-* @return maximum of two items
-*/
 template <typename T>
 DI T maxPrim(T x, T y) {
   return x > y ? x : y;
 }
-
-/** Obtain maximum of two values with template specialization which exploit cuda mathematical funcions
-* @param x one item
-* @param y second item
-* @return maximum of two items
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__SINGLE.html#group__CUDA__MATH__SINGLE
-*/
 template <>
 DI float maxPrim(float x, float y) {
   return fmaxf(x, y);
 }
-
-/** Obtain maximum of two values with template specialization which exploit mathematical funcions
-* @param x one item
-* @param y second item
-* @return maximum of two items
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE
-*/
 template <>
 DI double maxPrim(double x, double y) {
   return fmax(x, y);
 }
+/** @} */
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
 DI void warpFence() {

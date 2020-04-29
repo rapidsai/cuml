@@ -19,7 +19,7 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 cmake_policy(SET CMP0079 NEW)
 
-project(CUML VERSION 0.12.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 0.13.0 LANGUAGES CXX CUDA)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -104,7 +104,7 @@ endif(NOT BUILD_CUML_CPP_LIBRARY)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-find_package(CUDA 9.0 REQUIRED)
+find_package(CUDA 10.0 REQUIRED)
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
@@ -136,8 +136,7 @@ set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
 ##############################################################################
 # - Compiler Options  --------------------------------------------------------
 
-# TODO: Update to c++14, github issue
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_CUDA_HOST_COMPILER)
@@ -160,7 +159,7 @@ endif(OPENMP_FOUND)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
 endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
 
 if(LINE_INFO)
@@ -241,6 +240,7 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${CUB_DIR}/src/cub
+  ${SPDLOG_DIR}/src/spdlog/include
   ${TREELITE_DIR}/include
   ${TREELITE_DIR}/include/fmt)
 
@@ -264,6 +264,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/common/cuML_comms_impl.cpp
+    src/common/logger.cpp
     src/common/nvtx.cu
     src/comms/cuML_comms_test.cpp
     src/datasets/make_blobs.cu
@@ -274,7 +275,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/fil/infer.cu
     src/glm/glm.cu
     src/holtwinters/holtwinters.cu
-    src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
     src/metrics/metrics.cu
@@ -382,7 +382,7 @@ endif(BUILD_CUML_BENCH)
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
 
-# include(cmake/doxygen.cmake)
-# add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
-#   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-#   CWD ${CMAKE_CURRENT_BINARY_DIR})
+include(cmake/doxygen.cmake)
+add_doxygen_target(IN_DOXYFILE Doxyfile.in
+  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_BINARY_DIR})
