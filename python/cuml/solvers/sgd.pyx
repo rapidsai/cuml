@@ -29,9 +29,9 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
+from cuml.common import CumlArray
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -200,6 +200,11 @@ class SGD(Base):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Notes
     ------
@@ -210,7 +215,8 @@ class SGD(Base):
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
-                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
+                 power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
+                 output_type=None):
 
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
@@ -224,7 +230,8 @@ class SGD(Base):
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbose=False)
+        super(SGD, self).__init__(handle=handle, verbose=False,
+                                  output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
@@ -312,21 +319,23 @@ class SGD(Base):
             will increase memory used for the method.
         """
 
-        cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
-        y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_rows=n_rows, check_cols=1)
+        y_m, _, _, _ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t y_ptr = y_m.ptr
 
         self.n_alpha = 1
 
-        self.coef_ = cudf.Series(zeros(self.n_cols,
-                                       dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        self.coef_ = CumlArray.zeros(self.n_cols,
+                                     dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -403,20 +412,21 @@ class SGD(Base):
             will increase memory used for the method.
         Returns
         ----------
-        y: cuDF DataFrame
+        y: Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        X_m, n_rows, n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        cdef uintptr_t X_ptr = X_m.ptr
+
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -443,7 +453,9 @@ class SGD(Base):
 
         del(X_m)
 
-        return preds
+        output_type = self._get_output_type(X)
+
+        return preds.to_output(output_type)
 
     def predictClass(self, X, convert_dtype=False):
         """
@@ -463,20 +475,20 @@ class SGD(Base):
 
         Returns
         ----------
-        y : cuDF DataFrame
+        y : Type specified in `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(zeros(n_rows, dtype=dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
+        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:
@@ -502,4 +514,6 @@ class SGD(Base):
 
         del(X_m)
 
-        return preds
+        output_type = self._get_output_type(X)
+
+        return preds.to_output(output_type)

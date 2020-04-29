@@ -18,9 +18,9 @@ import cudf
 import dask_cudf
 import pandas as pd
 
-import scipy.stats as stats
-
 import numpy as np
+
+from cuml.utils import has_scipy
 
 from cuml.dask.common import utils as dask_utils
 
@@ -34,6 +34,10 @@ from cuml.test.utils import array_equal
 
 
 def predict(neigh_ind, _y, n_neighbors):
+    if has_scipy():
+        import scipy.stats as stats
+    else:
+        raise RuntimeError('Scipy is needed to run predict()')
 
     neigh_ind = neigh_ind.astype(np.int64)
 
