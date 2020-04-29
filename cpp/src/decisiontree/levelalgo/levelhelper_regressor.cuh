@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/cudart_utils.h>
 #include "levelkernel_regressor.cuh"
 
 namespace ML {

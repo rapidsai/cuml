@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <math.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
