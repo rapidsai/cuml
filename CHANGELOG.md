@@ -76,6 +76,7 @@
 - PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
+- PR #2139: CumlArray for adjusted_rand_score
 - PR #2140: Returning self in fit model functions
 - PR #2144: Remove GPU arch < 60 from CMake build
 - PR #2153: Added missing namespaces to some Decision Tree files
