@@ -73,15 +73,12 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None,
                             convert_to_dtype=(cp.int32 if convert_dtype
                                               else None))
 
-    labels_true_cp = labels_true.to_output('cupy')
-    labels_pred_cp = labels_pred.to_output('cupy')
-
-    min_val_y = cp.nanmin(labels_true_cp)
-    lower_class_range = cp.nanmin(labels_pred_cp) \
-        if min_val_y > cp.nanmin(labels_pred_cp) else cp.nanmin(labels_true_cp)
-    max_val_y = cp.nanmax(labels_true_cp)
-    upper_class_range = cp.nanmax(labels_pred_cp) \
-        if max_val_y < cp.nanmax(labels_pred_cp) else cp.nanmax(labels_true_cp)
+    min_val_y = cp.nanmin(labels_true)
+    lower_class_range = cp.nanmin(labels_pred) \
+        if min_val_y > cp.nanmin(labels_pred) else cp.nanmin(labels_true)
+    max_val_y = cp.nanmax(labels_true)
+    upper_class_range = cp.nanmax(labels_pred) \
+        if max_val_y < cp.nanmax(labels_pred) else cp.nanmax(labels_true)
 
     rand_score = adjustedRandIndex(handle_[0],
                                    <int*><uintptr_t> labels_true.ptr,
