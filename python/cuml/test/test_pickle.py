@@ -599,13 +599,15 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
+
 def test_small_rf(tmpdir):
+
     result = {}
+
     def create_mod():
         n_samples = 100
         n_features = 20
         n_info = 10
-        data_type = np.float32
 
         X_train, y_train, X_test = make_classification_dataset(np.float32,
                                                                n_samples,
