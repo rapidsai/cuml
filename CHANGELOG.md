@@ -80,6 +80,7 @@
 - PR #2144: Remove GPU arch < 60 from CMake build
 - PR #2153: Added missing namespaces to some Decision Tree files
 - PR #2155: C++: fix doxygen build break
+- PR #2161: Replacing depreciated bruteForceKnn
 
 # cuML 0.13.0 (Date TBD)
 
