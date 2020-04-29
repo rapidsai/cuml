@@ -278,11 +278,8 @@ class RandomForestClassifier(DelayedPredictionMixin,
 
     @staticmethod
     def _fit(model, input_data, convert_dtype):
-        X = input_data[0][0]
-        y = input_data[0][1]
-        if len(input_data) > 1:
-            X = concatenate([item[0] for item in input_data])
-            y = concatenate([item[1] for item in input_data])
+        X = concatenate([item[0] for item in input_data])
+        y = concatenate([item[1] for item in input_data])
         return model.fit(X, y, convert_dtype)
 
     @staticmethod
