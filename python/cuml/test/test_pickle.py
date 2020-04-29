@@ -27,6 +27,7 @@ from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
+from cuml.ensemble import RandomForestClassifier
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
@@ -595,5 +596,29 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
         state = pickled_model.__dict__
 
         assert state["_fit_status_"] == 0
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+def test_small_rf(tmpdir):
+    result = {}
+    def create_mod():
+        n_samples = 100
+        n_features = 20
+        n_info = 10
+        data_type = np.float32
+
+        X_train, y_train, X_test = make_classification_dataset(np.float32,
+                                                               n_samples,
+                                                               n_features,
+                                                               n_info,
+                                                               n_classes=2)
+        model = RandomForestClassifier(n_estimators=1, max_depth=1,
+                                       max_features=1.0, seed=10)
+        model.fit(X_train, y_train)
+        result['rf_res'] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        assert array_equal(result['rf_res'], pickled_model.predict(X_test))
 
     pickle_save_load(tmpdir, create_mod, assert_model)
