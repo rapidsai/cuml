@@ -15,11 +15,14 @@
  */
 
 #pragma once
+#include <common/cudart_utils.h>
 #include <math.h>
-#include <utils.h>
 #include <vector>
 #include "../memory.h"
 #include "cuda_utils.h"
+
+namespace ML {
+namespace DecisionTree {
 
 struct SquareFunctor {
   template <typename T>
@@ -40,3 +43,6 @@ struct EntropyFunctor {
   static float exec(std::vector<unsigned int>& hist, int nrows);
   static float max_val(int nclass);
 };
+
+}  // namespace DecisionTree
+}  // namespace ML

@@ -24,6 +24,7 @@
 *   on the same dataset when the real ground truth is not known.
 */
 
+#include <common/cudart_utils.h>
 #include <math.h>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>

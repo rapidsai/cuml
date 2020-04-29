@@ -32,16 +32,13 @@ import cupy
 
 import numba.cuda as cuda
 
-from scipy.optimize import curve_fit
-
-from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
 from cupy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_cuml_array, zeros, with_cupy_rmm
+    input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
 from cuml.common.array import CumlArray
 
 import rmm
@@ -376,7 +373,7 @@ class UMAP(Base):
         umap_params.repulsion_strength = <float> cls.repulsion_strength
         umap_params.negative_sample_rate = <int> cls.negative_sample_rate
         umap_params.transform_queue_size = <int> cls.transform_queue_size
-        umap_params.verbosity = <int> cls.logging_level
+        umap_params.verbosity = <int> cls.verbosity
         umap_params.a = <float> cls.a
         umap_params.b = <float> cls.b
         if cls.init == "spectral":
@@ -417,6 +414,11 @@ class UMAP(Base):
         def curve(x, a, b):
             return 1.0 / (1.0 + a * x ** (2 * b))
 
+        if has_scipy():
+            from scipy.optimize import curve_fit
+        else:
+            raise RuntimeError('Scipy is needed to run find_ab_params')
+
         xv = np.linspace(0, spread * 3, 300)
         yv = np.zeros(xv.shape)
         yv[xv < min_dist] = 1.0
@@ -426,6 +428,14 @@ class UMAP(Base):
 
     @with_cupy_rmm
     def _extract_knn_graph(self, knn_graph, convert_dtype=True):
+        if has_scipy():
+            from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
+        else:
+            from cuml.utils.import_utils import DummyClass
+            csr_matrix = DummyClass
+            coo_matrix = DummyClass
+            csc_matrix = DummyClass
+
         if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
             knn_graph = cupy.sparse.csr_matrix(knn_graph)
             n_samples = knn_graph.shape[0]

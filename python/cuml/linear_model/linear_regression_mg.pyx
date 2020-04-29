@@ -200,6 +200,7 @@ class LinearRegressionMG(LinearRegression):
         else:
             _freeDoubleD(data, arr_interfaces)
             _freeDoubleD(labels, arr_interfaces_y)
+        return self
 
 
 # Util functions, will be moved to their own file as the other methods are
