@@ -133,18 +133,22 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
  * @todo: docs
  */
 template <typename DataT>
-__global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_phi,
-                                      const DataT* d_theta, const DataT* d_mu,
+__global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_mu,
+                                      const DataT* d_ar, const DataT* d_ma,
+                                      const DataT* d_sar, const DataT* d_sma,
                                       DataT* d_loglike, int n_obs, int n_phi,
-                                      int n_theta, int k, int start_sum,
-                                      int start_y, int start_v) {
+                                      int n_theta, int p, int q, int P, int Q,
+                                      int s, int k, int start_sum, int start_y,
+                                      int start_v) {
   // Load phi, theta and mu to registers
   DataT phi, theta;
   if (threadIdx.x < n_phi) {
-    phi = d_phi[n_phi * blockIdx.x + threadIdx.x];
+    phi = MLCommon::TimeSeries::reduced_polynomial<true>(
+      blockIdx.x, d_ar, p, d_sar, P, s, threadIdx.x + 1);
   }
   if (threadIdx.x < n_theta) {
-    theta = d_theta[n_theta * blockIdx.x + threadIdx.x];
+    theta = MLCommon::TimeSeries::reduced_polynomial<false>(
+      blockIdx.x, d_ma, q, d_sma, Q, s, threadIdx.x + 1);
   }
   DataT mu = k ? d_mu[blockIdx.x] : (DataT)0;
 
@@ -193,33 +197,10 @@ void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
                                 const ARIMAParams<double>& Tparams,
                                 double* d_loglike, int truncate) {
   ML::PUSH_RANGE(__func__);
-  auto allocator = handle.getDeviceAllocator();
   auto stream = handle.getStream();
-  auto counting = thrust::make_counting_iterator(0);
 
-  // Compute phi and theta (AR-SAR and MA-SMA polynomials)
   int n_phi = order.n_phi();
   int n_theta = order.n_theta();
-  MLCommon::device_buffer<double> phi(allocator, stream, n_phi * batch_size);
-  MLCommon::device_buffer<double> theta(allocator, stream,
-                                        n_theta * batch_size);
-  double* d_phi = phi.data();
-  double* d_theta = theta.data();
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + batch_size,
-    [=] __device__(int bid) {
-      double* b_phi = d_phi + bid * n_phi;
-      double* b_theta = d_theta + bid * n_theta;
-      for (int i = 0; i < n_phi; i++) {
-        b_phi[i] = MLCommon::TimeSeries::reduced_polynomial<true>(
-          bid, Tparams.ar, order.p, Tparams.sar, order.P, order.s, i + 1);
-      }
-      for (int i = 0; i < n_theta; i++) {
-        b_theta[i] = MLCommon::TimeSeries::reduced_polynomial<false>(
-          bid, Tparams.ma, order.q, Tparams.sma, order.Q, order.s, i + 1);
-      }
-    });
-
   int max_lags = std::max(n_phi, n_theta);
   int start_sum = std::max(max_lags, truncate);
   int start_y = start_sum - n_phi;
@@ -231,8 +212,9 @@ void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
   size_t shared_mem_size =
     (2 * n_obs - start_y - start_v + n_warps) * sizeof(double);
   sum_of_squares_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(
-    d_y, d_phi, d_theta, Tparams.mu, d_loglike, n_obs, n_phi, n_theta, order.k,
-    start_sum, start_y, start_v);
+    d_y, Tparams.mu, Tparams.ar, Tparams.ma, Tparams.sar, Tparams.sma,
+    d_loglike, n_obs, n_phi, n_theta, order.p, order.q, order.P, order.Q,
+    order.s, order.k, start_sum, start_y, start_v);
   CUDA_CHECK(cudaPeekAtLastError());
 
   ML::POP_RANGE();
