@@ -65,6 +65,9 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     ctypedef enum LoglikeMethod: CSS, MLE
 
+    void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+                      int batch_size, int n_obs, const ARIMAOrder& order)
+
     void batched_loglike(
         cumlHandle& handle, const double* y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* params, double* loglike,
@@ -266,8 +269,22 @@ class ARIMA(Base):
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
                              " given order")
-
-        self.niter = None  # number of iterations used during fit
+        
+        # Compute the differenced series
+        self._d_y_diff = cumlArray.empty(
+            (self.n_obs - d - s * D, self.batch_size), self.dtype)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
+        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
+                     <int> self.batch_size, <int> self.n_obs, self.order)
+        
+        # Create a version of the order for the differenced series
+        cdef ARIMAOrder cpp_order_diff = cpp_order
+        cpp_order_diff.d = 0
+        cpp_order_diff.D = 0
+        self.order_diff = cpp_order_diff
+        self.n_obs_diff = self.n_obs - d - D * s
 
     def __str__(self):
         cdef ARIMAOrder order = self.order
@@ -706,12 +723,13 @@ class ARIMA(Base):
         vec_loglike.resize(self.batch_size)
 
         cdef ARIMAOrder order = self.order
+        cdef ARIMAOrder order_diff = self.order_diff
 
         d_x_array, *_ = \
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = self._d_y.ptr
+        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,
@@ -719,8 +737,9 @@ class ARIMA(Base):
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
-        batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
-                        <int> self.n_obs, order, <double*> d_x_ptr,
+        batched_loglike(handle_[0], <double*> d_y_diff_ptr,
+                        <int> self.batch_size, <int> self.n_obs_diff,
+                        order_diff, <double*> d_x_ptr,
                         <double*> vec_loglike.data(), <double*> d_vs_ptr,
                         <bool> trans, <bool> True, ll_method, <int> truncate)
 
@@ -761,19 +780,21 @@ class ARIMA(Base):
         cdef uintptr_t d_grad = <uintptr_t> grad.ptr
 
         cdef ARIMAOrder order = self.order
+        cdef ARIMAOrder order_diff = self.order_diff
 
         d_x_array, *_ = \
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = self._d_y.ptr
+        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
-        batched_loglike_grad(handle_[0], <double*> d_y_ptr,
-                             <int> self.batch_size, <int> self.n_obs, order,
-                             <double*> d_x_ptr, <double*> d_grad, <double> h,
-                             <bool> trans, ll_method, <int> truncate)
+        batched_loglike_grad(handle_[0], <double*> d_y_diff_ptr,
+                             <int> self.batch_size, <int> self.n_obs_diff,
+                             order_diff, <double*> d_x_ptr, <double*> d_grad,
+                             <double> h, <bool> trans, ll_method,
+                             <int> truncate)
 
         return grad.to_output("numpy")
 

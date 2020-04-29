@@ -40,6 +40,13 @@
 
 namespace ML {
 
+void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+                  int batch_size, int n_obs, const ARIMAOrder& order) {
+  const auto stream = handle.getStream();
+  MLCommon::TimeSeries::prepare_data(d_y_diff, d_y, batch_size, n_obs, order.d,
+                                     order.D, order.s, stream);
+}
+
 void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
              int start, int end, const ARIMAOrder& order,
              const ARIMAParams<double>& params, double* d_vs, double* d_y_p) {
