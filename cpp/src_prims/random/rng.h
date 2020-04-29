@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <stdint.h>
 #include <cstdio>
 #include <cstdlib>

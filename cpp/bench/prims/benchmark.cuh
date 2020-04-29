@@ -17,9 +17,9 @@
 #pragma once
 
 #include <benchmark/benchmark.h>
+#include <common/cudart_utils.h>
 #include <cuda_runtime.h>
 #include <cuda_utils.h>
-#include <utils.h>
 #include <cuml/common/logger.hpp>
 #include <sstream>
 #include <string>
