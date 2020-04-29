@@ -17,21 +17,18 @@
 from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
 
-from cuml.dask.common.base import DelayedPredictionMixin, \
-    DelayedPredictionProbaMixin
-from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    concatenate
 
 from dask.distributed import default_client, wait
 
-import cudf
-import cupy as cp
 import math
 import random
 from uuid import uuid1
 
 
-class RandomForestClassifier(DelayedPredictionMixin,
-                             DelayedPredictionProbaMixin):
+class RandomForestClassifier(DelayedPredictionMixin):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -283,16 +280,9 @@ class RandomForestClassifier(DelayedPredictionMixin,
     def _fit(model, input_data, convert_dtype):
         X = input_data[0][0]
         y = input_data[0][1]
-        if isinstance(X, cudf.core.DataFrame):
-            if len(input_data) > 1:
-                for i in range(1, len(input_data)):
-                    X = cudf.concat([X, input_data[i][0]])
-                    y = cudf.concat([y, input_data[i][1]])
-        else:
-            X_parts = list(map(lambda x: cp.asarray(x[0]), input_data))
-            X = cp.concatenate(X_parts)
-            y_parts = list(map(lambda y: cp.asarray(y[1]), input_data))
-            y = cp.concatenate(y_parts)
+        if len(input_data) > 1:
+            X = concatenate([item[0] for item in input_data])
+            y = concatenate([item[1] for item in input_data])
         return model.fit(X, y, convert_dtype)
 
     @staticmethod
@@ -394,14 +384,15 @@ class RandomForestClassifier(DelayedPredictionMixin,
         self.datatype = data.datatype
 
         futures = list()
-        for idx, wf in enumerate(data.worker_to_parts.items()):
+        for idx, (worker, worker_data) in \
+                enumerate(data.worker_to_parts.items()):
             futures.append(
                 self.client.submit(
                     RandomForestClassifier._fit,
-                    self.rfs[wf[0]],
-                    wf[1],
+                    self.rfs[worker],
+                    worker_data,
                     convert_dtype,
-                    workers=[wf[0]],
+                    workers=[worker],
                     pure=False)
             )
 
@@ -572,75 +563,6 @@ class RandomForestClassifier(DelayedPredictionMixin,
 
             pred.append(max_class)
         return pred
-
-    def predict_proba(self, X, output_class=True, algo='auto',
-                      threshold=0.5, num_classes=2,
-                      convert_dtype=False,
-                      delayed=True, fil_sparse_format='auto'):
-        """
-        Predicts the probability of each class for X.
-
-        Parameters
-        ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
-            Distributed dense matrix (floats or doubles) of shape
-            (n_samples, n_features).
-        predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
-        output_class : boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
-        num_classes : int (default = 2)
-            number of different classes present in the dataset
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = auto)
-            This variable is used to choose the type of forest that will be
-            created in the Forest Inference Library. It is not required
-            while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
-
-        Returns
-        ----------
-        y : NumPy
-           Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
-        """
-        self._concat_treelite_models()
-        data = DistributedDataHandler.create(X, client=self.client)
-        self.datatype = data.datatype
-
-        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
-                  "threshold": threshold,
-                  "num_classes": num_classes, "algo": algo,
-                  "fil_sparse_format": fil_sparse_format}
-        return self._predict_proba(X, delayed, **kwargs)
 
     def get_params(self, deep=True):
         """
