@@ -57,17 +57,18 @@ void transpose(math_t *inout, int n, cudaStream_t stream) {
   auto d_inout = inout;
   auto counting = thrust::make_counting_iterator<int>(0);
 
-  thrust::for_each(counting, counting + size, [=] __device__(int idx) {
-    int s_row = idx % m;
-    int s_col = idx / m;
-    int d_row = s_col;
-    int d_col = s_row;
-    if (s_row < s_col) {
-      auto temp = d_inout[d_col * m + d_row];
-      d_inout[d_col * m + d_row] = d_inout[s_col * m + s_row];
-      d_inout[s_col * m + s_row] = temp;
-    }
-  });
+  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
+                   [=] __device__(int idx) {
+                     int s_row = idx % m;
+                     int s_col = idx / m;
+                     int d_row = s_col;
+                     int d_col = s_row;
+                     if (s_row < s_col) {
+                       auto temp = d_inout[d_col * m + d_row];
+                       d_inout[d_col * m + d_row] = d_inout[s_col * m + s_row];
+                       d_inout[s_col * m + s_row] = temp;
+                     }
+                   });
 }
 
 };  // end namespace LinAlg
