@@ -24,6 +24,12 @@ namespace ML {
 enum LoglikeMethod { CSS, MLE };
 
 /**
+ * @todo: docs
+*/
+void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
+                  int batch_size, int n_obs, const ARIMAOrder& order);
+
+/**
  * Compute the loglikelihood of the given parameter on the given time series
  * in a batched context.
  *
@@ -91,10 +97,9 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @todo: docs
  */
 void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
-                          int n_obs, const ARIMAOrder& order,
-                          const double* d_x, double* d_grad, double h,
-                          bool trans = true, LoglikeMethod method = MLE,
-                          int truncate = 0);
+                          int n_obs, const ARIMAOrder& order, const double* d_x,
+                          double* d_grad, double h, bool trans = true,
+                          LoglikeMethod method = MLE, int truncate = 0);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
