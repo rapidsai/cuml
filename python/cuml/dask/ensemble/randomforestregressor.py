@@ -16,13 +16,12 @@
 
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    concatenate
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
 
-import cudf
-import cupy as cp
 import math
 from uuid import uuid1
 
@@ -278,16 +277,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
     def _fit(model, input_data, convert_dtype):
         X = input_data[0][0]
         y = input_data[0][1]
-        if isinstance(X, cudf.core.DataFrame):
-            if len(input_data) > 1:
-                for i in range(1, len(input_data)):
-                    X = cudf.concat([X, input_data[i][0]])
-                    y = cudf.concat([y, input_data[i][1]])
-        else:
-            X_parts = list(map(lambda x: cp.asarray(x[0]), input_data))
-            X = cp.concatenate(X_parts)
-            y_parts = list(map(lambda y: cp.asarray(y[1]), input_data))
-            y = cp.concatenate(y_parts)
+        if len(input_data) > 1:
+            X = concatenate([item[0] for item in input_data])
+            y = concatenate([item[1] for item in input_data])
         return model.fit(X, y, convert_dtype)
 
     @staticmethod
@@ -380,16 +372,16 @@ class RandomForestRegressor(DelayedPredictionMixin):
         """
         data = DistributedDataHandler.create((X, y), client=self.client)
         self.datatype = data.datatype
-        print(" type of data : ", type(data))
         futures = list()
-        for idx, wf in enumerate(data.worker_to_parts.items()):
+        for idx, (worker, worker_data) in \
+                enumerate(data.worker_to_parts.items()):
             futures.append(
                 self.client.submit(
                     RandomForestRegressor._fit,
-                    self.rfs[wf[0]],
-                    wf[1],
+                    self.rfs[worker],
+                    worker_data,
                     convert_dtype,
-                    workers=[wf[0]],
+                    workers=[worker],
                     pure=False)
             )
 
