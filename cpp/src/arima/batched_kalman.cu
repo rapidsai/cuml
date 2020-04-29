@@ -24,6 +24,7 @@
 #include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
+#include <common/cudart_utils.h>
 #include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
@@ -32,7 +33,6 @@
 #include "linalg/cublas_wrappers.h"
 #include "sparse/batched/csr.h"
 #include "timeSeries/arima_helpers.h"
-#include "utils.h"
 
 namespace ML {
 

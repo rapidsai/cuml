@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include "common_kernel.cuh"

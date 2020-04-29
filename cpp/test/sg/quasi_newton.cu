@@ -1,3 +1,4 @@
+#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <cuml/linear_model/glm.hpp>
@@ -7,7 +8,6 @@
 #include <glm/qn/qn.cuh>
 #include <vector>
 #include "test_utils.h"
-#include "utils.h"
 
 namespace ML {
 namespace GLM {
