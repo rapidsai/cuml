@@ -59,7 +59,6 @@ conda install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
-      "pytest-timeout" \
       "statsmodels" \
       "xgboost====1.0.2dev.rapidsai0.13" \
       "lightgbm"
