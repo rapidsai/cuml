@@ -39,11 +39,11 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, cluster):
         from cuml.dask.datasets import make_blobs
 
         X, _ = make_blobs(n_samples=nrows,
-                               n_features=ncols,
-                               centers=1,
-                               n_parts=n_parts,
-                               cluster_std=0.5, verbose=False,
-                               random_state=10, dtype=np.float32)
+                          n_features=ncols,
+                          centers=1,
+                          n_parts=n_parts,
+                          cluster_std=0.5, verbose=False,
+                          random_state=10, dtype=np.float32)
 
         wait(X)
         if input_type == "dataframe":
