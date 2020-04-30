@@ -62,9 +62,7 @@ single_gpu_build = get_cli_option('--singlegpu')
 # - Dependencies include and lib folder setup --------------------------------
 
 if not cuda_home:
-    cuda_home = (
-        os.popen('echo "$(dirname $(dirname $(which nvcc)))"').read().strip()
-    )
+    cuda_home = str(Path(shutil.which('nvcc')).parent.parent)
     print("-- Using nvcc to detect CUDA, found at " + str(cuda_home))
 cuda_include_dir = os.path.join(cuda_home, "include")
 cuda_lib_dir = os.path.join(cuda_home, "lib64")
