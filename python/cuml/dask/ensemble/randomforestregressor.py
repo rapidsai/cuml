@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import dask
+import math
 
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.base import DelayedPredictionMixin
@@ -22,7 +24,6 @@ from cuml.ensemble import RandomForestRegressor as cuRFR
 
 from dask.distributed import default_client, wait
 
-import math
 from uuid import uuid1
 
 
@@ -284,6 +285,10 @@ class RandomForestRegressor(DelayedPredictionMixin):
         model.print_summary()
 
     @staticmethod
+    def _get_protobuf_bytes(model):
+        return model._get_protobuf_bytes()
+
+    @staticmethod
     def _predict_cpu(model, X, convert_dtype):
         return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
@@ -315,18 +320,21 @@ class RandomForestRegressor(DelayedPredictionMixin):
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
-
         mod_bytes = []
+        model_protobuf_futures = list()
         for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+            model_protobuf_futures.append(
+                dask.delayed(RandomForestRegressor._get_protobuf_bytes)
+                (self.rfs[w]))
+        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-        concat_model_handle = model._concatenate_treelite_handle(
+
+        model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
@@ -449,9 +457,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
                            convert_dtype=True, fil_sparse_format='auto',
                            delayed=True):
         self._concat_treelite_models()
+
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
-
         kwargs = {"convert_dtype": convert_dtype,
                   "predict_model": predict_model, "algo": algo,
                   "fil_sparse_format": fil_sparse_format}
