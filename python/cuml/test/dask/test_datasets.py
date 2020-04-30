@@ -94,7 +94,7 @@ def test_make_blobs(nrows,
 @pytest.mark.parametrize('noise', [1.0])
 @pytest.mark.parametrize('shuffle', [True, False])
 @pytest.mark.parametrize('coef', [True, False])
-@pytest.mark.parametrize('n_parts', [1, 4, 23])
+@pytest.mark.parametrize('n_parts', [4, 23])
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('use_full_low_rank', [True, False])
 def test_make_regression(n_samples, n_features, n_informative,
