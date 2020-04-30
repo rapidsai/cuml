@@ -123,8 +123,6 @@ void _fit(const cumlHandle &handle,
   FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, k, &rgraph_coo,
                                params, d_alloc, stream);
 
-  test_has_nan(rgraph_coo.vals(), rgraph_coo.nnz, d_alloc, stream, 1);
-
   /**
    * Remove zeros from simplicial set
    */
@@ -132,16 +130,11 @@ void _fit(const cumlHandle &handle,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo,
                                                d_alloc, stream);
 
-  test_has_nan(cgraph_coo.vals(), cgraph_coo.nnz, d_alloc, stream, 2);
-
   /**
    * Run initialization method
    */
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &cgraph_coo, params,
                  embeddings, stream, params->init);
-
-  test_has_nan(cgraph_coo.vals(), cgraph_coo.nnz, d_alloc, stream, 3);
-  test_has_nan(embeddings, n * params->n_components, d_alloc, stream, 4);
 
   if (knn_indices_b) delete knn_indices_b;
   if (knn_dists_b) delete knn_dists_b;
@@ -156,9 +149,6 @@ void _fit(const cumlHandle &handle,
    */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
                                d_alloc, stream);
-
-  test_has_nan(cgraph_coo.vals(), cgraph_coo.nnz, d_alloc, stream, 5);
-  test_has_nan(embeddings, n * params->n_components, d_alloc, stream, 6);
 
   if (params->callback) params->callback->on_train_end(embeddings);
 }
@@ -215,12 +205,8 @@ void _fit(const cumlHandle &handle,
                                &tmp_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  test_has_nan(tmp_coo.vals(), tmp_coo.nnz, d_alloc, stream, 7);
-
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&tmp_coo, &rgraph_coo, d_alloc,
                                                stream);
-
-  test_has_nan(tmp_coo.vals(), tmp_coo.nnz, d_alloc, stream, 8);
 
   COO<T> final_coo(d_alloc, stream);
 
@@ -233,8 +219,6 @@ void _fit(const cumlHandle &handle,
     Supervised::perform_categorical_intersection<TPB_X, T>(
       y, &rgraph_coo, &final_coo, params, d_alloc, stream);
 
-    test_has_nan(final_coo.vals(), final_coo.nnz, d_alloc, stream, 9);
-
     /**
      * Otherwise, perform general simplicial set intersection
      */
@@ -242,8 +226,6 @@ void _fit(const cumlHandle &handle,
     CUML_LOG_DEBUG("Performing general intersection");
     Supervised::perform_general_intersection<TPB_X, T>(
       handle, y, &rgraph_coo, &final_coo, params, stream);
-
-    test_has_nan(final_coo.vals(), final_coo.nnz, d_alloc, stream, 10);
   }
 
   /**
@@ -251,22 +233,15 @@ void _fit(const cumlHandle &handle,
    */
   MLCommon::Sparse::coo_sort<T>(&final_coo, d_alloc, stream);
 
-  test_has_nan(final_coo.vals(), final_coo.nnz, d_alloc, stream, 11);
-
   COO<T> ocoo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, d_alloc,
                                                stream);
-
-  test_has_nan(ocoo.vals(), ocoo.nnz, d_alloc, stream, 12);
 
   /**
    * Initialize embeddings
    */
   InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
                  embeddings, stream, params->init);
-
-  test_has_nan(ocoo.vals(), ocoo.nnz, d_alloc, stream, 13);
-  test_has_nan(embeddings, n * params->n_components, d_alloc, stream, 14);
 
   if (knn_indices_b) delete knn_indices_b;
   if (knn_dists_b) delete knn_dists_b;
@@ -281,9 +256,6 @@ void _fit(const cumlHandle &handle,
    */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &ocoo, params, embeddings, d_alloc,
                                stream);
-
-  test_has_nan(ocoo.vals(), ocoo.nnz, d_alloc, stream, 15);
-  test_has_nan(embeddings, n * params->n_components, d_alloc, stream, 16);
 
   if (params->callback) params->callback->on_train_end(embeddings);
 
@@ -352,9 +324,6 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     n, knn_indices, knn_dists, rhos.data(), sigmas.data(), params,
     params->n_neighbors, adjusted_local_connectivity, d_alloc, stream);
 
-  test_has_nan(sigmas.data(), sigmas.size(), d_alloc, stream, 17);
-  test_has_nan(rhos.data(), rhos.size(), d_alloc, stream, 18);
-
   /**
    * Compute graph of membership strengths
    */
@@ -378,10 +347,6 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
                                  graph_coo.n_rows, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  test_has_nan(sigmas.data(), sigmas.size(), d_alloc, stream, 19);
-  test_has_nan(rhos.data(), rhos.size(), d_alloc, stream, 20);
-  test_has_nan(graph_coo.vals(), graph_coo.nnz, d_alloc, stream, 21);
-
   if (knn_indices_b) delete knn_indices_b;
   if (knn_dists_b) delete knn_dists_b;
 
@@ -391,10 +356,6 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind.data(), d_alloc,
                                       stream);
   MLCommon::Sparse::coo_row_count<TPB_X>(&graph_coo, ia.data(), stream);
-
-  test_has_nan(graph_coo.vals(), graph_coo.nnz, d_alloc, stream, 22);
-  test_has_nan(row_ind.data(), row_ind.size(), d_alloc, stream, 23);
-  test_has_nan(ia.data(), ia.size(), d_alloc, stream, 24);
 
   MLCommon::device_buffer<T> vals_normed(d_alloc, stream, graph_coo.nnz);
   CUDA_CHECK(
@@ -406,17 +367,10 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows,
     vals_normed.data(), stream);
 
-  test_has_nan(graph_coo.vals(), graph_coo.nnz, d_alloc, stream, 25);
-  test_has_nan(vals_normed.data(), vals_normed.size(), d_alloc, stream, 26);
-
   init_transform<TPB_X, T><<<grid_n, blk, 0, stream>>>(
     graph_coo.cols(), vals_normed.data(), graph_coo.n_rows, embedding,
     embedding_n, params->n_components, transformed, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
-
-  test_has_nan(graph_coo.vals(), graph_coo.nnz, d_alloc, stream, 27);
-  test_has_nan(vals_normed.data(), vals_normed.size(), d_alloc, stream, 28);
-  test_has_nan(transformed, n * params->n_components, d_alloc, stream, 29);
 
   CUDA_CHECK(cudaMemsetAsync(ia.data(), 0.0, ia.size() * sizeof(int), stream));
 
@@ -454,8 +408,6 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  test_has_nan(graph_coo.vals(), graph_coo.nnz, d_alloc, stream, 30);
-
   /**
    * Remove zeros
    */
@@ -463,18 +415,12 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, d_alloc,
                                                stream);
 
-  test_has_nan(comp_coo.vals(), comp_coo.nnz, d_alloc, stream, 31);
-
   CUML_LOG_DEBUG("Computing # of epochs for training each sample");
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, nnz);
 
   SimplSetEmbedImpl::make_epochs_per_sample(
     comp_coo.vals(), comp_coo.nnz, n_epochs, epochs_per_sample.data(), stream);
-
-  test_has_nan(comp_coo.vals(), comp_coo.nnz, d_alloc, stream, 32);
-  test_has_nan(epochs_per_sample.data(), epochs_per_sample.size(), d_alloc,
-               stream, 33);
 
   CUML_LOG_DEBUG("Performing optimization");
 
@@ -489,11 +435,6 @@ void _transform(const cumlHandle &handle, T *X, int n, int d,
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
     params, n_epochs, params->multicore_implem, d_alloc, stream);
-
-  test_has_nan(comp_coo.vals(), comp_coo.nnz, d_alloc, stream, 34);
-  test_has_nan(epochs_per_sample.data(), epochs_per_sample.size(), d_alloc,
-               stream, 35);
-  test_has_nan(transformed, n * params->n_components, d_alloc, stream, 36);
 
   if (params->callback) params->callback->on_train_end(transformed);
 }
