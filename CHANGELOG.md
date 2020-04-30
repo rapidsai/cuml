@@ -85,6 +85,7 @@
 - PR #2155: C++: fix doxygen build break
 - PR #2161: Replacing depreciated bruteForceKnn
 - PR #2165: Fit function test correction
+- PR #2166: Fix handling of temp file in RF pickling
 
 # cuML 0.13.0 (Date TBD)
 
