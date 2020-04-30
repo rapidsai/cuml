@@ -301,10 +301,6 @@ class RandomForestClassifier(DelayedPredictionMixin):
     def _get_protobuf_bytes(model):
         return model._get_protobuf_bytes()
 
-    @dask.delayed
-    def _tl_model_handles(model, model_pbuf_bytes):
-        return model._tl_model_handles(model_pbuf_bytes)
-
     @staticmethod
     def _print_summary(model):
         model.print_summary()
