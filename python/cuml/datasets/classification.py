@@ -195,6 +195,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            `order=F` and eliminates any need for secondary copies
     """
     generator = _create_rs_generator(random_state)
+    np_seed = int(generator.randint(n_samples, size=1))
+    np.random.seed(np_seed)
 
     # Count features, clusters and samples
     if n_informative + n_redundant + n_repeated > n_features:
