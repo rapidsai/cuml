@@ -170,10 +170,9 @@ class ARIMA(Base):
     verbose: int (optional, default 0)
         Controls verbosity level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
-        Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        Variable to control output type of the results and attributes.
+        If None, it'll inherit the output type set at the module level,
+        cuml.output_type. If set, it will override the global option.
 
     Attributes
     ----------
@@ -354,8 +353,7 @@ class ARIMA(Base):
                               <ARIMAOrder> order, cpp_params,
                               <double*> d_ic_ptr, <int> ic_type_id)
 
-        return ic
-        # TODO: don't return cuML array, use output type!
+        return ic.to_output(self.output_type)
 
     @property
     def aic(self):

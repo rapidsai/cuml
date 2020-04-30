@@ -41,7 +41,6 @@ from cuml.utils.input_utils import input_to_cuml_array
 # TODO:
 # - Box-Cox transformations? (parameter lambda)
 # - integrate cuML logging system
-# - use output_type as soon as cuML array change in ARIMA is merged
 
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
@@ -103,16 +102,25 @@ tests_map = {
 
 class AutoARIMA(Base):
     r"""TODO: docs
+    Parameters
+    ----------
+    ...
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes.
+        If None, it'll inherit the output type set at the module level,
+        cuml.output_type. If set, it will override the global option.
     """
     
     def __init__(self, y,
                  handle=None,
                  verbose=0,
                  output_type=None):
+        # Initialize base class
         super().__init__(handle, verbose, output_type)
+        self._set_output_type(y)
 
         # Get device array. Float64 only for now.
-        self.d_y, self.n_obs, self.batch_size, self.dtype \
+        self._d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(y, check_dtype=np.float64)
 
     def search(self,
@@ -123,6 +131,7 @@ class AutoARIMA(Base):
                q=range(1, 4),
                P=range(3),
                Q=range(3),
+               fit_intercept="auto",
                ic="aicc", # TODO: which one to use by default? "auto" mode?
                test="kpss",
                seasonal_test="seas",
@@ -160,20 +169,20 @@ class AutoARIMA(Base):
         D_options = _parse_sequence("D", D, 0, 1)
         if not s:
             # Non-seasonal -> D=0
-            data_D = {0: (self.d_y, d_index)}
+            data_D = {0: (self._d_y, d_index)}
         elif len(D_options) == 1:
             # D is specified by the user
-            data_D = {D_options[0]: (self.d_y, d_index)}
+            data_D = {D_options[0]: (self._d_y, d_index)}
         else:
             # D is chosen with a seasonal differencing test
             if seasonal_test not in tests_map:
                 raise ValueError("Unknown seasonal diff test: {}"
                                  .format(seasonal_test))
-            mask_cp = tests_map[seasonal_test](self.d_y.to_output("cupy"), s)
+            mask_cp = tests_map[seasonal_test](self._d_y.to_output("cupy"), s)
             mask = input_to_cuml_array(mask_cp)[0]
             del mask_cp
             data_D = {}
-            (out0, index0), (out1, index1) = _divide_by_mask(self.d_y, mask,
+            (out0, index0), (out1, index1) = _divide_by_mask(self._d_y, mask,
                                                              d_index)
             if out0 is not None:
                 data_D[0] = (out0, index0)
@@ -231,18 +240,22 @@ class AutoARIMA(Base):
         for (d_, D_) in data_dD:
             data_temp, id_temp = data_dD[(d_, D_)]
             batch_size = data_temp.shape[1] if len(data_temp.shape) > 1 else 1
-            k_ = 1 if d_ + D_ <= 1 else 0
+
+            k_options = ([1 if d_ + D_ <= 1 else 0] if fit_intercept == "auto"
+                         else _parse_sequence("k", fit_intercept, 0, 1))
 
             # Grid search
             all_ic = []
             all_orders = []
-            for p_, q_, P_, Q_ in itertools.product(p_options, q_options,
-                                                    P_options, Q_options):
+            for p_, q_, P_, Q_, k_ in itertools.product(p_options, q_options,
+                                                        P_options, Q_options,
+                                                        k_options):
                 if p_ + q_ + P_ + Q_ + k_ == 0:
                     continue
                 s_ = s if (P_ + D_ + Q_) else 0
                 model = ARIMA(data_temp.to_output("cupy"), (p_, d_, q_),
-                              (P_, D_, Q_, s_), k_, self.handle)
+                              (P_, D_, Q_, s_), k_, self.handle,
+                              output_type="cupy")
                 if self.verbose:
                     print(" -", str(model))
                 model.fit(method=method, truncate=truncate, h=h)
@@ -253,9 +266,8 @@ class AutoARIMA(Base):
             # Organize the results into a matrix
             n_models = len(all_orders)
             ic_matrix, *_ = input_to_cuml_array(
-                cp.concatenate([cp.asarray(ic_arr).reshape(batch_size, 1)
+                cp.concatenate([ic_arr.reshape(batch_size, 1)
                                 for ic_arr in all_ic], 1))
-            # TODO: use output_type "cupy" to get the ic in the right format
 
             # Divide the batch, choosing the best model for each series
             sub_batches, sub_id = _divide_by_min(data_temp, ic_matrix, id_temp)
@@ -267,12 +279,11 @@ class AutoARIMA(Base):
                                          order=(p_, d_, q_),
                                          seasonal_order=(P_, D_, Q_, s_),
                                          fit_intercept=k_,
-                                         handle=self.handle))
+                                         handle=self.handle,
+                                         output_type="cupy"))
                 id_tracker.append(sub_id[i])
 
             del all_ic, all_orders, ic_matrix, sub_batches, sub_id
-
-        # TODO: try different k_ on the best model?
 
         # Build a map to match each series to its model and position in the
         # sub-batch
@@ -304,7 +315,7 @@ class AutoARIMA(Base):
         
         # Put all the predictions together
         return _merge_series(predictions, self.id_to_model, self.id_to_pos,
-                             self.batch_size)
+                             self.batch_size).to_output(self.output_type)
 
     def forecast(self, nsteps):
         """TODO: docs
