@@ -431,8 +431,10 @@ class RandomForestClassifier(Base):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_treelite_model(treelite_handle)
+        if self.treelite_handle is None:
+            handle = self._obtain_treelite_handle()
+
+        return _obtain_treelite_model(handle)
 
     def convert_to_fil_model(self, output_class=True,
                              threshold=0.5, algo='auto',
@@ -480,9 +482,11 @@ class RandomForestClassifier(Base):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
-
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_fil_model(treelite_handle=treelite_handle,
+        if self.treelite_handle is None:
+            handle = self._obtain_treelite_handle()
+        else:
+            handle = self.treelite_handle
+        return _obtain_fil_model(treelite_handle=handle,
                                  depth=self.max_depth,
                                  output_class=output_class,
                                  threshold=threshold,

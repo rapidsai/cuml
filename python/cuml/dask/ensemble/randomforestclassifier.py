@@ -284,7 +284,6 @@ class RandomForestClassifier(DelayedPredictionMixin,
         y = concatenate([item[1] for item in input_data])
         return model.fit(X, y, convert_dtype)
 
-
     @staticmethod
     def _get_protobuf_bytes(model):
         return model._get_protobuf_bytes()
