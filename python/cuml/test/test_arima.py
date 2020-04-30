@@ -55,14 +55,14 @@ import cuml.tsa.arima as arima
 ARIMAData = namedtuple('ARIMAData', ['batch_size', 'n_obs', 'dataset', 'start',
                                      'end', 'tolerance_integration'])
 
-# ARIMA(2,0,0)
-test_200 = ARIMAData(
+# ARIMA(1,0,1) with intercept
+test_101c = ARIMAData(
     batch_size=8,
     n_obs=15,
     dataset="long_term_arrivals_by_citizenship",
     start=10,
     end=25,
-    tolerance_integration=0.001
+    tolerance_integration=0.06
 )
 
 # ARIMA(0,0,2) with intercept
@@ -72,7 +72,7 @@ test_002c = ARIMAData(
     dataset="net_migrations_auckland_by_age",
     start=15,
     end=30,
-    tolerance_integration=0.001
+    tolerance_integration=0.15
 )
 
 # ARIMA(0,1,0) with intercept
@@ -95,18 +95,18 @@ test_110 = ARIMAData(
     tolerance_integration=0.001
 )
 
-# ARIMA(0,1,1)
-test_011 = ARIMAData(
+# ARIMA(0,1,1) with intercept
+test_011c = ARIMAData(
     batch_size=16,
     n_obs=28,
     dataset="deaths_by_region",
     start=20,
     end=40,
-    tolerance_integration=0.005
+    tolerance_integration=0.007
 )
 
-# ARIMA(1,2,1)
-test_121 = ARIMAData(
+# ARIMA(1,2,1) with intercept
+test_121c = ARIMAData(
     batch_size=2,
     n_obs=137,
     dataset="population_estimate",
@@ -125,8 +125,8 @@ test_101_111_4 = ARIMAData(
     tolerance_integration=0.02
 )
 
-# ARIMA(1,1,1)(2,0,0)_4
-test_111_200_4 = ARIMAData(
+# ARIMA(1,1,1)(2,0,0)_4 with intercept
+test_111_200_4c = ARIMAData(
     batch_size=14,
     n_obs=123,
     dataset="hourly_earnings_by_industry",
@@ -159,14 +159,14 @@ test_111_111_12 = ARIMAData(
 # (a test case could be used with different models)
 # (p, d, q, P, D, Q, s, k) -> ARIMAData
 test_data = {
-    (2, 0, 0, 0, 0, 0, 0, 0): test_200,
+    # (1, 0, 1, 0, 0, 0, 0, 1): test_101c,
     (0, 0, 2, 0, 0, 0, 0, 1): test_002c,
     (0, 1, 0, 0, 0, 0, 0, 1): test_010c,
     (1, 1, 0, 0, 0, 0, 0, 0): test_110,
-    (0, 1, 1, 0, 0, 0, 0, 0): test_011,
-    (1, 2, 1, 0, 0, 0, 0, 0): test_121,
+    (0, 1, 1, 0, 0, 0, 0, 1): test_011c,
+    (1, 2, 1, 0, 0, 0, 0, 1): test_121c,
     (1, 0, 1, 1, 1, 1, 4, 0): test_101_111_4,
-    (1, 1, 1, 2, 0, 0, 4, 0): test_111_200_4,
+    (1, 1, 1, 2, 0, 0, 4, 1): test_111_200_4c,
     (1, 1, 2, 0, 1, 2, 4, 0): test_112_012_4,
     # (1, 1, 1, 1, 1, 1, 12, 0): test_111_111_12,
 }
@@ -239,12 +239,12 @@ def test_integration(test_case, dtype):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create and fit cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
     cuml_model.fit()
 
     # Predict
-    cuml_pred = cuml_model.predict(data.start, data.end).copy_to_host()
+    cuml_pred = cuml_model.predict(data.start, data.end)
     ref_preds = np.zeros((data.end - data.start, data.batch_size))
     for i in range(data.batch_size):
         ref_preds[:, i] = ref_fits[i].get_prediction(
@@ -286,8 +286,8 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+                             fit_intercept=intercept, output_type='numpy')
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -299,9 +299,9 @@ def _predict_common(test_case, dtype, start, end, num_steps=None):
         ref_preds[:, i] = ref_fits[i].get_prediction(
             start, end - 1).predicted_mean
     if num_steps is None:
-        cuml_pred = cuml_model.predict(start, end).copy_to_host()
+        cuml_pred = cuml_model.predict(start, end)
     else:
-        cuml_pred = cuml_model.forecast(num_steps).copy_to_host()
+        cuml_pred = cuml_model.forecast(num_steps)
 
     # Compare results
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
