@@ -24,6 +24,7 @@
 *   on the same dataset when the real ground truth is not known.
 */
 
+#include <common/cudart_utils.h>
 #include <math.h>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
@@ -147,8 +148,8 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(size, numThreadsPerBlock.x),
-                 ceildiv<int>(size, numThreadsPerBlock.y));
+  dim3 numBlocks(ceildiv<int>(numUniqueClasses, numThreadsPerBlock.x),
+                 ceildiv<int>(numUniqueClasses, numThreadsPerBlock.y));
 
   //calling the kernel
   mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>

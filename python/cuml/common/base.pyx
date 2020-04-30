@@ -23,11 +23,12 @@ import cuml
 import cuml.common.handle
 import cuml.common.cuda
 import inspect
+import cuml.common.logger as logger
 
 from cudf.core import Series, DataFrame
 from cuml.common.array import CumlArray
 from cupy import ndarray as cupyArray
-from numba.cuda import is_cuda_array
+from numba.cuda import devicearray as numbaArray
 from numpy import ndarray as numpyArray
 
 
@@ -58,7 +59,8 @@ class Base:
     .. code-block:: python
 
         def __init__(...)
-            super(KMeans, self).__init__(handle, verbose, output_type)
+            super(KMeans, self).__init__(handle, verbose, verbosity,
+                                         output_type)
 
             # initialize numeric variables
 
@@ -105,7 +107,10 @@ class Base:
         handles in several streams.
         If it is None, a new one is created just for this class.
     verbose : bool
-        Whether to print debug spews
+        Whether to print debug spews. (This will be deprecated once we have the
+        verbosity flag updated across all algos)
+    verbosity : int
+        Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
         the estimators. If None, it'll inherit the output type set at the
@@ -158,7 +163,8 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False, output_type=None):
+    def __init__(self, handle=None, verbose=False, output_type=None,
+                 verbosity=logger.LEVEL_INFO):
         """
         Constructor. All children must call init method of this base class.
 
@@ -172,7 +178,7 @@ class Base:
         #    integer logging-level argument, remove `self.verbose` and have all
         #    algos in python layer accept an integer logging level instead of
         #    the current boolean param
-        self.logging_level = 1 if verbose else 2
+        self.verbosity = verbosity
 
         self.output_type = cuml.global_output_type if output_type is None \
             else _check_output_type_str(output_type)
@@ -301,7 +307,7 @@ def _input_to_type(input):
     # numba check for a numba device_array
     if type(input) in _input_type_to_str.keys():
         return _input_type_to_str[type(input)]
-    elif is_cuda_array(input):
+    elif numbaArray.is_cuda_ndarray(input):
         return 'numba'
     else:
         return 'cupy'
