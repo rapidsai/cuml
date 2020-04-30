@@ -255,6 +255,9 @@ class ARIMA(Base):
                              " non-zero")
         if p > 4 or P > 4 or q > 4 or Q > 4:
             raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
+        if max(p + s * P, q + s * Q) > 1024:
+            raise ValueError("ERROR: Invalid order. "
+                             "Required: max(p+s*P, q+s*Q) <= 1024")
 
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
