@@ -23,7 +23,6 @@ import ctypes
 import cudf
 import math
 import numpy as np
-import timeit
 import warnings
 
 from libcpp cimport bool
