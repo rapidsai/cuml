@@ -14,7 +14,6 @@
 #
 
 
-import scipy.sparse
 import numpy as np
 import cupy as cp
 import cupyx
@@ -28,7 +27,7 @@ from dask.distributed import default_client
 
 from cuml.dask.common.part_utils import _extract_partitions
 
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary, has_scipy
 
 
 def validate_dask_array(darray, client=None):
@@ -53,7 +52,12 @@ def _conv_array_to_sparse(arr):
                 dense numpy or cupy array
     :return: cupy sparse CSR matrix
     """
-    if scipy.sparse.isspmatrix(arr):
+    if has_scipy():
+        from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+    else:
+        from cuml.utils.import_utils import dummy_function_always_false \
+            as scipy_sparse_isspmatrix
+    if scipy_sparse_isspmatrix(arr):
         ret = \
             cupyx.scipy.sparse.csr_matrix(arr.tocsr())
     elif cupyx.scipy.sparse.isspmatrix(arr):

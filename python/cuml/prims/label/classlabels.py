@@ -38,9 +38,10 @@ map_kernel_str = r'''
   for(int i = 0; i < n_labels; i++) {
     if(label_cache[i] == unmapped_label) {
       x[tid] = i;
-      break;
+      return;
     }
   }
+  x[tid] = n_labels+1;
 }
 '''
 
@@ -115,6 +116,8 @@ def make_monotonic(labels, classes=None, copy=False):
     Takes a set of labels that might not be drawn from the
     set [0, n-1] and renumbers them to be drawn that
     interval.
+
+    Replaces labels not present in classes by len(classes)+1.
 
     Parameters
     ----------

@@ -16,9 +16,9 @@
 
 #include <memory>
 
+#include <common/cudart_utils.h>
 #include "common/cuml_comms_iface.hpp"
 #include "common/cuml_comms_int.hpp"
-#include "utils.h"
 
 namespace MLCommon {
 

@@ -65,7 +65,7 @@ def test_mbsgd_regressor(lrate, penalty, make_dataset):
                                            penalty=penalty)
 
     cu_mbsgd_regressor.fit(X_train, y_train)
-    cu_pred = cu_mbsgd_regressor.predict(X_test).to_array()
+    cu_pred = cu_mbsgd_regressor.predict(X_test)
     cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
 
     if nrows < 500000:
@@ -85,7 +85,7 @@ def test_mbsgd_regressor_default(make_dataset):
 
     cu_mbsgd_regressor = cumlMBSGRegressor()
     cu_mbsgd_regressor.fit(X_train, y_train)
-    cu_pred = cu_mbsgd_regressor.predict(X_test).to_array()
+    cu_pred = cu_mbsgd_regressor.predict(X_test)
     cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
 
     if nrows < 500000:

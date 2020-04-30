@@ -310,7 +310,7 @@ class KMeans(Base):
 
         params.max_iter = <int>self.max_iter
         params.tol = <double>self.tol
-        params.verbosity = <int>self.logging_level
+        params.verbosity = <int>self.verbosity
         params.seed = <int>self.random_state
         params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
         params.batch_samples=<int>self.max_samples_per_batch

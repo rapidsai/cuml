@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
@@ -23,6 +24,10 @@
 #include "common_helper.cuh"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
+
+namespace ML {
+namespace DecisionTree {
+
 /*
 This is the driver function for building classification tree
 level by level using a simple for loop.
@@ -36,12 +41,10 @@ template <typename T>
 void grow_deep_tree_classification(
   const T* data, const int* labels, unsigned int* rowids, const int Ncols,
   const float colper, int n_sampled_rows, const int nrows,
-  const int n_unique_labels, const int nbins, const int maxdepth,
-  const int maxleaves, const int min_rows_per_node,
-  const ML::CRITERION split_cr, const int split_algo,
-  const float min_impurity_decrease, int& depth_cnt, int& leaf_cnt,
-  std::vector<SparseTreeNode<T, int>>& sparsetree, const int treeid,
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  const int n_unique_labels,
+  const ML::DecisionTree::DecisionTreeParams& tree_params, int& depth_cnt,
+  int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
+  const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -49,7 +52,7 @@ void grow_deep_tree_classification(
                  tempmem->stream);
   std::vector<unsigned int> histvec(n_unique_labels, 0);
   T initial_metric;
-  if (split_cr == ML::CRITERION::GINI) {
+  if (tree_params.split_criterion == ML::CRITERION::GINI) {
     initial_metric_classification<T, GiniFunctor>(labels, sample_cnt, nrows,
                                                   n_unique_labels, histvec,
                                                   initial_metric, tempmem);
@@ -58,7 +61,7 @@ void grow_deep_tree_classification(
                                                      n_unique_labels, histvec,
                                                      initial_metric, tempmem);
   }
-  int reserve_depth = std::min(tempmem->swap_depth, maxdepth);
+  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
   size_t total_nodes = pow(2, (reserve_depth + 1)) - 1;
 
   unsigned int* h_parent_hist = tempmem->h_parent_hist->data();
@@ -106,7 +109,7 @@ void grow_deep_tree_classification(
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
 
-  int scatter_algo_depth = std::min(tempmem->swap_depth, maxdepth);
+  int scatter_algo_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth + 1;
@@ -122,37 +125,40 @@ void grow_deep_tree_classification(
                             ncols_sampled, n_nodes, mtg, dist, feature_selector,
                             tempmem, d_rng);
     get_histogram_classification(data, labels, flagsptr, sample_cnt, nrows,
-                                 Ncols, ncols_sampled, n_unique_labels, nbins,
-                                 n_nodes, split_algo, tempmem, d_histogram);
+                                 Ncols, ncols_sampled, n_unique_labels,
+                                 tree_params.n_bins, n_nodes,
+                                 tree_params.split_algo, tempmem, d_histogram);
 
     float* infogain = tempmem->h_outgain->data();
-    if (split_cr == ML::CRITERION::GINI) {
+    if (tree_params.split_criterion == ML::CRITERION::GINI) {
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
-        Ncols, ncols_sampled, nbins, n_unique_labels, n_nodes, depth,
-        min_rows_per_node, split_algo, infogain, h_parent_hist, h_child_hist,
-        sparsetree, sparsesize, sparse_nodelist, h_split_colidx, h_split_binidx,
-        d_split_colidx, d_split_binidx, tempmem);
+        Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
+        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
+        h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
+        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
+        tempmem);
     } else {
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
-        Ncols, ncols_sampled, nbins, n_unique_labels, n_nodes, depth,
-        min_rows_per_node, split_algo, infogain, h_parent_hist, h_child_hist,
-        sparsetree, sparsesize, sparse_nodelist, h_split_colidx, h_split_binidx,
-        d_split_colidx, d_split_binidx, tempmem);
+        Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
+        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
+        h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
+        h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
+        tempmem);
     }
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-    leaf_eval_classification(infogain, depth, min_impurity_decrease, maxdepth,
-                             n_unique_labels, maxleaves, h_new_node_flags,
-                             sparsetree, sparsesize, h_parent_hist,
-                             n_nodes_nextitr, sparse_nodelist, leaf_cnt);
+    leaf_eval_classification(
+      infogain, depth, tree_params.min_impurity_decrease, tree_params.max_depth,
+      n_unique_labels, tree_params.max_leaves, h_new_node_flags, sparsetree,
+      sparsesize, h_parent_hist, n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
     MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
                            tempmem->stream);
-    make_level_split(data, nrows, Ncols, ncols_sampled, nbins, n_nodes,
-                     split_algo, d_split_colidx, d_split_binidx,
-                     d_new_node_flags, flagsptr, tempmem);
+    make_level_split(data, nrows, Ncols, ncols_sampled, tree_params.n_bins,
+                     n_nodes, tree_params.split_algo, d_split_colidx,
+                     d_split_binidx, d_new_node_flags, flagsptr, tempmem);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     if (depth != (scatter_algo_depth - 1)) {
       memcpy(h_parent_hist, h_child_hist,
@@ -189,26 +195,26 @@ void grow_deep_tree_classification(
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
-  for (int depth = tempmem->swap_depth; (depth < maxdepth) && (n_nodes != 0);
-       depth++) {
+  for (int depth = tempmem->swap_depth;
+       (depth < tree_params.max_depth) && (n_nodes != 0); depth++) {
     depth_cnt = depth + 1;
     //Algorithm starts here
     update_feature_sampling(h_colids, d_colids, h_colstart, d_colstart, Ncols,
                             ncols_sampled, lastsize, mtg, dist,
                             feature_selector, tempmem, d_rng);
 
-    if (split_cr == ML::CRITERION::GINI) {
+    if (tree_params.split_criterion == ML::CRITERION::GINI) {
       best_split_gather_classification<T, GiniDevFunctor>(
         data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
-        Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
-        sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
-        d_sparsenodes, d_nodelist);
+        Ncols, ncols_sampled, n_unique_labels, tree_params.n_bins, n_nodes,
+        tree_params.split_algo, sparsetree.size() + lastsize,
+        tree_params.min_impurity_decrease, tempmem, d_sparsenodes, d_nodelist);
     } else {
       best_split_gather_classification<T, EntropyDevFunctor>(
         data, labels, d_colids, d_colstart, d_nodestart, d_samplelist, nrows,
-        Ncols, ncols_sampled, n_unique_labels, nbins, n_nodes, split_algo,
-        sparsetree.size() + lastsize, min_impurity_decrease, tempmem,
-        d_sparsenodes, d_nodelist);
+        Ncols, ncols_sampled, n_unique_labels, tree_params.n_bins, n_nodes,
+        tree_params.split_algo, sparsetree.size() + lastsize,
+        tree_params.min_impurity_decrease, tempmem, d_sparsenodes, d_nodelist);
     }
     MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
                          tempmem->stream);
@@ -227,7 +233,7 @@ void grow_deep_tree_classification(
     n_nodes = h_counter[0];
   }
   if (n_nodes != 0) {
-    if (split_cr == ML::CRITERION::GINI) {
+    if (tree_params.split_criterion == ML::CRITERION::GINI) {
       make_leaf_gather_classification<T, GiniDevFunctor>(
         labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
         d_nodelist, n_nodes, tempmem);
@@ -243,3 +249,6 @@ void grow_deep_tree_classification(
                       h_sparsenodes + lastsize);
   }
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <cuml/common/utils.hpp>
+#include <iomanip>
 #include <iostream>
 
 namespace MLCommon {
@@ -80,6 +81,39 @@ void copyAsync(Type* dPtr1, const Type* dPtr2, size_t len,
   CUDA_CHECK(cudaMemcpyAsync(dPtr1, dPtr2, len * sizeof(Type),
                              cudaMemcpyDeviceToDevice, stream));
 }
+
+/** helper method to convert an array on device to a string on host */
+template <typename T>
+std::string arr2Str(const T* arr, int size, std::string name,
+                    cudaStream_t stream, int width = 4) {
+  std::stringstream ss;
+
+  T* arr_h = (T*)malloc(size * sizeof(T));
+  updateHost(arr_h, arr, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  ss << name << " = [ ";
+  for (int i = 0; i < size; i++) {
+    ss << std::setw(width) << arr_h[i];
+
+    if (i < size - 1) ss << ", ";
+  }
+  ss << " ]" << std::endl;
+
+  free(arr_h);
+
+  return ss.str();
+}
+/** this seems to be unused, but may be useful in the future */
+template <typename T>
+void ASSERT_DEVICE_MEM(T* ptr, std::string name) {
+  cudaPointerAttributes s_att;
+  cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
+
+  if (s_err != 0 || s_att.device == -1)
+    std::cout << "Invalid device pointer encountered in " << name
+              << ". device=" << s_att.device << ", err=" << s_err << std::endl;
+};
 
 inline uint32_t curTimeMillis() {
   auto now = std::chrono::high_resolution_clock::now();
