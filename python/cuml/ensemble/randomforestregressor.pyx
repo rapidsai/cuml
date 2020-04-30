@@ -23,6 +23,7 @@ import ctypes
 import cudf
 import math
 import numpy as np
+import timeit
 import warnings
 
 from libcpp cimport bool
@@ -280,6 +281,8 @@ class RandomForestRegressor(Base):
         self.n_bins = n_bins
         self.n_cols = None
         self.dtype = None
+        self.treelite_handle = None
+        self.concat_handle = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
@@ -287,7 +290,7 @@ class RandomForestRegressor(Base):
         if ((seed is not None) and (n_streams != 1)):
             warnings.warn("Setting the random seed does not fully guarantee"
                           " the exact same results at this time.")
-        self.model_pbuf_bytes = []
+        self.model_pbuf_bytes = bytearray()
 
     """
     TODO:
@@ -388,10 +391,19 @@ class RandomForestRegressor(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
-        fit_mod_ptr = self._obtain_treelite_handle()
+        if len(self.model_pbuf_bytes) > 0:
+            return self.model_pbuf_bytes
+        elif self.treelite_handle:
+            fit_mod_ptr = self.treelite_handle
+        else:
+            fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
-        return model_protobuf_bytes
+        cdef vector[unsigned char] pbuf_mod_info = \
+            save_model(<ModelHandle> model_ptr)
+        cdef unsigned char[::1] pbuf_mod_view = \
+            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self.model_pbuf_bytes
 
     def convert_to_treelite_model(self):
         """
@@ -401,8 +413,10 @@ class RandomForestRegressor(Base):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_treelite_model(treelite_handle)
+        if self.treelite_handle is None:
+            handle = self._obtain_treelite_handle()
+
+        return _obtain_treelite_model(handle)
 
     def convert_to_fil_model(self, output_class=False,
                              algo='auto',
@@ -447,8 +461,11 @@ class RandomForestRegressor(Base):
             inferencing on the random forest model.
 
         """
-        treelite_handle = self._obtain_treelite_handle()
-        return _obtain_fil_model(treelite_handle=treelite_handle,
+        if self.treelite_handle is None:
+            handle = self._obtain_treelite_handle()
+        else:
+            handle = self.treelite_handle
+        return _obtain_fil_model(treelite_handle=handle,
                                  depth=self.max_depth,
                                  output_class=output_class,
                                  algo=algo,
@@ -485,12 +502,14 @@ class RandomForestRegressor(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
 
         concat_model_ptr = <size_t> concat_model_handle
-        return ctypes.c_void_p(concat_model_ptr).value
-
-    def _concatenate_model_bytes(self, concat_model_handle):
-        cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
-        concat_model_bytes = save_model(<ModelHandle> model_ptr)
-        self.model_pbuf_bytes = concat_model_bytes
+        self.concat_handle = ctypes.c_void_p(concat_model_ptr).value
+        cdef uintptr_t model_ptr = <uintptr_t> self.concat_handle
+        cdef vector[unsigned char] pbuf_mod_info = \
+            save_model(<ModelHandle> model_ptr)
+        cdef unsigned char[::1] pbuf_mod_view = \
+            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        self.concat_model_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self.concat_model_bytes
 
     def fit(self, X, y, convert_dtype=False):
         """

@@ -288,6 +288,8 @@ class RandomForestClassifier(Base):
         self.max_features = max_features
         self.bootstrap = bootstrap
         self.verbose = verbose
+        self.treelite_handle = None
+        self.concat_handle = None
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
@@ -300,7 +302,7 @@ class RandomForestClassifier(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_seed is set")
-        self.model_pbuf_bytes = []
+        self.model_pbuf_bytes = bytearray()
 
     """
     TODO:
@@ -407,11 +409,19 @@ class RandomForestClassifier(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
-        fit_mod_ptr = self._obtain_treelite_handle()
+        if len(self.model_pbuf_bytes) > 0:
+            return self.model_pbuf_bytes
+        elif self.treelite_handle:
+            fit_mod_ptr = self.treelite_handle
+        else:
+            fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
-        model_protobuf_bytes = save_model(<ModelHandle> model_ptr)
-
-        return model_protobuf_bytes
+        cdef vector[unsigned char] pbuf_mod_info = \
+            save_model(<ModelHandle> model_ptr)
+        cdef unsigned char[::1] pbuf_mod_view = \
+            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self.model_pbuf_bytes
 
     def convert_to_treelite_model(self):
         """
@@ -512,12 +522,14 @@ class RandomForestClassifier(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
 
         concat_model_ptr = <size_t> concat_model_handle
-        return ctypes.c_void_p(concat_model_ptr).value
-
-    def _concatenate_model_bytes(self, concat_model_handle):
-        cdef uintptr_t model_ptr = <uintptr_t> concat_model_handle
-        concat_model_bytes = save_model(<ModelHandle> model_ptr)
-        self._model_pbuf_bytes = concat_model_bytes
+        self.concat_handle = ctypes.c_void_p(concat_model_ptr).value
+        cdef uintptr_t model_ptr = <uintptr_t> self.concat_handle
+        cdef vector[unsigned char] pbuf_mod_info = \
+            save_model(<ModelHandle> model_ptr)
+        cdef unsigned char[::1] pbuf_mod_view = \
+            <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self
 
     def fit(self, X, y, convert_dtype=False):
         """
@@ -640,7 +652,6 @@ class RandomForestClassifier(Base):
         self.handle.sync()
         del(X_m)
         del(y_m)
-        self.num_classes = num_unique_labels
         return self
 
     def _predict_model_on_gpu(self, X, output_class,

@@ -292,6 +292,10 @@ class RandomForestClassifier(DelayedPredictionMixin,
     def _predict_cpu(model, X, convert_dtype, r):
         return model._predict_get_all(X, convert_dtype)
 
+    @dask.delayed
+    def _get_protobuf_bytes(model):
+        return model._get_protobuf_bytes()
+
     @staticmethod
     def _print_summary(model):
         model.print_summary()
