@@ -25,15 +25,15 @@ from pathlib import Path
 
 
 def get_environment_option(name):
-    ENV_VARIABLE = os.environ.get(name, False)
+    env_variable = os.environ.get(name, False)
 
-    if not ENV_VARIABLE:
+    if not env_variable:
         print("-- " + name + " environment variable not set.")
 
     else:
-        print("-- " + name + " detected with value: " + str(ENV_VARIABLE))
+        print("-- " + name + " detected with value: " + str(env_variable))
 
-    return ENV_VARIABLE
+    return env_variable
 
 
 def get_cli_option(name):
@@ -74,13 +74,13 @@ def use_raft_package(raft_path, cpp_build_path,
     """
     Function to use the python code in RAFT in package.raft
 
-    - If RAFT symling already exists, don't change anything. Use setup.py clean
+    - If RAFT symlink already exists, don't change anything. Use setup.py clean
         if you want to change RAFT location.
     - Uses RAFT located in $RAFT_PATH if $RAFT_PATH exists.
     - Otherwise it will look for RAFT in the libcuml build folder,
         located either in the default location ../cpp/build or in
         $CUML_BUILD_PATH.
-    -Otherwise it will clone RAFT into _external_repositories.
+    - Otherwise it will clone RAFT into _external_repositories.
         - Branch/git tag cloned is located in git_info_file in this case.
 
     """
