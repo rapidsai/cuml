@@ -20,33 +20,21 @@
 # cython: language_level = 3
 
 import numpy as np
-import cupy as cp
 import sys
 
 import ctypes
-
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
-import rmm
-
-import cuml
-from cuml.utils.input_utils import input_to_dev_array, input_to_host_array
-from cuml.utils.input_utils import get_dev_array_ptr
-
-from typing import List, Tuple, Dict, Mapping, Optional, Union
-import cudf
-from cuml.utils import get_dev_array_ptr, zeros
-
-from cuml.common.cuda import nvtx_range_wrap
-
-from cuml.common.base import Base
-from cuml.utils import rmm_cupy_ary, has_scipy
-
 from libc.stdint cimport uintptr_t
-from libcpp.string cimport string
 from libcpp cimport bool
-from libc.stdlib cimport malloc, free
-from cuml.common.handle cimport cumlHandle
 from libcpp.vector cimport vector
+from typing import List, Tuple, Dict, Mapping, Optional, Union
+
+from cuml.common.array import CumlArray as cumlArray
+from cuml.common.base import Base
+from cuml.common.cuda import nvtx_range_wrap
+from cuml.common.handle cimport cumlHandle
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
+from cuml.utils import has_scipy
+from cuml.utils.input_utils import input_to_cuml_array, input_to_host_array
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -114,7 +102,7 @@ class ARIMA(Base):
     .. code-block:: python
 
         import numpy as np
-        from cuml.tsa import arima
+        from cuml.tsa.arima import ARIMA
 
         # Create seasonal data with a trend, a seasonal pattern and noise
         n_obs = 100
@@ -127,11 +115,11 @@ class ARIMA(Base):
              + np.tile(pattern, (25, 1)))
 
         # Fit a seasonal ARIMA model
-        model = arima.ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
+        model = ARIMA(y, (0,1,1), (0,1,1,4), fit_intercept=False)
         model.fit()
 
         # Forecast
-        fc = model.forecast(10).copy_to_host()
+        fc = model.forecast(10)
         print(fc)
 
     Output:
@@ -160,10 +148,16 @@ class ARIMA(Base):
     seasonal_order: Tuple[int, int, int, int]
         The seasonal ARIMA order (P, D, Q, s) of the model
     fit_intercept : bool or int
-        Whether to include a constant trend mu in the model
-        Leave to None for automatic selection based on the model order
+        Whether to include a constant trend mu in the model (default: True)
     handle: cuml.Handle
         If it is None, a new one is created just for this instance
+    verbose: int (optional, default 0)
+        Controls verbosity level of logging.
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Attributes
     ----------
@@ -211,23 +205,25 @@ class ARIMA(Base):
                  order: Tuple[int, int, int] = (1, 1, 1),
                  seasonal_order: Tuple[int, int, int, int]
                  = (0, 0, 0, 0),
-                 fit_intercept=None,
-                 handle=None):
+                 fit_intercept=True,
+                 handle=None,
+                 verbose=0,
+                 output_type=None):
 
         if not has_scipy():
             raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
                                " Please install it to enable ARIMA "
                                "estimation.")
-        super().__init__(handle)
 
+        # Initialize base class
+        super().__init__(handle, verbose, output_type)
+        self._set_output_type(y)
+
+        # Set the ARIMA order
         cdef ARIMAOrder cpp_order
         cpp_order.p, cpp_order.d, cpp_order.q = order
         cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
-        if fit_intercept is None:
-            # by default, use an intercept only with non differenced models
-            fit_intercept = (order[1] + seasonal_order[1] == 0)
         cpp_order.k = int(fit_intercept)
-
         self.order = cpp_order
 
         # Check validity of the ARIMA order and seasonal order
@@ -251,8 +247,8 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
 
         # Get device array. Float64 only for now.
-        self.d_y, _, self.n_obs, self.batch_size, self.dtype \
-            = input_to_dev_array(y, check_dtype=np.float64)
+        self._d_y, self.n_obs, self.batch_size, self.dtype \
+            = input_to_cuml_array(y, check_dtype=np.float64)
 
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
@@ -261,12 +257,15 @@ class ARIMA(Base):
         self.niter = None  # number of iterations used during fit
 
     def __str__(self):
-        if self.seasonal_order[3]:
-            return "Batched ARIMA{}{}_{}".format(self.order,
-                                                 self.seasonal_order[:3],
-                                                 self.seasonal_order[3])
+        cdef ARIMAOrder order = self.order
+        intercept_str = 'c' if order.k else 'n'
+        if order.s:
+            return "ARIMA({},{},{})({},{},{})_{} ({}) - {} series".format(
+                order.p, order.d, order.q, order.P, order.D, order.Q, order.s,
+                intercept_str, self.batch_size)
         else:
-            return "Batched ARIMA{}".format(self.order)
+            return "ARIMA({},{},{}) ({}) - {} series".format(
+                order.p, order.d, order.q, intercept_str, self.batch_size)
 
     @nvtx_range_wrap
     def _ic(self, ic_type: str):
@@ -284,22 +283,22 @@ class ARIMA(Base):
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if order.k:
-            d_mu, d_mu_ptr, _, _, _ = \
-                input_to_dev_array(self.mu, check_dtype=np.float64)
+            d_mu, *_ = input_to_cuml_array(self.mu, check_dtype=np.float64)
+            d_mu_ptr = d_mu.ptr
         if order.p:
-            d_ar, d_ar_ptr, _, _, _ = \
-                input_to_dev_array(self.ar, check_dtype=np.float64)
+            d_ar, *_ = input_to_cuml_array(self.ar, check_dtype=np.float64)
+            d_ar_ptr = d_ar.ptr
         if order.q:
-            d_ma, d_ma_ptr, _, _, _ = \
-                input_to_dev_array(self.ma, check_dtype=np.float64)
+            d_ma, *_ = input_to_cuml_array(self.ma, check_dtype=np.float64)
+            d_ma_ptr = d_ma.ptr
         if order.P:
-            d_sar, d_sar_ptr, _, _, _ = \
-                input_to_dev_array(self.sar, check_dtype=np.float64)
+            d_sar, *_ = input_to_cuml_array(self.sar, check_dtype=np.float64)
+            d_sar_ptr = d_sar.ptr
         if order.Q:
-            d_sma, d_sma_ptr, _, _, _ = \
-                input_to_dev_array(self.sma, check_dtype=np.float64)
-        d_sigma2, d_sigma2_ptr, _, _, _ = \
-            input_to_dev_array(self.sigma2, check_dtype=np.float64)
+            d_sma, *_ = input_to_cuml_array(self.sma, check_dtype=np.float64)
+            d_sma_ptr = d_sma.ptr
+        d_sigma2, *_ = input_to_cuml_array(self.sigma2, check_dtype=np.float64)
+        d_sigma2_ptr = d_sigma2.ptr
 
         cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
@@ -311,7 +310,7 @@ class ARIMA(Base):
 
         cdef vector[double] ic
         ic.resize(self.batch_size)
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         ic_name_to_number = {"aic": 0, "aicc": 1, "bic": 2}
         cdef int ic_type_id
@@ -405,11 +404,11 @@ class ARIMA(Base):
         Example:
         --------
         .. code-block:: python
-            from cuml.tsa.arima import fit
+            from cuml.tsa.arima import ARIMA
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
-            y_pred = model.predict().copy_to_host()
+            y_pred = model.predict()
         """
         cdef ARIMAOrder order = self.order
 
@@ -437,22 +436,22 @@ class ARIMA(Base):
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if order.k:
-            d_mu, d_mu_ptr, _, _, _ = \
-                input_to_dev_array(self.mu, check_dtype=np.float64)
+            d_mu, *_ = input_to_cuml_array(self.mu, check_dtype=np.float64)
+            d_mu_ptr = d_mu.ptr
         if order.p:
-            d_ar, d_ar_ptr, _, _, _ = \
-                input_to_dev_array(self.ar, check_dtype=np.float64)
+            d_ar, *_ = input_to_cuml_array(self.ar, check_dtype=np.float64)
+            d_ar_ptr = d_ar.ptr
         if order.q:
-            d_ma, d_ma_ptr, _, _, _ = \
-                input_to_dev_array(self.ma, check_dtype=np.float64)
+            d_ma, *_ = input_to_cuml_array(self.ma, check_dtype=np.float64)
+            d_ma_ptr = d_ma.ptr
         if order.P:
-            d_sar, d_sar_ptr, _, _, _ = \
-                input_to_dev_array(self.sar, check_dtype=np.float64)
+            d_sar, *_ = input_to_cuml_array(self.sar, check_dtype=np.float64)
+            d_sar_ptr = d_sar.ptr
         if order.Q:
-            d_sma, d_sma_ptr, _, _, _ = \
-                input_to_dev_array(self.sma, check_dtype=np.float64)
-        d_sigma2, d_sigma2_ptr, _, _, _ = \
-            input_to_dev_array(self.sigma2, check_dtype=np.float64)
+            d_sma, *_ = input_to_cuml_array(self.sma, check_dtype=np.float64)
+            d_sma_ptr = d_sma.ptr
+        d_sigma2, *_ = input_to_cuml_array(self.sigma2, check_dtype=np.float64)
+        d_sigma2_ptr = d_sigma2.ptr
 
         cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
@@ -468,20 +467,20 @@ class ARIMA(Base):
         # pointers
         cdef uintptr_t d_vs_ptr
         cdef uintptr_t d_y_p_ptr
-        d_vs = rmm.device_array((self.n_obs - order.d - order.D * order.s,
-                                 self.batch_size), dtype=np.float64, order="F")
-        d_y_p = rmm.device_array((predict_size, self.batch_size),
-                                 dtype=np.float64, order="F")
-        d_vs_ptr = get_dev_array_ptr(d_vs)
-        d_y_p_ptr = get_dev_array_ptr(d_y_p)
+        d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,
+                                self.batch_size), dtype=np.float64, order="F")
+        d_y_p = cumlArray.empty((predict_size, self.batch_size),
+                                dtype=np.float64, order="F")
+        d_vs_ptr = d_vs.ptr
+        d_y_p_ptr = d_y_p.ptr
 
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
                     <int> self.n_obs, <int> start, <int> end, order,
                     cpp_params, <double*>d_vs_ptr, <double*>d_y_p_ptr)
 
-        return d_y_p
+        return d_y_p.to_output(self.output_type)
 
     @nvtx_range_wrap
     def forecast(self, nsteps: int):
@@ -500,12 +499,11 @@ class ARIMA(Base):
         Example:
         --------
         .. code-block:: python
-            from cuml.tsa.arima import fit
-            import cuml
+            from cuml.tsa.arima import ARIMA
             ...
             model = ARIMA(ys, (1,1,1))
             model.fit()
-            y_fc = model.forecast(10).copy_to_host()
+            y_fc = model.forecast(10)
         """
 
         return self.predict(self.n_obs, self.n_obs + nsteps)
@@ -516,7 +514,7 @@ class ARIMA(Base):
         """
         cdef ARIMAOrder order = self.order
 
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         # Create mu, ar and ma arrays
@@ -527,26 +525,26 @@ class ARIMA(Base):
         cdef uintptr_t d_sma_ptr = <uintptr_t> NULL
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> NULL
         if order.k:
-            d_mu = zeros(self.batch_size, dtype=self.dtype)
-            d_mu_ptr = get_dev_array_ptr(d_mu)
+            d_mu = cumlArray.zeros(self.batch_size, dtype=np.float64)
+            d_mu_ptr = d_mu.ptr
         if order.p:
-            d_ar = zeros((order.p, self.batch_size), dtype=self.dtype,
-                         order='F')
-            d_ar_ptr = get_dev_array_ptr(d_ar)
+            d_ar = cumlArray.zeros((order.p, self.batch_size),
+                                   dtype=np.float64, order='F')
+            d_ar_ptr = d_ar.ptr
         if order.q:
-            d_ma = zeros((order.q, self.batch_size), dtype=self.dtype,
-                         order='F')
-            d_ma_ptr = get_dev_array_ptr(d_ma)
+            d_ma = cumlArray.zeros((order.q, self.batch_size),
+                                   dtype=np.float64, order='F')
+            d_ma_ptr = d_ma.ptr
         if order.P:
-            d_sar = zeros((order.P, self.batch_size), dtype=self.dtype,
-                          order='F')
-            d_sar_ptr = get_dev_array_ptr(d_sar)
+            d_sar = cumlArray.zeros((order.P, self.batch_size),
+                                    dtype=np.float64, order='F')
+            d_sar_ptr = d_sar.ptr
         if order.Q:
-            d_sma = zeros((order.Q, self.batch_size), dtype=self.dtype,
-                          order='F')
-            d_sma_ptr = get_dev_array_ptr(d_sma)
-        d_sigma2 = zeros(self.batch_size, dtype=self.dtype)
-        d_sigma2_ptr = get_dev_array_ptr(d_sigma2)
+            d_sma = cumlArray.zeros((order.Q, self.batch_size),
+                                    dtype=np.float64, order='F')
+            d_sma_ptr = d_sma.ptr
+        d_sigma2 = cumlArray.zeros(self.batch_size, dtype=np.float64)
+        d_sigma2_ptr = d_sigma2.ptr
 
         cdef ARIMAParams[double] cpp_params
         cpp_params.mu = <double*> d_mu_ptr
@@ -562,16 +560,16 @@ class ARIMA(Base):
 
         params = dict()
         if order.k:
-            params["mu"] = d_mu.copy_to_host()
+            params["mu"] = d_mu.to_output('numpy')
         if order.p:
-            params["ar"] = d_ar.copy_to_host()
+            params["ar"] = d_ar.to_output('numpy')
         if order.q:
-            params["ma"] = d_ma.copy_to_host()
+            params["ma"] = d_ma.to_output('numpy')
         if order.P:
-            params["sar"] = d_sar.copy_to_host()
+            params["sar"] = d_sar.to_output('numpy')
         if order.Q:
-            params["sma"] = d_sma.copy_to_host()
-        params["sigma2"] = d_sigma2.copy_to_host()
+            params["sma"] = d_sma.to_output('numpy')
+        params["sigma2"] = d_sigma2.to_output('numpy')
         self.set_params(params)
 
     @nvtx_range_wrap
@@ -610,7 +608,7 @@ class ARIMA(Base):
         else:
             self.set_params(start_params)
 
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
 
         def f(x: np.ndarray) -> np.ndarray:
             """The (batched) energy functional returning the negative
@@ -644,6 +642,7 @@ class ARIMA(Base):
 
         self.unpack(self._batched_transform(x))
         self.niter = niter
+        return self
 
     @nvtx_range_wrap
     def _loglike(self, x, trans=True):
@@ -667,17 +666,16 @@ class ARIMA(Base):
 
         cdef ARIMAOrder order = self.order
 
-        cdef uintptr_t d_x_ptr
-        d_x_array, d_x_ptr, _, _, _ = \
-            input_to_dev_array(x, check_dtype=np.float64, order='C')
+        d_x_array, *_ = \
+            input_to_cuml_array(x, check_dtype=np.float64, order='C')
+        cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cdef uintptr_t d_y_ptr = get_dev_array_ptr(self.d_y)
+        cdef uintptr_t d_y_ptr = self._d_y.ptr
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        d_vs = rmm.device_array((self.n_obs - order.d - order.D * order.s,
-                                 self.batch_size),
-                                dtype=np.float64, order="F")
-        cdef uintptr_t d_vs_ptr = get_dev_array_ptr(d_vs)
+        d_vs = cumlArray.empty((self.n_obs - order.d - order.D * order.s,
+                                self.batch_size), dtype=np.float64, order="F")
+        cdef uintptr_t d_vs_ptr = d_vs.ptr
 
         batched_loglike(handle_[0], <double*> d_y_ptr, <int> self.batch_size,
                         <int> self.n_obs, order, <double*> d_x_ptr,

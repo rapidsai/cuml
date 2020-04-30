@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,77 +16,50 @@
 
 #pragma once
 
-#include <rmm/rmm.h>
+#include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
+#include <rmm/mr/device/default_memory_resource.hpp>
 
 namespace ML {
 
 /**
- * @brief Implemententation of ML::deviceAllocator using the RAPIDS Memory Manager (RMM) for allocations.
+ * @brief Implemententation of ML::deviceAllocator using the
+ *        RAPIDS Memory Manager (RMM) for allocations.
  *
- * rmmAllocatorAdapter does not initialize RMM. If RMM is not initialized on construction of rmmAllocatorAdapter
- * allocations fall back to cudaMalloc.
+ * rmmAllocatorAdapter does not initialize RMM. If RMM is not initialized on
+ * construction of rmmAllocatorAdapter allocations fall back to cudaMalloc.
  */
 class rmmAllocatorAdapter : public ML::deviceAllocator {
  public:
-  rmmAllocatorAdapter() : _rmmInitialized(rmmIsInitialized(NULL)) {
-    //@todo: Log warning if RMM is not initialized. Blocked by https://github.com/rapidsai/cuml/issues/229
-  }
+  rmmAllocatorAdapter() {}
 
   /**
-     * @brief asynchronosly allocate n bytes that can be used after all work in stream sheduled prior to this call
-     *        has completetd.
-     *
-     * @param[in] n         size of the allocation in bytes
-     * @param[in] stream    the stream to use for the asynchronous allocations
-     * @returns             a pointer to n byte of device memory
-     */
+   * @brief asynchronosly allocate n bytes that can be used after all work in
+   *        stream sheduled prior to this call has completetd.
+   *
+   * @param[in] n         size of the allocation in bytes
+   * @param[in] stream    the stream to use for the asynchronous allocations
+   */
   virtual void* allocate(std::size_t n, cudaStream_t stream) {
     void* ptr = 0;
-    if (!_rmmInitialized) {
-      CUDA_CHECK(cudaMalloc(&ptr, n));
-    } else {
-      rmmError_t rmmStatus = RMM_ALLOC(&ptr, n, stream);
-      if (RMM_SUCCESS != rmmStatus || 0 == ptr) {
-        std::ostringstream msg;
-        msg << "RMM allocation of " << n
-            << " byte failed: " << rmmGetErrorString(rmmStatus) << std::endl;
-        ;
-        throw MLCommon::Exception(msg.str());
-      }
-    }
+    ptr = rmm::mr::get_default_resource()->allocate(n, stream);
     return ptr;
   }
 
   /**
-     * @brief asynchronosly free an allocation of n bytes that can be reused after all work in stream scheduled prior to this
-     *        call has completed.
-     *
-     * @param[in] p         pointer to n bytes of memory to be deallocated
-     * @param[in] n         size of the allocation to release in bytes
-     * @param[in] stream    the stream to use for the asynchronous free
-     */
-  virtual void deallocate(void* p, std::size_t, cudaStream_t stream) {
-    if (!_rmmInitialized) {
-      cudaError_t status = cudaFree(p);
-      if (cudaSuccess != status) {
-        //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-        // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-      }
-    } else {
-      rmmError_t rmmStatus = RMM_FREE(p, stream);
-      if (RMM_SUCCESS != rmmStatus) {
-        //@todo: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-        // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
-      }
-    }
+   * @brief asynchronosly free an allocation of n bytes that can be reused after
+   *        all work in stream scheduled prior to this call has completed.
+   *
+   * @param[in] p         pointer to n bytes of memory to be deallocated
+   * @param[in] n         size of the allocation to release in bytes
+   * @param[in] stream    the stream to use for the asynchronous free
+   */
+  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream) {
+    rmm::mr::get_default_resource()->deallocate(p, n, stream);
   }
 
   virtual ~rmmAllocatorAdapter() {}
-
- private:
-  const bool _rmmInitialized;
 };
 
 }  // end namespace ML

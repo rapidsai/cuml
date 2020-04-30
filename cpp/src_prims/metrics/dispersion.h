@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <memory>
@@ -37,16 +38,17 @@ __global__ void weightedMeanKernel(DataT *mu, const DataT *data,
   IdxT rowId = thisRowId + ((IdxT)blockIdx.x * RowsPerBlkPerIter);
   DataT thread_data = DataT(0);
   const IdxT stride = RowsPerBlkPerIter * gridDim.x;
+  __shared__ DataT smu[ColsPerBlk];
+  if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = DataT(0);
   for (IdxT i = rowId; i < N; i += stride) {
     thread_data +=
       (colId < D) ? data[i * D + colId] * (DataT)counts[i] : DataT(0);
   }
-  __shared__ DataT smu[ColsPerBlk];
-  if (threadIdx.x < ColsPerBlk) smu[threadIdx.x] = DataT(0);
   __syncthreads();
   myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
-  if (threadIdx.x < ColsPerBlk) myAtomicAdd(mu + colId, smu[thisColId]);
+  if (threadIdx.x < ColsPerBlk && colId < D)
+    myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename DataT, typename IdxT, int TPB>

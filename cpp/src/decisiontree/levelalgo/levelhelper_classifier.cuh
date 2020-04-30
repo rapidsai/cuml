@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/cudart_utils.h>
 #include "levelkernel_classifier.cuh"
+
+namespace ML {
+namespace DecisionTree {
 
 template <typename T, typename F>
 void initial_metric_classification(
@@ -368,3 +372,6 @@ void make_leaf_gather_classification(
       labels, nodestart, samplelist, n_unique_labels, d_sparsenodes, nodelist);
   CUDA_CHECK(cudaGetLastError());
 }
+
+}  // namespace DecisionTree
+}  // namespace ML
