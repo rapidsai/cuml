@@ -17,6 +17,7 @@
 
 import cudf
 import cupy as cp
+import numpy as np
 import dask.array as da
 
 from collections.abc import Sequence
@@ -24,7 +25,7 @@ from collections.abc import Sequence
 from cuml.utils.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
-from cudf.core import DataFrame
+from cudf.core import DataFrame, Series
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as daskSeries
 
@@ -154,14 +155,16 @@ class DistributedDataHandler:
 
 @with_cupy_rmm
 def concatenate(objs, axis=0):
-    if isinstance(objs[0], DataFrame):
+    if isinstance(objs[0], DataFrame) or isinstance(objs[0], Series):
         if len(objs) == 1:
             return objs[0]
         else:
             return cudf.concat(objs)
-
     elif isinstance(objs[0], cp.ndarray):
         return cp.concatenate(objs, axis=axis)
+
+    elif isinstance(objs[0], np.ndarray):
+        return np.concatenate(objs, axis=axis)
 
 
 # TODO: This should be delayed.

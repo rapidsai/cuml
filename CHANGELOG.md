@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1687: Adds python bindings for mutual info score
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
@@ -20,6 +21,7 @@
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
 - PR #1974: Reduce ARIMA testing time
 - PR #1984: Enable Ninja build
+- PR #2005: Adding missing algorithms to cuml benchmarks and notebook
 - PR #2016: Add capability to setup.py and build.sh to fully clean all cython build files and artifacts
 - PR #2044: A cuda-memcheck helper wrapper for devs
 - PR #2018: Using `cuml.dask.part_utils.extract_partitions` and removing similar, duplicated code
@@ -42,6 +44,8 @@
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
 - PR #2125: Build infrastructure to use RAFT
+- PR #2131: Update Dask RF fit to use DistributedDataHandler
+- PR #2055: Update the metrics notebook to use important cuML models
 - PR #2095: Improved import of src_prims/utils.h, making it less ambiguous
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
@@ -53,6 +57,7 @@
 - PR #2146: Remove deprecated kalman filter
 - PR #2120: Speeding up dask RandomForest tests
 - PR #1883: Use CumlArray in ARIMA
+- PR #2156: Add Docker 19 support to local gpuci build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -66,18 +71,12 @@
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
-<<<<<<< HEAD
-<<<<<<< HEAD
 - PR #2077: dask-make blobs arguments to match sklearn
-=======
 - PR #2059: Make all Scipy imports conditional
 - PR #2077L dask-make blobs arguments to match sklearn
->>>>>>> original/branch-0.14
-=======
 - PR #2077: dask-make blobs arguments to match sklearn
 - PR #2059: Make all Scipy imports conditional
 - PR #2077: dask-make blobs arguments to match sklearn
->>>>>>> 46da22fccecad4484e295568f54812ba0f9ed8fd
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
@@ -86,8 +85,13 @@
 - PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
+- PR #2139: CumlArray for adjusted_rand_score
+- PR #2140: Returning self in fit model functions
 - PR #2144: Remove GPU arch < 60 from CMake build
 - PR #2153: Added missing namespaces to some Decision Tree files
+- PR #2155: C++: fix doxygen build break
+- PR #2161: Replacing depreciated bruteForceKnn
+- PR #2165: Fit function test correction
 
 # cuML 0.13.0 (Date TBD)
 
