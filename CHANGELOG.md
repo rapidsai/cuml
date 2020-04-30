@@ -43,6 +43,7 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2128: Update Dask RF code to reduce the time required for GPU predict to run
 - PR #2131: Update Dask RF fit to use DistributedDataHandler
 - PR #2055: Update the metrics notebook to use important cuML models
 - PR #2095: Improved import of src_prims/utils.h, making it less ambiguous
