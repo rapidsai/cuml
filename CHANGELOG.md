@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1687: Adds python bindings for mutual info score
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
@@ -43,6 +44,7 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2055: Update the metrics notebook to use important cuML models
 - PR #2095: Improved import of src_prims/utils.h, making it less ambiguous
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
 - PR #2120: Speeding up dask RandomForest tests
@@ -76,10 +78,13 @@
 - PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
+- PR #2139: CumlArray for adjusted_rand_score
 - PR #2140: Returning self in fit model functions
 - PR #2144: Remove GPU arch < 60 from CMake build
 - PR #2153: Added missing namespaces to some Decision Tree files
 - PR #2155: C++: fix doxygen build break
+- PR #2161: Replacing depreciated bruteForceKnn
+- PR #2165: Fit function test correction
 
 # cuML 0.13.0 (Date TBD)
 
