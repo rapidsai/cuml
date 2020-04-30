@@ -36,11 +36,6 @@ from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 from cuml.utils import has_scipy
 from cuml.utils.input_utils import input_to_cuml_array, input_to_host_array
 
-from cuml.common.array import CumlArray as cumlArray
-# TODO: remove duplicate after merging cuML array PR
-
-# TODO: compute difference only once to accelerate fit()
-
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
     ctypedef struct ARIMAOrder:

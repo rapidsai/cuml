@@ -41,6 +41,7 @@ from cuml.utils.input_utils import input_to_cuml_array
 # TODO:
 # - Box-Cox transformations? (parameter lambda)
 # - integrate cuML logging system
+# - Would a "one-fits-all" method be useful?
 
 
 cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
@@ -101,14 +102,51 @@ tests_map = {
 }
 
 class AutoARIMA(Base):
-    r"""TODO: docs
+    r"""Implements a batched auto-ARIMA model for in- and out-of-sample
+    times-series prediction.
+
+    This interface offers a highly customizable search, with functionality
+    similar to the `forecast` and `fable` packages in R.
+    It provides an abstraction around the underlying ARIMA models to predict
+    and forecast as if using a single model.
+
+    Example
+    -------
+    .. code-block:: python
+
+        from cuml.tsa.auto_arima import AutoARIMA
+        
+        model = AutoARIMA(y)
+        model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
+                     P=range(2), Q=range(2), method="css", truncate=100)
+        model.fit(method="css-ml")
+        fc = model.forecast(20)
+
+
     Parameters
     ----------
-    ...
+    y : dataframe or array-like (device or host)
+        The time series data, assumed to have each time series in columns.
+        Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
+        Numba device ndarray, cuda array interface compliant array like CuPy.
+    handle: cuml.Handle
+        If it is None, a new one is created just for this instance
+    verbose: int (optional, default 0)
+        Controls verbosity level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes.
         If None, it'll inherit the output type set at the module level,
         cuml.output_type. If set, it will override the global option.
+
+    References
+    ----------
+    The interface was influenced by the R `fable` package:
+    See https://fable.tidyverts.org/reference/ARIMA.html
+
+    A useful (though outdated) reference is the paper:
+    "Automatic Time Series Forecasting: The `forecast` Package for R",
+    Rob J. Hyndman & Yeasmin Khandakar (2008),
+    Journal of Statistical Software 27, https://doi.org/10.18637/jss.v027.i03
     """
     
     def __init__(self, y,
@@ -132,18 +170,63 @@ class AutoARIMA(Base):
                P=range(3),
                Q=range(3),
                fit_intercept="auto",
-               ic="aicc", # TODO: which one to use by default? "auto" mode?
+               ic="aicc",
                test="kpss",
                seasonal_test="seas",
+               h : float = 1e-8,
+               maxiter : int = 1000,
                method="auto",
-               truncate : int = 0,
-               h : float = 1e-8):
-        """TODO: docs
+               truncate : int = 0):
+        """Searches through the specified model space and associates each
+        series to the most appropriate model.
+
+        Parameters
+        ----------
+        s : int
+            Seasonal period. None or 0 for non-seasonal time series
+        d : int, sequence or generator
+            Possible values for d (simple difference)
+        D : int, sequence or generator
+            Possible values for D (seasonal difference)
+        p : int, sequence or generator
+            Possible values for p (AR order)
+        q : int, sequence or generator
+            Possible values for q (MA order)
+        P : int, sequence or generator
+            Possible values for P (seasonal AR order)
+        Q : int, sequence or generator
+            Possible values for Q (seasonal MA order)
+        fit_intercept : int, sequence, generator or "auto"
+            Whether to fit an intercept. "auto" chooses based on the model
+            parameters: it uses an incercept iff d + D <= 1
+        ic : str
+            Which information criterion to use for the model selection.
+            Currently supported: AIC, AICc, BIC
+        test : str
+            Which stationarity test to use to choose d.
+            Currently supported: KPSS
+        seasonal_test : str
+            Which seasonality test to use to choose D.
+            Currently supported: seas
+        h : float
+            Finite-differencing step size used to compute gradients in ARIMA
+        maxiter : int
+            Maximum number of iterations of L-BFGS-B
+        method : str
+            Estimation method - "auto", "css", "css-ml" or "ml".
+            CSS uses a fast sum-of-squares approximation.
+            ML estimates the log-likelihood with statespace methods.
+            CSS-ML starts with CSS and refines with ML.
+            "auto" will use CSS for long seasonal time series, ML otherwise.
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations for better performance. Recommended for long time
+            series when truncating doesn't lose too much information.
         """
         # Notes:
         #  - We iteratively divide the dataset as we decide parameters, so
         #    it's important to make sure that we don't keep the unused arrays
-        #    alive, so they can get garbage collected.
+        #    alive, so they can get garbage-collected.
         #  - As we divide the dataset, we also keep track of the original
         #    index of each series in the batch, to construct the final map at
         #    the end.
@@ -182,8 +265,8 @@ class AutoARIMA(Base):
             mask = input_to_cuml_array(mask_cp)[0]
             del mask_cp
             data_D = {}
-            (out0, index0), (out1, index1) = _divide_by_mask(self._d_y, mask,
-                                                             d_index)
+            out0, index0, out1, index1 = _divide_by_mask(self._d_y, mask,
+                                                         d_index)
             if out0 is not None:
                 data_D[0] = (out0, index0)
             if out1 is not None:
@@ -212,7 +295,7 @@ class AutoARIMA(Base):
                                               d_, D_, s)
                     mask = input_to_cuml_array(mask_cp)[0]
                     del mask_cp
-                    (out0, index0), (out1, index1) \
+                    out0, index0, out1, index1 \
                         = _divide_by_mask(data_temp, mask, id_temp)
                     if out1 is not None:
                         data_dD[(d_, D_)] = (out1, index1)
@@ -258,7 +341,8 @@ class AutoARIMA(Base):
                               output_type="cupy")
                 if self.verbose:
                     print(" -", str(model))
-                model.fit(method=method, truncate=truncate, h=h)
+                model.fit(h=h, maxiter=maxiter, method=method,
+                          truncate=truncate)
                 all_ic.append(model._ic(ic))
                 all_orders.append((p_, q_, P_, Q_, s_, k_))
                 del model
@@ -293,7 +377,22 @@ class AutoARIMA(Base):
                                                                self.batch_size)
 
     def fit(self, **kwargs):
-        """TODO: docs
+        """Fits the selected models for their respective series
+
+        Parameters
+        ----------
+        h : float
+            Finite-differencing step size used to compute gradients in ARIMA
+        maxiter : int
+            Maximum number of iterations of L-BFGS-B
+        method : str
+            Estimation method - "css", "css-ml" or "ml".
+            CSS uses a fast sum-of-squares approximation.
+            ML estimates the log-likelihood with statespace methods.
+            CSS-ML starts with CSS and refines with ML.
+        truncate : int
+            When using CSS, start the sum of squares after a given number of
+            observations for better performance (but often a worse fit)
         """
         if self.verbose:
             print("Fitting final models...")
@@ -304,13 +403,24 @@ class AutoARIMA(Base):
 
 
     def predict(self, start=0, end=None):
-        """TODO: docs
+        """Compute in-sample and/or out-of-sample prediction for each series
+
+        Parameters:
+        -----------
+        start: int
+            Index where to start the predictions (0 <= start <= num_samples)
+        end:
+            Index where to end the predictions, excluded (end > start)
+
+        Returns:
+        --------
+        y_p : array-like (device)
+            Predictions. Shape = (end - start, batch_size)
         """
         # Compute predictions for each model
         predictions = []
         for model in self.models:
             pred, *_ = input_to_cuml_array(model.predict(start, end))
-            # TODO: no need for cast after cuML array PR is merged
             predictions.append(pred)
         
         # Put all the predictions together
@@ -318,13 +428,22 @@ class AutoARIMA(Base):
                              self.batch_size).to_output(self.output_type)
 
     def forecast(self, nsteps):
-        """TODO: docs
+        """Forecast `nsteps` into the future.
+
+        Parameters:
+        ----------
+        nsteps : int
+            The number of steps to forecast beyond end of the given series
+
+        Returns:
+        --------
+        y_fc : array-like
+               Forecasts. Shape = (nsteps, batch_size)
         """
         return self.predict(self.n_obs, self.n_obs + nsteps)
     
     def summary(self):
-        """Provides a quick summary of the models used after calling the
-        `search` method.
+        """Display a quick summary of the models selected by `search`
         """
         model_list = sorted(self.models, key=lambda model: model.batch_size,
                             reverse=True)
@@ -349,11 +468,36 @@ def _parse_sequence(name, seq_in, min_accepted, max_accepted):
 
 
 def _divide_by_mask(original, mask, batch_id, handle=None):
-    """TODO: docs
-    (note: takes only cuML arrays as arguments)
-    (note: when a sub-batch has size zero, it is set to None and the other
-     to the original batch, not a copy!)
+    """Divide a given batch into two sub-batches according to a boolean mask
+    Note: in case the mask contains only False or only True, one sub-batch
+    will be the original batch (not a copy!) and the other None
+
+    Parameters:
+    ----------
+    original : cumlArray (float32 or float64)
+        Original batch
+    mask : cumlArray (bool)
+        Boolean mask: False for the 1st sub-batch and True for the second
+    batch_id : cumlArray (int)
+        Integer array to track the id of each member in the initial batch
+    handle : cuml.Handle
+        If it is None, a new one is created just for this call
+
+    Returns:
+    --------
+    out0 : cumlArray (float32 or float64)
+        Sub-batch 0, or None if empty
+    batch0_id : cumlArray (int)
+        Indices of the members of the sub-batch 0 in the initial batch,
+        or None if empty
+    out1 : cumlArray (float32 or float64)
+        Sub-batch 1, or None if empty
+    batch1_id : cumlArray (int)
+        Indices of the members of the sub-batch 1 in the initial batch,
+        or None if empty
     """
+    assert batch_id.dtype == np.int32
+
     dtype = original.dtype
     n_obs = original.shape[0]
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
@@ -425,8 +569,6 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
                                   <int> n_obs)
 
         # Also keep track of the original id of the series in the batch
-        # TODO: check int dtype! Convert to np.int32 if needed
-
         batch0_id = cumlArray.empty(batch_size - nb_true, np.int32)
         batch1_id = cumlArray.empty(nb_true, np.int32)
         d_batch0_id = batch0_id.ptr
@@ -442,15 +584,34 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
                                <int> batch_size,
                                <int> 1)
 
-    return (out0, batch0_id), (out1, batch1_id)
-
+    return out0, batch0_id, out1, batch1_id
 
 
 def _divide_by_min(original, metrics, batch_id, handle=None):
-    """TODO: docs
-    (note: takes only cuML arrays as arguments)
-    (note: when a sub-batch has size zero, it is set to None)
+    """Divide a given batch into multiple sub-batches according to the values
+    of the given metrics, by selecting the minimum value for each member
+
+    Parameters:
+    ----------
+    original : cumlArray (float32 or float64)
+        Original batch
+    metrics : cumlArray (float32 or float64)
+        Matrix of shape (batch_size, n_sub) containing the metrics to minimize
+    batch_id : cumlArray (int)
+        Integer array to track the id of each member in the initial batch
+    handle : cuml.Handle
+        If it is None, a new one is created just for this call
+
+    Returns:
+    --------
+    sub_batches : List[cumlArray] (float32 or float64)
+        List of arrays containing each sub-batch, or None if empty
+    sub_id : List[cumlArray] (int)
+        List of arrays containing the indices of each member in the initial
+        batch, or None if empty
     """
+    assert batch_id.dtype == np.int32
+
     dtype = original.dtype
     n_obs = original.shape[0]
     n_sub = metrics.shape[1]
@@ -523,8 +684,6 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
 
     # Keep track of the id of the series if requested
     cdef vector[uintptr_t] id_ptr
-    cdef uintptr_t d_batch_id
-
     sub_id = [cumlArray.empty(s, np.int32) if s else None
               for s in size_buffer]
     id_ptr.resize(n_sub)
@@ -534,9 +693,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
         else:
             id_ptr[i] = <uintptr_t> NULL
 
-    # TODO: check int dtype! Convert to np.int32 if needed
-        
-    d_batch_id = batch_id.ptr
+    cdef uintptr_t d_batch_id = batch_id.ptr
     divide_by_min_execute(handle_[0],
                           <int*> d_batch_id,
                           <int*> d_batch,
@@ -550,7 +707,22 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
 
 
 def _build_division_map(id_tracker, batch_size, handle=None):
-    """TODO: docs
+    """Build a map to associate each batch member with a model and index in
+    the associated sub-batch
+
+    Parameters:
+    ----------
+    id_tracker : List[cumlArray] (int)
+        List of the index arrays of each sub-batch
+    batch_size : int
+        Size of the initial batch
+
+    Returns:
+    --------
+    id_to_model : cumlArray (int)
+        Associates each batch member with a model
+    id_to_pos : cumlArray (int)
+        Position of each member in the respective sub-batch
     """
     if handle is None:
         handle = cuml.common.handle.Handle()
@@ -586,7 +758,24 @@ def _build_division_map(id_tracker, batch_size, handle=None):
 
 
 def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
-    """TODO: docs
+    """Build a map to associate each batch member with a model and index in
+    the associated sub-batch
+
+    Parameters:
+    ----------
+    data_in : List[cumlArray] (float32 or float64)
+        List of sub-batches to merge
+    id_to_model : cumlArray (int)
+        Associates each member of the batch with a sub-batch
+    id_to_pos : cumlArray (int)
+        Position of each member of the batch in its respective sub-batch
+    batch_size : int
+        Size of the initial batch
+
+    Returns:
+    --------
+    data_out : cumlArray (float32 or float64)
+        Merged batch
     """
     dtype = data_in[0].dtype
     n_obs = data_in[0].shape[0]
