@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+import dask
+import math
+import random
+
 from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from cuml.dask.common.input_utils import DistributedDataHandler, \
@@ -22,9 +26,6 @@ from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
 
-import dask
-import math
-import random
 from uuid import uuid1
 
 
@@ -291,10 +292,6 @@ class RandomForestClassifier(DelayedPredictionMixin,
     @staticmethod
     def _predict_cpu(model, X, convert_dtype, r):
         return model._predict_get_all(X, convert_dtype)
-
-    @dask.delayed
-    def _get_protobuf_bytes(model):
-        return model._get_protobuf_bytes()
 
     @staticmethod
     def _print_summary(model):
