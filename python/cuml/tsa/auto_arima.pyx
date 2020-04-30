@@ -758,8 +758,9 @@ def _build_division_map(id_tracker, batch_size, handle=None):
 
 
 def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
-    """Build a map to associate each batch member with a model and index in
-    the associated sub-batch
+    """Merge multiple sub-batches into one batch according to the maps that
+    associate each id in the unique batch to a sub-batch and a position in
+    this sub-batch.
 
     Parameters:
     ----------

@@ -105,14 +105,40 @@ void divide_by_min_execute(const cumlHandle& handle, const int* d_in,
                            int batch_size, int n_sub, int n_obs);
 
 /**
- * @todo docs
+ * Build a map to associate each batch member with a model and index in the
+ * associated sub-batch
+ *
+ * @param[in]  handle        cuML handle
+ * @param[in]  hd_id         Host array of pointers to device arrays containing
+ *                           the indices of the members of each sub-batch
+ * @param[in]  h_size        Host array containing the size of each sub-batch
+ * @param[out] d_id_to_pos   Device array containing the position of each
+ *                           member in its new sub-batch
+ * @param[out] d_id_to_model Device array associating each member with its
+ *                           sub-batch
+ * @param[in]  batch_size    Batch size
+ * @param[in]  n_sub         Number of sub-batches
  */
 void build_division_map(const cumlHandle& handle, const int* const* hd_id,
                         const int* h_size, int* d_id_to_pos, int* d_id_to_model,
                         int batch_size, int n_sub);
 
 /**
- * @todo docs
+ * Merge multiple sub-batches into one batch according to the maps that
+ * associate each id in the unique batch to a sub-batch and a position in
+ * this sub-batch.
+ * 
+ * @param[in]  handle        cuML handle
+ * @param[in]  hd_in       Host array of pointers to device arrays containing
+ *                         the sub-batches
+ * @param[in]  d_id_to_pos Device array containing the position of each member
+ *                         in its new sub-batch
+ * @param[in]  d_id_to_sub Device array associating each member with its
+ *                         sub-batch
+ * @param[out] d_out       Output merged batch
+ * @param[in]  batch_size  Batch size
+ * @param[in]  n_sub       Number of sub-batches
+ * @param[in]  n_obs       Number of observations (or forecasts) per series
  */
 void merge_series(const cumlHandle& handle, const float* const* hd_in,
                   const int* d_id_to_pos, const int* d_id_to_sub, float* d_out,

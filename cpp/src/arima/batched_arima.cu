@@ -136,7 +136,27 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 }
 
 /**
- * @todo: docs
+ * Kernel to compute the sum-of-squares log-likelihood estimation
+ *
+ * @param[in]  d_y        Series to fit
+ * @param[in]  d_mu       mu parameters
+ * @param[in]  d_ar       AR parameters
+ * @param[in]  d_ma       MA parameters
+ * @param[in]  d_sar      Seasonal AR parameters
+ * @param[in]  d_sma      Seasonal MA parameters
+ * @param[out] d_loglike  Evaluated log-likelihood
+ * @param[in]  n_obs      Number of observations in a time series
+ * @param[in]  n_phi      Number of phi coefficients (combined AR-SAR)
+ * @param[in]  n_theta    Number of theta coefficients (combined MA-SMA)
+ * @param[in]  p          Number of AR parameters
+ * @param[in]  q          Number of MA parameters
+ * @param[in]  P          Number of seasonal AR parameters
+ * @param[in]  Q          Number of seasonal MA parameters
+ * @param[in]  s          Seasonal period or 0
+ * @param[in]  k          Whether to use an intercept
+ * @param[in]  start_sum  At which index to start the sum
+ * @param[in]  start_y    First used y index (observation)
+ * @param[in]  start_v    First used v index (residual)
  */
 template <typename DataT>
 __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_mu,
@@ -195,8 +215,18 @@ __global__ void sum_of_squares_kernel(const DataT* d_y, const DataT* d_mu,
   }
 }
 
-/// TODO: kernel can take only about 25% of execution time, optimize the rest
-///       e.g compute phi and theta in the kernel
+/**
+ * Sum-of-squares estimation method
+ *
+ * @param[in]  handle     cuML handle
+ * @param[in]  d_y        Series to fit: shape = (n_obs, batch_size)
+ * @param[in]  batch_size Number of time series
+ * @param[in]  n_obs      Number of observations in a time series
+ * @param[in]  order      ARIMA hyper-parameters
+ * @param[in]  Tparams    Transformed parameters
+ * @param[out] d_loglike  Evaluated log-likelihood (device)
+ * @param[in]  truncate   Number of observations to skip in the sum
+ */
 void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
                                 int batch_size, int n_obs,
                                 const ARIMAOrder& order,
@@ -213,7 +243,6 @@ void conditional_sum_of_squares(cumlHandle& handle, const double* d_y,
   int start_v = start_sum - n_theta;
 
   // Compute the sum-of-squares and the log-likelihood
-  /// TODO: error if max_lags > 1024 (if that's even possible)
   int n_warps = std::max(MLCommon::ceildiv<int>(max_lags, 32), 1);
   size_t shared_mem_size =
     (2 * n_obs - start_y - start_v + n_warps) * sizeof(double);

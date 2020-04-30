@@ -24,8 +24,15 @@ namespace ML {
 enum LoglikeMethod { CSS, MLE };
 
 /**
- * @todo: docs
-*/
+ * Compute the differenced series (seasonal and/or non-seasonal differences)
+ * 
+ * @param[in]  handle     cuML handle
+ * @param[out] d_y_diff   Differenced series
+ * @param[in]  d_y        Original series
+ * @param[in]  batch_size Batch size
+ * @param[in]  n_obs      Number of observations
+ * @param[in]  order      ARIMA order
+ */
 void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
                   int batch_size, int n_obs, const ARIMAOrder& order);
 
@@ -41,7 +48,7 @@ void batched_diff(cumlHandle& handle, double* d_y_diff, const double* d_y,
  * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  d_params     Parameters to evaluate grouped by series:
  *                          [mu0, ar.., ma.., mu1, ..] (device)
- * @param[out] loglike      Log-Likelihood of the model per series (host)
+ * @param[out] loglike      Log-Likelihood of the model per series
  * @param[out] d_vs         The residual between model and original signal.
  *                          shape = (n_obs-d-s*D, batch_size) (device)
  *                          Note: no output when using CSS estimation
@@ -74,7 +81,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
  * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  params       ARIMA parameters (device)
- * @param[out] loglike      Log-Likelihood of the model per series (host)
+ * @param[out] loglike      Log-Likelihood of the model per series
  * @param[out] d_vs         The residual between model and original signal.
  *                          shape = (n_obs-d-s*D, batch_size) (device)
  *                          Note: no output when using CSS estimation
@@ -94,7 +101,21 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
                      int fc_steps = 0, double* d_fc = nullptr);
 
 /**
- * @todo: docs
+ * Compute the gradient of the log-likelihood
+ * 
+ * @param[in]  handle       cuML handle
+ * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
+ *                          expects column major data layout. (device)
+ * @param[in]  batch_size   Number of time series
+ * @param[in]  n_obs        Number of observations in a time series
+ * @param[in]  order        ARIMA hyper-parameters
+ * @param[in]  d_x          Parameters grouped by series
+ * @param[out] d_grad       Gradient to compute
+ * @param[in]  h            Finite-differencing step size
+ * @param[in]  trans        Run `jones_transform` on params
+ * @param[in]  method       Whether to use sum-of-squares or Kalman filter
+ * @param[in]  truncate     For CSS, start the sum-of-squares after a given
+ *                          number of observations
  */
 void batched_loglike_grad(cumlHandle& handle, const double* d_y, int batch_size,
                           int n_obs, const ARIMAOrder& order, const double* d_x,
