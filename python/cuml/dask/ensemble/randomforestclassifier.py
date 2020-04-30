@@ -298,7 +298,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
         return model._predict_get_all(X, convert_dtype)
 
     @dask.delayed
-    def _get_pbuf_bytes(model):
+    def _get_protobuf_bytes(model):
         return model._get_protobuf_bytes()
 
     @dask.delayed
@@ -337,11 +337,12 @@ class RandomForestClassifier(DelayedPredictionMixin):
         bytes format.
         """
         mod_bytes = []
-        models = list()
+        model_protobuf_futures = list()
         for w in self.workers:
-            models.append(
-                (RandomForestClassifier._get_pbuf_bytes)(self.rfs[w]))
-        mod_bytes = self.client.compute(models, sync=True)
+            model_protobuf_futures .append(
+                dask.delayed(RandomForestClassifier._get_protobuf_bytes)
+                (self.rfs[w]))
+        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()

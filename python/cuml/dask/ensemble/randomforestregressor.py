@@ -295,13 +295,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
     def _print_summary(model):
         model.print_summary()
 
-    @dask.delayed
-    def _get_pbuf_bytes(model):
+    @staticmethod
+    def _get_protobuf_bytes(model):
         return model._get_protobuf_bytes()
-
-    @dask.delayed
-    def _tl_model_handles(model, model_pbuf_bytes):
-        return model._tl_model_handles(model_pbuf_bytes)
 
     @staticmethod
     def _predict_cpu(model, X, convert_dtype):
@@ -336,16 +332,17 @@ class RandomForestRegressor(DelayedPredictionMixin):
         bytes format.
         """
         mod_bytes = []
-        models = list()
+        model_protobuf_futures = list()
         for w in self.workers:
-            models.append((RandomForestRegressor._get_pbuf_bytes)(self.rfs[w]))
-        mod_bytes = self.client.compute(models, sync=True)
+            model_protobuf_futures.append(
+                dask.delayed(RandomForestRegressor._get_protobuf_bytes)
+                (self.rfs[w]))
+        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-
         model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
 
