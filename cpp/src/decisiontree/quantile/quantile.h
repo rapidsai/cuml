@@ -16,9 +16,15 @@
 
 #pragma once
 #include "../memory.h"
-template <typename T>
-void preprocess_quantile(
-  const T *data, const unsigned int *rowids, int n_sampled_rows, int ncols,
-  int rowoffset, int nbins, T *h_quantile, T *d_quantile, T *temp_data,
-  std::shared_ptr<MLCommon::deviceAllocator> device_allocator,
-  cudaStream_t stream);
+
+namespace ML {
+namespace DecisionTree {
+
+template <typename T, typename L>
+void preprocess_quantile(const T *data, const unsigned int *rowids,
+                         const int n_sampled_rows, const int ncols,
+                         const int rowoffset, const int nbins,
+                         std::shared_ptr<TemporaryMemory<T, L>> tempmem);
+
+}  // namespace DecisionTree
+}  // namespace ML

@@ -133,12 +133,12 @@ struct GridSync {
   }
 
   /**
-     * @brief Perform the synchronization
-     *
-     * @note All threads of all threadblocks must call this unconditionally!
-     * There's no need to wrap this call between __syncthreads. That is taken
-     * care of internally.
-     */
+   * @brief Perform the synchronization
+   *
+   * @note All threads of all threadblocks must call this unconditionally!
+   * There's no need to wrap this call between __syncthreads. That is taken
+   * care of internally.
+   */
   DI void sync() {
     int* arrivalTracker = workspace + offset;
     markArrived(arrivalTracker);
@@ -149,14 +149,14 @@ struct GridSync {
   }
 
   /**
-     * @brief Computes workspace needed (in B) for the grid-sync
-     * @param gridDim grid dimensions for the kernel to be launched
-     * @param type synchronization type (this must the same as will be passed
-     * eventually inside the kernel, while creating a device object of this
-     * class)
-     * @param _multiSync whether we need this object to perform multiple
-     *  synchronizations in the same kernel call
-     */
+   * @brief Computes workspace needed (in B) for the grid-sync
+   * @param gridDim grid dimensions for the kernel to be launched
+   * @param type synchronization type (this must the same as will be passed
+   * eventually inside the kernel, while creating a device object of this
+   * class)
+   * @param multiSync whether we need this object to perform multiple
+   *  synchronizations in the same kernel call
+   */
   static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type,
                                      bool multiSync = false) {
     int nblks = type == ACROSS_X ? gridDim.y * gridDim.z : 1;

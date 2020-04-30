@@ -15,10 +15,11 @@
  */
 
 #pragma once
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
+#include <cuml/tree/decisiontree.hpp>
 #include "common/cumlHandle.hpp"
 #include <cuml/tree/flatnode.h>
 
@@ -69,8 +70,6 @@ struct TemporaryMemory {
   MLCommon::device_buffer<unsigned int> *d_colstart = nullptr;
   MLCommon::host_buffer<unsigned int> *h_colids = nullptr;
   MLCommon::host_buffer<unsigned int> *h_colstart = nullptr;
-  //Split algo
-  int splitalgo;
 
   //For level algorithm
   MLCommon::device_buffer<unsigned int> *d_flags = nullptr;
@@ -111,17 +110,21 @@ struct TemporaryMemory {
   TemporaryMemory(
     const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
     const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
-    const cudaStream_t stream_in, int N, int Ncols, float colper, int n_unique,
-    int n_bins, const int split_algo, int depth, bool col_shuffle);
+    const cudaStream_t stream_in, int N, int Ncols, int n_unique,
+    const ML::DecisionTree::DecisionTreeParams &tree_params);
+
   TemporaryMemory(const ML::cumlHandle_impl &handle, cudaStream_t stream_in,
-                  int N, int Ncols, float colper, int n_unique, int n_bins,
-                  const int split_algo, int depth, bool colshuffle);
+                  int N, int Ncols, int n_unique,
+                  const ML::DecisionTree::DecisionTreeParams &tree_params);
+
   ~TemporaryMemory();
-  void LevelMemAllocator(int nrows, int ncols, float colper, int n_unique,
-                         int nbins, int depth, const int split_algo,
-                         bool col_shuffle);
+
+  void LevelMemAllocator(
+    int nrows, int ncols, int n_unique,
+    const ML::DecisionTree::DecisionTreeParams &tree_params);
 
   void LevelMemCleaner();
+
   void print_info(int depth, int nrows, int ncols, float colper);
 };
 #include "memory.cuh"

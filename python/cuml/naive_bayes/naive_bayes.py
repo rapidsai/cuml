@@ -19,7 +19,6 @@ import math
 
 import numpy as np
 import cupy as cp
-import scipy.sparse
 
 import cupy.prof
 
@@ -27,7 +26,7 @@ from cuml.utils import with_cupy_rmm
 
 import warnings
 
-from cuml.utils import cuda_kernel_factory
+from cuml.utils import cuda_kernel_factory, has_scipy
 
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
@@ -118,6 +117,9 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
 class MultinomialNB(object):
 
+    # TODO: Make this extend cuml.Base:
+    # https://github.com/rapidsai/cuml/issues/1834
+
     """
     Naive Bayes classifier for multinomial models
 
@@ -179,7 +181,10 @@ class MultinomialNB(object):
 
     """
     @with_cupy_rmm
-    def __init__(self, alpha=1.0, fit_prior=True, class_prior=None):
+    def __init__(self,
+                 alpha=1.0,
+                 fit_prior=True,
+                 class_prior=None):
 
         """
         Create new multinomial Naive Bayes instance
@@ -211,6 +216,9 @@ class MultinomialNB(object):
 
         self.n_features_ = None
 
+        # Needed until Base no longer assumed cumlHandle
+        self.handle = None
+
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
     @with_cupy_rmm
     def fit(self, X, y, sample_weight=None):
@@ -230,11 +238,17 @@ class MultinomialNB(object):
         return self.partial_fit(X, y, sample_weight)
 
     @cp.prof.TimeRangeDecorator(message="fit()", color_id=0)
+    @with_cupy_rmm
     def _partial_fit(self, X, y, sample_weight=None, _classes=None):
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
 
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        elif scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
@@ -268,6 +282,7 @@ class MultinomialNB(object):
 
         return self
 
+    @with_cupy_rmm
     def update_log_probs(self):
         """
         Updates the log probabilities. This enables lazy update for
@@ -278,6 +293,7 @@ class MultinomialNB(object):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
+    @with_cupy_rmm
     def partial_fit(self, X, y, classes=None, sample_weight=None):
         """
         Incremental fit on a batch of samples.
@@ -337,9 +353,15 @@ class MultinomialNB(object):
 
         """
 
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
+
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        elif scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)
@@ -373,9 +395,15 @@ class MultinomialNB(object):
             they appear in the attribute classes_.
         """
 
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
+
         if isinstance(X, np.ndarray) or isinstance(X, cp.ndarray):
             X = cp.asarray(X, X.dtype)
-        elif scipy.sparse.isspmatrix(X) or cp.sparse.isspmatrix(X):
+        elif scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = X.tocoo()
             rows = cp.asarray(X.row, dtype=X.row.dtype)
             cols = cp.asarray(X.col, dtype=X.col.dtype)

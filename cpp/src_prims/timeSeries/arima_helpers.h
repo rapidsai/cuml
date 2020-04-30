@@ -18,14 +18,12 @@
 
 #include <cuda_runtime.h>
 
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 #include "cuml/tsa/arima_common.h"
 #include "linalg/batched/matrix.h"
 #include "linalg/matrix_vector_op.h"
+#include "linalg/unary_op.h"
 #include "timeSeries/jones_transform.h"
 
 namespace MLCommon {
@@ -91,14 +89,10 @@ HDI DataT reduced_polynomial(int bid, const DataT* param, int lags,
  * @param[in]  D           Order of seasonal differences (0, 1 or 2)
  * @param[in]  s           Seasonal period if D > 0
  * @param[in]  stream      CUDA stream
- * @param[in]  intercept   Whether the model fits an intercept
- * @param[in]  d_mu        Mu array if intercept > 0
- *                         Shape (batch_size,) (device)
  */
 template <typename DataT>
 void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
-                  int d, int D, int s, cudaStream_t stream, int intercept = 0,
-                  const DataT* d_mu = nullptr) {
+                  int d, int D, int s, cudaStream_t stream) {
   // Only one difference (simple or seasonal)
   if (d + D == 1) {
     int period = d ? 1 : s;
@@ -123,13 +117,6 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
     MLCommon::copy(d_out, d_in, n_obs * batch_size, stream);
   }
   // Other cases: no difference and the pointers are the same, nothing to do
-
-  // Remove trend in-place
-  if (intercept) {
-    MLCommon::LinAlg::matrixVectorOp(
-      d_out, d_out, d_mu, batch_size, n_obs - d - D * s, false, true,
-      [] __device__(DataT a, DataT b) { return a - b; }, stream);
-  }
 }
 
 /**
@@ -175,33 +162,22 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *
- * @tparam        DataT       Scalar type
- * @param[in|out] d_fc        Forecast. Shape (num_steps, batch_size) (device)
- * @param[in]     d_in        Original data. Shape (n_in, batch_size) (device)
- * @param[in]     num_steps   Number of steps forecasted
- * @param[in]     batch_size  Number of series per batch
- * @param[in]     in_ld       Leading dimension of d_in
- * @param[in]     n_in        Number of observations/predictions in d_in
- * @param[in]     d           Order of simple differences (0, 1 or 2)
- * @param[in]     D           Order of seasonal differences (0, 1 or 2)
- * @param[in]     s           Seasonal period if D > 0
- * @param[in]     stream      CUDA stream
- * @param[in]     intercept   Whether the model fits an intercept
- * @param[in]     d_mu        Mu array if intercept > 0
- *                            Shape (batch_size,) (device)
+ * @tparam       DataT       Scalar type
+ * @param[inout] d_fc        Forecast. Shape (num_steps, batch_size) (device)
+ * @param[in]    d_in        Original data. Shape (n_in, batch_size) (device)
+ * @param[in]    num_steps   Number of steps forecasted
+ * @param[in]    batch_size  Number of series per batch
+ * @param[in]    in_ld       Leading dimension of d_in
+ * @param[in]    n_in        Number of observations/predictions in d_in
+ * @param[in]    d           Order of simple differences (0, 1 or 2)
+ * @param[in]    D           Order of seasonal differences (0, 1 or 2)
+ * @param[in]    s           Seasonal period if D > 0
+ * @param[in]    stream      CUDA stream
  */
 template <typename DataT>
 void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
                        int batch_size, int in_ld, int n_in, int d, int D, int s,
-                       cudaStream_t stream, int intercept = 0,
-                       const DataT* d_mu = nullptr) {
-  // Add the trend in-place
-  if (intercept) {
-    MLCommon::LinAlg::matrixVectorOp(
-      d_fc, d_fc, d_mu, batch_size, num_steps, false, true,
-      [] __device__(DataT a, DataT b) { return a + b; }, stream);
-  }
-
+                       cudaStream_t stream) {
   // Undifference
   constexpr int TPB = 64;  // One thread per series -> avoid big blocks
   if (d + D == 1) {
@@ -216,79 +192,6 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
         d == 2 ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
   }
-}
-
-/* AR and MA parameters have to be within a "triangle" region (i.e., subject to
- * an inequality) for the inverse transform to not return 'NaN' due to the
- * logarithm within the inverse. This function ensures that inequality is
- * satisfied for all parameters.
- */
-template <typename DataT>
-void fix_ar_ma_invparams(const DataT* d_old_params, DataT* d_new_params,
-                         int batch_size, int pq, cudaStream_t stream,
-                         bool isAr = true) {
-  CUDA_CHECK(cudaMemcpyAsync(d_new_params, d_old_params,
-                             batch_size * pq * sizeof(DataT),
-                             cudaMemcpyDeviceToDevice, stream));
-  int n = pq;
-
-  // The parameter must be within a "triangle" region. If not, we bring the
-  // parameter inside by 1%.
-  DataT eps = 0.99;
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + batch_size,
-    [=] __device__(int ib) {
-      for (int i = 0; i < n; i++) {
-        DataT sum = 0.0;
-        for (int j = 0; j < i; j++) {
-          sum += d_new_params[n - j - 1 + ib * n];
-        }
-        // AR is minus
-        if (isAr) {
-          // param < 1-sum(param)
-          d_new_params[n - i - 1 + ib * n] =
-            fmin((1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
-          // param > -(1-sum(param))
-          d_new_params[n - i - 1 + ib * n] =
-            fmax(-(1 - sum) * eps, d_new_params[n - i - 1 + ib * n]);
-        } else {
-          // MA is plus
-          // param < 1+sum(param)
-          d_new_params[n - i - 1 + ib * n] =
-            fmin((1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
-          // param > -(1+sum(param))
-          d_new_params[n - i - 1 + ib * n] =
-            fmax(-(1 + sum) * eps, d_new_params[n - i - 1 + ib * n]);
-        }
-      }
-    });
-}
-
-/**
- * Auxiliary function of batched_jones_transform to remove redundancy.
- * Applies the transform to the given batched parameters.
- */
-template <typename DataT>
-void _transform_helper(const DataT* d_param, DataT* d_Tparam, int k,
-                       int batch_size, bool isInv, bool isAr,
-                       std::shared_ptr<deviceAllocator> allocator,
-                       cudaStream_t stream) {
-  // inverse transform will produce NaN if parameters are outside of a
-  // "triangle" region
-  DataT* d_param_fixed =
-    (DataT*)allocator->allocate(sizeof(DataT) * batch_size * k, stream);
-  if (isInv) {
-    fix_ar_ma_invparams(d_param, d_param_fixed, batch_size, k, stream, isAr);
-  } else {
-    CUDA_CHECK(cudaMemcpyAsync(d_param_fixed, d_param,
-                               sizeof(DataT) * batch_size * k,
-                               cudaMemcpyDeviceToDevice, stream));
-  }
-  MLCommon::TimeSeries::jones_transform(d_param_fixed, batch_size, k, d_Tparam,
-                                        isAr, isInv, allocator, stream);
-
-  allocator->deallocate(d_param_fixed, sizeof(DataT) * batch_size * k, stream);
 }
 
 /**
@@ -311,17 +214,23 @@ void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
                              std::shared_ptr<deviceAllocator> allocator,
                              cudaStream_t stream) {
   if (order.p)
-    _transform_helper(params.ar, Tparams.ar, order.p, batch_size, isInv, true,
-                      allocator, stream);
+    jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv,
+                    allocator, stream);
   if (order.q)
-    _transform_helper(params.ma, Tparams.ma, order.q, batch_size, isInv, false,
-                      allocator, stream);
+    jones_transform(params.ma, batch_size, order.q, Tparams.ma, false, isInv,
+                    allocator, stream);
   if (order.P)
-    _transform_helper(params.sar, Tparams.sar, order.P, batch_size, isInv, true,
-                      allocator, stream);
+    jones_transform(params.sar, batch_size, order.P, Tparams.sar, true, isInv,
+                    allocator, stream);
   if (order.Q)
-    _transform_helper(params.sma, Tparams.sma, order.Q, batch_size, isInv,
-                      false, allocator, stream);
+    jones_transform(params.sma, batch_size, order.Q, Tparams.sma, false, isInv,
+                    allocator, stream);
+
+  // Constrain sigma2 to be strictly positive
+  constexpr DataT min_sigma2 = 1e-6;
+  LinAlg::unaryOp<DataT>(
+    Tparams.sigma2, params.sigma2, batch_size,
+    [=] __device__(DataT input) { return max(input, min_sigma2); }, stream);
 }
 
 }  // namespace TimeSeries

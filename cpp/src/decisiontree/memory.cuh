@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #pragma once
 #include <cuml/tree/algo_helper.h>
 #include <thrust/extrema.h>
-#include <utils.h>
 #include <algorithm>
+#include <cuml/common/logger.hpp>
 #include "cub/cub.cuh"
 #include "memory.h"
 
@@ -26,35 +26,26 @@ template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
   const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
   const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
-  const cudaStream_t stream_in, int N, int Ncols, float colper, int n_unique,
-  int n_bins, const int split_algo, int depth, bool col_shuffle) {
+  const cudaStream_t stream_in, int N, int Ncols, int n_unique,
+  const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  splitalgo = split_algo;
-
   max_shared_mem = MLCommon::getSharedMemPerBlock();
   num_sms = MLCommon::getMultiProcessorCount();
   device_allocator = device_allocator_in;
   host_allocator = host_allocator_in;
-  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo,
-                    col_shuffle);
+  LevelMemAllocator(N, Ncols, n_unique, tree_params);
 }
 
 template <class T, class L>
-TemporaryMemory<T, L>::TemporaryMemory(const ML::cumlHandle_impl& handle,
-                                       cudaStream_t stream_in, int N, int Ncols,
-                                       float colper, int n_unique, int n_bins,
-                                       const int split_algo, int depth,
-                                       bool col_shuffle) {
-  //Assign Stream from cumlHandle
+TemporaryMemory<T, L>::TemporaryMemory(
+  const ML::cumlHandle_impl& handle, cudaStream_t stream_in, int N, int Ncols,
+  int n_unique, const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  splitalgo = split_algo;
-
   max_shared_mem = MLCommon::getSharedMemPerBlock();
   num_sms = MLCommon::getMultiProcessorCount();
   device_allocator = handle.getDeviceAllocator();
   host_allocator = handle.getHostAllocator();
-  LevelMemAllocator(N, Ncols, colper, n_unique, n_bins, depth, split_algo,
-                    col_shuffle);
+  LevelMemAllocator(N, Ncols, n_unique, tree_params);
 }
 
 template <class T, class L>
@@ -68,31 +59,30 @@ void TemporaryMemory<T, L>::print_info(int depth, int nrows, int ncols,
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (size_t)(ncols * colper);
 
-  std::cout << "maxnodes --> " << maxnodes << "  gather maxnodes--> "
-            << gather_max_nodes << std::endl;
-  std::cout << "Parent size --> " << parentsz << std::endl;
-  std::cout << "Child size  --> " << childsz << std::endl;
-  std::cout << "Nrows size --> " << (nrows + 1) << std::endl;
-  std::cout << "Sparse tree holder size --> " << 2 * gather_max_nodes
-            << std::endl;
-
-  std::cout << " Total temporary memory usage--> "
-            << ((double)totalmem / (1024 * 1024)) << "  MB" << std::endl;
+  ML::PatternSetter _("%v");
+  CUML_LOG_DEBUG("maxnodes --> %lu gather maxnodes--> %lu", maxnodes,
+                 gather_max_nodes);
+  CUML_LOG_DEBUG("Parent size --> %lu", parentsz);
+  CUML_LOG_DEBUG("Child size  --> %lu", childsz);
+  CUML_LOG_DEBUG("Nrows size --> %d", (nrows + 1));
+  CUML_LOG_DEBUG("Sparse tree holder size --> %lu", 2 * gather_max_nodes);
+  CUML_LOG_DEBUG(" Total temporary memory usage--> %lf MB",
+                 ((double)totalmem / (1024 * 1024)));
 }
 
 template <class T, class L>
-void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
-                                              float colper, int n_unique,
-                                              int nbins, int depth,
-                                              const int split_algo,
-                                              bool col_shuffle) {
+void TemporaryMemory<T, L>::LevelMemAllocator(
+  int nrows, int ncols, int n_unique,
+  const ML::DecisionTree::DecisionTreeParams& tree_params) {
+  int nbins = tree_params.n_bins;
+  int depth = tree_params.max_depth;
   if (depth > swap_depth || (depth == -1)) {
     max_nodes_per_level = pow(2, swap_depth);
   } else {
     max_nodes_per_level = pow(2, depth);
   }
   size_t maxnodes = max_nodes_per_level;
-  size_t ncols_sampled = (size_t)(ncols * colper);
+  size_t ncols_sampled = (size_t)(ncols * tree_params.max_features);
   if (depth < 64) {
     gather_max_nodes = std::min((size_t)(nrows + 1),
                                 (size_t)(pow((size_t)2, (size_t)depth) + 1));
@@ -135,7 +125,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   totalmem =
     3 * parentsz * sizeof(int) + childsz * sizeof(T) + (nrows + 1) * sizeof(T);
 
-  if (split_algo == 0) {
+  if (tree_params.split_algo == 0) {
     d_globalminmax = new MLCommon::device_buffer<T>(
       device_allocator, stream, 2 * maxnodes * ncols_sampled);
     h_globalminmax = new MLCommon::host_buffer<T>(host_allocator, stream,
@@ -150,7 +140,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
   }
   d_sample_cnt =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
-  if (col_shuffle == true) {
+  if (tree_params.shuffle_features == true) {
     d_colids = new MLCommon::device_buffer<unsigned int>(
       device_allocator, stream, ncols_sampled * gather_max_nodes);
     h_colids = new MLCommon::host_buffer<unsigned int>(
@@ -252,7 +242,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(int nrows, int ncols,
     max_nodes_pred /= 2;  // For occupancy purposes.
     max_nodes_mse /= 2;   // For occupancy purposes.
   }
-  if (split_algo == ML::SPLIT_ALGO::HIST) {
+  if (tree_params.split_algo == ML::SPLIT_ALGO::HIST) {
     size_t shmem_per_node = 2 * sizeof(T);
     max_nodes_minmax = max_shared_mem / shmem_per_node;
     max_nodes_minmax /= 2;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ struct DecisionTreeParams {
   /**
    * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this value, node is leafed out. Default is 0.0
    */
-  float min_impurity_decrease;
+  float min_impurity_decrease = 0.0f;
 
   /**
    * max amount of ndoes that can be processed in a given batch. This is used
@@ -93,6 +93,23 @@ struct DecisionTreeParams {
   int batched_depth;
 };
 
+/**
+ * @brief Set all DecisionTreeParams members.
+ * @param[in,out] params: update with tree parameters
+ * @param[in] cfg_max_depth: maximum tree depth; default -1
+ * @param[in] cfg_max_leaves: maximum leaves; default -1
+ * @param[in] cfg_max_features: maximum number of features; default 1.0f
+ * @param[in] cfg_n_bins: number of bins; default 8
+ * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
+ * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_impurity_decrease: split a node only if its reduction in
+ *                                       impurity is more than this value
+ * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
+ * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
+ *            i.e., GINI for classification or MSE for regression
+ * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
+ * @param[in] cfg_shuffle_features: whether to shuffle features or not
+ */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
                      int cfg_n_bins = 8, int cfg_split_algo = SPLIT_ALGO::HIST,
@@ -104,7 +121,17 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      bool cfg_shuffle_features = false,
                      int cfg_max_batch_size = 128, int cfg_n_blks_for_cols = 10,
                      int cfg_n_blks_for_rows = 4, int cfg_batched_depth = -1);
+
+/**
+ * @brief Check validity of all decision tree hyper-parameters.
+ * @param[in] params: decision tree hyper-parameters.
+ */
 void validity_check(const DecisionTreeParams params);
+
+/**
+ * @brief Print all decision tree hyper-parameters.
+ * @param[in] params: decision tree hyper-parameters.
+ */
 void print(const DecisionTreeParams params);
 
 template <class T, class L>
@@ -117,9 +144,21 @@ struct TreeMetaDataNode {
   std::vector<SparseTreeNode<T, L>> sparsetree;
 };
 
+/**
+ * @brief Print high-level tree information.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] tree: CPU pointer to TreeMetaDataNode
+ */
 template <class T, class L>
 void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
 
+/**
+ * @brief Print detailed tree information.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] tree: CPU pointer to TreeMetaDataNode
+ */
 template <class T, class L>
 void print_tree(const TreeMetaDataNode<T, L> *tree);
 
@@ -128,59 +167,137 @@ void print_tree(const TreeMetaDataNode<T, L> *tree);
 typedef TreeMetaDataNode<float, int> TreeClassifierF;
 typedef TreeMetaDataNode<double, int> TreeClassifierD;
 
+/**
+ * @defgroup DecisionTreeClassifierFit Fit functions
+ * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
+ * @param[in] handle: cumlHandle
+ * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
+ * @param[in] data: train data (nrows samples, ncols features) in column major format,
+ *    excluding labels. Device pointer.
+ * @param[in] ncols: number of features (i.e., columns) excluding target feature.
+ * @param[in] nrows: number of training data samples of the whole unsampled dataset.
+ * @param[in] labels: 1D array of target features (int only). One label per training
+ *    sample. Device pointer.
+ *    Assumption: labels need to be preprocessed to map to ascending numbers from 0;
+ *    needed for current gini impl. in decision tree.
+ * @param[in,out] rowids: array of n_sampled_rows integers in [0, nrows) range.
+ *    Device pointer. The same array is then rearranged when splits are made,
+ *    allowing us to construct trees without rearranging the actual dataset.
+ * @param[in] n_sampled_rows: number of training samples, after sampling.
+ *    If using decision tree directly over the whole dataset: n_sampled_rows = nrows
+ * @param[in] n_unique_labels: number of unique label values. Number of
+ *                             categories of classification.
+ * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @{
+ */
 void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                                TreeClassifierF *&tree, float *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
                                DecisionTree::DecisionTreeParams tree_params);
-
 void decisionTreeClassifierFit(const ML::cumlHandle &handle,
                                TreeClassifierD *&tree, double *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
                                DecisionTree::DecisionTreeParams tree_params);
+/** @} */
 
+/**
+ * @defgroup DecisionTreeClassifierPredict Predict functions
+ * @brief Predict target feature for input data; n-ary classification for
+ *   single feature supported. Inference of trees is CPU only for now.
+ * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] tree: CPU pointer to TreeMetaDataNode.
+ * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
+ *    Current impl. expects a CPU pointer. TODO future API change.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in,out] predictions: n_rows predicted labels. Current impl. expects a
+ *    CPU pointer, user allocated. TODO future API change.
+ * @param[in] verbosity: verbosity level for logging messages during execution.
+ *                       A negative value means to not perform an explicit
+ *                       `setLevel()` call, but to continue with the level that
+ *                       the caller itself might have set.
+ * @{
+ */
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
-                                   bool verbose = false);
-
+                                   int verbosity = -1);
 void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
                                    const TreeClassifierD *tree,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
-                                   bool verbose = false);
+                                   int verbosity = -1);
+/** @} */
 
 // ----------------------------- Regression ----------------------------------- //
 
 typedef TreeMetaDataNode<float, float> TreeRegressorF;
 typedef TreeMetaDataNode<double, double> TreeRegressorD;
 
+/**
+ * @defgroup DecisionTreeRegressorFit Fit functions
+ * @brief Build (i.e., fit, train) Decision Tree regressor for input data.
+ * @param[in] handle: cumlHandle
+ * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
+ * @param[in] data: train data (nrows samples, ncols features) in column major format,
+ *   excluding labels. Device pointer.
+ * @param[in] ncols: number of features (i.e., columns) excluding target feature.
+ * @param[in] nrows: number of training data samples of the whole unsampled dataset.
+ * @param[in] labels: 1D array of target features (float or double). One label per
+ *    training sample. Device pointer.
+ * @param[in,out] rowids: array of n_sampled_rows integers in [0, nrows) range.
+ *   Device pointer. The same array is then rearranged when splits are made,
+ *   allowing us to construct trees without rearranging the actual dataset.
+ * @param[in] n_sampled_rows: number of training samples, after sampling. If using decision
+ *   tree directly over the whole dataset: n_sampled_rows = nrows
+ * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @{
+ */
 void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
                               DecisionTree::DecisionTreeParams tree_params);
-
 void decisionTreeRegressorFit(const ML::cumlHandle &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
                               DecisionTree::DecisionTreeParams tree_params);
+/** @} */
 
+/**
+ * @defgroup DecisionTreeRegressorPredict Predict functions
+ * @brief Predict target feature for input data; regression for single feature supported.
+ *   Inference of trees is CPU only for now.
+ * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] tree: CPU pointer to TreeMetaDataNode.
+ * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
+ *   Current impl. expects a CPU pointer. TODO future API change.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in,out] predictions: n_rows predicted labels. Current impl. expects a CPU
+ *   pointer, user allocated. TODO future API change.
+ * @param[in] verbosity: verbosity level for logging messages during execution.
+ *                       A negative value means to not perform an explicit
+ *                       `setLevel()` call, but to continue with the level that
+ *                       the caller itself might have set.
+ * @{
+ */
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
-                                  float *predictions, bool verbose = false);
-
+                                  float *predictions, int verbosity = -1);
 void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
                                   const TreeRegressorD *tree,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,
-                                  bool verbose = false);
+                                  int verbosity = -1);
+/** @} */
 
 }  // End namespace DecisionTree
 }  //End namespace ML

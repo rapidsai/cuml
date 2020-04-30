@@ -20,6 +20,9 @@
 #include <cuml/cuml.hpp>
 #include "quantile.h"
 
+namespace ML {
+namespace DecisionTree {
+
 template <typename T>
 __global__ void allcolsampler_kernel(const T *__restrict__ data,
                                      const unsigned int *__restrict__ rowids,
@@ -142,8 +145,7 @@ void preprocess_quantile(
     int batch_offset = batch * n_sampled_rows * batch_cols;
     int quantile_offset = batch * nbins * batch_cols;
 
-    // Run sorting operation
-    CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(
+    CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
       (void *)d_temp_storage->data(), temp_storage_bytes,
       &d_keys_in[batch_offset], d_keys_out, n_sampled_rows * batch_cols,
       cur_batch_cols, d_offsets->data(), d_offsets->data() + 1, 0,
@@ -168,3 +170,6 @@ void preprocess_quantile(
 
   return;
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

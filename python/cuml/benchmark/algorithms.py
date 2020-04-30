@@ -20,9 +20,11 @@ import sklearn.cluster
 import sklearn.neighbors
 import sklearn.ensemble
 import sklearn.random_projection
+import sklearn.naive_bayes
 from sklearn import metrics
 import cuml.metrics
 import cuml.decomposition
+import cuml.naive_bayes
 from cuml.utils.import_utils import has_umap
 import numpy as np
 import tempfile
@@ -32,6 +34,8 @@ from cuml.benchmark.bench_helper_funcs import (
     fit_kneighbors,
     fit_transform,
     predict,
+    _build_cpu_skl_classifier,
+    _build_fil_skl_classifier,
     _build_fil_classifier,
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
@@ -202,7 +206,9 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.cluster.KMeans,
             cuml.cluster.KMeans,
-            shared_args=dict(init="random", n_clusters=8, max_iter=300),
+            shared_args=dict(init="kmeans++", n_clusters=8,
+                             max_iter=300, n_init=10),
+            cuml_args=dict(oversampling_factor=0),
             name="KMeans",
             accepts_labels=False,
             accuracy_function=metrics.homogeneity_score,
@@ -224,8 +230,16 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.random_projection.GaussianRandomProjection,
             cuml.random_projection.GaussianRandomProjection,
-            shared_args=dict(n_components="auto"),
+            shared_args=dict(n_components=10),
             name="GaussianRandomProjection",
+            bench_func=fit_transform,
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
+            sklearn.random_projection.SparseRandomProjection,
+            cuml.random_projection.SparseRandomProjection,
+            shared_args=dict(n_components=10),
+            name="SparseRandomProjection",
             bench_func=fit_transform,
             accepts_labels=False,
         ),
@@ -282,7 +296,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.linear_model.LogisticRegression,
             cuml.linear_model.LogisticRegression,
-            shared_args=dict(solver="lbfgs"),
+            shared_args=dict(),  # Use default solvers
             name="LogisticRegression",
             accepts_labels=True,
             accuracy_function=metrics.accuracy_score,
@@ -322,11 +336,74 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
+            sklearn.svm.SVC,
+            cuml.svm.SVC,
+            shared_args={"kernel": "rbf"},
+            cuml_args={},
+            name="SVC-RBF",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.SVC,
+            cuml.svm.SVC,
+            shared_args={"kernel": "linear"},
+            cuml_args={},
+            name="SVC-Linear",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.SVR,
+            cuml.svm.SVR,
+            shared_args={"kernel": "rbf"},
+            cuml_args={},
+            name="SVR-RBF",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.SVR,
+            cuml.svm.SVR,
+            shared_args={"kernel": "linear"},
+            cuml_args={},
+            name="SVR-Linear",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.neighbors.KNeighborsClassifier,
+            cuml.neighbors.KNeighborsClassifier,
+            shared_args={},
+            cuml_args={},
+            name="KNeighborsClassifier",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score
+        ),
+        AlgorithmPair(
+            sklearn.neighbors.KNeighborsRegressor,
+            cuml.neighbors.KNeighborsRegressor,
+            shared_args={},
+            cuml_args={},
+            name="KNeighborsRegressor",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.r2_score
+        ),
+        AlgorithmPair(
+            sklearn.naive_bayes.MultinomialNB,
+            cuml.naive_bayes.MultinomialNB,
+            shared_args={},
+            cuml_args={},
+            name="MultinomialNB",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score
+        ),
+        AlgorithmPair(
             treelite if has_treelite() else None,
             cuml.ForestInference,
-            shared_args=dict(num_rounds=10, max_depth=10),
+            shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                fil_algo="BATCH_TREE_REORG",
+                fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
                 storage_type="AUTO",
@@ -339,19 +416,44 @@ def all_algorithms():
             accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
         ),
+        AlgorithmPair(
+            treelite if has_treelite() else None,
+            cuml.ForestInference,
+            shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
+            cuml_args=dict(
+                fil_algo="AUTO",
+                output_class=False,
+                threshold=0.5,
+                storage_type="SPARSE",
+            ),
+            name="Sparse-FIL-SKL",
+            accepts_labels=False,
+            setup_cpu_func=_build_cpu_skl_classifier,
+            setup_cuml_func=_build_fil_skl_classifier,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
     ]
 
     if has_umap():
-        algorithms.append(
+        algorithms.extend([
             AlgorithmPair(
                 umap.UMAP,
                 cuml.manifold.UMAP,
                 shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP",
-                accepts_labels=False,
+                name="UMAP-Unsupervised",
+                accepts_labels=True,
+                accuracy_function=cuml.metrics.trustworthiness,
+            ),
+            AlgorithmPair(
+                umap.UMAP,
+                cuml.manifold.UMAP,
+                shared_args=dict(n_neighbors=5, n_epochs=500),
+                name="UMAP-Supervised",
+                accepts_labels=True,
                 accuracy_function=cuml.metrics.trustworthiness,
             )
-        )
+        ])
 
     return algorithms
 

@@ -23,6 +23,7 @@ from cuml.cluster.kmeans import KMeans
 
 from cuml.datasets.blobs import blobs as make_blobs
 from cuml.datasets.regression import make_regression
+from cuml.datasets.classification import make_classification
 
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
@@ -33,7 +34,6 @@ from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.fil import fil
-from cuml.filter.kalman_filter import KalmanFilter
 
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
@@ -69,7 +69,6 @@ from cuml.tsa import stationarity
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
-
 
 # Output type configuration
 

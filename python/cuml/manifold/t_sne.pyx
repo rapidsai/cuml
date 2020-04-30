@@ -65,7 +65,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const float pre_momentum,
         const float post_momentum,
         const long long random_state,
-        const bool verbose,
+        int verbosity,
         const bool intialize_embeddings,
         bool barnes_hut) except +
 
@@ -299,8 +299,6 @@ class TSNE(Base):
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
 
-        return
-
     @property
     def Y(self):
         warnings.warn("Attribute Y is deprecated and will be dropped in "
@@ -405,7 +403,7 @@ class TSNE(Base):
                  <float> self.pre_momentum,
                  <float> self.post_momentum,
                  <long long> seed,
-                 <bool> self.verbose,
+                 <int> self.verbosity,
                  <bool> True,
                  <bool> (self.method == 'barnes_hut'))
 
