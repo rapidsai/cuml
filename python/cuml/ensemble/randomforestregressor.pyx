@@ -291,7 +291,6 @@ class RandomForestRegressor(Base):
             warnings.warn("Setting the random seed does not fully guarantee"
                           " the exact same results at this time.")
         self.model_pbuf_bytes = bytearray()
-        self.concat_model_bytes = bytearray()
 
     """
     TODO:
@@ -392,13 +391,10 @@ class RandomForestRegressor(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
-        if self.concat_handle and len(self.concat_model_bytes) > 0:
-            return self.concat_model_bytes
-        elif self.concat_handle is None and self.treelite_handle:
-            if len(self.model_pbuf_bytes) > 0:
-                return self.model_pbuf_bytes
-            else:
-                fit_mod_ptr = self.treelite_handle
+        if len(self.model_pbuf_bytes) > 0:
+            return self.model_pbuf_bytes
+        elif self.treelite_handle:
+            fit_mod_ptr = self.treelite_handle
         else:
             fit_mod_ptr = self._obtain_treelite_handle()
         cdef uintptr_t model_ptr = <uintptr_t> fit_mod_ptr
@@ -406,8 +402,8 @@ class RandomForestRegressor(Base):
             save_model(<ModelHandle> model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
-        return model_pbuf_bytes
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self.model_pbuf_bytes
 
     def convert_to_treelite_model(self):
         """
