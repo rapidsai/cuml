@@ -19,10 +19,10 @@ from cuml.datasets.classification import make_classification \
 from cuml.datasets.utils import _create_rs_generator
 from cuml.dask.datasets.utils import _get_X
 from cuml.dask.datasets.utils import _get_labels
-from cuml.dask.datasets.utils import _dask_array_from_delayed
+from cuml.dask.datasets.utils import _create_delayed
 from cuml.utils import with_cupy_rmm
+from cuml.dask.common.utils import get_client
 
-from dask.distributed import default_client
 import dask.array as da
 
 import cupy as cp
@@ -158,9 +158,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         than the number of workers)
     Returns
     -------
-    X : dask.array of shape [n_samples, n_features]
+    X : dask.array backed by CuPy arrayof shape [n_samples, n_features]
         The generated samples.
-    y : dask.array of shape [n_samples]
+    y : dask.array backed by CuPy array of shape [n_samples]
         The integer labels for class membership of each sample.
 
     How we extended the dask MNMG version from the single GPU version:
@@ -177,11 +177,11 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         data from the same covariances
     """
 
-    client = default_client() if client is None else client
+    client = get_client(client=client)
 
     rs = _create_rs_generator(random_state)
 
-    workers = list(client.has_what().keys())
+    workers = list(client.scheduler_info()['workers'].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
@@ -245,20 +245,10 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     y_parts = [client.submit(_get_labels, f, pure=False)
                for idx, f in enumerate(parts)]
 
-    X_dela = [_dask_array_from_delayed(Xp,
-                                       worker_rows[idx],
-                                       n_features,
-                                       dtype)
-              for idx, Xp in enumerate(X_parts)]
-    y_dela = [_dask_array_from_delayed(yp,
-                                       worker_rows[idx],
-                                       None,
-                                       dtype)
-              for idx, yp in enumerate(y_parts)]
+    X_dela = _create_delayed(X_parts, dtype, worker_rows, n_features)
+    y_dela = _create_delayed(y_parts, dtype, worker_rows)
 
     X = da.concatenate(X_dela)
     y = da.concatenate(y_dela)
-
-    y = da.squeeze(y)
 
     return X, y
