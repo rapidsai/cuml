@@ -27,7 +27,6 @@ from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.model_selection import train_test_split
-from cuml.ensemble import RandomForestClassifier
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
@@ -600,22 +599,23 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
-def test_small_rf(tmpdir):
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('key', ['RandomForestClassifier'])
+@pytest.mark.parametrize('nrows', [unit_param(100)])
+@pytest.mark.parametrize('ncols', [unit_param(20)])
+@pytest.mark.parametrize('n_info', [unit_param(10)])
+def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
 
     result = {}
 
     def create_mod():
-        n_samples = 100
-        n_features = 20
-        n_info = 10
-
-        X_train, y_train, X_test = make_classification_dataset(np.float32,
-                                                               n_samples,
-                                                               n_features,
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
                                                                n_info,
                                                                n_classes=2)
-        model = RandomForestClassifier(n_estimators=1, max_depth=1,
-                                       max_features=1.0, seed=10)
+        model = rf_models[key](n_estimators=1, max_depth=1,
+                               max_features=1.0, seed=10)
         model.fit(X_train, y_train)
         result['rf_res'] = model.predict(X_test)
         return model, X_test
