@@ -14,7 +14,6 @@
 #
 
 import cupy as cp
-import numpy as np
 import pytest
 
 from cuml.test.utils import unit_param
@@ -95,7 +94,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         assert cp.max(cumlPred) == nclusters - 1
         assert cp.min(cumlPred) == 0
 
-
         score = adjusted_rand_score(labels, cumlPred)
 
         print(str(score))
@@ -155,8 +153,8 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, cluster):
         xformed = cumlModel.transform(X_train).compute()
         if input_type == "dataframe":
             xformed = cp.array(xformed
-                            if len(xformed.shape) == 1
-                            else xformed.as_gpu_matrix())
+                               if len(xformed.shape) == 1
+                               else xformed.as_gpu_matrix())
 
         if nclusters == 1:
             # series shape is (nrows,) not (nrows, 1) but both are valid
@@ -209,6 +207,7 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, cluster):
         if input_type == "dataframe":
             X_train = to_dask_cudf(X)
             y_train = to_dask_cudf(y)
+            y = y_train
         elif input_type == "array":
             X_train, y_train = X, y
 
