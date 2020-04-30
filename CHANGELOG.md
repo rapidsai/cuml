@@ -1,6 +1,7 @@
 # cuML 0.14.0 (Date TBD)
 
 ## New Features
+- PR #1655: Adds python bindings for homogeneity score
 - PR #1687: Adds python bindings for mutual info score
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
@@ -30,6 +31,7 @@
 - PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2085: Convert TSNE to use CumlArray
 - PR #2051: Reduce the time required to run dask pca and dask tsvd tests
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
@@ -85,6 +87,7 @@
 - PR #2153: Added missing namespaces to some Decision Tree files
 - PR #2155: C++: fix doxygen build break
 - PR #2161: Replacing depreciated bruteForceKnn
+- PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
 
