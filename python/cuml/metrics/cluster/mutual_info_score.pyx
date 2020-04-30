@@ -38,18 +38,23 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 def mutual_info_score(labels_true, labels_pred, handle=None):
     """
     Computes the Mutual Information between two clusterings.
+
     The Mutual Information is a measure of the similarity between two labels of
     the same data.
+
     This metric is independent of the absolute values of the labels:
     a permutation of the class or cluster label values won’t change the score
     value in any way.
+
     This metric is furthermore symmetric: switching label_true with label_pred
     will return the same score value. This can be useful to measure the
     agreement of two independent label assignments strategies on the same
     dataset when the real ground truth is not known.
+
     The labels in labels_pred and labels_true are assumed to be drawn from a
     contiguous set (Ex: drawn from {2, 3, 4}, but not from {2, 4}). If your
     set of labels looks like {2, 4}, convert them to something like {0, 1}.
+
     Parameters
     ----------
     handle : cuml.Handle
@@ -61,6 +66,7 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
         A clustering of the data (ints) into disjoint subsets.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
+
     Returns
     -------
     float
