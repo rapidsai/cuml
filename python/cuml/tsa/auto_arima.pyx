@@ -40,7 +40,6 @@ from cuml.utils.input_utils import input_to_cuml_array
 
 # TODO:
 # - Box-Cox transformations? (parameter lambda)
-# - summary method with recap of the models used
 # - integrate cuML logging system
 # - use output_type as soon as cuML array change in ARIMA is merged
 
@@ -281,7 +280,7 @@ class AutoARIMA(Base):
             print("Finalizing...")
         self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
                                                                self.batch_size)
-    
+
     def fit(self, **kwargs):
         """TODO: docs
         """
@@ -311,6 +310,16 @@ class AutoARIMA(Base):
         """TODO: docs
         """
         return self.predict(self.n_obs, self.n_obs + nsteps)
+    
+    def summary(self):
+        """Provides a quick summary of the models used after calling the
+        `search` method.
+        """
+        model_list = sorted(self.models, key=lambda model: model.batch_size,
+                            reverse=True)
+        print("ARIMA models used:", len(model_list))
+        for model in model_list:
+            print(" -", str(model))
 
 
 # Helper functions
