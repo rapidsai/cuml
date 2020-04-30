@@ -19,12 +19,15 @@ from dask.distributed import Client, wait
 import numpy as np
 import cupy as cp
 
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [67])
-def test_pca_fit(nrows, ncols, n_parts, cluster):
+@pytest.mark.parametrize("input_type", ["dataframe", "array"])
+def test_pca_fit(nrows, ncols, n_parts, input_type, cluster):
 
     client = Client(cluster)
 
@@ -35,26 +38,30 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
         from cuml.dask.datasets import make_blobs
 
-        X_cudf, _ = make_blobs(n_samples=nrows,
+        X, _ = make_blobs(n_samples=nrows,
                                n_features=ncols,
                                centers=1,
                                n_parts=n_parts,
                                cluster_std=0.5, verbose=False,
                                random_state=10, dtype=np.float32)
 
-        wait(X_cudf)
+        wait(X)
+        if input_type == "dataframe":
+            X_train = to_dask_cudf(X)
+            X_cpu = X_train.compute().to_pandas().values
+        elif input_type == "array":
+            X_train = X
+            X_cpu = cp.asnumpy(X_train.compute())
 
         try:
 
             cupca = daskPCA(n_components=5, whiten=True)
-            cupca.fit(X_cudf)
+            cupca.fit(X_train)
         except Exception as e:
             print(str(e))
 
-        X = cp.asnumpy(X_cudf.compute())
-
         skpca = PCA(n_components=5, whiten=True, svd_solver="full")
-        skpca.fit(X)
+        skpca.fit(X_cpu)
 
         from cuml.test.utils import array_equal
 
