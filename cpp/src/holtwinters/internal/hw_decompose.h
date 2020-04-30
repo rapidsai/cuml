@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <common/cudart_utils.h>
 #include "hw_utils.h"
 
 // optimize, maybe im2col ?

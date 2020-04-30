@@ -16,9 +16,11 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
 #include "distance/distance.h"
+#include "label/classlabels.h"
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -253,10 +255,20 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     gpu_res.setCudaMallocWarning(false);
     gpu_res.setDefaultStream(device, stream);
 
-    faiss::gpu::bruteForceKnn(
-      &gpu_res, faiss::METRIC_L2, input[i], rowMajorIndex, sizes[i],
-      search_items, rowMajorQuery, n, D, k, all_D.data() + (i * k * n),
-      all_I.data() + (i * k * n));
+    faiss::gpu::GpuDistanceParams args;
+    args.metric = faiss::METRIC_L2;
+    args.k = k;
+    args.dims = D;
+    args.vectors = input[i];
+    args.vectorsRowMajor = rowMajorIndex;
+    args.numVectors = sizes[i];
+    args.queries = search_items;
+    args.queriesRowMajor = rowMajorQuery;
+    args.numQueries = n;
+    args.outDistances = all_D.data() + (i * k * n);
+    args.outIndices = all_I.data() + (i * k * n);
+
+    bfKnn(&gpu_res, args);
 
     CUDA_CHECK(cudaPeekAtLastError());
   }
@@ -303,89 +315,22 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     translations);
 }
 
-/**
- * @brief Binary tree recursion for finding a label in the unique_labels array.
- * This provides a good middle-ground between having to create a new
- * labels array just to map non-monotonically increasing labels, or
- * the alternative, which is having to search over O(n) space for the labels
- * array in each thread. This is going to cause warp divergence of log(n)
- * per iteration.
- * @param unique_labels array of unique labels
- * @param n_labels number of unique labels
- * @param target_val the label value to search for in unique_labels
- */
-template <typename IdxType = int>
-__device__ int label_binary_search(IdxType *unique_labels, IdxType n_labels,
-                                   IdxType target_val) {
-  int out_label_idx = -1;
-
-  int level = 1;
-  int cur_break_idx = round(n_labels / (2.0 * level));
-  while (out_label_idx == -1) {
-    int cur_cached_label = unique_labels[cur_break_idx];
-
-    // If we found our label, terminate
-    if (cur_cached_label == target_val) {
-      return cur_break_idx;
-
-      // check left neighbor
-    } else if (cur_break_idx > 0 &&
-               unique_labels[cur_break_idx - 1] == target_val) {
-      return cur_break_idx - 1;
-
-      // check right neighbor
-    } else if (cur_break_idx < n_labels - 1 &&
-               unique_labels[cur_break_idx + 1] == target_val) {
-      return cur_break_idx + 1;
-
-      // traverse
-    } else {
-      level += 1;
-
-      int subtree = round(n_labels / (2.0 * level));
-      if (target_val < cur_cached_label) {
-        // take left subtree
-        cur_break_idx -= subtree;
-      } else {
-        // take right subtree
-        cur_break_idx += subtree;
-      }
-    }
-  }
-  return -1;
-}
-
 template <typename OutType = float>
 __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
-                                   const int *labels, int *unique_labels,
-                                   int n_uniq_labels, size_t n_samples,
+                                   const int *labels, int n_uniq_labels,
+                                   size_t n_labels, size_t n_samples,
                                    int n_neighbors) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
   float n_neigh_inv = 1.0f / n_neighbors;
 
-  extern __shared__ int label_cache[];
-  for (int j = threadIdx.x; j < n_uniq_labels; j += blockDim.x) {
-    label_cache[j] = unique_labels[j];
-  }
-
-  __syncthreads();
-
   if (row >= n_samples) return;
 
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
     int out_label = labels[neighbor_idx];
-
-    // Trading off warp divergence in the outputs so that we don't
-    // need to copy / modify the label memory to do these mappings.
-    // Found a middle-ground between between using shared memory
-    // for the mappings.
-    int out_label_idx =
-      label_binary_search(label_cache, n_uniq_labels, out_label);
-
-    int out_idx = row * n_uniq_labels + out_label_idx;
+    int out_idx = row * n_uniq_labels + out_label;
     out[out_idx] += n_neigh_inv;
   }
 }
@@ -393,8 +338,8 @@ __global__ void class_probs_kernel(OutType *out, const int64_t *knn_indices,
 template <typename OutType = int>
 __global__ void class_vote_kernel(OutType *out, const float *class_proba,
                                   int *unique_labels, int n_uniq_labels,
-                                  size_t n_samples, int n_outputs,
-                                  int output_offset) {
+                                  size_t n_labels, size_t n_samples,
+                                  int n_outputs, int output_offset) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_uniq_labels;
 
@@ -409,9 +354,9 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
   float cur_max = -1.0;
   int cur_label = -1;
   for (int j = 0; j < n_uniq_labels; j++) {
-    float cur_count = class_proba[i + j];
-    if (cur_count > cur_max) {
-      cur_max = cur_count;
+    float cur_proba = class_proba[i + j];
+    if (cur_proba > cur_max) {
+      cur_max = cur_proba;
       cur_label = j;
     }
   }
@@ -420,9 +365,9 @@ __global__ void class_vote_kernel(OutType *out, const float *class_proba,
 
 template <typename LabelType>
 __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
-                                   const LabelType *labels, size_t n_samples,
-                                   int n_neighbors, int n_outputs,
-                                   int output_offset) {
+                                   const LabelType *labels, size_t n_labels,
+                                   size_t n_samples, int n_neighbors,
+                                   int n_outputs, int output_offset) {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i = row * n_neighbors;
 
@@ -450,6 +395,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  *          each output in the vector is a different array of labels
  *          corresponding to the i'th output.
  * @param n_rows number of rows in knn_indices
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param k number of neighbors in knn_indices
  * @param uniq_labels vector of the sorted unique labels for each array in y
  * @param n_unique vector of sizes for each array in uniq_labels
@@ -461,7 +407,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
  */
 template <int TPB_X = 32>
 void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
-                 std::vector<int *> &y, size_t n_rows, int k,
+                 std::vector<int *> &y, size_t n_labels, size_t n_rows, int k,
                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
                  std::shared_ptr<deviceAllocator> allocator,
                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
@@ -470,8 +416,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
 
-    int n_labels = n_unique[i];
-    int cur_size = n_rows * n_labels;
+    int n_unique_labels = n_unique[i];
+    int cur_size = n_rows * n_unique_labels;
 
     CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
 
@@ -482,9 +428,15 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
      * Build array of class probability arrays from
      * knn_indices and labels
      */
-    int smem = sizeof(int) * n_labels;
-    class_probs_kernel<<<grid, blk, smem, stream>>>(
-      out[i], knn_indices, y[i], uniq_labels[i], n_labels, n_rows, k);
+    device_buffer<int> y_normalized(allocator, stream, n_labels);
+    MLCommon::Label::make_monotonic(y_normalized.data(), y[i], n_labels,
+                                    stream);
+    MLCommon::LinAlg::unaryOp<int>(
+      y_normalized.data(), y_normalized.data(), n_labels,
+      [] __device__(int input) { return input - 1; }, stream);
+    class_probs_kernel<<<grid, blk, 0, stream>>>(
+      out[i], knn_indices, y_normalized.data(), n_unique_labels, n_labels,
+      n_rows, k);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
@@ -500,6 +452,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  * @param y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_rows number of rows in knn_indices
  * @param k number of neighbors in knn_indices
  * @param uniq_labels vector of the sorted unique labels for each array in y
@@ -512,8 +465,8 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
  */
 template <int TPB_X = 32>
 void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
-                  size_t n_rows, int k, std::vector<int *> &uniq_labels,
-                  std::vector<int> &n_unique,
+                  size_t n_labels, size_t n_rows, int k,
+                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
                   std::shared_ptr<deviceAllocator> &allocator,
                   cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                   int n_int_streams = 0) {
@@ -540,7 +493,8 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
    * Note: Since class_probs will use the same round robin strategy for distributing
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
-  class_probs(probs, knn_indices, y, n_rows, k, uniq_labels, n_unique,
+
+  class_probs(probs, knn_indices, y, n_labels, n_rows, k, uniq_labels, n_unique,
               allocator, user_stream, int_streams, n_int_streams);
 
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
@@ -550,14 +504,15 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
 
-    int n_labels = n_unique[i];
+    int n_unique_labels = n_unique[i];
 
     /**
      * Choose max probability
      */
     int smem = sizeof(int) * n_labels;
     class_vote_kernel<<<grid, blk, smem, stream>>>(
-      out, probs[i], uniq_labels[i], n_labels, n_rows, y.size(), i);
+      out, probs[i], uniq_labels[i], n_unique_labels, n_labels, n_rows,
+      y.size(), i);
     CUDA_CHECK(cudaPeekAtLastError());
 
     delete tmp_probs[i];
@@ -574,6 +529,7 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
  * @param y vector of label arrays. for multilabel classification, each
  *          element in the vector is a different "output" array of labels corresponding
  *          to the i'th output.
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_rows number of rows in knn_indices
  * @param k number of neighbors in knn_indices
  * @param user_stream main stream to use for queuing isolated CUDA events
@@ -584,9 +540,9 @@ void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
 
 template <typename ValType, int TPB_X = 32>
 void knn_regress(ValType *out, const int64_t *knn_indices,
-                 const std::vector<ValType *> &y, size_t n_rows, int k,
-                 cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
-                 int n_int_streams = 0) {
+                 const std::vector<ValType *> &y, size_t n_labels,
+                 size_t n_rows, int k, cudaStream_t user_stream,
+                 cudaStream_t *int_streams = nullptr, int n_int_streams = 0) {
   dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
@@ -596,8 +552,8 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
   for (int i = 0; i < y.size(); i++) {
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
-    regress_avg_kernel<<<grid, blk, 0, stream>>>(out, knn_indices, y[i], n_rows,
-                                                 k, y.size(), i);
+    regress_avg_kernel<<<grid, blk, 0, stream>>>(
+      out, knn_indices, y[i], n_labels, n_rows, k, y.size(), i);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }

@@ -592,7 +592,7 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <float*> y_ptr,
                 rf_params,
-                <int> self.logging_level)
+                <int> self.verbosity)
 
         else:
             rf_params64 = rf_params
@@ -603,7 +603,7 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <double*> y_ptr,
                 rf_params64,
-                <int> self.logging_level)
+                <int> self.verbosity)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -684,7 +684,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <float*> preds_ptr,
-                    <int> self.logging_level)
+                    <int> self.verbosity)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -693,7 +693,7 @@ class RandomForestRegressor(Base):
                     <int> n_rows,
                     <int> n_cols,
                     <double*> preds_ptr,
-                    <int> self.logging_level)
+                    <int> self.verbosity)
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
@@ -849,7 +849,7 @@ class RandomForestRegressor(Base):
                                     <float*> y_ptr,
                                     <int> n_rows,
                                     <float*> preds_ptr,
-                                    <int> self.logging_level)
+                                    <int> self.verbosity)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
@@ -857,7 +857,7 @@ class RandomForestRegressor(Base):
                                     <double*> y_ptr,
                                     <int> n_rows,
                                     <double*> preds_ptr,
-                                    <int> self.logging_level)
+                                    <int> self.verbosity)
 
         if self.accuracy_metric == 'median_ae':
             stats = self.temp_stats['median_abs_error']
