@@ -30,6 +30,7 @@
 - PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2085: Convert TSNE to use CumlArray
 - PR #2051: Reduce the time required to run dask pca and dask tsvd tests
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
