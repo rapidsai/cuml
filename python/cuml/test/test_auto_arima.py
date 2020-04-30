@@ -63,7 +63,7 @@ def test_divide_by_mask(batch_size, n_obs, prop_true, dtype):
 
     # Call the tested function
     sub_data, sub_id = [None, None], [None, None]
-    (sub_data[0], sub_id[0]), (sub_data[1], sub_id[1]) = \
+    sub_data[0], sub_id[0], sub_data[1], sub_id[1] = \
         auto_arima._divide_by_mask(data, mask, b_id)
 
     # Compute the expected results in pure Python
