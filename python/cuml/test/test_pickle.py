@@ -597,3 +597,30 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
         assert state["_fit_status_"] == 0
 
     pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32])
+@pytest.mark.parametrize('key', ['RandomForestClassifier'])
+@pytest.mark.parametrize('nrows', [unit_param(100)])
+@pytest.mark.parametrize('ncols', [unit_param(20)])
+@pytest.mark.parametrize('n_info', [unit_param(10)])
+def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
+
+    result = {}
+
+    def create_mod():
+        X_train, y_train, X_test = make_classification_dataset(datatype,
+                                                               nrows,
+                                                               ncols,
+                                                               n_info,
+                                                               n_classes=2)
+        model = rf_models[key](n_estimators=1, max_depth=1,
+                               max_features=1.0, seed=10)
+        model.fit(X_train, y_train)
+        result['rf_res'] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        assert array_equal(result['rf_res'], pickled_model.predict(X_test))
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
