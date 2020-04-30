@@ -20,7 +20,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from dask.distributed import Client
 import dask.array as da
 import cupy as cp
-from cuml.dask.common.dask_arr_utils import dask_array_to_dask_cudf
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 @pytest.mark.mg
@@ -41,8 +41,8 @@ def test_extract_partitions_worker_list(nrows, ncols, n_parts, input_type,
                                   n_parts=n_parts)
 
         if adj_input_type == "dataframe" or input_type == "dataframe":
-            X = dask_array_to_dask_cudf(X_arr)
-            y = dask_array_to_dask_cudf(y_arr)
+            X = to_dask_cudf(X_arr)
+            y = to_dask_cudf(y_arr)
         elif input_type == "array":
             X, y = X_arr, y_arr
 
@@ -77,8 +77,8 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
                                   n_parts=n_parts)
 
         if adj_input_type == "dataframe" or input_type == "dataframe":
-            X = dask_array_to_dask_cudf(X_arr)
-            y = dask_array_to_dask_cudf(y_arr)
+            X = to_dask_cudf(X_arr)
+            y = to_dask_cudf(y_arr)
         elif input_type == "array":
             X, y = X_arr, y_arr
 
