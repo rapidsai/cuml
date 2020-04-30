@@ -267,6 +267,44 @@ def test_mutual_info_score(use_handle, input_labels):
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 1000],
+                                         [-1000, 1000]])
+def test_mutual_info_score_big_array(use_handle, input_range):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e4),
+                                                              dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('n', [14])
+def test_mutual_info_score_range_equal_samples(use_handle, n):
+    input_range = (-n, n)
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              n,
+                                                              dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 19],
+                                         [0, 2],
+                                         [-5, 20]])
+@pytest.mark.parametrize('n_samples', [129, 258])
+def test_mutual_info_score_many_blocks(use_handle, input_range, n_samples):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              n_samples,
+                                                              dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('data', [([0, 0, 1, 1], [1, 1, 0, 0]),
                                   ([0, 0, 1, 1], [0, 0, 1, 1])])
 def test_completeness_perfect_labeling(use_handle, data):
