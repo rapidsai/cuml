@@ -36,6 +36,7 @@ from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
+from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
 from sklearn.preprocessing import StandardScaler
 
 from cuml.metrics.cluster import entropy
@@ -190,6 +191,14 @@ def score_completeness(ground_truth, predictions, use_handle):
                                       dtype=np.int32)
 
 
+def score_mutual_info(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.mutual_info_score,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('data', [([0, 0, 1, 1], [1, 1, 0, 0]),
                                   ([0, 0, 1, 1], [0, 0, 1, 1])])
@@ -242,6 +251,19 @@ def test_homogeneity_completeness_symmetry(use_handle, input_range):
     hom = score_homogeneity(a, b, use_handle)
     com = score_completeness(b, a, use_handle)
     np.testing.assert_almost_equal(hom, com, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_labels', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                          ([0, 0, 1, 1], [0, 0, 1, 1]),
+                                          ([0, 0, 1, 1], [0, 0, 1, 2]),
+                                          ([0, 0, 1, 1], [0, 1, 2, 3]),
+                                          ([0, 0, 1, 1], [0, 1, 0, 1]),
+                                          ([0, 0, 1, 1], [0, 0, 0, 0])])
+def test_mutual_info_score(use_handle, input_labels):
+    score = score_mutual_info(*input_labels, use_handle)
+    ref = sk_mutual_info_score(*input_labels)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
