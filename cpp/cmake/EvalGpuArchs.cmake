@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ int main(int argc, char** argv) {
     printf(\"ALL\");
   } else {
     bool first = true;
-    for(const auto& arch : archs) {
-      printf(first? \"%s\" : \";%s\", arch.c_str());
+    for(set<string>::const_iterator itr=archs.begin();itr!=archs.end();++itr) {
+      printf(first? \"%s\" : \";%s\", itr->c_str());
       first = false;
     }
   }
@@ -49,12 +49,20 @@ int main(int argc, char** argv) {
 ")
   execute_process(
     COMMAND ${CUDA_NVCC_EXECUTABLE}
-      -std=c++11
       -o ${eval_exe}
       --run
       ${eval_file}
     OUTPUT_VARIABLE __gpu_archs
     OUTPUT_STRIP_TRAILING_WHITESPACE)
-  message("Auto detection of gpu-archs: ${__gpu_archs}")
-  set(${gpu_archs} ${__gpu_archs} PARENT_SCOPE)
+  set(__gpu_archs_filtered "${__gpu_archs}")
+  foreach(arch ${__gpu_archs})
+    if (arch VERSION_LESS 60)
+      list(REMOVE_ITEM __gpu_archs_filtered ${arch})
+    endif()
+  endforeach()
+  if (NOT __gpu_archs_filtered)
+    message(FATAL_ERROR "No supported GPU arch found on this system")
+  endif()
+  message("Auto detection of gpu-archs: ${__gpu_archs_filtered}")
+  set(${gpu_archs} ${__gpu_archs_filtered} PARENT_SCOPE)
 endfunction(evaluate_gpu_archs)

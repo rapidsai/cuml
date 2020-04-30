@@ -14,23 +14,21 @@
 # limitations under the License.
 #
 
-import cudf
-
-from cuml.dask.common import extract_ddf_partitions, \
-    raise_exception_from_futures, workers_to_parts
+from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    concatenate
 from dask.distributed import default_client, wait
-
-
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.base import DelayedPredictionMixin, \
+    DelayedPredictionProbaMixin
 
 import math
 import random
 from uuid import uuid1
 
 
-class RandomForestClassifier(DelayedPredictionMixin):
+class RandomForestClassifier(DelayedPredictionMixin,
+                             DelayedPredictionProbaMixin):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -279,18 +277,10 @@ class RandomForestClassifier(DelayedPredictionMixin):
         )
 
     @staticmethod
-    def _fit(model, X_df_list, y_df_list,
-             convert_dtype, r):
-        if len(X_df_list) != len(y_df_list):
-            raise ValueError("X (%d) and y (%d) partition list sizes unequal" %
-                             len(X_df_list), len(y_df_list))
-        if len(X_df_list) == 1:
-            X_df = X_df_list[0]
-            y_df = y_df_list[0]
-        else:
-            X_df = cudf.concat(X_df_list)
-            y_df = cudf.concat(y_df_list)
-        return model.fit(X_df, y_df, convert_dtype)
+    def _fit(model, input_data, convert_dtype):
+        X = concatenate([item[0] for item in input_data])
+        y = concatenate([item[1] for item in input_data])
+        return model.fit(X, y, convert_dtype)
 
     @staticmethod
     def _predict_cpu(model, X, convert_dtype, r):
@@ -376,11 +366,10 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
         Parameters
         ----------
-        X : dask_cudf.Dataframe
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Features of training examples.
-        y : dask_cudf.Dataframe
-            Dense  matrix (floats or doubles) of shape (n_samples, 1)
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
@@ -389,39 +378,20 @@ class RandomForestClassifier(DelayedPredictionMixin):
             will increase memory used for the method.
 
         """
-
-        c = default_client()
-
         self.num_classes = len(y.unique())
-        X_futures = workers_to_parts(c.sync(extract_ddf_partitions, X))
-        y_futures = workers_to_parts(c.sync(extract_ddf_partitions, y))
-
-        X_partition_workers = [w for w, xc in X_futures.items()]
-        y_partition_workers = [w for w, xc in y_futures.items()]
-
-        if set(X_partition_workers) != set(self.workers) or \
-           set(y_partition_workers) != set(self.workers):
-            raise ValueError("""
-              X is not partitioned on the same workers expected by RF\n
-              X workers: %s\n
-              y workers: %s\n
-              RF workers: %s
-            """ % (str(X_partition_workers),
-                   str(y_partition_workers),
-                   str(self.workers)))
-
+        data = DistributedDataHandler.create((X, y), client=self.client)
+        self.datatype = data.datatype
         futures = list()
-        for w, xc in X_futures.items():
+        for idx, (worker, worker_data) in \
+                enumerate(data.worker_to_parts.items()):
             futures.append(
-                c.submit(
+                self.client.submit(
                     RandomForestClassifier._fit,
-                    self.rfs[w],
-                    xc,
-                    y_futures[w],
+                    self.rfs[worker],
+                    worker_data,
                     convert_dtype,
-                    random.random(),
-                    workers=[w],
-                )
+                    workers=[worker],
+                    pure=False)
             )
 
         wait(futures)
@@ -487,7 +457,6 @@ class RandomForestClassifier(DelayedPredictionMixin):
         ----------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
-
         if self.num_classes > 2 or predict_model == "CPU":
             preds = self._predict_using_cpu(X,
                                             convert_dtype=convert_dtype)
@@ -511,7 +480,7 @@ class RandomForestClassifier(DelayedPredictionMixin):
                            delayed=True, fil_sparse_format='auto'):
 
         self._concat_treelite_models()
-        data = DistributedDataHandler.single(X, client=self.client)
+        data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
         kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
@@ -591,6 +560,75 @@ class RandomForestClassifier(DelayedPredictionMixin):
 
             pred.append(max_class)
         return pred
+
+    def predict_proba(self, X, output_class=True, algo='auto',
+                      threshold=0.5, num_classes=2,
+                      convert_dtype=False,
+                      delayed=True, fil_sparse_format='auto'):
+        """
+        Predicts the probability of each class for X.
+
+        Parameters
+        ----------
+        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+            Distributed dense matrix (floats or doubles) of shape
+            (n_samples, n_features).
+        predict_model : String (default = 'GPU')
+            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
+            be used if the model was trained on float32 data and `X` is float32
+            or convert_dtype is set to True. Also the 'GPU' should only be
+            used for binary classification problems.
+        output_class : boolean (default = True)
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            If true, return a 1 or 0 depending on whether the raw
+            prediction exceeds the threshold. If False, just return
+            the raw prediction.
+        algo : string (default = 'auto')
+            This is optional and required only while performing the
+            predict operation on the GPU.
+            'naive' - simple inference using shared memory
+            'tree_reorg' - similar to naive but trees rearranged to be more
+            coalescing-friendly
+            'batch_tree_reorg' - similar to tree_reorg but predicting
+            multiple rows per thread block
+            `auto` - choose the algorithm automatically. Currently
+            'batch_tree_reorg' is used for dense storage
+            and 'naive' for sparse storage
+        threshold : float (default = 0.5)
+            Threshold used for classification. Optional and required only
+            while performing the predict operation on the GPU.
+            It is applied if output_class == True, else it is ignored
+        num_classes : int (default = 2)
+            number of different classes present in the dataset
+        convert_dtype : bool, optional (default = True)
+            When set to True, the predict method will, when necessary, convert
+            the input to the data type which was used to train the model. This
+            will increase memory used for the method.
+        fil_sparse_format : boolean or string (default = auto)
+            This variable is used to choose the type of forest that will be
+            created in the Forest Inference Library. It is not required
+            while using predict_model='CPU'.
+            'auto' - choose the storage type automatically
+            (currently True is chosen by auto)
+            False - create a dense forest
+            True - create a sparse forest, requires algo='naive'
+            or algo='auto'
+
+        Returns
+        ----------
+        y : NumPy
+           Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
+        """
+        self._concat_treelite_models()
+        data = DistributedDataHandler.create(X, client=self.client)
+        self.datatype = data.datatype
+
+        kwargs = {"output_class": output_class, "convert_dtype": convert_dtype,
+                  "threshold": threshold,
+                  "num_classes": num_classes, "algo": algo,
+                  "fil_sparse_format": fil_sparse_format}
+        return self._predict_proba(X, delayed, **kwargs)
 
     def get_params(self, deep=True):
         """

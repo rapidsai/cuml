@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <common/cumlHandle.hpp>
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 
@@ -52,11 +53,13 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
  * @param out output array on device (size n_samples * size of y vector)
  * @param knn_indices index array on device resulting from knn query (size n_samples * k)
  * @param y vector of label arrays on device vector size is number of (size n_samples)
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
-                  std::vector<int *> &y, size_t n_samples, int k);
+                  std::vector<int *> &y, size_t n_labels, size_t n_samples,
+                  int k);
 
 /**
  * @brief Flat C++ API function to perform a knn regression using
@@ -68,11 +71,13 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
  * @param out output array on device (size n_samples)
  * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
+ * @param n_labels number of vertices in index (eg. size of each y array)
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
-                 std::vector<float *> &y, size_t n_samples, int k);
+                 std::vector<float *> &y, size_t n_labels, size_t n_samples,
+                 int k);
 
 /**
  * @brief Flat C++ API function to compute knn class probabilities
@@ -82,13 +87,15 @@ void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
  * @param handle the cuml handle to use
  * @param out vector of output arrays on device. vector size = n_outputs.
  * Each array should have size(n_samples, n_classes)
+ * @param knn_indices array on device of knn indices (size n_samples * k)
  * @param y array of labels on device (size n_samples)
+ * @param n_labels number of labels
  * @param n_samples number of samples in knn_indices and out
  * @param k number of nearest neighbors in knn_indices
  */
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
-                     size_t n_samples, int k);
+                     size_t n_labels, size_t n_samples, int k);
 
 class kNN {
   float **ptrs;
@@ -97,7 +104,6 @@ class kNN {
   int total_n;
   int indices;
   int D;
-  bool verbose;
 
   bool rowMajorIndex;
 
@@ -105,22 +111,24 @@ class kNN {
 
  public:
   /**
-	     * Build a kNN object for training and querying a k-nearest neighbors model.
-	     * @param D     number of features in each vector
-	     */
-  kNN(const cumlHandle &handle, int D, bool verbose = false);
+   * Build a kNN object for training and querying a k-nearest neighbors model.
+   * @param[in] handle    cuml handle
+   * @param[in] D         number of features in each vector
+   * @param[in] verbosity verbosity level for logging messages during execution
+   */
+  kNN(const cumlHandle &handle, int D, int verbosity = CUML_LEVEL_INFO);
   ~kNN();
 
   void reset();
 
   /**
      * Search the kNN for the k-nearest neighbors of a set of query vectors
-     * @param search_items set of vectors to query for neighbors
-     * @param n            number of items in search_items
-     * @param res_I        pointer to device memory for returning k nearest indices
-     * @param res_D        pointer to device memory for returning k nearest distances
-     * @param k            number of neighbors to query
-     * @param rowMajor     is the query array in row major layout?
+     * @param search_items      set of vectors to query for neighbors
+     * @param search_items_size number of items in search_items
+     * @param res_I             pointer to device memory for returning k nearest indices
+     * @param res_D             pointer to device memory for returning k nearest distances
+     * @param k                 number of neighbors to query
+     * @param rowMajor          is the query array in row major layout?
      */
   void search(float *search_items, int search_items_size, int64_t *res_I,
               float *res_D, int k, bool rowMajor = false);
@@ -128,8 +136,8 @@ class kNN {
   /**
      * Fit a kNN model by creating separate indices for multiple given
      * instances of kNNParams.
-     * @param input  an array of pointers to data on (possibly different) devices
-     * @param N      number of items in input array.
+     * @param input    an array of pointers to data on (possibly different) devices
+     * @param sizes    number of items in input array.
      * @param rowMajor is the index array in rowMajor layout?
      */
   void fit(std::vector<float *> &input, std::vector<int> &sizes,
