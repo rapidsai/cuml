@@ -231,6 +231,7 @@ def test_homogeneity_score_big_array(use_handle, input_range):
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('input_labels', [([0, 0, 1, 1], [1, 1, 0, 0]),
                                           ([0, 0, 1, 1], [0, 0, 1, 1]),
                                           ([0, 0, 1, 1], [0, 0, 1, 2]),
