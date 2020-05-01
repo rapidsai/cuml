@@ -93,6 +93,7 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2179: Fix clang tools version in libcuml recipe
 
 # cuML 0.13.0 (Date TBD)
 
