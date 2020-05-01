@@ -70,6 +70,11 @@ from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
+# RAFT
+
+from cuml.raft import raft_include_test
+
+
 # Output type configuration
 
 global_output_type = 'input'
