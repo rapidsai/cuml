@@ -33,6 +33,7 @@ struct AdjustedRandIndexParam {
   bool sameArrays;
   double tolerance;
   // if this is true, then it is assumed that `sameArrays` is also true
+  // further it also assumes `lowerLabelRange` and `upperLabelRange` are 0
   bool testZeroArray;
 };
 
@@ -129,7 +130,11 @@ class AdjustedRandIndexTest
     updateDevice(secondClusterArray, &arr2[0], nElements, stream);
   }
 
-  void SetupZeroArray() { truthAdjustedRandIndex = 1.0; }
+  void SetupZeroArray() {
+    lowerLabelRange = 0;
+    upperLabelRange = 0;
+    truthAdjustedRandIndex = 1.0;
+  }
 
   AdjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
@@ -149,20 +154,20 @@ const std::vector<AdjustedRandIndexParam> inputs = {
   {100, 1, 20, true, 0.000001, false},   {10, 1, 10, true, 0.000001, false},
   {198, 1, 100, true, 0.000001, false},  {300, 3, 99, true, 0.000001, false},
 
-  {199, 1, 10, false, 0.000001, true},   {200, 15, 100, false, 0.000001, true},
-  {100, 1, 20, false, 0.000001, true},   {10, 1, 10, false, 0.000001, true},
-  {198, 1, 100, false, 0.000001, true},  {300, 3, 99, false, 0.000001, true},
-  {199, 1, 10, true, 0.000001, true},    {200, 15, 100, true, 0.000001, true},
-  {100, 1, 20, true, 0.000001, true},    {10, 1, 10, true, 0.000001, true},
-  {198, 1, 100, true, 0.000001, true},   {300, 3, 99, true, 0.000001, true},
+  {199, 0, 0, false, 0.000001, true},   {200, 0, 0, false, 0.000001, true},
+  {100, 0, 0, false, 0.000001, true},   {10, 0, 0, false, 0.000001, true},
+  {198, 0, 0, false, 0.000001, true},  {300, 0, 0, false, 0.000001, true},
+  {199, 0, 0, true, 0.000001, true},    {200, 0, 0, true, 0.000001, true},
+  {100, 0, 0, true, 0.000001, true},    {10, 0, 0, true, 0.000001, true},
+  {198, 0, 0, true, 0.000001, true},   {300, 0, 0, true, 0.000001, true},
 };
 
 const std::vector<AdjustedRandIndexParam> large_inputs = {
   {2000000, 1, 1000, false, 0.000001, false},
   {2000000, 1, 1000, true, 0.000001, false},
 
-  {2000000, 1, 1000, false, 0.000001, true},
-  {2000000, 1, 1000, true, 0.000001, true},
+  {2000000, 0, 0, false, 0.000001, true},
+  {2000000, 0, 0, true, 0.000001, true},
 };
 
 typedef AdjustedRandIndexTest<int, int> ARI_ii;
