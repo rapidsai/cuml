@@ -68,6 +68,8 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
                                 cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   auto nUniqClasses = MathT(upperLabelRange - lowerLabelRange + 1);
+  // degenerate case of single cluster
+  if (nUniqClasses == 1) return 1.0;
   device_buffer<MathT> dContingencyMatrix(allocator, stream,
                                           nUniqClasses * nUniqClasses);
   CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0,
@@ -123,6 +125,8 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
     double(h_aCTwoSum) * double(h_bCTwoSum) / double(nChooseTwo);
   auto maxIndex = (double(h_bCTwoSum) + double(h_aCTwoSum)) / 2.0;
   auto index = double(h_nChooseTwoSum);
+  printf("nChooseTwo=%lf expectedIndex=%lf maxIndex=%lf index=%lf\n", nChooseTwo,
+         expectedIndex, maxIndex, index);
   if (maxIndex - expectedIndex)
     return (index - expectedIndex) / (maxIndex - expectedIndex);
   else
