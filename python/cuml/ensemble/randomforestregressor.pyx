@@ -375,18 +375,21 @@ class RandomForestRegressor(Base):
                              " please read the documentation")
 
     def _obtain_treelite_handle(self):
-        task_category = REGRESSION_MODEL
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><size_t> self.rf_forest
-        build_treelite_forest(& cuml_model_ptr,
-                              rf_forest,
-                              <int> self.n_cols,
-                              <int> task_category,
-                              <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <size_t> cuml_model_ptr
-        treelite_handle = ctypes.c_void_p(mod_ptr).value
-        return treelite_handle
+        if self.treelite_handle is None:
+            task_category = REGRESSION_MODEL
+
+            build_treelite_forest(
+                & cuml_model_ptr,
+                rf_forest,
+                <int> self.n_cols,
+                <int> task_category,
+                <vector[unsigned char] &> self.model_pbuf_bytes)
+            mod_ptr = <size_t> cuml_model_ptr
+            self.treelite_handle = ctypes.c_void_p(mod_ptr).value
+        return self.treelite_handle
 
     def _get_protobuf_bytes(self):
         if self.model_pbuf_bytes:
@@ -411,10 +414,7 @@ class RandomForestRegressor(Base):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        if self.treelite_handle:
-            handle = self.treelite_handle
-        else:
-            handle = self._obtain_treelite_handle()
+        handle = self._obtain_treelite_handle()
 
         return _obtain_treelite_model(handle)
 
@@ -461,11 +461,8 @@ class RandomForestRegressor(Base):
             inferencing on the random forest model.
 
         """
-        if self.treelite_handle is None:
-            handle = self._obtain_treelite_handle()
-        else:
-            handle = self.treelite_handle
-        return _obtain_fil_model(treelite_handle=handle,
+        treelite_handle = self._obtain_treelite_handle()
+        return _obtain_fil_model(treelite_handle=treelite_handle,
                                  depth=self.max_depth,
                                  output_class=output_class,
                                  algo=algo,
@@ -500,12 +497,10 @@ class RandomForestRegressor(Base):
                 <ModelHandle> mod_ptr))
 
         concat_model_handle = concatenate_trees(deref(model_handles))
-
-        concat_model_ptr = <size_t> concat_model_handle
-        self.treelite_handle = ctypes.c_void_p(concat_model_ptr).value
-        cdef uintptr_t model_ptr = <uintptr_t> self.treelite_handle
+        cdef uintptr_t concat_model_ptr = <uintptr_t> concat_model_handle
+        self.treelite_handle = concat_model_ptr
         cdef vector[unsigned char] pbuf_mod_info = \
-            save_model(<ModelHandle> model_ptr)
+            save_model(<ModelHandle> concat_model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
         self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
