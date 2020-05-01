@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #1655: Adds python bindings for homogeneity score
+- PR #1704: Adds python bindings for completeness score
 - PR #1687: Adds python bindings for mutual info score
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
