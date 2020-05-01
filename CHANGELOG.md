@@ -53,6 +53,7 @@
 - PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 - PR #2146: Remove deprecated kalman filter
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
