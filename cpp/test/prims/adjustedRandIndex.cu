@@ -32,6 +32,7 @@ struct AdjustedRandIndexParam {
   int upperLabelRange;
   bool sameArrays;
   double tolerance;
+  // if this is true, then it is assumed that `sameArrays` is also true
   bool testZeroArray;
 };
 
