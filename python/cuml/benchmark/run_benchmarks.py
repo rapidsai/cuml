@@ -43,13 +43,14 @@ def extract_param_overrides(params_to_sweep):
         key, val_string = p.split("=")
         vals = json.loads(val_string)
         if not isinstance(vals, list):
-            vals = [vals] # Handle single-element sweep cleanly
+            vals = [vals]  # Handle single-element sweep cleanly
         single_param_lists.append([(key, val) for val in vals])
 
     # Create dicts with the cartesian product of all arg-based lists
     tuple_list = itertools.product(*single_param_lists)
     dict_list = [dict(tl) for tl in tuple_list]
     return dict_list
+
 
 if __name__ == '__main__':
     import argparse
