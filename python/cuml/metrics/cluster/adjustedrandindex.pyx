@@ -19,13 +19,13 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import numpy as np
+import cupy as cp
 import warnings
 
 from libc.stdint cimport uintptr_t
 
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import input_to_dev_array
+from cuml.utils import input_to_cuml_array
 import cuml.common.handle
 cimport cuml.common.cuda
 
@@ -39,7 +39,8 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                              int upper_class_range)
 
 
-def adjusted_rand_score(labels_true, labels_pred, handle=None):
+def adjusted_rand_score(labels_true, labels_pred, handle=None,
+                        convert_dtype=True):
     """
     Adjusted_rand_score is a clustering similarity metric based on the Rand
     index and is corrected for chance.
@@ -61,31 +62,27 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None):
         if handle is None else handle
     cdef cumlHandle* handle_ =\
         <cumlHandle*><size_t>handle.getHandle()
-    if labels_true.astype != np.int64:
-        warnings.warn(" The dtype of ground truth is not int32"
-                      " converting the ground truth to int32")
-        labels_true = labels_true.astype(np.int32)
-    if labels_pred.astype != np.int32:
-        warnings.warn(" The dtype of predicted labels is not int32"
-                      " converting the predicted labels to int32")
-        labels_pred = labels_pred.astype(np.int32)
 
-    min_val_y = np.nanmin(labels_true)
-    lower_class_range = np.nanmin(labels_pred) \
-        if min_val_y > np.nanmin(labels_pred) else np.nanmin(labels_true)
-    max_val_y = np.nanmax(labels_true)
-    upper_class_range = np.nanmax(labels_pred) \
-        if max_val_y < np.nanmax(labels_pred) else np.nanmax(labels_true)
-    cdef uintptr_t y_ptr, y_hat_ptr
-    y_m, y_ptr, n_rows, _, _ = \
-        input_to_dev_array(labels_true)
+    labels_true, n_rows, _, _ = \
+        input_to_cuml_array(labels_true, order='C', check_dtype=cp.int32,
+                            convert_to_dtype=(cp.int32 if convert_dtype
+                                              else None))
 
-    y_hat_m, y_hat_ptr, _, _, y_hat_dtype = \
-        input_to_dev_array(labels_pred)
+    labels_pred, _, _, _ = \
+        input_to_cuml_array(labels_pred, order='C', check_dtype=cp.int32,
+                            convert_to_dtype=(cp.int32 if convert_dtype
+                                              else None))
+
+    min_val_y = cp.nanmin(labels_true)
+    lower_class_range = cp.nanmin(labels_pred) \
+        if min_val_y > cp.nanmin(labels_pred) else cp.nanmin(labels_true)
+    max_val_y = cp.nanmax(labels_true)
+    upper_class_range = cp.nanmax(labels_pred) \
+        if max_val_y < cp.nanmax(labels_pred) else cp.nanmax(labels_true)
 
     rand_score = adjustedRandIndex(handle_[0],
-                                   <int*> y_ptr,
-                                   <int*> y_hat_ptr,
+                                   <int*><uintptr_t> labels_true.ptr,
+                                   <int*><uintptr_t> labels_pred.ptr,
                                    <int> n_rows,
                                    <int> lower_class_range,
                                    <int> upper_class_range)
