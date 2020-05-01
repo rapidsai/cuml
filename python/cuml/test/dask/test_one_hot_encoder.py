@@ -57,7 +57,7 @@ def test_onehot_vs_skonehot(cluster):
     ohe = enc.fit_transform(X)
     ref = skohe.fit_transform(skX)
 
-    cp.testing.assert_array_equal(ohe, ref)
+    cp.testing.assert_array_equal(ohe.compute(), ref)
     client.close()
 
 
@@ -71,9 +71,9 @@ def test_onehot_inverse_transform(cluster, drop):
     X = dask_cudf.from_cudf(df, npartitions=2)
 
     enc = OneHotEncoder(drop=drop)
-    ohe = enc.fit_transform(X, as_futures=True)
+    ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
-    assert_frame_equal(inv.to_pandas(), df.to_pandas())
+    assert_frame_equal(inv.compute().to_pandas(), df.to_pandas())
     client.close()
 
 
@@ -91,7 +91,7 @@ def test_onehot_categories(cluster):
     ref = cp.array([[1., 0., 0., 1., 0., 0.],
                     [0., 1., 0., 0., 0., 1.]])
     res = enc.fit_transform(X)
-    cp.testing.assert_array_equal(res, ref)
+    cp.testing.assert_array_equal(res.compute(), ref)
     client.close()
 
 
@@ -123,14 +123,14 @@ def test_onehot_transform_handle_unknown(cluster):
     enc = OneHotEncoder(handle_unknown='error', sparse=False)
     enc = enc.fit(X)
     with pytest.raises(KeyError):
-        enc.transform(Y)
+        enc.transform(Y).compute()
 
     enc = OneHotEncoder(handle_unknown='ignore', sparse=False)
     enc = enc.fit(X)
     ohe = enc.transform(Y)
     ref = cp.array([[0., 0., 1., 0.],
                     [0., 1., 0., 1.]])
-    cp.testing.assert_array_equal(ohe, ref)
+    cp.testing.assert_array_equal(ohe.compute(), ref)
     client.close()
 
 
@@ -147,7 +147,7 @@ def test_onehot_inverse_transform_handle_unknown(cluster):
     enc = enc.fit(X)
     df = enc.inverse_transform(Y_ohe)
     ref = DataFrame({'chars': [None, 'b'], 'int': [0, 2]})
-    assert_frame_equal(df.to_pandas(), ref.to_pandas())
+    assert_frame_equal(df.compute().to_pandas(), ref.to_pandas())
     client.close()
 
 
@@ -157,8 +157,6 @@ def test_onehot_inverse_transform_handle_unknown(cluster):
 @pytest.mark.parametrize("n_samples", [10, 1000, stress_param(50000)])
 def test_onehot_random_inputs(cluster, drop, sparse, n_samples):
     client = Client(cluster)
-    if sparse:
-        pytest.xfail("Sparse arrays are not fully supported by cupy.")
 
     df, ary = _generate_inputs_from_categories(n_samples=n_samples)
     ddf = dask_cudf.from_cudf(df, npartitions=1)
@@ -167,10 +165,13 @@ def test_onehot_random_inputs(cluster, drop, sparse, n_samples):
     sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop)
     ohe = enc.fit_transform(ddf)
     ref = sk_enc.fit_transform(ary)
-    cp.testing.assert_array_equal(ohe, ref)
+    if sparse:
+        cp.testing.assert_array_equal(ohe.compute().toarray(), ref.toarray())
+    else:
+        cp.testing.assert_array_equal(ohe.compute(), ref)
 
-    inv_ohe = enc.inverse_transform(da.from_array(ohe))
-    assert_frame_equal(inv_ohe.to_pandas(), df.to_pandas())
+    inv_ohe = enc.inverse_transform(ohe)
+    assert_frame_equal(inv_ohe.compute().to_pandas(), df.to_pandas())
     client.close()
 
 
@@ -186,9 +187,9 @@ def test_onehot_drop_idx_first(cluster):
     sk_enc = SkOneHotEncoder(sparse=False, drop='first')
     ohe = enc.fit_transform(ddf)
     ref = sk_enc.fit_transform(X_ary)
-    cp.testing.assert_array_equal(ohe, ref)
-    inv = enc.inverse_transform(da.from_array(ohe))
-    assert_frame_equal(inv.to_pandas(), X.to_pandas())
+    cp.testing.assert_array_equal(ohe.compute(), ref)
+    inv = enc.inverse_transform(ohe)
+    assert_frame_equal(inv.compute().to_pandas(), X.to_pandas())
     client.close()
 
 
@@ -201,9 +202,9 @@ def test_onehot_drop_one_of_each(cluster):
     enc = OneHotEncoder(sparse=False, drop=drop)
     ohe = enc.fit_transform(ddf)
     ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
-    cp.testing.assert_array_equal(ohe, ref)
-    inv = enc.inverse_transform(da.from_array(ohe))
-    assert_frame_equal(inv.to_pandas(), X.to_pandas())
+    cp.testing.assert_array_equal(ohe.compute(), ref)
+    inv = enc.inverse_transform(ohe)
+    assert_frame_equal(inv.compute().to_pandas(), X.to_pandas())
     client.close()
 
 
@@ -235,9 +236,9 @@ def test_onehot_get_categories(cluster):
 
     ref = [np.array(['b', 'c', 'd']), np.array([0, 1, 2])]
     enc = OneHotEncoder().fit(X)
-    cats = enc.get_categories_()
+    cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i])
+        np.testing.assert_array_equal(ref[i], cats[i].to_array())
 
     client.close()
