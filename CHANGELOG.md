@@ -89,6 +89,7 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2176: C++: fix for adjusted rand index when input array is all zeros
 
 # cuML 0.13.0 (Date TBD)
 
