@@ -55,8 +55,7 @@ class AdjustedRandIndexTest
     }
     //allocating and initializing memory to the GPU
     computedAdjustedRandIndex = computeAdjustedRandIndex<T, MathT>(
-      firstClusterArray, secondClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
+      firstClusterArray, secondClusterArray, nElements, allocator, stream);
   }
 
   void TearDown() override {
