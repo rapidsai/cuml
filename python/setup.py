@@ -136,7 +136,8 @@ include_dirs = ['../cpp/src',
                 os.path.dirname(sysconfig.get_path("include"))]
 
 # Exclude multigpu components that use libcumlprims if --singlegpu is used
-exc_list = []
+cython_exc_list = []
+
 if "--multigpu" in sys.argv:
     warnings.warn("Flag --multigpu is deprecated. By default cuML is"
                   "built with multi GPU support. To disable it use the flag"
@@ -144,14 +145,17 @@ if "--multigpu" in sys.argv:
     sys.argv.remove('--multigpu')
 
 if "--singlegpu" in sys.argv:
-    exc_list.append('cuml/cluster/kmeans_mg.pyx')
-    exc_list.append('cuml/decomposition/base_mg.pyx')
-    exc_list.append('cuml/decomposition/pca_mg.pyx')
-    exc_list.append('cuml/decomposition/tsvd_mg.pyx')
-    exc_list.append('cuml/linear_model/base_mg.pyx')
-    exc_list.append('cuml/linear_model/ridge_mg.pyx')
-    exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
-    exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
+    cython_exc_list.append('cuml/cluster/kmeans_mg.pyx')
+    cython_exc_list.append('cuml/decomposition/base_mg.pyx')
+    cython_exc_list.append('cuml/decomposition/pca_mg.pyx')
+    cython_exc_list.append('cuml/decomposition/tsvd_mg.pyx')
+    cython_exc_list.append('cuml/linear_model/base_mg.pyx')
+    cython_exc_list.append('cuml/linear_model/ridge_mg.pyx')
+    cython_exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
+    cython_exc_list.append('cuml/nccl/nccl.pyx')
+    cython_exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
+
+    python_exc_list = ["*.dask", "*.dask.*"]
 
 else:
     libs.append('cumlprims')
@@ -184,7 +188,7 @@ for e in extensions:
     # TODO: this exclude is not working, need to research way to properly
     # exclude files for parallel build. See issue
     # https://github.com/rapidsai/cuml/issues/2037
-    # e.exclude = exc_list
+    # e.exclude = cython_exc_list
     e.cython_directives = dict(
         profile=False, language_level=3, embedsignature=True
     )
@@ -193,7 +197,7 @@ if "--singlegpu" in sys.argv:
     print("Full cythonization in parallel is not supported for singlegpu " +
           "target for now.")
     extensions = cythonize(extensions,
-                           exclude=exc_list)
+                           exclude=cython_exc_list)
     sys.argv.remove('--singlegpu')
 
 ##############################################################################
@@ -211,7 +215,8 @@ setup(name='cuml',
       author="NVIDIA Corporation",
       setup_requires=['cython'],
       ext_modules=extensions,
-      packages=find_packages(include=['cuml', 'cuml.*']),
+      packages=find_packages(include=['cuml', 'cuml.*'],
+                             exclude=python_exc_list),
       install_requires=install_requires,
       license="Apache",
       cmdclass=cmdclass,
