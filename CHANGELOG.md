@@ -3,11 +3,14 @@
 ## New Features
 - PR #1994: Support for distributed OneHotEncoder
 - PR #1892: One hot encoder implementation with cupy
+- PR #1655: Adds python bindings for homogeneity score
+- PR #1704: Adds python bindings for completeness score
+- PR #1687: Adds python bindings for mutual info score
 - PR #1980: prim: added a new write-only unary op prim
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 - PR #1906: UMAP MNMG
-- PR #2067L python: wrap logging interface in cython
+- PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
 
@@ -31,6 +34,7 @@
 - PR #2032: Reduce number of tests for MBSGD to improve CI running time
 - PR #2031: Encapsulating UCX-py interactions in singleton
 - PR #2029: Add C++ ARIMA log-likelihood benchmark
+- PR #2085: Convert TSNE to use CumlArray
 - PR #2051: Reduce the time required to run dask pca and dask tsvd tests
 - PR #1981: Using CumlArray in kNN and DistributedDataHandler in dask kNN
 - PR #2053: Introduce verbosity level in C++ layer instead of boolean `verbose` flag
@@ -44,6 +48,8 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2125: Build infrastructure to use RAFT
+- PR #2131: Update Dask RF fit to use DistributedDataHandler
 - PR #2055: Update the metrics notebook to use important cuML models
 - PR #2095: Improved import of src_prims/utils.h, making it less ambiguous
 - PR #2118: Updating SGD & mini-batch estimators to use CumlArray
@@ -54,7 +60,9 @@
 - PR #2098: Renaming .h to .cuh in decision_tree, glm, pca
 - PR #2150: Remove deprecated RMM calls in RMM allocator adapter
 - PR #2146: Remove deprecated kalman filter
+- PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -68,8 +76,8 @@
 - PR #2028: Skipping UMAP knn reproducibility tests until we figure out why its failing in CUDA 10.2
 - PR #2024: Fixed cuda-memcheck errors with sample-without-replacement prim
 - PR #1540: prims: support for custom math-type used for computation inside adjusted rand index prim
+- PR #2077: dask-make blobs arguments to match sklearn
 - PR #2059: Make all Scipy imports conditional
-- PR #2077L dask-make blobs arguments to match sklearn
 - PR #2078: Ignore negative cache indices in get_vecs
 - PR #2084: Fixed cuda-memcheck errors with COO unit-tests
 - PR #2087: Fixed cuda-memcheck errors with dispersion prim
@@ -78,10 +86,15 @@
 - PR #2107: Fix PCA transform
 - PR #2109: input_to_cuml_array __cuda_array_interface__ bugfix
 - PR #2117: cuDF __array__ exception small fixes
+- PR #2139: CumlArray for adjusted_rand_score
 - PR #2140: Returning self in fit model functions
 - PR #2144: Remove GPU arch < 60 from CMake build
 - PR #2153: Added missing namespaces to some Decision Tree files
 - PR #2155: C++: fix doxygen build break
+- PR #2161: Replacing depreciated bruteForceKnn
+- PR #2162: Use stream in transpose prim
+- PR #2165: Fit function test correction
+- PR #2166: Fix handling of temp file in RF pickling
 
 # cuML 0.13.0 (Date TBD)
 
