@@ -390,7 +390,7 @@ class RandomForestRegressor(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
-        if len(self.model_pbuf_bytes) > 0:
+        if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
         elif self.treelite_handle:
             fit_mod_ptr = self.treelite_handle
@@ -507,8 +507,8 @@ class RandomForestRegressor(Base):
             save_model(<ModelHandle> model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
             <unsigned char[:pbuf_mod_info.size():1]>pbuf_mod_info.data()
-        self.concat_model_bytes = bytearray(memoryview(pbuf_mod_view))
-        return self.concat_model_bytes
+        self.model_pbuf_bytes = bytearray(memoryview(pbuf_mod_view))
+        return self
 
     def fit(self, X, y, convert_dtype=False):
         """
