@@ -1,11 +1,12 @@
 import math
-from uuid import uuid1
 
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 
 from dask.distributed import wait
+
+from uuid import uuid1
 
 
 class BaseRandomForestModel(object):
