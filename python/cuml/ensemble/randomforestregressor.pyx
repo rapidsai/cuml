@@ -281,7 +281,6 @@ class RandomForestRegressor(Base):
         self.n_cols = None
         self.dtype = None
         self.treelite_handle = None
-        self.concat_handle = None
         self.accuracy_metric = accuracy_metric
         self.quantile_per_tree = quantile_per_tree
         self.n_streams = handle.getNumInternalStreams()
@@ -503,8 +502,8 @@ class RandomForestRegressor(Base):
         concat_model_handle = concatenate_trees(deref(model_handles))
 
         concat_model_ptr = <size_t> concat_model_handle
-        self.concat_handle = ctypes.c_void_p(concat_model_ptr).value
-        cdef uintptr_t model_ptr = <uintptr_t> self.concat_handle
+        self.treelite_handle = ctypes.c_void_p(concat_model_ptr).value
+        cdef uintptr_t model_ptr = <uintptr_t> self.treelite_handle
         cdef vector[unsigned char] pbuf_mod_info = \
             save_model(<ModelHandle> model_ptr)
         cdef unsigned char[::1] pbuf_mod_view = \
