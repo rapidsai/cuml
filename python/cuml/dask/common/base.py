@@ -18,7 +18,8 @@ import dask
 import numpy as np
 from toolz import first
 
-import cudf.comm.serialize  # noqa: F401
+# TODO: Check if below import is needed
+# import cudf.comm.serialize  # noqa: F401
 
 from cuml import Base
 from cuml.common.array import CumlArray
@@ -104,6 +105,7 @@ class DelayedParallelFunc(object):
                            delayed=True,
                            output_futures=False,
                            output_dtype=None,
+                           output_collection_type=None,
                            **kwargs):
         """
         Runs a function embarrassingly parallel on a set of workers while
@@ -134,10 +136,18 @@ class DelayedParallelFunc(object):
                          of the parallel function executions on the workers,
                          rather than a dask collection object.
 
+        output_collection_type : None or a string in {'cupy', 'cudf'}
+            Choose to collect the resulting collection as a CuPy backed
+            dask.array or a dask_cudf.DataFrame. If None, will use the same
+            collection type as used in the input of fit.
+            Unused if output_futures=True.
+
         Returns
         -------
         y : dask cuDF (n_rows, 1)
         """
+        if output_collection_type is None:
+            output_collection_type = self.datatype
 
         X_d = X.to_delayed()
 
@@ -158,33 +168,25 @@ class DelayedParallelFunc(object):
         # TODO: Put the following conditionals in a
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
-        if self.datatype == 'cupy':
 
-            # todo: add parameter for option of not checking directly
-
-            shape = (np.nan,)*n_dims
-            preds_arr = [
-                dask.array.from_delayed(pred,
-                                        meta=cp.zeros(1, dtype=dtype),
-                                        shape=shape,
-                                        dtype=dtype)
-                for pred in preds]
-
-            if output_futures:
-                return self.client.compute(preds)
-            else:
-                output = dask.array.concatenate(preds_arr, axis=0,
-                                                allow_unknown_chunksizes=True
-                                                )
-
-                return output if delayed else output.persist()
-
+        if output_futures:
+            return self.client.compute(preds)
         else:
-            if output_futures:
-                return self.client.compute(preds)
+            if output_collection_type == 'cupy':
+                # todo: add parameter for option of not checking directly
+                shape = (np.nan,)*n_dims
+                preds_arr = [
+                    dask.array.from_delayed(pred,
+                                            meta=cp.zeros(1, dtype=dtype),
+                                            shape=shape,
+                                            dtype=dtype)
+                    for pred in preds]
+                output = dask.array.concatenate(preds_arr, axis=0,
+                                                allow_unknown_chunksizes=True)
             else:
                 output = dask.dataframe.from_delayed(preds)
-                return output if delayed else output.persist()
+
+            return output if delayed else output.persist()
 
 
 class DelayedPredictionProbaMixin(DelayedParallelFunc):
