@@ -320,7 +320,6 @@ class RandomForestRegressor(DelayedPredictionMixin):
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
-        mod_bytes = []
         model_protobuf_futures = list()
         for w in self.workers:
             model_protobuf_futures.append(
