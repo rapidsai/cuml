@@ -431,7 +431,9 @@ class RandomForestClassifier(Base):
         ----------
         tl_to_fil_model : Treelite version of this model
         """
-        if self.treelite_handle is None:
+        if self.treelite_handle:
+            handle = self.treelite_handle
+        else:
             handle = self._obtain_treelite_handle()
 
         return _obtain_treelite_model(handle)
