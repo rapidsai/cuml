@@ -200,7 +200,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         seed,
         **kwargs
     ):
-        print(" seed values inside fun_build_rf ", seed)
         return cuRFC(
             n_estimators=n_estimators,
             seed=seed,
