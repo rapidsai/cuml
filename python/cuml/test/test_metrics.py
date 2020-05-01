@@ -35,6 +35,7 @@ from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
+from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
 from sklearn.preprocessing import StandardScaler
 
@@ -182,6 +183,14 @@ def score_homogeneity(ground_truth, predictions, use_handle):
                                       dtype=np.int32)
 
 
+def score_completeness(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.completeness_score,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
 def score_mutual_info(ground_truth, predictions, use_handle):
     return score_labeling_with_handle(cuml.metrics.mutual_info_score,
                                       ground_truth,
@@ -232,6 +241,19 @@ def test_homogeneity_score_big_array(use_handle, input_range):
 
 
 @pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 2],
+                                         [-5, 20],
+                                         [int(-10e2), int(10e2)]])
+def test_homogeneity_completeness_symmetry(use_handle, input_range):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e3),
+                                                              dtype=np.int32))
+    hom = score_homogeneity(a, b, use_handle)
+    com = score_completeness(b, a, use_handle)
+    np.testing.assert_almost_equal(hom, com, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('input_labels', [([0, 0, 1, 1], [1, 1, 0, 0]),
                                           ([0, 0, 1, 1], [0, 0, 1, 1]),
                                           ([0, 0, 1, 1], [0, 0, 1, 2]),
@@ -279,6 +301,47 @@ def test_mutual_info_score_many_blocks(use_handle, input_range, n_samples):
                                                               dtype=np.int32))
     score = score_mutual_info(a, b, use_handle)
     ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                  ([0, 0, 1, 1], [0, 0, 1, 1])])
+def test_completeness_perfect_labeling(use_handle, data):
+    # Perfect labelings are complete
+    com = score_completeness(*data, use_handle)
+    np.testing.assert_almost_equal(com, 1.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 0, 0, 0]),
+                                  ([0, 1, 2, 3], [0, 0, 1, 1])])
+def test_completeness_non_perfect_labeling(use_handle, data):
+    # Non-perfect labelings that assign all classes members to the same
+    # clusters are still complete
+    com = score_completeness(*data, use_handle)
+    np.testing.assert_almost_equal(com, 1.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 1, 0, 1]),
+                                  ([0, 0, 0, 0], [0, 1, 2, 3])])
+def test_completeness_non_complete_labeling(use_handle, data):
+    # If classes members are split across different clusters, the assignment
+    # cannot be complete
+    com = score_completeness(*data, use_handle)
+    np.testing.assert_almost_equal(com, 0.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 1000],
+                                         [-1000, 1000]])
+def test_completeness_score_big_array(use_handle, input_range):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e4),
+                                                              dtype=np.int32))
+    score = score_completeness(a, b, use_handle)
+    ref = sk_completeness_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
