@@ -32,6 +32,7 @@ struct AdjustedRandIndexParam {
   int upperLabelRange;
   bool sameArrays;
   double tolerance;
+  bool testZeroArray;
 };
 
 template <typename T, typename MathT = int>
@@ -41,6 +42,28 @@ class AdjustedRandIndexTest
   void SetUp() override {
     params = ::testing::TestWithParam<AdjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
+    allocate(firstClusterArray, nElements, true);
+    allocate(secondClusterArray, nElements, true);
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+    if (!params.testZeroArray) {
+      SetUpDifferentArrays();
+    } else {
+      SetupZeroArray();
+    }
+    //allocating and initializing memory to the GPU
+    computedAdjustedRandIndex = computeAdjustedRandIndex<T, MathT>(
+      firstClusterArray, secondClusterArray, nElements, lowerLabelRange,
+      upperLabelRange, allocator, stream);
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(firstClusterArray));
+    CUDA_CHECK(cudaFree(secondClusterArray));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+  }
+
+  void SetUpDifferentArrays() {
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
     std::vector<int> arr1(nElements, 0);
@@ -65,7 +88,6 @@ class AdjustedRandIndexTest
     for (int i = 0; i < nElements; i++) {
       int row = arr1[i] - lowerLabelRange;
       int column = arr2[i] - lowerLabelRange;
-
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
     int sumOfNijCTwo = 0;
@@ -102,22 +124,12 @@ class AdjustedRandIndexTest
         (index - expectedIndex) / (maxIndex - expectedIndex);
     else
       truthAdjustedRandIndex = 0;
-    //allocating and initializing memory to the GPU
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(firstClusterArray, nElements, true);
-    allocate(secondClusterArray, nElements, true);
     updateDevice(firstClusterArray, &arr1[0], nElements, stream);
     updateDevice(secondClusterArray, &arr2[0], nElements, stream);
-    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
-    computedAdjustedRandIndex = computeAdjustedRandIndex<T, MathT>(
-      firstClusterArray, secondClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(firstClusterArray));
-    CUDA_CHECK(cudaFree(secondClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+  void SetupZeroArray() {
+    truthAdjustedRandIndex = 1.0;
   }
 
   AdjustedRandIndexParam params;
@@ -131,16 +143,17 @@ class AdjustedRandIndexTest
 };
 
 const std::vector<AdjustedRandIndexParam> inputs = {
-  {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
-  {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
-  {198, 1, 100, false, 0.000001}, {300, 3, 99, false, 0.000001},
-  {199, 1, 10, true, 0.000001},   {200, 15, 100, true, 0.000001},
-  {100, 1, 20, true, 0.000001},   {10, 1, 10, true, 0.000001},
-  {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
+  {199, 1, 10, false, 0.000001, false},  {200, 15, 100, false, 0.000001, false},
+  {100, 1, 20, false, 0.000001, false},  {10, 1, 10, false, 0.000001, false},
+  {198, 1, 100, false, 0.000001, false}, {300, 3, 99, false, 0.000001, false},
+  {199, 1, 10, true, 0.000001, false},   {200, 15, 100, true, 0.000001, false},
+  {100, 1, 20, true, 0.000001, false},   {10, 1, 10, true, 0.000001, false},
+  {198, 1, 100, true, 0.000001, false},  {300, 3, 99, true, 0.000001, false},
+};
 
 const std::vector<AdjustedRandIndexParam> large_inputs = {
-  {2000000, 1, 1000, false, 0.000001},
-  {2000000, 1, 1000, true, 0.000001},
+  {2000000, 1, 1000, false, 0.000001, false},
+  {2000000, 1, 1000, true, 0.000001, false},
 };
 
 typedef AdjustedRandIndexTest<int, int> ARI_ii;
