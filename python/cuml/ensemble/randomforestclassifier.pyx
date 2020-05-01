@@ -409,7 +409,7 @@ class RandomForestClassifier(Base):
         return treelite_handle
 
     def _get_protobuf_bytes(self):
-        if len(self.model_pbuf_bytes) > 0:
+        if self.model_pbuf_bytes:
             return self.model_pbuf_bytes
         elif self.treelite_handle:
             fit_mod_ptr = self.treelite_handle
