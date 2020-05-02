@@ -61,6 +61,7 @@
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2180: Add fully single GPU singlegpu python build
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
