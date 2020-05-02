@@ -137,6 +137,7 @@ include_dirs = ['../cpp/src',
 
 # Exclude multigpu components that use libcumlprims if --singlegpu is used
 cython_exc_list = []
+python_exc_list = []
 
 if "--multigpu" in sys.argv:
     warnings.warn("Flag --multigpu is deprecated. By default cuML is"
