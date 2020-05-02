@@ -325,7 +325,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
         """
         model_protobuf_futures = list()
         for w in self.workers:
-            model_protobuf_futures .append(
+            model_protobuf_futures.append(
                 dask.delayed(RandomForestClassifier._get_protobuf_bytes)
                 (self.rfs[w]))
         mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
