@@ -387,7 +387,7 @@ class RandomForestRegressor(Base):
                 <int> self.n_cols,
                 <int> task_category,
                 <vector[unsigned char] &> self.model_pbuf_bytes)
-            mod_ptr = <size_t> cuml_model_ptr
+            mod_ptr = <uintptr_t> cuml_model_ptr
             self.treelite_handle = ctypes.c_void_p(mod_ptr).value
         return self.treelite_handle
 
