@@ -94,6 +94,7 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2183: Fix RAFT in nightly package
 
 # cuML 0.13.0 (Date TBD)
 
