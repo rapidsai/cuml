@@ -119,15 +119,17 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
                                 std::shared_ptr<deviceAllocator> allocator,
                                 cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
-  T lowerLabelRange, upperLabelRange, minTmp, maxTmp;
-  auto nUniqFirst = countUnique(firstClusterArray, size, lowerLabelRange,
-                                upperLabelRange, allocator, stream);
-  auto nUniqSecond = countUnique(secondClusterArray, size, minTmp, maxTmp,
+  T minFirst, maxFirst, minSecond, maxSecond;
+  auto nUniqFirst = countUnique(firstClusterArray, size, minFirst, maxFirst,
+                                allocator, stream);
+  auto nUniqSecond = countUnique(secondClusterArray, size, minSecond, maxSecond,
                                  allocator, stream);
+  auto lowerLabelRange = std::min(minFirst, minSecond);
+  auto upperLabelRange = std::max(maxFirst, maxSecond);
   auto nClasses = upperLabelRange - lowerLabelRange + 1;
   // degenerate case of single cluster or clusters each with just one element
   if (nUniqFirst == nUniqSecond) {
-    if (nUniqFirst == 1 || nUniqFirst == nClasses) return 1.0;
+    if (nUniqFirst == 1 || nUniqFirst == size) return 1.0;
   }
   auto nUniqClasses = MathT(nClasses);
   device_buffer<MathT> dContingencyMatrix(allocator, stream,
