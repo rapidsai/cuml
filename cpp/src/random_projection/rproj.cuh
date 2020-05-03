@@ -21,7 +21,7 @@
 #include <random>
 
 #include <cuml/random_projection/rproj_c.h>
-#include "utils.hxx"
+#include "rproj_utils.cuh"
 #include <linalg/cublas_wrappers.h>
 #include <sparse/cusparse_wrappers.h>
 #include <cuda_utils.h>
