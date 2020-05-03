@@ -116,7 +116,7 @@ def test_allreduce(cluster):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [1, 5])
-@pytest.mark.skipt("Skipping to unblock GH CI, see issue "
+@pytest.mark.skip("Skipping to unblock GH CI, see issue "
                    "https://github.com/rapidsai/dask-cuda/issues/288")
 def test_send_recv(n_trials, ucx_cluster):
 
