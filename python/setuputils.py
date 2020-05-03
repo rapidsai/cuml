@@ -120,7 +120,8 @@ def clone_repo_if_needed(name, cpp_build_path=None,
                                            git_info_file=git_info_file)
 
     if repo_cloned:
-        repo_path = '_external_repositories/' + name + '/'
+        repo_path = (
+            _get_repo_path() + '/python/_external_repositories/' + name + '/')
     else:
         repo_path = os.path.join(cpp_build_path, name + '/src/' + name + '/')
 
@@ -174,8 +175,7 @@ def get_submodule_dependency(repo,
         print("-- Third party repositories have not been found so they " +
               "will be cloned. To avoid this set the environment " +
               "variable CUML_BUILD_PATH, containing the absolute " +
-              "path of the root of the repository to the " +
-              "folder where libcuml++ was built.")
+              "path to the build folder where libcuml++ was built.")
 
         for repo in repos:
             clone_repo(repo, repo_info[repo][0], repo_info[repo][1])
