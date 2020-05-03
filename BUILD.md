@@ -23,7 +23,35 @@ conda env create -n cuml_dev python=3.7 --file=conda/environments/cuml_dev_cuda1
 
 ## Installing from Source:
 
-### Typical Process
+### Recommended process
+
+As a convenience, a `build.sh` script is provided which can be used to execute the same build commands above.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
+```bash
+$ ./build.sh                           # build the cuML libraries, tests, and python package, then
+                                       # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
+```
+
+To build individual components, specify them as arguments to `build.sh`
+```bash
+$ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
+$ ./build.sh cuml                      # build and install the cuML python package
+$ ./build.sh prims                     # build the ml-prims tests
+$ ./build.sh bench                     # build the cuML c++ benchmark
+$ ./build.sh prims-bench               # build the ml-prims c++ benchmark
+```
+
+Other `build.sh` options:
+```bash
+$ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
+$ ./build.sh libcuml -v                # build and install libcuml with verbose output
+$ ./build.sh libcuml -g                # build and install libcuml for debug
+$ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 4 (make -j4)
+$ ./build.sh libcuml -n                # build libcuml but do not install
+$ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
+$ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
+```
+
+### Manual Process
 
 Once dependencies are present, follow the steps below:
 
@@ -130,34 +158,6 @@ $ pytest cuML/test --collect-only
 $ python setup.py install
 ```
 
-#### `build.sh`
-
-As a convenience, a `build.sh` script is provided which can be used to execute the same build commands above.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
-```bash
-$ ./build.sh                           # build the cuML libraries, tests, and python package, then
-                                       # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
-```
-
-To build individual components, specify them as arguments to `build.sh`
-```bash
-$ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
-$ ./build.sh cuml                      # build and install the cuML python package
-$ ./build.sh prims                     # build the ML prims tests
-$ ./build.sh bench                     # build the cuML c++ benchmark
-$ ./build.sh prims-bench               # build the ml-prims c++ benchmark
-```
-
-Other `build.sh` options:
-```bash
-$ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
-$ ./build.sh libcuml -v                # build and install libcuml with verbose output
-$ ./build.sh libcuml -g                # build and install libcuml for debug
-$ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 4 (make -j4)
-$ ./build.sh libcuml -n                # build libcuml but do not install
-$ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
-$ ./build.sh cuml --multigpu           # build the cuml python package with multi-GPU support (requires libcumlMG and CUDA >= 10.0)
-```
-
 ### Custom Build Options
 
 #### libcuml & libcuml++
@@ -179,6 +179,7 @@ cuML's cmake has the following configurable flags available:
 | BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchark.  |
 | BUILD_CUML_PRIMS_BENCH | [ON, OFF] | ON | Enable/disable building of ml-prims C++ benchark.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
+| CONDA_BUILD | [ON, OFF] | ON | Use detection of conda environment for dependencies. If set to ON, and no value for CMAKE_INSTALL_PREFIX is passed, then it'll assign it to $CONDA_PREFIX (to install in the active environment).  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
