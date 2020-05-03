@@ -20,8 +20,8 @@
 
 import ctypes
 import cudf
+import cuml.utils.opg_data_utils as opg
 import numpy as np
-
 import rmm
 
 from libc.stdlib cimport malloc, free
@@ -34,29 +34,11 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
+from cuml.utils.opg_data_utils cimport *
 from cuml.utils import input_to_cuml_array
 
 from cuml.linear_model import LinearRegression
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-                 namespace "MLCommon::Matrix":
-
-    cdef cppclass floatData_t:
-        floatData_t(float *ptr, size_t totalSize)
-        float *ptr
-        size_t totalSize
-
-    cdef cppclass doubleData_t:
-        doubleData_t(double *ptr, size_t totalSize)
-        double *ptr
-        size_t totalSize
-
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-                 namespace "MLCommon::Matrix":
-
-    cdef cppclass RankSizePair:
-        int rank
-        size_t size
 
 cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
 
@@ -108,36 +90,29 @@ class LinearRegressionMG(LinearRegression):
 
         self._set_output_type(input_data[0][0])
 
-        arr_interfaces = []
-        arr_interfaces_y = []
+        X_arys = []
+        y_arys = []
 
         for i in range(len(input_data)):
-            X_m, n_rows_X, self.n_cols, self.dtype = \
-                input_to_cuml_array(input_data[i][0],
-                                    check_dtype=[np.float32, np.float64])
+            if i == 0:
+                check_dtype = [np.float32, np.float64]
+            else:
+                check_dtype = self.dtype
 
-            arr_interfaces.append({"obj": X_m,
-                                   "data": X_m.ptr,
-                                   "shape": (n_rows_X, self.n_cols)})
+            X_m, _, self.n_cols, _= \
+                input_to_cuml_array(input_data[i][0], check_dtype=check_dtype)
+            X_arys.append(X_m)
 
-            y_m, n_rows_y, n_cols_y, self.dtype = \
-                input_to_cuml_array(input_data[i][1],
-                                    check_dtype=[np.float32, np.float64])
+            if i == 0:
+                self.dtype == X_m.dtype
 
-            arr_interfaces_y.append({"obj": y_m,
-                                     "data": y_m.ptr,
-                                     "shape": (n_rows_y, n_cols_y)})
+            y_m, *_ = input_to_cuml_array(input_data[i][1],
+                                          check_dtype=self.dtype)
+            y_arys.append(y_m)
+
+        cdef uintptr_t ranks_sizes = opg.build_rank_size_pair(input_data, rank)
 
         n_total_parts = len(input_data)
-        cdef RankSizePair **rankSizePair = <RankSizePair**> \
-            malloc(sizeof(RankSizePair**)
-                   * n_total_parts)
-
-        for i in range(len(input_data)):
-            rankSizePair[i] = <RankSizePair*> \
-                malloc(sizeof(RankSizePair))
-            rankSizePair[i].rank = <int>rank
-            rankSizePair[i].size = <size_t>len(input_data[i][0])
 
         self._coef_ = CumlArray.zeros(self.n_cols,
                                       dtype=self.dtype)
@@ -150,11 +125,11 @@ class LinearRegressionMG(LinearRegression):
         cdef uintptr_t labels
 
         if self.dtype == np.float32:
-            data = _build_dataFloat(arr_interfaces)
-            labels = _build_dataFloat(arr_interfaces_y)
+            data = opg.build_data_t(X_arys)
+            labels = opg.build_data_t(y_arys)
 
             fit(handle_[0],
-                <RankSizePair**>rankSizePair,
+                <RankSizePair**>ranks_sizes,
                 <size_t> n_total_parts,
                 <floatData_t**>data,
                 <size_t>n_rows,
@@ -169,11 +144,11 @@ class LinearRegressionMG(LinearRegression):
 
             self.intercept_ = float_intercept
         else:
-            data = _build_dataDouble(arr_interfaces)
-            labels = _build_dataDouble(arr_interfaces_y)
+            data = opg.build_data_t(X_arys)
+            labels = opg.build_data_t(y_arys)
 
             fit(handle_[0],
-                <RankSizePair**>rankSizePair,
+                <RankSizePair**>ranks_sizes,
                 <size_t> n_total_parts,
                 <doubleData_t**>data,
                 <size_t>n_rows,
@@ -190,80 +165,9 @@ class LinearRegressionMG(LinearRegression):
 
         self.handle.sync()
 
-        for idx in range(n_total_parts):
-            free(<RankSizePair*>rankSizePair[idx])
-        free(<RankSizePair**>rankSizePair)
+        opg.free_data_t(data, n_total_parts, self.dtype)
+        opg.free_data_t(labels, n_total_parts, self.dtype)
 
-        if self.dtype == np.float32:
-            _freeFloatD(data, arr_interfaces)
-            _freeFloatD(labels, arr_interfaces_y)
-        else:
-            _freeDoubleD(data, arr_interfaces)
-            _freeDoubleD(labels, arr_interfaces_y)
+        opg.free_rank_size_pair(ranks_sizes, n_total_parts)
+
         return self
-
-
-# Util functions, will be moved to their own file as the other methods are
-# refactored
-# todo: use cuda_array_interface instead of arr_interfaces for building this
-
-def _build_dataFloat(arr_interfaces):
-    cdef floatData_t **dataF = <floatData_t **> \
-        malloc(sizeof(floatData_t *)
-               * len(arr_interfaces))
-
-    cdef uintptr_t input_ptr
-    for x_i in range(len(arr_interfaces)):
-        x = arr_interfaces[x_i]
-        input_ptr = x["data"]
-        dataF[x_i] = <floatData_t *> malloc(sizeof(floatData_t))
-        dataF[x_i].ptr = <float *> input_ptr
-        dataF[x_i].totalSize = <size_t> x["shape"][0]
-    return <size_t>dataF
-
-
-def _build_dataDouble(arr_interfaces):
-    cdef doubleData_t **dataD = <doubleData_t **> \
-        malloc(sizeof(doubleData_t *)
-               * len(arr_interfaces))
-
-    cdef uintptr_t input_ptr
-    for x_i in range(len(arr_interfaces)):
-        x = arr_interfaces[x_i]
-        input_ptr = x["data"]
-        dataD[x_i] = <doubleData_t *> malloc(sizeof(doubleData_t))
-        dataD[x_i].ptr = <double *> input_ptr
-        dataD[x_i].totalSize = <size_t> x["shape"][0]
-    return <size_t>dataD
-
-
-def _freeDoubleD(data, arr_interfaces):
-    cdef uintptr_t data_ptr = data
-    cdef doubleData_t **d = <doubleData_t**>data_ptr
-    for x_i in range(len(arr_interfaces)):
-        free(d[x_i])
-    free(d)
-
-
-def _freeFloatD(data, arr_interfaces):
-    cdef uintptr_t data_ptr = data
-    cdef floatData_t **d = <floatData_t**>data_ptr
-    for x_i in range(len(arr_interfaces)):
-        free(d[x_i])
-    free(d)
-
-
-def _build_predData(partsToSizes, rank, n_cols, dtype):
-    arr_interfaces_trans = []
-    for idx, rankSize in enumerate(partsToSizes):
-        rk, size = rankSize
-        if rank == rk:
-            trans_ary = CumlArray.zeros((size, n_cols),
-                                        order="F",
-                                        dtype=dtype)
-
-            arr_interfaces_trans.append({"obj": trans_ary,
-                                         "data": trans_ary.ptr,
-                                         "shape": (size, n_cols)})
-
-    return arr_interfaces_trans
