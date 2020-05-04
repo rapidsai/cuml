@@ -18,7 +18,6 @@ import pytest
 
 import numpy as np
 
-from cuml.common.array import CumlArray as cumlArray
 from cuml.tsa import auto_arima
 from cuml.utils.input_utils import input_to_cuml_array
 
@@ -177,11 +176,11 @@ def test_merge_series(batch_size, n_obs, n_sub, dtype):
                                         convert_to_dtype=np.int32)
     id_to_pos, *_ = input_to_cuml_array(id_to_pos_np,
                                         convert_to_dtype=np.int32)
-    
+
     # Generate the final dataset (expected result)
     data_np = (np.random.uniform(-1.0, 1.0, (batch_size, n_obs))
                ).astype(dtype).transpose()
-    
+
     # Divide the dataset according to the id tracker
     data_div = []
     for i in range(n_sub):
