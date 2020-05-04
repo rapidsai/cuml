@@ -119,6 +119,13 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+set(Protobuf_USE_STATIC_LIBS ON)
+if(DEFINED ENV{CONDA_PREFIX})
+  set(Protobuf_LIBRARIES $ENV{CONDA_PREFIX}/lib/libprotobuf.a)
+  set(Protobuf_INCLUDE_DIR $ENV{CONDA_PREFIX}/include)
+endif(DEFINED ENV{CONDA_PREFIX})
+find_package(Protobuf REQUIRED)
+
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
@@ -189,8 +196,10 @@ endif()
 # CUDA 11 onwards cub ships with CTK
 if((CUDA_VERSION_MAJOR EQUAL 11) OR (CUDA_VERSION_MAJOR GREATER 11))
   set(CUB_IS_PART_OF_CTK ON)
+  set(NVGRAPH_AVAILABLE OFF)
 else()
   set(CUB_IS_PART_OF_CTK OFF)
+  set(NVGRAPH_AVAILABLE ON)
 endif()
 
 if("${GPU_ARCHS}" STREQUAL "ALL")
@@ -261,8 +270,11 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY})
+  ${CUDA_cusparse_LIBRARY})
+
+if(NVGRAPH_AVAILABLE)
+  list(APPEND CUML_LINK_LIBRARIES ${CUDA_nvgraph_LIBRARY})
+endif(NVGRAPH_AVAILABLE)
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -320,8 +332,15 @@ if(BUILD_CUML_CPP_LIBRARY)
     PUBLIC
       ${CUML_LINK_LIBRARIES}
     PRIVATE
+      ${Protobuf_LIBRARIES}
       faisslib
-      treelitelib)
+      treelitelib
+      dmlclib)
+  # If we export the libdmlc symbols, they can lead to weird crashes with other
+  # libraries that use libdmlc. This just hides the symbols internally.
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
+  # same as above, but for protobuf library
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
