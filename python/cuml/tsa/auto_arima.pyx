@@ -29,6 +29,7 @@ import numpy as np
 import cupy as cp
 
 import cuml
+from cuml.common import logger
 from cuml.common.array import CumlArray as cumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
@@ -129,10 +130,10 @@ class AutoARIMA(Base):
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
-    handle: cuml.Handle
+    handle : cuml.Handle
         If it is None, a new one is created just for this instance
-    verbose: int (optional, default 0)
-        Controls verbosity level of logging.
+    verbosity : int
+        Sets logging level. It must be one of `cuml.common.logger.LEVEL_*`
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes.
         If None, it'll inherit the output type set at the module level,
@@ -151,11 +152,13 @@ class AutoARIMA(Base):
     
     def __init__(self, y,
                  handle=None,
-                 verbose=0,
+                 verbosity=logger.LEVEL_INFO,
                  output_type=None):
         # Initialize base class
-        super().__init__(handle, verbose, output_type)
+        super().__init__(handle, output_type=output_type, verbosity=verbosity)
         self._set_output_type(y)
+
+        logger.set_level(self.verbosity)
 
         # Get device array. Float64 only for now.
         self._d_y, self.n_obs, self.batch_size, self.dtype \
@@ -247,8 +250,7 @@ class AutoARIMA(Base):
         #
         # Choose the hyper-parameter D
         #
-        if self.verbose:
-            print("Deciding D...")
+        logger.info("Deciding D...")
         D_options = _parse_sequence("D", D, 0, 1)
         if not s:
             # Non-seasonal -> D=0
@@ -276,8 +278,7 @@ class AutoARIMA(Base):
         #
         # Choose the hyper-parameter d
         #
-        if self.verbose:
-            print("Deciding d...")
+        logger.info("Deciding d...")
         data_dD = {}
         for D_ in data_D:
             d_options = _parse_sequence("d", d, 0, 2 - D_)
@@ -312,8 +313,7 @@ class AutoARIMA(Base):
         #
         # Choose the hyper-parameters p, q, P, Q, k
         #
-        if self.verbose:
-            print("Deciding p, q, P, Q, k...")
+        logger.info("Deciding p, q, P, Q, k...")
         p_options = _parse_sequence("p", p, 0, s - 1 if s else 4)
         q_options = _parse_sequence("q", q, 0, s - 1 if s else 4)
         P_options = _parse_sequence("P", P, 0, 4 if s else 0)
@@ -339,8 +339,7 @@ class AutoARIMA(Base):
                 model = ARIMA(data_temp.to_output("cupy"), (p_, d_, q_),
                               (P_, D_, Q_, s_), k_, self.handle,
                               output_type="cupy")
-                if self.verbose:
-                    print(" -", str(model))
+                logger.debug("Fitting {} ({})".format(model, method))
                 model.fit(h=h, maxiter=maxiter, method=method,
                           truncate=truncate)
                 all_ic.append(model._ic(ic))
@@ -371,12 +370,15 @@ class AutoARIMA(Base):
 
         # Build a map to match each series to its model and position in the
         # sub-batch
-        if self.verbose:
-            print("Finalizing...")
+        logger.info("Finalizing...")
         self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
                                                                self.batch_size)
 
-    def fit(self, **kwargs):
+    def fit(self,
+            h: float = 1e-8,
+            maxiter : int = 1000,
+            method="ml",
+            truncate : int = 0):
         """Fits the selected models for their respective series
 
         Parameters
@@ -394,12 +396,9 @@ class AutoARIMA(Base):
             When using CSS, start the sum of squares after a given number of
             observations for better performance (but often a worse fit)
         """
-        if self.verbose:
-            print("Fitting final models...")
         for model in self.models:
-            if self.verbose:
-                print(" - {}".format(model))
-            model.fit(**kwargs)
+            logger.debug("Fitting {} ({})".format(model, method))
+            model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
 
     def predict(self, start=0, end=None):
