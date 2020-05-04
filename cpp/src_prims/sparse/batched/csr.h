@@ -37,6 +37,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
+#include <common/cudart_utils.h>
 #include "common/device_buffer.hpp"
 #include "linalg/batched/matrix.h"
 #include "linalg/cusolver_wrappers.h"
@@ -206,6 +207,7 @@ class CSR {
    *                    might be zero in a few matrices but not generally in
    *                    the batch so we shouldn't rely on a single matrix to
    *                    get the mask
+   * @param[in] cusolverSpHandle cusolver sparse handle
    * @return Batched CSR matrix
    */
   static CSR<T> from_dense(const LinAlg::Batched::Matrix<T>& dense,
@@ -527,11 +529,12 @@ __global__ void batched_spmm_kernel_shared_mem(T alpha, const int* A_col_index,
  * @note Not supporting transpose yet for simplicity as it isn't needed
  *       Also not supporting leading dim different than the problem dimensions
  * 
- * @param[in]     alpha  Scalar alpha
- * @param[in]     A      Batched sparse matrix (CSR)
- * @param[in]     B      Batched dense matrix B
- * @param[in]     beta   Scalar beta
- * @param[in,out] C      Batched dense matrix C
+ * @param[in]    alpha          Scalar alpha
+ * @param[in]    A              Batched sparse matrix (CSR)
+ * @param[in]    B              Batched dense matrix B
+ * @param[in]    beta           Scalar beta
+ * @param[inout] C              Batched dense matrix C
+ * @param[in]    use_shared_mem use shared memory based implementation or not
  */
 template <typename T>
 void b_spmm(T alpha, const CSR<T>& A, const LinAlg::Batched::Matrix<T>& B,

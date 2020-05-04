@@ -244,8 +244,8 @@ double vMeasure(const cumlHandle &handle, const int *y, const int *y_hat,
 * predict labels
 *
 * @param handle: cumlHandle
-* @param y_hat: predicted labels
-* @param y: truth labels
+* @param predictions: predicted labels
+* @param ref_predictions: truth labels
 * @param n: Number of elements in y and y_hat
 * @return: The accuracy
 */

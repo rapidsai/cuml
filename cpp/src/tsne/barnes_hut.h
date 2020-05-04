@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+
+#include <common/cudart_utils.h>
+#include <cuml/common/logger.hpp>
 #include "bh_kernels.h"
 #include "utils.h"
 
@@ -23,25 +25,25 @@ namespace TSNE {
 
 /**
  * @brief Fast Dimensionality reduction via TSNE using the Barnes Hut O(NlogN) approximation.
- * @input param VAL: The values in the attractive forces COO matrix.
- * @input param COL: The column indices in the attractive forces COO matrix.
- * @input param ROW: The row indices in the attractive forces COO matrix.
- * @input param NNZ: The number of non zeros in the attractive forces COO matrix.
- * @input param handle: The GPU handle.
- * @output param Y: The final embedding. Will overwrite this internally.
- * @input param n: Number of rows in data X.
- * @input param epssq: A tiny jitter to promote numerical stability.
- * @input param early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
- * @input param exaggeration_iter: How many iterations you want the early pressure to run for.
- * @input param min_gain: Rounds up small gradient updates.
- * @input param pre_learning_rate: The learning rate during the exaggeration phase.
- * @input param post_learning_rate: The learning rate after the exaggeration phase.
- * @input param max_iter: The maximum number of iterations TSNE should run for.
- * @input param min_grad_norm: The smallest gradient norm TSNE should terminate on.
- * @input param pre_momentum: The momentum used during the exaggeration phase.
- * @input param post_momentum: The momentum used after the exaggeration phase.
- * @input param random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
- * @input param verbose: Whether to print error messages or not.
+ * @param[in] VAL: The values in the attractive forces COO matrix.
+ * @param[in] COL: The column indices in the attractive forces COO matrix.
+ * @param[in] ROW: The row indices in the attractive forces COO matrix.
+ * @param[in] NNZ: The number of non zeros in the attractive forces COO matrix.
+ * @param[in] handle: The GPU handle.
+ * @param[out] Y: The final embedding. Will overwrite this internally.
+ * @param[in] n: Number of rows in data X.
+ * @param[in] theta: repulsion threshold
+ * @param[in] epssq: A tiny jitter to promote numerical stability.
+ * @param[in] early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
+ * @param[in] min_gain: Rounds up small gradient updates.
+ * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
+ * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
+ * @param[in] max_iter: The maximum number of iterations TSNE should run for.
+ * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on.
+ * @param[in] pre_momentum: The momentum used during the exaggeration phase.
+ * @param[in] post_momentum: The momentum used after the exaggeration phase.
+ * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
  */
 void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const cumlHandle &handle, float *Y, const int n,
@@ -52,7 +54,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
                 const float post_learning_rate = 500.0f,
                 const int max_iter = 1000, const float min_grad_norm = 1e-7,
                 const float pre_momentum = 0.5, const float post_momentum = 0.8,
-                const long long random_state = -1, const bool verbose = true) {
+                const long long random_state = -1) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -64,7 +66,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
   if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
   while ((nnodes & (32 - 1)) != 0) nnodes++;
   nnodes--;
-  if (verbose) printf("N_nodes = %d blocks = %d\n", nnodes, blocks);
+  CUML_LOG_DEBUG("N_nodes = %d blocks = %d", nnodes, blocks);
 
   // Allocate more space
   //---------------------------------------------------
@@ -149,7 +151,7 @@ void Barnes_Hut(float *VAL, const int *COL, const int *ROW, const int NNZ,
 
   // Do gradient updates
   //---------------------------------------------------
-  if (verbose) printf("[Info] Start gradient updates!\n");
+  CUML_LOG_DEBUG("Start gradient updates!");
 
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;

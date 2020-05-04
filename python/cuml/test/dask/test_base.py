@@ -37,7 +37,12 @@ def test_getattr(cluster):
 
     # Test getattr on local_model param with a non-distributed model
 
-    X_cudf, y = make_blobs(5, 5, 2, 2, cluster_std=0.01, verbose=False,
+    X_cudf, y = make_blobs(n_samples=5,
+                           n_features=5,
+                           centers=2,
+                           n_parts=2,
+                           cluster_std=0.01,
+                           verbose=False,
                            random_state=10)
 
     wait(X_cudf)
@@ -50,6 +55,8 @@ def test_getattr(cluster):
     # Test getattr on trained distributed model
 
     X, y = load_text_corpus(client)
+
+    print(str(X.compute()))
 
     nb_model = MultinomialNB(client=client)
     nb_model.fit(X, y)
