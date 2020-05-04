@@ -68,7 +68,7 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         const ARIMAOrder& order, const double* params, double* loglike,
         double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
         int truncate)
-    
+
     void batched_loglike_grad(
         cumlHandle& handle, const double* d_y, int batch_size, int nobs,
         const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
@@ -266,7 +266,7 @@ class ARIMA(Base):
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
                              " given order")
-        
+
         # Compute the differenced series
         self._d_y_diff = cumlArray.empty(
             (self.n_obs - d - s * D, self.batch_size), self.dtype)
@@ -275,7 +275,7 @@ class ARIMA(Base):
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
                      <int> self.batch_size, <int> self.n_obs, self.order)
-        
+
         # Create a version of the order for the differenced series
         cdef ARIMAOrder cpp_order_diff = cpp_order
         cpp_order_diff.d = 0
@@ -604,9 +604,9 @@ class ARIMA(Base):
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
             h: float = 1e-8,
-            maxiter : int = 1000,
+            maxiter: int = 1000,
             method="ml",
-            truncate : int = 0):
+            truncate: int = 0):
         """Fit the ARIMA model to each time series.
 
         Parameters
@@ -670,8 +670,8 @@ class ARIMA(Base):
             # Handle non-zero flags with Warning
             if (flags != 0).any():
                 print("WARNING: Some batch members had optimizer problems.",
-                    file=sys.stderr)
-            
+                      file=sys.stderr)
+
             return x_out, niter
 
         if start_params is None:

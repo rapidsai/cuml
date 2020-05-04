@@ -43,10 +43,11 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
 
     results = []
     for i in range(batch_size):
-        stlfit = STL(y[:,i], s).fit()
+        stlfit = STL(y[:, i], s).fit()
         seasonal = stlfit.seasonal
         residual = stlfit.resid
-        heuristics = max(0, min(1, 1 - np.var(residual) / np.var(residual + seasonal)))
+        heuristics = max(
+            0, min(1, 1 - np.var(residual)/ np.var(residual + seasonal)))
         results.append(heuristics > threshold)
 
     return results
@@ -77,7 +78,7 @@ def seas_test(y, s, output_type="input", handle=None):
         raise ValueError(
             "ERROR: Invalid period for the seasonal differencing test: {}"
             .format(s))
-    
+
     if output_type == "input":
         output_type = _input_to_type(y)
 
