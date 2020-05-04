@@ -92,8 +92,6 @@ set(GPU_ARCHS "" CACHE STRING
 if(CONDA_BUILD)
   if(DEFINED ENV{CONDA_PREFIX})
     set(CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX};${CMAKE_PREFIX_PATH}")
-    set(CONDA_INCLUDE_DIRS "$ENV{CONDA_PREFIX}/include")
-    set(CONDA_LINK_DIRS "$ENV{CONDA_PREFIX}/lib")
 
     message(STATUS "Detected Conda environment, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
 
@@ -134,6 +132,7 @@ endif(NOT BUILD_CUML_CPP_LIBRARY)
 # - Requirements -------------------------------------------------------------
 
 # todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
+# https://github.com/rapidsai/cuml/issues/2194
 find_package(CUDA 10.0 REQUIRED)
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
