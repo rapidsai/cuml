@@ -8,6 +8,7 @@
 - PR #2067L python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
+- PR #2172: Initial support for auto-ARIMA
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
