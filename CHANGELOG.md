@@ -95,6 +95,7 @@
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
 - PR #2183: Fix RAFT in nightly package
+- PR #2191: Fix placement of SVM parameter documentation and add examples
 
 # cuML 0.13.0 (Date TBD)
 
