@@ -28,6 +28,7 @@ import cuml.naive_bayes
 from cuml.utils.import_utils import has_umap
 import numpy as np
 import tempfile
+import warnings
 
 from cuml.benchmark.bench_helper_funcs import (
     fit,
@@ -206,8 +207,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.cluster.KMeans,
             cuml.cluster.KMeans,
-            shared_args=dict(init="kmeans++", n_clusters=8,
-                             max_iter=300, n_init=10),
+            shared_args=dict(init="k-means++", n_clusters=8,
+                             max_iter=300, n_init=1),
             cuml_args=dict(oversampling_factor=0),
             name="KMeans",
             accepts_labels=False,
@@ -454,6 +455,9 @@ def all_algorithms():
                 accuracy_function=cuml.metrics.trustworthiness,
             )
         ])
+    else:
+        warnings.warn("Could not find UMAP-learn library. UMAP benchmarks "
+                      "will not be available.")
 
     return algorithms
 
