@@ -112,7 +112,8 @@ ExternalProject_Add(faiss
   BUILD_BYPRODUCTS  ${FAISS_DIR}/lib/libfaiss.a
   INSTALL_COMMAND   make -s install > /dev/null
   UPDATE_COMMAND    ""
-  BUILD_IN_SOURCE   1)
+  BUILD_IN_SOURCE   1
+  PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/faiss_cuda11.patch || true)
 ExternalProject_Get_Property(faiss install_dir)
 add_library(faisslib STATIC IMPORTED)
 set_property(TARGET faisslib PROPERTY
