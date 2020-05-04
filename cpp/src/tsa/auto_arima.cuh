@@ -45,7 +45,7 @@ namespace TimeSeries {
  * @param[in]  stream     CUDA stream
  */
 void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
-                           std::shared_ptr<deviceAllocator> allocator,
+                           std::shared_ptr<MLCommon::deviceAllocator> allocator,
                            cudaStream_t stream) {
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
@@ -76,7 +76,7 @@ void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
  */
 inline int divide_by_mask_build_index(
   const bool* d_mask, int* d_index, int batch_size,
-  std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
   // Inverse mask
   MLCommon::device_buffer<bool> inv_mask(allocator, stream, batch_size);
   thrust::transform(thrust::cuda::par.on(stream), d_mask, d_mask + batch_size,
@@ -191,8 +191,8 @@ struct which_col : thrust::unary_function<int, int> {
 template <typename DataT>
 inline void divide_by_min_build_index(
   const DataT* d_matrix, int* d_batch, int* d_index, int* h_size,
-  int batch_size, int n_sub, std::shared_ptr<deviceAllocator> allocator,
-  cudaStream_t stream) {
+  int batch_size, int n_sub,
+  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
   auto counting = thrust::make_counting_iterator(0);
 
   // In the first pass, compute d_batch and initialize the matrix that will
@@ -274,11 +274,10 @@ __global__ void divide_by_min_kernel(const DataT* d_in, const int* d_batch,
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
-inline void divide_by_min_execute(const DataT* d_in, const int* d_batch,
-                                  const int* d_index, DataT** hd_out,
-                                  int batch_size, int n_sub, int n_obs,
-                                  std::shared_ptr<deviceAllocator> allocator,
-                                  cudaStream_t stream) {
+inline void divide_by_min_execute(
+  const DataT* d_in, const int* d_batch, const int* d_index, DataT** hd_out,
+  int batch_size, int n_sub, int n_obs,
+  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
   // Create a device array of pointers to each sub-batch
   MLCommon::device_buffer<DataT*> out_buffer(allocator, stream, n_sub);
   DataT** d_out = out_buffer.data();
@@ -337,11 +336,10 @@ __global__ void build_division_map_kernel(const int* const* d_id,
  * @param[in]  allocator     Device memory allocator
  * @param[in]  stream        CUDA stream
  */
-inline void build_division_map(const int* const* hd_id, const int* h_size,
-                               int* d_id_to_pos, int* d_id_to_model,
-                               int batch_size, int n_sub,
-                               std::shared_ptr<deviceAllocator> allocator,
-                               cudaStream_t stream) {
+inline void build_division_map(
+  const int* const* hd_id, const int* h_size, int* d_id_to_pos,
+  int* d_id_to_model, int batch_size, int n_sub,
+  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
   // Copy the pointers to the id trackers of each sub-batch to the device
   MLCommon::device_buffer<int*> id_ptr_buffer(allocator, stream, n_sub);
   const int** d_id = const_cast<const int**>(id_ptr_buffer.data());
@@ -407,7 +405,7 @@ template <typename DataT>
 inline void merge_series(const DataT* const* hd_in, const int* d_id_to_pos,
                          const int* d_id_to_sub, DataT* d_out, int batch_size,
                          int n_sub, int n_obs,
-                         std::shared_ptr<deviceAllocator> allocator,
+                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
                          cudaStream_t stream) {
   // Copy the pointers to each sub-batch to the device
   MLCommon::device_buffer<DataT*> in_buffer(allocator, stream, n_sub);
