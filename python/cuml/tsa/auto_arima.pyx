@@ -102,6 +102,7 @@ tests_map = {
     "seas": seas_test,
 }
 
+
 class AutoARIMA(Base):
     r"""Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
@@ -116,7 +117,7 @@ class AutoARIMA(Base):
     .. code-block:: python
 
         from cuml.tsa.auto_arima import AutoARIMA
-        
+
         model = AutoARIMA(y)
         model.search(s=12, d=(0, 1), D=(0, 1), p=(0, 2, 4), q=(0, 2, 4),
                      P=range(2), Q=range(2), method="css", truncate=100)
@@ -149,7 +150,7 @@ class AutoARIMA(Base):
     Rob J. Hyndman & Yeasmin Khandakar (2008),
     Journal of Statistical Software 27, https://doi.org/10.18637/jss.v027.i03
     """
-    
+
     def __init__(self, y,
                  handle=None,
                  verbosity=logger.LEVEL_INFO,
@@ -176,10 +177,10 @@ class AutoARIMA(Base):
                ic="aicc",
                test="kpss",
                seasonal_test="seas",
-               h : float = 1e-8,
-               maxiter : int = 1000,
+               h: float = 1e-8,
+               maxiter: int = 1000,
                method="auto",
-               truncate : int = 0):
+               truncate: int = 0):
         """Searches through the specified model space and associates each
         series to the most appropriate model.
 
@@ -304,7 +305,7 @@ class AutoARIMA(Base):
                         (data_temp, id_temp) = (out0, index0)
                     else:
                         break
-                else: # (when the for loop reaches its end naturally)
+                else:  # (when the for loop reaches its end naturally)
                     # The remaining series are assigned the max possible d
                     data_dD[d_options[-1]] = (data_temp, id_temp)
                 del data_temp, id_temp, mask, out0, index0, out1, index1
@@ -376,9 +377,9 @@ class AutoARIMA(Base):
 
     def fit(self,
             h: float = 1e-8,
-            maxiter : int = 1000,
+            maxiter: int = 1000,
             method="ml",
-            truncate : int = 0):
+            truncate: int = 0):
         """Fits the selected models for their respective series
 
         Parameters
@@ -400,7 +401,6 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-
     def predict(self, start=0, end=None):
         """Compute in-sample and/or out-of-sample prediction for each series
 
@@ -421,7 +421,7 @@ class AutoARIMA(Base):
         for model in self.models:
             pred, *_ = input_to_cuml_array(model.predict(start, end))
             predictions.append(pred)
-        
+
         # Put all the predictions together
         return _merge_series(predictions, self.id_to_model, self.id_to_pos,
                              self.batch_size).to_output(self.output_type)
@@ -440,7 +440,7 @@ class AutoARIMA(Base):
                Forecasts. Shape = (nsteps, batch_size)
         """
         return self.predict(self.n_obs, self.n_obs + nsteps)
-    
+
     def summary(self):
         """Display a quick summary of the models selected by `search`
         """
@@ -559,13 +559,13 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
                                    <int> n_obs)
         else:
             divide_by_mask_execute(handle_[0],
-                                  <double*> d_original,
-                                  <bool*> d_mask,
-                                  <int*> d_index,
-                                  <double*> d_out0,
-                                  <double*> d_out1,
-                                  <int> batch_size,
-                                  <int> n_obs)
+                                   <double*> d_original,
+                                   <bool*> d_mask,
+                                   <int*> d_index,
+                                   <double*> d_out0,
+                                   <double*> d_out1,
+                                   <int> batch_size,
+                                   <int> n_obs)
 
         # Also keep track of the original id of the series in the batch
         batch0_id = cumlArray.empty(batch_size - nb_true, np.int32)
@@ -744,7 +744,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
     cdef uintptr_t h_size = <uintptr_t> size_vec.data()
     cdef uintptr_t d_id_to_pos = id_to_pos.ptr
     cdef uintptr_t d_id_to_model = id_to_model.ptr
-    
+
     cpp_build_division_map(handle_[0],
                            <const int**> hd_id,
                            <int*> h_size,
@@ -817,4 +817,3 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
                          <int> n_obs)
 
     return data_out
-
