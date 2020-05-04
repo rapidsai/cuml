@@ -305,10 +305,10 @@ class RandomForestRegressor(Base):
         if self.n_cols:
             # only if model has been fit previously
             self.model_pbuf_bytes = self._get_protobuf_bytes()
-            params_t = <size_t> self.rf_forest
+            params_t = <uintptr_t> self.rf_forest
             rf_forest = \
                 <RandomForestMetaData[float, int]*>params_t
-            params_t64 = <size_t> self.rf_forest64
+            params_t64 = <uintptr_t> self.rf_forest64
             rf_forest64 = \
                 <RandomForestMetaData[double, int]*>params_t64
             if self.dtype == np.float32:
@@ -333,10 +333,10 @@ class RandomForestRegressor(Base):
         if self.n_cols:
             if state["dtype"] == np.float32:
                 rf_forest.rf_params = state["rf_params"]
-                state["rf_forest"] = <size_t>rf_forest
+                state["rf_forest"] = <uintptr_t>rf_forest
             else:
                 rf_forest64.rf_params = state["rf_params64"]
-                state["rf_forest64"] = <size_t>rf_forest64
+                state["rf_forest64"] = <uintptr_t>rf_forest64
 
         self.model_pbuf_bytes = state["model_pbuf_bytes"]
 
@@ -345,18 +345,18 @@ class RandomForestRegressor(Base):
     def __del__(self):
         if self.n_cols:
             if self.dtype == np.float32:
-                free(<RandomForestMetaData[float, float]*><size_t>
+                free(<RandomForestMetaData[float, float]*><uintptr_t>
                      self.rf_forest)
             else:
-                free(<RandomForestMetaData[double, double]*><size_t>
+                free(<RandomForestMetaData[double, double]*><uintptr_t>
                      self.rf_forest64)
 
     def _reset_forest_data(self):
         if self.n_cols:
             # Only if the model is fitted before
             # Clears the data of the forest to prepare for next fit
-            free(<RandomForestMetaData[float, float]*><size_t> self.rf_forest)
-            free(<RandomForestMetaData[double, double]*><size_t>
+            free(<RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest)
+            free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
 
     def _get_max_feat_val(self):
@@ -377,7 +377,7 @@ class RandomForestRegressor(Base):
     def _obtain_treelite_handle(self):
         cdef ModelHandle cuml_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
         cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
         cdef vector[unsigned char] model_pbuf_vec
         with cython.boundscheck(False):
@@ -494,13 +494,13 @@ class RandomForestRegressor(Base):
         task_category = REGRESSION_MODEL
         cdef ModelHandle tl_model_ptr = NULL
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
         build_treelite_forest(& tl_model_ptr,
                               rf_forest,
                               <int> self.n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> model_bytes)
-        mod_handle = <size_t> tl_model_ptr
+        mod_handle = <uintptr_t> tl_model_ptr
 
         return ctypes.c_void_p(mod_handle).value
 
@@ -563,7 +563,7 @@ class RandomForestRegressor(Base):
                           float 32 data to fit the estimator.")
 
         cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+            <cumlHandle*><uintptr_t>self.handle.getHandle()
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_rows_per_node) == float:
@@ -571,10 +571,10 @@ class RandomForestRegressor(Base):
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
-        self.rf_forest = <size_t> rf_forest
+        self.rf_forest = <uintptr_t> rf_forest
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
-        self.rf_forest64 = <size_t> rf_forest64
+        self.rf_forest64 = <uintptr_t> rf_forest64
 
         if self.seed is None:
             seed_val = <uintptr_t>NULL
@@ -642,7 +642,7 @@ class RandomForestRegressor(Base):
                             of predict.")
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
 
         task_category = REGRESSION_MODEL
         build_treelite_forest(& cuml_model_ptr,
@@ -650,7 +650,7 @@ class RandomForestRegressor(Base):
                               <int> n_cols,
                               <int> task_category,
                               <vector[unsigned char] &> self.model_pbuf_bytes)
-        mod_ptr = <size_t> cuml_model_ptr
+        mod_ptr = <uintptr_t> cuml_model_ptr
         treelite_handle = ctypes.c_void_p(mod_ptr).value
 
         storage_type = \
@@ -683,13 +683,13 @@ class RandomForestRegressor(Base):
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+            <cumlHandle*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
 
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
         if self.dtype == np.float32:
             predict(handle_[0],
                     rf_forest,
@@ -848,13 +848,13 @@ class RandomForestRegressor(Base):
         preds_ptr = preds_m.ptr
 
         cdef cumlHandle* handle_ =\
-            <cumlHandle*><size_t>self.handle.getHandle()
+            <cumlHandle*><uintptr_t>self.handle.getHandle()
 
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
 
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float32:
             self.temp_stats = score(handle_[0],
@@ -931,10 +931,10 @@ class RandomForestRegressor(Base):
         Prints the summary of the forest used to train and test the model
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
 
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
             print_rf_summary(rf_forest64)
@@ -947,10 +947,10 @@ class RandomForestRegressor(Base):
         train and test the Random Forest model
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
-            <RandomForestMetaData[float, float]*><size_t> self.rf_forest
+            <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
 
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
-            <RandomForestMetaData[double, double]*><size_t> self.rf_forest64
+            <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
             print_rf_detailed(rf_forest64)
