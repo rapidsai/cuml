@@ -106,10 +106,10 @@ if(CONDA_BUILD)
 
   endif(DEFINED ENV{CONDA_PREFIX})
 
-else(NOT CONDA_BUILD)
+else(CONDA_BUILD)
   message(STATUS "No Conda detection being used")
 
-endif(NOT CONDA_BUILD)
+endif(CONDA_BUILD)
 
 
 ##############################################################################
