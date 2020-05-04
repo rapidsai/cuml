@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 #include "cuml/tsa/arima_common.h"
 #include "linalg/batched/matrix.h"
@@ -88,14 +89,10 @@ HDI DataT reduced_polynomial(int bid, const DataT* param, int lags,
  * @param[in]  D           Order of seasonal differences (0, 1 or 2)
  * @param[in]  s           Seasonal period if D > 0
  * @param[in]  stream      CUDA stream
- * @param[in]  intercept   Whether the model fits an intercept
- * @param[in]  d_mu        Mu array if intercept > 0
- *                         Shape (batch_size,) (device)
  */
 template <typename DataT>
 void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
-                  int d, int D, int s, cudaStream_t stream, int intercept = 0,
-                  const DataT* d_mu = nullptr) {
+                  int d, int D, int s, cudaStream_t stream) {
   // Only one difference (simple or seasonal)
   if (d + D == 1) {
     int period = d ? 1 : s;
@@ -120,13 +117,6 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
     MLCommon::copy(d_out, d_in, n_obs * batch_size, stream);
   }
   // Other cases: no difference and the pointers are the same, nothing to do
-
-  // Remove trend in-place
-  if (intercept) {
-    MLCommon::LinAlg::matrixVectorOp(
-      d_out, d_out, d_mu, batch_size, n_obs - d - D * s, false, true,
-      [] __device__(DataT a, DataT b) { return a - b; }, stream);
-  }
 }
 
 /**
@@ -172,33 +162,22 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *
- * @tparam        DataT       Scalar type
- * @param[in|out] d_fc        Forecast. Shape (num_steps, batch_size) (device)
- * @param[in]     d_in        Original data. Shape (n_in, batch_size) (device)
- * @param[in]     num_steps   Number of steps forecasted
- * @param[in]     batch_size  Number of series per batch
- * @param[in]     in_ld       Leading dimension of d_in
- * @param[in]     n_in        Number of observations/predictions in d_in
- * @param[in]     d           Order of simple differences (0, 1 or 2)
- * @param[in]     D           Order of seasonal differences (0, 1 or 2)
- * @param[in]     s           Seasonal period if D > 0
- * @param[in]     stream      CUDA stream
- * @param[in]     intercept   Whether the model fits an intercept
- * @param[in]     d_mu        Mu array if intercept > 0
- *                            Shape (batch_size,) (device)
+ * @tparam       DataT       Scalar type
+ * @param[inout] d_fc        Forecast. Shape (num_steps, batch_size) (device)
+ * @param[in]    d_in        Original data. Shape (n_in, batch_size) (device)
+ * @param[in]    num_steps   Number of steps forecasted
+ * @param[in]    batch_size  Number of series per batch
+ * @param[in]    in_ld       Leading dimension of d_in
+ * @param[in]    n_in        Number of observations/predictions in d_in
+ * @param[in]    d           Order of simple differences (0, 1 or 2)
+ * @param[in]    D           Order of seasonal differences (0, 1 or 2)
+ * @param[in]    s           Seasonal period if D > 0
+ * @param[in]    stream      CUDA stream
  */
 template <typename DataT>
 void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
                        int batch_size, int in_ld, int n_in, int d, int D, int s,
-                       cudaStream_t stream, int intercept = 0,
-                       const DataT* d_mu = nullptr) {
-  // Add the trend in-place
-  if (intercept) {
-    MLCommon::LinAlg::matrixVectorOp(
-      d_fc, d_fc, d_mu, batch_size, num_steps, false, true,
-      [] __device__(DataT a, DataT b) { return a + b; }, stream);
-  }
-
+                       cudaStream_t stream) {
   // Undifference
   constexpr int TPB = 64;  // One thread per series -> avoid big blocks
   if (d + D == 1) {

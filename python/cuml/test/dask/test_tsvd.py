@@ -22,38 +22,42 @@ from cuml.test.utils import array_equal, \
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(6e5),
-                         stress_param(5e6)])
-@pytest.mark.parametrize("ncols", [unit_param(20),
-                         stress_param(1000)])
-@pytest.mark.parametrize("n_parts", [unit_param(67)])
-def test_pca_fit(nrows, ncols, n_parts, cluster):
+@pytest.mark.parametrize("data_info", [unit_param([1000, 20, 30]),
+                         stress_param([9e6, 5000, 30])])
+def test_pca_fit(data_info, cluster):
 
     client = Client(cluster)
+    nrows, ncols, n_parts = data_info
 
-    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
-    from sklearn.decomposition import TruncatedSVD
+    try:
 
-    from cuml.dask.datasets import make_blobs
+        from cuml.dask.decomposition import TruncatedSVD as daskTPCA
+        from sklearn.decomposition import TruncatedSVD
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=0.5, verbose=False,
-                           random_state=10, dtype=np.float32)
+        from cuml.dask.datasets import make_blobs
 
-    wait(X_cudf)
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
+                               cluster_std=0.5, verbose=False,
+                               random_state=10, dtype=np.float32)
 
-    X = X_cudf.compute().to_pandas().values
+        wait(X_cudf)
 
-    cutsvd = daskTPCA(n_components=5)
-    cutsvd.fit(X_cudf)
+        X = X_cudf.compute().to_pandas().values
 
-    sktsvd = TruncatedSVD(n_components=5, algorithm="arpack")
-    sktsvd.fit(X)
+        cutsvd = daskTPCA(n_components=5)
+        cutsvd.fit(X_cudf)
 
-    all_attr = ['singular_values_', 'components_',
-                'explained_variance_', 'explained_variance_ratio_']
+        sktsvd = TruncatedSVD(n_components=5, algorithm="arpack")
+        sktsvd.fit(X)
 
-    client.close()
+        all_attr = ['singular_values_', 'components_',
+                    'explained_variance_', 'explained_variance_ratio_']
+
+    finally:
+        client.close()
 
     for attr in all_attr:
         with_sign = False if attr in ['components_'] else True
@@ -68,52 +72,55 @@ def test_pca_fit(nrows, ncols, n_parts, cluster):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(4e3),
-                         unit_param(7e5),
-                         stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(100),
-                         unit_param(1000),
-                         stress_param(5000)])
-@pytest.mark.parametrize("n_parts", [46])
-def test_pca_fit_transform_fp32(nrows, ncols, n_parts, cluster):
+@pytest.mark.parametrize("data_info", [unit_param([1000, 20, 46]),
+                         stress_param([9e6, 5000, 46])])
+def test_pca_fit_transform_fp32(data_info, cluster):
 
     client = Client(cluster)
+    nrows, ncols, n_parts = data_info
+    try:
+        from cuml.dask.decomposition import TruncatedSVD as daskTPCA
+        from cuml.dask.datasets import make_blobs
 
-    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
-    from cuml.dask.datasets import make_blobs
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
+                               cluster_std=1.5, verbose=False,
+                               random_state=10, dtype=np.float32)
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=1.5, verbose=False,
-                           random_state=10, dtype=np.float32)
+        wait(X_cudf)
 
-    wait(X_cudf)
+        cutsvd = daskTPCA(n_components=20)
+        cutsvd.fit_transform(X_cudf)
 
-    cutsvd = daskTPCA(n_components=20)
-    cutsvd.fit_transform(X_cudf)
-
-    client.close()
+    finally:
+        client.close()
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [unit_param(7e5),
-                         stress_param(9e6)])
-@pytest.mark.parametrize("ncols", [unit_param(200),
-                         stress_param(5000)])
-@pytest.mark.parametrize("n_parts", [unit_param(33)])
-def test_pca_fit_transform_fp64(nrows, ncols, n_parts, cluster):
+@pytest.mark.parametrize("data_info", [unit_param([1000, 20, 33]),
+                         stress_param([9e6, 5000, 33])])
+def test_pca_fit_transform_fp64(data_info, cluster):
 
     client = Client(cluster)
+    nrows, ncols, n_parts = data_info
 
-    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
-    from cuml.dask.datasets import make_blobs
+    try:
+        from cuml.dask.decomposition import TruncatedSVD as daskTPCA
+        from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                           cluster_std=1.5, verbose=False,
-                           random_state=10, dtype=np.float64)
+        X_cudf, _ = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=1,
+                               n_parts=n_parts,
+                               cluster_std=1.5, verbose=False,
+                               random_state=10, dtype=np.float64)
 
-    wait(X_cudf)
+        wait(X_cudf)
 
-    cutsvd = daskTPCA(n_components=30)
-    cutsvd.fit_transform(X_cudf)
+        cutsvd = daskTPCA(n_components=30)
+        cutsvd.fit_transform(X_cudf)
 
-    client.close()
+    finally:
+        client.close()

@@ -273,8 +273,6 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self._trans_input_ = CumlArray.zeros((n_rows, n_components),
-                                             dtype=self.dtype)
         self._components_ = CumlArray.zeros((n_components, n_cols),
                                             dtype=self.dtype)
         self._explained_variance_ = CumlArray.zeros(n_components,
@@ -286,7 +284,7 @@ class TruncatedSVD(Base):
                                                  dtype=self.dtype)
         self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
-    def fit(self, X, _transform=True):
+    def fit(self, X, y=None):
         """
         Fit LSI model on training cudf DataFrame X.
 
@@ -297,6 +295,31 @@ class TruncatedSVD(Base):
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy
 
+        y : ignored
+
+        """
+
+        self.fit_transform(X)
+
+        return self
+
+    def fit_transform(self, X, y=None):
+        """
+        Fit LSI model to X and perform dimensionality reduction on X.
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
+        y : ignored
+
+        Returns
+        -------
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
+            Reduced version of X as a dense cuDF DataFrame
         """
         self._set_output_type(X)
 
@@ -320,7 +343,9 @@ class TruncatedSVD(Base):
         cdef uintptr_t singular_vals_ptr = \
             self._singular_values_.ptr
 
-        cdef uintptr_t t_input_ptr = self._trans_input_.ptr
+        _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
+                                        dtype=self.dtype)
+        cdef uintptr_t t_input_ptr = _trans_input_.ptr
 
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
@@ -349,26 +374,8 @@ class TruncatedSVD(Base):
         # following transfers start
         self.handle.sync()
 
-        return self
-
-    def fit_transform(self, X):
-        """
-        Fit LSI model to X and perform dimensionality reduction on X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        -------
-        X_new : cuDF DataFrame, shape (n_samples, n_components)
-            Reduced version of X as a dense cuDF DataFrame
-        """
         out_type = self._get_output_type(X)
-        return self.fit(X, _transform=True)._trans_input_.to_output(out_type)
+        return _trans_input_.to_output(out_type)
 
     def inverse_transform(self, X, convert_dtype=False):
         """

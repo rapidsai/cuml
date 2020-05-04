@@ -17,6 +17,7 @@
 
 import cudf
 import cupy as cp
+import numpy as np
 import dask.array as da
 
 from collections.abc import Sequence
@@ -24,19 +25,17 @@ from collections.abc import Sequence
 from cuml.utils.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
-from cudf.core import DataFrame
+from cudf.core import DataFrame, Series
 from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as daskSeries
 
-from dask import delayed
-
+from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.dask.common.dask_arr_utils import validate_dask_array
+from cuml.dask.common.part_utils import _extract_partitions
 from dask.distributed import wait
 from dask.distributed import default_client
-from dask.distributed import futures_of
-from tornado import gen
 from toolz import first
-from dask.array.core import Array as daskArray
-from uuid import uuid1
 
 from functools import reduce
 
@@ -62,7 +61,7 @@ class DistributedDataHandler:
 
     def __init__(self, gpu_futures=None, workers=None,
                  datatype=None, multiple=False, client=None):
-        self.client = default_client() if client is None else client
+        self.client = get_client(client)
         self.gpu_futures = gpu_futures
         self.worker_to_parts = _workers_to_parts(gpu_futures)
         self.workers = workers
@@ -72,7 +71,6 @@ class DistributedDataHandler:
         self.total_rows = None
         self.ranks = None
         self.parts_to_sizes = None
-        self.total_rows = None
 
     @classmethod
     def get_client(cls, client=None):
@@ -99,25 +97,24 @@ class DistributedDataHandler:
 
         multiple = isinstance(data, Sequence)
 
-        gpu_futures = client.sync(_extract_partitions, data, client)
-        workers = tuple(set(map(lambda x: x[0], gpu_futures)))
+        if isinstance(first(data) if multiple else data,
+                      (dcDataFrame, daskSeries)):
+            datatype = 'cudf'
+        else:
+            datatype = 'cupy'
+            if multiple:
+                for d in data:
+                    validate_dask_array(d)
+            else:
+                validate_dask_array(data)
 
-        datatype = 'cudf' if isinstance(first(data) if multiple else data,
-                                        dcDataFrame) else 'cupy'
+        gpu_futures = client.sync(_extract_partitions, data, client)
+
+        workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
         return DistributedDataHandler(gpu_futures=gpu_futures, workers=workers,
                                       datatype=datatype, multiple=multiple,
                                       client=client)
-
-    # TODO: Remove the following two functions
-    #  (just here to keep from breaking everythign)
-    @classmethod
-    def single(cls, data, client=None):
-        return cls.create(data, client)
-
-    @classmethod
-    def colocated(cls, data, force=False, client=None):
-        return cls.create(data, client)
 
     """ Methods to calculate further attributes """
 
@@ -127,7 +124,7 @@ class DistributedDataHandler:
         self.ranks = dict()
 
         for w, futures in self.worker_to_parts.items():
-            self.ranks[w] = self.worker_info[w]["r"]
+            self.ranks[w] = self.worker_info[w]["rank"]
 
     def calculate_parts_to_sizes(self, comms=None, ranks=None):
 
@@ -138,21 +135,19 @@ class DistributedDataHandler:
 
         self.parts_to_sizes = dict()
 
-        key = uuid1()
-
         parts = [(wf[0], self.client.submit(
             _get_rows,
             wf[1],
             self.multiple,
             workers=[wf[0]],
-            key="%s-%s" % (key, idx)))
+            pure=False))
             for idx, wf in enumerate(self.worker_to_parts.items())]
 
         sizes = self.client.compute(parts, sync=True)
 
         for w, sizes_parts in sizes:
             sizes, total = sizes_parts
-            self.parts_to_sizes[self.worker_info[w]["r"]] = \
+            self.parts_to_sizes[self.worker_info[w]["rank"]] = \
                 sizes
 
             self.total_rows += total
@@ -160,14 +155,16 @@ class DistributedDataHandler:
 
 @with_cupy_rmm
 def concatenate(objs, axis=0):
-    if isinstance(objs[0], DataFrame):
+    if isinstance(objs[0], DataFrame) or isinstance(objs[0], Series):
         if len(objs) == 1:
             return objs[0]
         else:
             return cudf.concat(objs)
-
     elif isinstance(objs[0], cp.ndarray):
         return cp.concatenate(objs, axis=axis)
+
+    elif isinstance(objs[0], np.ndarray):
+        return np.concatenate(objs, axis=axis)
 
 
 # TODO: This should be delayed.
@@ -200,86 +197,12 @@ def _to_dask_cudf(futures, client=None, verbose=False):
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
     if verbose:
         print("to_dask_cudf dfs=%s" % str(dfs))
-    meta = c.submit(_get_meta, dfs[0]).result()
+    meta_future = c.submit(_get_meta, dfs[0], pure=False)
+    meta = meta_future.result()
     return dd.from_delayed(dfs, meta=meta)
 
 
 """ Internal methods, API subject to change """
-
-
-@gen.coroutine
-def _extract_partitions(dask_obj, client=None):
-
-    client = default_client() if client is None else client
-
-    # dask.dataframe or dask.array
-    if isinstance(dask_obj, dcDataFrame) or \
-            isinstance(dask_obj, daskArray):
-        parts = futures_of(client.compute(dask_obj))
-
-    # iterable of dask collections (need to colocate them)
-    elif isinstance(dask_obj, Sequence):
-        parts = [futures_of(client.compute(a)) for a in dask_obj]
-        to_map = zip(*parts)
-        parts = client.compute(list(map(delayed, to_map)))
-
-    else:
-        raise TypeError("Unsupported dask_obj type: " + type(dask_obj))
-
-    yield wait(parts)
-
-    key_to_part = [(str(part.key), part) for part in parts]
-    who_has = yield client.who_has(parts)
-
-    raise gen.Return([(first(who_has[key]), part)
-                      for key, part in key_to_part])
-
-
-# TODO: This can go away once all remaining estimators are updated
-#  to use _extract_partitions
-@gen.coroutine
-def _extract_colocated_partitions(data, client=None):
-
-    # TODO: This should go away once Ridge is fully consolidated
-    """
-    Given Dask cuDF input X and y, return an OrderedDict mapping
-    'worker -> [list of futures] of X and y' with the enforced
-     co-locality for each partition in ddf.
-
-    :param X_ddf: Dask.dataframe
-    :param y_ddf: Dask.dataframe
-    :param client: dask.distributed.Client
-    """
-
-    client = default_client() if client is None else client
-
-    X_ddf, y_ddf = data
-
-    if isinstance(X_ddf, dcDataFrame):
-        data_parts = X_ddf.to_delayed()
-        label_parts = y_ddf.to_delayed()
-
-    else:
-        data_arr = X_ddf.to_delayed().ravel()
-        to_map = data_arr
-        data_parts = list(map(delayed, to_map))
-        label_arr = y_ddf.to_delayed().ravel()
-        to_map2 = label_arr
-        label_parts = list(map(delayed, to_map2))
-        # data_parts = X_ddf.to_delayed().ravel()
-        # label_parts = y_ddf.to_delayed().ravel()
-
-    parts = list(map(delayed, zip(data_parts, label_parts)))
-    parts = client.compute(parts)
-    yield wait(parts)
-
-    key_to_part = [(part.key, part) for part in parts]
-    who_has = yield client.scheduler.who_has(
-        keys=[part.key for part in parts]
-    )
-
-    raise gen.Return([(first(who_has[key]), part)
-                      for key, part in key_to_part])
 
 
 def _workers_to_parts(futures):
@@ -319,12 +242,14 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
     wait(futures)
 
     c = default_client() if client is None else client
-    meta = [c.submit(_get_ary_meta, future) for future in futures]
+    meta = [c.submit(_get_ary_meta, future, pure=False)
+            for future in futures]
 
     objs = []
     for i in range(len(futures)):
         if not isinstance(futures[i].type, type(None)):
-            met = meta[i].result()
+            met_future = meta[i]
+            met = met_future.result()
             obj = da.from_delayed(futures[i], shape=met[0],
                                   dtype=met[1])
             objs.append(obj)

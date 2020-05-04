@@ -43,7 +43,7 @@ struct ARIMAOrder {
   inline int complexity() const { return p + P + q + Q + k + 1; }
   inline int lost_in_diff() const { return d + s * D; }
 
-  inline bool need_prep() const { return static_cast<bool>(d + D + k); }
+  inline bool need_prep() const { return static_cast<bool>(d + D); }
 };
 
 /**
@@ -69,8 +69,6 @@ struct ARIMAParams {
    * @param[in]   batch_size Batch size
    * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
-   * @param[in]   order      ARIMA hyper-parameters
-   * @param[in]   batch_size Number of time series analyzed
    * @param[in]   tr         Whether these are the transformed parameters
    */
   template <typename AllocatorT>

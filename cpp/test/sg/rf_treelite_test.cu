@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <sys/stat.h>
@@ -151,9 +152,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   void getResultAndCheck() {
     // Predict and compare against known labels
     predict(*handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels_d, false);
+            params.n_cols, predicted_labels_d);
     RF_metrics tmp = score(*handle, forest, labels_d, params.n_inference_rows,
-                           predicted_labels_d, false);
+                           predicted_labels_d);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

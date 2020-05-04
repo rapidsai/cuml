@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <linalg/add.h>
 #include <linalg/eltwise.h>
@@ -94,7 +95,6 @@ void elasticnetGrad(math_t *grad, const math_t *coef, const int len,
   }
 }
 
-/** @} */
 };  // namespace Functions
 };  // namespace MLCommon
 // end namespace ML

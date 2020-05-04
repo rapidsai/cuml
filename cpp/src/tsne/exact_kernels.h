@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <float.h>
 #include <linalg/eltwise.h>
 #include <math.h>
-#include "utils.h"
 #define restrict __restrict__
 
 namespace ML {
