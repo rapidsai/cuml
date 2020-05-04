@@ -153,12 +153,12 @@ const std::vector<AdjustedRandIndexParam> inputs = {
   {100, 1, 20, true, 0.000001, false},   {10, 1, 10, true, 0.000001, false},
   {198, 1, 100, true, 0.000001, false},  {300, 3, 99, true, 0.000001, false},
 
-  {199, 0, 0, false, 0.000001, true},   {200, 0, 0, false, 0.000001, true},
-  {100, 0, 0, false, 0.000001, true},   {10, 0, 0, false, 0.000001, true},
-  {198, 0, 0, false, 0.000001, true},  {300, 0, 0, false, 0.000001, true},
-  {199, 0, 0, true, 0.000001, true},    {200, 0, 0, true, 0.000001, true},
-  {100, 0, 0, true, 0.000001, true},    {10, 0, 0, true, 0.000001, true},
-  {198, 0, 0, true, 0.000001, true},   {300, 0, 0, true, 0.000001, true},
+  {199, 0, 0, false, 0.000001, true},    {200, 0, 0, false, 0.000001, true},
+  {100, 0, 0, false, 0.000001, true},    {10, 0, 0, false, 0.000001, true},
+  {198, 0, 0, false, 0.000001, true},    {300, 0, 0, false, 0.000001, true},
+  {199, 0, 0, true, 0.000001, true},     {200, 0, 0, true, 0.000001, true},
+  {100, 0, 0, true, 0.000001, true},     {10, 0, 0, true, 0.000001, true},
+  {198, 0, 0, true, 0.000001, true},     {300, 0, 0, true, 0.000001, true},
 };
 
 const std::vector<AdjustedRandIndexParam> large_inputs = {

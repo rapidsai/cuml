@@ -23,15 +23,15 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <math.h>
-#include <cub/cub.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <common/device_buffer.hpp>
 #include <cuda_utils.h>
 #include <linalg/map_then_reduce.h>
 #include <linalg/reduce.h>
-#include "contingencyMatrix.h"
+#include <math.h>
 #include <stats/histogram.h>
+#include <common/device_buffer.hpp>
+#include <cub/cub.cuh>
+#include <cuml/common/cuml_allocator.hpp>
+#include "contingencyMatrix.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -77,18 +77,18 @@ struct Binner {
  * @return the number of unique elements in the array
  */
 template <typename T>
-int countUnique(const T* arr, int size, T &minLabel, T &maxLabel,
-                std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
+                std::shared_ptr<deviceAllocator> allocator,
+                cudaStream_t stream) {
   auto ptr = thrust::device_pointer_cast(arr);
-  auto minmax = thrust::minmax_element(thrust::cuda::par.on(stream), ptr,
-                                       ptr + size);
+  auto minmax =
+    thrust::minmax_element(thrust::cuda::par.on(stream), ptr, ptr + size);
   minLabel = *minmax.first;
   maxLabel = *minmax.second;
   auto totalLabels = int(maxLabel - minLabel + 1);
   device_buffer<int> labelCounts(allocator, stream, totalLabels);
   device_buffer<int> nUniq(allocator, stream, 1);
-  Stats::histogram<T, int>(Stats::HistTypeAuto, labelCounts.data(),
-                           totalLabels,
+  Stats::histogram<T, int>(Stats::HistTypeAuto, labelCounts.data(), totalLabels,
                            arr, size, 1, stream,
                            [minLabel] __device__(T val, int row, int col) {
                              return int(val - minLabel);
@@ -120,8 +120,8 @@ double computeAdjustedRandIndex(const T* firstClusterArray,
                                 cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   T minFirst, maxFirst, minSecond, maxSecond;
-  auto nUniqFirst = countUnique(firstClusterArray, size, minFirst, maxFirst,
-                                allocator, stream);
+  auto nUniqFirst =
+    countUnique(firstClusterArray, size, minFirst, maxFirst, allocator, stream);
   auto nUniqSecond = countUnique(secondClusterArray, size, minSecond, maxSecond,
                                  allocator, stream);
   auto lowerLabelRange = std::min(minFirst, minSecond);
