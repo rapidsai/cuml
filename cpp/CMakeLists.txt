@@ -119,13 +119,6 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-set(Protobuf_USE_STATIC_LIBS ON)
-if(DEFINED ENV{CONDA_PREFIX})
-  set(Protobuf_LIBRARIES $ENV{CONDA_PREFIX}/lib/libprotobuf.a)
-  set(Protobuf_INCLUDE_DIRS $ENV{CONDA_PREFIX}/include)
-endif(DEFINED ENV{CONDA_PREFIX})
-find_package(Protobuf REQUIRED)
-
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 ##############################################################################
@@ -327,15 +320,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     PUBLIC
       ${CUML_LINK_LIBRARIES}
     PRIVATE
-      ${Protobuf_LIBRARIES}
       faisslib
-      treelitelib
-      dmlclib)
-  # If we export the libdmlc symbols, they can lead to weird crashes with other
-  # libraries that use libdmlc. This just hides the symbols internally.
-  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
-  # same as above, but for protobuf library
-  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+      treelitelib)
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ##############################################################################
