@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <linalg/add.h>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -28,24 +28,25 @@ struct AddParams {
 template <typename T>
 struct AddBench : public Fixture {
   AddBench(const std::string& name, const AddParams& p)
-    : Fixture(name), params(p) {}
+    : Fixture(name,
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(ptr0, params.len, true);
-    allocate(ptr1, params.len, true);
+    alloc(ptr0, params.len, true);
+    alloc(ptr1, params.len, true);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(ptr0));
-    CUDA_CHECK(cudaFree(ptr1));
+    dealloc(ptr0, params.len);
+    dealloc(ptr1, params.len);
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+    loopOnState(state, [this]() {
       MLCommon::LinAlg::add(ptr0, ptr0, ptr1, params.len, stream);
-    }
+    });
   }
 
  private:
@@ -61,8 +62,8 @@ static std::vector<AddParams> getInputs() {
   };
 }
 
-PRIMS_BENCH_REGISTER(AddParams, AddBench<float>, "add", getInputs());
-PRIMS_BENCH_REGISTER(AddParams, AddBench<double>, "add", getInputs());
+ML_BENCH_REGISTER(AddParams, AddBench<float>, "", getInputs());
+ML_BENCH_REGISTER(AddParams, AddBench<double>, "", getInputs());
 
 }  // namespace LinAlg
 }  // namespace Bench

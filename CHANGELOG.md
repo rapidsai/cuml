@@ -18,6 +18,7 @@
 - PR #1947: Cleaning up cmake
 - PR #1927: Use Cython's `new_build_ext` (if available)
 - PR #1946: Removed zlib dependency from cmake
+- PR #1988: C++: cpp bench refactor
 - PR #1873: Remove usage of nvstring and nvcat from LabelEncoder
 - PR #1968: Update SVC SVR with cuML Array
 - PR #1972: updates to our flow to use conda-forge's clang and clang-tools packages
@@ -60,8 +61,10 @@
 - PR #2146: Remove deprecated kalman filter
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 - PR #2187: CMake improvements to manage conda environment dependencies
+- PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -94,6 +97,8 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2179: Fix clang tools version in libcuml recipe
+- PR #2183: Fix RAFT in nightly package
 
 # cuML 0.13.0 (Date TBD)
 
