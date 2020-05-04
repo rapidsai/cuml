@@ -50,6 +50,7 @@ from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+cimport cython
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -396,6 +397,11 @@ class RandomForestClassifier(Base):
                                       "classification models is currently not "
                                       "implemented. Please check cuml issue "
                                       "#1679 for more information.")
+        cdef unsigned char[::1] model_pbuf_mv = self.model_pbuf_bytes
+        cdef vector[unsigned char] model_pbuf_vec
+        with cython.boundscheck(False):
+            model_pbuf_vec.assign(& model_pbuf_mv[0],
+                                  & model_pbuf_mv[model_pbuf_mv.shape[0]])
         if self.treelite_handle is None:
             task_category = CLASSIFICATION_MODEL
             build_treelite_forest(
@@ -403,10 +409,9 @@ class RandomForestClassifier(Base):
                 rf_forest,
                 <int> self.n_cols,
                 <int> task_category,
-                <vector[unsigned char] &> self.model_pbuf_bytes)
+                model_pbuf_vec)
             mod_ptr = <uintptr_t> cuml_model_ptr
             self.treelite_handle = ctypes.c_void_p(mod_ptr).value
-
         return self.treelite_handle
 
     def _get_protobuf_bytes(self):
