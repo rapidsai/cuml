@@ -355,7 +355,8 @@ class RandomForestRegressor(Base):
         if self.n_cols:
             # Only if the model is fitted before
             # Clears the data of the forest to prepare for next fit
-            free(<RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest)
+            free(<RandomForestMetaData[float, float]*><uintptr_t>
+                 self.rf_forest)
             free(<RandomForestMetaData[double, double]*><uintptr_t>
                  self.rf_forest64)
 
