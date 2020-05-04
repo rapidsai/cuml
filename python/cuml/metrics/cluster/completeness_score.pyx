@@ -21,35 +21,30 @@
 
 from cuml.common.handle cimport cumlHandle
 from libc.stdint cimport uintptr_t
-
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 import cuml.common.handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double mutualInfoScore(const cumlHandle &handle,
-                           const int *y,
-                           const int *y_hat,
-                           const int n,
-                           const int lower_class_range,
-                           const int upper_class_range) except +
+    double completenessScore(const cumlHandle & handle, const int *y,
+                             const int *y_hat, const int n,
+                             const int lower_class_range,
+                             const int upper_class_range) except +
 
 
-def mutual_info_score(labels_true, labels_pred, handle=None):
+def completeness_score(labels_true, labels_pred, handle=None):
     """
-    Computes the Mutual Information between two clusterings.
+    Completeness metric of a cluster labeling given a ground truth.
 
-    The Mutual Information is a measure of the similarity between two labels of
-    the same data.
+    A clustering result satisfies completeness if all the data points that are
+    members of a given class are elements of the same cluster.
 
     This metric is independent of the absolute values of the labels:
     a permutation of the class or cluster label values won’t change the score
     value in any way.
 
-    This metric is furthermore symmetric: switching label_true with label_pred
-    will return the same score value. This can be useful to measure the
-    agreement of two independent label assignments strategies on the same
-    dataset when the real ground truth is not known.
+    This metric is not symmetric: switching label_true with label_pred will
+    return the homogeneity_score which will be different in general.
 
     The labels in labels_pred and labels_true are assumed to be drawn from a
     contiguous set (Ex: drawn from {2, 3, 4}, but not from {2, 4}). If your
@@ -57,20 +52,27 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
 
     Parameters
     ----------
-    handle : cuml.Handle
     labels_pred : array-like (device or host) shape = (n_samples,)
-        A clustering of the data (ints) into disjoint subsets.
+        The labels predicted by the model for the test dataset.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
     labels_true : array-like (device or host) shape = (n_samples,)
-        A clustering of the data (ints) into disjoint subsets.
+        The ground truth labels (ints) of the test dataset.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
     float
-      Mutual information, a non-negative value
+      The completeness of the predicted labeling given the ground truth.
+      Score between 0.0 and 1.0. 1.0 stands for perfectly complete labeling.
     """
     handle = cuml.common.handle.Handle() if handle is None else handle
     cdef cumlHandle *handle_ = <cumlHandle*> <size_t> handle.getHandle()
@@ -84,11 +86,11 @@ def mutual_info_score(labels_true, labels_pred, handle=None):
     cdef uintptr_t ground_truth_ptr = y_true.ptr
     cdef uintptr_t preds_ptr = y_pred.ptr
 
-    mi = mutualInfoScore(handle_[0],
-                         <int*> ground_truth_ptr,
-                         <int*> preds_ptr,
-                         <int> n_rows,
-                         <int> lower_class_range,
-                         <int> upper_class_range)
+    com = completenessScore(handle_[0],
+                            <int*> ground_truth_ptr,
+                            <int*> preds_ptr,
+                            <int> n_rows,
+                            <int> lower_class_range,
+                            <int> upper_class_range)
 
-    return mi
+    return com
