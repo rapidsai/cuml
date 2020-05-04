@@ -200,6 +200,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         seed,
         **kwargs
     ):
+        print(" seed values inside fun_build_rf ", seed)
         return cuRFC(
             n_estimators=n_estimators,
             seed=seed,
@@ -207,7 +208,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         )
 
     @staticmethod
-    def _predict_cpu(model, X, convert_dtype, r):
+    def _predict_model_on_cpu(model, X, convert_dtype, r):
         return model._predict_get_all(X, convert_dtype)
 
     def print_summary(self):
@@ -324,8 +325,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
         if self.num_classes > 2 or predict_model == "CPU":
-            preds = self._predict_using_cpu(X,
-                                            convert_dtype=convert_dtype)
+            preds = self.predict_model_on_cpu(X,
+                                              convert_dtype=convert_dtype)
 
         else:
             preds = \
@@ -349,7 +350,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     TODO : Update function names used for CPU predict.
         Cuml issue #1854 has been created to track this.
     """
-    def _predict_using_cpu(self, X, convert_dtype=True):
+    def predict_model_on_cpu(self, X, convert_dtype=True):
         """
         Predicts the labels for X.
 
@@ -374,7 +375,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         for n, w in enumerate(workers):
             futures.append(
                 c.submit(
-                    RandomForestClassifier._predict_cpu,
+                    RandomForestClassifier._predict_model_on_cpu,
                     self.rfs[w],
                     X_Scattered,
                     convert_dtype,
