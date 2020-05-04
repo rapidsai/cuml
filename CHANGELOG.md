@@ -62,6 +62,7 @@
 - PR #2146: Remove deprecated kalman filter
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
+- PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 
 ## Bug Fixes
@@ -95,6 +96,7 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 
 # cuML 0.13.0 (Date TBD)
