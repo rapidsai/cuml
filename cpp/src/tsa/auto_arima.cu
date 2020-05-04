@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include "cuml/tsa/auto_arima.h"
 #include "auto_arima.cuh"
+#include "cuml/tsa/auto_arima.h"
+
 
 #include "common/cumlHandle.hpp"
 

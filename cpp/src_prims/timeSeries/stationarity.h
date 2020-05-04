@@ -41,7 +41,6 @@
 #include "linalg/reduce.h"
 #include "stats/mean.h"
 
-
 namespace MLCommon {
 
 namespace TimeSeries {
