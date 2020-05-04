@@ -120,6 +120,10 @@ else()
 endif()
 
 set(Protobuf_USE_STATIC_LIBS ON)
+if(DEFINED ENV{CONDA_PREFIX})
+  set(Protobuf_LIBRARIES $ENV{CONDA_PREFIX}/lib/libprotobuf.a)
+  set(Protobuf_INCLUDE_DIRS $ENV{CONDA_PREFIX}/include)
+endif(DEFINED ENV{CONDA_PREFIX})
 find_package(Protobuf REQUIRED)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
