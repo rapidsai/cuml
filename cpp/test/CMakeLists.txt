@@ -56,7 +56,7 @@ if(BUILD_CUML_TESTS)
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
-    sg/tsvd_test.cu
+    sg/tsvd_test.cu)
     #sg/umap_test.cu)
 
   target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
