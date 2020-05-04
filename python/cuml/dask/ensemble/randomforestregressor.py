@@ -16,12 +16,16 @@
 
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    concatenate
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.randomforestcommon import \
     BaseRandomForestModel
 
 from dask.distributed import default_client, wait
 
+import math
+from uuid import uuid1
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
     """
@@ -190,7 +194,8 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
             max_leaves=max_leaves,
             accuracy_metric=accuracy_metric,
             quantile_per_tree=quantile_per_tree,
-            dtype=dtype)
+            dtype=dtype
+        )
 
     @staticmethod
     def _func_build_rf(
@@ -319,6 +324,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         return self._predict_using_fil(X=X,
                                        delayed=delayed,
                                        **kwargs)
+
     """
     TODO : Update function names used for CPU predict.
            Cuml issue #1854 has been created to track this.

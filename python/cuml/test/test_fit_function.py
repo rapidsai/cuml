@@ -31,6 +31,9 @@ models = models_config.get_models()
 
 @pytest.mark.parametrize('model_name', list(models.keys()))
 def test_fit_function(dataset, model_name):
+    if model_name in ['SparseRandomProjection', 'TSNE', 'TruncatedSVD']:
+        pytest.xfail("These models are not tested yet")
+
     n_pos_args_constr = func_positional_arg(models[model_name].__init__)
 
     if model_name in ['SparseRandomProjection', 'GaussianRandomProjection']:
