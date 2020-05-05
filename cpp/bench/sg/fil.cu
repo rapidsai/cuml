@@ -37,7 +37,7 @@ struct Params {
 class FIL : public RegressionFixture<float> {
  public:
   FIL(const std::string& name, const Params& p)
-    : RegressionFixture<float>(p.data, p.blobs),
+    : RegressionFixture<float>("FIL", p.data, p.blobs),
       model(p.model),
       predict_proba(p.predict_proba) {
     this->SetName(name.c_str());
@@ -51,7 +51,7 @@ class FIL : public RegressionFixture<float> {
     auto& handle = *this->handle;
     auto stream = handle.getStream();
     for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
+      MLCommon::Bench::CudaEventTimer timer(state, nullptr, 0, stream);
       ML::fil::predict(handle, forest, this->data.y, this->data.X,
                        this->params.nrows, predict_proba);
     }
@@ -87,29 +87,29 @@ struct fil_bench_params_t {
   bool predict_proba;
 };
 
-int get_size_from_env(const char* name) {
+size_t get_size_from_env(const char* name) {
   int size = atoi(std::getenv(name));
   // todo: implement proper mechanism to pass benchmark parameters
-  ASSERT(size > 0, name);
-  return size;
+  ASSERT(size > 0, "%s", name);
+  return (size_t)size;
 }
 
 std::vector<Params> getInputs() {
   std::vector<Params> out;
   Params p;
   TreeliteLoadProtobufModel(std::getenv("TL_MODEL_PROTO_PATH"), &p.model);
-  int ncols = get_size_from_env("NCOLS");
+  size_t ncols = get_size_from_env("NCOLS");
   p.data.rowMajor = true;
   // see src_prims/random/make_regression.h
-  p.blobs = {.n_informative = ncols / 3,
-             .effective_rank = 2 * ncols / 3,
+  p.blobs = {.n_informative = (int)ncols / 3,
+             .effective_rank = 2 * (int)ncols / 3,
              .bias = 0.f,
              .tail_strength = 0.1,
              .noise = 0.01,
              .shuffle = false,
              .seed = 12345ULL};
   std::vector<fil_bench_params_t> rowcols = {
-    {10123, ncols, 2, false}, {10123, ncols, 2, true},
+    {10123ul, ncols, 2ul, false}, {10123ul, ncols, 2ul, true},
     //{1184000, ncols, 2, false},  // Mimicking Bosch dataset
   };
   for (auto& rc : rowcols) {
@@ -125,7 +125,7 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, FIL, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, FIL, "", getInputs());
 
 }  // end namespace fil
 }  // end namespace Bench
