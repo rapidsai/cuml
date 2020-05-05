@@ -125,7 +125,9 @@ class TruncatedSVD(BaseDecomposition,
         X : dask cuDF input
 
         """
-        self._fit(X, _transform)
+        out = self._fit(X, _transform)
+        if _transform:
+            return out
         return self
 
     def fit_transform(self, X):

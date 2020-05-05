@@ -109,6 +109,14 @@ class DecompositionSyncFitMixin(object):
             self.local_model.explained_variance_ratio_
         self.singular_values_ = self.local_model.singular_values_
 
+        if _transform:
+            out_futures = flatten_grouped_results(self.client,
+                                                  data.gpu_futures,
+                                                  pca_fit)
+            return to_output(out_futures, self.datatype)
+
+        return self
+
         return self
 
     @staticmethod
