@@ -63,7 +63,7 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
-option(DETECT_CONDA_ENV "Disable detection of conda environment for dependencies" ON)
+option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
