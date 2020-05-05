@@ -691,6 +691,7 @@ class ARIMA(Base):
             self.niter = (self.niter + niter) if method == "css-ml" else niter
 
         self.unpack(self._batched_transform(x))
+        return self
 
     @nvtx_range_wrap
     def _loglike(self, x, trans=True, method="ml", truncate=0):
