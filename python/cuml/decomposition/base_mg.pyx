@@ -107,6 +107,21 @@ class BaseDecompositionMG(object):
             free(d[x_i])
         free(d)
 
+    def _build_transData(self, partsToRanks, rnk, n_cols, dtype):
+        arr_interfaces_trans = []
+        for idx, rankSize in enumerate(partsToRanks):
+            rank, size = rankSize
+            if rnk == rank:
+                trans_ary = CumlArray.zeros((size, n_cols),
+                                            order="F",
+                                            dtype=dtype)
+
+                arr_interfaces_trans.append({"obj": trans_ary,
+                                             "data": trans_ary.ptr,
+                                             "shape": (size, n_cols)})
+
+        return arr_interfaces_trans
+
     def _fit(self, X, total_rows, n_cols, partsToRanks, rank):
         """
         Fit function for PCA MG. This not meant to be used as

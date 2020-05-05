@@ -116,7 +116,7 @@ class TruncatedSVD(BaseDecomposition,
                                            client,
                                            **kwargs)
 
-    def fit(self, X, _transform=False):
+    def fit(self, X):
         """
         Fit the model with X.
 
@@ -125,7 +125,8 @@ class TruncatedSVD(BaseDecomposition,
         X : dask cuDF input
 
         """
-        return self._fit(X, _transform)
+        self._fit(X)
+        return self
 
     def fit_transform(self, X):
         """
@@ -139,7 +140,7 @@ class TruncatedSVD(BaseDecomposition,
         -------
         X_new : dask cuDF
         """
-        return self.fit(X, _transform=True)
+        return self.fit(X).transform(X)
 
     def transform(self, X, delayed=True):
         """
