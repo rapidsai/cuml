@@ -64,6 +64,7 @@
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 - PR #2187: CMake improvements to manage conda environment dependencies
+- PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
 
 ## Bug Fixes
@@ -99,6 +100,7 @@
 - PR #2166: Fix handling of temp file in RF pickling
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
+- PR #2191: Fix placement of SVM parameter documentation and add examples
 
 # cuML 0.13.0 (Date TBD)
 
