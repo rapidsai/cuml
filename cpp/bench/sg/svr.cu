@@ -15,14 +15,14 @@
  */
 
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <cmath>
 #include <cuml/cuml.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <utility>
 #include "benchmark.cuh"
-#include "cuml/svm/svm_model.h"
-#include "cuml/svm/svm_parameter.h"
 
 namespace ML {
 namespace Bench {
@@ -41,14 +41,14 @@ template <typename D>
 class SVR : public RegressionFixture<D> {
  public:
   SVR(const std::string& name, const Params<D>& p)
-    : RegressionFixture<D>(p.data, p.regression),
+    : RegressionFixture<D>(name, p.data, p.regression),
       kernel(p.kernel),
       model(p.model),
       svm_param(p.svm_param) {
-    std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
-    std::ostringstream oss;
-    oss << name << "/" << kernel_names[kernel.kernel] << p.data;
-    this->SetName(oss.str().c_str());
+    //std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
+    //std::ostringstream oss;
+    //oss << name << "/" << kernel_names[kernel.kernel] << p.data;
+    //this->SetName(oss.str().c_str());
   }
 
  protected:
@@ -59,16 +59,13 @@ class SVR : public RegressionFixture<D> {
     if (this->svm_param.svmType != ML::SVM::EPSILON_SVR) {
       state.SkipWithError("SVR currently only supports EPSILON_SVR");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
-      ML::SVM::svrFit(handle, this->data.X, this->params.nrows,
+    this->loopOnState(state, [this]() {
+      ML::SVM::svrFit(*this->handle, this->data.X, this->params.nrows,
                       this->params.ncols, this->data.y, this->svm_param,
                       this->kernel, this->model);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-      ML::SVM::svmFreeBuffers(handle, this->model);
-    }
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      ML::SVM::svmFreeBuffers(*this->handle, this->model);
+    });
   }
 
  private:
@@ -116,17 +113,16 @@ std::vector<Params<D>> getInputs() {
     p.regression.n_informative = rc.n_informative;
     for (auto kernel : kernels) {
       p.kernel = kernel;
-      p.kernel.gamma = 1 / rc.ncols;
+      p.kernel.gamma = 1.0 / rc.ncols;
       out.push_back(p);
     }
   }
   return out;
 }
 
-CUML_BENCH_REGISTER(Params<float>, SVR<float>, "regression",
-                    getInputs<float>());
-CUML_BENCH_REGISTER(Params<double>, SVR<double>, "regression",
-                    getInputs<double>());
+ML_BENCH_REGISTER(Params<float>, SVR<float>, "regression", getInputs<float>());
+ML_BENCH_REGISTER(Params<double>, SVR<double>, "regression",
+                  getInputs<double>());
 
 }  // namespace SVM
 }  // namespace Bench

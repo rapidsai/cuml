@@ -15,14 +15,14 @@
  */
 
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <cmath>
 #include <cuml/cuml.hpp>
 #include <cuml/svm/svc.hpp>
 #include <sstream>
 #include <utility>
 #include "benchmark.cuh"
-#include "cuml/svm/svm_model.h"
-#include "cuml/svm/svm_parameter.h"
 
 namespace ML {
 namespace Bench {
@@ -41,14 +41,14 @@ template <typename D>
 class SVC : public BlobsFixture<D, D> {
  public:
   SVC(const std::string& name, const Params<D>& p)
-    : BlobsFixture<D, D>(p.data, p.blobs),
+    : BlobsFixture<D, D>(name, p.data, p.blobs),
       kernel(p.kernel),
       model(p.model),
       svm_param(p.svm_param) {
-    std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
-    std::ostringstream oss;
-    oss << name << "/" << kernel_names[kernel.kernel] << p.data;
-    this->SetName(oss.str().c_str());
+    //std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
+    //std::ostringstream oss;
+    //oss << name << "/" << kernel_names[kernel.kernel] << p.data;
+    //this->SetName(oss.str().c_str());
   }
 
  protected:
@@ -59,16 +59,13 @@ class SVC : public BlobsFixture<D, D> {
     if (this->svm_param.svmType != ML::SVM::C_SVC) {
       state.SkipWithError("SVC currently only supports C_SVC");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
-      ML::SVM::svcFit(handle, this->data.X, this->params.nrows,
+    this->loopOnState(state, [this]() {
+      ML::SVM::svcFit(*this->handle, this->data.X, this->params.nrows,
                       this->params.ncols, this->data.y, this->svm_param,
                       this->kernel, this->model);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-      ML::SVM::svmFreeBuffers(handle, this->model);
-    }
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      ML::SVM::svmFreeBuffers(*this->handle, this->model);
+    });
   }
 
  private:
@@ -114,15 +111,15 @@ std::vector<Params<D>> getInputs() {
     p.data.nclasses = rc.nclasses;
     for (auto kernel : kernels) {
       p.kernel = kernel;
-      p.kernel.gamma = 1 / rc.ncols;
+      p.kernel.gamma = 1.0 / rc.ncols;
       out.push_back(p);
     }
   }
   return out;
 }
 
-CUML_BENCH_REGISTER(Params<float>, SVC<float>, "blobs", getInputs<float>());
-CUML_BENCH_REGISTER(Params<double>, SVC<double>, "blobs", getInputs<double>());
+ML_BENCH_REGISTER(Params<float>, SVC<float>, "blobs", getInputs<float>());
+ML_BENCH_REGISTER(Params<double>, SVC<double>, "blobs", getInputs<double>());
 
 }  // namespace SVM
 }  // namespace Bench
