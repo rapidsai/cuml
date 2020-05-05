@@ -47,6 +47,7 @@
 - PR #2080: Improved import of sparse FIL forests from treelite
 - PR #2090: Upgrade C++ build to C++14 standard
 - PR #2089: CI: enabled cuda-memcheck on ml-prims unit-tests during nightly build
+- PR #2128: Update Dask RF code to reduce the time required for GPU predict to run
 - PR #2125: Build infrastructure to use RAFT
 - PR #2131: Update Dask RF fit to use DistributedDataHandler
 - PR #2055: Update the metrics notebook to use important cuML models
@@ -63,9 +64,11 @@
 - PR #2156: Add Docker 19 support to local gpuci build
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2187: CMake improvements to manage conda environment dependencies
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
 - PR #2184: Refoctor headers for holtwinters, rproj, tsvd, tsne, umap
+- PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
