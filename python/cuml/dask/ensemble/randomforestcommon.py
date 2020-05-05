@@ -122,7 +122,6 @@ class BaseRandomForestModel(object):
         model_params = list()
         workers = [worker for worker in self.workers]
         for i in worker_numb:
-            print(workers[i])
             model_params.append(
                 self.client.submit(
                     _func_set_params,
