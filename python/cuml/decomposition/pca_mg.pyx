@@ -42,7 +42,6 @@ from cuml.utils import input_to_dev_array, zeros
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
-from time import sleep
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
                  namespace "MLCommon::Matrix":
@@ -118,7 +117,6 @@ class PCAMG(PCA, BaseDecompositionMG):
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            sleep(2)
 
             fit(handle_[0],
                 <RankSizePair**><size_t>arg_rank_size_pair,
