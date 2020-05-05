@@ -373,7 +373,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         """
         return self._get_params(deep)
 
-    def set_params(self, **params):
+    def set_params(self, worker_numb, **params):
         """
         Sets the value of parameters required to
         configure this estimator, it functions similar to
@@ -382,5 +382,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         Parameters
         -----------
         params : dict of new params
+        worker_numb : int or list
+            The number of the worker for whose  model parameter values
+            are to be set
         """
-        return self._set_params(**params)
+        return self._set_params(**params,
+                                worker_numb=worker_numb)
