@@ -174,6 +174,7 @@ class KNeighborsClassifier(NearestNeighbors):
                                 convert_to_dtype=(np.int32
                                                   if convert_dtype
                                                   else None))
+        return self
 
     def predict(self, X, convert_dtype=True):
         """

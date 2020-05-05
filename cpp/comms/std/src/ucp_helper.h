@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
-#include <utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
