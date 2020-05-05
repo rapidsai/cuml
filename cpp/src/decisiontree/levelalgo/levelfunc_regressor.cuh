@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>

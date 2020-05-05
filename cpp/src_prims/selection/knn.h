@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
 #include "distance/distance.h"
@@ -254,10 +255,20 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     gpu_res.setCudaMallocWarning(false);
     gpu_res.setDefaultStream(device, stream);
 
-    faiss::gpu::bruteForceKnn(
-      &gpu_res, faiss::METRIC_L2, input[i], rowMajorIndex, sizes[i],
-      search_items, rowMajorQuery, n, D, k, all_D.data() + (i * k * n),
-      all_I.data() + (i * k * n));
+    faiss::gpu::GpuDistanceParams args;
+    args.metric = faiss::METRIC_L2;
+    args.k = k;
+    args.dims = D;
+    args.vectors = input[i];
+    args.vectorsRowMajor = rowMajorIndex;
+    args.numVectors = sizes[i];
+    args.queries = search_items;
+    args.queriesRowMajor = rowMajorQuery;
+    args.numQueries = n;
+    args.outDistances = all_D.data() + (i * k * n);
+    args.outIndices = all_I.data() + (i * k * n);
+
+    bfKnn(&gpu_res, args);
 
     CUDA_CHECK(cudaPeekAtLastError());
   }

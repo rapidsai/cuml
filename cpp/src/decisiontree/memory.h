@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <utils.h>
+#include <common/cudart_utils.h>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
