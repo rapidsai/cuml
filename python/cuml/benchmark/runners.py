@@ -19,6 +19,7 @@ import time
 import itertools
 import numpy as np
 import pandas as pd
+import warnings
 
 from cuml.benchmark import datagen
 from cudf.core import Series
@@ -109,13 +110,22 @@ class SpeedupComparisonRunner:
                                   **setup_overrides)
             cpu_elapsed = np.min(cpu_timer.timings)
         else:
+
+            if run_cpu:
+                warnings.warn("run_cpu argument is set to True but no CPU "
+                              "implementation was provided. It's possible "
+                              "an additional library is needed but one could "
+                              "not be found. Benchmark will be executed with "
+                              "run_cpu=False")
+
             cpu_elapsed = 0.0
 
         speedup = cpu_elapsed / float(cu_elapsed)
         if verbose:
             print(
-                "%s Speedup (n_samples=%s, n_features=%s) = %s"
-                % (algo_pair.name, n_samples, n_features, speedup)
+                "%s (n_samples=%s, n_features=%s) [cpu=%s, gpu=%s, speedup=%s]"
+                % (algo_pair.name, n_samples, n_features, cpu_elapsed,
+                   cu_elapsed, speedup)
             )
 
         return dict(
