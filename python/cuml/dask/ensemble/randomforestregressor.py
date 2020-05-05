@@ -371,8 +371,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         -----------
         deep : boolean (default = True)
         """
-        return self._get_params(model_type=RandomForestRegressor,
-                                deep=True)
+        return self._get_params(deep)
 
     def set_params(self, **params):
         """
@@ -384,5 +383,4 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         -----------
         params : dict of new params
         """
-        return self._set_params(model_type=RandomForestRegressor,
-                                **params)
+        return self._set_params(**params)

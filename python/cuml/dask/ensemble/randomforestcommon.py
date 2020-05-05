@@ -100,21 +100,37 @@ class BaseRandomForestModel(object):
         self.datatype = data.datatype
         return self._predict(X, delayed=delayed, **kwargs)
 
-    def _get_params(self, model_type, deep):
-        params = dict()
-        for key in model_type.variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+    def _get_params(self, deep):
+        model_params = list()
+        for n, worker in enumerate(self.workers):
+            model_params.append(
+                self.client.submit(
+                    _func_get_params,
+                    self.rfs[worker],
+                    deep,
+                    workers=[worker]
+                )
+            )
+        wait(model_params)
+        raise_exception_from_futures(model_params)
+        params_of_each_model = list()
+        for i in range(len(model_params)):
+            params_of_each_model.append(model_params[i].result())
+        return params_of_each_model
 
-    def _set_params(self, model_type, **params):
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in model_type.variables:
-                raise ValueError("Invalid parameter for estimator")
-            else:
-                setattr(self, key, value)
+    def _set_params(self, **params):
+        model_params = list()
+        for n, worker in enumerate(self.workers):
+            model_params.append(
+                self.client.submit(
+                    _func_set_params,
+                    self.rfs[worker],
+                    **params,
+                    workers=[worker]
+                )
+            )
+        wait(model_params)
+        raise_exception_from_futures(model_params)
         return self
 
     def _print_summary(self):
@@ -146,3 +162,11 @@ def _func_fit(model, input_data, convert_dtype):
 
 def _print_summary_func(model):
     model.print_summary()
+
+
+def _func_get_params(model, deep):
+    return model.get_params(deep)
+
+
+def _func_set_params(model, **params):
+    return model.set_params(**params)

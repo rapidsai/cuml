@@ -489,8 +489,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         -----------
         deep : boolean (default = True)
         """
-        return self._get_params(model_type=RandomForestClassifier,
-                                deep=True)
+        return self._get_params(deep=True)
 
     def set_params(self, **params):
         """
@@ -502,5 +501,4 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         -----------
         params : dict of new params
         """
-        return self._set_params(model_type=RandomForestClassifier,
-                                **params)
+        return self._set_params(**params)
