@@ -106,6 +106,14 @@ def has_scipy():
         return False
 
 
+def has_sklearn():
+    try:
+        import sklearn   # NOQA
+        return True
+    except ImportError:
+        return False
+
+
 def dummy_function_always_false(*args, **kwargs):
     return False
 
