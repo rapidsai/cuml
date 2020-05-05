@@ -118,15 +118,17 @@ class BaseRandomForestModel(object):
             params_of_each_model.append(model_params[i].result())
         return params_of_each_model
 
-    def _set_params(self, **params):
+    def _set_params(self, worker_numb, **params):
         model_params = list()
-        for n, worker in enumerate(self.workers):
+        workers = [worker for worker in self.workers]
+        for i in worker_numb:
+            print(workers[i])
             model_params.append(
                 self.client.submit(
                     _func_set_params,
-                    self.rfs[worker],
+                    self.rfs[workers[i]],
                     **params,
-                    workers=[worker]
+                    workers=[workers[i]]
                 )
             )
         wait(model_params)
@@ -138,9 +140,7 @@ class BaseRandomForestModel(object):
         Print the summary of the forest used to train and test the model.
         """
         futures = list()
-        workers = self.workers
-
-        for n, w in enumerate(workers):
+        for n, w in enumerate(self.workers):
             futures.append(
                 self.client.submit(
                     _print_summary_func,
