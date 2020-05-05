@@ -28,7 +28,6 @@ import cuml.naive_bayes
 from cuml.utils.import_utils import has_umap
 import numpy as np
 import tempfile
-import warnings
 
 from cuml.benchmark.bench_helper_funcs import (
     fit,
@@ -434,30 +433,23 @@ def all_algorithms():
             accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
         ),
+        AlgorithmPair(
+            umap.UMAP if has_umap() else None,
+            cuml.manifold.UMAP,
+            shared_args=dict(n_neighbors=5, n_epochs=500),
+            name="UMAP-Unsupervised",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.trustworthiness,
+        ),
+        AlgorithmPair(
+            umap.UMAP if has_umap() else None,
+            cuml.manifold.UMAP,
+            shared_args=dict(n_neighbors=5, n_epochs=500),
+            name="UMAP-Supervised",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.trustworthiness,
+        )
     ]
-
-    if has_umap():
-        algorithms.extend([
-            AlgorithmPair(
-                umap.UMAP,
-                cuml.manifold.UMAP,
-                shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP-Unsupervised",
-                accepts_labels=True,
-                accuracy_function=cuml.metrics.trustworthiness,
-            ),
-            AlgorithmPair(
-                umap.UMAP,
-                cuml.manifold.UMAP,
-                shared_args=dict(n_neighbors=5, n_epochs=500),
-                name="UMAP-Supervised",
-                accepts_labels=True,
-                accuracy_function=cuml.metrics.trustworthiness,
-            )
-        ])
-    else:
-        warnings.warn("Could not find UMAP-learn library. UMAP benchmarks "
-                      "will not be available.")
 
     return algorithms
 
