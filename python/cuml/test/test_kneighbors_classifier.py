@@ -32,6 +32,30 @@ import pandas as pd
 import cupy as cp
 
 
+def _build_train_test_data(X, y, datatype, train_ratio=0.9):
+
+    train_selection = np.random.RandomState(42).choice(
+        [True, False], X.shape[0], replace=True,
+        p=[train_ratio, 1.0-train_ratio])
+
+    X_train = X[train_selection]
+    y_train = y[train_selection]
+    X_test = X[~train_selection]
+    y_test = y[~train_selection]
+
+    if datatype == "dataframe":
+        X_train = cudf.DataFrame.from_gpu_matrix(
+            rmm.to_device(X_train))
+        y_train = cudf.DataFrame.from_gpu_matrix(
+            rmm.to_device(y_train.reshape(y_train.shape[0], 1)))
+        X_test = cudf.DataFrame.from_gpu_matrix(
+            rmm.to_device(X_test))
+        y_test = cudf.DataFrame.from_gpu_matrix(
+            rmm.to_device(y_test.reshape(y_test.shape[0], 1)))
+
+    return X_train, X_test, y_train, y_test
+
+
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
 @pytest.mark.parametrize("nrows", [1000, 10000])
 @pytest.mark.parametrize("ncols", [50, 100])
@@ -48,23 +72,22 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
 
     X = X.astype(np.float32)
 
-    if datatype == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y.reshape(nrows, 1)))
+    X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
 
     knn_cu = cuKNN(n_neighbors=n_neighbors)
-    knn_cu.fit(X, y)
+    knn_cu.fit(X_train, y_train)
 
-    predictions = knn_cu.predict(X)
+    predictions = knn_cu.predict(X_test)
 
     if datatype == "dataframe":
         assert isinstance(predictions, cudf.Series)
         assert array_equal(predictions.to_frame().astype(np.int32),
-                           y.astype(np.int32))
+                           y_test.astype(np.int32))
     else:
         assert isinstance(predictions, np.ndarray)
+
         assert array_equal(predictions.astype(np.int32),
-                           y.astype(np.int32))
+                           y_test.astype(np.int32))
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -79,15 +102,12 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
                       cluster_std=0.01)
 
     X = X.astype(np.float32)
-
-    if datatype == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y.reshape(nrows, 1)))
+    X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
 
     knn_cu = cuKNN(n_neighbors=n_neighbors)
-    knn_cu.fit(X, y)
+    knn_cu.fit(X_train, y_train)
 
-    assert knn_cu.score(X, y) >= (1.0 - 0.004)
+    assert knn_cu.score(X_test, y_test) >= (1.0 - 0.004)
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -105,26 +125,24 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
 
     X = X.astype(np.float32)
 
-    if datatype == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y.reshape(nrows, 1)))
+    X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
 
     knn_cu = cuKNN(n_neighbors=n_neighbors)
-    knn_cu.fit(X, y)
+    knn_cu.fit(X_train, y_train)
 
-    predictions = knn_cu.predict_proba(X)
+    predictions = knn_cu.predict_proba(X_test)
 
     if datatype == "dataframe":
         assert isinstance(predictions, cudf.DataFrame)
         predictions = predictions.as_gpu_matrix().copy_to_host()
-        y = y.as_gpu_matrix().copy_to_host().reshape(nrows)
+        y_test = y_test.as_gpu_matrix().copy_to_host().reshape(y_test.shape[0])
     else:
         assert isinstance(predictions, np.ndarray)
 
     y_hat = np.argmax(predictions, axis=1)
 
-    assert array_equal(y_hat.astype(np.int32), y.astype(np.int32))
-    assert array_equal(predictions.sum(axis=1), np.ones(nrows))
+    assert array_equal(y_hat.astype(np.int32), y_test.astype(np.int32))
+    assert array_equal(predictions.sum(axis=1), np.ones(y_test.shape[0]))
 
 
 @pytest.mark.parametrize("n_samples", [100])
@@ -160,18 +178,43 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
         np.asarray(cuml_result.to_gpu_array()), sk_result)
 
 
-def test_nonmonotonic_labels():
+@pytest.mark.parametrize("n_classes", [2, 5])
+@pytest.mark.parametrize("n_rows", [1000])
+@pytest.mark.parametrize("n_cols", [25, 50])
+@pytest.mark.parametrize("n_neighbors", [3, 5])
+@pytest.mark.parametrize("datatype", ["numpy", "dataframe"])
+def test_nonmonotonic_labels(n_classes, n_rows, n_cols,
+                             datatype, n_neighbors):
 
-    X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
+    X, y = make_blobs(n_samples=n_rows,
+                      centers=n_classes,
+                      n_features=n_cols,
+                      cluster_std=0.01,
+                      random_state=0)
 
-    y = np.array([15, 5]).astype(np.int32)
+    X = X.astype(np.float32)
 
-    knn_cu = cuKNN(n_neighbors=1)
-    knn_cu.fit(X, y)
+    # Draw labels from non-monotonically increasing set
+    classes = np.arange(0, n_classes*5, 5)
+    for i in range(n_classes):
+        y[y == i] = classes[i]
 
-    p = knn_cu.predict(X)
+    X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
 
-    assert array_equal(p.astype(np.int32), y)
+    knn_cu = cuKNN(n_neighbors=n_neighbors)
+    knn_cu.fit(X_train, y_train)
+
+    p = knn_cu.predict(X_test)
+
+    if datatype == "dataframe":
+        assert isinstance(p, cudf.Series)
+        p = p.to_frame().as_gpu_matrix().copy_to_host().reshape(p.shape[0])
+        y_test = y_test.as_gpu_matrix().copy_to_host().reshape(y_test.shape[0])
+
+    print(str(p))
+    print(str(y_test))
+
+    assert array_equal(p.astype(np.int32), y_test.astype(np.int32))
 
 
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])

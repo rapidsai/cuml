@@ -14,9 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-# Policy CMP0079 set as NEW as of 3.13 allows googletest be built outside this folder
-cmake_policy(SET CMP0079 NEW)
-
 set(CUML_TEST_INCLUDE_DIRS
   ${CUML_INCLUDE_DIRECTORIES}
   ${GTEST_DIR}/include
@@ -42,7 +39,7 @@ if(BUILD_CUML_TESTS)
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
-    sg/lkf_test.cu
+    sg/logger.cpp
     sg/ols.cu
     sg/pca_test.cu
     sg/quasi_newton.cu
