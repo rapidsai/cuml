@@ -41,10 +41,10 @@
  */
 
 #include <cuda_utils.h>
-#include <glm/qn/qn_linesearch.h>
-#include <glm/qn/qn_util.h>
-#include <glm/qn/simple_mat.h>
 #include <cuml/common/logger.hpp>
+#include <glm/qn/qn_linesearch.cuh>
+#include <glm/qn/qn_util.cuh>
+#include <glm/qn/simple_mat.cuh>
 
 namespace ML {
 namespace GLM {
