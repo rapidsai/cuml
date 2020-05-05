@@ -19,7 +19,7 @@
 #include <cuda_runtime.h>
 #include <memory>
 
-#include "../utils.h"
+#include <common/cudart_utils.h>
 
 namespace MLCommon {
 

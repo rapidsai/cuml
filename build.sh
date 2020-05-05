@@ -118,9 +118,6 @@ if (( ${CLEAN} == 1 )); then
           find ${bd} -mindepth 1 -delete
           rmdir ${bd} || true
       fi
-
-
-
     done
 
     cd ${REPODIR}/python
