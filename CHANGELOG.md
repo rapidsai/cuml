@@ -65,6 +65,7 @@
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
+- PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
