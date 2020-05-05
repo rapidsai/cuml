@@ -42,6 +42,8 @@ from cuml.utils import input_to_dev_array, zeros
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
+from time import sleep
+
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
                  namespace "MLCommon::Matrix":
 
@@ -65,77 +67,31 @@ cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
 
 cdef extern from "cumlprims/opg/pca.hpp" namespace "ML::PCA::opg":
 
-    cdef void fit_transform(cumlHandle& handle,
-                            RankSizePair **rank_sizes,
-                            size_t n_parts,
-                            floatData_t **input,
-                            floatData_t **trans_input,
-                            float *components,
-                            float *explained_var,
-                            float *explained_var_ratio,
-                            float *singular_vals,
-                            float *mu,
-                            float *noise_vars,
-                            paramsPCA &prms,
-                            bool verbose) except +
+    cdef void fit(cumlHandle& handle,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  floatData_t **input,
+                  float *components,
+                  float *explained_var,
+                  float *explained_var_ratio,
+                  float *singular_vals,
+                  float *mu,
+                  float *noise_vars,
+                  paramsPCA &prms,
+                  bool verbose) except +
 
-    cdef void fit_transform(cumlHandle& handle,
-                            RankSizePair **rank_sizes,
-                            size_t n_parts,
-                            doubleData_t **input,
-                            doubleData_t **trans_input,
-                            double *components,
-                            double *explained_var,
-                            double *explained_var_ratio,
-                            double *singular_vals,
-                            double *mu,
-                            double *noise_vars,
-                            paramsPCA &prms,
-                            bool verbose) except +
-
-    cdef void transform(cumlHandle& handle,
-                        RankSizePair **rank_sizes,
-                        size_t n_parts,
-                        floatData_t **input,
-                        float *components,
-                        floatData_t **trans_input,
-                        float *singular_vals,
-                        float *mu,
-                        paramsPCA &prms,
-                        bool verbose) except +
-
-    cdef void transform(cumlHandle& handle,
-                        RankSizePair **rank_sizes,
-                        size_t n_parts,
-                        doubleData_t **input,
-                        double *components,
-                        doubleData_t **trans_input,
-                        double *singular_vals,
-                        double *mu,
-                        paramsPCA &prms,
-                        bool verbose) except +
-
-    cdef void inverse_transform(cumlHandle& handle,
-                                RankSizePair **rank_sizes,
-                                size_t n_parts,
-                                floatData_t **trans_input,
-                                float *components,
-                                floatData_t **input,
-                                float *singular_vals,
-                                float *mu,
-                                paramsPCA &prms,
-                                bool verbose) except +
-
-    cdef void inverse_transform(cumlHandle& handle,
-                                RankSizePair **rank_sizes,
-                                size_t n_parts,
-                                doubleData_t **trans_input,
-                                double *components,
-                                doubleData_t **input,
-                                double *singular_vals,
-                                double *mu,
-                                paramsPCA &prms,
-                                bool verbose) except +
+    cdef void fit(cumlHandle& handle,
+                  RankSizePair **rank_sizes,
+                  size_t n_parts,
+                  doubleData_t **input,
+                  double *components,
+                  double *explained_var,
+                  double *explained_var_ratio,
+                  double *singular_vals,
+                  double *mu,
+                  double *noise_vars,
+                  paramsPCA &prms,
+                  bool verbose) except +
 
 
 class PCAMG(PCA, BaseDecompositionMG):
@@ -162,52 +118,39 @@ class PCAMG(PCA, BaseDecompositionMG):
 
         if self.dtype == np.float32:
             data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(p2r,
-                                                         rank,
-                                                         self.n_components,
-                                                         np.float32)
-            trans_data = self._build_dataFloat(arr_interfaces_trans)
+            sleep(2)
 
-            fit_transform(handle_[0],
-                          <RankSizePair**><size_t>arg_rank_size_pair,
-                          <size_t> n_total_parts,
-                          <floatData_t**> data,
-                          <floatData_t**> trans_data,
-                          <float*> comp_ptr,
-                          <float*> explained_var_ptr,
-                          <float*> explained_var_ratio_ptr,
-                          <float*> singular_vals_ptr,
-                          <float*> mean_ptr,
-                          <float*> noise_vars_ptr,
-                          deref(params),
-                          False)
+            fit(handle_[0],
+                <RankSizePair**><size_t>arg_rank_size_pair,
+                <size_t> n_total_parts,
+                <floatData_t**> data,
+                <float*> comp_ptr,
+                <float*> explained_var_ptr,
+                <float*> explained_var_ratio_ptr,
+                <float*> singular_vals_ptr,
+                <float*> mean_ptr,
+                <float*> noise_vars_ptr,
+                deref(params),
+                False)
         else:
             data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(p2r,
-                                                         rank,
-                                                         self.n_components,
-                                                         np.float64)
-            trans_data = self._build_dataDouble(arr_interfaces_trans)
 
-            fit_transform(handle_[0],
-                          <RankSizePair**><size_t>arg_rank_size_pair,
-                          <size_t> n_total_parts,
-                          <doubleData_t**> data,
-                          <doubleData_t**> trans_data,
-                          <double*> comp_ptr,
-                          <double*> explained_var_ptr,
-                          <double*> explained_var_ratio_ptr,
-                          <double*> singular_vals_ptr,
-                          <double*> mean_ptr,
-                          <double*> noise_vars_ptr,
-                          deref(params),
-                          False)
+            fit(handle_[0],
+                <RankSizePair**><size_t>arg_rank_size_pair,
+                <size_t> n_total_parts,
+                <doubleData_t**> data,
+                <double*> comp_ptr,
+                <double*> explained_var_ptr,
+                <double*> explained_var_ratio_ptr,
+                <double*> singular_vals_ptr,
+                <double*> mean_ptr,
+                <double*> noise_vars_ptr,
+                deref(params),
+                False)
 
         self.handle.sync()
 
-        return arr_interfaces_trans, data, trans_data
-
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
+    def fit(self, X, n_rows, n_cols, partsToRanks, rank):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
@@ -217,4 +160,4 @@ class PCAMG(PCA, BaseDecompositionMG):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)
+        return self._fit(X, n_rows, n_cols, partsToRanks, rank)
