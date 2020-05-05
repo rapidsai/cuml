@@ -122,7 +122,8 @@ class BaseDecompositionMG(object):
 
         return arr_interfaces_trans
 
-    def _fit(self, X, total_rows, n_cols, partsToRanks, rank):
+    def _fit(self, X, total_rows, n_cols, partsToRanks, rank,
+             _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
@@ -164,9 +165,30 @@ class BaseDecompositionMG(object):
         arg_rank_size_pair = <size_t>rank_size_pair
         decomp_params = self._build_params(total_rows, n_cols)
 
-        self._call_fit(arr_interfaces, p2r, rank, arg_rank_size_pair,
-            n_total_parts, decomp_params)
+        if _transform:
+            arr_interfaces_trans, data, trans_data = self._call_fit(
+                arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,
+                decomp_params)
+        else:
+            self._call_fit(arr_interfaces, p2r, rank, arg_rank_size_pair,
+                        n_total_parts, decomp_params)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rank_size_pair[idx])
         free(<RankSizePair**>rank_size_pair)
+
+        if _transform:
+            trans_cudf = []
+
+            for x_i in arr_interfaces_trans:
+                trans_cudf.append(x_i["obj"].to_output(
+                    output_type=self._get_output_type(X)))
+
+            if self.dtype == np.float32:
+                self._freeFloatD(trans_data, arr_interfaces_trans)
+                self._freeFloatD(data, arr_interfaces)
+            else:
+                self._freeDoubleD(trans_data, arr_interfaces_trans)
+                self._freeDoubleD(data, arr_interfaces)
+
+            return trans_cudf

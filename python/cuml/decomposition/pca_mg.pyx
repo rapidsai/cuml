@@ -148,7 +148,7 @@ class PCAMG(PCA, BaseDecompositionMG):
 
         self.handle.sync()
 
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank):
+    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
         """
         Fit function for PCA MG. This not meant to be used as
         part of the public API.
@@ -158,4 +158,4 @@ class PCAMG(PCA, BaseDecompositionMG):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank)
+        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)
