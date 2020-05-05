@@ -109,7 +109,7 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
     assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
 
-@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('nrows', [100, 500])
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [5, 10])
 @pytest.mark.parametrize('max_weight', [10])
