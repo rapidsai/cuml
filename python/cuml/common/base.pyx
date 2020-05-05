@@ -59,8 +59,8 @@ class Base:
     .. code-block:: python
 
         def __init__(...)
-            super(KMeans, self).__init__(handle, verbose, verbosity,
-                                         output_type)
+            super(KMeans, self).__init__(handle, verbose, output_type,
+                                         verbosity)
 
             # initialize numeric variables
 
