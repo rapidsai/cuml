@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <linalg/transpose.h>
 #include <linalg/unary_op.h>
