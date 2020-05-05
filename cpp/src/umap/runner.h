@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <cuml/common/logger.hpp>
 #include "optimize.h"
 #include "supervised.h"
 
@@ -38,7 +39,6 @@
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>
-#include <iostream>
 
 namespace UMAPAlgo {
 
@@ -83,30 +83,43 @@ void _fit(const cumlHandle &handle,
           T *X,   // input matrix
           int n,  // rows
           int d,  // cols
-          UMAPParams *params, T *embeddings) {
+          int64_t *knn_indices, T *knn_dists, UMAPParams *params,
+          T *embeddings) {
   cudaStream_t stream = handle.getStream();
   auto d_alloc = handle.getDeviceAllocator();
 
   int k = params->n_neighbors;
 
-  if (params->verbose)
-    std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
-  find_ab(params, d_alloc, stream);
+  ML::Logger::get().setLevel(params->verbosity);
 
-  /**
-   * Allocate workspace for kNN graph
-   */
-  MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
-  MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
+  CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
-                d_alloc, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
+  MLCommon::device_buffer<T> *knn_dists_b = nullptr;
+
+  if (!knn_indices || !knn_dists) {
+    ASSERT(!knn_indices && !knn_dists,
+           "Either both or none of the KNN parameters should be provided");
+
+    /**
+     * Allocate workspace for kNN graph
+     */
+    knn_indices_b =
+      new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * k);
+    knn_dists_b = new MLCommon::device_buffer<T>(d_alloc, stream, n * k);
+
+    knn_indices = knn_indices_b->data();
+    knn_dists = knn_dists_b->data();
+
+    kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, d_alloc,
+                  stream);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 
   COO<T> rgraph_coo(d_alloc, stream);
 
-  FuzzySimplSet::run<TPB_X, T>(n, knn_indices.data(), knn_dists.data(), k,
-                               &rgraph_coo, params, d_alloc, stream);
+  FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, k, &rgraph_coo,
+                               params, d_alloc, stream);
 
   /**
    * Remove zeros from simplicial set
@@ -118,8 +131,11 @@ void _fit(const cumlHandle &handle,
   /**
    * Run initialization method
    */
-  InitEmbed::run(handle, X, n, d, knn_indices.data(), knn_dists.data(),
-                 &cgraph_coo, params, embeddings, stream, params->init);
+  InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &cgraph_coo, params,
+                 embeddings, stream, params->init);
+
+  if (knn_indices_b) delete knn_indices_b;
+  if (knn_dists_b) delete knn_dists_b;
 
   if (params->callback) {
     params->callback->setup<T>(n, params->n_components);
@@ -127,8 +143,8 @@ void _fit(const cumlHandle &handle,
   }
 
   /**
-		 * Run simplicial set embedding to approximate low-dimensional representation
-		 */
+   * Run simplicial set embedding to approximate low-dimensional representation
+   */
   SimplSetEmbed::run<TPB_X, T>(X, n, d, &cgraph_coo, params, embeddings,
                                d_alloc, stream);
 
@@ -139,26 +155,39 @@ template <typename T, int TPB_X>
 void _fit(const cumlHandle &handle,
           T *X,  // input matrix
           T *y,  // labels
-          int n, int d, UMAPParams *params, T *embeddings) {
+          int n, int d, int64_t *knn_indices, T *knn_dists, UMAPParams *params,
+          T *embeddings) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
   int k = params->n_neighbors;
 
+  ML::Logger::get().setLevel(params->verbosity);
+
   if (params->target_n_neighbors == -1)
     params->target_n_neighbors = params->n_neighbors;
 
-  find_ab(params, d_alloc, stream);
+  MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
+  MLCommon::device_buffer<T> *knn_dists_b = nullptr;
 
-  /**
-   * Allocate workspace for kNN graph
-   */
-  MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream, n * k);
-  MLCommon::device_buffer<T> knn_dists(d_alloc, stream, n * k);
+  if (!knn_indices || !knn_dists) {
+    ASSERT(!knn_indices && !knn_dists,
+           "Either both or none of the KNN parameters should be provided");
 
-  kNNGraph::run(X, n, X, n, d, knn_indices.data(), knn_dists.data(), k, params,
-                d_alloc, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+    /**
+     * Allocate workspace for kNN graph
+     */
+    knn_indices_b =
+      new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * k);
+    knn_dists_b = new MLCommon::device_buffer<T>(d_alloc, stream, n * k);
+
+    knn_indices = knn_indices_b->data();
+    knn_dists = knn_dists_b->data();
+
+    kNNGraph::run(X, n, X, n, d, knn_indices, knn_dists, k, params, d_alloc,
+                  stream);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 
   /**
    * Allocate workspace for fuzzy simplicial set.
@@ -170,9 +199,8 @@ void _fit(const cumlHandle &handle,
    * Run Fuzzy simplicial set
    */
   //int nnz = n*k*2;
-  FuzzySimplSet::run<TPB_X, T>(n, knn_indices.data(), knn_dists.data(),
-                               params->n_neighbors, &tmp_coo, params, d_alloc,
-                               stream);
+  FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists, params->n_neighbors,
+                               &tmp_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&tmp_coo, &rgraph_coo, d_alloc,
@@ -185,8 +213,7 @@ void _fit(const cumlHandle &handle,
    * categorical simplicial set intersection.
    */
   if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
-    if (params->verbose)
-      std::cout << "Performing categorical intersection" << std::endl;
+    CUML_LOG_DEBUG("Performing categorical intersection");
     Supervised::perform_categorical_intersection<TPB_X, T>(
       y, &rgraph_coo, &final_coo, params, d_alloc, stream);
 
@@ -194,8 +221,7 @@ void _fit(const cumlHandle &handle,
      * Otherwise, perform general simplicial set intersection
      */
   } else {
-    if (params->verbose)
-      std::cout << "Performing general intersection" << std::endl;
+    CUML_LOG_DEBUG("Performing general intersection");
     Supervised::perform_general_intersection<TPB_X, T>(
       handle, y, &rgraph_coo, &final_coo, params, stream);
   }
@@ -211,10 +237,16 @@ void _fit(const cumlHandle &handle,
   /**
    * Initialize embeddings
    */
-  InitEmbed::run(handle, X, n, d, knn_indices.data(), knn_dists.data(), &ocoo,
-                 params, embeddings, stream, params->init);
+  InitEmbed::run(handle, X, n, d, knn_indices, knn_dists, &ocoo, params,
+                 embeddings, stream, params->init);
 
-  if (params->callback) params->callback->on_preprocess_end(embeddings);
+  if (knn_indices_b) delete knn_indices_b;
+  if (knn_dists_b) delete knn_dists_b;
+
+  if (params->callback) {
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(embeddings);
+  }
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
@@ -231,38 +263,48 @@ void _fit(const cumlHandle &handle,
 	 *
 	 */
 template <typename T, int TPB_X>
-void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
-                int orig_n, T *embedding, int embedding_n, UMAPParams *params,
+void _transform(const cumlHandle &handle, T *X, int n, int d,
+                int64_t *knn_indices, float *knn_dists, T *orig_X, int orig_n,
+                T *embedding, int embedding_n, UMAPParams *params,
                 T *transformed) {
   std::shared_ptr<deviceAllocator> d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
-  if (params->verbose) {
-    std::cout << "Running transform" << std::endl;
+  ML::Logger::get().setLevel(params->verbosity);
+
+  CUML_LOG_DEBUG("Running transform");
+
+  CUML_LOG_DEBUG("Building KNN Graph");
+
+  MLCommon::device_buffer<int64_t> *knn_indices_b = nullptr;
+  MLCommon::device_buffer<T> *knn_dists_b = nullptr;
+
+  if (!knn_indices || !knn_dists) {
+    ASSERT(!knn_indices && !knn_dists,
+           "Either both or none of the KNN parameters should be provided");
+
+    /**
+     * Allocate workspace for kNN graph
+     */
+
+    int k = params->n_neighbors;
+
+    knn_indices_b =
+      new MLCommon::device_buffer<int64_t>(d_alloc, stream, n * k);
+    knn_dists_b = new MLCommon::device_buffer<T>(d_alloc, stream, n * k);
+
+    knn_indices = knn_indices_b->data();
+    knn_dists = knn_dists_b->data();
+
+    kNNGraph::run(orig_X, orig_n, X, n, d, knn_indices, knn_dists,
+                  params->n_neighbors, params, d_alloc, stream);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
-
-  if (params->verbose) {
-    std::cout << "Building KNN Graph" << std::endl;
-  }
-
-  /**
-   * Perform kNN of X
-   */
-  MLCommon::device_buffer<int64_t> knn_indices(d_alloc, stream,
-                                               n * params->n_neighbors);
-  MLCommon::device_buffer<T> knn_dists(d_alloc, stream,
-                                       n * params->n_neighbors);
-
-  kNNGraph::run(orig_X, orig_n, X, n, d, knn_indices.data(), knn_dists.data(),
-                params->n_neighbors, params, d_alloc, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
 
   float adjusted_local_connectivity =
     max(0.0, params->local_connectivity - 1.0);
 
-  if (params->verbose) {
-    std::cout << "Smoothing KNN distances" << std::endl;
-  }
+  CUML_LOG_DEBUG("Smoothing KNN distances");
 
   /**
    * Perform smooth_knn_dist
@@ -276,7 +318,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   dim3 blk(TPB_X, 1, 1);
 
   FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(
-    n, knn_indices.data(), knn_dists.data(), rhos.data(), sigmas.data(), params,
+    n, knn_indices, knn_dists, rhos.data(), sigmas.data(), params,
     params->n_neighbors, adjusted_local_connectivity, d_alloc, stream);
 
   /**
@@ -287,9 +329,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
 
   dim3 grid_nnz(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
 
-  if (params->verbose) {
-    std::cout << "Executing fuzzy simplicial set" << std::endl;
-  }
+  CUML_LOG_DEBUG("Executing fuzzy simplicial set");
 
   /**
    * Allocate workspace for fuzzy simplicial set.
@@ -298,11 +338,14 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   COO<T> graph_coo(d_alloc, stream, nnz, n, n);
 
   FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X>
-    <<<grid_n, blk, 0, stream>>>(knn_indices.data(), knn_dists.data(),
-                                 sigmas.data(), rhos.data(), graph_coo.vals(),
-                                 graph_coo.rows(), graph_coo.cols(),
-                                 graph_coo.n_rows, params->n_neighbors);
+    <<<grid_nnz, blk, 0, stream>>>(knn_indices, knn_dists, sigmas.data(),
+                                   rhos.data(), graph_coo.vals(),
+                                   graph_coo.rows(), graph_coo.cols(),
+                                   graph_coo.n_rows, params->n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
+
+  if (knn_indices_b) delete knn_indices_b;
+  if (knn_dists_b) delete knn_dists_b;
 
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, n);
   MLCommon::device_buffer<int> ia(d_alloc, stream, n);
@@ -315,9 +358,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   CUDA_CHECK(
     cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(T), stream));
 
-  if (params->verbose) {
-    std::cout << "Performing L1 normalization" << std::endl;
-  }
+  CUML_LOG_DEBUG("Performing L1 normalization");
 
   MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(
     row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows,
@@ -350,9 +391,7 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
     n_epochs /= 3;
   }
 
-  if (params->verbose) {
-    std::cout << "n_epochs=" << n_epochs << std::endl;
-  }
+  CUML_LOG_DEBUG("n_epochs=%d", n_epochs);
 
   MLCommon::LinAlg::unaryOp<T>(
     graph_coo.vals(), graph_coo.vals(), graph_coo.nnz,
@@ -373,23 +412,29 @@ void _transform(const cumlHandle &handle, float *X, int n, int d, float *orig_X,
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, d_alloc,
                                                stream);
 
-  if (params->verbose) {
-    std::cout << "Computing # of epochs for training each sample" << std::endl;
-  }
+  CUML_LOG_DEBUG("Computing # of epochs for training each sample");
 
   MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, nnz);
 
   SimplSetEmbedImpl::make_epochs_per_sample(
     comp_coo.vals(), comp_coo.nnz, n_epochs, epochs_per_sample.data(), stream);
 
-  if (params->verbose) {
-    std::cout << "Performing optimization" << std::endl;
+  CUML_LOG_DEBUG("Performing optimization");
+
+  if (params->callback) {
+    params->callback->setup<T>(n, params->n_components);
+    params->callback->on_preprocess_end(transformed);
   }
+
+  params->initial_alpha /=
+    4.0;  // TODO: This value should be passed into "optimize layout" directly to avoid side-effects.
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
     transformed, n, embedding, embedding_n, comp_coo.rows(), comp_coo.cols(),
     comp_coo.nnz, epochs_per_sample.data(), n, params->repulsion_strength,
-    params, n_epochs, d_alloc, stream);
+    params, n_epochs, params->multicore_implem, d_alloc, stream);
+
+  if (params->callback) params->callback->on_train_end(transformed);
 }
 
 }  // namespace UMAPAlgo

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include "linalg/eltwise.h"
 #include "linalg/power.h"
 #include "linalg/subtract.h"
@@ -39,12 +40,12 @@ namespace Score {
 
 /**
  * @brief Compute a the rank of trustworthiness score
- * @input param ind_X: indexes given by pairwise distance and sorting
- * @input param ind_X_embedded: indexes given by KNN
- * @input param n: Number of samples
- * @input param n_neighbors: Number of neighbors considered by trustworthiness score
- * @input param work: Batch to consider (to do it at once use n * n_neighbors)
- * @output param rank: Resulting rank
+ * @param[in] ind_X: indexes given by pairwise distance and sorting
+ * @param[in] ind_X_embedded: indexes given by KNN
+ * @param[in] n: Number of samples
+ * @param[in] n_neighbors: Number of neighbors considered by trustworthiness score
+ * @param[in] work: Batch to consider (to do it at once use n * n_neighbors)
+ * @param[out] rank: Resulting rank
  */
 template <typename math_t, typename knn_index_t>
 __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
@@ -70,16 +71,17 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
 }
 
 /**
- * @brief Compute a kNN and returns the indexes of the nearest neighbors
+ * @brief Compute a kNN and returns the indices of the nearest neighbors
  * @param input Input matrix holding the dataset
  * @param n Number of samples
  * @param d Number of features
+ * @param n_neighbors number of neighbors
  * @param d_alloc the device allocator to use for temp device memory
  * @param stream cuda stream to use
- * @return Matrix holding the indexes of the nearest neighbors
+ * @return Matrix holding the indices of the nearest neighbors
  */
 template <typename math_t>
-long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
+long *get_knn_indices(math_t *input, int n, int d, int n_neighbors,
                       std::shared_ptr<deviceAllocator> d_alloc,
                       cudaStream_t stream) {
   long *d_pred_I =
@@ -103,13 +105,14 @@ long *get_knn_indexes(math_t *input, int n, int d, int n_neighbors,
  * @brief Compute the trustworthiness score
  * @tparam distance_type: Distance type to consider
  * @param X: Data in original dimension
- * @param X_embedde: Data in target dimension (embedding)
+ * @param X_embedded: Data in target dimension (embedding)
  * @param n: Number of samples
  * @param m: Number of features in high/original dimension
  * @param d: Number of features in low/embedded dimension
  * @param n_neighbors Number of neighbors considered by trustworthiness score
  * @param d_alloc device allocator to use for temp device memory
  * @param stream the cuda stream to use
+ * @param batchSize batch size
  * @return Trustworthiness score
  */
 template <typename math_t, Distance::DistanceType distance_type>
@@ -126,7 +129,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
 
   int64_t *ind_X_embedded =
-    get_knn_indexes(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
+    get_knn_indices(X_embedded, n, d, n_neighbors + 1, d_alloc, stream);
 
   double t_tmp = 0.0;
   double t = 0.0;
@@ -211,6 +214,7 @@ double trustworthiness_score(math_t *X, math_t *X_embedded, int n, int m, int d,
  * @param y: Array of ground-truth response variables
  * @param y_hat: Array of predicted response variables
  * @param n: Number of elements in y and y_hat
+ * @param stream: cuda stream
  * @return: The R-squared value.
  */
 template <typename math_t>
