@@ -221,7 +221,7 @@ class LogisticRegression(Base):
                      linesearch_max_iter=self.linesearch_max_iter,
                      tol=self.tol, verbose=self.verbose, handle=self.handle)
 
-        if logger.should_log_for(self.verbosity):
+        if logger.should_log_for(logger.LEVEL_DEBUG):
             self.verb_prefix = "CY::"
             logger.debug(self.verb_prefix + "Estimator parameters:")
             logger.debug(pprint.pformat(self.__dict__))
@@ -265,18 +265,18 @@ class LogisticRegression(Base):
         else:
             loss = 'sigmoid'
 
-        if logger.should_log_for(self.verbosity):
+        if logger.should_log_for(logger.LEVEL_DEBUG):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
         self.qn.loss = loss
 
-        if logger.should_log_for(self.verbosity):
+        if logger.should_log_for(logger.LEVEL_DEBUG):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.qn.fit(X, y_m, convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
-        if logger.should_log_for(self.verbosity):
+        if logger.should_log_for(logger.LEVEL_DEBUG):
             logger.debug(self.verb_prefix + "Setting coefficients " + str(loss))
 
         if self.fit_intercept:
@@ -285,7 +285,7 @@ class LogisticRegression(Base):
         else:
             self.coef_ = self.qn.coef_
 
-        if logger.should_log_for(self.verbosity):
+        if logger.should_log_for(logger.LEVEL_TRACE):
             logger.trace(self.verb_prefix + "Coefficients: " +
                          self.coef_.copy_to_host())
             if self.fit_intercept:
