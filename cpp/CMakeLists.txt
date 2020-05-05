@@ -63,7 +63,7 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
-option(CONDA_BUILD "Disable detection of conda environment for dependencies" ON)
+option(DETECT_CONDA_ENV "Disable detection of conda environment for dependencies" ON)
 
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 
@@ -89,27 +89,37 @@ set(GPU_ARCHS "" CACHE STRING
 ##############################################################################
 # - Conda environment detection ----------------------------------------------
 
-if(CONDA_BUILD)
-  if(DEFINED ENV{CONDA_PREFIX})
-    set(CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX};${CMAKE_PREFIX_PATH}")
+# conda-build conda package building detection
+if("$ENV{CONDA_BUILD}" STREQUAL "1")
+    message(STATUS "Detected conda-build call, CMAKE_PREFIX_PATH unchanged.")
 
-    message(STATUS "Detected Conda environment, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
+# otherwise detecting conda environment
+else("$ENV{CONDA_BUILD}" STREQUAL "1")
 
-    if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-      message(STATUS "No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
-      set (CMAKE_INSTALL_PREFIX $ENV{CONDA_PREFIX})
+  if(DETECT_CONDA_ENV)
 
-    endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    if(DEFINED ENV{CONDA_PREFIX})
+      set(CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX};${CMAKE_PREFIX_PATH}")
 
-  else(DEFINED ENV{CONDA_PREFIX})
-    message(STATUS "No Conda environment detected, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
+      message(STATUS "Detected Conda environment, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
 
-  endif(DEFINED ENV{CONDA_PREFIX})
+      if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        message(STATUS "No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
+        set (CMAKE_INSTALL_PREFIX $ENV{CONDA_PREFIX})
 
-else(CONDA_BUILD)
-  message(STATUS "No Conda detection being used")
+      endif (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
-endif(CONDA_BUILD)
+    else(DEFINED ENV{CONDA_PREFIX})
+      message(STATUS "No Conda environment detected, CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
+
+    endif(DEFINED ENV{CONDA_PREFIX})
+
+  else(DETECT_CONDA_ENV)
+    message(STATUS "No Conda detection being used")
+
+  endif(DETECT_CONDA_ENV)
+
+endif("$ENV{CONDA_BUILD}" STREQUAL "1")
 
 
 ##############################################################################
