@@ -49,10 +49,10 @@ class BaseDecomposition(BaseEstimator):
 class DecompositionSyncFitMixin(object):
 
     @staticmethod
-    def _func_fit(m, dfs, M, N, partsToRanks, rank, transform):
-        return m.fit(dfs, M, N, partsToRanks, rank, transform)
+    def _func_fit(m, dfs, M, N, partsToRanks, rank):
+        return m.fit(dfs, M, N, partsToRanks, rank)
 
-    def _fit(self, X, _transform=False):
+    def _fit(self, X):
         """
         Fit the model with X.
 
@@ -91,7 +91,6 @@ class DecompositionSyncFitMixin(object):
             total_rows, n_cols,
             data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
             data.worker_info[wf[0]]["rank"],
-            _transform,
             pure=False,
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
@@ -108,12 +107,6 @@ class DecompositionSyncFitMixin(object):
         self.explained_variance_ratio_ = \
             self.local_model.explained_variance_ratio_
         self.singular_values_ = self.local_model.singular_values_
-
-        if _transform:
-            out_futures = flatten_grouped_results(self.client,
-                                                  data.gpu_futures,
-                                                  pca_fit)
-            return to_output(out_futures, self.datatype)
 
         return self
 
