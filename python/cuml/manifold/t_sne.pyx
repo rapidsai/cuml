@@ -110,8 +110,8 @@ class TSNE(Base):
         a future release.
     init : str 'random' (default 'random')
         Currently supports random intialization.
-    verbose : int (default 0)
-        Level of verbosity. If > 0, prints all help messages and warnings.
+    verbosity : int (default logger.LEVEL_INFO)
+        Level of verbosity.
         Most messages will be printed inside the Python Console.
     random_state : int (default None)
         Setting this can allow future runs of TSNE to look mostly the same.
@@ -192,7 +192,7 @@ class TSNE(Base):
                  float min_grad_norm=1e-07,
                  str metric='euclidean',
                  str init='random',
-                 int verbose=0,
+                 int verbosity=logger.LEVEL_INFO,
                  random_state=None,
                  str method='barnes_hut',
                  float angle=0.5,
@@ -204,7 +204,7 @@ class TSNE(Base):
                  float post_momentum=0.8,
                  handle=None):
 
-        super(TSNE, self).__init__(handle=handle, verbose=(verbose != 0))
+        super(TSNE, self).__init__(handle=handle, verbosity=verbosity)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
@@ -240,8 +240,6 @@ class TSNE(Base):
                           "intialization. Will do in the near "
                           "future.".format(init))
             init = 'random'
-        if verbose != 0:
-            verbose = 1
         if angle < 0 or angle > 1:
             raise ValueError("angle = {} should be > 0 and less "
                              "than 1.".format(angle))
@@ -281,7 +279,6 @@ class TSNE(Base):
         self.min_grad_norm = min_grad_norm
         self.metric = metric
         self.init = init
-        self.verbose = verbose
         self.random_state = random_state
         self.method = method
         self.angle = angle
@@ -348,14 +345,13 @@ class TSNE(Base):
 
         # Find best params if learning rate method is adaptive
         if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
-            if self.verbose:
-                print("Learning rate is adaptive. In TSNE paper, "
-                      "it has been shown that as n->inf, "
-                      "Barnes Hut works well if n_neighbors->30, "
-                      "learning_rate->20000, early_exaggeration->24.")
-                print("cuML uses an adpative method."
-                      "n_neighbors decreases to 30 as n->inf. "
-                      "Likewise for the other params.")
+            logger.debug("Learning rate is adaptive. In TSNE paper, "
+                         "it has been shown that as n->inf, "
+                         "Barnes Hut works well if n_neighbors->30, "
+                         "learning_rate->20000, early_exaggeration->24.")
+            logger.debug("cuML uses an adpative method."
+                         "n_neighbors decreases to 30 as n->inf. "
+                         "Likewise for the other params.")
             if n <= 2000:
                 self.n_neighbors = min(max(self.n_neighbors, 90), n)
             else:
@@ -364,12 +360,10 @@ class TSNE(Base):
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if self.verbose:
-                print("New n_neighbors = {}, "
-                      "learning_rate = {}, "
-                      "exaggeration = {}".format(self.n_neighbors,
-                                                 self.pre_learning_rate,
-                                                 self.early_exaggeration))
+            if logger.should_log_for(logger.LEVEL_DEBUG):
+                logger.debug("New n_neighbors = {}, learning_rate = {}, "
+                             "exaggeration = {}".format(self.n_neighbors,
+                             self.pre_learning_rate, self.early_exaggeration))
 
         cdef long long seed = -1
         if self.random_state is not None:
@@ -443,6 +437,6 @@ class TSNE(Base):
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
-                                   verbose=(state['verbose'] != 0))
+                                   verbosity=state['verbosity'])
         self.__dict__.update(state)
         return state
