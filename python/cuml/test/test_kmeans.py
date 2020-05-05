@@ -110,9 +110,9 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('nrows', [1000, 10000])
-@pytest.mark.parametrize('ncols', [10, 50])
+@pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [5, 10])
-@pytest.mark.parametrize('max_weight', [10, 20])
+@pytest.mark.parametrize('max_weight', [10])
 @pytest.mark.parametrize('random_state', [i for i in range(5)])
 def test_weighted_kmeans(nrows, ncols, nclusters,
                          max_weight, random_state):
