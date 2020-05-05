@@ -171,7 +171,7 @@ class BaseDecompositionMG(object):
                 decomp_params)
         else:
             self._call_fit(arr_interfaces, p2r, rank, arg_rank_size_pair,
-                        n_total_parts, decomp_params)
+                           n_total_parts, decomp_params)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rank_size_pair[idx])
