@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,6 +71,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         CLASSIFICATION,
         REGRESSION
 
+    cdef enum task_category:
+        REGRESSION_MODEL = 1,
+        CLASSIFICATION_MODEL = 2
+
     cdef struct RF_metrics:
         RF_type rf_type
         float accuracy
@@ -120,3 +124,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                     int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
+
+    cdef ModelHandle concatenate_trees(
+        vector[ModelHandle] &treelite_handles) except +

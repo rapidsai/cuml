@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 #pragma once
+#include <common/cudart_utils.h>
 #include "levelkernel_classifier.cuh"
+
+namespace ML {
+namespace DecisionTree {
 
 template <typename T, typename F>
 void initial_metric_classification(
@@ -297,7 +301,8 @@ void leaf_eval_classification(
   sparse_nodelist.clear();
 
   int non_leaf_counter = 0;
-  bool condition_global = (curr_depth == max_depth);
+  // decide if the "next" layer of nodes are to be forcefully marked as leaves
+  bool condition_global = curr_depth >= max_depth - 1;
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
@@ -367,3 +372,6 @@ void make_leaf_gather_classification(
       labels, nodestart, samplelist, n_unique_labels, d_sparsenodes, nodelist);
   CUDA_CHECK(cudaGetLastError());
 }
+
+}  // namespace DecisionTree
+}  // namespace ML

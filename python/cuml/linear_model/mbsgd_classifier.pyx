@@ -67,18 +67,25 @@ class MBSGDClassifier(Base):
 
     Parameters
     -----------
-    loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
+    loss : {'hinge', 'log', 'squared_loss'} (default = 'squared_loss')
        'hinge' uses linear SVM
+
        'log' uses logistic regression
+
        'squared_loss' uses linear regression
-    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
+
+    penalty: {'none', 'l1', 'l2', 'elasticnet'} (default = 'none')
        'none' does not perform any regularization
+
        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
        of coefficients
+
        'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
        the coefficients
+
        'elasticnet' performs Elastic Net regularization which is a weighted
        average of L1 and L2 norms
+
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
@@ -96,19 +103,27 @@ class MBSGDClassifier(Base):
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling',
-                    'adaptive' (default = 'constant')
+    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'}
+        (default = 'constant')
+
         `optimal` option will be supported in a future version
+
         `constant` keeps the learning rate constant
+
         `adaptive` changes the learning rate if the training loss or the
         validation accuracy does not improve for `n_iter_no_change` epochs.
         The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
+    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        Variable to control output type of the results and attributes of
+        the estimators. If None, it'll inherit the output type set at the
+        module level, cuml.output_type. If set, the estimator will override
+        the global option for its behavior.
 
     Notes
     ------
-    For additional docs, see `scikitlearn's OLS
+    For additional docs, see `scikit-learn's SGDClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
 
@@ -116,8 +131,9 @@ class MBSGDClassifier(Base):
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 verbose=False):
-        super(MBSGDClassifier, self).__init__(handle=handle, verbose=verbose)
+                 verbose=False, output_type=None):
+        super(MBSGDClassifier, self).__init__(handle=handle, verbose=verbose,
+                                              output_type=output_type)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -159,6 +175,8 @@ class MBSGDClassifier(Base):
         self.coef_ = self.cu_mbsgd_classifier.coef_
         self.intercept_ = self.cu_mbsgd_classifier.intercept_
 
+        return self
+
     def predict(self, X, convert_dtype=False):
         """
         Predicts the y for X.
@@ -177,13 +195,15 @@ class MBSGDClassifier(Base):
 
         Returns
         ----------
-        y: cuDF DataFrame
+        y: Type specified by `output_type`
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        return \
+        preds = \
             self.cu_mbsgd_classifier.predictClass(X,
                                                   convert_dtype=convert_dtype)
+
+        return preds
 
     def get_params(self, deep=True):
         """
