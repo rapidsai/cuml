@@ -83,42 +83,6 @@ cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
                             paramsTSVD &prms,
                             bool verbose) except +
 
-    cdef void transform(cumlHandle& handle,
-                        RankSizePair **rank_sizes,
-                        size_t n_parts,
-                        floatData_t **input,
-                        float *components,
-                        floatData_t **trans_input,
-                        paramsTSVD &prms,
-                        bool verbose) except +
-
-    cdef void transform(cumlHandle& handle,
-                        RankSizePair **rank_sizes,
-                        size_t n_parts,
-                        doubleData_t **input,
-                        double *components,
-                        doubleData_t **trans_input,
-                        paramsTSVD &prms,
-                        bool verbose) except +
-
-    cdef void inverse_transform(cumlHandle& handle,
-                                RankSizePair **rank_sizes,
-                                size_t n_parts,
-                                floatData_t **trans_input,
-                                float *components,
-                                floatData_t **input,
-                                paramsTSVD &prms,
-                                bool verbose) except +
-
-    cdef void inverse_transform(cumlHandle& handle,
-                                RankSizePair **rank_sizes,
-                                size_t n_parts,
-                                doubleData_t **trans_input,
-                                double *components,
-                                doubleData_t **input,
-                                paramsTSVD &prms,
-                                bool verbose) except +
-
 
 class TSVDMG(TruncatedSVD, BaseDecompositionMG):
 
@@ -181,7 +145,9 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
 
         self.handle.sync()
 
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank):
+        return arr_interfaces_trans, data, trans_data
+
+    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
         """
         Fit function for TSVD MG. This not meant to be used as
         part of the public API.
@@ -191,4 +157,4 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank)
+        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)

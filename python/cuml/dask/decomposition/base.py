@@ -49,10 +49,10 @@ class BaseDecomposition(BaseEstimator):
 class DecompositionSyncFitMixin(object):
 
     @staticmethod
-    def _func_fit(m, dfs, M, N, partsToRanks, rank):
-        return m.fit(dfs, M, N, partsToRanks, rank)
+    def _func_fit(m, dfs, M, N, partsToRanks, rank, _transform):
+        return m.fit(dfs, M, N, partsToRanks, rank, _transform)
 
-    def _fit(self, X):
+    def _fit(self, X, _transform=False):
         """
         Fit the model with X.
 
@@ -91,6 +91,7 @@ class DecompositionSyncFitMixin(object):
             total_rows, n_cols,
             data.parts_to_sizes[data.worker_info[wf[0]]["rank"]],
             data.worker_info[wf[0]]["rank"],
+            _transform,
             pure=False,
             workers=[wf[0]]))
             for idx, wf in enumerate(data.worker_to_parts.items())])
