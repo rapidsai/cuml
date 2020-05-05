@@ -15,6 +15,6 @@
 #
 
 include_directories(${CUDA_INCLUDE_DIRS})
-
 add_executable(decisiontree_example decisiontree_example.cpp)
+target_include_directories(decisiontree_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 target_link_libraries(decisiontree_example cuml++)

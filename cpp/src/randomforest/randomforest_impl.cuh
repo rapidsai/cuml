@@ -195,14 +195,9 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, const T* input,
   //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
-    T* temp_data = tempmem[0]->temp_data == nullptr
-                     ? nullptr
-                     : tempmem[0]->temp_data->data();
-    preprocess_quantile<T>(input, (const unsigned*)nullptr, n_rows, n_cols,
-                           n_rows, this->rf_params.tree_params.n_bins,
-                           tempmem[0]->h_quantile->data(),
-                           tempmem[0]->d_quantile->data(), temp_data,
-                           tempmem[0]->device_allocator, tempmem[0]->stream);
+    DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
+                                      this->rf_params.tree_params.n_bins,
+                                      tempmem[0]);
     for (int i = 1; i < n_streams; i++) {
       CUDA_CHECK(cudaMemcpyAsync(
         tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
@@ -469,14 +464,9 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, const T* input,
   //Preprocess once only per forest
   if ((this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) &&
       !(this->rf_params.tree_params.quantile_per_tree)) {
-    T* temp_data = tempmem[0]->temp_data == nullptr
-                     ? nullptr
-                     : tempmem[0]->temp_data->data();
-    preprocess_quantile<T>(input, (const unsigned*)nullptr, n_rows, n_cols,
-                           n_rows, this->rf_params.tree_params.n_bins,
-                           tempmem[0]->h_quantile->data(),
-                           tempmem[0]->d_quantile->data(), temp_data,
-                           tempmem[0]->device_allocator, tempmem[0]->stream);
+    DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
+                                      this->rf_params.tree_params.n_bins,
+                                      tempmem[0]);
     for (int i = 1; i < n_streams; i++) {
       CUDA_CHECK(cudaMemcpyAsync(
         tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
