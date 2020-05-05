@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <utility>
 #include "benchmark.cuh"
@@ -33,38 +34,27 @@ template <typename D>
 class KMeans : public BlobsFixture<D> {
  public:
   KMeans(const std::string& name, const Params& p)
-    : BlobsFixture<D>(p.data, p.blobs), kParams(p.kmeans) {
-    this->SetName(name.c_str());
-  }
+    : BlobsFixture<D>(name, p.data, p.blobs), kParams(p.kmeans) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) {
       state.SkipWithError("KMeans only supports row-major inputs");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
-      ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
-                              this->params.ncols, centroids, this->data.y,
-                              inertia, nIter);
-    }
+    this->loopOnState(state, [this]() {
+      ML::kmeans::fit_predict(*this->handle, kParams, this->data.X,
+                              this->params.nrows, this->params.ncols, centroids,
+                              this->data.y, inertia, nIter);
+    });
   }
 
-  void allocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    centroids = (D*)allocator->allocate(
-      this->params.nclasses * this->params.ncols * sizeof(D), stream);
+  void allocateTempBuffers(const ::benchmark::State& state) override {
+    this->alloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    allocator->deallocate(
-      centroids, this->params.nclasses * this->params.ncols * sizeof(D),
-      stream);
+  void deallocateTempBuffers(const ::benchmark::State& state) override {
+    this->dealloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
  private:
@@ -86,7 +76,7 @@ std::vector<Params> getInputs() {
   p.kmeans.init = ML::kmeans::KMeansParams::InitMethod(0);
   p.kmeans.max_iter = 300;
   p.kmeans.tol = 1e-4;
-  p.kmeans.verbose = false;
+  p.kmeans.verbosity = CUML_LEVEL_INFO;
   p.kmeans.seed = int(p.blobs.seed);
   p.kmeans.metric = 0;  // L2
   p.kmeans.inertia_check = true;
@@ -108,8 +98,8 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, KMeans<float>, "blobs", getInputs());
-CUML_BENCH_REGISTER(Params, KMeans<double>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, KMeans<float>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, KMeans<double>, "blobs", getInputs());
 
 }  // end namespace kmeans
 }  // end namespace Bench

@@ -13,13 +13,12 @@
 # limitations under the License.
 #
 
-import scipy
 import cupy as cp
 
 from cuml.prims.label import make_monotonic, check_labels, \
     invert_labels
 
-from cuml.utils import rmm_cupy_ary
+from cuml.utils import rmm_cupy_ary, has_scipy
 
 
 def label_binarize(y, classes, neg_label=0, pos_label=1,
@@ -54,6 +53,8 @@ def label_binarize(y, classes, neg_label=0, pos_label=1,
                                      classes.shape[0]),
                               dtype=cp.float32)
 
+    cp.cuda.Stream.null.synchronize()
+
     if sparse_output:
         sp = sp.tocsr()
         return sp
@@ -77,42 +78,42 @@ class LabelBinarizer(object):
 
     .. code-block:: python
 
-    import cupy as cp
-    from cuml.preprocessing import LabelBinarizer
+        import cupy as cp
+        from cuml.preprocessing import LabelBinarizer
 
-    labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
-                        dtype=cp.int32)
+        labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
+                            dtype=cp.int32)
 
-    lb = LabelBinarizer()
+        lb = LabelBinarizer()
 
-    encoded = lb.fit_transform(labels)
+        encoded = lb.fit_transform(labels)
 
-    print(str(encoded)
+        print(str(encoded)
 
-    decoded = lb.inverse_transform(encoded)
+        decoded = lb.inverse_transform(encoded)
 
-    print(str(decoded)
+        print(str(decoded)
 
 
     Output:
 
     .. code-block:: python
 
-    [[1 0 0 0 0 0 0 0]
-     [0 0 0 0 0 1 0 0]
-     [0 0 0 0 0 0 0 1]
-     [0 0 0 0 0 0 1 0]
-     [0 0 1 0 0 0 0 0]
-     [0 0 0 0 1 0 0 0]
-     [0 1 0 0 0 0 0 0]
-     [1 0 0 0 0 0 0 0]
-     [1 0 0 0 0 0 0 0]
-     [0 0 0 0 1 0 0 0]
-     [0 0 0 1 0 0 0 0]
-     [0 0 1 0 0 0 0 0]
-     [0 1 0 0 0 0 0 0]]
+        [[1 0 0 0 0 0 0 0]
+         [0 0 0 0 0 1 0 0]
+         [0 0 0 0 0 0 0 1]
+         [0 0 0 0 0 0 1 0]
+         [0 0 1 0 0 0 0 0]
+         [0 0 0 0 1 0 0 0]
+         [0 1 0 0 0 0 0 0]
+         [1 0 0 0 0 0 0 0]
+         [1 0 0 0 0 0 0 0]
+         [0 0 0 0 1 0 0 0]
+         [0 0 0 1 0 0 0 0]
+         [0 0 1 0 0 0 0 0]
+         [0 1 0 0 0 0 0 0]]
 
-     [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+         [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
     """
 
     def __init__(self, neg_label=0, pos_label=1, sparse_output=False):
@@ -170,6 +171,8 @@ class LabelBinarizer(object):
         else:
             self.classes_ = rmm_cupy_ary(cp.unique, y).astype(y.dtype)
 
+        cp.cuda.Stream.null.synchronize()
+
         return self
 
     def fit_transform(self, y):
@@ -222,10 +225,16 @@ class LabelBinarizer(object):
         arr : array with original labels
         """
 
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.utils.import_utils import dummy_function_always_false \
+                    as scipy_sparse_isspmatrix
+
         # If we are already given multi-class, just return it.
         if cp.sparse.isspmatrix(y):
             y_mapped = y.tocsr().indices.astype(self.classes_.dtype)
-        elif scipy.sparse.isspmatrix(y):
+        elif scipy_sparse_isspmatrix(y):
             y = y.tocsr()
             y_mapped = rmm_cupy_ary(cp.array, y.indices,
                                     dtype=y.indices.dtype)

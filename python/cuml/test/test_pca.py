@@ -63,8 +63,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         print(getattr(cupca, attr))
         print(getattr(skpca, attr))
         cuml_res = (getattr(cupca, attr))
-        if type(cuml_res) == np.ndarray:
-            cuml_res = cuml_res.as_matrix()
+
         skl_res = getattr(skpca, attr)
         assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
 
@@ -76,6 +75,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
                          stress_param('blobs')])
 def test_pca_fit_then_transform(datatype, input_type,
                                 name, use_handle):
+
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
@@ -93,13 +93,18 @@ def test_pca_fit_then_transform(datatype, input_type,
 
     if name != 'blobs':
         skpca = skPCA(n_components=2)
-        Xskpca = skpca.fit_transform(X)
+        skpca.fit(X)
+        Xskpca = skpca.transform(X)
 
     handle, stream = get_handle(use_handle)
     cupca = cuPCA(n_components=2, handle=handle)
 
-    X_cupca = cupca.fit_transform(X)
+    cupca.fit(X)
+    X_cupca = cupca.transform(X)
     cupca.handle.sync()
+
+    assert Xskpca.shape[0] == X_cupca.shape[0]
+    assert Xskpca.shape[1] == X_cupca.shape[1]
 
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
@@ -112,6 +117,7 @@ def test_pca_fit_then_transform(datatype, input_type,
                          stress_param('blobs')])
 def test_pca_fit_transform(datatype, input_type,
                            name, use_handle):
+
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
@@ -136,6 +142,9 @@ def test_pca_fit_transform(datatype, input_type,
 
     X_cupca = cupca.fit_transform(X)
     cupca.handle.sync()
+
+    assert Xskpca.shape[0] == X_cupca.shape[0]
+    assert Xskpca.shape[1] == X_cupca.shape[1]
 
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
@@ -166,7 +175,7 @@ def test_pca_inverse_transform(datatype, input_type,
 
     X_cupca = cupca.fit_transform(X)
 
-    input_gdf = cupca.inverse_transform(X_cupca).to_pandas().values
+    input_gdf = cupca.inverse_transform(X_cupca)
     cupca.handle.sync()
     assert array_equal(input_gdf, X,
                        5e-5, with_sign=True)

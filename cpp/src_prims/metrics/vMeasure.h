@@ -33,6 +33,7 @@ namespace Metrics {
 * @param upperLabelRange: the upper bound of the range of labels
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
+* @param beta: vmeasure parameter
 */
 template <typename T>
 double vMeasure(const T *truthClusterArray, const T *predClusterArray, int size,

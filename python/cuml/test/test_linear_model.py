@@ -121,7 +121,7 @@ def test_ridge_regression_model_default(datatype):
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test).to_array()
+    curidge_predict = curidge.predict(X_test)
 
     # sklearn ridge regression model initialization, fit and predict
     skridge = skRidge()
@@ -154,7 +154,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
-    curidge_predict = curidge.predict(X_test).to_array()
+    curidge_predict = curidge.predict(X_test)
 
     if nrows < 500000:
         # sklearn ridge regression model initialization, fit and predict
@@ -215,7 +215,7 @@ def test_logistic_regression(num_classes, dtype, penalty, l1_ratio,
 
     # Setting tolerance to lowest possible per loss to detect regressions
     # as much as possible
-    cu_preds = np.array(culog.predict(X_test))
+    cu_preds = culog.predict(X_test).to_array()
 
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.06
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
