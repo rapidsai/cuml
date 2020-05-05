@@ -124,7 +124,8 @@ class SpeedupComparisonRunner:
         if verbose:
             print(
                 "%s (n_samples=%s, n_features=%s) [cpu=%s, gpu=%s, speedup=%s]"
-                % (algo_pair.name, n_samples, n_features, cpu_elapsed, cu_elapsed, speedup)
+                % (algo_pair.name, n_samples, n_features, cpu_elapsed,
+                   cu_elapsed, speedup)
             )
 
         return dict(
