@@ -16,16 +16,12 @@
 
 from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.input_utils import DistributedDataHandler, \
-    concatenate
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.randomforestcommon import \
     BaseRandomForestModel
 
 from dask.distributed import default_client, wait
 
-import math
-from uuid import uuid1
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
     """
