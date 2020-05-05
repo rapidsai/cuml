@@ -500,7 +500,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Parameters
         -----------
         params : dict of new params
-        worker_numb : int or list
+        worker_numb : list
             The number of the worker for whose  model parameter values
             are to be set
         """
