@@ -214,6 +214,8 @@ class NearestNeighbors(Base):
                                                   if convert_dtype
                                                   else None))
 
+        self.n_rows = n_rows
+
         self.n_indices = 1
 
         return self
@@ -310,6 +312,8 @@ class NearestNeighbors(Base):
             False,
             False
         )
+
+        self.handle.sync()
 
         return (D_ndarr.to_output(out_type), I_ndarr.to_output(out_type)) \
             if return_distance else I_ndarr.to_output(out_type)

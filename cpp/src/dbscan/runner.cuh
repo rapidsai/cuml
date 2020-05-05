@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/cudart_utils.h>
 #include "adjgraph/runner.cuh"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
@@ -24,8 +25,6 @@
 #include "label/classlabels.h"
 #include "sparse/csr.h"
 #include "vertexdeg/runner.cuh"
-
-#include "utils.h"
 
 #include <sys/time.h>
 #include <cuml/common/logger.hpp>

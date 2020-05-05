@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
@@ -78,8 +79,8 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     std::vector<int> n_unique;
     n_unique.push_back(n_classes);
 
-    knn_classify(pred_labels, knn_indices, y, params.rows, params.k,
-                 uniq_labels, n_unique, alloc, stream);
+    knn_classify(pred_labels, knn_indices, y, params.rows, params.rows,
+                 params.k, uniq_labels, n_unique, alloc, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
