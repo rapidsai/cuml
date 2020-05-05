@@ -616,7 +616,7 @@ def test_roc_auc_score_random(n_samples, dtype):
     y_true, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 2, n_samples).astype(dtype))
 
-    y_pred, _, _, _  = generate_random_labels(
+    y_pred, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
 
     auc = roc_auc_score(y_true, y_pred)
