@@ -181,9 +181,7 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
 
         self.handle.sync()
 
-        return arr_interfaces_trans, data, trans_data
-
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
+    def fit(self, X, n_rows, n_cols, partsToRanks, rank):
         """
         Fit function for TSVD MG. This not meant to be used as
         part of the public API.
@@ -193,4 +191,4 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
         :param partsToRanks: array of tuples in the format: [(rank,size)]
         :return: self
         """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)
+        return self._fit(X, n_rows, n_cols, partsToRanks, rank)
