@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,26 +47,22 @@ template <typename D>
 class RFRegressor : public RegressionFixture<D> {
  public:
   RFRegressor(const std::string& name, const RegParams& p)
-    : RegressionFixture<D>(p.data, p.regression), rfParams(p.rf) {
-    this->SetName(name.c_str());
-  }
+    : RegressionFixture<D>(name, p.data, p.regression), rfParams(p.rf) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (this->params.rowMajor) {
       state.SkipWithError("RFRegressor only supports col-major inputs");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    auto* mPtr = &model.model;
-    for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
+    this->loopOnState(state, [this]() {
+      auto* mPtr = &model.model;
       mPtr->trees = nullptr;
-      fit(handle, mPtr, this->data.X, this->params.nrows, this->params.ncols,
-          this->data.y, rfParams);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      fit(*this->handle, mPtr, this->data.X, this->params.nrows,
+          this->params.ncols, this->data.y, rfParams);
+      CUDA_CHECK(cudaStreamSynchronize(this->stream));
       delete[] mPtr->trees;
-    }
+    });
   }
 
  private:
@@ -115,10 +111,10 @@ std::vector<RegParams> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(RegParams, RFRegressor<float>, "regression",
-                    getInputs<float>());
-CUML_BENCH_REGISTER(RegParams, RFRegressor<double>, "regression",
-                    getInputs<double>());
+ML_BENCH_REGISTER(RegParams, RFRegressor<float>, "regression",
+                  getInputs<float>());
+ML_BENCH_REGISTER(RegParams, RFRegressor<double>, "regression",
+                  getInputs<double>());
 
 }  // namespace rf
 }  // namespace Bench

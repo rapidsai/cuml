@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -33,7 +33,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -g               - build for debug
    -n               - no install step
    --allgpuarch     - build for all supported GPU architectures
-   --singlegpu      - Build cuml without multigpu support (multigpu requires libcumlprims)
+   --singlegpu      - Build cuml without libcumlprims based multigpu algorithms.
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
    -h               - print this text
@@ -114,11 +114,15 @@ if (( ${CLEAN} == 1 )); then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-  if [ -d ${bd} ]; then
-      find ${bd} -mindepth 1 -delete
-      rmdir ${bd} || true
-  fi
+      if [ -d ${bd} ]; then
+          find ${bd} -mindepth 1 -delete
+          rmdir ${bd} || true
+      fi
     done
+
+    cd ${REPODIR}/python
+    python setup.py clean --all
+    cd ${REPODIR}
 fi
 
 ################################################################################

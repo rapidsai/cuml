@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <distance/distance.h>
-#include "benchmark.cuh"
+#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -28,36 +29,37 @@ struct Params {
 template <typename T, MLCommon::Distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
-    : Fixture(name), params(p) {}
+    : Fixture(name,
+              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+      params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override {
-    allocate(x, params.m * params.k, true);
-    allocate(y, params.n * params.k, true);
-    allocate(out, params.m * params.n, true);
+    alloc(x, params.m * params.k, true);
+    alloc(y, params.n * params.k, true);
+    alloc(out, params.m * params.n, true);
     workspace = nullptr;
     worksize = MLCommon::Distance::getWorkspaceSize<DType, T, T, T>(
       x, y, params.m, params.n, params.k);
     if (worksize != 0) {
-      allocate(workspace, worksize);
+      alloc(workspace, worksize, false);
     }
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(workspace));
+    dealloc(x, params.m * params.k);
+    dealloc(y, params.n * params.k);
+    dealloc(out, params.m * params.n);
+    dealloc(workspace, worksize);
   }
 
   void runBenchmark(::benchmark::State& state) override {
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-    for (auto _ : state) {
-      CudaEventTimer timer(state, scratchBuffer, stream);
+    loopOnState(state, [this]() {
       MLCommon::Distance::distance<DType, T, T, T, OutputTile_t>(
         x, y, out, params.m, params.n, params.k, (void*)workspace, worksize,
         stream);
-    }
+    });
   }
 
  private:
@@ -79,11 +81,11 @@ static std::vector<Params> getInputs() {
   };
 }
 
-#define DIST_BENCH_REGISTER(Name, Metric)                         \
-  using Name##F = Distance<float, Metric>;                        \
-  PRIMS_BENCH_REGISTER(Params, Name##F, "distance", getInputs()); \
-  using Name##D = Distance<double, Metric>;                       \
-  PRIMS_BENCH_REGISTER(Params, Name##D, "distance", getInputs())
+#define DIST_BENCH_REGISTER(Name, Metric)              \
+  using Name##F = Distance<float, Metric>;             \
+  ML_BENCH_REGISTER(Params, Name##F, "", getInputs()); \
+  using Name##D = Distance<double, Metric>;            \
+  ML_BENCH_REGISTER(Params, Name##D, "", getInputs())
 
 }  // namespace Distance
 }  // namespace Bench
