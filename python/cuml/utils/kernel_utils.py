@@ -50,8 +50,7 @@ def get_dtype_strs(dtypes): return list(map(get_dtype_str, dtypes))
 
 
 @functools.lru_cache(maxsize=5000)
-def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None,
-                        verbose=False):
+def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None):
     """
     A factory wrapper function to perform some of the boiler-plate involved in
     making cuPy RawKernels type-agnostic.
@@ -109,7 +108,7 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None,
     nvrtc_kernel_str = "%s\nvoid %s%s" % \
                        (extern_prefix, kernel_name, nvrtc_kernel_str)
 
-    if verbose:
-        print(str(nvrtc_kernel_str))
+    if logger.should_log_for(logger.LEVEL_DEBUG):
+        logger.debug(str(nvrtc_kernel_str))
 
     return cp.RawKernel(nvrtc_kernel_str, kernel_name)
