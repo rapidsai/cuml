@@ -16,7 +16,6 @@
 
 #pragma once
 
-
 namespace ML {
 namespace DecisionTree {
 
@@ -43,7 +42,6 @@ struct Input {
   /** quantiles/histogram computed on the dataset (col-major) */
   const DataT* quantiles;
 };
-
 
 }  // namespace DecisionTree
 }  // namespace ML

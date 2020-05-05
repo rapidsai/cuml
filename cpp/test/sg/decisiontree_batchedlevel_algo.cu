@@ -79,7 +79,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
       params);
 
     preprocess_quantile((const T*)data, (const unsigned*)rowids, inparams.M,
-                           inparams.N, inparams.M, inparams.nbins, tempmem);
+                        inparams.N, inparams.M, inparams.nbins, tempmem);
   }
 
   void TearDown() {

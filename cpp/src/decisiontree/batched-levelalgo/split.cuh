@@ -135,9 +135,9 @@ struct Split {
  */
 template <typename DataT, typename IdxT, int TPB = 256>
 void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
-  auto op = [] __device__(Split<DataT, IdxT>* ptr, IdxT idx) { ptr->init(); };
-  MLCommon::LinAlg::writeOnlyUnaryOp
-    <Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
+  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) { ptr->init(); };
+  MLCommon::LinAlg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT,
+                                     TPB>(splits, len, op, s);
 }
 
 }  // namespace DecisionTree

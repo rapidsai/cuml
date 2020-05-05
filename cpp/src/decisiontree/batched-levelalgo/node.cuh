@@ -70,7 +70,7 @@ struct Node {
   DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile {
     info.prediction = pred;
     info.colid = Leaf;
-    info.quesval = DataT(0);  // don't care for leaf nodes
+    info.quesval = DataT(0);          // don't care for leaf nodes
     info.best_metric_val = DataT(0);  // don't care for leaf nodes
     info.left_child_id = Leaf;
     atomicAdd(n_leaves, 1);
