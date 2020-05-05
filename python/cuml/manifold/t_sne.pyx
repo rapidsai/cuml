@@ -30,6 +30,7 @@ import warnings
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
 from cuml.utils import input_to_cuml_array
