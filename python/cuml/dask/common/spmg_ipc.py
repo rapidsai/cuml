@@ -18,6 +18,7 @@ import numba.cuda
 import time
 
 from cuml.dask.common.utils import get_device_id, select_device
+import cuml.common.logger as logger
 
 from threading import Lock, Thread
 
@@ -47,8 +48,8 @@ class IPCThread(Thread):
         # Use canonical device id
         self.device = get_device_id(device)
 
-        print("Starting new IPC thread on device %i for ipcs %s" %
-              (self.device, str(list(ipcs))))
+        logger.info("Starting new IPC thread on device %i for ipcs %s" %
+                    (self.device, str(list(ipcs))))
         self.running = False
 
     def run(self):
@@ -59,8 +60,8 @@ class IPCThread(Thread):
 
         select_device(self.device)
 
-        print("Opening: " + str(self.device) + " "
-              + str(numba.cuda.get_current_device()))
+        logger.info("Opening: " + str(self.device) + " "
+                    + str(numba.cuda.get_current_device()))
 
         self.lock.acquire()
 

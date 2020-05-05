@@ -36,6 +36,7 @@ from cuml.dask.common.part_utils import _extract_partitions
 from dask.distributed import wait
 from dask.distributed import default_client
 from toolz import first
+import cuml.common.logger as logger
 
 from functools import reduce
 
@@ -185,7 +186,7 @@ def _get_meta(df):
     return ret
 
 
-def _to_dask_cudf(futures, client=None, verbose=False):
+def _to_dask_cudf(futures, client=None):
     """
     Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
     :param futures: list[cudf.Dataframe] list of futures containing dataframes
@@ -195,8 +196,8 @@ def _to_dask_cudf(futures, client=None, verbose=False):
     c = default_client() if client is None else client
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
-    if verbose:
-        print("to_dask_cudf dfs=%s" % str(dfs))
+    if logger.should_log_for(logger.LEVEL_DEBUG):
+        logger.debug("to_dask_cudf dfs=%s" % str(dfs))
     meta_future = c.submit(_get_meta, dfs[0], pure=False)
     meta = meta_future.result()
     return dd.from_delayed(dfs, meta=meta)
