@@ -34,7 +34,9 @@ namespace Cache {
  *
  * On exit, the output array is filled the following way:
  * out[i + n_vec*k] = cache[i + n_vec * cache_idx[k]]), where i=0..n_vec-1, and
- *   k = 0..n-1
+ *   k = 0..n-1 where cache_idx[k] >= 0
+ *
+ *  We ignore vectors where cache_idx[k] < 0.
  *
  * @param [in] cache stores the cached data, size [n_vec x n_cached_vectors]
  * @param [in] n_vec number of elements in a cached vector
@@ -50,8 +52,10 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
   if (tid < n_vec * n) {
     int out_col = tid / n_vec;  // col idx
     int cache_col = cache_idx[out_col];
-    if (row + out_col * n_vec < n_vec * n) {
-      out[tid] = cache[row + cache_col * n_vec];
+    if (cache_idx[out_col] >= 0) {
+      if (row + out_col * n_vec < n_vec * n) {
+        out[tid] = cache[row + cache_col * n_vec];
+      }
     }
   }
 }
@@ -113,7 +117,7 @@ int DI hash(int key, int n_cache_sets, int associativity) {
  * equal than a given value.
  * @param [in] array sorted array of n numbers
  * @param [in] n length of the array
- * @param [in] value
+ * @param [in] val the value to search for
  * @return the index of the first element in the array for which
  * array[idx] >= value. If there is no such value, then return n.
  */
@@ -185,7 +189,7 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  * @tparam nthreads number of threads per block (nthreads <= associativity)
  * @tparam associativity number of items in a cache set
  *
- * @param [in] time time stamp of caching the data,
+ * @param [in] cache_time time stamp of caching the data,
      size [associativity * n_cache_sets]
  * @param [in] n_cache_sets number of cache sets
  * @param [out] rank within the cache set size [nthreads * items_per_thread]

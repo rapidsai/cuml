@@ -19,6 +19,8 @@
 #include <iostream>
 #include <vector>
 
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
@@ -26,6 +28,7 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
+#include <common/cudart_utils.h>
 #include "common/cumlHandle.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
@@ -33,7 +36,6 @@
 #include "linalg/matrix_vector_op.h"
 #include "metrics/batched/information_criterion.h"
 #include "timeSeries/arima_helpers.h"
-#include "utils.h"
 
 namespace ML {
 
@@ -50,8 +52,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   double* d_y_prep = (double*)allocator->allocate(
     ld_yprep * batch_size * sizeof(double), stream);
   MLCommon::TimeSeries::prepare_data(d_y_prep, d_y, batch_size, n_obs, order.d,
-                                     order.D, order.s, stream, order.k,
-                                     params.mu);
+                                     order.D, order.s, stream);
 
   // Create temporary array for the forecasts
   int num_steps = std::max(end - n_obs, 0);
@@ -64,7 +65,7 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
   // Compute the residual and forecast - provide already prepared data and
   // extracted parameters
   ARIMAOrder order_after_prep = {order.p, 0,       order.q, order.P,
-                                 0,       order.Q, order.s, 0};
+                                 0,       order.Q, order.s, order.k};
   std::vector<double> loglike = std::vector<double>(batch_size);
   batched_loglike(handle, d_y_prep, batch_size, n_obs - diff_obs,
                   order_after_prep, params, loglike.data(), d_vs, false, true,
@@ -103,9 +104,9 @@ void predict(cumlHandle& handle, const double* d_y, int batch_size, int n_obs,
 
   if (num_steps) {
     // Add trend and/or undiff
-    MLCommon::TimeSeries::finalize_forecast(
-      d_y_fc, d_y, num_steps, batch_size, n_obs, n_obs, order.d, order.D,
-      order.s, stream, order.k, params.mu);
+    MLCommon::TimeSeries::finalize_forecast(d_y_fc, d_y, num_steps, batch_size,
+                                            n_obs, n_obs, order.d, order.D,
+                                            order.s, stream);
 
     // Copy forecast in d_y_p
     thrust::for_each(thrust::cuda::par.on(stream), counting,
@@ -141,11 +142,11 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
 
     MLCommon::TimeSeries::batched_jones_transform(
       order, batch_size, false, params, Tparams, allocator, stream);
+    Tparams.mu = params.mu;
   } else {
     // non-transformed case: just use original parameters
     Tparams = params;
   }
-  Tparams.sigma2 = params.sigma2;
 
   if (!order.need_prep()) {
     batched_kalman_filter(handle, d_y, n_obs, Tparams, order, batch_size,
@@ -156,8 +157,7 @@ void batched_loglike(cumlHandle& handle, const double* d_y, int batch_size,
       stream);
 
     MLCommon::TimeSeries::prepare_data(d_y_prep, d_y, batch_size, n_obs,
-                                       order.d, order.D, order.s, stream,
-                                       order.k, params.mu);
+                                       order.d, order.D, order.s, stream);
 
     batched_kalman_filter(handle, d_y_prep, n_obs - order.d - order.s * order.D,
                           Tparams, order, batch_size, loglike, d_vs,
@@ -226,28 +226,69 @@ void information_criterion(cumlHandle& handle, const double* d_y,
 }
 
 /**
+ * Test that the parameters are valid for the inverse transform
+ * 
+ * @tparam isAr        Are these (S)AR or (S)MA parameters?
+ * @param[in]  params  Parameters
+ * @param[in]  pq      p for AR, q for MA, P for SAR, Q for SMA
+ */
+template <bool isAr>
+DI bool test_invparams(const double* params, int pq) {
+  double new_params[4];
+  double tmp[4];
+
+  constexpr double coef = isAr ? 1 : -1;
+
+  for (int i = 0; i < pq; i++) {
+    tmp[i] = params[i];
+    new_params[i] = tmp[i];
+  }
+
+  // Perform inverse transform and stop before atanh step
+  for (int j = pq - 1; j > 0; --j) {
+    double a = new_params[j];
+    for (int k = 0; k < j; ++k) {
+      tmp[k] =
+        (new_params[k] + coef * a * new_params[j - k - 1]) / (1 - (a * a));
+    }
+    for (int iter = 0; iter < j; ++iter) {
+      new_params[iter] = tmp[iter];
+    }
+  }
+
+  // Verify that the values are between -1 and 1
+  bool result = true;
+  for (int i = 0; i < pq; i++) {
+    result = result && !(new_params[i] <= -1 || new_params[i] >= 1);
+  }
+  return result;
+}
+
+/**
  * Auxiliary function of _start_params: least square approximation of an
  * ARMA model (with or without seasonality)
  * @note: in this function the non-seasonal case has s=1, not s=0!
  */
-static void _arma_least_squares(
-  cumlHandle& handle, double* d_ar, double* d_ma, double* d_sigma2,
-  const MLCommon::LinAlg::Batched::Matrix<double>& bm_y, int p, int q, int s,
-  bool estimate_sigma2, int k = 0, double* d_mu = nullptr) {
+void _arma_least_squares(cumlHandle& handle, double* d_ar, double* d_ma,
+                         double* d_sigma2,
+                         const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                         int p, int q, int s, bool estimate_sigma2, int k = 0,
+                         double* d_mu = nullptr) {
   const auto& handle_impl = handle.getImpl();
   auto stream = handle_impl.getStream();
   auto cublas_handle = handle_impl.getCublasHandle();
   auto allocator = handle_impl.getDeviceAllocator();
+  auto counting = thrust::make_counting_iterator(0);
 
   int batch_size = bm_y.batches();
   int n_obs = bm_y.shape().first;
 
   int ps = p * s, qs = q * s;
-  int p_ar = 2 * qs;
+  int p_ar = std::max(ps, 2 * qs);
   int r = std::max(p_ar + qs, ps);
 
   if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
-    // Too few observations for the estimate, fill with 0
+    // Too few observations for the estimate, fill with 0 (1 for sigma2)
     if (k)
       CUDA_CHECK(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
     if (p)
@@ -256,6 +297,12 @@ static void _arma_least_squares(
     if (q)
       CUDA_CHECK(
         cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
+    if (estimate_sigma2) {
+      thrust::device_ptr<double> sigma2_thrust =
+        thrust::device_pointer_cast(d_sigma2);
+      thrust::fill(thrust::cuda::par.on(stream), sigma2_thrust,
+                   sigma2_thrust + batch_size, 1.0);
+    }
     return;
   }
 
@@ -297,7 +344,6 @@ static void _arma_least_squares(
   }
 
   // Fill the first column of the matrix with 1 if we fit an intercept
-  auto counting = thrust::make_counting_iterator(0);
   if (k) {
     double* d_ls_ar_res = bm_ls_ar_res.raw_data();
     thrust::for_each(thrust::cuda::par.on(stream), counting,
@@ -372,15 +418,34 @@ static void _arma_least_squares(
                        d_sigma2[bid] = acc / static_cast<double>(n_obs - r - q);
                      });
   }
+
+  // If (S)AR or (S)MA are not valid for the inverse transform, set them to zero
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int bid) {
+                     if (p) {
+                       double* b_ar = d_ar + bid * p;
+                       bool valid = test_invparams<true>(b_ar, p);
+                       if (!valid) {
+                         for (int ip = 0; ip < p; ip++) b_ar[ip] = 0;
+                       }
+                     }
+                     if (q) {
+                       double* b_ma = d_ma + bid * q;
+                       bool valid = test_invparams<false>(b_ma, q);
+                       if (!valid) {
+                         for (int iq = 0; iq < q; iq++) b_ma[iq] = 0;
+                       }
+                     }
+                   });
 }
 
 /**
  * Auxiliary function of estimate_x0: compute the starting parameters for
  * the series pre-processed by estimate_x0
  */
-static void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
-                          const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
-                          const ARIMAOrder& order) {
+void _start_params(cumlHandle& handle, ARIMAParams<double>& params,
+                   const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                   const ARIMAOrder& order) {
   // Estimate an ARMA fit without seasonality
   if (order.p + order.q + order.k)
     _arma_least_squares(handle, params.ar, params.ma, params.sigma2, bm_y,
@@ -408,7 +473,6 @@ void estimate_x0(cumlHandle& handle, ARIMAParams<double>& params,
     allocator, stream, false);
   MLCommon::TimeSeries::prepare_data(bm_yd.raw_data(), d_y, batch_size, n_obs,
                                      order.d, order.D, order.s, stream);
-  // Note: mu is not known yet! We just want to difference the data
 
   // Do the computation of the initial parameters
   _start_params(handle, params, bm_yd, order);

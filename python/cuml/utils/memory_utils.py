@@ -155,6 +155,13 @@ def _order_to_strides(order, shape, dtype):
 
 
 def _get_size_from_shape(shape, dtype):
+    """
+    Calculates size based on shape and dtype, returns (None, None) if either
+    shape or dtype are None
+    """
+
+    if shape is None or dtype is None:
+        return (None, None)
     itemsize = cp.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
