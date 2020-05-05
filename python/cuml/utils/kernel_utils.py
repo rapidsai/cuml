@@ -21,6 +21,8 @@ import functools
 
 from uuid import uuid1
 
+import cuml.logger as logger
+
 # Mapping of common PyData dtypes to their corresponding C-primitive
 dtype_str_map = {cp.dtype("float32"): "float",
                  cp.dtype("float64"): "double",
