@@ -64,7 +64,9 @@
 - PR #2156: Add Docker 19 support to local gpuci build
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
+- PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -99,6 +101,7 @@
 - PR #2166: Fix handling of temp file in RF pickling
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
+- PR #2191: Fix placement of SVM parameter documentation and add examples
 
 # cuML 0.13.0 (Date TBD)
 
