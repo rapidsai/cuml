@@ -34,38 +34,27 @@ template <typename D>
 class KMeans : public BlobsFixture<D> {
  public:
   KMeans(const std::string& name, const Params& p)
-    : BlobsFixture<D>(p.data, p.blobs), kParams(p.kmeans) {
-    this->SetName(name.c_str());
-  }
+    : BlobsFixture<D>(name, p.data, p.blobs), kParams(p.kmeans) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
+    using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) {
       state.SkipWithError("KMeans only supports row-major inputs");
     }
-    auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    for (auto _ : state) {
-      CudaEventTimer timer(handle, state, true, stream);
-      ML::kmeans::fit_predict(handle, kParams, this->data.X, this->params.nrows,
-                              this->params.ncols, nullptr, centroids,
+    this->loopOnState(state, [this]() {
+      ML::kmeans::fit_predict(*this->handle, kParams, this->data.X,
+                              this->params.nrows, this->params.ncols, nullptr, centroids,
                               this->data.y, inertia, nIter);
-    }
+    });
   }
 
-  void allocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    centroids = (D*)allocator->allocate(
-      this->params.nclasses * this->params.ncols * sizeof(D), stream);
+  void allocateTempBuffers(const ::benchmark::State& state) override {
+    this->alloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
-    auto allocator = this->handle->getDeviceAllocator();
-    auto stream = this->handle->getStream();
-    allocator->deallocate(
-      centroids, this->params.nclasses * this->params.ncols * sizeof(D),
-      stream);
+  void deallocateTempBuffers(const ::benchmark::State& state) override {
+    this->dealloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
  private:
@@ -109,8 +98,8 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-CUML_BENCH_REGISTER(Params, KMeans<float>, "blobs", getInputs());
-CUML_BENCH_REGISTER(Params, KMeans<double>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, KMeans<float>, "blobs", getInputs());
+ML_BENCH_REGISTER(Params, KMeans<double>, "blobs", getInputs());
 
 }  // end namespace kmeans
 }  // end namespace Bench

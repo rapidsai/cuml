@@ -128,7 +128,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
 
-pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak"
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300
 
 ################################################################################
 # TEST - Run GoogleTest for ml-prims
@@ -142,7 +142,8 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
 # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
 ################################################################################
 
-if [ "$BUILD_MODE" = "branch" && "$BUILD_TYPE" = "gpu" ]; then
+if [ "$BUILD_MODE" = "branch" ] && [ "$BUILD_TYPE" = "gpu" ]; then
+    logger "GoogleTest for ml-prims with cuda-memcheck enabled..."
     cd $WORKSPACE/cpp/build
     python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
 fi

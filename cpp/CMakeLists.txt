@@ -104,7 +104,7 @@ endif(NOT BUILD_CUML_CPP_LIBRARY)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-find_package(CUDA 9.0 REQUIRED)
+find_package(CUDA 10.0 REQUIRED)
 
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
@@ -242,7 +242,8 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CUB_DIR}/src/cub
   ${SPDLOG_DIR}/src/spdlog/include
   ${TREELITE_DIR}/include
-  ${TREELITE_DIR}/include/fmt)
+  ${TREELITE_DIR}/include/fmt
+  ${RAFT_DIR}/cpp/include)
 
 set(CUML_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
@@ -275,7 +276,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/fil/infer.cu
     src/glm/glm.cu
     src/holtwinters/holtwinters.cu
-    src/kalman_filter/lkf_py.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
     src/metrics/metrics.cu
