@@ -421,9 +421,9 @@ class ARIMA(Base):
         elif end <= start:
             raise ValueError("ERROR(`predict`): end <= start")
         elif start < order.d + order.D * order.s:
-            print("WARNING(`predict`): predictions before {} are undefined,"
-                  " will be set to NaN".format(order.d + order.D * order.s),
-                  file=sys.stderr)
+            logger.warn("WARNING(`predict`): predictions before {} are"
+                        " undefined, will be set to NaN"
+                        .format(order.d + order.D * order.s))
 
         if end is None:
             end = self.n_obs
@@ -638,8 +638,8 @@ class ARIMA(Base):
 
         # Handle non-zero flags with Warning
         if (flags != 0).any():
-            print("WARNING(`fit`): Some batch members had optimizer problems.",
-                  file=sys.stderr)
+            logger.warn("WARNING(`fit`): Some batch members had optimizer"
+                        " problems.")
 
         self.unpack(self._batched_transform(x))
         self.niter = niter
