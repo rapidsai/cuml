@@ -22,7 +22,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
-import cuml.common.logger as logger
+import cuml.logger as logger
 
 from dask.distributed import default_client, wait
 

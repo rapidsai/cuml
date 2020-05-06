@@ -22,7 +22,7 @@ import cudf.comm.serialize  # noqa: F401
 
 from cuml import Base
 from cuml.common.array import CumlArray
-import cuml.common.logger as logger
+import cuml.logger as logger
 
 from dask_cudf.core import DataFrame as dcDataFrame
 
