@@ -35,6 +35,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 from cuml.utils import has_scipy
 from cuml.utils.input_utils import input_to_cuml_array, input_to_host_array
+import cuml.common.logger as logger
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -151,7 +152,7 @@ class ARIMA(Base):
         Whether to include a constant trend mu in the model (default: True)
     handle: cuml.Handle
         If it is None, a new one is created just for this instance
-    verbose: int (optional, default 0)
+    verbosity: int (optional, default cuml.common.logger.LEVEL_INFO)
         Controls verbosity level of logging.
     output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
         Variable to control output type of the results and attributes of
@@ -207,7 +208,7 @@ class ARIMA(Base):
                  = (0, 0, 0, 0),
                  fit_intercept=True,
                  handle=None,
-                 verbose=0,
+                 verbosity=logger.LEVEL_INFO,
                  output_type=None):
 
         if not has_scipy():
@@ -216,7 +217,7 @@ class ARIMA(Base):
                                "estimation.")
 
         # Initialize base class
-        super().__init__(handle, verbose, output_type)
+        super().__init__(handle, verbosity, output_type)
         self._set_output_type(y)
 
         # Set the ARIMA order
