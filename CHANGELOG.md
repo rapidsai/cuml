@@ -74,6 +74,7 @@
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 - PR #2201: Re-enabling UMAP repro tests
 - PR #2196: Updates to benchmarks. Moving notebook
+- PR #2208: Coordinate Descent, Lasso and ElasticNet CumlArray updates
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
