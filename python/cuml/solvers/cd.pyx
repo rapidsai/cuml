@@ -32,6 +32,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros
+import cuml.common.logger as logger
+
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -179,7 +181,7 @@ class CD(Base):
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=False)
+        super(CD, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
