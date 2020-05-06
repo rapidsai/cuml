@@ -35,6 +35,7 @@ from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector
 
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -50,7 +51,6 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
-import cuml.common.logger as logger
 
 
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:

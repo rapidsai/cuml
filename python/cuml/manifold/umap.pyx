@@ -40,6 +40,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_cuml_array, zeros, with_cupy_rmm, has_scipy
 from cuml.common.array import CumlArray
+import cuml.common.logger as logger
 
 import rmm
 
@@ -53,7 +54,6 @@ from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
-import cuml.common.logger as logger
 
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":

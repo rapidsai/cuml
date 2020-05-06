@@ -187,7 +187,8 @@ class LinearRegression(Base):
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbosity=logger.LEVEL_INFO, output_type=None):
-        super(LinearRegression, self).__init__(handle=handle, verbosity=verbosity,
+        super(LinearRegression, self).__init__(handle=handle,
+                                               verbosity=verbosity,
                                                output_type=output_type)
 
         # internal array attributes
