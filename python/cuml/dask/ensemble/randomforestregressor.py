@@ -384,10 +384,10 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         params : dict of new params
         worker_numb : list (default = None)
             If worker_numb is `None`, then the parameters will be set for all
-            the workers. If it is not `None` then a list of worker numbers 
+            the workers. If it is not `None` then a list of worker numbers
             for whom the model parameter values have to be set should be
-            passed. 
-            ex. worker_numb = [0], will only update the parameters for 
+            passed.
+            ex. worker_numb = [0], will only update the parameters for
             the model present in the first worker.
             The values passed into the list should not be greater than the
             number of workers in the cluster. The values passed in the list
