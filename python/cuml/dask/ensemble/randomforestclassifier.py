@@ -26,7 +26,7 @@ from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
 
-import cuml.common.logger as logger
+import cuml.logger as logger
 
 from uuid import uuid1
 

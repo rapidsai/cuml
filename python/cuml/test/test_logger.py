@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import cuml.common.logger as logger
+import cuml.logger as logger
 
 
 def test_logger():

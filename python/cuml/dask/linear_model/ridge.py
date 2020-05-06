@@ -21,7 +21,7 @@ from cuml.dask.common.comms import worker_state
 
 from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
 
-import cuml.common.logger as logger
+import cuml.logger as logger
 
 
 class Ridge(BaseEstimator,

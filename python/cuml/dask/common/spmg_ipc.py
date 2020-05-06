@@ -18,7 +18,7 @@ import numba.cuda
 import time
 
 from cuml.dask.common.utils import get_device_id, select_device
-import cuml.common.logger as logger
+import cuml.logger as logger
 
 from threading import Lock, Thread
 

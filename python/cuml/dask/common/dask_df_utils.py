@@ -15,7 +15,7 @@
 
 from dask.distributed import default_client
 import dask.dataframe as dd
-import cuml.common.logger as logger
+import cuml.logger as logger
 
 
 def get_meta(df):
