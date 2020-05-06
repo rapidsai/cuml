@@ -48,6 +48,7 @@ from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+import cuml.common.logger as logger
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
@@ -212,7 +213,7 @@ class RandomForestRegressor(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
+                 'verbosity', 'rows_sample',
                  'max_leaves', 'quantile_per_tree',
                  'accuracy_metric']
 
@@ -220,7 +221,7 @@ class RandomForestRegressor(Base):
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=2,
                  bootstrap=True, bootstrap_features=False,
-                 verbose=False, min_rows_per_node=2,
+                 verbosity=logger.LEVEL_INFO, min_rows_per_node=2,
                  rows_sample=1.0, max_leaves=-1,
                  accuracy_metric='mse', output_type=None,
                  min_samples_leaf=None,
@@ -250,7 +251,7 @@ class RandomForestRegressor(Base):
             handle = Handle(n_streams)
 
         super(RandomForestRegressor, self).__init__(handle=handle,
-                                                    verbose=verbose,
+                                                    verbosity=verbosity,
                                                     output_type=output_type)
 
         if max_depth < 0:
@@ -276,7 +277,6 @@ class RandomForestRegressor(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
-        self.verbose = verbose
         self.n_bins = n_bins
         self.n_cols = None
         self.dtype = None
@@ -315,14 +315,14 @@ class RandomForestRegressor(Base):
             else:
                 state["rf_params64"] = rf_forest64.rf_params
         state['n_cols'] = self.n_cols
-        state['verbose'] = self.verbose
+        state['verbosity'] = self.verbosity
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
         return state
 
     def __setstate__(self, state):
-        super(RandomForestRegressor, self).__init__(handle=None,
-                                                    verbose=state['verbose'])
+        super(RandomForestRegressor, self).__init__(
+            handle=None, verbosity=state['verbosity'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
