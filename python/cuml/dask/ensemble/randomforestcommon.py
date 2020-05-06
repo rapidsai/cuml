@@ -120,6 +120,8 @@ class BaseRandomForestModel(object):
 
     def _set_params(self, worker_numb, **params):
         model_params = list()
+        if worker_numb is None:
+            worker_numb = [posi for posi in range(len(self.workers))]
         workers = [worker for worker in self.workers]
         for i in worker_numb:
             model_params.append(
