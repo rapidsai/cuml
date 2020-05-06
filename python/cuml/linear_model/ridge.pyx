@@ -35,6 +35,8 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_cuml_array
+import cuml.common.logger as logger
+
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -212,7 +214,7 @@ class Ridge(Base, RegressorMixin):
 
         """
         self._check_alpha(alpha)
-        super(Ridge, self).__init__(handle=handle, verbose=False,
+        super(Ridge, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO,
                                     output_type=output_type)
 
         # internal array attributes
