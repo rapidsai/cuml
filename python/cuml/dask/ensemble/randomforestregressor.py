@@ -373,7 +373,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         """
         return self._get_params(deep)
 
-    def set_params(self, worker_numb=[0], **params):
+    def set_params(self, worker_numb=None, **params):
         """
         Sets the value of parameters required to
         configure this estimator, it functions similar to
@@ -382,12 +382,16 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         Parameters
         -----------
         params : dict of new params
-        worker_numb : list (default = [0], ie. the first worker)
-            It is a list containing position number of the workers for which
-            the model parameter values have to be set. The values passed into
-            this list should not be greater than the number of workers
-            present in the client. The minimum value is 0 and the
-            maximum number is len(workers present in the client) - 1
+        worker_numb : list (default = None)
+            If worker_numb is `None`, then the parameters will be set for all
+            the workers. If it is not `None` then a list of worker numbers 
+            for whom the model parameter values have to be set should be
+            passed. 
+            ex. worker_numb = [0], will only update the parameters for 
+            the model present in the first worker.
+            The values passed into the list should not be greater than the
+            number of workers in the cluster. The values passed in the list
+            should range from : 0 to len(workers present in the client) - 1.
         """
         return self._set_params(**params,
                                 worker_numb=worker_numb)
