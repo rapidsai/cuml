@@ -55,7 +55,7 @@ def test_n_init_cluster_consistency(random_state):
     nclusters = 8
     X, y = get_data_consistency_test()
 
-    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+    cuml_kmeans = cuml.KMeans(init="k-means++",
                               n_clusters=nclusters,
                               n_init=10,
                               random_state=random_state,
@@ -64,7 +64,7 @@ def test_n_init_cluster_consistency(random_state):
     cuml_kmeans.fit(X)
     initial_clusters = cuml_kmeans.cluster_centers_
 
-    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+    cuml_kmeans = cuml.KMeans(init="k-means++",
                               n_clusters=nclusters,
                               n_init=10,
                               random_state=random_state,
@@ -92,7 +92,7 @@ def test_kmeans_sequential_plus_plus_init(nrows, ncols, nclusters,
                       shuffle=False,
                       random_state=0)
 
-    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means++",
+    cuml_kmeans = cuml.KMeans(init="k-means++",
                               n_clusters=nclusters,
                               n_init=10,
                               random_state=random_state,
@@ -122,7 +122,7 @@ def test_kmeans_clusters_blobs(nrows, ncols, nclusters,
                       shuffle=False,
                       random_state=random_state,)
 
-    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
+    cuml_kmeans = cuml.KMeans(init="k-means||",
                               n_clusters=nclusters,
                               random_state=random_state,
                               output_type='numpy')
@@ -249,7 +249,7 @@ def test_score(nrows, ncols, nclusters):
                       shuffle=False,
                       random_state=10)
 
-    cuml_kmeans = cuml.KMeans(verbose=0, init="k-means||",
+    cuml_kmeans = cuml.KMeans(init="k-means||",
                               n_clusters=nclusters,
                               random_state=10,
                               output_type='numpy')
