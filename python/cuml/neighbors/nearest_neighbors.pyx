@@ -52,6 +52,8 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+import cuml.common.logger as logger
+
 
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
@@ -90,8 +92,8 @@ class NearestNeighbors(Base):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : boolean (default=False)
-        Whether to print verbose logs
+    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+        Logging level
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
@@ -167,13 +169,13 @@ class NearestNeighbors(Base):
     """
     def __init__(self,
                  n_neighbors=5,
-                 verbose=False,
+                 verbosity=logger.LEVEL_INFO,
                  handle=None,
                  algorithm="brute",
                  metric="euclidean",
                  output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle=handle, verbose=verbose,
+        super(NearestNeighbors, self).__init__(handle=handle, verbosity=verbosity,
                                                output_type=output_type)
 
         if metric != "euclidean":

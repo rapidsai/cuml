@@ -50,6 +50,8 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+import cuml.common.logger as logger
+
 
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
@@ -88,8 +90,8 @@ class KNeighborsRegressor(NearestNeighbors):
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : boolean (default=False)
-        Whether to print verbose logs
+    verbosity : int (default=cuml.common.logger.LEVEL_INFO)
+        Logging level
     handle : cumlHandle
         The cumlHandle resources to use
     algorithm : string (default='brute')
