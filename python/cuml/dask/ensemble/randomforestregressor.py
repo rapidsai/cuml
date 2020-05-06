@@ -20,6 +20,8 @@ from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 from cuml.ensemble import RandomForestRegressor as cuRFR
 
+import cuml.common.logger as logger
+
 from dask.distributed import default_client, wait
 
 import math
@@ -123,7 +125,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         split_criterion=2,
         bootstrap=True,
         bootstrap_features=False,
-        verbose=False,
+        verbosity=logger.LEVEL_INFO,
         min_rows_per_node=2,
         rows_sample=1.0,
         max_leaves=-1,
@@ -213,7 +215,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                 split_criterion,
                 bootstrap,
                 bootstrap_features,
-                verbose,
+                verbosity,
                 min_rows_per_node,
                 rows_sample,
                 max_leaves,
@@ -244,7 +246,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         split_criterion,
         bootstrap,
         bootstrap_features,
-        verbose,
+        verbosity,
         min_rows_per_node,
         rows_sample,
         max_leaves,
@@ -263,7 +265,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
             split_criterion=split_criterion,
             bootstrap=bootstrap,
             bootstrap_features=bootstrap_features,
-            verbose=verbose,
+            verbosity=verbosity,
             min_rows_per_node=min_rows_per_node,
             rows_sample=rows_sample,
             max_leaves=max_leaves,
