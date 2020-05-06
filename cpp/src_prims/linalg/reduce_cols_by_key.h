@@ -27,10 +27,13 @@ namespace LinAlg {
 ///@todo: support col-major
 ///@todo: specialize this to support shared-mem based atomics
 
-template <typename T, typename KeyType, typename IdxType>
-__global__ void reduce_cols_by_key_kernel(const T* data, const KeyType* keys,
-                                          T* out, IdxType nrows, IdxType ncols,
+template <typename T, typename KeyIteratorT, typename IdxType>
+__global__ void reduce_cols_by_key_kernel(const T* data,
+                                          const KeyIteratorT keys, T* out,
+                                          IdxType nrows, IdxType ncols,
                                           IdxType nkeys) {
+  typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
+
   IdxType idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= (nrows * ncols)) return;
   ///@todo: yikes! use fast-int-div
@@ -58,15 +61,17 @@ __global__ void reduce_cols_by_key_kernel(const T* data, const KeyType* keys,
  * @param nkeys number of unique keys in the keys array
  * @param stream cuda stream to launch the kernel onto
  */
-template <typename T, typename KeyType = int, typename IdxType = int>
-void reduce_cols_by_key(const T* data, const KeyType* keys, T* out,
+template <typename T, typename KeyIteratorT, typename IdxType = int>
+void reduce_cols_by_key(const T* data, const KeyIteratorT keys, T* out,
                         IdxType nrows, IdxType ncols, IdxType nkeys,
                         cudaStream_t stream) {
+  typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
+
   CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
   constexpr int TPB = 256;
   int nblks = (int)ceildiv<IdxType>(nrows * ncols, TPB);
-  reduce_cols_by_key_kernel<T, KeyType, IdxType>
-    <<<nblks, TPB, 0, stream>>>(data, keys, out, nrows, ncols, nkeys);
+  reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows,
+                                                       ncols, nkeys);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

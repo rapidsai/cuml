@@ -84,11 +84,13 @@ struct quadSum {
 
 #define SUM_ROWS_SMALL_K_DIMX 256
 #define SUM_ROWS_BY_KEY_SMALL_K_MAX_K 4
-template <typename DataIteratorT>
+template <typename DataIteratorT, typename WeightT>
 __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
   void sum_rows_by_key_small_nkeys_kernel(const DataIteratorT d_A, int lda,
-                                          char *d_keys, int nrows, int ncols,
-                                          int nkeys, DataIteratorT d_sums) {
+                                          const char *d_keys,
+                                          const WeightT *d_weights, int nrows,
+                                          int ncols, int nkeys,
+                                          DataIteratorT d_sums) {
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
   typedef cub::BlockReduce<quad<DataType>, SUM_ROWS_SMALL_K_DIMX> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
@@ -110,6 +112,9 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
          block_offset_irow += blockDim.x * gridDim.x) {
       int irow = block_offset_irow + threadIdx.x;
       DataType val = (irow < nrows) ? d_A[irow * lda + idim] : 0.0;
+      if (d_weights && irow < nrows) {
+        val = val * d_weights[irow];
+      }
       // we are not reusing the keys - after profiling
       // d_keys is mainly loaded from L2, and this kernel is DRAM BW bounded
       // (experimentation gave a 10% speed up - not worth the many code lines added)
@@ -147,8 +152,9 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
   }
 }
 
-template <typename DataIteratorT>
-void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda, char *d_keys,
+template <typename DataIteratorT, typename WeightT>
+void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda,
+                                 const char *d_keys, const WeightT *d_weights,
                                  int nrows, int ncols, int nkeys,
                                  DataIteratorT d_sums, cudaStream_t st) {
   dim3 grid, block;
@@ -160,7 +166,7 @@ void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda, char *d_keys,
   grid.y = ncols;
   grid.y = std::min(grid.y, MAX_BLOCKS);
   sum_rows_by_key_small_nkeys_kernel<<<grid, block, 0, st>>>(
-    d_A, lda, d_keys, nrows, ncols, nkeys, d_sums);
+    d_A, lda, d_keys, d_weights, nrows, ncols, nkeys, d_sums);
 }
 
 //
@@ -170,10 +176,11 @@ void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda, char *d_keys,
 //
 
 #define SUM_ROWS_BY_KEY_LARGE_K_MAX_K 1024
-template <typename DataIteratorT, typename KeysIteratorT>
+template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
 __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
-  const DataIteratorT d_A, int lda, KeysIteratorT d_keys, int nrows, int ncols,
-  int key_offset, int nkeys, DataIteratorT d_sums) {
+  const DataIteratorT d_A, int lda, const KeysIteratorT d_keys,
+  const WeightT *d_weights, int nrows, int ncols, int key_offset, int nkeys,
+  DataIteratorT d_sums) {
   typedef typename std::iterator_traits<KeysIteratorT>::value_type KeyType;
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
   __shared__ DataType local_sums[SUM_ROWS_BY_KEY_LARGE_K_MAX_K];
@@ -190,6 +197,8 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
          irow += blockDim.x * gridDim.x) {
       // Branch div in this loop - not an issue with current code
       DataType val = d_A[idim * lda + irow];
+      if (d_weights) val = val * d_weights[irow];
+
       int local_key = d_keys[irow] - key_offset;
 
       // We could load next val here
@@ -231,10 +240,11 @@ void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A, int lda,
 
 #define RRBK_SHMEM_SZ 32
 //#define RRBK_SHMEM
-template <typename DataIteratorT, typename KeysIteratorT>
+template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
 __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
-  const DataIteratorT d_A, int lda, KeysIteratorT d_keys, int nrows, int ncols,
-  int key_offset, int nkeys, DataIteratorT d_sums) {
+  const DataIteratorT d_A, int lda, const WeightT *d_weights,
+  KeysIteratorT d_keys, int nrows, int ncols, int key_offset, int nkeys,
+  DataIteratorT d_sums) {
   typedef typename std::iterator_traits<KeysIteratorT>::value_type KeyType;
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
 
@@ -273,20 +283,23 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
                  // same for the whole block
 #endif
     //if ((end_row-start_row) / (r-start_row) != global_key) continue;
-    sum += __ldcg(&d_A[r * lda + this_col]);
+    DataType val = __ldcg(&d_A[r * lda + this_col]);
+    if (d_weights) {
+      val = val * d_weights[r];
+    }
+    sum += val;
   }
 
   if (sum != 0.0) myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
 }
 
-template <typename DataIteratorT, typename KeysIteratorT>
+template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
 void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
-                                          KeysIteratorT d_keys, int nrows,
+                                          const KeysIteratorT d_keys,
+                                          const WeightT *d_weights, int nrows,
                                           int ncols, int key_offset, int nkeys,
                                           DataIteratorT d_sums,
                                           cudaStream_t st) {
-  typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
-
   // x-dim refers to the column in the input data
   // y-dim refers to the key
   // z-dim refers to a partitioning of the rows among the threadblocks
@@ -298,31 +311,31 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
   grid.z = std::max(40960000 / nkeys / ncols, (int)1);  //Adjust me!
   grid.z = std::min(grid.z, (unsigned int)nrows);
   grid.z = std::min(grid.z, MAX_BLOCKS);
-  //std::cout << "block = " << block.x << ", " << block.y << std::endl;
-  //std::cout << "grid = " << grid.x << ", " << grid.y << ", " << grid.z << std::endl;
+
   sum_rows_by_key_large_nkeys_kernel_rowmajor<<<grid, block, 0, st>>>(
-    d_A, lda, d_keys, nrows, ncols, key_offset, nkeys, d_sums);
+    d_A, lda, d_weights, d_keys, nrows, ncols, key_offset, nkeys, d_sums);
 }
 
 /**
- * @brief Computes the reduction of matrix rows for each given key 
+ * @brief Computes the weighted reduction of matrix rows for each given key
  * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may be a simple pointer type)
  * @tparam KeysIteratorT Random-access iterator type, for reading input keys (may be a simple pointer type)
  * @param[in]  d_A         Input data array (lda x nrows)
  * @param[in]  lda         Real row size for input data, d_A
+ * @param[in[  d_weights   Weights for each observation in d_A (1 x nrows)
  * @param[in]  d_keys      Keys for each row (1 x nrows)
  * @param      d_keys_char Scratch memory for conversion of keys to char
  * @param[in]  nrows       Number of rows in d_A and d_keys
  * @param[in]  ncols       Number of data columns in d_A
- * @param[in]  nkeys       Number of unique keys in d_keys 
+ * @param[in]  nkeys       Number of unique keys in d_keys
  * @param[out] d_sums      Row sums by key (ncols x d_keys)
  * @param[in]  stream      CUDA stream
  */
-template <typename DataIteratorT, typename KeysIteratorT>
+template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
 void reduce_rows_by_key(const DataIteratorT d_A, int lda,
-                        const KeysIteratorT d_keys, char *d_keys_char,
-                        int nrows, int ncols, int nkeys, DataIteratorT d_sums,
-                        cudaStream_t stream) {
+                        const KeysIteratorT d_keys, const WeightT *d_weights,
+                        char *d_keys_char, int nrows, int ncols, int nkeys,
+                        DataIteratorT d_sums, cudaStream_t stream) {
   typedef typename std::iterator_traits<KeysIteratorT>::value_type KeyType;
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
 
@@ -334,17 +347,41 @@ void reduce_rows_by_key(const DataIteratorT d_A, int lda,
     // with doubles we have ~20% speed up - with floats we can hope something around 2x
     // Converting d_keys to char
     convert_array(d_keys_char, d_keys, nrows, stream);
-    sum_rows_by_key_small_nkeys(d_A, lda, d_keys_char, nrows, ncols, nkeys,
-                                d_sums, stream);
+    sum_rows_by_key_small_nkeys(d_A, lda, d_keys_char, d_weights, nrows, ncols,
+                                nkeys, d_sums, stream);
   } else {
     for (KeyType key_offset = 0; key_offset < nkeys;
          key_offset += SUM_ROWS_BY_KEY_LARGE_K_MAX_K) {
       KeyType this_call_nkeys = std::min(SUM_ROWS_BY_KEY_LARGE_K_MAX_K, nkeys);
-      sum_rows_by_key_large_nkeys_rowmajor(d_A, lda, d_keys, nrows, ncols,
-                                           key_offset, this_call_nkeys, d_sums,
-                                           stream);
+      sum_rows_by_key_large_nkeys_rowmajor(d_A, lda, d_keys, d_weights, nrows,
+                                           ncols, key_offset, this_call_nkeys,
+                                           d_sums, stream);
     }
   }
+}
+
+/**
+ * @brief Computes the reduction of matrix rows for each given key
+ * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may be a simple pointer type)
+ * @tparam KeysIteratorT Random-access iterator type, for reading input keys (may be a simple pointer type)
+ * @param[in]  d_A         Input data array (lda x nrows)
+ * @param[in]  lda         Real row size for input data, d_A
+ * @param[in]  d_keys      Keys for each row (1 x nrows)
+ * @param      d_keys_char Scratch memory for conversion of keys to char
+ * @param[in]  nrows       Number of rows in d_A and d_keys
+ * @param[in]  ncols       Number of data columns in d_A
+ * @param[in]  nkeys       Number of unique keys in d_keys
+ * @param[out] d_sums      Row sums by key (ncols x d_keys)
+ * @param[in]  stream      CUDA stream
+ */
+template <typename DataIteratorT, typename KeysIteratorT>
+void reduce_rows_by_key(const DataIteratorT d_A, int lda,
+                        const KeysIteratorT d_keys, char *d_keys_char,
+                        int nrows, int ncols, int nkeys, DataIteratorT d_sums,
+                        cudaStream_t stream) {
+  typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
+  reduce_rows_by_key(d_A, lda, d_keys, static_cast<DataType *>(nullptr),
+                     d_keys_char, nrows, ncols, nkeys, d_sums, stream);
 }
 
 };  // end namespace LinAlg

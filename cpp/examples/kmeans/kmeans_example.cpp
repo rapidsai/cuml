@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
     double inertia = 0;
     int n_iter = 0;
     ML::kmeans::fit_predict(cumlHandle, params, d_srcdata, n_samples,
-                            n_features, d_pred_centroids, d_pred_labels,
+                            n_features, 0, d_pred_centroids, d_pred_labels,
                             inertia, n_iter);
 
     std::vector<int> h_pred_labels(n_samples);
