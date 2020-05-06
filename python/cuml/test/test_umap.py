@@ -320,7 +320,6 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
 @pytest.mark.parametrize('n_components', [2, 25])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-@pytest.mark.xfail(reason="test intermittently fails")
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -411,8 +410,6 @@ def test_exp_decay_params():
 
 
 @pytest.mark.parametrize('n_neighbors', [5, 15])
-@pytest.mark.skip(reason="v0.14: Consistently failing in CUDA 10.2. "
-                         "Need to investigate. ")
 def test_umap_knn_parameters(n_neighbors):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0)
