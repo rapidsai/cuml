@@ -717,6 +717,7 @@ void sorted_coo_to_csr(COO<T> *coo, int *row_ind,
                     stream);
 }
 
+
 template <int TPB_X, typename T, typename Lambda>
 __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
                                       T *vals, int *orows, int *ocols, T *ovals,
@@ -783,17 +784,6 @@ __global__ void coo_symmetrize_kernel(int *row_ind, int *rows, int *cols,
   }
 }
 
-/**
- * @brief takes a COO matrix which may not be symmetric and symmetrizes
- * it, running a custom reduction function against the each value
- * and its transposed value.
- *
- * @param in: Input COO matrix
- * @param out: Output symmetrized COO matrix
- * @param reduction_op: a custom reduction function
- * @param d_alloc device allocator for temporary buffers
- * @param stream: cuda stream to use
- */
 template <int TPB_X, typename T, typename Lambda>
 void coo_symmetrize(COO<T> *in, COO<T> *out,
                     Lambda reduction_op,  // two-argument reducer
@@ -806,13 +796,50 @@ void coo_symmetrize(COO<T> *in, COO<T> *out,
 
   device_buffer<int> in_row_ind(d_alloc, stream, in->n_rows);
 
-  sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
 
   out->allocate(in->nnz * 2, in->n_rows, in->n_cols, stream);
+  copy(out->rows(), in->rows(), in->nnz, stream);
+  copy(out->rows() + in->nnz, in->rows(), in->nnz, stream);
+  copy(out->cols(), in->cols(), in->nnz, stream);
+  copy(out->cols() + in->nnz, in->rows(), in->nnz, stream);
+
+  sorted_coo_to_csr(in, in_row_ind.data(), d_alloc, stream);
 
   coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
     in_row_ind.data(), in->rows(), in->cols(), in->vals(), out->rows(),
     out->cols(), out->vals(), in->n_rows, in->nnz, reduction_op);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+
+/**
+ * @brief takes a COO matrix which may not be symmetric and symmetrizes
+ * it, running a custom reduction function against the each value
+ * and its transposed value.
+ *
+ * @param in: Input COO matrix
+ * @param out: Output symmetrized COO matrix
+ * @param reduction_op: a custom reduction function
+ * @param d_alloc device allocator for temporary buffers
+ * @param stream: cuda stream to use
+ */
+template <int TPB_X, typename T>
+void coo_symmetrize(COO<T> *in, COO<T> *out,
+                    std::shared_ptr<deviceAllocator> d_alloc,
+                    cudaStream_t stream) {
+
+  ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
+
+  out->allocate(in->nnz * 2, in->n_rows, in->n_rows, 0, stream);
+  copy(out->rows(), in->rows(), in->nnz, stream);
+  copy(out->rows() + in->nnz, in->cols(), in->nnz, stream);
+  copy(out->cols(), in->cols(), in->nnz, stream);
+  copy(out->cols() + in->nnz, in->rows(), in->nnz, stream);
+  copy(out->vals(), in->vals(), in->nnz, stream);
+  copy(out->vals() + in->nnz, in->vals(), in->nnz, stream);
+
+  coo_sort<T>(out, d_alloc, stream);
+
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

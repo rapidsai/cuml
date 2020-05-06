@@ -77,13 +77,37 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
     stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
-    in_coo, out_coo,
-    [] __device__(int row, int col, T result, T transpose) {
-      T prod_matrix = result * transpose;
-      return result + transpose - prod_matrix;
-    },
-    d_alloc, stream);
+  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(in_coo, out_coo, d_alloc, stream);
+
+  MLCommon::Sparse::sorted_coo_to_csr(out_coo, row_ind.data(), d_alloc, stream);
+
+  int *cols = out_coo->cols();
+  int *rows = out_coo->rows();
+  T *vals = out_coo->vals();
+
+  MLCommon::Sparse::csr_row_op(
+		  row_ind.data(), out_coo->n_rows, in_coo->nnz,
+		  [cols, rows, vals] __device__(int row, int start_idx, int stop_idx) {
+	  int last_col = -1;
+
+	  T prod = 1.0;
+	  T sum = 0.0;
+
+	  for(int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
+		  int cur_col = cols[cur_idx];
+		  int cur_val = vals[cur_idx];
+
+		  if((cur_col != last_col && last_col != -1) || start_idx == stop_idx-1) {
+			  vals[cur_idx-1] = (sum - prod) + prod;
+			  prod = cur_val;
+			  sum = cur_val;
+		  } else {
+			  vals[cur_idx-1] = 0.0;
+			  prod *= cur_val;
+			  sum *= cur_val;
+		  }
+	  }
+  }, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

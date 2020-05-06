@@ -350,18 +350,45 @@ void launcher(int n, const int64_t *knn_indices, const float *knn_dists,
    * Combines all the fuzzy simplicial sets into a global
    * one via a fuzzy union. (Symmetrize knn graph).
    */
-  float set_op_mix_ratio = params->set_op_mix_ratio;
-  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
-    &in, out,
-    [set_op_mix_ratio] __device__(int row, int col, T result, T transpose) {
-      T prod_matrix = result * transpose;
-      T res = set_op_mix_ratio * (result + transpose - prod_matrix) +
-              (1.0 - set_op_mix_ratio) * prod_matrix;
-      return res;
-    },
-    d_alloc, stream);
 
-  MLCommon::Sparse::coo_sort<T>(out, d_alloc, stream);
+  float set_op_mix_ratio = params->set_op_mix_ratio;
+
+  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(&in, out, d_alloc, stream);
+
+  MLCommon::device_buffer<int> out_row_ind(d_alloc, stream, out->n_rows);
+  sorted_coo_to_csr(out, out_row_ind.data(), d_alloc, stream);
+
+  int *cols = out->cols();
+  int *rows = out->rows();
+  T *vals = out->vals();
+
+  MLCommon::Sparse::csr_row_op(
+		  out_row_ind.data(), out->n_rows, out->nnz,
+		  [cols, rows, vals, set_op_mix_ratio] __device__(int row, int start_idx, int stop_idx) {
+	  int last_col = -1;
+
+	  T prod = 1.0;
+	  T sum = 0.0;
+	  int n = 0.0;
+
+	  for(int cur_idx = start_idx; cur_idx < stop_idx; cur_idx++) {
+		  int cur_col = cols[cur_idx];
+		  int cur_val = vals[cur_idx];
+
+		  if((cur_col != last_col && last_col != -1) || start_idx == stop_idx-1) {
+			  vals[cur_idx-1] = set_op_mix_ratio *
+					  (sum - prod) + (1.0 - set_op_mix_ratio) * prod;
+			  prod = cur_val;
+			  sum = cur_val;
+			  n = 1;
+		  } else {
+			  vals[cur_idx-1] = 0.0;
+			  prod *= cur_val;
+			  sum *= cur_val;
+			  n += 1;
+		  }
+	  }
+  }, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet
