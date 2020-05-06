@@ -20,86 +20,202 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
+#include "random/rng_impl.h"
+
 #include "cuml/neighbors/knn.hpp"
+
+#include <random/make_blobs.h>
+
 
 namespace ML {
 
 using namespace MLCommon;
+using namespace Random;
+using namespace std;
 
-/**
- *
- * NOTE: Not exhaustively testing the kNN implementation since
- * we are using FAISS for this. Just testing API to verify the
- * knn.cu class is accepting inputs and providing outputs as
- * expected.
- */
+
+struct KNNInputs {
+  int n_rows;
+  int n_cols;
+  int n_centers;
+
+  int n_query_row;
+
+  int n_neighbors;
+  int n_parts;
+};
+
+
+template <typename T, typename IdxT>
+::std::ostream& operator<<(::std::ostream& os,
+                           const KNNInputs& dims) {
+  return os;
+}
+
+template<typename T>
+void gen_blobs(cumlHandle &handle, T *out, int *l, int rows, int cols,
+		int centers, const T *centroids) {
+
+	make_blobs<float, int>(out, l, rows, cols,
+			   centers, handle.getDeviceAllocator(), handle.getStream(),
+			   centroids, nullptr, 0.1f, true,
+			   -10.0f, 10.0f, 1234ULL);
+}
+
+void create_index_parts(
+		cumlHandle &handle,
+		float *query_data,
+		int *query_labels,
+		vector<float *> &part_inputs,
+		vector<int*> &part_labels,
+		vector<int> &part_sizes,
+		const KNNInputs &params,
+		const float *centers) {
+
+	gen_blobs<float>(handle, query_data, query_labels, params.n_rows, params.n_cols, params.n_centers, centers);
+
+	for(int i = 0; i < params.n_parts; i++) {
+		part_inputs.push_back(query_data + (i * params.n_rows * params.n_cols));
+		part_labels.push_back(query_labels + (i * params.n_rows));
+		part_sizes.push_back(params.n_rows);
+	}
+}
+
+__global__ void build_actual_output(int *output, int n_rows, int k,
+		const int *idx_labels, const int64_t *indices) {
+
+  int element = threadIdx.x + blockDim.x * blockIdx.x;
+  if(element >= n_rows * k) return;
+
+  int64_t ind = indices[element];
+  output[element] = idx_labels[ind];
+}
+
+__global__ void build_expected_output(int *output, int n_rows, int k, const int *labels) {
+
+	  int row = threadIdx.x + blockDim.x * blockIdx.x;
+	  if(row >= n_rows) return;
+
+	  int cur_label = labels[row];
+	  for(int i = 0; i < k; i++)
+		  output[row * k + i] = cur_label;
+}
+
 template <typename T>
-class KNNTest : public ::testing::Test {
+class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  protected:
-  void basicTest() {
-    // Allocate input
-    allocate(d_train_inputs, n * d);
+  void testQuery() {
 
-    // Allocate reference arrays
-    allocate<long>(d_ref_I, n * n);
-    allocate(d_ref_D, n * n);
+	cudaStream_t stream = handle.getStream();
 
-    // Allocate predicted arrays
-    allocate<long>(d_pred_I, n * n);
-    allocate(d_pred_D, n * n);
+	device_buffer<T> out(handle.getDeviceAllocator(), handle.getStream(),
+						 params.n_rows * params.n_cols);
+	device_buffer<int> l(handle.getDeviceAllocator(), handle.getStream(),
+						  params.n_rows);
 
-    // make testdata on host
-    std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
-    h_train_inputs.resize(n);
-    updateDevice(d_train_inputs, h_train_inputs.data(), n * d, 0);
+    device_buffer<T> rand_centers(handle.getDeviceAllocator(), stream, params.n_centers*params.n_cols);
+    Rng r(0, GeneratorType::GenPhilox);
+    r.uniform(rand_centers.data(), params.n_centers * params.n_cols, -10.0f, 10.0f, stream);
 
-    std::vector<T> h_res_D = {0.0, 49.0, 50.0, 0.0, 1.0, 49.0, 0.0, 1.0, 50.0};
-    h_res_D.resize(n * n);
-    updateDevice(d_ref_D, h_res_D.data(), n * n, 0);
+    // Create index parts
+	create_index_parts(handle, index_data, index_labels,
+			part_inputs, part_labels, part_sizes,
+			params, rand_centers.data());
 
-    std::vector<long> h_res_I = {0, 1, 2, 1, 2, 0, 2, 1, 0};
-    h_res_I.resize(n * n);
-    updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
+	gen_blobs(handle, search_data, search_labels, params.n_query_row, params.n_cols, params.n_centers, rand_centers.data());
 
-    std::vector<float *> ptrs(1);
-    std::vector<int> sizes(1);
-    ptrs[0] = d_train_inputs;
-    sizes[0] = n;
+	device_buffer<int64_t> indices(handle.getDeviceAllocator(), handle.getStream(),
+						 params.n_query_row * params.n_neighbors);
+	device_buffer<float> dists(handle.getDeviceAllocator(), handle.getStream(),
+						 params.n_query_row * params.n_neighbors);
 
-    knn->fit(ptrs, sizes);
-    knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
+	brute_force_knn(handle, part_inputs, part_sizes, params.n_cols, search_data, params.n_query_row,
+					output_indices, output_dists, params.n_neighbors, true, true);
+
+	CUDA_CHECK(cudaPeekAtLastError());
+	CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    dim3 grid_elm(MLCommon::ceildiv(params.n_query_row*params.n_neighbors, 32), 1, 1);
+    dim3 blk_elm(32, 1, 1);
+
+	build_actual_output<<<grid_elm, blk_elm, 0, stream>>>(actual_labels, params.n_query_row,
+			params.n_neighbors, index_labels, output_indices);
+
+	CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    dim3 grid_row(MLCommon::ceildiv(params.n_query_row, 32), 1, 1);
+    dim3 blk_row(32, 1, 1);
+
+    build_expected_output<<<grid_row, blk_row, 0, stream>>>(expected_labels, params.n_query_row, params.n_neighbors, search_labels);
+
+	CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
   }
 
-  void SetUp() override { basicTest(); }
+  void SetUp() override {
+	cudaStream_t stream = handle.getStream();
+
+    params = ::testing::TestWithParam<KNNInputs>::GetParam();
+
+	allocate(index_data, params.n_rows*params.n_cols*params.n_parts, stream);
+	allocate(index_labels, params.n_rows*params.n_parts, stream);
+
+	allocate(search_data, params.n_query_row*params.n_cols, stream);
+	allocate(search_labels, params.n_query_row, stream);
+
+	allocate(output_indices, params.n_query_row*params.n_cols*params.n_parts, stream);
+	allocate(output_dists, params.n_query_row*params.n_cols*params.n_parts, stream);
+
+	allocate(actual_labels, params.n_query_row*params.n_neighbors*params.n_parts, stream);
+	allocate(expected_labels, params.n_query_row*params.n_neighbors*params.n_parts, stream);
+  }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(d_train_inputs));
-    CUDA_CHECK(cudaFree(d_pred_I));
-    CUDA_CHECK(cudaFree(d_pred_D));
-    CUDA_CHECK(cudaFree(d_ref_I));
-    CUDA_CHECK(cudaFree(d_ref_D));
+
+
   }
 
  protected:
-  T *d_train_inputs;
-
-  int n = 3;
-  int d = 1;
-
-  long *d_pred_I;
-  T *d_pred_D;
-
-  long *d_ref_I;
-  T *d_ref_D;
 
   cumlHandle handle;
-  kNN *knn = new kNN(handle, d);
+
+  KNNInputs params;
+
+  float *index_data;
+  int *index_labels;
+
+  vector<float*> part_inputs;
+  vector<int*> part_labels;
+  vector<int> part_sizes;
+
+  float *search_data;
+  int *search_labels;
+
+  float *output_dists;
+  int64_t *output_indices;
+
+  int *actual_labels;
+  int *expected_labels;
+};
+
+const std::vector<KNNInputs> inputs = {
+  {50, 5, 2, 25, 5, 2},
+  {50, 5, 2, 25, 10, 2},
+  {500, 5, 2, 25, 5, 7},
+  {500, 50, 2, 25, 10, 7},
+  {500, 5, 6, 25, 5, 7},
 };
 
 typedef KNNTest<float> KNNTestF;
-TEST_F(KNNTestF, Fit) {
-  ASSERT_TRUE(devArrMatch(d_ref_D, d_pred_D, n * n, Compare<float>()));
-  ASSERT_TRUE(devArrMatch(d_ref_I, d_pred_I, n * n, Compare<long>()));
+TEST_P(KNNTestF, Query) {
+	this->testQuery();
+    ASSERT_TRUE(devArrMatch(expected_labels, actual_labels, params.n_query_row*params.n_neighbors, Compare<int>()));
 }
+
+INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestF,
+                        ::testing::ValuesIn(inputs));
+
 
 }  // end namespace ML
