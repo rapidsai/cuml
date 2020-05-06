@@ -50,6 +50,8 @@ from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+import cuml.common.logger as logger
+
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -225,14 +227,14 @@ class RandomForestClassifier(Base):
                  'split_algo', 'split_criterion', 'min_rows_per_node',
                  'min_impurity_decrease',
                  'bootstrap', 'bootstrap_features',
-                 'verbose', 'rows_sample',
+                 'verbosity', 'rows_sample',
                  'max_leaves', 'quantile_per_tree']
 
     def __init__(self, n_estimators=100, max_depth=16, handle=None,
                  max_features='auto', n_bins=8, n_streams=8,
                  split_algo=1, split_criterion=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-                 type_model="classifier", verbose=False,
+                 type_model="classifier", verbosity=logger.LEVEL_INFO,
                  rows_sample=1.0, max_leaves=-1, quantile_per_tree=False,
                  output_type=None, criterion=None,
                  min_samples_leaf=None, min_weight_fraction_leaf=None,
@@ -264,7 +266,7 @@ class RandomForestClassifier(Base):
             handle = Handle(n_streams)
 
         super(RandomForestClassifier, self).__init__(handle=handle,
-                                                     verbose=verbose,
+                                                     verbosity=verbosity,
                                                      output_type=output_type)
 
         self.split_algo = split_algo
@@ -287,7 +289,6 @@ class RandomForestClassifier(Base):
         self.max_depth = max_depth
         self.max_features = max_features
         self.bootstrap = bootstrap
-        self.verbose = verbose
         self.n_bins = n_bins
         self.quantile_per_tree = quantile_per_tree
         self.n_cols = None
@@ -330,15 +331,15 @@ class RandomForestClassifier(Base):
             else:
                 state["rf_params64"] = rf_forest64.rf_params
         state['n_cols'] = self.n_cols
-        state["verbose"] = self.verbose
+        state["verbosity"] = self.verbosity
         state["model_pbuf_bytes"] = self.model_pbuf_bytes
 
         return state
 
     def __setstate__(self, state):
 
-        super(RandomForestClassifier, self).__init__(handle=None,
-                                                     verbose=state['verbose'])
+        super(RandomForestClassifier, self).__init__(
+            handle=None, verbosity=state['verbosity'])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \
