@@ -40,7 +40,7 @@ def test_pca_fit(data_info, cluster):
                                n_features=ncols,
                                centers=1,
                                n_parts=n_parts,
-                               cluster_std=0.5, verbose=False,
+                               cluster_std=0.5,
                                random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -86,7 +86,7 @@ def test_pca_fit_transform_fp32(data_info, cluster):
                                n_features=ncols,
                                centers=1,
                                n_parts=n_parts,
-                               cluster_std=1.5, verbose=False,
+                               cluster_std=1.5,
                                random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -114,7 +114,7 @@ def test_pca_fit_transform_fp64(data_info, cluster):
                                n_features=ncols,
                                centers=1,
                                n_parts=n_parts,
-                               cluster_std=1.5, verbose=False,
+                               cluster_std=1.5,
                                random_state=10, dtype=np.float64)
 
         wait(X_cudf)
