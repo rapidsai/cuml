@@ -45,7 +45,8 @@ class TruncatedSVD(BaseDecomposition,
         n_parts = 2
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                        cluster_std=1.8, verbose=False,
+                        cluster_std=1.8,
+                        verbosity=cuml.common.logger.LEVEL_INFO,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -93,8 +94,8 @@ class TruncatedSVD(BaseDecomposition,
     svd_solver : 'full'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
-    verbose : bool
-        Whether to print debug spews
+    verbosity : int
+        Logging level
 
     Attributes
     ----------
