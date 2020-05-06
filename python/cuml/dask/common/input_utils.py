@@ -169,7 +169,7 @@ def concatenate(objs, axis=0):
 
 
 # TODO: This should be delayed.
-def to_output(futures, type, client=None, verbose=False):
+def to_output(futures, type, client=None):
     if type == 'cupy':
         return to_dask_cupy(futures, client=client)
     else:
