@@ -165,18 +165,21 @@ class BaseDecompositionMG(object):
         arg_rank_size_pair = <size_t>rank_size_pair
         decomp_params = self._build_params(total_rows, n_cols)
 
-        arr_interfaces_trans, data, trans_data = self._call_fit(
-            arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,
-            decomp_params)
+        if _transform:
+            arr_interfaces_trans, data, trans_data = self._call_fit(
+                arr_interfaces, p2r, rank, arg_rank_size_pair, n_total_parts,
+                decomp_params)
+        else:
+            self._call_fit(arr_interfaces, p2r, rank, arg_rank_size_pair,
+                           n_total_parts, decomp_params)
 
         for idx in range(n_total_parts):
             free(<RankSizePair*>rank_size_pair[idx])
         free(<RankSizePair**>rank_size_pair)
 
-        del(X_m)
-
-        trans_cudf = []
         if _transform:
+            trans_cudf = []
+
             for x_i in arr_interfaces_trans:
                 trans_cudf.append(x_i["obj"].to_output(
                     output_type=self._get_output_type(X)))
@@ -189,5 +192,3 @@ class BaseDecompositionMG(object):
                 self._freeDoubleD(data, arr_interfaces)
 
             return trans_cudf
-
-        return self

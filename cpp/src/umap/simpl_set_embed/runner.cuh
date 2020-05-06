@@ -15,7 +15,7 @@
  */
 
 #include <cuml/manifold/umapparams.h>
-#include "naive.h"
+#include "algo.cuh"
 
 #include "sparse/coo.h"
 
@@ -23,33 +23,20 @@
 
 namespace UMAPAlgo {
 
-namespace FuzzySimplSet {
+namespace SimplSetEmbed {
 
 using namespace ML;
 
-/**
- * Calculates a fuzzy simplicial set of the input X and kNN results
- * @param n: number of rows in X
- * @param knn_indices: matrix of kNN indices size (nxn)
- * @param knn_dists: matrix of kNN dists size (nxn)
- * @param n_neighbors number of neighbors
- * @param coo input knn-graph
- * @param params umap parameters
- * @param alloc device allocator
- * @param stream cuda stream
- * @param algorithm algo type to choose
- */
 template <int TPB_X, typename T>
-void run(int n, const int64_t *knn_indices, const T *knn_dists, int n_neighbors,
-         MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
+void run(const T *X, int m, int n, MLCommon::Sparse::COO<T> *coo,
+         UMAPParams *params, T *embedding,
          std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
          int algorithm = 0) {
   switch (algorithm) {
     case 0:
-      Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists, n_neighbors, coo,
-                                params, alloc, stream);
-      break;
+      SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding,
+                                              alloc, stream);
   }
 }
-}  // namespace FuzzySimplSet
-};  // namespace UMAPAlgo
+}  // namespace SimplSetEmbed
+}  // namespace UMAPAlgo

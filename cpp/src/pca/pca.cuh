@@ -30,7 +30,7 @@
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
-#include "tsvd/tsvd.h"
+#include "tsvd/tsvd.cuh"
 
 namespace ML {
 

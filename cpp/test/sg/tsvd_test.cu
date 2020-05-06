@@ -21,7 +21,7 @@
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
-#include "tsvd/tsvd.h"
+#include "tsvd/tsvd.cuh"
 
 namespace ML {
 
