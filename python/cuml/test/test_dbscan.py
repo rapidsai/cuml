@@ -137,3 +137,72 @@ def test_dbscan_out_dtype_fails_invalid_input():
 
     cudbscan = cuDBSCAN(output_type='numpy')
     cudbscan.fit_predict(X, out_dtype="bad_input")
+
+
+def test_core_point_prop1():
+    params = {'eps': 1.1, 'min_samples': 4}
+
+    # The input looks like a latin cross or a star with a chain:
+    #   .
+    # . . . . .
+    #   .
+    # There is 1 core-point (intersection of the bars)
+    # and the two points to the very right are not reachable from it
+    # So there should be one cluster (the plus/star on the left)
+    # and two noise points
+
+    X = np.array([[0, 0], [1, 0], [1, 1], [1, -1], [2, 0], [3, 0], [4, 0]], dtype=np.float32)
+    cudbscan = cuDBSCAN(**params)
+    cu_y_pred = cudbscan.fit_predict(X)
+
+    dbscan = skDBSCAN(**params)
+    sk_y_pred = dbscan.fit_predict(X)
+
+    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+    assert(score == 1.0)
+
+
+def test_core_point_prop2():
+    params = {'eps': 1.1, 'min_samples': 4}
+
+    # The input looks like a long two-barred (orhodox) cross or two stars next to each other:
+    #   .     .
+    # . . . . . .
+    #   .     .
+    # There are 2 core-points but they are not reachable from each other
+    # So there should be two clusters, both in the form of a plus/star
+
+    X = np.array([[0, 0], [1, 0], [1, 1], [1, -1], [2, 0], [3, 0], [4, 0], [4, 1], [4, -1], [5, 0]], dtype=np.float32)
+    cudbscan = cuDBSCAN(**params)
+    cu_y_pred = cudbscan.fit_predict(X)
+
+    dbscan = skDBSCAN(**params)
+    sk_y_pred = dbscan.fit_predict(X)
+
+    score = adjusted_rand_score(sk_y_pred, cu_y_pred)
+    assert(score == 1.0)
+
+
+def test_core_point_prop3():
+    params = {'eps': 1.1, 'min_samples': 4}
+
+    # The input looks like a two-barred (orhodox) cross or two stars sharing a link:
+    #   .   .
+    # . . . . .
+    #   .   .
+    # There are 2 core-points but they are not reachable from each other
+    # So there should be two clusters.
+    # However, the link that is shared between the stars
+    # actually has an ambiguous label (to the best of my knowledge)
+    # as it will depend on the order in which we process the core-points.
+    # So we exclude that point from the comparison with sklearn
+
+    X = np.array([[0, 0], [1, 0], [1, 1], [1, -1], [3, 0], [4, 0], [4, 1], [4, -1], [5, 0], [2, 0]], dtype=np.float32)
+    cudbscan = cuDBSCAN(**params)
+    cu_y_pred = cudbscan.fit_predict(X)
+
+    dbscan = skDBSCAN(**params)
+    sk_y_pred = dbscan.fit_predict(X)
+
+    score = adjusted_rand_score(sk_y_pred[:-1], cu_y_pred[:-1])
+    assert(score == 1.0)
