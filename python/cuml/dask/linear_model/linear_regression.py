@@ -18,6 +18,7 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.comms import worker_state
 from cuml.dask.linear_model.base import BaseLinearModelSyncFitMixin
+import cuml.common.logger as logger
 
 
 class LinearRegression(BaseEstimator,
@@ -62,9 +63,9 @@ class LinearRegression(BaseEstimator,
         The independent term. If fit_intercept_ is False, will be 0.
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
         super(LinearRegression, self).__init__(client=client,
-                                               verbose=verbose,
+                                               verbosity=verbosity,
                                                **kwargs)
 
         self.coef_ = None
