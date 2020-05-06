@@ -29,6 +29,8 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_cuml_array
+import cuml.common.logger as logger
+
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -351,8 +353,8 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     """
 
     def __init__(self, handle=None, n_components='auto', eps=0.1,
-                 random_state=None, verbose=False):
-        Base.__init__(self, handle, verbose)
+                 random_state=None, verbosity=logger.LEVEL_INFO):
+        Base.__init__(self, handle, verbosity)
         self.gaussian_method = True
         self.density = -1.0  # not used
 
@@ -462,8 +464,9 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     """
 
     def __init__(self, handle=None, n_components='auto', density='auto',
-                 eps=0.1, dense_output=True, random_state=None, verbose=False):
-        Base.__init__(self, handle, verbose)
+                 eps=0.1, dense_output=True, random_state=None,
+                 verbosity=logger.LEVEL_INFO):
+        Base.__init__(self, handle, verbosity)
         self.gaussian_method = False
         self.density = density if density != 'auto' else -1.0
 
