@@ -28,10 +28,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+from cuml.utils import input_to_cuml_array
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -171,7 +171,7 @@ class CD(Base):
 
     def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
-                 shuffle=True, handle=None):
+                 shuffle=True, handle=None, output_type=None):
 
         if loss in ['squared_loss']:
             self.loss = self._get_loss_int(loss)
@@ -179,7 +179,8 @@ class CD(Base):
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=False)
+        super(CD, self).__init__(handle=handle, verbose=False,
+                                 output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
@@ -223,21 +224,24 @@ class CD(Base):
             will increase memory used for the method.
         """
 
-        cdef uintptr_t X_ptr, y_ptr
-        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, check_dtype=[np.float32, np.float64])
+        self._set_output_type(X)
 
-        y_m, y_ptr, _, _, _ = \
-            input_to_dev_array(y, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_rows=n_rows, check_cols=1)
+        X_m, n_rows, self.n_cols, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+
+        y_m, *_ = \
+            input_to_cuml_array(y, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_rows=n_rows, check_cols=1)
+
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t y_ptr = y_m.ptr
 
         self.n_alpha = 1
 
-        self.coef_ = cudf.Series(zeros(self.n_cols,
-                                       dtype=self.dtype))
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
+        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -303,17 +307,20 @@ class CD(Base):
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
+        out_type = self._get_output_type(X)
 
-        cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = \
-            input_to_dev_array(X, check_dtype=self.dtype,
-                               convert_to_dtype=(self.dtype if convert_dtype
-                                                 else None),
-                               check_cols=self.n_cols)
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_cols)
 
-        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
-        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t coef_ptr = self._coef_.ptr
+
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        cdef uintptr_t preds_ptr = preds.ptr
+
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
@@ -339,4 +346,4 @@ class CD(Base):
 
         del(X_m)
 
-        return preds
+        return preds.to_output(out_type)
