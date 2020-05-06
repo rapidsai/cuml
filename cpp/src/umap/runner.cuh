@@ -40,7 +40,6 @@
 
 #include <cuda_runtime.h>
 
-
 namespace UMAPAlgo {
 
 // Swap this as impls change for now.

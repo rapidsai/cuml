@@ -46,7 +46,6 @@ using namespace MLCommon;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 
-
 template <typename T>
 __global__ void has_nan_kernel(T* data, size_t len, bool* answer) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -283,8 +282,7 @@ class UMAPParametrizableTest : public ::testing::Test {
       {true, true, false, 2000, 50, 20, 0.45},
       {true, false, true, 2000, 50, 20, 0.45},
       {false, true, true, 2000, 50, 20, 0.45},
-      {true, true, true, 2000, 50, 20, 0.45}
-    };
+      {true, true, true, 2000, 50, 20, 0.45}};
 
     std::vector<UMAPParams> umap_params_vec(4);
     umap_params_vec[0].n_components = 2;
@@ -296,13 +294,13 @@ class UMAPParametrizableTest : public ::testing::Test {
     umap_params_vec[2].n_components = 21;
     umap_params_vec[2].random_state = 42;
     umap_params_vec[2].multicore_implem = false;
-    umap_params_vec[2].optim_batch_size = 0; // use default value
+    umap_params_vec[2].optim_batch_size = 0;  // use default value
     umap_params_vec[2].n_epochs = 500;
 
     umap_params_vec[3].n_components = 25;
     umap_params_vec[3].random_state = 42;
     umap_params_vec[3].multicore_implem = false;
-    umap_params_vec[3].optim_batch_size = 0; // use default value
+    umap_params_vec[3].optim_batch_size = 0;  // use default value
     umap_params_vec[3].n_epochs = 500;
 
     for (auto& umap_params : umap_params_vec) {
