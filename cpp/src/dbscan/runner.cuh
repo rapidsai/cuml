@@ -95,7 +95,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
    * overflow.
    */
   size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
-  size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
+  size_t corePtsSize = alignTo<size_t>(sizeof(bool) * N, align);
   size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
   size_t mSize = alignTo<size_t>(sizeof(bool), align);
   size_t vdSize = alignTo<size_t>(sizeof(Index_) * (batchSize + 1), align);
@@ -138,11 +138,10 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // Running VertexDeg
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
+  MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(), stream);
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
-    MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
-                                              stream);
 
     Index_ startVertexId = i * batchSize;
     Index_ nPoints = min(size_t(N - startVertexId), batchSize);
@@ -173,9 +172,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adj_graph.resize(adjlen, stream);
     }
 
-    AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
-                                ex_scan, N, minPts, core_pts, algoAdj, nPoints,
-                                stream);
+    AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
+                                ex_scan, N, minPts, core_pts + startVertexId,
+                                algoAdj, nPoints, stream);
 
     ML::POP_RANGE();
 
@@ -188,9 +187,11 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
     start_time = curTimeMillis();
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
-      labels, ex_scan, adj_graph.data(), adjlen, N, startVertexId, nPoints,
+      labels, ex_scan, adj_graph.data(), curradjlen, N, startVertexId, nPoints,
       &state, stream,
-      [core_pts] __device__(Index_ tid) { return core_pts[tid]; });
+      [core_pts, startVertexId, nPoints] __device__(Index_ global_id) { 
+        return global_id < startVertexId + nPoints ? core_pts[global_id] : false;
+      });
     ML::POP_RANGE();
 
     cur_time = curTimeMillis();
