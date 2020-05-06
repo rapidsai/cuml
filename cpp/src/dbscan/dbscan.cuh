@@ -24,37 +24,46 @@
 namespace ML {
 
 using namespace Dbscan;
+// Default max mem set to a reasonable value for a 16gb card.
 static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
 
-// Default max mem set to a reasonable value for a 16gb card.
-template <typename T, typename Index_ = int>
-Index_ computeBatchCount(Index_ n_rows, size_t max_mbytes_per_batch) {
-  Index_ n_batches = 1;
-  // There seems to be a weird overflow bug with cutlass gemm kernels
-  // hence, artifically limiting to a smaller batchsize!
-  ///TODO: in future, when we bump up the underlying cutlass version, this should go away
-  // paving way to cudaMemGetInfo based workspace allocation
+template <typename Index_ = int>
+Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
+    size_t max_mbytes_per_batch = 0, Index_ neigh_per_row = 0) {
+  // In real applications, it's unlikely that the sparse adjacency matrix
+  // comes even close to the worst-case memory usage, because if epsilon
+  // is so large that all points are connected to 10% or even more of other
+  // points, the clusters would probably not be interesting/relevant anymore
+  ///@todo: expose `neigh_per_row` to the user
 
-  if (max_mbytes_per_batch <= 0) max_mbytes_per_batch = DEFAULT_MAX_MEM_MBYTES;
+  if (neigh_per_row <= 0) neigh_per_row = n_rows;
 
-  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+  // we'll estimate the memory consumption per row.
+  // First the dense adjacency matrix
+  estimated_memory = n_rows * sizeof(bool);
+  // sparse adjacency matrix
+  estimated_memory += neigh_per_row * sizeof(Index_);
+  // core points and two indicator variables
+  estimated_memory += 3 * sizeof(bool);
+  // the rest will be so small that it should fit into what we have left over
+  // from the over-estimation of the sparse adjacency matrix
+  estimated_memory *= n_rows;
 
-  while (true) {
-    size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
-    if (((batchSize * n_rows * sizeof(T) * 1e-6 < max_mbytes_per_batch) &&
-         /**
-          * Though single precision can be faster per execution of each kernel,
-          * there's a trade-off to be made between using single precision with
-          * many more batches (which become smaller as n_rows grows) and using
-          * double precision, which will have less batches but could become 8-10x
-          * slower per batch.
-          */
-         (batchSize * n_rows < MAX_LABEL)) ||
-        batchSize == 1)
-      break;
-    ++n_batches;
+  if (max_mbytes_per_batch <= 0) {
+    /* using default here as in decision tree, waiting for mem info from device allocator
+    size_t total_mem;
+	  CUDA_CHECK(cudaMemGetInfo(&max_mbytes_per_batch, &total_mem));
+    */
+    max_mbytes_per_batch = DEFAULT_MAX_MEM_MBYTES;
   }
-  return n_batches;
+
+  Index_ nBatches = (Index_)ceildiv<size_t>(
+    estimated_memory, max_mbytes_per_batch * 1000000);
+  size_t MAX_LABEL = (size_t)std::numeric_limits<Index_>::max();
+  // n_rows * n_rows_per_batch < MAX_LABEL => n_rows * (n_rows / nBatches) < MAX_LABEL
+  // => nBatches >= n_rows * n_rows / MAX_LABEL
+  nBatches = max((Index_)ceildiv<size_t>((size_t)n_rows * n_rows, MAX_LABEL), nBatches);
+  return max((Index_)1, nBatches);
 }
 
 template <typename T, typename Index_ = int>
@@ -68,14 +77,15 @@ void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
   int algoAdj = 1;
   int algoCcl = 2;
 
-  // @todo: Query device for remaining memory
-  Index_ n_batches = computeBatchCount<T, Index_>(n_rows, max_mbytes_per_batch);
+  ///@todo: Query device for remaining memory
+  size_t estimated_memory;
+  Index_ n_batches = computeBatchCount<Index_>(
+    estimated_memory, n_rows, max_mbytes_per_batch);
 
   if (n_batches > 1) {
-    Index_ batchSize = ceildiv<Index_>(n_rows, n_batches);
     CUML_LOG_DEBUG("Running batched training on %ld batches w/ %lf MB",
                    (unsigned long)n_batches,
-                   (double)(batchSize * n_rows * sizeof(T) * 1e-6));
+                   (double)estimated_memory * 1e-6 / n_batches);
   }
 
   size_t workspaceSize =
