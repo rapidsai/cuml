@@ -68,7 +68,10 @@
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
 - PR #2184: Refoctor headers for holtwinters, rproj, tsvd, tsne, umap
+- PR #2199: Remove unncessary notebooks
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
+- PR #2201: Re-enabling UMAP repro tests
+- PR #2196: Updates to benchmarks. Moving notebook
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -101,6 +104,7 @@
 - PR #2162: Use stream in transpose prim
 - PR #2165: Fit function test correction
 - PR #2166: Fix handling of temp file in RF pickling
+- PR #2176: C++: fix for adjusted rand index when input array is all zeros
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples

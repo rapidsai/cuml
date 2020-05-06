@@ -83,8 +83,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
-    score = adjustedRandIndex(handle, d_labels_ref, d_labels, n_samples, 0,
-                              params.n_clusters - 1);
+    score = adjustedRandIndex(handle, d_labels_ref, d_labels, n_samples);
 
     if (score < 1.0) {
       std::stringstream ss;
