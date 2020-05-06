@@ -710,48 +710,50 @@ struct WeakCCState {
   WeakCCState(bool *xa, bool *fa, bool *m) : xa(xa), fa(fa), m(m) {}
 };
 
-template <typename Index_, int TPB_X = 32>
+template <typename Index_, int TPB_X = 32, typename Lambda>
 __global__ void weak_cc_label_device(Index_ *labels, const Index_ *row_ind,
                                      const Index_ *row_ind_ptr, Index_ nnz,
                                      bool *fa, bool *xa, bool *m,
                                      Index_ startVertexId, Index_ batchSize,
-                                     Index_ N) {
+                                     Index_ N, Lambda filter_op) {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
-
-  if (tid < batchSize && tid + startVertexId < N) {
-    if (fa[tid + startVertexId]) {
-      fa[tid + startVertexId] = false;
+  Index_ global_id = tid + startVertexId;
+  if (tid < batchSize && global_id < N) {
+    if (fa[global_id]) {
+      fa[global_id] = false;
       Index_ row_ind_val = row_ind[tid];
 
       Index_ start = row_ind_val;
       Index_ ci, cj;
       bool ci_mod = false;
-      ci = labels[tid + startVertexId];
+      ci = labels[global_id];
+      bool ci_allow_prop = filter_op(global_id);
 
       Index_ degree = get_stop_idx(tid, batchSize, nnz, row_ind) - row_ind_val;
       for (Index_ j = 0; j < degree;
            j++) {  // TODO: Can't this be calculated from the ex_scan?
         Index_ j_ind = row_ind_ptr[start + j];
         cj = labels[j_ind];
-        if (ci < cj) {
+        bool cj_allow_prop = filter_op(j_ind);
+        if (ci < cj && ci_allow_prop) {
           if (sizeof(Index_) == 4)
             atomicMin((int *)(labels + j_ind), ci);
           else if (sizeof(Index_) == 8)
             atomicMin((long long int *)(labels + j_ind), ci);
-          xa[j_ind] = true;
-          m[0] = true;
-        } else if (ci > cj) {
+          xa[j_ind] = cj_allow_prop;
+          m[0] = cj_allow_prop;
+        } else if (ci > cj && cj_allow_prop) {
           ci = cj;
           ci_mod = true;
         }
       }
       if (ci_mod) {
         if (sizeof(Index_) == 4)
-          atomicMin((int *)(labels + startVertexId + tid), ci);
+          atomicMin((int *)(labels + global_id), ci);
         else if (sizeof(Index_) == 8)
-          atomicMin((long long int *)(labels + startVertexId + tid), ci);
-        xa[startVertexId + tid] = true;
-        m[0] = true;
+          atomicMin((long long int *)(labels + global_id), ci);
+        xa[global_id] = ci_allow_prop;
+        m[0] = ci_allow_prop;
       }
     }
   }
@@ -765,8 +767,9 @@ __global__ void weak_cc_init_label_kernel(Index_ *labels, Index_ startVertexId,
   /** Cd in paper corresponds to db_cluster */
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < batchSize) {
-    if (filter_op(tid) && labels[tid + startVertexId] == MAX_LABEL)
-      labels[startVertexId + tid] = startVertexId + tid + 1;
+    Index_ global_id = tid + startVertexId;
+    if (filter_op(global_id) && labels[global_id] == MAX_LABEL)
+      labels[global_id] = global_id + 1;
   }
 }
 
@@ -808,7 +811,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
 
     weak_cc_label_device<Index_, TPB_X><<<blocks, threads, 0, stream>>>(
       labels, row_ind, row_ind_ptr, nnz, state->fa, state->xa, state->m,
-      startVertexId, batchSize, N);
+      startVertexId, batchSize, N, filter_op);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -853,7 +856,7 @@ void weak_cc_label_batched(Index_ *labels, const Index_ *row_ind,
  * @param state instance of inter-batch state management
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
- * should get considered for labeling.
+ * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
 template <typename Index_, int TPB_X = 32, typename Lambda = auto(Index_)->bool>
 void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
@@ -931,7 +934,7 @@ void weak_cc_batched(Index_ *labels, const Index_ *row_ind,
  * @param d_alloc: deviceAllocator to use for temp memory
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
- * should get considered for labeling.
+ * should get considered for labeling. It gets global indexes (not batch-wide!)
  */
 template <typename Index_ = int, int TPB_X = 32,
           typename Lambda = auto(Index_)->bool>
