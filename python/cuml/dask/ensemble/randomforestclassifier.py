@@ -22,7 +22,7 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
-from cuml.dask.ensemble.randomforestcommon import \
+from cuml.dask.ensemble.base import \
     BaseRandomForestModel
 
 

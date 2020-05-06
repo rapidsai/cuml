@@ -1,3 +1,4 @@
+import dask
 import math
 
 from cuml.dask.common import raise_exception_from_futures
@@ -5,8 +6,6 @@ from cuml.dask.common.input_utils import DistributedDataHandler, \
     concatenate
 
 from dask.distributed import wait
-
-from uuid import uuid1
 
 
 class BaseRandomForestModel(object):
@@ -29,20 +28,18 @@ class BaseRandomForestModel(object):
             self.n_estimators_per_worker[i] = (
                 self.n_estimators_per_worker[i] + 1
             )
-        seeds = list()
-        seeds.append(0)
+        seeds = [0]
         for i in range(1, len(self.n_estimators_per_worker)):
             sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
             seeds.append(sd)
 
-        key = str(uuid1())
         self.rfs = {
             worker: self.client.submit(
                 model_func,
                 n_estimators=self.n_estimators_per_worker[n],
                 seed=seeds[n],
                 **kwargs,
-                key="%s-%s" % (key, n),
+                pure=False,
                 workers=[worker],
             )
             for n, worker in enumerate(self.workers)
@@ -81,18 +78,20 @@ class BaseRandomForestModel(object):
         to create a single model. The concatenated model is then converted to
         bytes format.
         """
-        mod_bytes = []
+        model_protobuf_futures = list()
         for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
+            model_protobuf_futures.append(
+                dask.delayed(_get_protobuf_bytes)
+                (self.rfs[w]))
+        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
-        concat_model_handle = model._concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
 
-        model._concatenate_model_bytes(concat_model_handle)
+        model._concatenate_treelite_handle(
+            treelite_handle=all_tl_mod_handles)
         return model
 
     def _predict_using_fil(self, X, delayed, **kwargs):
@@ -171,3 +170,7 @@ def _func_get_params(model, deep):
 
 def _func_set_params(model, **params):
     return model.set_params(**params)
+
+
+def _get_protobuf_bytes(model):
+    return model._get_protobuf_bytes()
