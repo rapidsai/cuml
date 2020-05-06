@@ -31,6 +31,7 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_cuml_array
+import cuml.common.logger as logger
 
 from collections import defaultdict
 
@@ -126,8 +127,8 @@ class DBSCAN(Base):
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    verbose : bool
-        Whether to print debug spews
+    verbosity : int
+        Logging level
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
         the pairwise distance computation. This enables the trade-off between
@@ -175,9 +176,10 @@ class DBSCAN(Base):
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False,
-                 max_mbytes_per_batch=None, output_type=None):
-        super(DBSCAN, self).__init__(handle, verbose, output_type)
+    def __init__(self, eps=0.5, handle=None, min_samples=5,
+                 verbosity=logger.LEVEL_INFO, max_mbytes_per_batch=None,
+                 output_type=None):
+        super(DBSCAN, self).__init__(handle, verbosity, output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
