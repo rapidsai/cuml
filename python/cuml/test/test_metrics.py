@@ -25,7 +25,8 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
-    unit_param, quality_param, stress_param, generate_random_labels
+    unit_param, quality_param, stress_param, generate_random_labels, \
+    score_labeling_with_handle
 
 from numba import cuda
 from numpy.testing import assert_almost_equal
@@ -33,9 +34,12 @@ from numpy.testing import assert_almost_equal
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
-from cuml.metrics.cluster import entropy
+from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
+from sklearn.metrics.cluster import completeness_score as sk_completeness_score
+from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
 from sklearn.preprocessing import StandardScaler
 
+from cuml.metrics.cluster import entropy
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
 from sklearn.metrics.regression import mean_squared_error as sklearn_mse
@@ -45,7 +49,7 @@ from cuml.metrics import confusion_matrix
 from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
 from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
 
-from scipy.stats import entropy as sp_entropy
+from cuml.utils import has_scipy
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -169,6 +173,176 @@ def test_rand_index_score(name, nrows):
     cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
+
+
+def score_homogeneity(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.homogeneity_score,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
+def score_completeness(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.completeness_score,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
+def score_mutual_info(ground_truth, predictions, use_handle):
+    return score_labeling_with_handle(cuml.metrics.mutual_info_score,
+                                      ground_truth,
+                                      predictions,
+                                      use_handle,
+                                      dtype=np.int32)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                  ([0, 0, 1, 1], [0, 0, 1, 1])])
+def test_homogeneity_perfect_labeling(use_handle, data):
+    # Perfect labelings are homogeneous
+    hom = score_homogeneity(*data, use_handle)
+    assert_almost_equal(hom, 1.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 0, 1, 2]),
+                                  ([0, 0, 1, 1], [0, 1, 2, 3])])
+def test_homogeneity_non_perfect_labeling(use_handle, data):
+    # Non-perfect labelings that further split classes into more clusters can
+    # be perfectly homogeneous
+    hom = score_homogeneity(*data, use_handle)
+    assert_almost_equal(hom, 1.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 1, 0, 1]),
+                                  ([0, 0, 1, 1], [0, 0, 0, 0])])
+def test_homogeneity_non_homogeneous_labeling(use_handle, data):
+    # Clusters that include samples from different classes do not make for an
+    # homogeneous labeling
+    hom = score_homogeneity(*data, use_handle)
+    assert_almost_equal(hom, 0.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 1000],
+                                         [-1000, 1000]])
+def test_homogeneity_score_big_array(use_handle, input_range):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e4),
+                                                              dtype=np.int32))
+    score = score_homogeneity(a, b, use_handle)
+    ref = sk_homogeneity_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 2],
+                                         [-5, 20],
+                                         [int(-10e2), int(10e2)]])
+def test_homogeneity_completeness_symmetry(use_handle, input_range):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e3),
+                                                              dtype=np.int32))
+    hom = score_homogeneity(a, b, use_handle)
+    com = score_completeness(b, a, use_handle)
+    np.testing.assert_almost_equal(hom, com, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_labels', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                          ([0, 0, 1, 1], [0, 0, 1, 1]),
+                                          ([0, 0, 1, 1], [0, 0, 1, 2]),
+                                          ([0, 0, 1, 1], [0, 1, 2, 3]),
+                                          ([0, 0, 1, 1], [0, 1, 0, 1]),
+                                          ([0, 0, 1, 1], [0, 0, 0, 0])])
+def test_mutual_info_score(use_handle, input_labels):
+    score = score_mutual_info(*input_labels, use_handle)
+    ref = sk_mutual_info_score(*input_labels)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 1000],
+                                         [-1000, 1000]])
+def test_mutual_info_score_big_array(use_handle, input_range):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e4),
+                                                              dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('n', [14])
+def test_mutual_info_score_range_equal_samples(use_handle, n):
+    input_range = (-n, n)
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              n,
+                                                              dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 19],
+                                         [0, 2],
+                                         [-5, 20]])
+@pytest.mark.parametrize('n_samples', [129, 258])
+def test_mutual_info_score_many_blocks(use_handle, input_range, n_samples):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              n_samples,
+                                                              dtype=np.int32))
+    score = score_mutual_info(a, b, use_handle)
+    ref = sk_mutual_info_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [1, 1, 0, 0]),
+                                  ([0, 0, 1, 1], [0, 0, 1, 1])])
+def test_completeness_perfect_labeling(use_handle, data):
+    # Perfect labelings are complete
+    com = score_completeness(*data, use_handle)
+    np.testing.assert_almost_equal(com, 1.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 0, 0, 0]),
+                                  ([0, 1, 2, 3], [0, 0, 1, 1])])
+def test_completeness_non_perfect_labeling(use_handle, data):
+    # Non-perfect labelings that assign all classes members to the same
+    # clusters are still complete
+    com = score_completeness(*data, use_handle)
+    np.testing.assert_almost_equal(com, 1.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('data', [([0, 0, 1, 1], [0, 1, 0, 1]),
+                                  ([0, 0, 0, 0], [0, 1, 2, 3])])
+def test_completeness_non_complete_labeling(use_handle, data):
+    # If classes members are split across different clusters, the assignment
+    # cannot be complete
+    com = score_completeness(*data, use_handle)
+    np.testing.assert_almost_equal(com, 0.0, decimal=4)
+
+
+@pytest.mark.parametrize('use_handle', [True, False])
+@pytest.mark.parametrize('input_range', [[0, 1000],
+                                         [-1000, 1000]])
+def test_completeness_score_big_array(use_handle, input_range):
+    a, b, _, _ = generate_random_labels(lambda rd: rd.randint(*input_range,
+                                                              int(10e4),
+                                                              dtype=np.int32))
+    score = score_completeness(a, b, use_handle)
+    ref = sk_completeness_score(a, b)
+    np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
 def test_regression_metrics():
@@ -323,6 +497,11 @@ def test_entropy(use_handle):
 @pytest.mark.parametrize('base', [None, 2, 10, 50])
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_entropy_random(n_samples, base, use_handle):
+    if has_scipy():
+        from scipy.stats import entropy as sp_entropy
+    else:
+        pytest.skip('Skipping test_entropy_random because Scipy is missing')
+
     handle, stream = get_handle(use_handle)
 
     clustering, _, _, _ = \
