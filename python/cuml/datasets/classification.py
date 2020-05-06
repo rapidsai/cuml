@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from sklearn.utils.random import sample_without_replacement
+
+from cuml.utils.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
 from cuml.utils import with_cupy_rmm
 
@@ -24,6 +25,11 @@ import numpy as np
 def _generate_hypercube(samples, dimensions, rng):
     """Returns distinct binary samples of length dimensions
     """
+    if not has_sklearn():
+        raise RuntimeError("Scikit-learn is needed to run \
+                           make_classification.")
+
+    from sklearn.utils.random import sample_without_replacement
     if dimensions > 30:
         return np.hstack([np.random.randint(2, size=(samples,
                                                      dimensions - 30)),

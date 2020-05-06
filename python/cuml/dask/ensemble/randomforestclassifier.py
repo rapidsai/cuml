@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+import dask
+import math
+import random
+
 from cuml.dask.common import raise_exception_from_futures
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from cuml.dask.common.input_utils import DistributedDataHandler, \
@@ -22,8 +26,6 @@ from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
 
-import math
-import random
 from uuid import uuid1
 
 
@@ -283,6 +285,10 @@ class RandomForestClassifier(DelayedPredictionMixin,
         return model.fit(X, y, convert_dtype)
 
     @staticmethod
+    def _get_protobuf_bytes(model):
+        return model._get_protobuf_bytes()
+
+    @staticmethod
     def _predict_cpu(model, X, convert_dtype, r):
         return model._predict_get_all(X, convert_dtype)
 
@@ -316,23 +322,21 @@ class RandomForestClassifier(DelayedPredictionMixin,
         the treelite format and then concatenate the different treelite models
         to create a single model. The concatenated model is then converted to
         bytes format.
-
         """
-
-        mod_bytes = []
+        model_protobuf_futures = list()
         for w in self.workers:
-            mod_bytes.append(self.rfs[w].result().model_pbuf_bytes)
-
+            model_protobuf_futures.append(
+                dask.delayed(RandomForestClassifier._get_protobuf_bytes)
+                (self.rfs[w]))
+        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
         last_worker = w
-
         all_tl_mod_handles = []
         model = self.rfs[last_worker].result()
         for n in range(len(self.workers)):
             all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
 
-        concat_model_handle = model._concatenate_treelite_handle(
+        model._concatenate_treelite_handle(
             treelite_handle=all_tl_mod_handles)
-        model._concatenate_model_bytes(concat_model_handle)
 
         self.local_model = model
 
