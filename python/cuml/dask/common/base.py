@@ -168,25 +168,32 @@ class DelayedParallelFunc(object):
         # TODO: Put the following conditionals in a
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
+        if output_collection_type == 'cupy':
 
-        if output_futures:
-            return self.client.compute(preds)
-        else:
-            if output_collection_type == 'cupy':
-                # todo: add parameter for option of not checking directly
-                shape = (np.nan,)*n_dims
-                preds_arr = [
-                    dask.array.from_delayed(pred,
-                                            meta=cp.zeros(1, dtype=dtype),
-                                            shape=shape,
-                                            dtype=dtype)
-                    for pred in preds]
+            # todo: add parameter for option of not checking directly
+
+            shape = (np.nan,) * n_dims
+            preds_arr = [
+                dask.array.from_delayed(pred,
+                                        meta=cp.zeros(1, dtype=dtype),
+                                        shape=shape,
+                                        dtype=dtype)
+                for pred in preds]
+
+            if output_futures:
+                return self.client.compute(preds)
+            else:
                 output = dask.array.concatenate(preds_arr, axis=0,
-                                                allow_unknown_chunksizes=True)
+                                                allow_unknown_chunksizes=True
+                                                )
+
+                return output if delayed else output.persist()
+        else:
+            if output_futures:
+                return self.client.compute(preds)
             else:
                 output = dask.dataframe.from_delayed(preds)
-
-            return output if delayed else output.persist()
+                return output if delayed else output.persist()
 
 
 class DelayedPredictionProbaMixin(DelayedParallelFunc):
