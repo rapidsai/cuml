@@ -51,6 +51,7 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
+import cuml.common.logger as logger
 
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" namespace \
