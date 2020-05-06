@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "distance/distance.h"..
+#include "distance/distance.h"
 
 #include "datasets/digits.h"
 
@@ -46,9 +46,30 @@ using namespace MLCommon;
 using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 
+
+template <typename T>
+__global__ void has_nan_kernel(T* data, size_t len, bool* answer) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= len) return;
+  bool val = data[tid];
+  if (val != val) {
+    *answer = true;
+  }
+}
+
 template <typename T>
 bool has_nan(T* data, size_t len, std::shared_ptr<deviceAllocator> alloc,
-             cudaStream_t stream);
+             cudaStream_t stream) {
+  dim3 blk(256);
+  dim3 grid(MLCommon::ceildiv(len, (size_t)blk.x));
+  bool h_answer = false;
+  device_buffer<bool> d_answer(alloc, stream, 1);
+  updateDevice(d_answer.data(), &h_answer, 1, stream);
+  has_nan_kernel<<<grid, blk, 0, stream>>>(data, len, d_answer.data());
+  updateHost(&h_answer, d_answer.data(), 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  return h_answer;
+}
 
 template <typename T>
 __global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
@@ -139,6 +160,8 @@ class UMAPParametrizableTest : public ::testing::Test {
       model_embedding, 0, n_samples * umap_params.n_components * sizeof(float),
       stream));
 
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     if (test_params.supervised) {
       UMAPAlgo::_fit<float, 256>(handle, X, y, n_samples, n_features,
                                  knn_indices, knn_dists, &umap_params,
@@ -153,6 +176,8 @@ class UMAPParametrizableTest : public ::testing::Test {
       CUDA_CHECK(cudaMemsetAsync(
         embedding_ptr, 0, n_samples * umap_params.n_components * sizeof(float),
         stream));
+
+      CUDA_CHECK(cudaStreamSynchronize(stream));
 
       UMAPAlgo::_transform<float, 256>(
         handle, X, n_samples, umap_params.n_components, knn_indices, knn_dists,
@@ -232,7 +257,6 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
 
-    /*
     if (!umap_params.multicore_implem) {
       device_buffer<float> embeddings2(alloc, stream,
                                        n_samples * umap_params.n_components);
@@ -243,54 +267,44 @@ class UMAPParametrizableTest : public ::testing::Test {
       ASSERT_TRUE(
         are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream));
     }
-    */
   }
 
   void SetUp() override {
     std::vector<TestParams> test_params_vec = {
-      {true, true, false, 10000, 200, 42, 0.45},
-      {true, false, false, 10000, 200, 42, 0.45},
-      {false, true, false, 10000, 200, 42, 0.45},
-      {false, false, false, 10000, 200, 42, 0.45},
-      {true, false, true, 10000, 200, 42, 0.45},
-
-      {true, false, false, 1000, 50, 100, 0.45},
-      {true, false, false, 5000, 50, 100, 0.45},
-      {true, false, false, 10000, 50, 100, 0.45},
+      {false, false, false, 2000, 50, 20, 0.45},
+      {true, false, false, 2000, 50, 20, 0.45},
+      {false, true, false, 2000, 50, 20, 0.45},
+      {false, false, true, 2000, 50, 20, 0.45},
+      {true, true, false, 2000, 50, 20, 0.45},
+      {true, false, true, 2000, 50, 20, 0.45},
+      {false, true, true, 2000, 50, 20, 0.45},
+      {true, true, true, 2000, 50, 20, 0.45}
     };
 
-    std::vector<UMAPParams> umap_params_vec(8);
+    std::vector<UMAPParams> umap_params_vec(5);
     umap_params_vec[0].n_components = 2;
-    umap_params_vec[0].random_state = 42;
-    umap_params_vec[0].multicore_implem = false;
+    umap_params_vec[0].multicore_implem = true;
 
     umap_params_vec[1].n_components = 10;
-    umap_params_vec[1].random_state = 42;
-    umap_params_vec[1].multicore_implem = false;
+    umap_params_vec[1].multicore_implem = true;
 
     umap_params_vec[2].n_components = 21;
     umap_params_vec[2].random_state = 42;
     umap_params_vec[2].multicore_implem = false;
+    umap_params_vec[2].optim_batch_size = 0; // use default value
+    umap_params_vec[2].n_epochs = 500;
 
     umap_params_vec[3].n_components = 25;
     umap_params_vec[3].random_state = 42;
     umap_params_vec[3].multicore_implem = false;
+    umap_params_vec[3].optim_batch_size = 0; // use default value
+    umap_params_vec[3].n_epochs = 500;
 
-    umap_params_vec[4].n_components = 27;
+    umap_params_vec[4].n_components = 50;
     umap_params_vec[4].random_state = 42;
     umap_params_vec[4].multicore_implem = false;
-
-    umap_params_vec[5].n_components = 29;
-    umap_params_vec[5].random_state = 42;
-    umap_params_vec[5].multicore_implem = false;
-
-    umap_params_vec[6].n_components = 31;
-    umap_params_vec[6].random_state = 42;
-    umap_params_vec[6].multicore_implem = false;
-
-    umap_params_vec[7].n_components = 40;
-    umap_params_vec[7].random_state = 42;
-    umap_params_vec[7].multicore_implem = false;
+    umap_params_vec[4].optim_batch_size = 0; // use default value
+    umap_params_vec[4].n_epochs = 500;
 
     for (auto& umap_params : umap_params_vec) {
       for (auto& test_params : test_params_vec) {

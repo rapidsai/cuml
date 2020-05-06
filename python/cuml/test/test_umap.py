@@ -276,12 +276,9 @@ def test_umap_fit_transform_against_fit_and_transform():
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components', [2, 10, 21, 23, 24, 25, 26,
-                                          27, 30, 33, 38, 42, 50])
+@pytest.mark.parametrize('n_components', [21, 25, 50])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-@pytest.mark.parametrize('optim_batch_size', [300, 999999999])
-def test_umap_fit_transform_reproducibility(n_components, random_state,
-                                            optim_batch_size):
+def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
     n_features = 200
@@ -295,7 +292,6 @@ def test_umap_fit_transform_reproducibility(n_components, random_state,
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(verbose=False, init="random",
                          n_components=n_components,
-                         optim_batch_size=optim_batch_size,
                          random_state=random_state)
         return reducer.fit_transform(data, convert_dtype=True)
 
@@ -322,12 +318,9 @@ def test_umap_fit_transform_reproducibility(n_components, random_state,
         assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize('n_components', [2, 10, 21, 23, 24, 25, 26,
-                                          27, 30, 33, 38, 42, 50])
+@pytest.mark.parametrize('n_components', [21, 25, 50])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-@pytest.mark.parametrize('optim_batch_size', [300, 999999999])
-def test_umap_transform_reproducibility(n_components, random_state,
-                                        optim_batch_size):
+def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
     n_features = 200
@@ -346,7 +339,6 @@ def test_umap_transform_reproducibility(n_components, random_state,
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(verbose=False, init="random",
                          n_components=n_components,
-                         optim_batch_size=optim_batch_size,
                          random_state=random_state)
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)

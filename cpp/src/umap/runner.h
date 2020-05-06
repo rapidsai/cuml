@@ -40,7 +40,6 @@
 
 #include <cuda_runtime.h>
 
-#include "has_nan.h"
 
 namespace UMAPAlgo {
 
