@@ -220,7 +220,8 @@ class LogisticRegression(Base):
                      l1_strength=l1_strength, l2_strength=l2_strength,
                      max_iter=self.max_iter,
                      linesearch_max_iter=self.linesearch_max_iter,
-                     tol=self.tol, verbosity=self.verbosity, handle=self.handle)
+                     tol=self.tol, verbosity=self.verbosity,
+                     handle=self.handle)
 
         if logger.should_log_for(logger.LEVEL_DEBUG):
             self.verb_prefix = "CY::"
@@ -278,7 +279,8 @@ class LogisticRegression(Base):
 
         # coefficients and intercept are contained in the same array
         if logger.should_log_for(logger.LEVEL_DEBUG):
-            logger.debug(self.verb_prefix + "Setting coefficients " + str(loss))
+            logger.debug(self.verb_prefix + "Setting coefficients " +
+                         str(loss))
 
         if self.fit_intercept:
             self.coef_ = self.qn.coef_[0:-1]

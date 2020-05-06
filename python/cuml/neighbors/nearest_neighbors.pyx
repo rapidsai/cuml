@@ -33,6 +33,7 @@ from cuml.utils import input_to_cuml_array
 from cython.operator cimport dereference as deref
 
 from cuml.common.handle cimport cumlHandle
+import cuml.common.logger as logger
 
 
 from libcpp cimport bool
@@ -52,7 +53,6 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
-import cuml.common.logger as logger
 
 
 cdef extern from "cuml/cuml.hpp" namespace "ML" nogil:
@@ -175,7 +175,8 @@ class NearestNeighbors(Base):
                  metric="euclidean",
                  output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle=handle, verbosity=verbosity,
+        super(NearestNeighbors, self).__init__(handle=handle,
+                                               verbosity=verbosity,
                                                output_type=output_type)
 
         if metric != "euclidean":

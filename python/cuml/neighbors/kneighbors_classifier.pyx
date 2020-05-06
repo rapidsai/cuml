@@ -23,6 +23,7 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.common.array import CumlArray
 from cuml.utils import input_to_cuml_array
+import cuml.common.logger as logger
 
 import numpy as np
 import cupy as cp
@@ -52,7 +53,6 @@ import rmm
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
-import cuml.common.logger as logger
 
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":

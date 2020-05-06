@@ -152,7 +152,8 @@ class ElasticNet(Base, RegressorMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(ElasticNet, self).__init__(handle=handle, verbosity=logger.LEVEL_INFO)
+        super(ElasticNet, self).__init__(handle=handle,
+                                         verbosity=logger.LEVEL_INFO)
 
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)

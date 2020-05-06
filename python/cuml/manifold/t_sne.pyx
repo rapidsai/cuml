@@ -363,8 +363,9 @@ class TSNE(Base):
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
             if logger.should_log_for(logger.LEVEL_DEBUG):
                 logger.debug("New n_neighbors = {}, learning_rate = {}, "
-                             "exaggeration = {}".format(self.n_neighbors,
-                             self.pre_learning_rate, self.early_exaggeration))
+                             "exaggeration = {}"
+                             .format(self.n_neighbors, self.pre_learning_rate,
+                                     self.early_exaggeration))
 
         cdef long long seed = -1
         if self.random_state is not None:

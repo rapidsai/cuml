@@ -124,7 +124,8 @@ class MBSGDRegressor(Base):
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbosity=logger.LEVEL_INFO, output_type=None):
-        super(MBSGDRegressor, self).__init__(handle=handle, verbosity=verbosity,
+        super(MBSGDRegressor, self).__init__(handle=handle,
+                                             verbosity=verbosity,
                                              output_type=output_type)
         if loss in ['squared_loss']:
             self.loss = loss

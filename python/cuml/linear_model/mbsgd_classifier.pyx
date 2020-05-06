@@ -133,7 +133,8 @@ class MBSGDClassifier(Base):
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbosity=logger.LEVEL_INFO, output_type=None):
-        super(MBSGDClassifier, self).__init__(handle=handle, verbosity=verbosity,
+        super(MBSGDClassifier, self).__init__(handle=handle,
+                                              verbosity=verbosity,
                                               output_type=output_type)
         self.loss = loss
         self.penalty = penalty

@@ -45,12 +45,12 @@ from cuml.ensemble.randomforest_shared cimport *
 from cuml.fil.fil import TreeliteModel as tl
 from cuml.utils import input_to_cuml_array, rmm_cupy_ary
 from cuml.utils import get_cudf_column_ptr, zeros
+import cuml.common.logger as logger
 
 from numba import cuda
 
 cimport cuml.common.handle
 cimport cuml.common.cuda
-import cuml.common.logger as logger
 
 cimport cython
 
