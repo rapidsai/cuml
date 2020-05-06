@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <vector>
 #include "ml_utils.h"
 #include "random/rng.h"
 #include "test_utils.h"
-#include "tsvd/tsvd.h"
+#include "tsvd/tsvd.cuh"
 
 namespace ML {
 
