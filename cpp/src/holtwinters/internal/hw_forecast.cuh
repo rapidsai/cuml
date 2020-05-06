@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "hw_utils.h"
+#include "hw_utils.cuh"
 
 template <typename Dtype>
 __global__ void holtwinters_seasonal_forecast_kernel(

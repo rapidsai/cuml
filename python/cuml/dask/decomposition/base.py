@@ -52,8 +52,8 @@ class BaseDecomposition(BaseEstimator):
 class DecompositionSyncFitMixin(object):
 
     @staticmethod
-    def _func_fit(m, dfs, M, N, partsToRanks, rank, transform):
-        return m.fit(dfs, M, N, partsToRanks, rank, transform)
+    def _func_fit(m, dfs, M, N, partsToRanks, rank, _transform):
+        return m.fit(dfs, M, N, partsToRanks, rank, _transform)
 
     def _fit(self, X, _transform=False):
         """
@@ -117,6 +117,8 @@ class DecompositionSyncFitMixin(object):
                                                   data.gpu_futures,
                                                   pca_fit)
             return to_output(out_futures, self.datatype)
+
+        return self
 
         return self
 

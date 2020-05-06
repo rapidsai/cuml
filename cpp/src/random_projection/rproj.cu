@@ -15,7 +15,7 @@
  */
 
 #include <cuml/random_projection/rproj_c.h>
-#include "rproj.hxx"
+#include "rproj.cuh"
 
 namespace ML {
 
