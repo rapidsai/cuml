@@ -22,6 +22,8 @@ from dask.distributed import default_client, wait
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
 
+import cuml.common.logger as logger
+
 import math
 import random
 from uuid import uuid1
@@ -124,7 +126,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
         bootstrap=True,
         bootstrap_features=False,
         type_model="classifier",
-        verbose=False,
+        verbosity=logger_LEVEL_INFO,
         rows_sample=1.0,
         max_leaves=-1,
         n_streams=4,
@@ -217,7 +219,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
                 bootstrap,
                 bootstrap_features,
                 type_model,
-                verbose,
+                verbosity,
                 rows_sample,
                 max_leaves,
                 quantile_per_tree,
@@ -249,7 +251,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
         bootstrap,
         bootstrap_features,
         type_model,
-        verbose,
+        verbosity,
         rows_sample,
         max_leaves,
         quantile_per_tree,
@@ -268,7 +270,7 @@ class RandomForestClassifier(DelayedPredictionMixin,
             bootstrap=bootstrap,
             bootstrap_features=bootstrap_features,
             type_model=type_model,
-            verbose=verbose,
+            verbosity=verbosity,
             rows_sample=rows_sample,
             max_leaves=max_leaves,
             n_streams=n_streams,
