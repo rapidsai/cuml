@@ -38,6 +38,7 @@ from cuml.utils.opg_data_utils cimport *
 from cuml.utils import input_to_cuml_array
 
 from cuml.linear_model import LinearRegression
+from cuml.linear_model.base_mg import MGFitMixin
 
 
 cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
@@ -71,71 +72,28 @@ cdef extern from "cumlprims/opg/ols.hpp" namespace "ML::OLS::opg":
                   bool verbose) except +
 
 
-class LinearRegressionMG(LinearRegression):
+class LinearRegressionMG(MGFitMixin, LinearRegression):
 
     def __init__(self, **kwargs):
         super(LinearRegressionMG, self).__init__(**kwargs)
 
-    def fit(self, input_data, n_rows, n_cols, partsToSizes, rank):
-        """
-        Fit function for MNMG Linear Regression.
-        This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param n_rows: total number of rows
-        :param n_cols: total number of cols
-        :param partsToSizes: array of tuples in the format: [(rank,size)]
-        :return: self
-        """
-
-        self._set_output_type(input_data[0][0])
-
-        X_arys = []
-        y_arys = []
-
-        for i in range(len(input_data)):
-            if i == 0:
-                check_dtype = [np.float32, np.float64]
-            else:
-                check_dtype = self.dtype
-
-            X_m, _, self.n_cols, _= \
-                input_to_cuml_array(input_data[i][0], check_dtype=check_dtype)
-            X_arys.append(X_m)
-
-            if i == 0:
-                self.dtype == X_m.dtype
-
-            y_m, *_ = input_to_cuml_array(input_data[i][1],
-                                          check_dtype=self.dtype)
-            y_arys.append(y_m)
-
-        cdef uintptr_t ranks_sizes = opg.build_rank_size_pair(input_data, rank)
-
-        n_total_parts = len(input_data)
-
-        self._coef_ = CumlArray.zeros(self.n_cols,
-                                      dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
-
+    def _fit(self, X, y, coef_ptr, rank_to_sizes, n_rows, n_cols,
+             n_total_parts):
+        # self._set_output_type(input_data[0][0])
         cdef float float_intercept
         cdef double double_intercept
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        cdef uintptr_t data
-        cdef uintptr_t labels
 
         if self.dtype == np.float32:
-            data = opg.build_data_t(X_arys)
-            labels = opg.build_data_t(y_arys)
 
             fit(handle_[0],
-                <RankSizePair**>ranks_sizes,
+                <RankSizePair**><size_t>rank_to_sizes,
                 <size_t> n_total_parts,
-                <floatData_t**>data,
+                <floatData_t**><size_t>X,
                 <size_t>n_rows,
                 <size_t>n_cols,
-                <floatData_t**>labels,
-                <float*>coef_ptr,
+                <floatData_t**><size_t>y,
+                <float*><size_t>coef_ptr,
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
@@ -144,17 +102,15 @@ class LinearRegressionMG(LinearRegression):
 
             self.intercept_ = float_intercept
         else:
-            data = opg.build_data_t(X_arys)
-            labels = opg.build_data_t(y_arys)
 
             fit(handle_[0],
-                <RankSizePair**>ranks_sizes,
+                <RankSizePair**><size_t>rank_to_sizes,
                 <size_t> n_total_parts,
-                <doubleData_t**>data,
+                <doubleData_t**><size_t>X,
                 <size_t>n_rows,
                 <size_t>n_cols,
-                <doubleData_t**>labels,
-                <double*>coef_ptr,
+                <doubleData_t**><size_t>y,
+                <double*><size_t>coef_ptr,
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
                 <bool>self.normalize,
@@ -164,10 +120,3 @@ class LinearRegressionMG(LinearRegression):
             self.intercept_ = double_intercept
 
         self.handle.sync()
-
-        opg.free_data_t(data, n_total_parts, self.dtype)
-        opg.free_data_t(labels, n_total_parts, self.dtype)
-
-        opg.free_rank_size_pair(ranks_sizes, n_total_parts)
-
-        return self
