@@ -171,15 +171,14 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
   void TearDown() override {
-
-	  CUDA_CHECK(cudaFree(index_data));
-	  CUDA_CHECK(cudaFree(index_labels));
-	  CUDA_CHECK(cudaFree(search_data));
-	  CUDA_CHECK(cudaFree(search_labels));
-	  CUDA_CHECK(cudaFree(output_dists));
-	  CUDA_CHECK(cudaFree(output_indices));
-	  CUDA_CHECK(cudaFree(actual_labels));
-	  CUDA_CHECK(cudaFree(expected_labels));
+    CUDA_CHECK(cudaFree(index_data));
+    CUDA_CHECK(cudaFree(index_labels));
+    CUDA_CHECK(cudaFree(search_data));
+    CUDA_CHECK(cudaFree(search_labels));
+    CUDA_CHECK(cudaFree(output_dists));
+    CUDA_CHECK(cudaFree(output_indices));
+    CUDA_CHECK(cudaFree(actual_labels));
+    CUDA_CHECK(cudaFree(expected_labels));
   }
 
  protected:
