@@ -56,45 +56,6 @@ Below is a quick and simple checklist for developers to determine whether an alg
 - Complete and comprehensive Pydoc strings explaining public API, restrictions, a usage example, and gotchas. This should be in [Numpydoc](https://numpydoc.readthedocs.io/en/latest/format.html) format
 - Docstrings include references to any scientific papers or standard publications on the underlying algorithm (e.g paper or Scikit-learn algorithm being implemented or a description of the algorithm used if nonstandard).
 
-## Algorithm Status
-
-Sometimes it is possible that only some of these requirements are satisfied before an algorithm gets released. We are beginning to assign a status of `bronze`, `silver`, or `gold` to denote an algorithm's level of completeness and robustness. Algorithms which do not meet the minimal criteria for the `bronze` status are assigned the status of `unclassified`. 
-
-Note that a change to an algorithm's classification can go up or down, depending on circumstances. For example, an algorithm that has been considered `Gold status` might drop to a `Silver status` when being updated to a new low-level feature or library. 
-
-### Unclassified:
-- C++ checklist / API functionality is complete but Python API has not been built
-- There are known issues significantly affecting the accuracy or user's confidence in correct outputs
-- Outdated, stale, or legacy code which is either known or evidenced to longer be in active use
-- Documentation is lacking or non-existent
-- Either no profiling or benchmarking have been conducted or they have been found to provide only a marginal benefit
-
-
-### Bronze: 
-- Known design flaws affecting sustainability, maintainability and/or performance are non-trivial
-- Issues affecting memory, stability, or unexpected behavior on some inputs are known to have a negative impact on the needs of users
-- Coverage of automated tests in C++ or Python is insufficient and could be significantly improved
-- Some features might exist, but implementation is overall incomplete and/or lacking core features that impact its utility
-- Algorithm has been benchmarked and found to have some speedup, but implementation could be significantly improved
-- Documentation exists, but could be significantly improved
-
-
-### Silver:
-- Known design flaws affecting sustainability and/or performance are fairly minor.
-- Automated tests in C++ or Python are not as extensive as they should be regarding different datasets / inputs, but they do test the general features
-- There are known (or potential) bugs that affect memory / accuracy, but only on a small subset of specific inputs
-- Overall, performance gains are acceptable, but there are known optimizations that would provide a significant increase in performance over the the existing implementation
-- Documentation is mostly complete, but not comprehensive
-
-
-### Gold: 
-- Design is robust, maintainable, and performant without any known significant flaws in either of the categories aforementioned.
-- Algorithm demonstrates consistent speedups over CPU comparison and has no major known bottlenecks
-- Algorithm is consistently correct and bug free on all tested datasets.
-- There are no known memory usage limitations resulting from the design choices that could be reasonably refactored.
-- Algorithm has found use in pipelines and been evaluated by users outside of the cuml codebase, and the team of regular cuml contributors.
-- Documentation is comprehensive
-
 
 ## Review Checklist
 
