@@ -37,6 +37,9 @@ from cuml.utils import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 
+import cuml.common.logger as logger
+
+
 cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
     cdef void tsvdFit(cumlHandle& handle,
@@ -189,8 +192,8 @@ class TruncatedSVD(Base):
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : bool
-        Whether to print debug spews
+    verbosity : int
+        Logging level
 
     Attributes
     -----------
@@ -226,10 +229,10 @@ class TruncatedSVD(Base):
     """
 
     def __init__(self, algorithm='full', handle=None, n_components=1,
-                 n_iter=15, random_state=None, tol=1e-7, verbose=False,
-                 output_type=None):
+                 n_iter=15, random_state=None, tol=1e-7,
+                 verbosity=logger.LEVEL_INFO, output_type=None):
         # params
-        super(TruncatedSVD, self).__init__(handle=handle, verbose=verbose,
+        super(TruncatedSVD, self).__init__(handle=handle, verbosity=verbosity,
                                            output_type=output_type)
         self.algorithm = algorithm
         self.n_components = n_components
