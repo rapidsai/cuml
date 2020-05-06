@@ -30,7 +30,7 @@
 #include "random/make_blobs.h"
 
 #include "common/device_buffer.hpp"
-#include "umap/runner.h"
+#include "umap/runner.cuh"
 
 #include <cuda_utils.h>
 
@@ -257,6 +257,11 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
 
+    // Disable reproducibility tests after transformation
+    if (!test_params.fit_transform) {
+      return;
+    }
+
     if (!umap_params.multicore_implem) {
       device_buffer<float> embeddings2(alloc, stream,
                                        n_samples * umap_params.n_components);
@@ -281,7 +286,7 @@ class UMAPParametrizableTest : public ::testing::Test {
       {true, true, true, 2000, 50, 20, 0.45}
     };
 
-    std::vector<UMAPParams> umap_params_vec(5);
+    std::vector<UMAPParams> umap_params_vec(4);
     umap_params_vec[0].n_components = 2;
     umap_params_vec[0].multicore_implem = true;
 
@@ -299,12 +304,6 @@ class UMAPParametrizableTest : public ::testing::Test {
     umap_params_vec[3].multicore_implem = false;
     umap_params_vec[3].optim_batch_size = 0; // use default value
     umap_params_vec[3].n_epochs = 500;
-
-    umap_params_vec[4].n_components = 50;
-    umap_params_vec[4].random_state = 42;
-    umap_params_vec[4].multicore_implem = false;
-    umap_params_vec[4].optim_batch_size = 0; // use default value
-    umap_params_vec[4].n_epochs = 500;
 
     for (auto& umap_params : umap_params_vec) {
       for (auto& test_params : test_params_vec) {
