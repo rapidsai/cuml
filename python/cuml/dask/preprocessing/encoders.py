@@ -26,7 +26,7 @@ from toolz import first
 from collections.abc import Sequence
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as daskSeries
-from cuml.preprocessing import LabelEncoder
+from cuml.preprocessing.encoders import OneHotEncoder as cumlOHE
 
 
 class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
@@ -88,49 +88,29 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         """
         return self.local_model.categories_
 
-    def _mnmg_fit(self, enc, X):
-        def _mnmg_check_input(X, is_categories=False):
+    class LocalOneHotEncoder(cumlOHE):
+        def __init__(self, client=None, **kwargs):
+            super().__init__(**kwargs)
+            self.client = client
+
+        def _check_input_fit(self, X, is_categories=False):
+            """Helper function to check input of fit within the local model"""
             if isinstance(X, dask.array.core.Array):
-                enc._set_input_type('array')
+                self._set_input_type('array')
                 if is_categories:
                     X = X.transpose()
                 return to_dask_cudf(X, client=self.client)
             else:
-                enc._set_input_type('df')
+                self._set_input_type('df')
                 return X
 
-        enc._validate_keywords()
-        X = _mnmg_check_input(X)
-        if type(enc.categories) is str and enc.categories == 'auto':
-            enc._features = X.columns
-            enc._encoders = {
-                feature: LabelEncoder(
-                    handle_unknown=enc.handle_unknown).fit(
-                    X[feature].unique().compute())
-                for feature in enc._features
-            }
-        else:
-            enc.categories = _mnmg_check_input(enc.categories, True)
-            enc._features = enc.categories.columns
-            if len(enc._features) != X.shape[1]:
-                raise ValueError(
-                    "Shape mismatch: if categories is not 'auto',"
-                    " it has to be of shape (n_features, _).")
-            enc._encoders = dict()
-            for feature in enc._features:
-                le = LabelEncoder(handle_unknown=enc.handle_unknown)
-                enc._encoders[feature] = le.fit(
-                    enc.categories[feature].unique().compute())
-                if enc.handle_unknown == 'error':
-                    print(type(X), type(enc._encoders[feature].classes_))
-                    if not X[feature].isin(
-                            enc._encoders[feature].classes_).all().compute():
-                        msg = ("Found unknown categories in column {0}"
-                               " during fit".format(feature))
-                        raise KeyError(msg)
-        enc.drop_idx_ = enc._compute_drop_idx()
-        enc._fitted = True
-        return enc
+        @staticmethod
+        def _unique(inp):
+            return inp.unique().compute()
+
+        @staticmethod
+        def _has_unknown(X_cat, encoder_cat):
+            return not X_cat.isin(encoder_cat).all().compute()
 
     @with_cupy_rmm
     def fit(self, X):
@@ -144,15 +124,11 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         -------
         self
         """
-        from cuml.preprocessing.encoders import OneHotEncoder as cumlOHE
-
         el = first(X) if isinstance(X, Sequence) else X
         self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
                          else 'cupy')
 
-        self.local_model = cumlOHE(**self.kwargs)
-
-        self._mnmg_fit(self.local_model, X)
+        self.local_model = self.LocalOneHotEncoder(**self.kwargs).fit(X)
 
         return self
 

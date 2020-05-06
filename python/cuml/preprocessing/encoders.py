@@ -174,6 +174,20 @@ class OneHotEncoder:
             self._set_input_type('df')
             return X
 
+    def _check_input_fit(self, X, is_categories=False):
+        """Helper function to be overridden by dask OneHotEncoder"""
+        return self._check_input(X, is_categories=is_categories)
+
+    @staticmethod
+    def _unique(inp):
+        """Helper function to be overridden by dask OneHotEncoder"""
+        return inp
+
+    @staticmethod
+    def _has_unknown(X_cat, encoder_cat):
+        """Check if X_cat has categories that are not present in encoder_cat"""
+        return not X_cat.isin(encoder_cat).all()
+
     def fit(self, X):
         """
         Fit OneHotEncoder to X.
@@ -186,29 +200,31 @@ class OneHotEncoder:
         self
         """
         self._validate_keywords()
-        X = self._check_input(X)
+        X = self._check_input_fit(X)
         if type(self.categories) is str and self.categories == 'auto':
             self._features = X.columns
             self._encoders = {
                 feature: LabelEncoder(handle_unknown=self.handle_unknown).fit(
-                    X[feature])
+                    self._unique(X[feature]))
                 for feature in self._features
             }
         else:
-            self.categories = self._check_input(self.categories, True)
+            self.categories = self._check_input_fit(self.categories, True)
             self._features = self.categories.columns
             if len(self._features) != X.shape[1]:
                 raise ValueError("Shape mismatch: if categories is not 'auto',"
                                  " it has to be of shape (n_features, _).")
             self._encoders = dict()
             for feature in self._features:
+                le = LabelEncoder(handle_unknown=self.handle_unknown)
+                self._encoders[feature] = le.fit(
+                    self._unique(self.categories[feature]))
                 if self.handle_unknown == 'error':
-                    if not X[feature].isin(self.categories[feature]).all():
+                    if self._has_unknown(X[feature],
+                                         self._encoders[feature].classes_):
                         msg = ("Found unknown categories in column {0}"
                                " during fit".format(feature))
                         raise KeyError(msg)
-                le = LabelEncoder(handle_unknown=self.handle_unknown)
-                self._encoders[feature] = le.fit(self.categories[feature])
 
         self.drop_idx_ = self._compute_drop_idx()
         self._fitted = True
