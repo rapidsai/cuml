@@ -57,7 +57,7 @@ inline void sparse_node_init_inline(sparse_node_t* node, val_t output,
                                     bool is_leaf, int left_index) {
   sparse_node n(output, thresh, fid, def_left, is_leaf, left_index);
 
-  *node = sparse_node_t(n, n);
+  *node = sparse_node_t(n);
 }
 
 void sparse_node_init(sparse_node_t* node, val_t output, float thresh, int fid,

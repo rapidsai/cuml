@@ -116,18 +116,47 @@ struct dense_storage {
 };
 
 /** sparse_node is a single node in a sparse forest */
-struct alignas(16) sparse_node : base_node, sparse_node_extra_data {
-  //__host__ __device__ sparse_node() : left_idx(0), base_node() {}
-  sparse_node(sparse_node_t node)
-    : base_node(node), sparse_node_extra_data(node) {}
+struct alignas(8) sparse_node : sparse_node_t {
+  static const int FID_MASK = (1 << 14) - 1;
+  static const int LEFT_OFFSET = 14;
+  static const int LEFT_MASK = ((1 << 16) - 1) << LEFT_OFFSET;
+  static const int DEF_LEFT_OFFSET = 30;
+  static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
+  static const int IS_LEAF_OFFSET = 31;
+  static const int IS_LEAF_MASK = 1 << IS_LEAF_OFFSET;
+  template <class o_t>
+  __host__ __device__ o_t output() const { return val; }
+  __host__ __device__ float thresh() const { return val.f; }
+  __host__ __device__ int fid() const { return bits & FID_MASK; }
+  __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
+  __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
+  __host__ __device__ int left_index() const {
+    return (bits & LEFT_MASK) >> LEFT_OFFSET;
+  }
+  sparse_node(sparse_node_t node) : sparse_node_t(node) {}
   sparse_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-              int left_index)
-    : base_node(output, thresh, fid, def_left, is_leaf),
-      sparse_node_extra_data({.left_idx = left_index, .dummy = 0}) {}
-  __host__ __device__ int left_index() const { return left_idx; }
+              int left_index) {
+    if (is_leaf)
+      val = output;
+    else
+      val.f = thresh;
+    bits = fid | left_index << LEFT_OFFSET |
+      (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
+      (is_leaf ? 1 : 0) << IS_LEAF_OFFSET;
+  }
   /** index of the left child, where curr is the index of the current node */
-  __host__ __device__ int left(int curr) const { return left_idx; }
+  __host__ __device__ int left(int curr) const { return left_index(); }
 };
+
+template <>
+__host__ __device__ __forceinline__ float sparse_node::output<float>() const {
+  return val.f;
+}
+template <>
+__host__ __device__ __forceinline__ int sparse_node::output<int>() const {
+  return val.idx;
+}
+
 
 /** sparse_tree is a sparse tree */
 struct sparse_tree {

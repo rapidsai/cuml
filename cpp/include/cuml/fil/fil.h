@@ -107,10 +107,10 @@ struct sparse_node_extra_data {
 };
 
 /** sparse_node_t is a node in a sparsely-stored forest */
-struct sparse_node_t : dense_node_t, sparse_node_extra_data {
+struct sparse_node_t : dense_node_t {
   sparse_node_t() = default;
-  sparse_node_t(dense_node_t dn, sparse_node_extra_data ed)
-    : dense_node_t(dn), sparse_node_extra_data(ed) {}
+  sparse_node_t(dense_node_t dn)
+    : dense_node_t(dn) {}
 };
 
 /** leaf_value_t describes what the leaves in a FIL forest store (predict) */
