@@ -124,7 +124,7 @@ def test_send_recv(n_trials, ucx_cluster):
 
     try:
 
-        cb = CommsContext(comms_p2p=True, verbose=True)
+        cb = CommsContext(comms_p2p=True)
         cb.init()
 
         dfs = [client.submit(func_test_send_recv,

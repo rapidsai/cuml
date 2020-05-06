@@ -53,12 +53,12 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
                                n_features=ncols,
                                centers=nclusters,
                                n_parts=n_parts,
-                               cluster_std=0.01, verbose=False,
+                               cluster_std=0.01,
                                random_state=10)
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+        cumlModel = cumlKMeans(init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 
@@ -116,13 +116,12 @@ def test_transform(nrows, ncols, nclusters, n_parts, cluster):
                                centers=nclusters,
                                n_parts=n_parts,
                                cluster_std=0.01,
-                               verbose=False,
                                shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+        cumlModel = cumlKMeans(init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 
@@ -177,13 +176,13 @@ def test_score(nrows, ncols, nclusters, n_parts, cluster):
                                n_features=ncols,
                                centers=nclusters,
                                n_parts=n_parts,
-                               cluster_std=0.01, verbose=False,
+                               cluster_std=0.01,
                                shuffle=False,
                                random_state=10)
 
         wait(X_cudf)
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+        cumlModel = cumlKMeans(init="k-means||",
                                n_clusters=nclusters,
                                random_state=10)
 
