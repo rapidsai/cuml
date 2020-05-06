@@ -25,6 +25,7 @@ from setuputils import get_environment_option
 from setuputils import get_cli_option
 from setuputils import use_raft_package
 
+import glob
 import numpy
 import os
 import shutil
@@ -146,15 +147,8 @@ if "--multigpu" in sys.argv:
     sys.argv.remove('--multigpu')
 
 if "--singlegpu" in sys.argv:
-    cython_exc_list.append('cuml/cluster/kmeans_mg.pyx')
-    cython_exc_list.append('cuml/decomposition/base_mg.pyx')
-    cython_exc_list.append('cuml/decomposition/pca_mg.pyx')
-    cython_exc_list.append('cuml/decomposition/tsvd_mg.pyx')
-    cython_exc_list.append('cuml/linear_model/base_mg.pyx')
-    cython_exc_list.append('cuml/linear_model/ridge_mg.pyx')
-    cython_exc_list.append('cuml/linear_model/linear_regression_mg.pyx')
+    cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
     cython_exc_list.append('cuml/nccl/nccl.pyx')
-    cython_exc_list.append('cuml/neighbors/nearest_neighbors_mg.pyx')
 
     python_exc_list = ["*.dask", "*.dask.*"]
 
