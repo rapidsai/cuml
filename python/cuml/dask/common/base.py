@@ -22,6 +22,7 @@ import cudf.comm.serialize  # noqa: F401
 
 from cuml import Base
 from cuml.common.array import CumlArray
+import cuml.common.logger as logger
 
 from dask_cudf.core import DataFrame as dcDataFrame
 
@@ -31,12 +32,12 @@ from functools import wraps
 
 class BaseEstimator(object):
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, client=None, verbosity=logger.LEVEL_INFO, **kwargs):
         """
         Constructor for distributed estimators
         """
         self.client = default_client() if client is None else client
-        self.verbose = verbose
+        self.verbosity = verbosity
         self.kwargs = kwargs
 
     @staticmethod
