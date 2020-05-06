@@ -29,6 +29,8 @@ from dask.distributed import default_client
 
 from sklearn.datasets import make_blobs as skl_make_blobs
 
+import cuml.common.logger as logger
+
 
 def create_local_data(m, n, centers, cluster_std, random_state,
                       dtype, type, order='F', shuffle=False):
@@ -65,8 +67,8 @@ def _get_labels(t):
 
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                n_parts=None, center_box=(-10, 10), random_state=None,
-               verbose=False, dtype=np.float32, output='dataframe',
-               order='F', shuffle=True, client=None):
+               verbosity=logger.LEVEL_INFO, dtype=np.float32,
+               output='dataframe', order='F', shuffle=True, client=None):
     """
     Makes labeled dask.Dataframe and dask_cudf.Dataframes containing blobs
     for a randomly generated set of centroids.
@@ -98,8 +100,8 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
          the bounding box which constrains all the centroids
     random_state : int (default = None)
          sets random seed (or use None to reinitialize each time)
-    verbose : bool (default = False)
-         enables / disables verbose printing.
+    verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+         Logging level.
     dtype : dtype (default = np.float32)
          datatype to generate
     output : str { 'dataframe', 'array' } (default = 'dataframe')
@@ -133,11 +135,10 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                                     size=(centers, n_features))\
             .astype(np.float32)
 
-    if verbose:
-        print("Generating %d samples across %d partitions on "
-              "%d workers (total=%d samples)" %
-              (math.ceil(n_samples / len(workers)),
-               n_parts, len(workers), n_samples))
+    logger.debug("Generating %d samples across %d partitions on "
+                 "%d workers (total=%d samples)" %
+                 (math.ceil(n_samples / len(workers)),
+                  n_parts, len(workers), n_samples))
 
     # Create dfs on each worker (gpu)
     parts = []
