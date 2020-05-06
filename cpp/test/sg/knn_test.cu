@@ -205,7 +205,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
 const std::vector<KNNInputs> inputs = {
   {50, 5, 2, 25, 5, 2},    {50, 5, 2, 25, 10, 2}, {500, 5, 2, 25, 5, 7},
-  {500, 50, 2, 25, 10, 7}, {500, 5, 6, 25, 5, 7},
+  {500, 50, 2, 25, 10, 7}, {500, 5, 6, 25, 5, 7}, {50, 5, 3, 15, 5, 7}
 };
 
 typedef KNNTest<float> KNNTestF;
