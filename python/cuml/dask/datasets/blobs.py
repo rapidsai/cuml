@@ -100,7 +100,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
          the bounding box which constrains all the centroids
     random_state : int (default = None)
          sets random seed (or use None to reinitialize each time)
-    verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+    verbosity : int (default = cuml.logger.LEVEL_INFO)
          Logging level.
     dtype : dtype (default = np.float32)
          datatype to generate
