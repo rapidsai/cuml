@@ -103,8 +103,8 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("n_blks_for_cols: %d", params.n_blks_for_cols);
   CUML_LOG_DEBUG("n_blks_for_rows: %d", params.n_blks_for_rows);
   CUML_LOG_DEBUG("batched_depth: %d", params.batched_depth);
-  CUML_LOG_DEBUG("use_batched_level_algo: %s", params.use_batched_level_algo ?
-                 "True" : "False");
+  CUML_LOG_DEBUG("use_batched_level_algo: %s",
+                 params.use_batched_level_algo ? "True" : "False");
 }
 
 template <class T, class L>

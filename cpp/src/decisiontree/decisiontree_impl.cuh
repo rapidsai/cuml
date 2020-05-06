@@ -15,12 +15,12 @@
  */
 
 #include <common/cudart_utils.h>
+#include <decisiontree/quantile/quantile.h>
+#include <common/iota.cuh>
 #include <cuml/common/logger.hpp>
 #include <queue>
 #include <random>
-#include <common/iota.cuh>
 #include <type_traits>
-#include <decisiontree/quantile/quantile.h>
 #include "batched-levelalgo/builder.cuh"
 #include "decisiontree_impl.h"
 #include "levelalgo/levelfunc_classifier.cuh"
@@ -239,19 +239,19 @@ void DecisionTreeBase<T, L>::plant(
 
   total_temp_mem = tempmem->totalmem;
   MLCommon::TimerCPU timer;
-  if(tree_params.use_batched_level_algo == true) {
-    T* quantiles = tempmem->d_quantile->data();
-    int *colids = (int*)tempmem->device_allocator->allocate(sizeof(int) * ncols, tempmem->stream);
+  if (tree_params.use_batched_level_algo == true) {
+    T *quantiles = tempmem->d_quantile->data();
+    int *colids = (int *)tempmem->device_allocator->allocate(
+      sizeof(int) * ncols, tempmem->stream);
     MLCommon::iota(colids, 0, 1, ncols, tempmem->stream);
-    grow_tree(tempmem->device_allocator, tempmem->host_allocator,
-                 data, ncols, nrows, labels,
-                 quantiles, (int *)rowids, (int*) colids,
-                 n_sampled_rows, unique_labels,
-                 tree_params, tempmem->stream, sparsetree, tree_params.max_leaves, tree_params.max_depth);
+    grow_tree(tempmem->device_allocator, tempmem->host_allocator, data, ncols,
+              nrows, labels, quantiles, (int *)rowids, (int *)colids,
+              n_sampled_rows, unique_labels, tree_params, tempmem->stream,
+              sparsetree, tree_params.max_leaves, tree_params.max_depth);
   } else {
     grow_deep_tree(data, labels, rowids, n_sampled_rows, ncols,
-                   tree_params.max_features, dinfo.NLocalrows, sparsetree, treeid,
-                   tempmem);
+                   tree_params.max_features, dinfo.NLocalrows, sparsetree,
+                   treeid, tempmem);
   }
   train_time = timer.getElapsedSeconds();
 }
