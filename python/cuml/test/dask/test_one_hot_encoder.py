@@ -196,12 +196,16 @@ def test_onehot_drop_idx_first(cluster):
 @pytest.mark.mg
 def test_onehot_drop_one_of_each(cluster):
     client = Client(cluster)
+    X_ary = [['c', 2, 'a'],
+             ['b', 2, 'b']]
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
     ddf = dask_cudf.from_cudf(X, npartitions=2)
+
     drop = dict({'chars': 'b', 'int': 2, 'letters': 'b'})
     enc = OneHotEncoder(sparse=False, drop=drop)
+    sk_enc = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b'])
     ohe = enc.fit_transform(ddf)
-    ref = SkOneHotEncoder(sparse=False, drop=['b', 2, 'b']).fit_transform(X)
+    ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe.compute(), ref)
     inv = enc.inverse_transform(ohe)
     assert_frame_equal(inv.compute().to_pandas(), X.to_pandas())
