@@ -12,6 +12,7 @@
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
 - PR #2127: Added order to SG `make_blobs`, and switch from C++ to cupy based implementation
+- PR #2057: Weighted k-means
 
 ## Improvements
 - PR #1931: C++: enabled doxygen docs for all of the C++ codebase
@@ -68,6 +69,8 @@
 - PR #2187: CMake improvements to manage conda environment dependencies
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
 - PR #2193: Order-independent local shuffle in `cuml.dask.make_regression`
+- PR #2184: Refoctor headers for holtwinters, rproj, tsvd, tsne, umap
+- PR #2199: Remove unncessary notebooks
 - PR #2195: Separating fit and transform calls in SG, MNMG PCA to save transform array memory consumption
 - PR #2201: Re-enabling UMAP repro tests
 - PR #2196: Updates to benchmarks. Moving notebook
