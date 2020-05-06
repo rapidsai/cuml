@@ -20,6 +20,7 @@ from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 from cuml.utils import has_scipy
 import cuml.common.logger as logger
 
+
 def _fd_fprime(x, f, h):
     """(internal) Computes finite difference."""
     g = np.zeros(len(x))
