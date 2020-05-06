@@ -34,6 +34,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.utils import input_to_cuml_array
 from libcpp cimport bool
 from cuml.svm.svm_base import SVMBase
+import cuml.common.logger as logger
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -161,8 +162,8 @@ class SVC(SVMBase):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    verbose : bool (default = False)
-        verbose mode
+    verbosity : int (default = cuml.common.logger.LEVEL_INFO)
+        verbosity level
 
     Attributes
     ----------
@@ -206,10 +207,11 @@ class SVC(SVMBase):
     """
     def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=200.0,
-                 max_iter=-1, nochange_steps=1000, verbose=False):
+                 max_iter=-1, nochange_steps=1000,
+                 verbosity=logger.LEVEL_INFO):
         super(SVC, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
                                   cache_size, max_iter, nochange_steps,
-                                  verbose)
+                                  verbosity)
         self.svmType = C_SVC
 
     def fit(self, X, y):
