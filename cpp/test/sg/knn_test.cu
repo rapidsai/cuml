@@ -51,9 +51,10 @@ template <typename T, typename IdxT>
 template <typename T>
 void gen_blobs(cumlHandle &handle, T *out, int *l, int rows, int cols,
                int centers, const T *centroids) {
-  make_blobs<float, int>(
-    out, l, rows, cols, centers, handle.getDeviceAllocator(),
-    handle.getStream(), centroids, nullptr, 0.1f, true, -10.0f, 10.0f, 1234ULL);
+  make_blobs<float, int>(out, l, rows, cols, centers,
+                         handle.getDeviceAllocator(), handle.getStream(),
+                         centroids, nullptr, 0.1f, false, -10.0f, 10.0f,
+                         1234ULL);
 }
 
 void create_index_parts(cumlHandle &handle, float *query_data,
@@ -76,7 +77,7 @@ __global__ void build_actual_output(int *output, int n_rows, int k,
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= n_rows * k) return;
 
-  int64_t ind = indices[element];
+  int ind = (int)indices[element];
   output[element] = idx_labels[ind];
 }
 
@@ -86,7 +87,10 @@ __global__ void build_expected_output(int *output, int n_rows, int k,
   if (row >= n_rows) return;
 
   int cur_label = labels[row];
-  for (int i = 0; i < k; i++) output[row * k + i] = cur_label;
+  for (int i = 0; i < k; i++) {
+    output[row * k + i] = cur_label;
+    printf("%ld\n", output[row * k + i]);
+  }
 }
 
 template <typename T>
@@ -152,22 +156,21 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
     params = ::testing::TestWithParam<KNNInputs>::GetParam();
 
-    allocate(index_data, params.n_rows * params.n_cols * params.n_parts,
-             stream);
-    allocate(index_labels, params.n_rows * params.n_parts, stream);
+    allocate(index_data, params.n_rows * params.n_cols * params.n_parts, true);
+    allocate(index_labels, params.n_rows * params.n_parts, true);
 
-    allocate(search_data, params.n_query_row * params.n_cols, stream);
-    allocate(search_labels, params.n_query_row, stream);
+    allocate(search_data, params.n_query_row * params.n_cols, true);
+    allocate(search_labels, params.n_query_row, true);
 
     allocate(output_indices,
-             params.n_query_row * params.n_cols * params.n_parts, stream);
+             params.n_query_row * params.n_cols * params.n_parts, true);
     allocate(output_dists, params.n_query_row * params.n_cols * params.n_parts,
-             stream);
+             true);
 
     allocate(actual_labels,
-             params.n_query_row * params.n_neighbors * params.n_parts, stream);
+             params.n_query_row * params.n_neighbors * params.n_parts, true);
     allocate(expected_labels,
-             params.n_query_row * params.n_neighbors * params.n_parts, stream);
+             params.n_query_row * params.n_neighbors * params.n_parts, true);
   }
 
   void TearDown() override {
@@ -204,8 +207,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 };
 
 const std::vector<KNNInputs> inputs = {
-  {50, 5, 2, 25, 5, 2},    {50, 5, 2, 25, 10, 2}, {500, 5, 2, 25, 5, 7},
-  {500, 50, 2, 25, 10, 7}, {500, 5, 6, 25, 5, 7}, {50, 5, 3, 15, 5, 7}};
+  {50, 5, 2, 25, 5, 2},    {50, 5, 2, 25, 10, 2},  {500, 5, 2, 25, 5, 7},
+  {500, 50, 2, 25, 10, 7}, {500, 50, 7, 25, 5, 7}, {50, 5, 3, 15, 5, 7}};
 
 typedef KNNTest<float> KNNTestF;
 TEST_P(KNNTestF, Query) {
