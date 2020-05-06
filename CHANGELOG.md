@@ -62,6 +62,7 @@
 - PR #2151: Add pytest duration and pytest timeout
 - PR #2156: Add Docker 19 support to local gpuci build
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2186: Refactor cython code to build OPG structs in common utils file
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
