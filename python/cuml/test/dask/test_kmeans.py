@@ -64,7 +64,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
                                random_state=10)
 
         cumlModel.fit(X_cudf)
-        cumlLabels = cumlModel.predict(X_cudf, delayed_predict)
+        cumlLabels = cumlModel.predict(X_cudf, delayed=delayed_predict)
 
         n_workers = len(list(client.has_what().keys()))
 
