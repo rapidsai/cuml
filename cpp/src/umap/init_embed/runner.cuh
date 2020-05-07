@@ -19,7 +19,7 @@
 #include "sparse/coo.h"
 
 #include "random_algo.h"
-#include "spectral_algo.h"
+#include "spectral_algo.cuh"
 
 #pragma once
 

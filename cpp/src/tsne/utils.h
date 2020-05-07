@@ -26,7 +26,6 @@
 #include "linalg/norm.h"
 
 #include <cuda_runtime.h>
-#include <cuda_utils.h>
 #include <cuml/cuml.hpp>
 
 #include <thrust/device_ptr.h>
