@@ -32,8 +32,12 @@ SEPARATOR = "-" * 16
 
 def parse_args():
     argparser = argparse.ArgumentParser("Runs clang-tidy on a project")
-    argparser.add_argument("-cdb", type=str, default="compile_commands.json",
-                           help="Path to cmake-generated compilation database")
+    argparser.add_argument("-cdb", type=str,
+                           default="cpp/build/compile_commands.json",
+                           help="Path to cmake-generated compilation database"
+                           " file. It is always found inside the root of the "
+                           "cmake build folder. So make sure that `cmake` has "
+                           "been run once before running this script!")
     argparser.add_argument("-exe", type=str, default="clang-tidy",
                            help="Path to clang-tidy exe")
     argparser.add_argument("-ignore", type=str, default="[.]cu$|examples/kmeans/",
@@ -61,7 +65,7 @@ def parse_args():
     return args
 
 
-def list_all_cmds(cdb):
+def get_all_commands(cdb):
     with open(cdb, "r") as fp:
         return json.load(fp)
 
@@ -204,9 +208,8 @@ def print_results():
     return status
 
 
-# mostly used for debugging purposes
-def run_sequential(args, all_files):
-    status = True
+def run_tidy_for_all_files(args, all_files):
+    pool = None if args.j == 1 else mp.Pool(args.j)
     # actual tidy checker
     for cmd in all_files:
         # skip files that we don't want to look at
@@ -216,28 +219,15 @@ def run_sequential(args, all_files):
         if args.select_compiled is not None and \
            re.search(args.select_compiled, cmd["file"]) is None:
             continue
-        passed, stdout, file = run_clang_tidy(cmd, args)
-        print_result(passed, stdout, file)
-        if not passed:
-            status = False
-    return status
-
-
-def run_parallel(args, all_files):
-    pool = mp.Pool(args.j)
-    # actual tidy checker
-    for cmd in all_files:
-        # skip files that we don't want to look at
-        if args.ignore_compiled is not None and \
-           re.search(args.ignore_compiled, cmd["file"]) is not None:
-            continue
-        if args.select_compiled is not None and \
-           re.search(args.select_compiled, cmd["file"]) is None:
-            continue
-        pool.apply_async(run_clang_tidy, args=(cmd, args),
-                         callback=collect_result)
-    pool.close()
-    pool.join()
+        if pool is not None:
+            pool.apply_async(run_clang_tidy, args=(cmd, args),
+                             callback=collect_result)
+        else:
+            passed, stdout, file = run_clang_tidy(cmd, args)
+            collect_result((passed, stdout, file))
+    if pool is not None:
+        pool.close()
+        pool.join()
     return print_results()
 
 
@@ -246,11 +236,8 @@ def main():
     # Attempt to making sure that we run this script from root of repo always
     if not os.path.exists(".git"):
         raise Exception("This needs to always be run from the root of repo")
-    all_files = list_all_cmds(args.cdb)
-    if args.j == 1:
-        status = run_sequential(args, all_files)
-    else:
-        status = run_parallel(args, all_files)
+    all_files = get_all_commands(args.cdb)
+    status = run_tidy_for_all_files(args, all_files)
     if not status:
         raise Exception("clang-tidy failed! Refer to the errors above.")
 
