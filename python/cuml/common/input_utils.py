@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import cuml.common.numba_utils
-
 import copy
 import cudf
 import cupy as cp
