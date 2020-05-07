@@ -18,13 +18,13 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
-#include "optimize.h"
-#include "supervised.h"
+#include "optimize.cuh"
+#include "supervised.cuh"
 
-#include "fuzzy_simpl_set/runner.h"
-#include "init_embed/runner.h"
+#include "fuzzy_simpl_set/runner.cuh"
+#include "init_embed/runner.cuh"
 #include "knn_graph/runner.h"
-#include "simpl_set_embed/runner.h"
+#include "simpl_set_embed/runner.cuh"
 
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
@@ -234,6 +234,7 @@ void _fit(const cumlHandle &handle,
   COO<T> ocoo(d_alloc, stream);
   MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, d_alloc,
                                                stream);
+
   /**
    * Initialize embeddings
    */
