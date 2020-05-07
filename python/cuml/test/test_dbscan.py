@@ -151,7 +151,15 @@ def test_core_point_prop1():
     # So there should be one cluster (the plus/star on the left)
     # and two noise points
 
-    X = np.array([[0, 0], [1, 0], [1, 1], [1, -1], [2, 0], [3, 0], [4, 0]], dtype=np.float32)
+    X = np.array([
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [1, -1],
+        [2, 0],
+        [3, 0],
+        [4, 0]
+    ], dtype=np.float32)
     cudbscan = cuDBSCAN(**params)
     cu_y_pred = cudbscan.fit_predict(X)
 
@@ -165,14 +173,26 @@ def test_core_point_prop1():
 def test_core_point_prop2():
     params = {'eps': 1.1, 'min_samples': 4}
 
-    # The input looks like a long two-barred (orhodox) cross or two stars next to each other:
+    # The input looks like a long two-barred (orhodox) cross or
+    # two stars next to each other:
     #   .     .
     # . . . . . .
     #   .     .
     # There are 2 core-points but they are not reachable from each other
     # So there should be two clusters, both in the form of a plus/star
 
-    X = np.array([[0, 0], [1, 0], [1, 1], [1, -1], [2, 0], [3, 0], [4, 0], [4, 1], [4, -1], [5, 0]], dtype=np.float32)
+    X = np.array([
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [1, -1],
+        [2, 0],
+        [3, 0],
+        [4, 0],
+        [4, 1],
+        [4, -1],
+        [5, 0]
+    ], dtype=np.float32)
     cudbscan = cuDBSCAN(**params)
     cu_y_pred = cudbscan.fit_predict(X)
 
@@ -186,7 +206,8 @@ def test_core_point_prop2():
 def test_core_point_prop3():
     params = {'eps': 1.1, 'min_samples': 4}
 
-    # The input looks like a two-barred (orhodox) cross or two stars sharing a link:
+    # The input looks like a two-barred (orhodox) cross or
+    # two stars sharing a link:
     #   .   .
     # . . . . .
     #   .   .
@@ -197,7 +218,18 @@ def test_core_point_prop3():
     # as it will depend on the order in which we process the core-points.
     # So we exclude that point from the comparison with sklearn
 
-    X = np.array([[0, 0], [1, 0], [1, 1], [1, -1], [3, 0], [4, 0], [4, 1], [4, -1], [5, 0], [2, 0]], dtype=np.float32)
+    X = np.array([
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [1, -1],
+        [3, 0],
+        [4, 0],
+        [4, 1],
+        [4, -1],
+        [5, 0],
+        [2, 0]
+    ], dtype=np.float32)
     cudbscan = cuDBSCAN(**params)
     cu_y_pred = cudbscan.fit_predict(X)
 
