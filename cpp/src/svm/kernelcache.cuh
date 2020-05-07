@@ -20,8 +20,8 @@
 #include <cuda_utils.h>
 #include <linalg/gemm.h>
 #include <cub/cub.cuh>
-#include "cache/cache.h"
-#include "cache/cache_util.h"
+#include "cache/cache.cuh"
+#include "cache/cache_util.cuh"
 #include "common/cumlHandle.hpp"
 #include "common/host_buffer.hpp"
 #include "cuml/svm/svm_parameter.h"
