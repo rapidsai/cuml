@@ -32,12 +32,12 @@
 #include <type_traits>
 #include <vector>
 #include "common/cumlHandle.hpp"
-#include "linalg/binary_op.h"
+#include "linalg/binary_op.cuh"
 #include "linalg/map_then_reduce.h"
 #include "linalg/transpose.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelmatrices.h"
-#include "random/make_blobs.h"
+#include "random/make_blobs.cuh"
 #include "random/rng.cuh"
 #include "svm/smoblocksolve.cuh"
 #include "svm/smosolver.cuh"

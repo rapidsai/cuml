@@ -18,7 +18,7 @@
 
 #include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include "vectorized.h"
+#include "vectorized.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

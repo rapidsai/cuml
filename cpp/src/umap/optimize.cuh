@@ -22,7 +22,7 @@
 
 #include <common/cudart_utils.h>
 #include "linalg/add.h"
-#include "linalg/binary_op.h"
+#include "linalg/binary_op.cuh"
 #include "linalg/eltwise.h"
 #include "linalg/multiply.h"
 #include "linalg/power.h"

@@ -21,7 +21,7 @@
 #include <iostream>
 #include <vector>
 #include "label/classlabels.h"
-#include "random/make_blobs.h"
+#include "random/make_blobs.cuh"
 #include "selection/knn.h"
 
 namespace MLCommon {

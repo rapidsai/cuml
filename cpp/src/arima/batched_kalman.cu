@@ -29,7 +29,7 @@
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
 #include "linalg/batched/matrix.h"
-#include "linalg/binary_op.h"
+#include "linalg/binary_op.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "sparse/batched/csr.h"
 #include "timeSeries/arima_helpers.cuh"

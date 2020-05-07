@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <common/seive.cuh>
 #include "cuda_utils.h"
-#include "vectorized.h"
+#include "vectorized.cuh"
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets

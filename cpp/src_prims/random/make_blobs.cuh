@@ -20,7 +20,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <vector>
 #include "common/device_buffer.hpp"
-#include "permute.h"
+#include "permute.cuh"
 #include "rng.cuh"
 
 namespace MLCommon {

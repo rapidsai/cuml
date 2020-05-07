@@ -18,7 +18,7 @@
 
 #include "cuda_utils.h"
 #include "linalg/matrix_vector_op.h"
-#include "vectorized.h"
+#include "vectorized.cuh"
 
 namespace MLCommon {
 namespace Stats {

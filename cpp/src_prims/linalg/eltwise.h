@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "binary_op.h"
+#include "binary_op.cuh"
 #include "unary_op.h"
 
 namespace MLCommon {

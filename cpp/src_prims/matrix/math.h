@@ -18,7 +18,7 @@
 
 #include <cuml/common/cuml_allocator.hpp>
 #include "common/device_buffer.hpp"
-#include "linalg/binary_op.h"
+#include "linalg/binary_op.cuh"
 #include "linalg/map_then_reduce.h"
 #include "linalg/matrix_vector_op.h"
 #include "linalg/unary_op.h"

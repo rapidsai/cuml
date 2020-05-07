@@ -17,7 +17,7 @@
 #pragma once
 
 #include "cuda_utils.h"
-#include "vectorized.h"
+#include "vectorized.cuh"
 
 namespace MLCommon {
 

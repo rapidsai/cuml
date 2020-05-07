@@ -20,7 +20,7 @@
 #include <cuml/common/logger.hpp>
 #include "../decisiontree/memory.h"
 #include "../decisiontree/quantile/quantile.h"
-#include "random/permute.h"
+#include "random/permute.cuh"
 #include "random/rng.cuh"
 #include "randomforest_impl.h"
 #include "score/scores.cuh"
