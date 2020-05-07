@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <random>
-#include "common/scatter.h"
+#include "common/scatter.cuh"
 #include "cuda_utils.h"
 #include "random/rng.cuh"
 #include "test_utils.h"
