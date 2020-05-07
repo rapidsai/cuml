@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
  */
 
 #pragma once
-#include "distance/algo1.h"
-#include "distance/distance_fragment_multiply_add.h"
-#include "linalg/eltwise2d.h"
+#include <distance/algo1.h>
+#include <distance/distance_fragment_multiply_add.h>
+#include <linalg/eltwise2d.h>
 
 namespace MLCommon {
 namespace Distance {

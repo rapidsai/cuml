@@ -25,20 +25,20 @@
 #include <type_traits>
 
 #include <cuml/matrix/kernelparams.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/gemv.h>
+#include <linalg/unary_op.h>
+#include <matrix/grammatrix.h>
+#include <matrix/kernelfactory.h>
+#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/cumlHandle.hpp"
 #include "kernelcache.cuh"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/gemv.h"
-#include "linalg/unary_op.h"
-#include "matrix/grammatrix.h"
-#include "matrix/kernelfactory.h"
 #include "smo_sets.cuh"
 #include "smoblocksolve.cuh"
 #include "workingset.cuh"
 #include "ws_util.cuh"
 
-#include "common/device_buffer.hpp"
+#include <common/device_buffer.hpp>
 #include "results.cuh"
 
 namespace ML {

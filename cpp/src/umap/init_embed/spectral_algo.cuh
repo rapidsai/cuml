@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include "common/device_buffer.hpp"
+#include <common/device_buffer.hpp>
 
-#include "sparse/coo.h"
+#include <sparse/coo.h>
 
-#include "linalg/add.h"
+#include <linalg/add.h>
 
-#include "linalg/transpose.h"
-#include "random/rng.h"
+#include <linalg/transpose.h>
+#include <random/rng.h>
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>

@@ -16,10 +16,10 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <metrics/contingencyMatrix.h>
 #include <algorithm>
 #include <iostream>
 #include <random>
-#include "metrics/contingencyMatrix.h"
 #include "test_utils.h"
 
 namespace MLCommon {

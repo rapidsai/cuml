@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <common/device_buffer.hpp>
+#include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/device_buffer.hpp"
-#include "common/nvtx.hpp"
 #include "runner.cuh"
 
 namespace ML {

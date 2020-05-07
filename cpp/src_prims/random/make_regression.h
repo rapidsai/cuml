@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,12 @@
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <common/cudart_utils.h>
-#include "linalg/add.h"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/init.h"
-#include "linalg/qr.h"
-#include "linalg/transpose.h"
-#include "matrix/matrix.h"
+#include <linalg/add.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/init.h>
+#include <linalg/qr.h>
+#include <linalg/transpose.h>
+#include <matrix/matrix.h>
 #include "permute.h"
 #include "rng.h"
 

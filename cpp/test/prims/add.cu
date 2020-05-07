@@ -16,9 +16,9 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <linalg/add.h>
+#include <random/rng.h>
 #include "add.h"
-#include "linalg/add.h"
-#include "random/rng.h"
 #include "test_utils.h"
 
 namespace MLCommon {

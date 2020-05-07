@@ -13,22 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 
-#include "common/device_buffer.hpp"
+#include <common/device_buffer.hpp>
 
 #include <common/cudart_utils.h>
-#include "linalg/add.h"
-#include "linalg/binary_op.h"
-#include "linalg/eltwise.h"
-#include "linalg/multiply.h"
-#include "linalg/power.h"
-#include "linalg/unary_op.h"
-#include "matrix/math.h"
-#include "stats/mean.h"
+#include <linalg/add.h>
+#include <linalg/binary_op.h>
+#include <linalg/eltwise.h>
+#include <linalg/multiply.h>
+#include <linalg/power.h>
+#include <linalg/unary_op.h>
+#include <matrix/math.h>
+#include <stats/mean.h>
 
 #include <cuda_runtime.h>
 

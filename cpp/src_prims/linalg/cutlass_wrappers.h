@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cublas_v2.h>
+#include <cuda_utils.h>
 #include <cutlass/coord.h>
 #include <cutlass/fragment_multiply_add.h>
 #include <cutlass/gemm/gemm.h>
@@ -27,7 +28,6 @@
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/util/platform.h>
 #include "cublas_wrappers.h"
-#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {

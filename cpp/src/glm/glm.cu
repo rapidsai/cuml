@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <cuml/cuml.hpp>
 #include <cuml/linear_model/glm.hpp>
-#include "glm/qn/qn.cuh"
+#include <glm/qn/qn.cuh>
 #include "ols.cuh"
 #include "ridge.cuh"
 

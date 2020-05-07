@@ -17,12 +17,12 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
+#include <cuda_utils.h>
 #include <cutlass/shape.h>
-#include "common/device_buffer.hpp"
-#include "cuda_utils.h"
-#include "distance/cosine.h"
-#include "distance/euclidean.h"
-#include "distance/l1.h"
+#include <distance/cosine.h>
+#include <distance/euclidean.h>
+#include <distance/l1.h>
+#include <common/device_buffer.hpp>
 
 namespace MLCommon {
 namespace Distance {

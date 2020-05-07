@@ -22,11 +22,11 @@
 #include <random>
 #include <vector>
 
+#include <add.h>
 #include <common/cudart_utils.h>
-#include "add.h"
-#include "linalg/batched/matrix.h"
-#include "linalg_naive.h"
-#include "test_utils.h"
+#include <linalg/batched/matrix.h>
+#include <linalg_naive.h>
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
+#include <ml_mg_utils.h>
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "ml_mg_utils.h"
 
 namespace ML {
 

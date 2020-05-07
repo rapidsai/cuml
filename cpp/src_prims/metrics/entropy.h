@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 /**
 * @file entropy.h
 * @brief Calculates the entropy for a labeling in nats.(ie, uses natural logarithm for the calculations)
 */
 
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
+#include <linalg/divide.h>
+#include <linalg/map_then_reduce.h>
 #include <math.h>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
-#include "cuda_utils.h"
-#include "linalg/divide.h"
-#include "linalg/map_then_reduce.h"
 
 namespace MLCommon {
 

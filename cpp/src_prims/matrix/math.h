@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <linalg/binary_op.h>
+#include <linalg/map_then_reduce.h>
+#include <linalg/matrix_vector_op.h>
+#include <linalg/unary_op.h>
+#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
-#include "linalg/binary_op.h"
-#include "linalg/map_then_reduce.h"
-#include "linalg/matrix_vector_op.h"
-#include "linalg/unary_op.h"
 
 namespace MLCommon {
 namespace Matrix {

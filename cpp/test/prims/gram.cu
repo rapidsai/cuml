@@ -18,13 +18,13 @@
 #include <cuda_utils.h>
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
+#include <matrix/grammatrix.h>
+#include <matrix/kernelfactory.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
+#include <common/host_buffer.hpp>
 #include <iostream>
 #include <memory>
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "common/host_buffer.hpp"
-#include "matrix/grammatrix.h"
-#include "matrix/kernelfactory.h"
 #include "test_utils.h"
 
 namespace MLCommon {

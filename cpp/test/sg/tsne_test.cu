@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
+#include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <score/scores.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <tsne/tsne.cu>
 #include <vector>
-#include "datasets/digits.h"
-#include "tsne/tsne.cu"
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.h"
+#include <cuda_utils.h>
 
+#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/device_buffer.hpp"
 
 using namespace MLCommon;
 using namespace MLCommon::Score;

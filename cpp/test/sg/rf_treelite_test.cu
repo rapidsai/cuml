@@ -16,22 +16,22 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
+#include <decisiontree/decisiontree_impl.h>
 #include <gtest/gtest.h>
+#include <linalg/gemv.h>
+#include <linalg/transpose.h>
+#include <ml_utils.h>
+#include <random/rng.h>
 #include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
+#include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <string>
-#include "cuml/ensemble/randomforest.hpp"
-#include "decisiontree/decisiontree_impl.h"
-#include "linalg/gemv.h"
-#include "linalg/transpose.h"
-#include "ml_utils.h"
-#include "random/rng.h"
 
 namespace ML {
 

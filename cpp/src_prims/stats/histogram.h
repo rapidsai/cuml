@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <stdint.h>
+#include <vectorized.h>
 #include <common/seive.cuh>
-#include "cuda_utils.h"
-#include "vectorized.h"
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets

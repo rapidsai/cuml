@@ -21,10 +21,10 @@
 #include <vector>
 
 #include <common/cudart_utils.h>
-#include "linalg/batched/matrix.h"
-#include "linalg_naive.h"
-#include "sparse/batched/csr.h"
-#include "test_utils.h"
+#include <linalg/batched/matrix.h>
+#include <linalg_naive.h>
+#include <sparse/batched/csr.h>
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace Sparse {

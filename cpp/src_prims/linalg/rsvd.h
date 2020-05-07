@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #pragma once
 
+#include <cuda_utils.h>
 #include "../matrix/math.h"
 #include "../matrix/matrix.h"
 #include "../random/rng.h"
 #include "cublas_wrappers.h"
-#include "cuda_utils.h"
 #include "cusolver_wrappers.h"
 #include "eig.h"
 #include "gemm.h"

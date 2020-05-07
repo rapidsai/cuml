@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include "common/cumlHandle.hpp"
+#include <common/cumlHandle.hpp>
 
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include "ml_mg_utils.h"
+#include <ml_mg_utils.h>
 
-#include "label/classlabels.h"
-#include "selection/knn.h"
+#include <label/classlabels.h>
+#include <selection/knn.h>
 
 #include <cuda_runtime.h>
-#include "cuda_utils.h"
+#include <cuda_utils.h>
 
 #include <sstream>
 #include <vector>

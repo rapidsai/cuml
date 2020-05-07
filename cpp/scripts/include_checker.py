@@ -1,4 +1,5 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -108,6 +109,9 @@ def main():
             print("File: %s" % f)
             for e in errs:
                 print("  %s" % e)
+        path_parts = os.path.abspath(__file__).split(os.sep)
+        print("You can run '{} --inplace' to bulk fix these errors".format(
+            os.sep.join(path_parts[path_parts.index("cpp"):])))
         sys.exit(-1)
     return
 

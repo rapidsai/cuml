@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_runtime_api.h>
+#include <cuda_utils.h>
+#include <matrix/matrix.h>
+#include <common/device_buffer.hpp>
 #include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
-#include "cuda_utils.h"
 #include "cusolver_wrappers.h"
-#include "matrix/matrix.h"
 
 namespace MLCommon {
 namespace LinAlg {

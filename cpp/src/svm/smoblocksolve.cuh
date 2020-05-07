@@ -19,10 +19,10 @@
 #pragma once
 
 #include <cuda_utils.h>
+#include <cuml/svm/svm_parameter.h>
+#include <ml_utils.h>
+#include <selection/kselection.h>
 #include <stdlib.h>
-#include "cuml/svm/svm_parameter.h"
-#include "ml_utils.h"
-#include "selection/kselection.h"
 #include "smo_sets.cuh"
 
 namespace ML {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-19, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 
 #pragma once
 
+#include <common/cub_wrappers.h>
 #include <common/cudart_utils.h>
+#include <common/scatter.h>
+#include <cuda_utils.h>
 #include <stdint.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cuml/common/cuml_allocator.hpp>
 #include <random>
 #include <type_traits>
-#include "common/cub_wrappers.h"
-#include "common/scatter.h"
-#include "cuda_utils.h"
 #include "rng_impl.h"
 
 namespace MLCommon {

@@ -21,13 +21,13 @@
 #include <vector>
 
 #include <thrust/fill.h>
+#include <common/device_buffer.hpp>
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include "common/device_buffer.hpp"
 
 namespace ML {
 

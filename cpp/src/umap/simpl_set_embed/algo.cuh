@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <common/cudart_utils.h>
@@ -20,6 +21,8 @@
 #include <curand.h>
 #include <internals/internals.h>
 #include <math.h>
+#include <random/rng_impl.h>
+#include <sparse/coo.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/system/cuda/execution_policy.h>
@@ -28,8 +31,6 @@
 #include <cuml/common/logger.hpp>
 #include <string>
 #include "optimize_batch_kernel.cuh"
-#include "random/rng_impl.h"
-#include "sparse/coo.h"
 
 #pragma once
 
