@@ -19,7 +19,7 @@
 #include <iostream>
 #include <vector>
 #include "random/rng.cuh"
-#include "score/scores.h"
+#include "score/scores.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

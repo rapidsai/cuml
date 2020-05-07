@@ -18,7 +18,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <random/rng.cuh>
-#include <stats/histogram.h>
+#include <stats/histogram.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

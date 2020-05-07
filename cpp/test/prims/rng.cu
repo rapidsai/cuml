@@ -19,8 +19,8 @@
 #include <cub/cub.cuh>
 #include "cuda_utils.h"
 #include "random/rng.cuh"
-#include "stats/mean.h"
-#include "stats/stddev.h"
+#include "stats/mean.cuh"
+#include "stats/stddev.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

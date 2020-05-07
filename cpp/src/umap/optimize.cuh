@@ -28,7 +28,7 @@
 #include "linalg/power.h"
 #include "linalg/unary_op.h"
 #include "matrix/math.h"
-#include "stats/mean.h"
+#include "stats/mean.cuh"
 
 #include <cuda_runtime.h>
 

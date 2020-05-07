@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include "matrix_vector_op.h"
 #include "random/rng.cuh"
-#include "stats/mean.h"
-#include "stats/mean_center.h"
+#include "stats/mean.cuh"
+#include "stats/mean_center.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

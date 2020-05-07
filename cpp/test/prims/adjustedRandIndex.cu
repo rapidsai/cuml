@@ -19,7 +19,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "metrics/adjustedRandIndex.h"
+#include "metrics/adjustedRandIndex.cuh"
 #include "metrics/contingencyMatrix.h"
 #include "test_utils.h"
 

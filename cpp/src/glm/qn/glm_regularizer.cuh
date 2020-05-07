@@ -21,7 +21,7 @@
 #include "cuda_utils.h"
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"
-#include "stats/mean.h"
+#include "stats/mean.cuh"
 
 namespace ML {
 namespace GLM {

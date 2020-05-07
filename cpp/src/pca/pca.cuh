@@ -23,9 +23,9 @@
 #include <linalg/transpose.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
-#include <stats/cov.h>
-#include <stats/mean.h>
-#include <stats/mean_center.h>
+#include <stats/cov.cuh>
+#include <stats/mean.cuh>
+#include <stats/mean_center.cuh>
 #include <cuml/cuml.hpp>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"

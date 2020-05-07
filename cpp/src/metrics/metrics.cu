@@ -17,12 +17,12 @@
 // #include "metrics.h"
 #include <cuml/metrics/metrics.hpp>
 #include "cuda_utils.h"
-#include "metrics/adjustedRandIndex.h"
+#include "metrics/adjustedRandIndex.cuh"
 #include "metrics/klDivergence.h"
 #include "metrics/randIndex.h"
 #include "metrics/silhouetteScore.h"
 #include "metrics/vMeasure.h"
-#include "score/scores.h"
+#include "score/scores.cuh"
 
 namespace ML {
 

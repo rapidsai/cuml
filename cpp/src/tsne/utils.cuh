@@ -33,7 +33,7 @@
 #include <thrust/transform.h>
 
 #include <random/rng.cuh>
-#include <stats/sum.h>
+#include <stats/sum.cuh>
 #include <sys/time.h>
 
 #include <sys/time.h>

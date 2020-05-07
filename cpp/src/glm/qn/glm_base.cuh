@@ -25,7 +25,7 @@
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
-#include "stats/mean.h"
+#include "stats/mean.cuh"
 
 namespace ML {
 namespace GLM {

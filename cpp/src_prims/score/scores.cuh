@@ -20,7 +20,7 @@
 #include "linalg/eltwise.h"
 #include "linalg/power.h"
 #include "linalg/subtract.h"
-#include "stats/mean.h"
+#include "stats/mean.cuh"
 
 #include <memory>
 

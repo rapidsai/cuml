@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <score/scores.h>
+#include <score/scores.cuh>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
