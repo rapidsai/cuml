@@ -6,6 +6,13 @@ from cuml.dask.common.input_utils import DistributedDataHandler, \
 
 
 class BaseRandomForestModel(object):
+    """
+    BaseRandomForestModel defines functions used in both Random Forest
+    Classifier and Regressor for Multi Node and Multi GPU models. The common
+    functions are defined here and called from the main Random Forest Multi
+    Node Multi GPU APIs. The functions defined here are not meant to be used
+    as a part of the public API.
+    """
 
     def _create_model(self, model_func,
                       unsupported_sklearn_params, **kwargs):
