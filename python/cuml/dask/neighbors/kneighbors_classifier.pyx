@@ -118,6 +118,14 @@ def _build_float_d(arr_interfaces):
     return < size_t > dataF
 
 
+def _free_float_d(data):
+    cdef uintptr_t data_ptr = <size_t>data
+    cdef vector[floatData_t*] *d = <vector[floatData_t*]*>data_ptr
+    for x_i in range(d.size()):
+        free(d.at(x_i))
+    free(d)
+
+
 def _build_part_inputs(cuda_arr_ifaces,
                        parts_to_ranks,
                        m, n, local_rank,
@@ -160,6 +168,38 @@ def _build_part_inputs(cuda_arr_ifaces,
     cdef uintptr_t desc_ptr = <uintptr_t>descriptor
 
     return arr_ints, rsp_ptr, local_parts_ptr, desc_ptr
+
+
+def _free_mem(out_vec, out_i_vec, out_d_vec,
+              idx_local_parts, idx_desc,
+              q_local_parts, q_desc,
+              lbls_local_parts,
+              uniq_labels, n_unique):
+
+    free(<void*>out_vec)
+    free(<void*>out_i_vec)
+    free(<void*>out_d_vec)
+
+    _free_float_d(<uintptr_t>idx_local_parts)
+    free(<void*>idx_desc)
+
+    _free_float_d(<uintptr_t>q_local_parts)
+    free(<void*>q_desc)
+
+    cdef vector[int_ptr_vector]*v = \
+        <vector[int_ptr_vector]*><uintptr_t>lbls_local_parts
+    cdef vector[int*] *vv
+    for i in range(v.size()):
+        vv = &v.at(i)
+        free(<void*>vv)
+    free(<void*>v)
+
+    cdef vector[int*] *uniq_labels_vec = <vector[int*]*><uintptr_t>uniq_labels
+    for i in range(uniq_labels_vec.size()):
+        free(<void*>uniq_labels_vec.at(i))
+    free(<void*>uniq_labels_vec)
+
+    free(<void*>n_unique)
 
 
 def _func_knn_classify(sessionID,
@@ -262,6 +302,17 @@ def _func_knn_classify(sessionID,
     )
 
     handle.sync()
+
+    _free_mem(<uintptr_t>out_vec,
+              <uintptr_t>out_i_vec,
+              <uintptr_t>out_d_vec,
+              <uintptr_t>idx_local_parts,
+              <uintptr_t>idx_desc,
+              <uintptr_t>q_local_parts,
+              <uintptr_t>q_desc,
+              <uintptr_t>lbls_local_parts,
+              <uintptr_t>uniq_labels,
+              <uintptr_t>n_unique)
 
     return output, output_i, output_d
 
