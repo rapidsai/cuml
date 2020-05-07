@@ -111,12 +111,11 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('nrows', [500])
-@pytest.mark.parametrize('ncols', [3])
-@pytest.mark.parametrize('nclusters', [3, 5])
-@pytest.mark.parametrize('max_weight', [10])
-@pytest.mark.parametrize('random_state', [i for i in range(5)])
+@pytest.mark.parametrize('ncols', [3, 5])
+@pytest.mark.parametrize('nclusters', [3, 5, 10])
+@pytest.mark.parametrize('random_state', [i for i in [0, 100]])
 def test_weighted_kmeans(nrows, ncols, nclusters,
-                         max_weight, random_state):
+                        random_state):
 
     # Using fairly high variance between points in clusters
     cluster_std = 10000.0
@@ -125,7 +124,10 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
     wt = np.array([0.00001 for j in range(nrows)])
 
     # Open the space really large
-    centers = np.random.uniform(-100000, 100000,
+
+    bound = nclusters * 100000
+
+    centers = np.random.uniform(-bound, bound,
                                 size=(nclusters, ncols))
 
     X, y = make_blobs(nrows,

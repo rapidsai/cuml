@@ -90,6 +90,54 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         client.close()
 
 
+def test_weighted_kmeans():
+
+    # Using fairly high variance between points in clusters
+    cluster_std = 10000.0
+    np.random.seed(random_state)
+
+    wt = np.array([0.00001 for j in range(nrows)])
+
+    # Open the space really large
+    centers = np.random.uniform(-100000, 100000,
+                                size=(nclusters, ncols))
+
+    X, y = make_blobs(nrows,
+                      ncols,
+                      centers=centers,
+                      cluster_std=cluster_std,
+                      shuffle=False,
+                      random_state=0)
+
+    # Choose one sample from each label and increase its weight
+    for i in range(nclusters):
+        wt[cp.argmax(cp.array(y) == i).item()] = 5000.0
+
+    cuml_kmeans = cuml.KMeans(init="k-means++",
+                              n_clusters=nclusters,
+                              n_init=10,
+                              random_state=random_state,
+                              output_type='numpy')
+
+    cuml_kmeans.fit(X, sample_weight=wt)
+
+    for i in range(nrows):
+
+        label = cuml_kmeans.labels_[i]
+        actual_center = cuml_kmeans.cluster_centers_[label]
+
+        diff = sum(abs(X[i].copy_to_host() - actual_center))
+
+        # The large weight should be the centroid
+        if wt[i] > 1.0:
+            assert diff < 1.0
+
+        # Otherwise it should be pretty far away
+        else:
+            assert diff > 1000.0
+
+
+
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(5e3), quality_param(1e5),
                                    stress_param(1e6)])
