@@ -20,6 +20,7 @@ import re
 import os
 import subprocess
 import argparse
+import io
 
 
 # file names could (in theory) contain simple white-space
@@ -55,7 +56,7 @@ def list_all_source_file(file_regex, srcdirs):
 def check_includes_in(src, inplace):
     errs = []
     dir = os.path.dirname(src)
-    with open(src) as file_obj:
+    with io.open(src, encoding="utf-8") as file_obj:
         lines = list(enumerate(file_obj))
     for line_number, line in lines:
         match = IncludeRegex.search(line)
@@ -85,7 +86,7 @@ def check_includes_in(src, inplace):
             src, ', '.join(str(x[0]) for x in errs)))
         for line_number, replacement in errs:
             lines[line_number] = (line_number, replacement)
-        with open(src, 'w') as out_file:
+        with io.open(src, 'w', encoding="utf-8") as out_file:
             for _, new_line in lines:
                 out_file.write(new_line)
         errs = []
