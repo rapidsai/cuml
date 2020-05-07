@@ -233,14 +233,14 @@ template <class T, class L>
 void _print_rf(const RandomForestMetaData<T, L>* forest, bool summary) {
   ML::PatternSetter _("%v");
   if (!forest || !forest->trees) {
-    CUML_LOG_DEBUG("Empty forest");
+    CUML_LOG_INFO("Empty forest");
   } else {
-    CUML_LOG_DEBUG("Forest has %d trees, max_depth %d, and max_leaves %d",
-                   forest->rf_params.n_trees,
-                   forest->rf_params.tree_params.max_depth,
-                   forest->rf_params.tree_params.max_leaves);
+    CUML_LOG_INFO("Forest has %d trees, max_depth %d, and max_leaves %d",
+                  forest->rf_params.n_trees,
+                  forest->rf_params.tree_params.max_depth,
+                  forest->rf_params.tree_params.max_leaves);
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
-      CUML_LOG_DEBUG("Tree #%d", i);
+      CUML_LOG_INFO("Tree #%d", i);
       if (summary) {
         DecisionTree::print_tree_summary<T, L>(&(forest->trees[i]));
       } else {
