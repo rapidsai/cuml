@@ -19,7 +19,7 @@
 #include <score/scores.h>
 #include <iostream>
 #include <vector>
-#include "distance/distance.h"
+#include "distance/distance.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

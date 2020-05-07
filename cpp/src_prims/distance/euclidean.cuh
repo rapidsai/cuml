@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "distance/algo1.h"
+#include "distance/algo1.cuh"
 #include "distance/distance_fragment_multiply_add.h"
 #include "linalg/custom_accum.h"
 #include "linalg/eltwise2d.h"

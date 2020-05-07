@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuda_utils.h>
-#include <distance/distance.h>
+#include <distance/distance.cuh>
 #include <linalg/gemm.h>
 #include <matrix/grammatrix.h>
 

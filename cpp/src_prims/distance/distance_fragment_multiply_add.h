@@ -18,7 +18,6 @@
 
 #include <cutlass/fragment.h>
 #include <cutlass/shape.h>
-#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace Distance {

@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <distance/distance.h>
+#include <distance/distance.cuh>
 #include <distance/fused_l2_nn.h>
 #include <linalg/binary_op.h>
 #include <linalg/matrix_vector_op.h>

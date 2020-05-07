@@ -27,7 +27,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 
 #include <selection/columnWiseSort.h>
-#include "distance/distance.h"
+#include "distance/distance.cuh"
 #include "selection/knn.h"
 
 #include <thrust/device_ptr.h>

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <distance/distance.h>
+#include <distance/distance.cuh>
 #include <common/cumlHandle.hpp>
 
 namespace ML {
