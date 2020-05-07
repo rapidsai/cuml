@@ -315,8 +315,6 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     input_vec, sizes_vec, D, search_items, n, res_I, res_D, k, allocator,
     userStream, internalStreams, n_int_streams, rowMajorIndex, rowMajorQuery,
     translations);
-
-
 }
 
 template <typename OutType = float>
@@ -548,12 +546,10 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_labels,
                  size_t n_rows, int k, cudaStream_t user_stream,
                  cudaStream_t *int_streams = nullptr, int n_int_streams = 0) {
-
   /**
    * Vote average regression value
    */
   for (int i = 0; i < y.size(); i++) {
-
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
 
