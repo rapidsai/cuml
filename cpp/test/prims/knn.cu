@@ -20,7 +20,7 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "selection/knn.h"
+#include "selection/knn.cuh"
 
 namespace MLCommon {
 namespace Selection {

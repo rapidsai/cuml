@@ -21,8 +21,8 @@
 
 #include "ml_mg_utils.h"
 
-#include "label/classlabels.h"
-#include "selection/knn.h"
+#include "label/classlabels.cuh"
+#include "selection/knn.cuh"
 
 #include <cuda_runtime.h>
 #include "cuda_utils.h"

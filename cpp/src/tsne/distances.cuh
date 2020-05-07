@@ -18,8 +18,8 @@
 
 #include <common/cudart_utils.h>
 #include <linalg/eltwise.h>
-#include <selection/knn.h>
-#include "sparse/coo.h"
+#include <selection/knn.cuh>
+#include "sparse/coo.cuh"
 
 namespace ML {
 namespace TSNE {

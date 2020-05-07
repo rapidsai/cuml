@@ -20,7 +20,7 @@
 #include "cuda_utils.h"
 
 #include "distance/distance.cuh"
-#include "label/classlabels.h"
+#include "label/classlabels.cuh"
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>

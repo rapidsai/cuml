@@ -20,7 +20,7 @@
 #include <cub/cub.cuh>
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
-#include "selection/kselection.h"
+#include "selection/kselection.cuh"
 
 namespace MLCommon {
 namespace Cache {

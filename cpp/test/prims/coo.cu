@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include "coo.h"
 #include "random/rng.cuh"
-#include "sparse/coo.h"
+#include "sparse/coo.cuh"
 #include "test_utils.h"
 
 #include <iostream>

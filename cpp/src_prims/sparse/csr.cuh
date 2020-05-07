@@ -18,7 +18,7 @@
 #include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
-#include "label/classlabels.h"
+#include "label/classlabels.cuh"
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>

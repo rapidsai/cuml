@@ -24,7 +24,7 @@
 #include "../common.cuh"
 #include "pack.h"
 
-#include "sparse/csr.h"
+#include "sparse/csr.cuh"
 
 using namespace thrust;
 
