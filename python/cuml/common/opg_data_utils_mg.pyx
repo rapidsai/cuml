@@ -16,14 +16,9 @@
 
 import numpy as np
 
-<<<<<<< HEAD:python/cuml/common/opg_data_utils.pyx
-from cuml.common.opg_data_utils cimport *
-=======
 from cuml.common.opg_data_utils_mg cimport *
->>>>>>> origin/branch-0.14:python/cuml/common/opg_data_utils_mg.pyx
 from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
-
 
 def build_data_t(arys):
     """
