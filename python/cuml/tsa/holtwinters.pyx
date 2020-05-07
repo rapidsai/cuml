@@ -23,7 +23,7 @@ import cupy as cp
 import numpy as np
 from numba import cuda
 from libc.stdint cimport uintptr_t
-from cuml.utils import input_to_dev_array, get_dev_array_ptr, numba_utils
+from cuml.common import input_to_dev_array, get_dev_array_ptr, numba_utils
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 

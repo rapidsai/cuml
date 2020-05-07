@@ -19,7 +19,7 @@ import dask.delayed
 from dask.distributed import default_client
 import numpy as np
 import cupy as cp
-from cuml.utils import with_cupy_rmm
+from cuml.common import with_cupy_rmm
 from cuml.dask.datasets.blobs import _get_X
 from cuml.dask.datasets.blobs import _get_labels
 from cuml.dask.common.input_utils import DistributedDataHandler

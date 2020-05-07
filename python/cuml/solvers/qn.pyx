@@ -32,9 +32,9 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_dev_array, zeros, with_cupy_rmm
-from cuml.utils.import_utils import has_cupy
+from cuml.common.import_utils import has_cupy
 from cuml.metrics import accuracy_score
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
