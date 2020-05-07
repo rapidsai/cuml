@@ -19,7 +19,7 @@
 #include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
-#include "distance/distance.h"
+#include "distance/distance.cuh"
 #include "label/classlabels.h"
 
 #include <faiss/gpu/GpuDistance.h>

@@ -19,9 +19,8 @@
 #include <cuda_runtime_api.h>
 #include <cutlass/shape.h>
 #include "common/device_buffer.hpp"
-#include "cuda_utils.h"
-#include "distance/cosine.h"
-#include "distance/euclidean.h"
+#include "distance/cosine.cuh"
+#include "distance/euclidean.cuh"
 #include "distance/l1.h"
 
 namespace MLCommon {

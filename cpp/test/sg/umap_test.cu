@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "distance/distance.h"
+#include "distance/distance.cuh"
 
 #include "datasets/digits.h"
 

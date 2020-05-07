@@ -15,7 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
-#include <distance/distance.h>
+#include <distance/distance.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
