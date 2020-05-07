@@ -14,25 +14,22 @@
  * limitations under the License.
  */
 /**
-* @file completenessScore.h
+* @file homogeneityScore.cuh
 *
-* @brief A clustering result satisfies completeness if all the data points
-* that are members of a given class are elements of the same cluster.
+* @brief A clustering result satisfies homogeneity if all of its clusters
+* contain only data points which are members of a single class.
 */
 
-#pragma once
-
-#include <cuml/common/cuml_allocator.hpp>
-#include "common/device_buffer.hpp"
-#include "metrics/entropy.h"
-#include "metrics/mutualInfoScore.h"
+#include "metrics/entropy.cuh"
+#include "metrics/mutualInfoScore.cuh"
 
 namespace MLCommon {
+
 namespace Metrics {
 
 /**
-* @brief Function to calculate the completeness score between two clusters
-*
+* @brief Function to calculate the homogeneity score between two clusters
+* <a href="https://en.wikipedia.org/wiki/Homogeneity_(statistics)">more info on mutual information</a> 
 * @param truthClusterArray: the array of truth classes of type T
 * @param predClusterArray: the array of predicted classes of type T
 * @param size: the size of the data points of type int
@@ -42,10 +39,10 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double completenessScore(const T *truthClusterArray, const T *predClusterArray,
-                         int size, T lowerLabelRange, T upperLabelRange,
-                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                         cudaStream_t stream) {
+double homogeneityScore(const T *truthClusterArray, const T *predClusterArray,
+                        int size, T lowerLabelRange, T upperLabelRange,
+                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                        cudaStream_t stream) {
   if (size == 0) return 1.0;
 
   double computedMI, computedEntropy;
@@ -54,17 +51,17 @@ double completenessScore(const T *truthClusterArray, const T *predClusterArray,
     truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
     allocator, stream);
   computedEntropy =
-    MLCommon::Metrics::entropy(predClusterArray, size, lowerLabelRange,
+    MLCommon::Metrics::entropy(truthClusterArray, size, lowerLabelRange,
                                upperLabelRange, allocator, stream);
 
-  double completeness;
+  double homogeneity;
 
   if (computedEntropy) {
-    completeness = computedMI / computedEntropy;
+    homogeneity = computedMI / computedEntropy;
   } else
-    completeness = 1.0;
+    homogeneity = 1.0;
 
-  return completeness;
+  return homogeneity;
 }
 
 };  //end namespace Metrics

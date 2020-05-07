@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file information_criterion.h
+* @file information_criterion.cuh
 * @brief These information criteria are used to evaluate the quality of models
 *        by balancing the quality of the fit and the number of parameters.
 *

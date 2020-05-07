@@ -15,7 +15,7 @@
  */
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/silhouetteScore.h>
+#include <metrics/silhouetteScore.cuh>
 #include <algorithm>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>

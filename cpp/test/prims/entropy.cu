@@ -20,7 +20,7 @@
 #include <iostream>
 #include <random>
 #include "cuda_utils.h"
-#include "metrics/entropy.h"
+#include "metrics/entropy.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

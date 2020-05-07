@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 /**
-* @file vMeasure.h
+* @file vMeasure.cuh
 */
 
-#include "metrics/homogeneityScore.h"
+#include "metrics/homogeneityScore.cuh"
 
 namespace MLCommon {
 

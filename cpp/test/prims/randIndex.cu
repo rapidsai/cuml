@@ -19,7 +19,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <random>
-#include "metrics/randIndex.h"
+#include "metrics/randIndex.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

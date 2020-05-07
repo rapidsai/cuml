@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * @file randIndex.h
+ * @file randIndex.cuh
  * @todo TODO(Ganesh Venkataramana):
  * <pre>
  * The below randIndex calculation implementation is a Brute force one that uses (nElements*nElements) threads (2 dimensional grids and blocks)

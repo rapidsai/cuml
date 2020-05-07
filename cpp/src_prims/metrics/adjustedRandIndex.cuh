@@ -31,7 +31,7 @@
 #include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
-#include "contingencyMatrix.h"
+#include "contingencyMatrix.cuh"
 
 namespace MLCommon {
 namespace Metrics {

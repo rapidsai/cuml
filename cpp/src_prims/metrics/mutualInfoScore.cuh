@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file mutualInfoScore.h
+* @file mutualInfoScore.cuh
 * @brief The Mutual Information is a measure of the similarity between two labels of
 *   the same data.This metric is independent of the absolute values of the labels:
 *   a permutation of the class or cluster label values won't change the
@@ -31,7 +31,7 @@
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/reduce.h"
-#include "metrics/contingencyMatrix.h"
+#include "metrics/contingencyMatrix.cuh"
 
 namespace MLCommon {
 

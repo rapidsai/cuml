@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file klDivergence.h
+* @file klDivergence.cuh
 * @brief The KL divergence tells us how well the probability distribution Q AKA candidatePDF 
 * approximates the probability distribution P AKA modelPDF.
 */
