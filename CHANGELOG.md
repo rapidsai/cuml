@@ -76,6 +76,7 @@
 - PR #2201: Re-enabling UMAP repro tests
 - PR #2196: Updates to benchmarks. Moving notebook
 - PR #2205: Use timeout to add 2 hour hard limit to dask tests
+- PR #2212: Improve DBScan batch count / memory estimation
 
 ## Bug Fixes
 - PR #1939: Fix syntax error in cuml.common.array
@@ -112,6 +113,7 @@
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
+- PR #2212: Fix DBScan results (no propagation of labels through border points)
 
 # cuML 0.13.0 (Date TBD)
 
