@@ -21,6 +21,8 @@
 #include "common/nvtx.hpp"
 #include "runner.cuh"
 
+#include <algorithm>
+
 namespace ML {
 
 using namespace Dbscan;
@@ -62,13 +64,31 @@ Index_ computeBatchCount(size_t &estimated_memory, Index_ n_rows,
   size_t MAX_LABEL = (size_t)std::numeric_limits<Index_>::max();
   // n_rows * n_rows_per_batch < MAX_LABEL => n_rows * (n_rows / nBatches) < MAX_LABEL
   // => nBatches >= n_rows * n_rows / MAX_LABEL
-  nBatches = max((Index_)ceildiv<size_t>((size_t)n_rows * n_rows, MAX_LABEL), nBatches);
-  return max((Index_)1, nBatches);
+  Index_ nBatchesPrec = (Index_)ceildiv<size_t>((size_t)n_rows * n_rows, MAX_LABEL);
+  if (nBatchesPrec >= 4 * nBatches) {
+    CUML_LOG_WARN(
+      "Due to precision limitations of the index type (%d bytes) "
+      "we need to use %ld batches, but you have memory for %ld batches. "
+      "Consider upgrading the index type (output label type).",
+      (int)sizeof(Index_), (size_t)nBatchesPrec, (size_t)nBatches
+    );
+  }
+  if (sizeof(Index_) > sizeof(int) && 
+        (size_t)n_rows * ceildiv<Index_>(n_rows, nBatches) <
+          std::numeric_limits<int>::max()) {
+    CUML_LOG_WARN(
+      "You are using an index type of size (%d bytes) but a smaller index "
+      "type (%d bytes) would be sufficient. Consider using the smaller "
+      "index type for better performance.",
+      (int)sizeof(Index_), (int)sizeof(int)
+    );
+  }
+  return std::max({ (Index_)1, nBatchesPrec, nBatches });
 }
 
 template <typename T, typename Index_ = int>
 void dbscanFitImpl(const ML::cumlHandle_impl &handle, T *input, Index_ n_rows,
-                   Index_ n_cols, T eps, int min_pts, Index_ *labels,
+                   Index_ n_cols, T eps, Index_ min_pts, Index_ *labels,
                    size_t max_mbytes_per_batch, cudaStream_t stream,
                    int verbosity) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");

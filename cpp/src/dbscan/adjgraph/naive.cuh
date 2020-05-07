@@ -27,8 +27,8 @@ namespace Dbscan {
 namespace AdjGraph {
 namespace Naive {
 
-template <typename Type, typename Index_ = int>
-void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
+template <typename Index_ = int>
+void launcher(const ML::cumlHandle_impl& handle, Pack<Index_> data,
               Index_ batchSize, cudaStream_t stream) {
   Index_ k = 0;
   Index_ N = data.N;
