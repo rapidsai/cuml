@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 #pragma once
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/cusolver_wrappers.h>
+#include <linalg/matrix_vector_op.h>
+#include <linalg/unary_op.h>
 #include <stdio.h>
 #include <cmath>
-#include "cuda_utils.h"
 #include "curand_wrappers.h"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/cusolver_wrappers.h"
-#include "linalg/matrix_vector_op.h"
-#include "linalg/unary_op.h"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)

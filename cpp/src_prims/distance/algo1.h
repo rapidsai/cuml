@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "cuda_utils.h"
-#include "distance/distance_epilogue.h"
-#include "distance/distance_epilogue_functor.h"
-#include "distance/distance_epilogue_traits.h"
-#include "distance/distance_fragment_multiply_add.h"
-#include "linalg/gemm.h"
-#include "linalg/norm.h"
+#include <cuda_utils.h>
+#include <distance/distance_epilogue.h>
+#include <distance/distance_epilogue_functor.h>
+#include <distance/distance_epilogue_traits.h>
+#include <distance/distance_fragment_multiply_add.h>
+#include <linalg/gemm.h>
+#include <linalg/norm.h>
 
 #include <cutlass/gemm/gemm_epilogue_traits.h>
 #include <cutlass/gemm/thread_multiply_add.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <cuda_utils.h>
+#include <linalg/binary_op.h>
+#include <glm/qn/glm_base.cuh>
 #include <glm/qn/simple_mat.cuh>
-#include "cuda_utils.h"
-#include "glm/qn/glm_base.cuh"
-#include "linalg/binary_op.h"
 
 namespace ML {
 namespace GLM {

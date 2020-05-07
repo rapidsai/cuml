@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include <cuml/common/cuml_allocator.hpp>
 #include "csr.h"
-#include "cuml/common/cuml_allocator.hpp"
 
 #include "cusparse_wrappers.h"
 
-#include "common/device_buffer.hpp"
+#include <common/device_buffer.hpp>
 
 #include <cusparse_v2.h>
 
@@ -29,7 +29,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_runtime.h>
-#include "cuda_utils.h"
+#include <cuda_utils.h>
 
 #include <iostream>
 #define restrict __restrict__

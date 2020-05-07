@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 
-#include "distance/distance.h"
+#include <distance/distance.h>
 
-#include "datasets/digits.h"
+#include <datasets/digits.h>
 
 #include <cuml/manifold/umapparams.h>
 #include <metrics/trustworthiness.h>
@@ -26,11 +26,11 @@
 #include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
 
-#include "linalg/reduce_rows_by_key.h"
-#include "random/make_blobs.h"
+#include <linalg/reduce_rows_by_key.h>
+#include <random/make_blobs.h>
 
-#include "common/device_buffer.hpp"
-#include "umap/runner.cuh"
+#include <common/device_buffer.hpp>
+#include <umap/runner.cuh>
 
 #include <cuda_utils.h>
 

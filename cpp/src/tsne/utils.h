@@ -21,9 +21,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <linalg/norm.h>
+#include <common/cumlHandle.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/cumlHandle.hpp"
-#include "linalg/norm.h"
 
 #include <cuda_runtime.h>
 #include <cuml/cuml.hpp>

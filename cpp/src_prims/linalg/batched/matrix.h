@@ -37,7 +37,7 @@
 #include <common/device_buffer.hpp>
 
 #include <common/cudart_utils.h>
-#include "cuda_utils.h"
+#include <cuda_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {

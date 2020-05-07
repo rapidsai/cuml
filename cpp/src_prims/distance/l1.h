@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "linalg/custom_accum.h"
-#include "linalg/gemm.h"
+#include <linalg/custom_accum.h>
+#include <linalg/gemm.h>
 
 #include <type_traits>
 

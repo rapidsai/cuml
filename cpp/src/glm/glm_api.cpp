@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "glm/glm_api.h"
+
+#include <glm/glm_api.h>
+#include <common/cumlHandle.hpp>
 #include <cuml/linear_model/glm.hpp>
-#include "common/cumlHandle.hpp"
 
 extern "C" cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y,
                                    int N, int D, int C, bool fit_intercept,

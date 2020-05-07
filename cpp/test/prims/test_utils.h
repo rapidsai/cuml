@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include "cuda_utils.h"
 
 namespace MLCommon {
 

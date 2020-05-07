@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@
 #include <linalg/norm.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
+#include <ml_utils.h>
 #include <stats/mean.h>
 #include <stats/mean_center.h>
 #include <stats/stddev.h>
-#include "common/cumlHandle.hpp"
-#include "ml_utils.h"
+#include <common/cumlHandle.hpp>
 
 namespace ML {
 namespace GLM {

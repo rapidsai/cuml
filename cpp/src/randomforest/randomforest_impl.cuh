@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #endif
 #include <common/cudart_utils.h>
+#include <random/permute.h>
+#include <random/rng.h>
+#include <score/scores.h>
 #include <cuml/common/logger.hpp>
 #include "../decisiontree/memory.h"
 #include "../decisiontree/quantile/quantile.h"
-#include "random/permute.h"
-#include "random/rng.h"
 #include "randomforest_impl.h"
-#include "score/scores.h"
 
 namespace ML {
 /**

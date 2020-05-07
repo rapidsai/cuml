@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <sparse/coo.h>
 #include <cuml/cuml.hpp>
-#include "sparse/coo.h"
 
-#include "sparse/spectral.h"
+#include <sparse/spectral.h>
 
 namespace ML {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 #define MAX_BLOCKS 65535u
 
+#include <cuda_utils.h>
 #include <stdlib.h>
 #include <cub/cub.cuh>
 #include <limits>
-#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {

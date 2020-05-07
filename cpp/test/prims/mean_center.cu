@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <random/rng.h>
+#include <stats/mean.h>
+#include <stats/mean_center.h>
 #include "matrix_vector_op.h"
-#include "random/rng.h"
-#include "stats/mean.h"
-#include "stats/mean_center.h"
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -25,14 +25,14 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 
-#include "linalg/cublas_wrappers.h"
-#include "linalg/transpose.h"
+#include <linalg/cublas_wrappers.h>
+#include <linalg/transpose.h>
 
-#include "ml_utils.h"
-#include "test_utils.h"
+#include <ml_utils.h>
+#include <test_utils.h>
 
+#include <common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include "common/device_buffer.hpp"
 
 namespace ML {
 

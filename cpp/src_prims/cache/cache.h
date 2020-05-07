@@ -18,11 +18,11 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
+#include <ml_utils.h>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include "cache_util.h"
-#include "common/device_buffer.hpp"
-#include "ml_utils.h"
 
 namespace MLCommon {
 namespace Cache {

@@ -33,10 +33,10 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include "sparse/coo.h"
-#include "sparse/csr.h"
+#include <sparse/coo.h>
+#include <sparse/csr.h>
 
-#include "cuda_utils.h"
+#include <cuda_utils.h>
 
 #include <cuda_runtime.h>
 

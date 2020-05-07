@@ -16,11 +16,11 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <math.h>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 #include <distance/epsilon_neighborhood.cuh>
-#include "cuda_runtime.h"
 
 #include "pack.h"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,21 @@
  */
 
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
 #include <distance/distance.h>
 #include <linalg/binary_op.h>
+#include <linalg/eltwise.h>
+#include <linalg/map_then_reduce.h>
+#include <linalg/matrix_vector_op.h>
+#include <linalg/reduce.h>
+#include <linalg/reduce_cols_by_key.h>
 #include <math.h>
 #include <algorithm>
+#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <numeric>
-#include "common/device_buffer.hpp"
-#include "cuda_utils.h"
-#include "linalg/eltwise.h"
-#include "linalg/map_then_reduce.h"
-#include "linalg/matrix_vector_op.h"
-#include "linalg/reduce.h"
-#include "linalg/reduce_cols_by_key.h"
 
 namespace MLCommon {
 namespace Metrics {

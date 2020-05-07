@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
+#include <linalg/add.h>
+#include <linalg/binary_op.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/map_then_reduce.h>
 #include <linalg/matrix_vector_op.h>
+#include <stats/mean.h>
 #include <glm/qn/simple_mat.cuh>
 #include <vector>
-#include "cuda_utils.h"
-#include "linalg/add.h"
-#include "linalg/binary_op.h"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/map_then_reduce.h"
-#include "stats/mean.h"
 
 namespace ML {
 namespace GLM {

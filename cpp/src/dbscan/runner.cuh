@@ -17,13 +17,13 @@
 #pragma once
 
 #include <common/cudart_utils.h>
+#include <cuda_utils.h>
+#include <label/classlabels.h>
+#include <sparse/csr.h>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
+#include <common/nvtx.hpp>
 #include "adjgraph/runner.cuh"
-#include "common/cumlHandle.hpp"
-#include "common/device_buffer.hpp"
-#include "common/nvtx.hpp"
-#include "cuda_utils.h"
-#include "label/classlabels.h"
-#include "sparse/csr.h"
 #include "vertexdeg/runner.cuh"
 
 #include <sys/time.h>

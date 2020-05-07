@@ -13,36 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <gtest/gtest.h>
+#include <linalg/binary_op.h>
+#include <linalg/map_then_reduce.h>
+#include <linalg/transpose.h>
+#include <matrix/grammatrix.h>
+#include <matrix/kernelmatrices.h>
+#include <random/make_blobs.h>
+#include <random/rng.h>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
+#include <common/cumlHandle.hpp>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <iostream>
 #include <string>
+#include <svm/smoblocksolve.cuh>
+#include <svm/smosolver.cuh>
+#include <svm/workingset.cuh>
 #include <type_traits>
 #include <vector>
-#include "common/cumlHandle.hpp"
-#include "linalg/binary_op.h"
-#include "linalg/map_then_reduce.h"
-#include "linalg/transpose.h"
-#include "matrix/grammatrix.h"
-#include "matrix/kernelmatrices.h"
-#include "random/make_blobs.h"
-#include "random/rng.h"
-#include "svm/smoblocksolve.cuh"
-#include "svm/smosolver.cuh"
-#include "svm/workingset.cuh"
-#include "test_utils.h"
 
 namespace ML {
 namespace SVM {
