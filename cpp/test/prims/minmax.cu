@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <limits>
 #include "cuda_utils.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "stats/minmax.h"
 #include "test_utils.h"
 

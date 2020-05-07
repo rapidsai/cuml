@@ -26,7 +26,7 @@
 #include "matrix/math.h"
 #include "matrix/matrix.h"
 #include "qr.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "svd.h"
 #include "transpose.h"
 

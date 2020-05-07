@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "linalg/coalesced_reduction.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "reduce.h"
 #include "test_utils.h"
 

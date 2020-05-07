@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include "linalg/reduce_rows_by_key.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cuda_utils.h>
 #include <vector>
 
 // Taken from:

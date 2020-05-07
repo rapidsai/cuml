@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <common/seive.hpp>
+#include <common/seive.cuh>
 
 namespace MLCommon {
 

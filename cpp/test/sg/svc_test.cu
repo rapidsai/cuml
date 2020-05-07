@@ -38,7 +38,7 @@
 #include "matrix/grammatrix.h"
 #include "matrix/kernelmatrices.h"
 #include "random/make_blobs.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "svm/smoblocksolve.cuh"
 #include "svm/smosolver.cuh"
 #include "svm/workingset.cuh"

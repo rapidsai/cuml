@@ -21,7 +21,7 @@
 #include <vector>
 #include "ml_utils.h"
 #include "pca/pca.cuh"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace ML {

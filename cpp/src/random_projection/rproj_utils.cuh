@@ -19,7 +19,7 @@
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
 #include <cuml/random_projection/rproj_c.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 #include <common/cumlHandle.hpp>
 #include "sys/time.h"
 

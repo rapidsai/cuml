@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cuda_utils.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "stats/mean.h"
 #include "test_utils.h"
 

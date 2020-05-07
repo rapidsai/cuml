@@ -17,7 +17,7 @@
 
 #include <common/cudart_utils.h>
 #include <stdint.h>
-#include <common/seive.hpp>
+#include <common/seive.cuh>
 #include "cuda_utils.h"
 #include "vectorized.h"
 

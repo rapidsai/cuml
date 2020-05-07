@@ -19,7 +19,7 @@
 #include "cuda_utils.h"
 #include "linalg/svd.h"
 #include "matrix/matrix.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

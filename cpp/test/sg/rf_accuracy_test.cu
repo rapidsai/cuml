@@ -16,7 +16,7 @@
 
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 #include <cuml/ensemble/randomforest.hpp>
 
 namespace ML {
