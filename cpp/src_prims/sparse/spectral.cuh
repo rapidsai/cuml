@@ -17,11 +17,10 @@
 #include <nvgraph.h>
 
 #include "common/device_buffer.hpp"
-#include "cuda_utils.h"
 #include "cuml/common/cuml_allocator.hpp"
 #include "cusparse_wrappers.h"
-#include "selection/knn.h"
-#include "sparse/coo.h"
+#include "selection/knn.cuh"
+#include "sparse/coo.cuh"
 
 namespace MLCommon {
 namespace Spectral {

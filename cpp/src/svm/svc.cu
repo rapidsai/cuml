@@ -19,7 +19,7 @@
 #include <cuml/svm/svc.hpp>
 #include "common/device_buffer.hpp"
 #include "kernelcache.cuh"
-#include "label/classlabels.h"
+#include "label/classlabels.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/unary_op.cuh"
 #include "matrix/kernelfactory.h"

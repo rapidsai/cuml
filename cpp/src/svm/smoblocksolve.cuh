@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include "cuml/svm/svm_parameter.h"
 #include "ml_utils.h"
-#include "selection/kselection.h"
+#include "selection/kselection.cuh"
 #include "smo_sets.cuh"
 
 namespace ML {

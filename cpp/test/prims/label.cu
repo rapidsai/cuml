@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "label/classlabels.h"
+#include "label/classlabels.cuh"
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>

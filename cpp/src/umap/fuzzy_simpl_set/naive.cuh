@@ -23,7 +23,7 @@
 #include <common/cudart_utils.h>
 #include "cuda_utils.h"
 
-#include "sparse/coo.h"
+#include "sparse/coo.cuh"
 #include "stats/mean.cuh"
 
 #include <cuda_runtime.h>

@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include "csr.h"
-#include "sparse/csr.h"
+#include "sparse/csr.cuh"
 
 #include <common/cudart_utils.h>
 #include "random/rng.cuh"

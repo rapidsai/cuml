@@ -20,9 +20,9 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "label/classlabels.h"
+#include "label/classlabels.cuh"
 #include "random/make_blobs.cuh"
-#include "selection/knn.h"
+#include "selection/knn.cuh"
 
 namespace MLCommon {
 namespace Selection {

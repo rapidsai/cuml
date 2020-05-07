@@ -20,9 +20,9 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "label/classlabels.h"
+#include "label/classlabels.cuh"
 #include "random/rng.cuh"
-#include "selection/knn.h"
+#include "selection/knn.cuh"
 
 #include "linalg/cusolver_wrappers.h"
 

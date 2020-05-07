@@ -22,8 +22,8 @@
 #include "common/device_buffer.hpp"
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
-#include "label/classlabels.h"
-#include "sparse/csr.h"
+#include "label/classlabels.cuh"
+#include "sparse/csr.cuh"
 #include "vertexdeg/runner.cuh"
 
 #include <sys/time.h>
