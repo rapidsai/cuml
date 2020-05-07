@@ -17,7 +17,6 @@
 from cuml.common.base import Base
 from cuml.common.handle import Handle
 import cuml.common.cuda as cuda
-import cuml.common.logger
 
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans

@@ -15,3 +15,5 @@
 #
 
 from cuml.common.array import CumlArray
+import cuml.common.logger
+
