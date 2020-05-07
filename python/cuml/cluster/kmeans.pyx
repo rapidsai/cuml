@@ -441,8 +441,8 @@ class KMeans(Base):
         """
         return self.fit(X, sample_weight=sample_weight).labels_
 
-    def _predict_labels_inertia(self, X, convert_dtype=False,
-                                sample_weight=None):
+    def _predict_labels(self, X, convert_dtype=False,
+                        sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -555,9 +555,9 @@ class KMeans(Base):
         Which cluster each datapoint belongs to.
         """
 
-        labels, _ = self._predict_labels_inertia(X,
-                                                 convert_dtype=convert_dtype,
-                                                 sample_weight=sample_weight)
+        labels, _ = self._predict_labels(X,
+                                         convert_dtype=convert_dtype,
+                                         sample_weight=sample_weight)
         return labels
 
     def transform(self, X, convert_dtype=False):
@@ -649,7 +649,7 @@ class KMeans(Base):
                  Opposite of the value of X on the K-means objective.
         """
 
-        return -1 * self._predict_labels_inertia(X, sample_weight=sample_weight)[1]
+        return -1 * self._predict_labels(X, sample_weight=sample_weight)[1]
 
     def fit_transform(self, X, convert_dtype=False, sample_weight=None):
         """
