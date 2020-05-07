@@ -24,7 +24,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
-#include <linalg/map_then_reduce.h>
+#include <linalg/map_then_reduce.cuh>
 #include <linalg/reduce.h>
 #include <math.h>
 #include <stats/histogram.cuh>

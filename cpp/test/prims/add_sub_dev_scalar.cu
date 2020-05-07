@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include "linalg/add.h"
 #include "linalg/subtract.h"
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

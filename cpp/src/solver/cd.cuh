@@ -27,7 +27,7 @@
 #include <linalg/gemm.h>
 #include <linalg/multiply.h>
 #include <linalg/subtract.h>
-#include <linalg/unary_op.h>
+#include <linalg/unary_op.cuh>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 #include "common/cumlHandle.hpp"

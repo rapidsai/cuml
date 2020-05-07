@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/map_then_reduce.h"
+#include "linalg/map_then_reduce.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

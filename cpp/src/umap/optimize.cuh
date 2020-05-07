@@ -26,7 +26,7 @@
 #include "linalg/eltwise.h"
 #include "linalg/multiply.h"
 #include "linalg/power.h"
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 #include "matrix/math.h"
 #include "stats/mean.cuh"
 

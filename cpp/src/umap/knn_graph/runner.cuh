@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "algo.h"
+#include "algo.cuh"
 
 #pragma once
 

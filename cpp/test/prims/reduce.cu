@@ -19,7 +19,7 @@
 #include "cuda_utils.h"
 #include "linalg/reduce.h"
 #include "random/rng.cuh"
-#include "reduce.h"
+#include "reduce.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

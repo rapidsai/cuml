@@ -33,7 +33,7 @@
 #include <vector>
 #include "common/cumlHandle.hpp"
 #include "linalg/binary_op.cuh"
-#include "linalg/map_then_reduce.h"
+#include "linalg/map_then_reduce.cuh"
 #include "linalg/transpose.h"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelmatrices.h"

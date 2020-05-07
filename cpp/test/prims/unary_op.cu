@@ -16,10 +16,10 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
-#include "unary_op.h"
+#include "unary_op.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

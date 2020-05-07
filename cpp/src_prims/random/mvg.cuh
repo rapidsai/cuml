@@ -22,8 +22,8 @@
 #include "curand_wrappers.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
-#include "linalg/matrix_vector_op.h"
-#include "linalg/unary_op.h"
+#include "linalg/matrix_vector_op.cuh"
+#include "linalg/unary_op.cuh"
 
 // mvg.cuh takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)

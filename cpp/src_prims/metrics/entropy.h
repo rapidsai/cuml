@@ -25,7 +25,7 @@
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/divide.h"
-#include "linalg/map_then_reduce.h"
+#include "linalg/map_then_reduce.cuh"
 
 namespace MLCommon {
 

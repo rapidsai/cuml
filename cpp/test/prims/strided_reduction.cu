@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include "linalg/strided_reduction.h"
 #include "random/rng.cuh"
-#include "reduce.h"
+#include "reduce.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

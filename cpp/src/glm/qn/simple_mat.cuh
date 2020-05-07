@@ -22,10 +22,10 @@
 #include <cuda_utils.h>
 #include <linalg/binary_op.cuh>
 #include <linalg/cublas_wrappers.h>
-#include <linalg/map_then_reduce.h>
+#include <linalg/map_then_reduce.cuh>
 #include <linalg/norm.h>
-#include <linalg/ternary_op.h>
-#include <linalg/unary_op.h>
+#include <linalg/ternary_op.cuh>
+#include <linalg/unary_op.cuh>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 
