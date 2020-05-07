@@ -24,7 +24,7 @@
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,
                          int max_iter, int nochange_steps, float tol,
-                         int verbose, cumlSvmKernelType kernel, int degree,
+                         int verbosity, cumlSvmKernelType kernel, int degree,
                          float gamma, float coef0, int *n_support, float *b,
                          float **dual_coefs, float **x_support,
                          int **support_idx, int *n_classes,
@@ -35,7 +35,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
   param.max_iter = max_iter;
   param.nochange_steps = nochange_steps;
   param.tol = tol;
-  param.verbose = verbose;
+  param.verbosity = verbosity;
 
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
@@ -76,7 +76,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
 cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
                          int n_cols, double *labels, double C,
                          double cache_size, int max_iter, int nochange_steps,
-                         double tol, int verbose, cumlSvmKernelType kernel,
+                         double tol, int verbosity, cumlSvmKernelType kernel,
                          int degree, double gamma, double coef0, int *n_support,
                          double *b, double **dual_coefs, double **x_support,
                          int **support_idx, int *n_classes,
@@ -87,7 +87,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
   param.max_iter = max_iter;
   param.nochange_steps = nochange_steps;
   param.tol = tol;
-  param.verbose = verbose;
+  param.verbosity = verbosity;
 
   MLCommon::Matrix::KernelParams kernel_param;
   kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;

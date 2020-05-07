@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include "common/cumlHandle.hpp"
 
+#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include "ml_mg_utils.h"
@@ -48,7 +49,8 @@ void brute_force_knn(cumlHandle &handle, std::vector<float *> &input,
 }
 
 void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
-                  std::vector<int *> &y, size_t n_samples, int k) {
+                  std::vector<int *> &y, size_t n_labels, size_t n_samples,
+                  int k) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -60,19 +62,20 @@ void knn_classify(cumlHandle &handle, int *out, int64_t *knn_indices,
                                      &(n_unique[i]), stream, d_alloc);
   }
 
-  MLCommon::Selection::knn_classify(out, knn_indices, y, n_samples, k,
+  MLCommon::Selection::knn_classify(out, knn_indices, y, n_labels, n_samples, k,
                                     uniq_labels, n_unique, d_alloc, stream);
 }
 
 void knn_regress(cumlHandle &handle, float *out, int64_t *knn_indices,
-                 std::vector<float *> &y, size_t n_samples, int k) {
-  MLCommon::Selection::knn_regress(out, knn_indices, y, n_samples, k,
+                 std::vector<float *> &y, size_t n_labels, size_t n_samples,
+                 int k) {
+  MLCommon::Selection::knn_regress(out, knn_indices, y, n_labels, n_samples, k,
                                    handle.getStream());
 }
 
 void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                      int64_t *knn_indices, std::vector<int *> &y,
-                     size_t n_samples, int k) {
+                     size_t n_labels, size_t n_samples, int k) {
   auto d_alloc = handle.getDeviceAllocator();
   cudaStream_t stream = handle.getStream();
 
@@ -84,16 +87,13 @@ void knn_class_proba(cumlHandle &handle, std::vector<float *> &out,
                                      &(n_unique[i]), stream, d_alloc);
   }
 
-  MLCommon::Selection::class_probs(out, knn_indices, y, n_samples, k,
+  MLCommon::Selection::class_probs(out, knn_indices, y, n_labels, n_samples, k,
                                    uniq_labels, n_unique, d_alloc, stream);
 }
 
-/**
-	 * Build a kNN object for training and querying a k-nearest neighbors model.
-	 * @param D 	number of features in each vector
-	 */
-kNN::kNN(const cumlHandle &handle, int D, bool verbose)
-  : D(D), total_n(0), indices(0), verbose(verbose) {
+kNN::kNN(const cumlHandle &handle, int D, int verbosity)
+  : D(D), total_n(0), indices(0) {
+  ML::Logger::get().setLevel(verbosity);
   this->handle = const_cast<cumlHandle *>(&handle);
   sizes = nullptr;
   ptrs = nullptr;
@@ -128,7 +128,7 @@ void kNN::fit(std::vector<float *> &input, std::vector<int> &sizes,
 
   int N = input.size();
 
-  if (this->verbose) std::cout << "N=" << N << std::endl;
+  CUML_LOG_DEBUG("N=%d", N);
 
   reset();
 

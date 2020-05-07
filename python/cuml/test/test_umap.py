@@ -71,6 +71,9 @@ def test_umap_fit_transform_score(nrows, n_feats):
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
+    assert not np.isnan(embedding).any()
+    assert not np.isnan(cuml_embedding).any()
+
     if nrows < 500000:
         cuml_score = adjusted_rand_score(labels,
                                          KMeans(10).fit_predict(
@@ -126,6 +129,9 @@ def test_umap_transform_on_iris():
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
+
+    assert not np.isnan(embedding).any()
+
     trust = trustworthiness(new_data, embedding, 10)
     assert trust >= 0.85
 
@@ -270,7 +276,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components', [2, 13])
+@pytest.mark.parametrize('n_components', [21, 25, 50])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
@@ -309,12 +315,11 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     if random_state is not None:
         assert mean_diff < 1.0
     else:
-        assert mean_diff > 1.0
+        assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize('n_components', [2, 25])
+@pytest.mark.parametrize('n_components', [21, 25, 50])
 @pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
-@pytest.mark.xfail(reason="test intermittently fails")
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -358,7 +363,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
     if random_state is not None:
         assert mean_diff < 1.0
     else:
-        assert mean_diff > 1.0
+        assert mean_diff > 0.5
 
 
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():

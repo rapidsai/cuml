@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <distance/distance.h>
@@ -22,6 +21,7 @@
 #include <linalg/matrix_vector_op.h>
 #include <linalg/mean_squared_error.h>
 #include <linalg/reduce.h>
+#include <linalg/reduce_cols_by_key.h>
 #include <linalg/reduce_rows_by_key.h>
 #include <matrix/gather.h>
 #include <random/permute.h>
@@ -45,26 +45,22 @@
 #include <common/tensor.hpp>
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/common/logger.hpp>
 
 #include <fstream>
 
 namespace ML {
 
-//@todo: Use GLOG once https://github.com/rapidsai/cuml/issues/100 is addressed.
-#define LOG(handle, verbose, fmt, ...)                                   \
+#define LOG(handle, fmt, ...)                                            \
   do {                                                                   \
-    bool verbose_ = verbose;                                             \
+    bool isRoot = true;                                                  \
     if (handle.commsInitialized()) {                                     \
       const MLCommon::cumlCommunicator &comm = handle.getCommunicator(); \
       const int my_rank = comm.getRank();                                \
-      verbose_ = verbose && (my_rank == 0);                              \
+      isRoot = my_rank == 0;                                             \
     }                                                                    \
-    if (verbose_) {                                                      \
-      std::string msg;                                                   \
-      char verboseMsg[2048];                                             \
-      std::sprintf(verboseMsg, fmt, ##__VA_ARGS__);                      \
-      msg += verboseMsg;                                                 \
-      std::cerr << msg;                                                  \
+    if (isRoot) {                                                        \
+      CUML_LOG_DEBUG(fmt, ##__VA_ARGS__);                                \
     }                                                                    \
   } while (0)
 
@@ -534,7 +530,7 @@ void countSamplesInCluster(
   Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &L2NormX,
   Tensor<DataT, 2, IndexT> &centroids, MLCommon::device_buffer<char> &workspace,
   MLCommon::Distance::DistanceType metric,
-  Tensor<int, 1, IndexT> &sampleCountInCluster, cudaStream_t stream) {
+  Tensor<DataT, 1, IndexT> &sampleCountInCluster, cudaStream_t stream) {
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
@@ -600,9 +596,9 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
   // number of seeding trials for each center (except the first)
   auto n_trials = 2 + static_cast<int>(std::ceil(log(n_clusters)));
 
-  LOG(handle, params.verbose,
+  LOG(handle,
       "Run sequential k-means++ to select %d centroids from %d input samples "
-      "(%d seeding trials per iterations)\n",
+      "(%d seeding trials per iterations)",
       n_clusters, n_samples, n_trials);
 
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
@@ -669,8 +665,8 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
     handle, params, X, centroids, minClusterDistance, L2NormX,
     L2NormBuf_OR_DistBuf, workspace, metric, stream);
 
-  LOG(handle, params.verbose, " k-means++ - Sampled %d/%d centroids\n",
-      n_clusters_picked, n_clusters);
+  LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked,
+      n_clusters);
 
   // <<<< Step-2 >>> : while |C| < k
   while (n_clusters_picked < n_clusters) {
@@ -748,11 +744,45 @@ void kmeansPlusPlus(const cumlHandle_impl &handle, const KMeansParams &params,
       /// <<< End of Step-4 >>>
     }
 
-    LOG(handle, params.verbose, " k-means++ - Sampled %d/%d centroids\n",
-        n_clusters_picked, n_clusters);
+    LOG(handle, " k-means++ - Sampled %d/%d centroids", n_clusters_picked,
+        n_clusters);
   }  /// <<<< Step-5 >>>
 }
 
+template <typename DataT, typename IndexT>
+void checkWeights(const cumlHandle_impl &handle,
+                  MLCommon::device_buffer<char> &workspace,
+                  Tensor<DataT, 1, IndexT> &weight, cudaStream_t stream) {
+  MLCommon::device_buffer<DataT> wt_aggr(handle.getDeviceAllocator(), stream,
+                                         1);
+
+  int n_samples = weight.getSize(0);
+  size_t temp_storage_bytes = 0;
+  CUDA_CHECK(cub::DeviceReduce::Sum(nullptr, temp_storage_bytes, weight.data(),
+                                    wt_aggr.data(), n_samples, stream));
+
+  workspace.resize(temp_storage_bytes, stream);
+
+  CUDA_CHECK(cub::DeviceReduce::Sum(workspace.data(), temp_storage_bytes,
+                                    weight.data(), wt_aggr.data(), n_samples,
+                                    stream));
+
+  DataT wt_sum = 0;
+  MLCommon::copy(&wt_sum, wt_aggr.data(), 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  if (wt_sum != n_samples) {
+    LOG(handle,
+        "[Warning!] KMeans: normalizing the user provided sample weights to "
+        "sum up to %d samples",
+        n_samples);
+
+    DataT scale = n_samples / wt_sum;
+    MLCommon::LinAlg::unaryOp(
+      weight.data(), weight.data(), weight.numElements(),
+      [=] __device__(const DataT &wt) { return wt * scale; }, stream);
+  }
+}
 };  // namespace detail
 };  // namespace kmeans
 };  // namespace ML

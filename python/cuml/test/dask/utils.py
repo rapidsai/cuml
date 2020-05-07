@@ -4,7 +4,7 @@ import dask
 
 from sklearn.feature_extraction.text import HashingVectorizer
 
-from cuml.dask.common import to_sp_dask_array
+from cuml.dask.common import to_sparse_dask_array
 
 from sklearn.datasets import fetch_20newsgroups
 
@@ -22,7 +22,7 @@ def load_text_corpus(client):
 
     xformed = hv.fit_transform(twenty_train.data).astype(cp.float32)
 
-    X = to_sp_dask_array(xformed, client)
+    X = to_sparse_dask_array(xformed, client)
 
     y = dask.array.from_array(twenty_train.target, asarray=False,
                               fancy=False).astype(cp.int32)
