@@ -23,7 +23,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/subtract.h"
 #include "linalg/transpose.h"
-#include "random/make_regression.h"
+#include "random/make_regression.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <vector>
 #include "cuda_utils.h"
-#include "random/permute.h"
+#include "random/permute.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

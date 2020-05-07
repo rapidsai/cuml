@@ -18,7 +18,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
-#include <linalg/binary_op.h>
+#include <linalg/binary_op.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eig.h>
 #include <linalg/eltwise.h>

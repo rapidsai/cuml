@@ -30,7 +30,7 @@
 #include "linalg/qr.h"
 #include "linalg/transpose.h"
 #include "matrix/matrix.h"
-#include "permute.h"
+#include "permute.cuh"
 #include "rng.cuh"
 
 namespace MLCommon {

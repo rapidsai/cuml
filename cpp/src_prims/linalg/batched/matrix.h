@@ -31,7 +31,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml.hpp>
 
-#include <linalg/binary_op.h>
+#include <linalg/binary_op.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/unary_op.h>
 #include <common/device_buffer.hpp>

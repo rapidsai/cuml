@@ -20,7 +20,7 @@
 #include <cooperative_groups.h>
 #include <memory>
 #include "cuda_utils.h"
-#include "vectorized.h"
+#include "vectorized.cuh"
 
 namespace MLCommon {
 namespace Random {

@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <distance/distance.cuh>
-#include <linalg/binary_op.h>
+#include <linalg/binary_op.cuh>
 #include <math.h>
 #include <algorithm>
 #include <cub/cub.cuh>

@@ -15,7 +15,7 @@
  */
 
 #include <common/cudart_utils.h>
-#include <random/permute.h>
+#include <random/permute.cuh>
 #include <random/rng.cuh>
 #include "../common/ml_benchmark.hpp"
 

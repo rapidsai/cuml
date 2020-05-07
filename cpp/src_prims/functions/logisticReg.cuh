@@ -18,7 +18,7 @@
 
 #include <cuda_utils.h>
 #include <linalg/add.h>
-#include <linalg/binary_op.h>
+#include <linalg/binary_op.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.h>
 #include <linalg/gemm.h>

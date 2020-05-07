@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include "random/make_blobs.h"
+#include "random/make_blobs.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

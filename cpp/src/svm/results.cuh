@@ -29,7 +29,7 @@
 #include "common/device_buffer.hpp"
 #include "common/host_buffer.hpp"
 #include "linalg/add.h"
-#include "linalg/binary_op.h"
+#include "linalg/binary_op.cuh"
 #include "linalg/init.h"
 #include "linalg/map_then_reduce.h"
 #include "linalg/unary_op.h"

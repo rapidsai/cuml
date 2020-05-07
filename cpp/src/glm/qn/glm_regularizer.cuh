@@ -19,7 +19,7 @@
 #include <common/cudart_utils.h>
 #include <glm/qn/simple_mat.cuh>
 #include "cuda_utils.h"
-#include "linalg/binary_op.h"
+#include "linalg/binary_op.cuh"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.cuh"
 

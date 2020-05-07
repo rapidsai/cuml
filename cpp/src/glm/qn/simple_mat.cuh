@@ -20,7 +20,7 @@
 
 #include <common/cudart_utils.h>
 #include <cuda_utils.h>
-#include <linalg/binary_op.h>
+#include <linalg/binary_op.cuh>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/map_then_reduce.h>
 #include <linalg/norm.h>

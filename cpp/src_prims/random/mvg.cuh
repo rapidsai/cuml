@@ -25,7 +25,7 @@
 #include "linalg/matrix_vector_op.h"
 #include "linalg/unary_op.h"
 
-// mvg.h takes in matrices that are colomn major (as in fortan)
+// mvg.cuh takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)
 
 namespace MLCommon {
