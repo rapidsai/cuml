@@ -66,6 +66,7 @@
 - PR #2156: Add Docker 19 support to local gpuci build
 - PR #2124: Expand tutorial docs and sample notebook
 - PR #2175: Allow CPU-only and dataset params for benchmark sweeps
+- PR #2186: Refactor cython code to build OPG structs in common utils file
 - PR #2180: Add fully single GPU singlegpu python build
 - PR #2187: CMake improvements to manage conda environment dependencies
 - PR #2185: Add has_sklearn function and use it in datasets/classification.
