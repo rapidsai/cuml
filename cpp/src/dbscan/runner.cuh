@@ -76,9 +76,9 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream) {
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-template <typename Type, typename Type_f, typename Index_ = int>
+template <typename Type_f, typename Index_ = int>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
-           Type_f eps, Type minPts, Index_* labels, int algoVd, int algoAdj,
+           Type_f eps, Index_ minPts, Index_* labels, int algoVd, int algoAdj,
            int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
   const size_t align = 256;
   size_t batchSize = ceildiv<size_t>(N, nBatches);
@@ -172,9 +172,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
       adj_graph.resize(adjlen, stream);
     }
 
-    AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
-                                ex_scan, N, minPts, core_pts + startVertexId,
-                                algoAdj, nPoints, stream);
+    AdjGraph::run<Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
+                          ex_scan, N, minPts, core_pts + startVertexId,
+                          algoAdj, nPoints, stream);
 
     ML::POP_RANGE();
 
