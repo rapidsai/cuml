@@ -83,8 +83,6 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
         score = adjusted_rand_score(labels, cp.squeeze(cumlPred.get()))
 
-        print(str(score))
-
         assert 1.0 == score
 
     finally:

@@ -266,7 +266,7 @@ class KMeans(Base):
 
     def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=0, random_state=1, init='scalable-k-means++',
-                 n_init=1, oversampling_factor=2.0,
+                 n_init=10, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, output_type=None):
         super(KMeans, self).__init__(handle, verbose, output_type)
         self.n_clusters = n_clusters
@@ -516,7 +516,8 @@ class KMeans(Base):
         """
 
         labels, _ = self._predict_labels_inertia(X,
-                                                 convert_dtype=convert_dtype)
+                                                 convert_dtype=convert_dtype,
+                                                 sample_weight=sample_weight)
         return labels
 
     def transform(self, X, convert_dtype=False):
@@ -591,7 +592,7 @@ class KMeans(Base):
         del(X_m)
         return preds.to_output(out_type)
 
-    def score(self, X):
+    def score(self, X, sample_weight=None):
         """
         Opposite of the value of X on the K-means objective.
 
@@ -608,9 +609,9 @@ class KMeans(Base):
                  Opposite of the value of X on the K-means objective.
         """
 
-        return -1 * self._predict_labels_inertia(X)[1]
+        return -1 * self._predict_labels_inertia(X, sample_weight=sample_weight)[1]
 
-    def fit_transform(self, X, convert_dtype=False):
+    def fit_transform(self, X, convert_dtype=False, sample_weight=None):
         """
         Compute clustering and transform X to cluster-distance space.
 
@@ -627,7 +628,8 @@ class KMeans(Base):
             model. This will increase memory used for the method.
 
         """
-        return self.fit(X).transform(X, convert_dtype=convert_dtype)
+        return self.fit(X).transform(X, convert_dtype=convert_dtype,
+                                     sample_weight=sample_weight)
 
     def get_param_names(self):
         return ['n_init', 'oversampling_factor', 'max_samples_per_batch',

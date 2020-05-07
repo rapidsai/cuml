@@ -98,14 +98,20 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     @staticmethod
     @mnmg_import
-    def _func_fit(sessionId, objs, datatype, **kwargs):
+    def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
         from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
         handle = worker_state(sessionId)["handle"]
 
-        inp_data = concatenate(objs)
+        if not has_weights:
+            inp_data = concatenate(objs)
+            inp_weights = None
+        else:
+            inp_data = concatenate([X for X, weights in objs])
+            inp_weights = concatenate([weights for X, weights in objs])
 
         return cumlKMeans(handle=handle, output_type=datatype,
-                          **kwargs).fit(inp_data)
+                          **kwargs).fit(inp_data,
+                                        sample_weight=inp_weights)
 
     @staticmethod
     def _score(model, data):
@@ -113,7 +119,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         return ret
 
     @with_cupy_rmm
-    def fit(self, X):
+    def fit(self, X, sample_weight=None):
         """
         Fit a multi-node multi-GPU KMeans model
 
@@ -122,9 +128,17 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         X : Dask cuDF DataFrame or CuPy backed Dask Array
         Training data to cluster.
 
+        sample_weight : Dask cuDF DataFrame or CuPy backed Dask Array
+                        shape = (n_samples,), default=None # noqa
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         """
 
-        data = DistributedDataHandler.create(X, client=self.client)
+        inputs = X if sample_weight is None else (X, sample_weight)
+
+        data = DistributedDataHandler.create(inputs, client=self.client)
         self.datatype = data.datatype
 
         comms = CommsContext(comms_p2p=False, verbose=self.verbose)
@@ -134,6 +148,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                                          comms.sessionId,
                                          wf[1],
                                          self.datatype,
+                                         data.multiple,
                                          **self.kwargs,
                                          workers=[wf[0]],
                                          pure=False)
@@ -149,7 +164,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         return self
 
-    def fit_predict(self, X, delayed=True):
+    def fit_predict(self, X, sample_weight=None, delayed=True):
         """
         Compute cluster centers and predict cluster index for each sample.
 
