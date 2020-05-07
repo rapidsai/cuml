@@ -3,6 +3,7 @@ import math
 
 from cuml.dask.common.input_utils import DistributedDataHandler, \
     wait_and_raise_from_futures, concatenate
+from dask.distributed import default_client
 
 
 class BaseRandomForestModel(object):
@@ -15,19 +16,20 @@ class BaseRandomForestModel(object):
     """
 
     def _create_model(self, model_func,
-                      unsupported_sklearn_params, **kwargs):
+                      client,
+                      workers,
+                      n_estimators,
+                      **kwargs):
 
-        for key, vals in unsupported_sklearn_params.items():
-            if vals is not None:
-                raise TypeError(
-                    "The Scikit-learn variable",
-                    key,
-                    " is not supported in cuML,"
-                    " please read the cuML documentation for"
-                    " more information",
-                )
+        self.n_estimators = n_estimators
+
+        self.client = default_client() if client is None else client
+        if workers is None:
+            workers = self.client.has_what().keys()
+        self.workers = workers
 
         self.local_model = None
+
         n_workers = len(self.workers)
         if self.n_estimators < n_workers:
             raise ValueError(
@@ -62,6 +64,7 @@ class BaseRandomForestModel(object):
         }
 
         wait_and_raise_from_futures(list(self.rfs.values()))
+        print(" self.rfs.values() : ", self.rfs.values())
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)

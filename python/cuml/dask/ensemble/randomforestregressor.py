@@ -18,12 +18,14 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
     BaseRandomForestModel
+from cuml.dask.common.base import BaseEstimator
+
 from cuml.dask.common.input_utils import \
     wait_and_raise_from_futures
-from dask.distributed import default_client
 
 
-class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
+class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
+                            BaseEstimator):
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -112,75 +114,22 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
 
     def __init__(
         self,
-        n_estimators=10,
-        max_depth=-1,
-        max_features="auto",
-        n_bins=8,
-        split_algo=1,
-        split_criterion=2,
-        bootstrap=True,
-        bootstrap_features=False,
-        verbose=False,
-        min_rows_per_node=2,
-        rows_sample=1.0,
-        max_leaves=-1,
-        n_streams=4,
-        accuracy_metric="mse",
-        dtype=None,
-        min_samples_leaf=None,
-        min_weight_fraction_leaf=None,
-        n_jobs=None,
-        max_leaf_nodes=None,
-        min_impurity_decrease=None,
-        min_impurity_split=None,
-        oob_score=None,
-        random_state=None,
-        warm_start=None,
-        class_weight=None,
-        quantile_per_tree=False,
-        criterion=None,
         workers=None,
-        client=None
+        client=None,
+        verbose=False,
+        n_estimators=10,
+        **kwargs
     ):
 
-        unsupported_sklearn_params = {
-            "criterion": criterion,
-            "min_samples_leaf": min_samples_leaf,
-            "min_weight_fraction_leaf": min_weight_fraction_leaf,
-            "max_leaf_nodes": max_leaf_nodes,
-            "min_impurity_decrease": min_impurity_decrease,
-            "min_impurity_split": min_impurity_split,
-            "oob_score": oob_score,
-            "n_jobs": n_jobs,
-            "random_state": random_state,
-            "warm_start": warm_start,
-            "class_weight": class_weight,
-        }
-
-        self.n_estimators = n_estimators
-        self.client = default_client() if client is None else client
-        if workers is None:
-            workers = self.client.has_what().keys()
-        self.workers = workers
-
+        super(RandomForestRegressor, self).__init__(client=client,
+                                                    verbose=verbose,
+                                                    **kwargs)
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,
-            unsupported_sklearn_params=unsupported_sklearn_params,
-            max_depth=max_depth,
-            n_streams=n_streams,
-            max_features=max_features,
-            n_bins=n_bins,
-            split_algo=split_algo,
-            split_criterion=split_criterion,
-            bootstrap=bootstrap,
-            bootstrap_features=bootstrap_features,
-            verbose=verbose,
-            min_rows_per_node=min_rows_per_node,
-            rows_sample=rows_sample,
-            max_leaves=max_leaves,
-            accuracy_metric=accuracy_metric,
-            quantile_per_tree=quantile_per_tree,
-            dtype=dtype
+            client=client,
+            workers=workers,
+            n_estimators=n_estimators,
+            **kwargs
         )
 
     @staticmethod
