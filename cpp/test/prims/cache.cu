@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
-#include "cache/cache.h"
+#include "cache/cache.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

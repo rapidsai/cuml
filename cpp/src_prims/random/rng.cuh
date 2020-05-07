@@ -23,7 +23,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <random>
 #include <type_traits>
-#include "common/cub_wrappers.h"
+#include "common/cub_wrappers.cuh"
 #include "common/scatter.h"
 #include "cuda_utils.h"
 #include "rng_impl.h"

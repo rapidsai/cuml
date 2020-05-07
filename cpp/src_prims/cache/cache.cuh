@@ -20,7 +20,7 @@
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
-#include "cache_util.h"
+#include "cache_util.cuh"
 #include "common/device_buffer.hpp"
 #include "ml_utils.h"
 
