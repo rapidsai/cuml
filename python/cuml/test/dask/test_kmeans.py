@@ -21,6 +21,7 @@ from cuml.test.utils import unit_param
 from cuml.test.utils import quality_param
 from cuml.test.utils import stress_param
 
+import dask.array as da
 from dask.distributed import Client, wait
 
 from sklearn.metrics import adjusted_rand_score
@@ -31,7 +32,6 @@ SCORE_EPS = 0.06
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
                                    stress_param(5e6)])
-@pytest.mark.parametrize("weights", )
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
                                        stress_param(50)])
@@ -90,52 +90,83 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
         client.close()
 
 
-def test_weighted_kmeans():
-
-    # Using fairly high variance between points in clusters
+@pytest.mark.parametrize('nrows', [500])
+@pytest.mark.parametrize('ncols', [5])
+@pytest.mark.parametrize('nclusters', [3, 10])
+@pytest.mark.parametrize('n_parts', [1, 5])
+@pytest.mark.parametrize('random_state', [i for i in [0, 100]])
+def test_weighted_kmeans(nrows, ncols, nclusters, random_state,
+                         n_parts, cluster):
     cluster_std = 10000.0
     np.random.seed(random_state)
 
-    wt = np.array([0.00001 for j in range(nrows)])
+    client = None
 
-    # Open the space really large
-    centers = np.random.uniform(-100000, 100000,
-                                size=(nclusters, ncols))
+    try:
 
-    X, y = make_blobs(nrows,
-                      ncols,
-                      centers=centers,
-                      cluster_std=cluster_std,
-                      shuffle=False,
-                      random_state=0)
+        client = Client(cluster)
+        from cuml.dask.cluster import KMeans as cumlKMeans
 
-    # Choose one sample from each label and increase its weight
-    for i in range(nclusters):
-        wt[cp.argmax(cp.array(y) == i).item()] = 5000.0
+        from cuml.dask.datasets import make_blobs
 
-    cuml_kmeans = cuml.KMeans(init="k-means++",
-                              n_clusters=nclusters,
-                              n_init=10,
-                              random_state=random_state,
-                              output_type='numpy')
+        # Using fairly high variance between points in clusters
+        wt = np.array([0.00001 for j in range(nrows)])
 
-    cuml_kmeans.fit(X, sample_weight=wt)
+        bound = nclusters * 100000
 
-    for i in range(nrows):
+        # Open the space really large
+        centers = np.random.uniform(-bound, bound,
+                                    size=(nclusters, ncols))
 
-        label = cuml_kmeans.labels_[i]
-        actual_center = cuml_kmeans.cluster_centers_[label]
+        X_cudf, y = make_blobs(n_samples=nrows,
+                               n_features=ncols,
+                               centers=centers,
+                               n_parts=n_parts,
+                               cluster_std=cluster_std,
+                               shuffle=False,
+                               verbose=False,
+                               random_state=10)
 
-        diff = sum(abs(X[i].copy_to_host() - actual_center))
+        wait(X_cudf)
 
-        # The large weight should be the centroid
-        if wt[i] > 1.0:
-            assert diff < 1.0
+        y_arr = y.compute().as_gpu_matrix().copy_to_host()
 
-        # Otherwise it should be pretty far away
-        else:
-            assert diff > 1000.0
+        # Choose one sample from each label and increase its weight
+        for i in range(nclusters):
+            wt[cp.argmax(cp.array(y_arr) == i).item()] = 5000.0
 
+        cumlModel = cumlKMeans(verbose=0, init="k-means||",
+                               n_clusters=nclusters,
+                               random_state=10)
+
+        chunk_parts = int(nrows / n_parts)
+        sample_weights = da.from_array(wt, chunks=(chunk_parts, ))
+        cumlModel.fit(X_cudf, sample_weight=sample_weights)
+
+        X = X_cudf.compute().as_gpu_matrix()
+
+        labels_ = cumlModel.predict(X_cudf).compute()\
+            .to_gpu_array().copy_to_host()
+        cluster_centers_ = cumlModel.cluster_centers_\
+            .as_gpu_matrix().copy_to_host()
+
+        for i in range(nrows):
+
+            label = labels_[i]
+            actual_center = cluster_centers_[label]
+
+            diff = sum(abs(X[i].copy_to_host() - actual_center))
+
+            # The large weight should be the centroid
+            if wt[i] > 1.0:
+                assert diff < 1.0
+
+            # Otherwise it should be pretty far away
+            else:
+                assert diff > 1000.0
+
+    finally:
+        client.close()
 
 
 @pytest.mark.mg

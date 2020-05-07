@@ -115,7 +115,7 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
 @pytest.mark.parametrize('nclusters', [3, 5, 10])
 @pytest.mark.parametrize('random_state', [i for i in [0, 100]])
 def test_weighted_kmeans(nrows, ncols, nclusters,
-                        random_state):
+                         random_state):
 
     # Using fairly high variance between points in clusters
     cluster_std = 10000.0
