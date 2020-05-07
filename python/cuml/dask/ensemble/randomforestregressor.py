@@ -14,13 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
     BaseRandomForestModel
-
-from dask.distributed import default_client, wait
+from cuml.dask.common.input_utils import \
+    wait_and_raise_from_futures
+from dask.distributed import default_client
 
 
 class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
@@ -158,12 +158,11 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
         }
 
         self.n_estimators = n_estimators
-        self.n_estimators_per_worker = list()
-
         self.client = default_client() if client is None else client
         if workers is None:
             workers = self.client.has_what().keys()
         self.workers = workers
+
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,
             unsupported_sklearn_params=unsupported_sklearn_params,
@@ -335,8 +334,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin):
                 )
             )
 
-        wait(futures)
-        raise_exception_from_futures(futures)
+        wait_and_raise_from_futures(futures)
 
         rslts = [pred_rslts.result() for pred_rslts in futures]
         pred = list()

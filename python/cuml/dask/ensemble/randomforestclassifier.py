@@ -159,13 +159,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         }
 
         self.n_estimators = n_estimators
-        self.n_estimators_per_worker = list()
-        self.num_classes = 2
-        self.local_model = None
         self.client = default_client() if client is None else client
         if workers is None:
-            workers = self.client.has_what().keys()  # Default to all workers
+            workers = self.client.has_what().keys()
         self.workers = workers
+
+        self.num_classes = 2
         self._create_model(
             model_func=RandomForestClassifier._construct_rf,
             unsupported_sklearn_params=unsupported_sklearn_params,

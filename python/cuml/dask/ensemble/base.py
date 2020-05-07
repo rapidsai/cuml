@@ -27,6 +27,7 @@ class BaseRandomForestModel(object):
                     " more information",
                 )
 
+        self.local_model = None
         n_workers = len(self.workers)
         if self.n_estimators < n_workers:
             raise ValueError(
