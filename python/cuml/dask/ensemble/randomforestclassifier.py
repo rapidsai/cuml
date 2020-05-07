@@ -196,13 +196,11 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             will increase memory used for the method.
 
         """
-        print("*****************************************")
         self.num_classes = len(y.unique())
         self.local_model = None
         self._fit(model=self.rfs,
                   dataset=(X, y),
                   convert_dtype=convert_dtype)
-        print(" &&&&&&&&&&&&&&&&&&&&&&&&&&&& ")
         return self
 
     def predict(self, X, output_class=True, algo='auto', threshold=0.5,

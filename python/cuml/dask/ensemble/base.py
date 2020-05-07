@@ -64,7 +64,6 @@ class BaseRandomForestModel(object):
         }
 
         wait_and_raise_from_futures(list(self.rfs.values()))
-        print(" self.rfs.values() : ", self.rfs.values())
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
