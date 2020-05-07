@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #define SPDLOG_HEADER_ONLY
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
+#include <spdlog/spdlog.h>  // NOLINT
 
 #include <cuml/common/logger.hpp>
 
