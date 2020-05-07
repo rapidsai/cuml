@@ -36,7 +36,7 @@ from cuml.dask.common.part_utils import _extract_partitions
 from dask.distributed import wait
 from dask.distributed import default_client
 from toolz import first
-import cuml.logger as logger
+import cuml.common.logger as logger
 
 from functools import reduce
 

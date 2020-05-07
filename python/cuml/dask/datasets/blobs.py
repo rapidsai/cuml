@@ -29,7 +29,7 @@ from dask.distributed import default_client
 
 from sklearn.datasets import make_blobs as skl_make_blobs
 
-import cuml.logger as logger
+import cuml.common.logger as logger
 
 
 def create_local_data(m, n, centers, cluster_std, random_state,
