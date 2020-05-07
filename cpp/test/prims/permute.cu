@@ -19,7 +19,7 @@
 #include <vector>
 #include "cuda_utils.h"
 #include "random/permute.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

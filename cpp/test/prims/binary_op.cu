@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include "binary_op.h"
 #include "linalg/binary_op.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -18,7 +18,7 @@
 
 #include "../matrix/math.h"
 #include "../matrix/matrix.h"
-#include "../random/rng.h"
+#include "../random/rng.cuh"
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"

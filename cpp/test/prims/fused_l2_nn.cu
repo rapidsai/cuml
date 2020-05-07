@@ -19,7 +19,7 @@
 #include <distance/fused_l2_nn.h>
 #include <gtest/gtest.h>
 #include <linalg/norm.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

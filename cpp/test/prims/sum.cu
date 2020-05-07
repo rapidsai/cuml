@@ -17,7 +17,7 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "linalg/eltwise.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "stats/sum.h"
 #include "test_utils.h"
 

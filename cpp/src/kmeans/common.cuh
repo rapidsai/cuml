@@ -25,7 +25,7 @@
 #include <linalg/reduce_rows_by_key.h>
 #include <matrix/gather.h>
 #include <random/permute.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 #include <random>
 
 #include <ml_cuda_utils.h>

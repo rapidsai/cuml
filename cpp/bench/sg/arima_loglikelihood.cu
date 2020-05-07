@@ -21,7 +21,7 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 #include <cuml/tsa/batched_arima.hpp>
 
 #include "benchmark.cuh"

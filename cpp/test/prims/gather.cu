@@ -18,7 +18,7 @@
 #include <cuda_utils.h>
 #include <gtest/gtest.h>
 #include <matrix/gather.h>
-#include <random/rng.h>
+#include <random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {

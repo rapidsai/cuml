@@ -24,7 +24,7 @@
 #include "linalg/add.h"
 
 #include "linalg/transpose.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>

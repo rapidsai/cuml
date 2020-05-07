@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "stats/mean.h"
 #include "stats/stddev.h"
 #include "test_utils.h"

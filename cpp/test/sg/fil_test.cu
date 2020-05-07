@@ -28,7 +28,7 @@
 #include <utility>
 #include "cuml/fil/fil.h"
 #include "ml_utils.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")

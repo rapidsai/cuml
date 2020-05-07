@@ -31,7 +31,7 @@
 #include "linalg/transpose.h"
 #include "matrix/matrix.h"
 #include "permute.h"
-#include "rng.h"
+#include "rng.cuh"
 
 namespace MLCommon {
 namespace Random {

@@ -21,7 +21,7 @@
 #include <vector>
 #include "common/device_buffer.hpp"
 #include "permute.h"
-#include "rng.h"
+#include "rng.cuh"
 
 namespace MLCommon {
 namespace Random {

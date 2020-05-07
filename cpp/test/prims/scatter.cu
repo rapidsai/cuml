@@ -20,7 +20,7 @@
 #include <random>
 #include "common/scatter.h"
 #include "cuda_utils.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

@@ -17,7 +17,7 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "matrix/math.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "stats/mean.h"
 #include "stats/stddev.h"
 #include "test_utils.h"

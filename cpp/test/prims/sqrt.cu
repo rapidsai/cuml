@@ -17,7 +17,7 @@
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
 #include "linalg/sqrt.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "test_utils.h"
 
 namespace MLCommon {

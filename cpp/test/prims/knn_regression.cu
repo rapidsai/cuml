@@ -21,7 +21,7 @@
 #include <iostream>
 #include <vector>
 #include "label/classlabels.h"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "selection/knn.h"
 
 #include "linalg/cusolver_wrappers.h"

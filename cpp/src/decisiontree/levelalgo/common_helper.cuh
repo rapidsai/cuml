@@ -19,7 +19,7 @@
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include "common_kernel.cuh"
-#include "random/rng.h"
+#include "random/rng.cuh"
 #include "stats/minmax.h"
 
 namespace ML {
