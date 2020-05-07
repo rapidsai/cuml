@@ -24,7 +24,7 @@
 #include <random>
 #include <type_traits>
 #include "common/cub_wrappers.cuh"
-#include "common/scatter.h"
+#include "common/scatter.cuh"
 #include "cuda_utils.h"
 #include "rng_impl.h"
 
