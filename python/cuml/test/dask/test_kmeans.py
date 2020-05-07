@@ -31,6 +31,7 @@ SCORE_EPS = 0.06
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [unit_param(1e3), quality_param(1e5),
                                    stress_param(5e6)])
+@pytest.mark.parametrize("weights", )
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
                                        stress_param(50)])
