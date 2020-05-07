@@ -1,11 +1,8 @@
 import dask
 import math
 
-from cuml.dask.common import raise_exception_from_futures
 from cuml.dask.common.input_utils import DistributedDataHandler, \
-    concatenate
-
-from dask.distributed import wait
+    wait_and_raise_from_futures, concatenate
 
 
 class BaseRandomForestModel(object):
@@ -31,9 +28,8 @@ class BaseRandomForestModel(object):
 
         n_est_per_worker = math.floor(self.n_estimators / n_workers)
 
-        for i in range(n_workers):
-            self.n_estimators_per_worker.append(n_est_per_worker)
-
+        self.n_estimators_per_worker = \
+            [n_est_per_worker for i in range(n_workers)]
         remaining_est = self.n_estimators - (n_est_per_worker * n_workers)
 
         for i in range(remaining_est):
@@ -57,12 +53,7 @@ class BaseRandomForestModel(object):
             for n, worker in enumerate(self.workers)
         }
 
-        rfs_wait = list()
-        for r in self.rfs.values():
-            rfs_wait.append(r)
-
-        wait(rfs_wait)
-        raise_exception_from_futures(rfs_wait)
+        wait_and_raise_from_futures(list(self.rfs.values()))
 
     def _fit(self, model, dataset, convert_dtype):
         data = DistributedDataHandler.create(dataset, client=self.client)
@@ -79,8 +70,7 @@ class BaseRandomForestModel(object):
                     workers=[worker],
                     pure=False)
             )
-        wait(futures)
-        raise_exception_from_futures(futures)
+        wait_and_raise_from_futures(futures)
         return self
 
     def _concat_treelite_models(self):
@@ -122,11 +112,8 @@ class BaseRandomForestModel(object):
                     workers=[worker]
                 )
             )
-        wait(model_params)
-        raise_exception_from_futures(model_params)
-        params_of_each_model = list()
-        for i in range(len(model_params)):
-            params_of_each_model.append(model_params[i].result())
+        wait_and_raise_from_futures(model_params)
+        params_of_each_model = [params.result() for params in model_params]
         return params_of_each_model
 
     def _set_params(self, **params):
@@ -140,8 +127,7 @@ class BaseRandomForestModel(object):
                     workers=[worker]
                 )
             )
-        wait(model_params)
-        raise_exception_from_futures(model_params)
+        wait_and_raise_from_futures(model_params)
         return self
 
     def _print_summary(self):
@@ -158,8 +144,7 @@ class BaseRandomForestModel(object):
                 )
             )
 
-        wait(futures)
-        raise_exception_from_futures(futures)
+        wait_and_raise_from_futures(futures)
         return self
 
 

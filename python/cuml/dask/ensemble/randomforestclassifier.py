@@ -14,10 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import raise_exception_from_futures
+import numpy as np
+
 from cuml.ensemble import RandomForestClassifier as cuRFC
-from cuml.dask.common.input_utils import DistributedDataHandler
-from dask.distributed import default_client, wait
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    wait_and_raise_from_futures
+from dask.distributed import default_client
 from cuml.dask.common.base import DelayedPredictionMixin, \
     DelayedPredictionProbaMixin
 from cuml.dask.ensemble.base import \
@@ -374,15 +376,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                 )
             )
 
-        wait(futures)
-        raise_exception_from_futures(futures)
+        wait_and_raise_from_futures(futures)
 
-        indexes = list()
-        rslts = list()
-        for d in range(len(futures)):
-            rslts.append(futures[d].result())
-            indexes.append(0)
-
+        indexes = np.zeros(len(futures), dtype=np.int32)
+        rslts = [pred_rslts.result() for pred_rslts in futures]
         pred = list()
 
         for i in range(len(X)):
