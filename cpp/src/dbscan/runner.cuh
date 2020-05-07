@@ -138,7 +138,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
 
   // Running VertexDeg
   MLCommon::Sparse::WeakCCState state(xa, fa, m);
-  MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(), stream);
+  MLCommon::device_buffer<Index_> adj_graph(handle.getDeviceAllocator(),
+                                            stream);
 
   for (int i = 0; i < nBatches; i++) {
     ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
@@ -173,8 +174,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     }
 
     AdjGraph::run<Index_>(handle, adj, vd, adj_graph.data(), curradjlen,
-                          ex_scan, N, minPts, core_pts + startVertexId,
-                          algoAdj, nPoints, stream);
+                          ex_scan, N, minPts, core_pts + startVertexId, algoAdj,
+                          nPoints, stream);
 
     ML::POP_RANGE();
 
@@ -189,8 +190,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D,
     MLCommon::Sparse::weak_cc_batched<Index_, 1024>(
       labels, ex_scan, adj_graph.data(), curradjlen, N, startVertexId, nPoints,
       &state, stream,
-      [core_pts, startVertexId, nPoints] __device__(Index_ global_id) { 
-        return global_id < startVertexId + nPoints ? core_pts[global_id] : false;
+      [core_pts, startVertexId, nPoints] __device__(Index_ global_id) {
+        return global_id < startVertexId + nPoints ? core_pts[global_id]
+                                                   : false;
       });
     ML::POP_RANGE();
 
