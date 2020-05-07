@@ -20,7 +20,7 @@
 
 import ctypes
 import cudf
-import cuml.common.opg_data_utils as opg
+import cuml.common.opg_data_utils_mg as opg
 import numpy as np
 import rmm
 
@@ -33,9 +33,9 @@ from cython.operator cimport dereference as deref
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.handle cimport cumlHandle
+from cuml.common.opg_data_utils_mg cimport *
 from cuml.decomposition.utils cimport *
-from cuml.common.opg_data_utils cimport *
-from cuml.common import input_to_cuml_array
+from cuml.utils import input_to_cuml_array
 
 from cuml.linear_model import LinearRegression
 from cuml.linear_model.base_mg import MGFitMixin
