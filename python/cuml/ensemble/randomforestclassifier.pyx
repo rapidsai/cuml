@@ -377,7 +377,6 @@ class RandomForestClassifier(Base):
             self.treelite_handle = None
             self.model_pbuf_bytes = bytearray()
 
-
     def _get_max_feat_val(self):
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
