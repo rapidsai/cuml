@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "map_then_reduce.h"
+#include "map_then_reduce.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

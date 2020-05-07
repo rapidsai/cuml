@@ -21,7 +21,7 @@
 #include "kernelcache.cuh"
 #include "label/classlabels.h"
 #include "linalg/cublas_wrappers.h"
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 #include "matrix/kernelfactory.h"
 #include "smosolver.cuh"
 #include "svr_impl.cuh"

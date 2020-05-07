@@ -21,10 +21,10 @@
 #include <linalg/cublas_wrappers.h>
 #include <linalg/eltwise.h>
 #include <linalg/gemm.h>
-#include <linalg/matrix_vector_op.h>
+#include <linalg/matrix_vector_op.cuh>
 #include <linalg/subtract.h>
 #include <linalg/transpose.h>
-#include <linalg/unary_op.h>
+#include <linalg/unary_op.cuh>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 #include <stats/mean.cuh>

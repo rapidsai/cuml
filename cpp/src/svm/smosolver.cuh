@@ -30,7 +30,7 @@
 #include "kernelcache.cuh"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/gemv.h"
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 #include "matrix/grammatrix.h"
 #include "matrix/kernelfactory.h"
 #include "smo_sets.cuh"

@@ -33,7 +33,7 @@
 #include "common/nvtx.hpp"
 #include "cuda_utils.h"
 #include "linalg/batched/matrix.h"
-#include "linalg/matrix_vector_op.h"
+#include "linalg/matrix_vector_op.cuh"
 #include "metrics/batched/information_criterion.h"
 #include "timeSeries/arima_helpers.cuh"
 

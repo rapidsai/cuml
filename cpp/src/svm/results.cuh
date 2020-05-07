@@ -31,8 +31,8 @@
 #include "linalg/add.h"
 #include "linalg/binary_op.cuh"
 #include "linalg/init.h"
-#include "linalg/map_then_reduce.h"
-#include "linalg/unary_op.h"
+#include "linalg/map_then_reduce.cuh"
+#include "linalg/unary_op.cuh"
 #include "matrix/matrix.h"
 #include "ws_util.cuh"
 

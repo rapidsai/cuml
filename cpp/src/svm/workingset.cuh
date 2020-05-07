@@ -27,7 +27,7 @@
 #include "cuml/svm/svm_parameter.h"
 #include "linalg/add.h"
 #include "linalg/init.h"
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 #include "ml_utils.h"
 #include "smo_sets.cuh"
 #include "ws_util.cuh"

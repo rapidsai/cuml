@@ -16,7 +16,7 @@
 
 #include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "matrix_vector_op.h"
+#include "matrix_vector_op.cuh"
 #include "random/rng.cuh"
 #include "stats/mean.cuh"
 #include "stats/mean_center.cuh"

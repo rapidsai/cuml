@@ -17,7 +17,7 @@
 #pragma once
 
 #include "cuda_utils.h"
-#include "linalg/matrix_vector_op.h"
+#include "linalg/matrix_vector_op.cuh"
 #include "vectorized.cuh"
 
 namespace MLCommon {

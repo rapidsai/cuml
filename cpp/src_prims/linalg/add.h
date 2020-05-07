@@ -17,7 +17,7 @@
 #pragma once
 
 #include "binary_op.cuh"
-#include "unary_op.h"
+#include "unary_op.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

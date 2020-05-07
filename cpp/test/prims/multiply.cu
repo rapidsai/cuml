@@ -19,7 +19,7 @@
 #include "linalg/multiply.h"
 #include "random/rng.cuh"
 #include "test_utils.h"
-#include "unary_op.h"
+#include "unary_op.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

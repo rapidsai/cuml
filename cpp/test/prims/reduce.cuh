@@ -18,7 +18,7 @@
 #include <thrust/device_vector.h>
 #include "cuda_utils.h"
 #include "linalg/cublas_wrappers.h"
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 
 namespace MLCommon {
 namespace LinAlg {

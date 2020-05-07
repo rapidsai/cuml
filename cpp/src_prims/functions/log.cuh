@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "linalg/unary_op.h"
+#include "linalg/unary_op.cuh"
 
 namespace MLCommon {
 namespace Functions {

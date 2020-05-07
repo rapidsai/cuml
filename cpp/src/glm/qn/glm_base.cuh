@@ -17,14 +17,14 @@
 #pragma once
 
 #include <common/cudart_utils.h>
-#include <linalg/matrix_vector_op.h>
+#include <linalg/matrix_vector_op.cuh>
 #include <glm/qn/simple_mat.cuh>
 #include <vector>
 #include "cuda_utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.cuh"
 #include "linalg/cublas_wrappers.h"
-#include "linalg/map_then_reduce.h"
+#include "linalg/map_then_reduce.cuh"
 #include "stats/mean.cuh"
 
 namespace ML {

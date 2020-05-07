@@ -33,7 +33,7 @@
 #include <common/cudart_utils.h>
 #include "cuml/common/cuml_allocator.hpp"
 #include "linalg/cublas_wrappers.h"
-#include "linalg/matrix_vector_op.h"
+#include "linalg/matrix_vector_op.cuh"
 #include "linalg/reduce.h"
 #include "stats/mean.cuh"
 

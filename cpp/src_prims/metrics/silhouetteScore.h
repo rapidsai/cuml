@@ -26,8 +26,8 @@
 #include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "linalg/eltwise.h"
-#include "linalg/map_then_reduce.h"
-#include "linalg/matrix_vector_op.h"
+#include "linalg/map_then_reduce.cuh"
+#include "linalg/matrix_vector_op.cuh"
 #include "linalg/reduce.h"
 #include "linalg/reduce_cols_by_key.h"
 

@@ -22,7 +22,7 @@
 
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
-#include "knn_graph/runner.h"
+#include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
 
 #include <thrust/count.h>
