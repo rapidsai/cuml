@@ -288,6 +288,8 @@ void brute_force_knn(std::vector<float *> &input, std::vector<int> &sizes,
     userStream);
 
   if (translations == nullptr) delete id_ranges;
+
+  CUDA_CHECK(cudaStreamSynchronize(userStream));
 };
 
 template <typename IntType = int,
@@ -313,6 +315,8 @@ void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
     input_vec, sizes_vec, D, search_items, n, res_I, res_D, k, allocator,
     userStream, internalStreams, n_int_streams, rowMajorIndex, rowMajorQuery,
     translations);
+
+
 }
 
 template <typename OutType = float>
@@ -377,6 +381,7 @@ __global__ void regress_avg_kernel(LabelType *out, const int64_t *knn_indices,
   LabelType pred = 0;
   for (int j = 0; j < n_neighbors; j++) {
     int64_t neighbor_idx = knn_indices[i + j];
+    int n = neighbor_idx;
     pred += labels[neighbor_idx];
   }
 
@@ -543,17 +548,19 @@ void knn_regress(ValType *out, const int64_t *knn_indices,
                  const std::vector<ValType *> &y, size_t n_labels,
                  size_t n_rows, int k, cudaStream_t user_stream,
                  cudaStream_t *int_streams = nullptr, int n_int_streams = 0) {
-  dim3 grid(MLCommon::ceildiv(n_rows, (size_t)TPB_X), 1, 1);
-  dim3 blk(TPB_X, 1, 1);
 
   /**
    * Vote average regression value
    */
   for (int i = 0; i < y.size(); i++) {
+
     cudaStream_t stream =
       select_stream(user_stream, int_streams, n_int_streams, i);
-    regress_avg_kernel<<<grid, blk, 0, stream>>>(
+
+    regress_avg_kernel<<<ceildiv(n_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
       out, knn_indices, y[i], n_labels, n_rows, k, y.size(), i);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
