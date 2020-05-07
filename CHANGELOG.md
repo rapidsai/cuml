@@ -113,6 +113,7 @@
 - PR #2179: Fix clang tools version in libcuml recipe
 - PR #2183: Fix RAFT in nightly package
 - PR #2191: Fix placement of SVM parameter documentation and add examples
+- PR #2215: Fix the printing of forest object
 
 # cuML 0.13.0 (Date TBD)
 
