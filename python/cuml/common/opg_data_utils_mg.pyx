@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from cuml.utils.opg_data_utils cimport *
+from cuml.common.opg_data_utils_mg cimport *
 from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 
