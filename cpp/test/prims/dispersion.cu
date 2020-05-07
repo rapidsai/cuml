@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <vector>
 #include "cuda_utils.h"
-#include "metrics/dispersion.h"
+#include "metrics/dispersion.cuh"
 #include "random/rng.cuh"
 #include "test_utils.h"
 

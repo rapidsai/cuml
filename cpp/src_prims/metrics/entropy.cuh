@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
-* @file entropy.h
+* @file entropy.cuh
 * @brief Calculates the entropy for a labeling in nats.(ie, uses natural logarithm for the calculations)
 */
 
